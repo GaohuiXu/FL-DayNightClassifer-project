@@ -1,0 +1,16 @@
+# 忽略虚拟环境
+.venv/
+
+# 忽略数据集
+data/
+
+# 忽略 Python 缓存
+__pycache__/
+*.pyc
+
+# 忽略超算日志文件
+*.out
+*.err
+
+# 忽略 VS Code 配置文件
+.vscode/
