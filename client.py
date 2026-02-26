@@ -2,6 +2,7 @@ import flwr as fl
 import torch
 from utils import *
 from dataset import load_data
+import os
 
 # ==========================================
 # 1. Define the flower client 
@@ -37,10 +38,15 @@ class DayNightClient(fl.client.NumPyClient):
 # 2. Configure ClientApp 
 # ==========================================
 def client_fn(context: fl.common.Context):
-    device = torch.device("cude: 0" if torch.cuda.is_available() else "cpu")
-
+    print("CUDA_VISIBLE_DEVICES=", os.environ.get("CUDA_VISIBLE_DEVICES"))
+    print("torch.cuda.current_device()=", torch.cuda.current_device() if torch.cuda.is_available() else None)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # 1. push the instance to device
     net = SimpleCNN().to(device)
+
+    print("CUDA avail:", torch.cuda.is_available(),
+          "device_count:", torch.cuda.device_count())
+    print("MODEL device:", next(net.parameters()).device)
 
     # 2. load the custom dataset for current client
     partition_id = context.node_config["partition-id"]
