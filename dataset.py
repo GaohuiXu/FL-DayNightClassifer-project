@@ -33,7 +33,7 @@ class DayNightDataset(Dataset):
 # ==========================================
 # 2. Federated Data Partitioning & Loading
 # ==========================================
-def load_data(partition_id, num_partitions):
+def load_data(partition_id, num_partitions, batch_size=32):
     print(f"Loading data for Client {partition_id}...")
     
     # Initialize nuScenes engine
@@ -63,7 +63,7 @@ def load_data(partition_id, num_partitions):
     end_idx = start_idx + partition_size if partition_id != num_partitions - 1 else len(all_data)
     
     client_data = all_data[start_idx:end_idx]
-    
+
     # --- Train/Val Split (80/20) ---
     train_size = int(0.8 * len(client_data))
     train_data = client_data[:train_size]
@@ -79,8 +79,8 @@ def load_data(partition_id, num_partitions):
     trainset = DayNightDataset(train_data, transform=transform)
     valset = DayNightDataset(val_data, transform=transform)
     
-    trainloader = DataLoader(trainset, batch_size=32, shuffle=True)
-    valloader = DataLoader(valset, batch_size=32, shuffle=False)
+    trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
+    valloader = DataLoader(valset, batch_size=batch_size, shuffle=False)
     
     return trainloader, valloader
 

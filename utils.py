@@ -59,11 +59,14 @@ def get_parameters(net):
 # Standard Pytorch Training and Testing Loop
 # ==========================================
 
-def train(net, train_loader, epochs, device):
+def train(net, train_loader, epochs, device, lr):
     """Standard Pytorch Training"""
     # TODO
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(net.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(net.parameters(), lr=lr)
+
+    total_loss = 0.0
+    total_samples = 0
 
     net.train()
     for epoch in range(epochs):
@@ -75,6 +78,12 @@ def train(net, train_loader, epochs, device):
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
+
+            bs = labels.size(0)
+            total_loss += loss.item() * bs
+            total_samples += bs
+    avg_loss = total_loss / max(total_samples, 1)
+    return avg_loss
 
 def eval(net, testloader, device):
     """Standard Pytorch Evaluation"""
