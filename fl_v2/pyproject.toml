@@ -1,0 +1,65 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "flwr-gtsrb-v2"
+version = "0.1.0"
+description = "Flower v2 federated learning experiments on GTSRB"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = [
+    "flwr[simulation]>=1.27.0",
+    "torch>=2.2.0",
+    "torchvision>=0.17.0",
+    "numpy>=1.24",
+    "pyyaml>=6.0.1",
+    "tqdm>=4.66.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fl_v2"]
+
+[tool.flwr.app]
+publisher = "gaohui-xu"
+
+[tool.flwr.app.components]
+serverapp = "fl_v2.server_app:app"
+clientapp = "fl_v2.client_app:app"
+
+[tool.flwr.app.config]
+# ===== experiment =====
+experiment-name = "gtsrb-fedavg-baseline"
+seed = 42
+device = "cuda"
+
+# ===== federated =====
+num-server-rounds = 20
+fraction-train = 1.0
+fraction-evaluate = 1.0
+min-available-nodes = 10
+num-local-epochs = 1
+
+# ===== optimization =====
+batch-size = 64
+learning-rate = 0.001
+weight-decay = 0.0
+
+# ===== data =====
+num-classes = 43
+image-size = 32
+num-clients = 10
+partition-mode = "dirichlet"
+dirichlet-alpha = 0.5
+val-ratio = 0.1
+data-root = "/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_datasets/gtsrb"
+
+# ===== paths =====
+output-dir = "./outputs"
+checkpoint-dir = "./outputs/checkpoints"
+log-dir = "./outputs/logs"
+
+# ===== strategy =====
+strategy = "fedavg"
+

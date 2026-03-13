@@ -1,16 +1,28 @@
-# 忽略虚拟环境
+# virtual env
 .venv/
 
-# 忽略数据集
-data/
+# vscode
+.vscode/
 
-# 忽略 Python 缓存
+# python cache
 __pycache__/
 *.pyc
 
-# 忽略超算日志文件
+# logs
 *.out
 *.err
 
-# 忽略 VS Code 配置文件
-.vscode/
+# local data / outputs
+fl_v2/data/
+fl_v2/outputs/
+data/
+outputs/
+
+# gtsrb dataset
+**/gtsrb/
+**/GTSRB/
+
+# archives / tables
+*.zip
+*.ppm
+*.csv
