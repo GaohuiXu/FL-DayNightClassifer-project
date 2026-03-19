@@ -8,9 +8,16 @@ from flwr.app import ArrayRecord, ConfigRecord, Context, MetricRecord
 from flwr.serverapp import Grid, ServerApp
 from flwr.serverapp.strategy import FedAvg
 
-from fl_v2.data.dataset import get_global_testloader
+from fl_v2.data.dataset import (
+    build_client_index_map_with_stats,
+    get_global_testloader,
+)
 from fl_v2.models import GTSRBClassifier
 from fl_v2.training import evaluate
+
+from fl_v2.utils import ensure_dir, save_json
+
+from fl_v2.strategy import NormClippedFedAvg
 
 
 app = ServerApp()
@@ -108,26 +115,82 @@ def _server_side_evaluate_fn(context: Context):
 @app.main()
 def main(grid: Grid, context: Context) -> None:
     """Main entry point for the Flower ServerApp."""
+    print("[server] entered main", flush=True)
+
     run_config = context.run_config
+    print("[server] run_config loaded", flush=True)
 
     num_rounds = int(run_config["num-server-rounds"])
     fraction_train = float(run_config["fraction-train"])
     fraction_evaluate = float(run_config["fraction-evaluate"])
     min_available_nodes = int(run_config["min-available-nodes"])
 
-    strategy = FedAvg(
-        fraction_train=fraction_train,
-        fraction_evaluate=fraction_evaluate,
-        min_train_nodes=min_available_nodes,
-        min_evaluate_nodes=min_available_nodes,
-        min_available_nodes=min_available_nodes,
+    output_dir = str(run_config.get("output-dir", "./outputs"))
+    ensure_dir(output_dir)
+
+    data_root = str(run_config["data-root"])
+    num_clients = int(run_config["num-clients"])
+    partition_mode = str(run_config["partition-mode"])
+    dirichlet_alpha = float(run_config["dirichlet-alpha"])
+    seed = int(run_config["seed"])
+    experiment_name = str(run_config.get("experiment-name", "default"))
+
+    print("[server] building histogram stats", flush=True)
+    _, histograms, summary = build_client_index_map_with_stats(
+        data_root=data_root,
+        num_clients=num_clients,
+        partition_mode=partition_mode,
+        dirichlet_alpha=dirichlet_alpha,
+        seed=seed,
+        download=False,
     )
 
+    print("===== Client label histogram summary =====", flush=True)
+    print(summary, flush=True)
+
+    save_json(
+        histograms,
+        f"{output_dir}/{experiment_name}_seed{seed}_client_label_histograms.json",
+    )
+    print("[server] histogram stats done", flush=True)
+
+    print("[server] creating strategy", flush=True)
+    defense_type = str(run_config.get("defense-type", "none"))
+    clip_norm = float(run_config.get("clip-norm", 5.0))
+
+    if defense_type == "none":
+        strategy = FedAvg(
+            fraction_train=fraction_train,
+            fraction_evaluate=fraction_evaluate,
+            min_train_nodes=min_available_nodes,
+            min_evaluate_nodes=min_available_nodes,
+            min_available_nodes=min_available_nodes,
+        )
+    elif defense_type == "norm_clipping":
+        strategy = NormClippedFedAvg(
+            clip_norm=clip_norm,
+            fraction_train=fraction_train,
+            fraction_evaluate=fraction_evaluate,
+            min_train_nodes=min_available_nodes,
+            min_evaluate_nodes=min_available_nodes,
+            min_available_nodes=min_available_nodes,
+        )
+        print(
+            f"[server] defense enabled: norm_clipping (clip_norm={clip_norm})",
+            flush=True,
+        )
+    else:
+        raise ValueError(f"Unsupported defense-type: {defense_type}")
+    print("[server] strategy created", flush=True)
+
+    print("[server] building initial arrays", flush=True)
     initial_arrays = _build_initial_arrays(context)
     train_config = _get_train_config(context)
     evaluate_config = _get_evaluate_config(context)
     evaluate_fn = _server_side_evaluate_fn(context)
+    print("[server] initial arrays ready", flush=True)
 
+    print("[server] calling strategy.start()", flush=True)
     result = strategy.start(
         grid=grid,
         initial_arrays=initial_arrays,
@@ -136,6 +199,7 @@ def main(grid: Grid, context: Context) -> None:
         evaluate_config=evaluate_config,
         evaluate_fn=evaluate_fn,
     )
+    print("[server] strategy.start() returned", flush=True)
 
     print("Federated training finished.")
     print(result)

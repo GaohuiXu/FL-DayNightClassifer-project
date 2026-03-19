@@ -2,10 +2,8 @@ from fl_v2.attacks_defenses.attacks.label_flipping import (
     LabelFlippingDataset,
     parse_client_ids,
 )
-from fl_v2.attacks_defenses.defenses.norm_clipping import clip_updates_by_l2_norm
 
 __all__ = [
     "LabelFlippingDataset",
     "parse_client_ids",
-    "clip_updates_by_l2_norm",
 ]

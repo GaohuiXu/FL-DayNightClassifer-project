@@ -35,7 +35,7 @@ seed = 42
 device = "cuda"
 
 # ===== federated =====
-num-server-rounds = 20
+num-server-rounds = 3
 fraction-train = 1.0
 fraction-evaluate = 1.0
 min-available-nodes = 10
@@ -63,3 +63,13 @@ log-dir = "./outputs/logs"
 # ===== strategy =====
 strategy = "fedavg"
 
+# ===== attack =====
+attack-type = "none"
+malicious-client-ids = ""
+label-flip-source = 1
+label-flip-target = 2
+label-flip-fraction = 0.3
+
+# ===== defense =====
+defense-type = "norm_clipping"
+clip-norm = 100.0

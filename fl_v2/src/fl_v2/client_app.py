@@ -10,6 +10,8 @@ from fl_v2.data.dataset import build_client_index_map, get_client_dataloaders
 from fl_v2.models import GTSRBClassifier
 from fl_v2.training import evaluate, train_local
 
+from fl_v2.attacks_defenses import parse_client_ids
+
 
 app = ClientApp()
 
@@ -46,6 +48,15 @@ def _load_client_data(context: Context):
     val_ratio = float(run_config["val-ratio"])
     seed = int(run_config["seed"])
 
+    # attack config
+    attack_type = str(run_config.get("attack-type", "none"))
+    malicious_client_ids = parse_client_ids(
+        str(run_config.get("malicious-client-ids", ""))
+    )
+    label_flip_source = int(run_config.get("label-flip-source", 1))
+    label_flip_target = int(run_config.get("label-flip-target", 2))
+    label_flip_fraction = float(run_config.get("label-flip-fraction", 0.0))
+
     client_index_map = build_client_index_map(
         data_root=data_root,
         num_clients=num_clients,
@@ -56,6 +67,14 @@ def _load_client_data(context: Context):
     )
 
     client_id = _get_client_id(context)
+    is_malicious = client_id in malicious_client_ids
+
+    if attack_type != "none":
+        print(
+            f"[Client {client_id}] attack_type={attack_type}, "
+            f"is_malicious={is_malicious}",
+            flush=True,
+        )
 
     client_data = get_client_dataloaders(
         client_id=client_id,
@@ -67,6 +86,11 @@ def _load_client_data(context: Context):
         seed=seed,
         num_workers=0,
         download=False,
+        attack_type=attack_type,
+        label_flip_source=label_flip_source,
+        label_flip_target=label_flip_target,
+        label_flip_fraction=label_flip_fraction,
+        is_malicious=is_malicious,
     )
     return client_id, client_data
 
