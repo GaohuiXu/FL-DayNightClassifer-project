@@ -94,16 +94,24 @@ class PixelBackdoorDataset(Dataset):
         self.poison_mask = self._build_poison_mask()
 
     def _build_poison_mask(self) -> np.ndarray:
-        """Select which samples get the trigger (deterministic via seed)."""
+        """Select non-target samples to poison (deterministic via seed)."""
         rng = np.random.default_rng(self.seed)
         n = len(self.base_dataset)
-        num_poison = int(n * self.poison_fraction)
 
-        if num_poison == 0:
-            return np.zeros(n, dtype=bool)
+        # Only poison samples not already in the target class
+        labels = [self.base_dataset[i][1] for i in range(n)]
+        non_target_indices = np.array(
+            [i for i, lbl in enumerate(labels) if int(lbl) != self.target_label],
+            dtype=np.intp,
+        )
 
-        chosen = rng.choice(n, size=num_poison, replace=False)
+        num_poison = int(len(non_target_indices) * self.poison_fraction)
         mask = np.zeros(n, dtype=bool)
+
+        if num_poison == 0 or len(non_target_indices) == 0:
+            return mask
+
+        chosen = rng.choice(non_target_indices, size=num_poison, replace=False)
         mask[chosen] = True
         return mask
 
