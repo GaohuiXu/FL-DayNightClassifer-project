@@ -6,18 +6,17 @@ import torch
 import torch.nn as nn
 from flwr.app import ArrayRecord, ConfigRecord, Context, MetricRecord
 from flwr.serverapp import Grid, ServerApp
-from flwr.serverapp.strategy import FedAvg
-
 from fl_v2.data.dataset import (
     build_client_index_map_with_stats,
     get_global_testloader,
 )
+from fl_v2.attacks_defenses import make_pixel_trigger_fn
 from fl_v2.models import GTSRBClassifier
-from fl_v2.training import evaluate
+from fl_v2.training import compute_asr, evaluate
 
 from fl_v2.utils import ensure_dir, save_json
 
-from fl_v2.strategy import NormClippedFedAvg
+from fl_v2.strategy import NormClippedFedAvg, NormTrackingFedAvg
 
 
 app = ServerApp()
@@ -72,6 +71,11 @@ def _server_side_evaluate_fn(context: Context):
     num_classes = int(run_config["num-classes"])
     device = _get_device(run_config)
 
+    attack_type = str(run_config.get("attack-type", "none"))
+    backdoor_target_label = int(run_config.get("backdoor-target-label", 0))
+    trigger_size = int(run_config.get("trigger-size", 4))
+    trigger_position = str(run_config.get("trigger-position", "bottom-right"))
+
     testloader = get_global_testloader(
         data_root=data_root,
         batch_size=batch_size,
@@ -81,6 +85,14 @@ def _server_side_evaluate_fn(context: Context):
     )
 
     criterion = nn.CrossEntropyLoss()
+
+    # Build trigger function for ASR if backdoor attack is active
+    trigger_fn = None
+    if attack_type in ("pixel_backdoor",):
+        trigger_fn = make_pixel_trigger_fn(
+            trigger_size=trigger_size,
+            trigger_position=trigger_position,
+        )
 
     def evaluate_fn(server_round: int, arrays: ArrayRecord) -> Optional[MetricRecord]:
         model = GTSRBClassifier(num_classes=num_classes)
@@ -94,20 +106,37 @@ def _server_side_evaluate_fn(context: Context):
             device=device,
         )
 
+        print(f"\n── Server Eval {'─' * 45}", flush=True)
         print(
-            f"[Server Evaluation] round={server_round} "
-            f"test_loss={metrics['loss']:.4f} "
-            f"test_acc={metrics['accuracy']:.4f}"
+            f"[Server] round={server_round}  "
+            f"test_loss={metrics['loss']:.4f}  "
+            f"test_acc={metrics['accuracy']:.2%}",
+            flush=True,
         )
 
-        return MetricRecord(
-            {
-                "server-round": int(server_round),
-                "test_loss": float(metrics["loss"]),
-                "test_accuracy": float(metrics["accuracy"]),
-                "num-test-examples": int(metrics["num_samples"]),
-            }
-        )
+        metrics_dict = {
+            "server-round": int(server_round),
+            "test_loss": float(metrics["loss"]),
+            "test_accuracy": float(metrics["accuracy"]),
+            "num-test-examples": int(metrics["num_samples"]),
+        }
+
+        # Compute ASR when backdoor attack is active
+        if trigger_fn is not None:
+            asr = compute_asr(
+                model=model,
+                testloader=testloader,
+                target_label=backdoor_target_label,
+                trigger_fn=trigger_fn,
+                device=device,
+            )
+            metrics_dict["asr"] = float(asr)
+            print(
+                f"[Server] round={server_round}  ASR={asr:.2%}",
+                flush=True,
+            )
+
+        return MetricRecord(metrics_dict)
 
     return evaluate_fn
 
@@ -115,10 +144,23 @@ def _server_side_evaluate_fn(context: Context):
 @app.main()
 def main(grid: Grid, context: Context) -> None:
     """Main entry point for the Flower ServerApp."""
+    import logging
+    import random
+    import numpy as np
+    logging.getLogger("flwr").setLevel(logging.WARNING)
+
     print("[server] entered main", flush=True)
 
     run_config = context.run_config
     print("[server] run_config loaded", flush=True)
+
+    # Seed all RNGs immediately so model init and any stochastic ops are reproducible
+    seed = int(run_config["seed"])
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
     num_rounds = int(run_config["num-server-rounds"])
     fraction_train = float(run_config["fraction-train"])
@@ -132,7 +174,6 @@ def main(grid: Grid, context: Context) -> None:
     num_clients = int(run_config["num-clients"])
     partition_mode = str(run_config["partition-mode"])
     dirichlet_alpha = float(run_config["dirichlet-alpha"])
-    seed = int(run_config["seed"])
     experiment_name = str(run_config.get("experiment-name", "default"))
 
     print("[server] building histogram stats", flush=True)
@@ -156,27 +197,82 @@ def main(grid: Grid, context: Context) -> None:
 
     print("[server] creating strategy", flush=True)
     defense_type = str(run_config.get("defense-type", "none"))
-    clip_norm = float(run_config.get("clip-norm", 5.0))
+    clip_norm = float(run_config.get("clip-norm", 100.0))
+
+    # Common kwargs for all FedAvg-based strategies
+    common_kwargs = dict(
+        fraction_train=fraction_train,
+        fraction_evaluate=fraction_evaluate,
+        min_train_nodes=min_available_nodes,
+        min_evaluate_nodes=min_available_nodes,
+        min_available_nodes=min_available_nodes,
+    )
 
     if defense_type == "none":
-        strategy = FedAvg(
-            fraction_train=fraction_train,
-            fraction_evaluate=fraction_evaluate,
-            min_train_nodes=min_available_nodes,
-            min_evaluate_nodes=min_available_nodes,
-            min_available_nodes=min_available_nodes,
+        strategy = NormTrackingFedAvg(
+            output_dir=output_dir,
+            experiment_name=experiment_name,
+            seed=seed,
+            **common_kwargs,
         )
+        print("[server] norm tracking enabled (no clipping)", flush=True)
     elif defense_type == "norm_clipping":
         strategy = NormClippedFedAvg(
             clip_norm=clip_norm,
-            fraction_train=fraction_train,
-            fraction_evaluate=fraction_evaluate,
-            min_train_nodes=min_available_nodes,
-            min_evaluate_nodes=min_available_nodes,
-            min_available_nodes=min_available_nodes,
+            output_dir=output_dir,
+            experiment_name=experiment_name,
+            seed=seed,
+            **common_kwargs,
         )
         print(
             f"[server] defense enabled: norm_clipping (clip_norm={clip_norm})",
+            flush=True,
+        )
+    elif defense_type == "fed_median":
+        from flwr.serverapp.strategy import FedMedian
+
+        strategy = FedMedian(**common_kwargs)
+        print("[server] defense enabled: FedMedian", flush=True)
+    elif defense_type == "fed_trimmed_avg":
+        from flwr.serverapp.strategy import FedTrimmedAvg
+
+        beta = float(run_config.get("trimmed-avg-beta", 0.2))
+        strategy = FedTrimmedAvg(beta=beta, **common_kwargs)
+        print(
+            f"[server] defense enabled: FedTrimmedAvg (beta={beta})",
+            flush=True,
+        )
+    elif defense_type == "krum":
+        from flwr.serverapp.strategy import Krum
+
+        num_malicious = int(run_config.get("num-malicious-nodes", 0))
+        strategy = Krum(num_malicious_nodes=num_malicious, **common_kwargs)
+        print(
+            f"[server] defense enabled: Krum (num_malicious_nodes={num_malicious})",
+            flush=True,
+        )
+    elif defense_type == "multi_krum":
+        from flwr.serverapp.strategy import MultiKrum
+
+        num_malicious = int(run_config.get("num-malicious-nodes", 0))
+        num_to_select = int(run_config.get("krum-num-to-select", 5))
+        strategy = MultiKrum(
+            num_malicious_nodes=num_malicious,
+            num_nodes_to_select=num_to_select,
+            **common_kwargs,
+        )
+        print(
+            f"[server] defense enabled: MultiKrum "
+            f"(num_malicious={num_malicious}, num_to_select={num_to_select})",
+            flush=True,
+        )
+    elif defense_type == "bulyan":
+        from flwr.serverapp.strategy import Bulyan
+
+        num_malicious = int(run_config.get("num-malicious-nodes", 0))
+        strategy = Bulyan(num_malicious_nodes=num_malicious, **common_kwargs)
+        print(
+            f"[server] defense enabled: Bulyan (num_malicious_nodes={num_malicious})",
             flush=True,
         )
     else:

@@ -1,42 +1,29 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Iterable
 
 import numpy as np
 import torch
-from flwr.app import ArrayRecord, ConfigRecord, Message
-from flwr.serverapp import Grid
+from flwr.app import ArrayRecord
 from flwr.serverapp.strategy import FedAvg
 
 from fl_v2.attacks_defenses import clip_updates_by_l2_norm
+from fl_v2.strategy.norm_tracking_fedavg import NormTrackingFedAvg
 
 
-class NormClippedFedAvg(FedAvg):
-    """FedAvg with server-side L2 norm clipping on client updates."""
+class NormClippedFedAvg(NormTrackingFedAvg):
+    """FedAvg with server-side L2 norm clipping and norm logging."""
 
     def __init__(self, clip_norm: float, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.clip_norm = float(clip_norm)
-        self.current_arrays: ArrayRecord | None = None
-
-    def configure_train(
-        self,
-        server_round: int,
-        arrays: ArrayRecord,
-        config: ConfigRecord,
-        grid: Grid,
-    ) -> Iterable[Message]:
-        """Store current global arrays before sending training instructions."""
-        self.current_arrays = arrays.copy()
-        return super().configure_train(server_round, arrays, config, grid)
 
     def aggregate_train(
         self,
         server_round: int,
         replies,
     ):
-        """Clip client updates before standard FedAvg aggregation."""
+        """Clip client updates, log norms, then aggregate via FedAvg."""
         valid_replies, _ = self._check_and_log_replies(replies, is_train=True)
 
         if not valid_replies:
@@ -74,8 +61,12 @@ class NormClippedFedAvg(FedAvg):
         ):
             new_state_dict = OrderedDict()
 
-            for (key, old_tensor), clipped_arr in zip(state_dict.items(), clipped_params):
-                clipped_arr = np.asarray(clipped_arr, dtype=np.asarray(old_tensor.cpu()).dtype)
+            for (key, old_tensor), clipped_arr in zip(
+                state_dict.items(), clipped_params
+            ):
+                clipped_arr = np.asarray(
+                    clipped_arr, dtype=np.asarray(old_tensor.cpu()).dtype
+                )
                 clipped_arr = clipped_arr.reshape(tuple(old_tensor.shape))
                 new_state_dict[key] = torch.tensor(
                     clipped_arr,
@@ -84,18 +75,17 @@ class NormClippedFedAvg(FedAvg):
 
             msg.content[self.arrayrecord_key] = ArrayRecord(new_state_dict)
 
+        # Log norms (both original and clipped) via parent's method
+        self._compute_and_log_norms(
+            server_round, original_norms, clipped_norms
+        )
+
         print(
             f"[Defense] round={server_round} norm clipping enabled "
             f"(clip_norm={self.clip_norm:.4f})",
             flush=True,
         )
-        print(
-            f"[Defense] original_norms={[round(x, 4) for x in original_norms]}",
-            flush=True,
-        )
-        print(
-            f"[Defense] clipped_norms={[round(x, 4) for x in clipped_norms]}",
-            flush=True,
-        )
 
-        return super().aggregate_train(server_round, valid_replies)
+        # Delegate aggregation to grandparent FedAvg
+        # (skip NormTrackingFedAvg.aggregate_train to avoid recomputing norms)
+        return FedAvg.aggregate_train(self, server_round, valid_replies)

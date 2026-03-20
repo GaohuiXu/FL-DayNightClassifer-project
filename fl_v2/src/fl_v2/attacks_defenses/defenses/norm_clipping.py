@@ -66,6 +66,28 @@ def _apply_update(
     return new_params
 
 
+def compute_update_norms(
+    global_params: List[np.ndarray],
+    client_params_list: List[List[np.ndarray]],
+) -> List[float]:
+    """
+    Compute the L2 norm of each client's update relative to global params.
+
+    Args:
+        global_params: current global model parameters
+        client_params_list: model parameters returned by each client
+
+    Returns:
+        List of L2 norms, one per client.
+    """
+    norms: List[float] = []
+    for client_params in client_params_list:
+        update = _compute_update(global_params, client_params)
+        flat = _flatten_params(update)
+        norms.append(float(np.linalg.norm(flat, ord=2)))
+    return norms
+
+
 def clip_updates_by_l2_norm(
     global_params: List[np.ndarray],
     client_params_list: List[List[np.ndarray]],

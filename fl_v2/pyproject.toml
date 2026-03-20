@@ -30,7 +30,7 @@ clientapp = "fl_v2.client_app:app"
 
 [tool.flwr.app.config]
 # ===== experiment =====
-experiment-name = "gtsrb-fedavg-baseline"
+experiment-name = "clean-baseline"
 seed = 42
 device = "cuda"
 
@@ -57,19 +57,24 @@ data-root = "/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_datasets/gtsrb"
 
 # ===== paths =====
 output-dir = "./outputs"
-checkpoint-dir = "./outputs/checkpoints"
-log-dir = "./outputs/logs"
-
-# ===== strategy =====
-strategy = "fedavg"
 
 # ===== attack =====
 attack-type = "none"
 malicious-client-ids = ""
+# label flipping
 label-flip-source = 1
 label-flip-target = 2
 label-flip-fraction = 0.3
+# pixel backdoor
+backdoor-target-label = 0
+poison-fraction = 0.1
+trigger-size = 4
+trigger-position = "bottom-right"
 
 # ===== defense =====
-defense-type = "norm_clipping"
-clip-norm = 100.0
+defense-type = "none"
+clip-norm = 5.0  # placeholder; update after inspecting Exp 1 norm log
+trimmed-avg-beta = 0.2
+num-malicious-nodes = 0
+krum-num-to-select = 5
+

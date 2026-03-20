@@ -94,14 +94,6 @@ def train_local(
         }
         history.append(epoch_result)
 
-        print(
-            f"[Epoch {epoch + 1}/{num_epochs}] "
-            f"train_loss={train_metrics['loss']:.4f} "
-            f"train_acc={train_metrics['accuracy']:.4f} "
-            f"val_loss={val_metrics['loss']:.4f} "
-            f"val_acc={val_metrics['accuracy']:.4f}"
-        )
-
     return {
         "history": history,
         "final_train_loss": history[-1]["train_loss"] if history else 0.0,

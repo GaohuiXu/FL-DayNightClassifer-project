@@ -6,7 +6,11 @@ import torch
 from flwr.app import ArrayRecord, ConfigRecord, Context, Message, MetricRecord, RecordDict
 from flwr.clientapp import ClientApp
 
-from fl_v2.data.dataset import build_client_index_map, get_client_dataloaders
+from fl_v2.data.dataset import (
+    ClientDataLoaders,
+    build_client_index_map,
+    get_client_dataloaders,
+)
 from fl_v2.models import GTSRBClassifier
 from fl_v2.training import evaluate, train_local
 
@@ -14,6 +18,27 @@ from fl_v2.attacks_defenses import parse_client_ids
 
 
 app = ClientApp()
+
+# ---------------------------------------------------------------------------
+# Module-level caches — avoid reloading dataset / re-partitioning every round.
+# Safe because config is constant within a run and partitioning is
+# deterministic (same seed → same result).  Each simulation worker process
+# has its own copy of these globals.
+# ---------------------------------------------------------------------------
+_index_map_cache: dict[int, list[int]] | None = None
+_index_map_cache_key: str | None = None
+_client_data_cache: dict[int, ClientDataLoaders] = {}
+
+
+def _make_cache_key(run_config) -> str:
+    """Build a hashable key from partition-relevant config values."""
+    return (
+        f"{run_config['data-root']}|"
+        f"{run_config['num-clients']}|"
+        f"{run_config['partition-mode']}|"
+        f"{run_config['dirichlet-alpha']}|"
+        f"{run_config['seed']}"
+    )
 
 
 def _get_device(run_config) -> torch.device:
@@ -36,37 +61,55 @@ def _get_client_id(context: Context) -> int:
 
 
 def _load_client_data(context: Context):
-    """Build dataloaders for the current client."""
-    run_config = context.run_config
+    """Build dataloaders for the current client, with caching."""
+    global _index_map_cache, _index_map_cache_key
 
-    data_root = str(run_config["data-root"])
-    num_clients = int(run_config["num-clients"])
-    partition_mode = str(run_config["partition-mode"])
-    dirichlet_alpha = float(run_config["dirichlet-alpha"])
+    run_config = context.run_config
+    client_id = _get_client_id(context)
+
+    # Return cached dataloaders if available
+    if client_id in _client_data_cache:
+        return client_id, _client_data_cache[client_id]
+
+    # Build or retrieve the index map (shared across clients in this worker)
+    cache_key = _make_cache_key(run_config)
+    if _index_map_cache is None or _index_map_cache_key != cache_key:
+        data_root = str(run_config["data-root"])
+        num_clients = int(run_config["num-clients"])
+        partition_mode = str(run_config["partition-mode"])
+        dirichlet_alpha = float(run_config["dirichlet-alpha"])
+        seed = int(run_config["seed"])
+
+        _index_map_cache = build_client_index_map(
+            data_root=data_root,
+            num_clients=num_clients,
+            partition_mode=partition_mode,
+            dirichlet_alpha=dirichlet_alpha,
+            seed=seed,
+            download=False,
+        )
+        _index_map_cache_key = cache_key
+
+    # Build dataloaders for this specific client
     batch_size = int(run_config["batch-size"])
     image_size = int(run_config["image-size"])
     val_ratio = float(run_config["val-ratio"])
     seed = int(run_config["seed"])
 
-    # attack config
     attack_type = str(run_config.get("attack-type", "none"))
     malicious_client_ids = parse_client_ids(
         str(run_config.get("malicious-client-ids", ""))
     )
     label_flip_source = int(run_config.get("label-flip-source", 1))
     label_flip_target = int(run_config.get("label-flip-target", 2))
-    label_flip_fraction = float(run_config.get("label-flip-fraction", 0.0))
+    label_flip_fraction = float(run_config.get("label-flip-fraction", 0.3))
 
-    client_index_map = build_client_index_map(
-        data_root=data_root,
-        num_clients=num_clients,
-        partition_mode=partition_mode,
-        dirichlet_alpha=dirichlet_alpha,
-        seed=seed,
-        download=False,
-    )
+    # pixel backdoor config
+    backdoor_target_label = int(run_config.get("backdoor-target-label", 0))
+    poison_fraction = float(run_config.get("poison-fraction", 0.1))
+    trigger_size = int(run_config.get("trigger-size", 4))
+    trigger_position = str(run_config.get("trigger-position", "bottom-right"))
 
-    client_id = _get_client_id(context)
     is_malicious = client_id in malicious_client_ids
 
     if attack_type != "none":
@@ -78,8 +121,8 @@ def _load_client_data(context: Context):
 
     client_data = get_client_dataloaders(
         client_id=client_id,
-        client_index_map=client_index_map,
-        data_root=data_root,
+        client_index_map=_index_map_cache,
+        data_root=str(run_config["data-root"]),
         batch_size=batch_size,
         image_size=image_size,
         val_ratio=val_ratio,
@@ -91,7 +134,13 @@ def _load_client_data(context: Context):
         label_flip_target=label_flip_target,
         label_flip_fraction=label_flip_fraction,
         is_malicious=is_malicious,
+        backdoor_target_label=backdoor_target_label,
+        poison_fraction=poison_fraction,
+        trigger_size=trigger_size,
+        trigger_position=trigger_position,
     )
+
+    _client_data_cache[client_id] = client_data
     return client_id, client_data
 
 
@@ -147,17 +196,6 @@ def train(msg: Message, context: Context) -> Message:
         }
     )
 
-    print(
-        f"[Client {client_id}] "
-        f"round={server_round} "
-        f"train_n={client_data.num_train_samples} "
-        f"val_n={client_data.num_val_samples} "
-        f"train_loss={results['final_train_loss']:.4f} "
-        f"train_acc={results['final_train_accuracy']:.4f} "
-        f"val_loss={results['final_val_loss']:.4f} "
-        f"val_acc={results['final_val_accuracy']:.4f}"
-    )
-
     content = RecordDict({"arrays": arrays, "metrics": metrics})
     return Message(content=content, reply_to=msg)
 
@@ -184,14 +222,6 @@ def evaluate_client(msg: Message, context: Context) -> Message:
             "val_loss": float(eval_metrics["loss"]),
             "val_accuracy": float(eval_metrics["accuracy"]),
         }
-    )
-
-    print(
-        f"[Client {client_id}] "
-        f"round={server_round} "
-        f"eval_n={client_data.num_val_samples} "
-        f"val_loss={eval_metrics['loss']:.4f} "
-        f"val_acc={eval_metrics['accuracy']:.4f}"
     )
 
     content = RecordDict({"metrics": metrics})
