@@ -98,8 +98,12 @@ class PixelBackdoorDataset(Dataset):
         rng = np.random.default_rng(self.seed)
         n = len(self.base_dataset)
 
-        # Only poison samples not already in the target class
-        labels = [self.base_dataset[i][1] for i in range(n)]
+        # Only poison samples not already in the target class.
+        # Use get_labels() when available to avoid loading images / running transforms.
+        if hasattr(self.base_dataset, "get_labels"):
+            labels = self.base_dataset.get_labels()
+        else:
+            labels = [int(self.base_dataset[i][1]) for i in range(n)]
         non_target_indices = np.array(
             [i for i, lbl in enumerate(labels) if int(lbl) != self.target_label],
             dtype=np.intp,

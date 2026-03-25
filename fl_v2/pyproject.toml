@@ -39,6 +39,7 @@ num-server-rounds = 3
 fraction-train = 1.0
 fraction-evaluate = 1.0
 min-available-nodes = 10
+min-train-nodes = 2
 num-local-epochs = 1
 
 # ===== optimization =====
@@ -69,6 +70,7 @@ label-flip-fraction = 0.3
 backdoor-target-label = 0
 poison-fraction = 0.1
 trigger-size = 4
+trigger-value = 1.0
 trigger-position = "bottom-right"
 
 # ===== defense =====
@@ -77,4 +79,3 @@ clip-norm = 5.0  # placeholder; update after inspecting Exp 1 norm log
 trimmed-avg-beta = 0.2
 num-malicious-nodes = 0
 krum-num-to-select = 5
-

@@ -12,9 +12,9 @@ from fl_v2.data.dataset import (
 )
 from fl_v2.attacks_defenses import make_pixel_trigger_fn
 from fl_v2.models import GTSRBClassifier
-from fl_v2.training import compute_asr, evaluate
+from fl_v2.training import compute_asr, compute_target_class_accuracy, evaluate
 
-from fl_v2.utils import ensure_dir, save_json
+from fl_v2.utils import ensure_dir, save_attack_comparison, save_json
 
 from fl_v2.strategy import NormClippedFedAvg, NormTrackingFedAvg
 
@@ -74,6 +74,7 @@ def _server_side_evaluate_fn(context: Context):
     attack_type = str(run_config.get("attack-type", "none"))
     backdoor_target_label = int(run_config.get("backdoor-target-label", 0))
     trigger_size = int(run_config.get("trigger-size", 4))
+    trigger_value = float(run_config.get("trigger-value", 1.0))
     trigger_position = str(run_config.get("trigger-position", "bottom-right"))
 
     testloader = get_global_testloader(
@@ -91,6 +92,7 @@ def _server_side_evaluate_fn(context: Context):
     if attack_type in ("pixel_backdoor",):
         trigger_fn = make_pixel_trigger_fn(
             trigger_size=trigger_size,
+            trigger_value=trigger_value,
             trigger_position=trigger_position,
         )
 
@@ -121,18 +123,41 @@ def _server_side_evaluate_fn(context: Context):
             "num-test-examples": int(metrics["num_samples"]),
         }
 
-        # Compute ASR when backdoor attack is active
+        # Target-class clean accuracy — always (enables baseline vs attack comparison)
+        tca_result = compute_target_class_accuracy(
+            model=model,
+            testloader=testloader,
+            target_label=backdoor_target_label,
+            device=device,
+        )
+        metrics_dict["target_class_clean_accuracy"] = float(
+            tca_result["target_class_accuracy"]
+        )
+        metrics_dict["target_class_num_samples"] = int(
+            tca_result["num_target_samples"]
+        )
+        print(
+            f"[Server] round={server_round}  "
+            f"target_class_acc={tca_result['target_class_accuracy']:.2%} "
+            f"(n={tca_result['num_target_samples']})",
+            flush=True,
+        )
+
+        # ASR — only when a backdoor trigger is active
         if trigger_fn is not None:
-            asr = compute_asr(
+            asr_result = compute_asr(
                 model=model,
                 testloader=testloader,
                 target_label=backdoor_target_label,
                 trigger_fn=trigger_fn,
                 device=device,
             )
-            metrics_dict["asr"] = float(asr)
+            metrics_dict["asr"] = float(asr_result["asr"])
+            metrics_dict["asr_num_samples"] = int(asr_result["num_triggered_samples"])
             print(
-                f"[Server] round={server_round}  ASR={asr:.2%}",
+                f"[Server] round={server_round}  "
+                f"ASR={asr_result['asr']:.2%} "
+                f"(n={asr_result['num_triggered_samples']})",
                 flush=True,
             )
 
@@ -166,6 +191,7 @@ def main(grid: Grid, context: Context) -> None:
     fraction_train = float(run_config["fraction-train"])
     fraction_evaluate = float(run_config["fraction-evaluate"])
     min_available_nodes = int(run_config["min-available-nodes"])
+    min_train_nodes = int(run_config.get("min-train-nodes", 2))
 
     output_dir = str(run_config.get("output-dir", "./outputs"))
     ensure_dir(output_dir)
@@ -203,8 +229,8 @@ def main(grid: Grid, context: Context) -> None:
     common_kwargs = dict(
         fraction_train=fraction_train,
         fraction_evaluate=fraction_evaluate,
-        min_train_nodes=min_available_nodes,
-        min_evaluate_nodes=min_available_nodes,
+        min_train_nodes=min_train_nodes,
+        min_evaluate_nodes=min_train_nodes,
         min_available_nodes=min_available_nodes,
     )
 
@@ -284,6 +310,32 @@ def main(grid: Grid, context: Context) -> None:
     train_config = _get_train_config(context)
     evaluate_config = _get_evaluate_config(context)
     evaluate_fn = _server_side_evaluate_fn(context)
+
+    # Save trigger visualization once at startup (attack-agnostic interface)
+    attack_type = str(run_config.get("attack-type", "none"))
+    if attack_type in ("pixel_backdoor",):
+        trigger_size = int(run_config.get("trigger-size", 4))
+        trigger_value = float(run_config.get("trigger-value", 1.0))
+        trigger_position = str(run_config.get("trigger-position", "bottom-right"))
+        viz_trigger_fn = make_pixel_trigger_fn(
+            trigger_size=trigger_size,
+            trigger_value=trigger_value,
+            trigger_position=trigger_position,
+        )
+        viz_testloader = get_global_testloader(
+            data_root=data_root,
+            batch_size=16,
+            image_size=int(run_config["image-size"]),
+            num_workers=0,
+            download=False,
+        )
+        save_attack_comparison(
+            dataloader=viz_testloader,
+            trigger_fn=viz_trigger_fn,
+            output_path=output_dir,
+            attack_name=attack_type,
+        )
+
     print("[server] initial arrays ready", flush=True)
 
     print("[server] calling strategy.start()", flush=True)

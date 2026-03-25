@@ -49,13 +49,14 @@ class LabelFlippingDataset(Dataset):
         self.flip_mask = self._build_flip_mask()
 
     def _build_flip_mask(self) -> np.ndarray:
-        labels = []
-
-        for idx in range(len(self.base_dataset)):
-            _, label = self.base_dataset[idx]
-            labels.append(int(label))
-
-        labels = np.array(labels, dtype=np.int64)
+        # Use get_labels() when available to avoid loading images / running transforms.
+        if hasattr(self.base_dataset, "get_labels"):
+            labels = np.array(self.base_dataset.get_labels(), dtype=np.int64)
+        else:
+            labels = np.array(
+                [int(self.base_dataset[i][1]) for i in range(len(self.base_dataset))],
+                dtype=np.int64,
+            )
         candidate_indices = np.where(labels == self.source_label)[0]
 
         rng = np.random.default_rng(self.seed)

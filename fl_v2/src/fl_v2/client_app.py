@@ -108,6 +108,7 @@ def _load_client_data(context: Context):
     backdoor_target_label = int(run_config.get("backdoor-target-label", 0))
     poison_fraction = float(run_config.get("poison-fraction", 0.1))
     trigger_size = int(run_config.get("trigger-size", 4))
+    trigger_value = float(run_config.get("trigger-value", 1.0))
     trigger_position = str(run_config.get("trigger-position", "bottom-right"))
 
     is_malicious = client_id in malicious_client_ids
@@ -137,6 +138,7 @@ def _load_client_data(context: Context):
         backdoor_target_label=backdoor_target_label,
         poison_fraction=poison_fraction,
         trigger_size=trigger_size,
+        trigger_value=trigger_value,
         trigger_position=trigger_position,
     )
 

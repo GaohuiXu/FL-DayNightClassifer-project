@@ -69,12 +69,22 @@ The following platform components are already available or actively being integr
 - end-to-end FL simulation
 - server-side global test evaluation
 
-Possible or ongoing experimental modules may include:
-- attack baselines
-- defense baselines
-- stronger backbone experiments
+Implemented and smoke-tested attack modules:
+- label flipping attack (data poisoning baseline)
+- pixel-trigger backdoor attack (with ASR metric)
 
-Do not assume every experimental module is finalized unless verified from the code.
+Implemented and smoke-tested defense modules:
+- NormTrackingFedAvg (update norm logging, wraps FedAvg)
+- NormClippedFedAvg (L2 norm clipping before aggregation)
+- FedMedian, FedTrimmedAvg (Flower built-in robust aggregation)
+- Krum, MultiKrum, Bulyan (Flower built-in Byzantine-tolerant selection)
+
+Possible near-term additions:
+- stronger backbone (ResNet18)
+- model replacement / scaling attack (Bagdasaryan)
+- DBA (Distributed Backdoor Attack)
+
+Do not assume every near-term module is finalized unless verified from the code.
 
 ---
 
@@ -151,6 +161,7 @@ When assisting with this repository:
 - Attack modules should be evaluated against clean training behavior.
 - Defense modules should be evaluated in terms of both utility and robustness.
 - Prefer explicit logging, saved results, and reproducible configurations.
+- Global RNG seeding (`random`, `numpy`, `torch`) is performed at server startup using the configured `seed` value. This ensures identical initial model weights across all experiments with the same seed.
 - New modules should be easy to reuse across future datasets and tasks.
 - Avoid adding tightly coupled code that would make future migration difficult.
 - For non-trivial tasks, first provide:
@@ -167,16 +178,13 @@ Near-term work should prioritize platform stability and controlled comparison be
 
 Current near-term development priorities are:
 
-1. stabilize baseline platform behavior
-2. complete and verify modular defense integration
-3. compare:
-   - clean
-   - attack
-   - defense
-   - attack + defense
-4. strengthen backbone choices (for example, ResNet18)
-5. gradually move from heuristic attacks toward stronger attack settings
-6. prepare the platform for future autonomous-driving datasets/tasks
+1. ~~stabilize baseline platform behavior~~ ✓ done
+2. ~~complete and verify modular defense integration~~ ✓ done
+3. ~~compare clean / attack / defense / attack+defense~~ smoke-tested; full-round experiments pending
+4. run full-round experiments (10–15 rounds) to validate ASR vs defense tradeoffs
+5. strengthen backbone choices (ResNet18)
+6. gradually move from heuristic attacks toward stronger attack settings (model replacement, DBA)
+7. prepare the platform for future autonomous-driving datasets/tasks
 
 ---
 
@@ -198,6 +206,10 @@ Keep the current local workflow runnable unless there is a clearly better replac
 ```
 
 Do not replace existing entry scripts or command-line workflow unless there is a clear, tested, and simpler alternative.
+
+`FLWR_HOME` is set to `$HOME/.flwr` (Ceph shared filesystem) in `flwr_local_env.sh`.
+The federation config (`local-simulation-gpu`) is defined in `$FLWR_HOME/config.toml`.
+Do NOT change `FLWR_HOME` to `/tmp` — it is node-local and disappears between HPC sessions.
 
 ---
 
