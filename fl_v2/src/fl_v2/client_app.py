@@ -11,8 +11,9 @@ from fl_v2.data.dataset import (
     build_client_index_map,
     get_client_dataloaders,
 )
-from fl_v2.models import GTSRBClassifier
+from fl_v2.models import create_model
 from fl_v2.training import evaluate, train_local
+from fl_v2.utils import compute_lr, get_device
 
 from fl_v2.attacks_defenses import parse_client_ids
 
@@ -40,15 +41,6 @@ def _make_cache_key(run_config) -> str:
         f"{run_config['seed']}"
     )
 
-
-def _get_device(run_config) -> torch.device:
-    """Select device from run config, with safe fallback."""
-    requested = str(run_config.get("device", "cpu")).lower()
-
-    if requested == "cuda" and torch.cuda.is_available():
-        return torch.device("cuda")
-
-    return torch.device("cpu")
 
 
 def _get_client_id(context: Context) -> int:
@@ -146,12 +138,13 @@ def _load_client_data(context: Context):
     return client_id, client_data
 
 
-def _load_model_from_message(msg: Message, context: Context) -> Tuple[GTSRBClassifier, torch.device]:
+def _load_model_from_message(msg: Message, context: Context) -> Tuple[torch.nn.Module, torch.device]:
     """Instantiate model and load weights received from the server."""
     num_classes = int(context.run_config["num-classes"])
-    device = _get_device(context.run_config)
+    model_type = str(context.run_config.get("model-type", "cnn"))
+    device = get_device(context.run_config)
 
-    model = GTSRBClassifier(num_classes=num_classes)
+    model = create_model(model_type, num_classes=num_classes)
     model.load_state_dict(msg.content["arrays"].to_torch_state_dict())
     model.to(device)
 
@@ -176,6 +169,19 @@ def train(msg: Message, context: Context) -> Message:
     learning_rate = float(config.get("learning-rate", default_lr))
     weight_decay = float(config.get("weight-decay", default_weight_decay))
     server_round = int(config.get("server-round", 0))
+
+    # Apply LR schedule if configured (strategy-agnostic: uses server-round
+    # injected by Flower's base FedAvg, works with all built-in strategies)
+    lr_schedule = str(run_config.get("lr-schedule", "none"))
+    if lr_schedule != "none" and server_round > 0:
+        learning_rate = compute_lr(
+            base_lr=default_lr,
+            server_round=server_round,
+            num_rounds=int(run_config["num-server-rounds"]),
+            schedule=lr_schedule,
+            warmup_rounds=int(run_config.get("lr-warmup-rounds", 0)),
+            lr_min=float(run_config.get("lr-min", 0.0001)),
+        )
 
     results = train_local(
         model=model,

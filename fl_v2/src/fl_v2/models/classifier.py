@@ -39,3 +39,13 @@ class GTSRBClassifier(nn.Module):
         x = self.features(x)
         x = self.classifier(x)
         return x
+
+    def forward_features(self, x: torch.Tensor) -> torch.Tensor:
+        """Return 256-dim penultimate features before the classification head."""
+        x = self.features(x)
+        # classifier = [Flatten, Linear(2048,256), ReLU, Dropout, Linear(256,43)]
+        for i, layer in enumerate(self.classifier):
+            x = layer(x)
+            if i == 3:  # after Dropout — 256-dim features
+                return x
+        return x

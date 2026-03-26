@@ -11,10 +11,10 @@ from fl_v2.data.dataset import (
     get_global_testloader,
 )
 from fl_v2.attacks_defenses import make_pixel_trigger_fn
-from fl_v2.models import GTSRBClassifier
+from fl_v2.models import create_model
 from fl_v2.training import compute_asr, compute_target_class_accuracy, evaluate
 
-from fl_v2.utils import ensure_dir, save_attack_comparison, save_json
+from fl_v2.utils import ensure_dir, get_device, save_attack_comparison, save_json
 
 from fl_v2.strategy import NormClippedFedAvg, NormTrackingFedAvg
 
@@ -22,20 +22,12 @@ from fl_v2.strategy import NormClippedFedAvg, NormTrackingFedAvg
 app = ServerApp()
 
 
-def _get_device(run_config) -> torch.device:
-    """Select device for server-side evaluation."""
-    requested = str(run_config.get("device", "cpu")).lower()
-
-    if requested == "cuda" and torch.cuda.is_available():
-        return torch.device("cuda")
-
-    return torch.device("cpu")
-
-
 def _build_initial_arrays(context: Context) -> ArrayRecord:
     """Create the initial global model parameters."""
     num_classes = int(context.run_config["num-classes"])
-    model = GTSRBClassifier(num_classes=num_classes)
+    model_type = str(context.run_config.get("model-type", "cnn"))
+    model = create_model(model_type, num_classes=num_classes)
+    print(f"[server] model: {model_type} ({sum(p.numel() for p in model.parameters()):,} params)", flush=True)
     return ArrayRecord(model.state_dict())
 
 
@@ -57,6 +49,66 @@ def _get_evaluate_config(context: Context) -> ConfigRecord:
     return ConfigRecord({})
 
 
+def _build_strategy(defense_type: str, run_config, common_kwargs: dict):
+    """Instantiate the aggregation strategy for the given defense type."""
+    output_dir = str(run_config.get("output-dir", "./outputs"))
+    experiment_name = str(run_config.get("experiment-name", "default"))
+    seed = int(run_config["seed"])
+
+    # --- Custom strategies (extra kwargs: output_dir, seed, etc.) ---
+    if defense_type == "none":
+        return NormTrackingFedAvg(
+            output_dir=output_dir,
+            experiment_name=experiment_name,
+            seed=seed,
+            **common_kwargs,
+        )
+
+    if defense_type == "norm_clipping":
+        return NormClippedFedAvg(
+            clip_norm=float(run_config.get("clip-norm", 100.0)),
+            output_dir=output_dir,
+            experiment_name=experiment_name,
+            seed=seed,
+            **common_kwargs,
+        )
+
+    # --- Flower built-in strategies: (class_name, {kwarg: (config_key, default, cast)}) ---
+    _FLOWER_STRATEGIES = {
+        "fed_median": ("FedMedian", {}),
+        "fed_trimmed_avg": ("FedTrimmedAvg", {
+            "beta": ("trimmed-avg-beta", 0.2, float),
+        }),
+        "krum": ("Krum", {
+            "num_malicious_nodes": ("num-malicious-nodes", 0, int),
+        }),
+        "multi_krum": ("MultiKrum", {
+            "num_malicious_nodes": ("num-malicious-nodes", 0, int),
+            "num_nodes_to_select": ("krum-num-to-select", 5, int),
+        }),
+        "bulyan": ("Bulyan", {
+            "num_malicious_nodes": ("num-malicious-nodes", 0, int),
+        }),
+    }
+
+    if defense_type not in _FLOWER_STRATEGIES:
+        raise ValueError(
+            f"Unsupported defense-type: {defense_type!r}. "
+            f"Available: none, norm_clipping, {', '.join(_FLOWER_STRATEGIES)}"
+        )
+
+    class_name, param_spec = _FLOWER_STRATEGIES[defense_type]
+    import flwr.serverapp.strategy as flwr_strat
+    strategy_cls = getattr(flwr_strat, class_name)
+
+    extra_kwargs = {
+        k: cast_fn(run_config.get(config_key, default))
+        for k, (config_key, default, cast_fn) in param_spec.items()
+    }
+
+    return strategy_cls(**extra_kwargs, **common_kwargs)
+
+
 def _server_side_evaluate_fn(context: Context):
     """
     Build a centralized evaluation callback.
@@ -69,7 +121,8 @@ def _server_side_evaluate_fn(context: Context):
     batch_size = int(run_config["batch-size"])
     image_size = int(run_config["image-size"])
     num_classes = int(run_config["num-classes"])
-    device = _get_device(run_config)
+    model_type = str(run_config.get("model-type", "cnn"))
+    device = get_device(run_config)
 
     attack_type = str(run_config.get("attack-type", "none"))
     backdoor_target_label = int(run_config.get("backdoor-target-label", 0))
@@ -97,7 +150,7 @@ def _server_side_evaluate_fn(context: Context):
         )
 
     def evaluate_fn(server_round: int, arrays: ArrayRecord) -> Optional[MetricRecord]:
-        model = GTSRBClassifier(num_classes=num_classes)
+        model = create_model(model_type, num_classes=num_classes)
         model.load_state_dict(arrays.to_torch_state_dict())
         model.to(device)
 
@@ -223,9 +276,7 @@ def main(grid: Grid, context: Context) -> None:
 
     print("[server] creating strategy", flush=True)
     defense_type = str(run_config.get("defense-type", "none"))
-    clip_norm = float(run_config.get("clip-norm", 100.0))
 
-    # Common kwargs for all FedAvg-based strategies
     common_kwargs = dict(
         fraction_train=fraction_train,
         fraction_evaluate=fraction_evaluate,
@@ -234,76 +285,8 @@ def main(grid: Grid, context: Context) -> None:
         min_available_nodes=min_available_nodes,
     )
 
-    if defense_type == "none":
-        strategy = NormTrackingFedAvg(
-            output_dir=output_dir,
-            experiment_name=experiment_name,
-            seed=seed,
-            **common_kwargs,
-        )
-        print("[server] norm tracking enabled (no clipping)", flush=True)
-    elif defense_type == "norm_clipping":
-        strategy = NormClippedFedAvg(
-            clip_norm=clip_norm,
-            output_dir=output_dir,
-            experiment_name=experiment_name,
-            seed=seed,
-            **common_kwargs,
-        )
-        print(
-            f"[server] defense enabled: norm_clipping (clip_norm={clip_norm})",
-            flush=True,
-        )
-    elif defense_type == "fed_median":
-        from flwr.serverapp.strategy import FedMedian
-
-        strategy = FedMedian(**common_kwargs)
-        print("[server] defense enabled: FedMedian", flush=True)
-    elif defense_type == "fed_trimmed_avg":
-        from flwr.serverapp.strategy import FedTrimmedAvg
-
-        beta = float(run_config.get("trimmed-avg-beta", 0.2))
-        strategy = FedTrimmedAvg(beta=beta, **common_kwargs)
-        print(
-            f"[server] defense enabled: FedTrimmedAvg (beta={beta})",
-            flush=True,
-        )
-    elif defense_type == "krum":
-        from flwr.serverapp.strategy import Krum
-
-        num_malicious = int(run_config.get("num-malicious-nodes", 0))
-        strategy = Krum(num_malicious_nodes=num_malicious, **common_kwargs)
-        print(
-            f"[server] defense enabled: Krum (num_malicious_nodes={num_malicious})",
-            flush=True,
-        )
-    elif defense_type == "multi_krum":
-        from flwr.serverapp.strategy import MultiKrum
-
-        num_malicious = int(run_config.get("num-malicious-nodes", 0))
-        num_to_select = int(run_config.get("krum-num-to-select", 5))
-        strategy = MultiKrum(
-            num_malicious_nodes=num_malicious,
-            num_nodes_to_select=num_to_select,
-            **common_kwargs,
-        )
-        print(
-            f"[server] defense enabled: MultiKrum "
-            f"(num_malicious={num_malicious}, num_to_select={num_to_select})",
-            flush=True,
-        )
-    elif defense_type == "bulyan":
-        from flwr.serverapp.strategy import Bulyan
-
-        num_malicious = int(run_config.get("num-malicious-nodes", 0))
-        strategy = Bulyan(num_malicious_nodes=num_malicious, **common_kwargs)
-        print(
-            f"[server] defense enabled: Bulyan (num_malicious_nodes={num_malicious})",
-            flush=True,
-        )
-    else:
-        raise ValueError(f"Unsupported defense-type: {defense_type}")
-    print("[server] strategy created", flush=True)
+    strategy = _build_strategy(defense_type, run_config, common_kwargs)
+    print(f"[server] defense: {defense_type}", flush=True)
 
     print("[server] building initial arrays", flush=True)
     initial_arrays = _build_initial_arrays(context)

@@ -1,0 +1,15 @@
+# Clean baseline — ResNet18, no attack, no defense
+# more rounds and higher lr to make sure Resnet18 converge
+experiment-name: clean-resnet18
+model-type: resnet18
+num-clients: 50
+num-server-rounds: 100
+fraction-train: 0.3
+min-available-nodes: 50 
+min-train-nodes: 2 
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: none
+defense-type: none
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb_v2'

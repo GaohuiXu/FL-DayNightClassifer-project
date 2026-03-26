@@ -1,0 +1,13 @@
+# Pixel backdoor attack — CNN, norm clipping defense
+experiment-name: backdoor-cnn-normclip
+model-type: cnn
+num-server-rounds: 15
+attack-type: pixel_backdoor
+malicious-client-ids: "0,1"
+backdoor-target-label: 0
+poison-fraction: 0.1
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+defense-type: norm_clipping
+clip-norm: 5.0
