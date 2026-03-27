@@ -15,6 +15,7 @@ __pycache__/
 # local data / outputs
 fl_v2/data/
 fl_v2/outputs/
+fl_v2/analysis/figures/
 data/
 outputs/
 
@@ -26,3 +27,4 @@ outputs/
 *.zip
 *.ppm
 *.csv
+

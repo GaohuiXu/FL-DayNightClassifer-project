@@ -12,11 +12,23 @@ from fl_v2.data.dataset import (
 )
 from fl_v2.attacks_defenses import make_pixel_trigger_fn
 from fl_v2.models import create_model
-from fl_v2.training import compute_asr, compute_target_class_accuracy, evaluate
+from fl_v2.training import server_evaluate
 
-from fl_v2.utils import ensure_dir, get_device, save_attack_comparison, save_json
+from fl_v2.utils import (
+    ensure_dir,
+    ExperimentLogger,
+    get_device,
+    save_attack_comparison,
+    save_json,
+)
 
-from fl_v2.strategy import NormClippedFedAvg, NormTrackingFedAvg
+from fl_v2.strategy import (
+    NormClippedFedAvg,
+    NormTrackingBulyan,
+    NormTrackingFedAvg,
+    NormTrackingFedMedian,
+    NormTrackingFedTrimmedAvg,
+)
 
 
 app = ServerApp()
@@ -49,16 +61,15 @@ def _get_evaluate_config(context: Context) -> ConfigRecord:
     return ConfigRecord({})
 
 
-def _build_strategy(defense_type: str, run_config, common_kwargs: dict):
+def _build_strategy(defense_type: str, run_config, common_kwargs: dict, exp_dir: str):
     """Instantiate the aggregation strategy for the given defense type."""
-    output_dir = str(run_config.get("output-dir", "./outputs"))
     experiment_name = str(run_config.get("experiment-name", "default"))
     seed = int(run_config["seed"])
 
-    # --- Custom strategies (extra kwargs: output_dir, seed, etc.) ---
+    # --- Custom strategies (extra kwargs: exp_dir, seed, etc.) ---
     if defense_type == "none":
         return NormTrackingFedAvg(
-            output_dir=output_dir,
+            output_dir=exp_dir,
             experiment_name=experiment_name,
             seed=seed,
             **common_kwargs,
@@ -67,18 +78,41 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict):
     if defense_type == "norm_clipping":
         return NormClippedFedAvg(
             clip_norm=float(run_config.get("clip-norm", 100.0)),
-            output_dir=output_dir,
+            output_dir=exp_dir,
             experiment_name=experiment_name,
             seed=seed,
             **common_kwargs,
         )
 
-    # --- Flower built-in strategies: (class_name, {kwarg: (config_key, default, cast)}) ---
+    # --- Custom robust aggregation strategies (with norm logging) ---
+    if defense_type == "fed_median":
+        return NormTrackingFedMedian(
+            output_dir=exp_dir,
+            experiment_name=experiment_name,
+            seed=seed,
+            **common_kwargs,
+        )
+
+    if defense_type == "fed_trimmed_avg":
+        return NormTrackingFedTrimmedAvg(
+            beta=float(run_config.get("trimmed-avg-beta", 0.2)),
+            output_dir=exp_dir,
+            experiment_name=experiment_name,
+            seed=seed,
+            **common_kwargs,
+        )
+
+    if defense_type == "bulyan":
+        return NormTrackingBulyan(
+            num_malicious_nodes=int(run_config.get("num-malicious-nodes", 0)),
+            output_dir=exp_dir,
+            experiment_name=experiment_name,
+            seed=seed,
+            **common_kwargs,
+        )
+
+    # --- Flower built-in strategies (Krum/MultiKrum work correctly) ---
     _FLOWER_STRATEGIES = {
-        "fed_median": ("FedMedian", {}),
-        "fed_trimmed_avg": ("FedTrimmedAvg", {
-            "beta": ("trimmed-avg-beta", 0.2, float),
-        }),
         "krum": ("Krum", {
             "num_malicious_nodes": ("num-malicious-nodes", 0, int),
         }),
@@ -86,15 +120,13 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict):
             "num_malicious_nodes": ("num-malicious-nodes", 0, int),
             "num_nodes_to_select": ("krum-num-to-select", 5, int),
         }),
-        "bulyan": ("Bulyan", {
-            "num_malicious_nodes": ("num-malicious-nodes", 0, int),
-        }),
     }
 
     if defense_type not in _FLOWER_STRATEGIES:
         raise ValueError(
             f"Unsupported defense-type: {defense_type!r}. "
-            f"Available: none, norm_clipping, {', '.join(_FLOWER_STRATEGIES)}"
+            f"Available: none, norm_clipping, fed_median, fed_trimmed_avg, "
+            f"krum, multi_krum, bulyan"
         )
 
     class_name, param_spec = _FLOWER_STRATEGIES[defense_type]
@@ -109,7 +141,7 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict):
     return strategy_cls(**extra_kwargs, **common_kwargs)
 
 
-def _server_side_evaluate_fn(context: Context):
+def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger):
     """
     Build a centralized evaluation callback.
 
@@ -154,66 +186,39 @@ def _server_side_evaluate_fn(context: Context):
         model.load_state_dict(arrays.to_torch_state_dict())
         model.to(device)
 
-        metrics = evaluate(
+        # Single-pass evaluation: accuracy + TCA + ASR in one dataloader iteration
+        results = server_evaluate(
             model=model,
-            dataloader=testloader,
+            testloader=testloader,
             criterion=criterion,
             device=device,
+            target_label=backdoor_target_label,
+            trigger_fn=trigger_fn,
         )
 
         print(f"\n── Server Eval {'─' * 45}", flush=True)
         print(
             f"[Server] round={server_round}  "
-            f"test_loss={metrics['loss']:.4f}  "
-            f"test_acc={metrics['accuracy']:.2%}",
+            f"test_loss={results['test_loss']:.4f}  "
+            f"test_acc={results['test_accuracy']:.2%}",
             flush=True,
-        )
-
-        metrics_dict = {
-            "server-round": int(server_round),
-            "test_loss": float(metrics["loss"]),
-            "test_accuracy": float(metrics["accuracy"]),
-            "num-test-examples": int(metrics["num_samples"]),
-        }
-
-        # Target-class clean accuracy — always (enables baseline vs attack comparison)
-        tca_result = compute_target_class_accuracy(
-            model=model,
-            testloader=testloader,
-            target_label=backdoor_target_label,
-            device=device,
-        )
-        metrics_dict["target_class_clean_accuracy"] = float(
-            tca_result["target_class_accuracy"]
-        )
-        metrics_dict["target_class_num_samples"] = int(
-            tca_result["num_target_samples"]
         )
         print(
             f"[Server] round={server_round}  "
-            f"target_class_acc={tca_result['target_class_accuracy']:.2%} "
-            f"(n={tca_result['num_target_samples']})",
+            f"target_class_acc={results['target_class_clean_accuracy']:.2%} "
+            f"(n={int(results['target_class_num_samples'])})",
             flush=True,
         )
-
-        # ASR — only when a backdoor trigger is active
-        if trigger_fn is not None:
-            asr_result = compute_asr(
-                model=model,
-                testloader=testloader,
-                target_label=backdoor_target_label,
-                trigger_fn=trigger_fn,
-                device=device,
-            )
-            metrics_dict["asr"] = float(asr_result["asr"])
-            metrics_dict["asr_num_samples"] = int(asr_result["num_triggered_samples"])
+        if "asr" in results:
             print(
                 f"[Server] round={server_round}  "
-                f"ASR={asr_result['asr']:.2%} "
-                f"(n={asr_result['num_triggered_samples']})",
+                f"ASR={results['asr']:.2%} "
+                f"(n={int(results['asr_num_samples'])})",
                 flush=True,
             )
 
+        metrics_dict = {"server-round": int(server_round), **results}
+        logger.log_round(server_round, metrics_dict)
         return MetricRecord(metrics_dict)
 
     return evaluate_fn
@@ -249,6 +254,11 @@ def main(grid: Grid, context: Context) -> None:
     output_dir = str(run_config.get("output-dir", "./outputs"))
     ensure_dir(output_dir)
 
+    # Create experiment subdirectory and logger — all outputs go here
+    logger = ExperimentLogger(run_config, output_dir)
+    exp_dir = logger.exp_dir
+    print(f"[server] output dir: {exp_dir}", flush=True)
+
     data_root = str(run_config["data-root"])
     num_clients = int(run_config["num-clients"])
     partition_mode = str(run_config["partition-mode"])
@@ -270,7 +280,7 @@ def main(grid: Grid, context: Context) -> None:
 
     save_json(
         histograms,
-        f"{output_dir}/{experiment_name}_seed{seed}_client_label_histograms.json",
+        f"{exp_dir}/{experiment_name}_seed{seed}_client_label_histograms.json",
     )
     print("[server] histogram stats done", flush=True)
 
@@ -285,14 +295,14 @@ def main(grid: Grid, context: Context) -> None:
         min_available_nodes=min_available_nodes,
     )
 
-    strategy = _build_strategy(defense_type, run_config, common_kwargs)
+    strategy = _build_strategy(defense_type, run_config, common_kwargs, exp_dir)
     print(f"[server] defense: {defense_type}", flush=True)
 
     print("[server] building initial arrays", flush=True)
     initial_arrays = _build_initial_arrays(context)
     train_config = _get_train_config(context)
     evaluate_config = _get_evaluate_config(context)
-    evaluate_fn = _server_side_evaluate_fn(context)
+    evaluate_fn = _server_side_evaluate_fn(context, logger)
 
     # Save trigger visualization once at startup (attack-agnostic interface)
     attack_type = str(run_config.get("attack-type", "none"))
@@ -315,7 +325,7 @@ def main(grid: Grid, context: Context) -> None:
         save_attack_comparison(
             dataloader=viz_testloader,
             trigger_fn=viz_trigger_fn,
-            output_path=output_dir,
+            output_path=exp_dir,
             attack_name=attack_type,
         )
 
@@ -331,6 +341,8 @@ def main(grid: Grid, context: Context) -> None:
         evaluate_fn=evaluate_fn,
     )
     print("[server] strategy.start() returned", flush=True)
+
+    logger.finalize()
 
     print("Federated training finished.")
     print(result)

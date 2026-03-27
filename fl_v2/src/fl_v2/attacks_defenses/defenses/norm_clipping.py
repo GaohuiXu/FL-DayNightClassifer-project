@@ -5,19 +5,6 @@ from typing import List, Tuple
 import numpy as np
 
 
-def _ensure_ndarray_like(
-    arr,
-    reference: np.ndarray | None = None,
-) -> np.ndarray:
-    """Convert input to np.ndarray and preserve dtype/shape when possible."""
-    out = np.asarray(arr)
-
-    if reference is not None:
-        out = np.asarray(out, dtype=reference.dtype)
-        out = out.reshape(reference.shape)
-
-    return out
-
 
 def _flatten_params(params: List[np.ndarray]) -> np.ndarray:
     """Flatten a list of parameter arrays into one 1D vector."""

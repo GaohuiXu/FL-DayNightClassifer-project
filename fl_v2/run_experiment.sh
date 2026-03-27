@@ -3,8 +3,8 @@
 # Run a Flower experiment from a YAML config file.
 #
 # Usage:
-#   ./run_experiment.sh configs/experiments/clean_cnn.yaml
-#   ./run_experiment.sh configs/experiments/backdoor_cnn_krum.yaml
+#   ./run_experiment.sh configs/experiments/cnn/clean.yaml
+#   ./run_experiment.sh configs/experiments/resnet18/backdoor_krum.yaml
 #
 # The YAML file should contain only the overrides from pyproject.toml defaults.
 # Each key-value pair is converted to a --run-config argument for `flwr run`.
@@ -18,10 +18,14 @@ if [[ $# -lt 1 ]]; then
     echo "Usage: $0 <experiment-yaml> [extra --run-config overrides...]"
     echo ""
     echo "Available experiments:"
-    ls -1 "$SCRIPT_DIR/configs/experiments/"*.yaml 2>/dev/null | while read -r f; do
-        name=$(basename "$f" .yaml)
-        desc=$(head -1 "$f" | sed 's/^# *//')
-        printf "  %-35s  %s\n" "$name" "$desc"
+    for dir in "$SCRIPT_DIR/configs/experiments"/*/; do
+        group=$(basename "$dir")
+        echo "  [$group]"
+        find "$dir" -name "*.yaml" -maxdepth 1 2>/dev/null | sort | while read -r f; do
+            name=$(basename "$f" .yaml)
+            desc=$(head -1 "$f" | sed 's/^# *//')
+            printf "    %-30s  %s\n" "$name" "$desc"
+        done
     done
     exit 1
 fi

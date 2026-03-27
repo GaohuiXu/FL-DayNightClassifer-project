@@ -5,7 +5,7 @@ import os
 from typing import Iterable, List
 
 import numpy as np
-from flwr.app import ArrayRecord, ConfigRecord, Message, MetricRecord
+from flwr.app import ArrayRecord, ConfigRecord, Message
 from flwr.serverapp import Grid
 from flwr.serverapp.strategy import FedAvg
 

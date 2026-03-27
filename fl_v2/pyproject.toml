@@ -6,7 +6,6 @@ build-backend = "hatchling.build"
 name = "flwr-gtsrb-v2"
 version = "0.1.0"
 description = "Flower v2 federated learning experiments on GTSRB"
-readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
 dependencies = [
@@ -15,7 +14,6 @@ dependencies = [
     "torchvision>=0.17.0",
     "numpy>=1.24",
     "pyyaml>=6.0.1",
-    "tqdm>=4.66.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -71,7 +69,7 @@ label-flip-source = 1
 label-flip-target = 2
 label-flip-fraction = 0.3
 # pixel backdoor
-backdoor-target-label = 0
+backdoor-target-label = 2
 poison-fraction = 0.1
 trigger-size = 4
 trigger-value = 1.0
