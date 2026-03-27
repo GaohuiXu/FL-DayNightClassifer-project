@@ -1,0 +1,13 @@
+# Clean baseline — CNN, no attack, no defense
+experiment-name: clean-cnn
+model-type: cnn
+num-clients: 50
+num-server-rounds: 100
+fraction-train: 0.3
+min-available-nodes: 50
+min-train-nodes: 2
+learning-rate: 0.05
+lr-schedule: none
+attack-type: none
+defense-type: none
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb_v2'
