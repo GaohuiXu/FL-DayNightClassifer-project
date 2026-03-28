@@ -1,150 +1,33 @@
 #!/usr/bin/env python3
-"""Post-hoc analysis of FL experiment results.
-
-Auto-discovers experiments from the output directory and produces
-standard training curves, norm evolution plots, and text summaries.
+"""Single-experiment analysis: training curves, norm evolution, text summary.
 
 Usage:
-    # Analyze all discovered experiments (default base dir)
     python -m analysis.plot_experiment
-
-    # Analyze a specific experiment directory
     python -m analysis.plot_experiment --exp-dir /path/to/experiment
-
-    # Override base directory (for future datasets)
-    python -m analysis.plot_experiment --base-dir /path/to/outputs
-
-    # Also produce norm comparison across experiments
     python -m analysis.plot_experiment --compare-norms
 """
 import matplotlib
 matplotlib.use("Agg")
 
 import argparse
-import csv
-import json
 import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-# ── defaults ──────────────────────────────────────────────────────────
-DEFAULT_BASE_DIR = Path(
-    "/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb_v2"
+from analysis.common import (
+    DEFAULT_BASE_DIR,
+    DEFAULT_OUTPUT_DIR,
+    PUB_STYLE,
+    derive_label,
+    discover_experiments,
+    discover_norm_logs,
+    load_config_yaml,
+    load_norm_log,
+    load_rounds_csv,
+    load_summary_json,
 )
-DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "figures"
-
-PLOT_STYLE = {
-    "figure.dpi": 150,
-    "savefig.dpi": 300,
-    "axes.grid": True,
-    "grid.alpha": 0.3,
-    "font.size": 11,
-    "axes.labelsize": 12,
-    "axes.titlesize": 13,
-    "legend.fontsize": 10,
-    "lines.linewidth": 1.8,
-}
-
-
-# ── discovery ─────────────────────────────────────────────────────────
-def discover_experiments(base_dir: Path) -> list[Path]:
-    """Find experiment directories that contain rounds.csv."""
-    return sorted(
-        p.parent for p in base_dir.rglob("rounds.csv")
-    )
-
-
-def discover_norm_logs(base_dir: Path) -> list[Path]:
-    """Find all *_norm_log.json files under base_dir."""
-    return sorted(base_dir.glob("*_norm_log.json"))
-
-
-def derive_label(path: Path) -> str:
-    """Derive a human-readable label from a path.
-
-    For experiment dirs:  pixel-trigger-backdoor-resnet18-no-defense_r100_seed42
-                       -> Pixel Trigger Backdoor ResNet18 No Defense
-    For norm log files:   clean-baseline_seed42_norm_log.json
-                       -> Clean Baseline
-    """
-    # Use stem for files (strip extension), name for directories
-    name = path.stem if path.suffix else path.name
-    # strip common suffixes
-    name = re.sub(r"_norm_log$", "", name)
-    name = re.sub(r"_client_label_histograms$", "", name)
-    name = re.sub(r"_r\d+_seed\d+$", "", name)
-    name = re.sub(r"_seed\d+$", "", name)
-    # convert hyphens/underscores to spaces, title-case
-    label = name.replace("-", " ").replace("_", " ").strip()
-    label = label.title()
-    # fix common casing
-    label = label.replace("Resnet18", "ResNet18")
-    label = label.replace("Resnet", "ResNet")
-    label = label.replace("Cnn", "CNN")
-    label = label.replace("Asr", "ASR")
-    label = label.replace("Fedavg", "FedAvg")
-    label = label.replace("Fedmedian", "FedMedian")
-    return label
-
-
-# ── data loaders ──────────────────────────────────────────────────────
-def load_rounds_csv(path: Path) -> dict[str, np.ndarray]:
-    """Load rounds.csv into a dict of numpy arrays keyed by column name."""
-    with open(path) as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-    if not rows:
-        return {}
-    columns = {}
-    for key in rows[0]:
-        try:
-            columns[key] = np.array([float(r[key]) for r in rows])
-        except (ValueError, TypeError):
-            columns[key] = np.array([r[key] for r in rows])
-    return columns
-
-
-def load_summary_json(path: Path) -> dict:
-    with open(path) as f:
-        return json.load(f)
-
-
-def load_config_yaml(path: Path) -> dict:
-    # Use simple parsing to avoid hard yaml dependency
-    config = {}
-    with open(path) as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if ":" in line:
-                key, _, val = line.partition(":")
-                val = val.strip().strip("'\"")
-                # try numeric conversion
-                try:
-                    val = int(val)
-                except ValueError:
-                    try:
-                        val = float(val)
-                    except ValueError:
-                        pass
-                config[key.strip()] = val
-    return config
-
-
-def load_norm_log(path: Path) -> dict[str, np.ndarray]:
-    """Load norm_log.json into arrays: rounds, means, maxs, mins, stds."""
-    with open(path) as f:
-        data = json.load(f)
-    rounds = np.array([entry["round"] for entry in data])
-    means = np.array([entry["stats"]["mean"] for entry in data])
-    maxs = np.array([entry["stats"]["max"] for entry in data])
-    mins = np.array([entry["stats"]["min"] for entry in data])
-    stds = np.array([entry["stats"]["std"] for entry in data])
-    return {"rounds": rounds, "means": means, "maxs": maxs,
-            "mins": mins, "stds": stds}
 
 
 # ── plotting ──────────────────────────────────────────────────────────
@@ -296,7 +179,7 @@ def print_summary(label: str, data: dict, summary: dict | None, config: dict | N
 
 # ── main ──────────────────────────────────────────────────────────────
 def main():
-    plt.rcParams.update(PLOT_STYLE)
+    plt.rcParams.update(PUB_STYLE)
 
     parser = argparse.ArgumentParser(
         description="Analyze FL experiment results."

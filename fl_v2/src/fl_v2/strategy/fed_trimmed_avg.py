@@ -84,7 +84,7 @@ class NormTrackingFedTrimmedAvg(NormTrackingFedAvg):
                 for msg in valid_replies
             ]
             stacked = np.stack(layers)
-            trimmed = _trim_mean(stacked, self.beta).astype(layers[0].dtype)
+            trimmed = np.asarray(_trim_mean(stacked, self.beta), dtype=layers[0].dtype)
             arrays[array_key] = Array(trimmed)
 
         # --- aggregate metrics ---

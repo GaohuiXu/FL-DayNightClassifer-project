@@ -34,6 +34,9 @@ class ExperimentLogger:
 
         self._rows: list[dict] = []
         self._csv_path = os.path.join(self.exp_dir, "rounds.csv")
+        # Overwrite any existing CSV from a previous run
+        if os.path.exists(self._csv_path):
+            os.remove(self._csv_path)
         self._csv_initialized = False
 
     # ------------------------------------------------------------------

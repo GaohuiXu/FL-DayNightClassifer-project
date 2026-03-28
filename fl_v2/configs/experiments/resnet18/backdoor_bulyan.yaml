@@ -3,7 +3,7 @@ experiment-name: backdoor-resnet18-bulyan
 model-type: resnet18
 num-clients: 50
 num-server-rounds: 100
-fraction-train: 0.3
+fraction-train: 0.5  # Bulyan requires n >= 4f+3 = 23; 0.3*50=15 is insufficient
 min-available-nodes: 50
 min-train-nodes: 2
 learning-rate: 0.05

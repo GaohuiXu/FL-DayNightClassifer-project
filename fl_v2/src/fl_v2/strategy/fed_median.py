@@ -53,7 +53,7 @@ class NormTrackingFedMedian(NormTrackingFedAvg):
                 for msg in valid_replies
             ]
             stacked = np.stack(layers)
-            median = np.median(stacked, axis=0).astype(layers[0].dtype)
+            median = np.asarray(np.median(stacked, axis=0), dtype=layers[0].dtype)
             arrays[array_key] = Array(median)
 
         # --- aggregate metrics ---
