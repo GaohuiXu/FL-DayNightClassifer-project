@@ -16,7 +16,7 @@ import numpy as np
 DEFAULT_BASE_DIR = Path(
     "/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb_v2"
 )
-DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "figures"
+DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "figures" 
 
 # ── publication style ─────────────────────────────────────────────────
 PUB_STYLE = {

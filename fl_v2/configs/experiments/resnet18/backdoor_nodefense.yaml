@@ -1,5 +1,5 @@
 # Pixel backdoor — ResNet18, no defense
-experiment-name: backdoor-resnet18-nodefense
+experiment-name: backdoor-resnet18-nodefense-v3
 model-type: resnet18
 num-clients: 50
 num-server-rounds: 100

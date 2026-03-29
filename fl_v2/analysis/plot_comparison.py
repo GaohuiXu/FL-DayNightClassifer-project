@@ -38,9 +38,9 @@ def plot_defense_comparison(
     output_dir: Path,
     smooth_window: int = 0,
 ) -> None:
-    """Two-panel figure: Test Accuracy and ASR vs Round for all defenses."""
-    fig, (ax_acc, ax_asr) = plt.subplots(
-        1, 2, figsize=FIG_DOUBLE_COL, sharey=True,
+    """Three-panel figure: Test Accuracy, ASR, and TCA vs Round."""
+    fig, (ax_acc, ax_asr, ax_tca) = plt.subplots(
+        1, 3, figsize=(7.0, 2.8), sharey=True,
     )
 
     for exp in experiments:
@@ -60,6 +60,12 @@ def plot_defense_comparison(
                 asr = smooth_curve(asr, smooth_window)
             ax_asr.plot(rounds, asr, label=label, **style)
 
+        if "target_class_clean_accuracy" in data:
+            tca = data["target_class_clean_accuracy"] * 100
+            if smooth_window > 1:
+                tca = smooth_curve(tca, smooth_window)
+            ax_tca.plot(rounds, tca, label=label, **style)
+
     ax_acc.set_xlabel("Communication Round")
     ax_acc.set_ylabel("Test Accuracy (%)")
     ax_acc.set_ylim(-2, 102)
@@ -69,6 +75,11 @@ def plot_defense_comparison(
     ax_asr.set_ylabel("Attack Success Rate (%)")
     ax_asr.set_ylim(-2, 102)
     ax_asr.set_yticks(range(0, 101, 20))
+
+    ax_tca.set_xlabel("Communication Round")
+    ax_tca.set_ylabel("Target Class Accuracy (%)")
+    ax_tca.set_ylim(-2, 102)
+    ax_tca.set_yticks(range(0, 101, 20))
 
     # Shared legend below
     handles, labels = ax_acc.get_legend_handles_labels()
@@ -89,10 +100,11 @@ def plot_summary_bars(
     experiments: list[dict],
     output_dir: Path,
 ) -> None:
-    """Grouped bar chart: Final Accuracy and Final ASR per defense."""
+    """Grouped bar chart: Final Accuracy, ASR, and TCA per defense."""
     labels = []
     accs = []
     asrs = []
+    tcas = []
     has_asr_flags = []
 
     for exp in experiments:
@@ -105,37 +117,62 @@ def plot_summary_bars(
         else:
             asrs.append(0.0)
             has_asr_flags.append(False)
+        if "target_class_clean_accuracy" in data:
+            tcas.append(data["target_class_clean_accuracy"][-1] * 100)
+        else:
+            tcas.append(0.0)
 
     x = np.arange(len(labels))
-    width = 0.35
+    width = 0.25
+    fig_w = max(FIG_SINGLE_COL[0], 0.9 * len(labels))
+    fig, ax = plt.subplots(figsize=(fig_w, FIG_SINGLE_COL[1]))
 
-    fig, ax = plt.subplots(figsize=FIG_SINGLE_COL)
-    bars_acc = ax.bar(x - width / 2, accs, width, label="Test Accuracy",
-                      color="#1f77b4", edgecolor="white", linewidth=0.5)
-    bars_asr = ax.bar(x + width / 2, asrs, width, label="ASR",
-                      color="#d62728", edgecolor="white", linewidth=0.5)
+    color_acc = "#1f77b4"
+    color_asr = "#d62728"
+    color_tca = "#2ca02c"
+
+    bars_acc = ax.bar(x - width, accs, width,
+                      color=color_acc, edgecolor="white", linewidth=0.5)
+    bars_asr = ax.bar(x, asrs, width,
+                      color=color_asr, edgecolor="white", linewidth=0.5)
+    bars_tca = ax.bar(x + width, tcas, width,
+                      color=color_tca, edgecolor="white", linewidth=0.5)
 
     # Hide ASR bars for clean baselines
     for i, has_asr in enumerate(has_asr_flags):
         if not has_asr:
-            bars_asr[i].set_visible(False)
+            bars_asr[i].set_height(0)
+            bars_asr[i].set_edgecolor("none")
 
     # Value labels on bars
     for bar in bars_acc:
         h = bar.get_height()
         ax.text(bar.get_x() + bar.get_width() / 2, h + 1,
-                f"{h:.1f}", ha="center", va="bottom", fontsize=6)
+                f"{h:.1f}", ha="center", va="bottom", fontsize=5)
     for i, bar in enumerate(bars_asr):
         if has_asr_flags[i]:
             h = bar.get_height()
             ax.text(bar.get_x() + bar.get_width() / 2, h + 1,
-                    f"{h:.1f}", ha="center", va="bottom", fontsize=6)
+                    f"{h:.1f}", ha="center", va="bottom", fontsize=5)
+    for bar in bars_tca:
+        h = bar.get_height()
+        if h > 0:
+            ax.text(bar.get_x() + bar.get_width() / 2, h + 1,
+                    f"{h:.1f}", ha="center", va="bottom", fontsize=5)
 
     ax.set_ylabel("Percentage (%)")
     ax.set_xticks(x)
     ax.set_xticklabels(labels, rotation=30, ha="right", fontsize=7)
-    ax.set_ylim(0, 110)
-    ax.legend(loc="upper right", fontsize=7)
+    ax.set_ylim(0, 115)
+
+    # Manual legend (avoids visibility issues)
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor=color_acc, label="Test Accuracy"),
+        Patch(facecolor=color_asr, label="ASR"),
+        Patch(facecolor=color_tca, label="TCA"),
+    ]
+    ax.legend(handles=legend_elements, loc="upper right", fontsize=7)
     fig.tight_layout()
 
     save_figure(fig, output_dir, "summary_bars")
