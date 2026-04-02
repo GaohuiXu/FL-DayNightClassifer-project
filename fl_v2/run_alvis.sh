@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #SBATCH -A NAISS2025-22-1113
 #SBATCH -p alvis
-#SBATCH --gpus-per-node=A40:1
+#SBATCH --gpus-per-node=T4:1
 #SBATCH -t 0-02:00:00
 #SBATCH -J flwr_gtsrb
 #SBATCH -o /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/slurm/%x_%j.out

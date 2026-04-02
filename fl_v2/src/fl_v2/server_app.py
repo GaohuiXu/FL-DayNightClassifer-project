@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Optional
 
 import torch
@@ -341,6 +342,12 @@ def main(grid: Grid, context: Context) -> None:
         evaluate_fn=evaluate_fn,
     )
     print("[server] strategy.start() returned", flush=True)
+
+    # Save final model checkpoint for offline analysis
+    if result.arrays:
+        checkpoint_path = os.path.join(exp_dir, "checkpoints", "final_model.pt")
+        torch.save(result.arrays.to_torch_state_dict(), checkpoint_path)
+        print(f"[server] checkpoint saved → {checkpoint_path}", flush=True)
 
     logger.finalize()
 
