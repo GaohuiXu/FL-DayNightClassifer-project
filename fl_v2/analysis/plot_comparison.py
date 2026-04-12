@@ -351,8 +351,20 @@ def main():
         return
 
     # Sort: Clean first, then No Defense, then alphabetical
-    _ORDER = {"Clean": 0, "No Defense": 1}
-    experiments.sort(key=lambda e: (_ORDER.get(e["label"], 99), e["label"]))
+    # Sort: Clean first, then No Defense (by mal count, full before partial), then defenses
+    def _sort_key(e):
+        label = e["label"]
+        if label == "Clean":
+            return (0, "")
+        if label.startswith("No Defense"):
+            partial = 1 if "partial" in label.lower() else 0
+            return (1, partial, label)
+        if label.startswith("FedMedian"):
+            return (2, label)
+        if label.startswith("Krum"):
+            return (3, label)
+        return (9, label)
+    experiments.sort(key=_sort_key)
 
     print(f"\nComparing {len(experiments)} experiments:")
     for exp in experiments:

@@ -17,22 +17,34 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR/.."
 
-BASE_DIR="/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb_v2/phaseC"
-OUT_DIR="analysis/figures/phaseC_representation"
+BASE_DIR="/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb_v2/phaseC_v2"
+OUT_DIR="$BASE_DIR/figures/training_curves"
 
-EXPS=(phaseC-clean phaseC-backdoor-nodefense phaseC-backdoor-fedmedian phaseC-backdoor-krum)
+EXPS=(
+    phaseC2-clean
+    phaseC2-backdoor-5mal-nodefense
+    phaseC2-backdoor-15mal-nodefense
+    phaseC2-backdoor-15mal-fedmedian
+    phaseC2-backdoor-5mal-krum
+    phaseC2-backdoor-15mal-krum
+    phaseC2-backdoor-5mal-nodefense-partial
+    phaseC2-backdoor-15mal-nodefense-partial
+)
 EXP_DIRS=()
 for exp in "${EXPS[@]}"; do
     EXP_DIRS+=("$BASE_DIR/${exp}_r100_seed42")
 done
 
-# Verify all experiments exist
+# Filter to experiments that exist (some may still be running)
+AVAILABLE_DIRS=()
 for dir in "${EXP_DIRS[@]}"; do
-    if [[ ! -d "$dir" ]]; then
-        echo "ERROR: experiment dir not found: $dir"
-        exit 1
+    if [[ -d "$dir" ]]; then
+        AVAILABLE_DIRS+=("$dir")
+    else
+        echo "  [skip] $(basename "$dir"): not found yet"
     fi
 done
+EXP_DIRS=("${AVAILABLE_DIRS[@]}")
 
 echo ""
 echo "═══════════════════════════════════════════════════════"

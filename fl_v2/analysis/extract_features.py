@@ -112,14 +112,22 @@ def main():
         help="Path to GTSRB dataset root.",
     )
     parser.add_argument(
+        "--round", type=int, default=None,
+        help="Specific round checkpoint to extract (default: final model).",
+    )
+    parser.add_argument(
         "--device", type=str, default="auto",
         help="Device: 'cuda', 'cpu', or 'auto' (default).",
     )
     args = parser.parse_args()
 
     exp_dir = args.exp_dir
-    checkpoint_path = exp_dir / "checkpoints" / "final_model.pt"
-    output_path = exp_dir / "checkpoints" / "features_test.npz"
+    if args.round is not None:
+        checkpoint_path = exp_dir / "checkpoints" / f"round_{args.round:04d}.pt"
+        output_path = exp_dir / "checkpoints" / f"round_{args.round:04d}_features.npz"
+    else:
+        checkpoint_path = exp_dir / "checkpoints" / "final_model.pt"
+        output_path = exp_dir / "checkpoints" / "features_test.npz"
 
     if not checkpoint_path.exists():
         print(f"[ERROR] Checkpoint not found: {checkpoint_path}")

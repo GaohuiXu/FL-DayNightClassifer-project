@@ -1,0 +1,23 @@
+# Exp 8: Backdoor 15/50 malicious, no defense, partial participation
+# Compare with Exp 3 to isolate effect of participation rate
+experiment-name: phaseC2-backdoor-15mal-nodefense-partial
+model-type: resnet18
+num-clients: 50
+num-server-rounds: 100
+fraction-train: 0.3
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: pixel_backdoor
+malicious-client-ids: 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14
+backdoor-target-label: 2
+poison-fraction: 0.5
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+defense-type: none
+checkpoint-rounds: "0,5,10,25,50,75,100"
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb_v2/phaseC_v2'

@@ -102,7 +102,17 @@ def derive_label(path: Path) -> str:
 
 
 def short_defense_label(config: dict) -> str:
-    """Return a short label like 'Clean', 'No Defense', 'Krum', etc."""
+    """Return a short label that distinguishes malicious count and participation mode.
+
+    Examples:
+        Clean
+        No Defense (5mal)
+        No Defense (15mal)
+        No Defense (5mal, partial)
+        FedMedian (15mal)
+        Krum (5mal)
+        Krum (15mal)
+    """
     attack = str(config.get("attack-type", "none"))
     defense = str(config.get("defense-type", "none"))
 
@@ -118,12 +128,63 @@ def short_defense_label(config: dict) -> str:
         "bulyan": "Bulyan",
         "norm_clipping": "Norm Clipping",
     }
-    return _DEFENSE_NAMES.get(defense, defense.replace("_", " ").title())
+    base = _DEFENSE_NAMES.get(defense, defense.replace("_", " ").title())
+
+    # Add malicious client count
+    mal_ids = str(config.get("malicious-client-ids", "")).strip()
+    if mal_ids:
+        n_mal = len([x for x in mal_ids.split(",") if x.strip()])
+        suffix = f"{n_mal}mal"
+    else:
+        suffix = ""
+
+    # Add participation mode if partial
+    fraction_train = float(config.get("fraction-train", 1.0))
+    if fraction_train < 1.0:
+        suffix = f"{suffix}, partial" if suffix else "partial"
+
+    if suffix:
+        return f"{base} ({suffix})"
+    return base
+
+
+# Distinct colors for any label not in DEFENSE_STYLES
+_PALETTE = [
+    "#1f77b4", "#d62728", "#2ca02c", "#ff7f0e", "#9467bd",
+    "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+    "#aec7e8", "#ffbb78", "#98df8a", "#ff9896", "#c5b0d5",
+]
+_assigned_colors: dict[str, dict] = {}
 
 
 def get_defense_style(label: str) -> dict:
-    """Return color/linestyle/linewidth for a defense label."""
-    return DEFENSE_STYLES.get(label, _DEFAULT_STYLE)
+    """Return color/linestyle/linewidth for a defense label.
+
+    Falls back to a deterministic per-label assignment from a palette
+    when the label is not in DEFENSE_STYLES (e.g., 'No Defense (5mal)').
+    """
+    if label in DEFENSE_STYLES:
+        return DEFENSE_STYLES[label]
+    if label in _assigned_colors:
+        return _assigned_colors[label]
+    # Pick line style based on defense family
+    if "Krum" in label:
+        ls = "--"
+    elif "FedMedian" in label or "Trimmed" in label:
+        ls = "-."
+    elif "Bulyan" in label:
+        ls = ":"
+    elif "Clean" in label:
+        ls = "-"
+    else:
+        ls = "-"
+    # Solid for full participation, dotted for partial
+    if "partial" in label.lower():
+        ls = ":"
+    color = _PALETTE[len(_assigned_colors) % len(_PALETTE)]
+    style = {"color": color, "ls": ls, "lw": 1.5}
+    _assigned_colors[label] = style
+    return style
 
 
 # ── data loaders ──────────────────────────────────────────────────────

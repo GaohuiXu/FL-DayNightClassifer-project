@@ -75,6 +75,9 @@ trigger-size = 4
 trigger-value = 1.0
 trigger-position = "bottom-right"
 
+# ===== checkpoints =====
+checkpoint-rounds = ""  # comma-separated rounds to save, e.g. "0,5,10,25,50,75,100"
+
 # ===== defense =====
 defense-type = "none"
 clip-norm = 5.0  # placeholder; update after inspecting Exp 1 norm log

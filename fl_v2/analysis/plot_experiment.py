@@ -27,6 +27,7 @@ from analysis.common import (
     load_norm_log,
     load_rounds_csv,
     load_summary_json,
+    short_defense_label,
 )
 
 
@@ -214,7 +215,6 @@ def main():
 
     # Analyze each experiment
     for exp_dir in exp_dirs:
-        label = derive_label(exp_dir)
         print(f"\nAnalyzing: {exp_dir.name}")
 
         data = load_rounds_csv(exp_dir / "rounds.csv")
@@ -229,6 +229,10 @@ def main():
         config = None
         if (exp_dir / "config.yaml").exists():
             config = load_config_yaml(exp_dir / "config.yaml")
+
+        # Use config-based label if available (includes mal count + participation),
+        # otherwise fall back to path-derived label.
+        label = short_defense_label(config) if config else derive_label(exp_dir)
 
         print_summary(label, data, summary, config)
         plot_training_curves(data, summary, label, args.output_dir)

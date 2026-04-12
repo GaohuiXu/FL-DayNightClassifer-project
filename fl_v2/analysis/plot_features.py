@@ -36,13 +36,21 @@ from analysis.common import (
 
 
 # ── data loading ─────────────────────────────────────────────────────
-def load_features(exp_dir: Path) -> dict | None:
-    """Load features_test.npz and config from an experiment directory."""
-    npz_path = exp_dir / "checkpoints" / "features_test.npz"
+def load_features(exp_dir: Path, round_num: int | None = None) -> dict | None:
+    """Load features from an experiment directory.
+
+    Args:
+        exp_dir: Path to experiment directory.
+        round_num: Specific round to load (None = final model).
+    """
+    if round_num is not None:
+        npz_path = exp_dir / "checkpoints" / f"round_{round_num:04d}_features.npz"
+    else:
+        npz_path = exp_dir / "checkpoints" / "features_test.npz"
     config_path = exp_dir / "config.yaml"
 
     if not npz_path.exists():
-        print(f"  [skip] {exp_dir.name}: features_test.npz not found")
+        print(f"  [skip] {exp_dir.name}: {npz_path.name} not found")
         return None
 
     data = dict(np.load(npz_path))
@@ -54,6 +62,7 @@ def load_features(exp_dir: Path) -> dict | None:
         "config": config,
         "label": label,
         "dir": exp_dir,
+        "round": round_num,
     }
 
 
@@ -260,6 +269,73 @@ def plot_comparison_panel(
     plt.close(fig)
 
 
+# ── trajectory filmstrip ─────────────────────────────────────────────
+def plot_trajectory_filmstrip(
+    exp_dir: Path,
+    rounds: list[int],
+    target_label: int,
+    output_dir: Path,
+    perplexity: int = 30,
+) -> None:
+    """Generate a filmstrip of t-SNE plots across training rounds for one experiment."""
+    # Load config for label
+    config_path = exp_dir / "config.yaml"
+    config = load_config_yaml(config_path) if config_path.exists() else {}
+    exp_label = short_defense_label(config) if config else exp_dir.name
+
+    # Load features for each round
+    round_data = []
+    for r in rounds:
+        exp = load_features(exp_dir, round_num=r)
+        if exp is not None:
+            round_data.append((r, exp))
+        else:
+            print(f"  [skip] round {r} features not found for {exp_dir.name}")
+
+    if len(round_data) < 2:
+        print(f"  [skip] need at least 2 rounds for trajectory, got {len(round_data)}")
+        return
+
+    n = len(round_data)
+    fig, axes = plt.subplots(1, n, figsize=(2.5 * n, 2.8), squeeze=False)
+
+    for idx, (r, exp) in enumerate(round_data):
+        ax = axes[0][idx]
+        data = exp["data"]
+
+        features_triggered = data.get("features_triggered")
+        print(f"  Computing t-SNE for {exp_label} round {r}...")
+        coords_clean, coords_triggered = compute_joint_tsne(
+            data["features_clean"],
+            features_triggered,
+            perplexity=perplexity,
+        )
+
+        plot_feature_scatter(
+            ax, coords_clean, data["labels"],
+            coords_triggered, data.get("preds_triggered"),
+            target_label, f"Round {r}",
+        )
+
+    # Shared legend
+    handles, labels_leg = axes[0][0].get_legend_handles_labels()
+    if handles:
+        fig.legend(
+            handles, labels_leg,
+            loc="lower center", ncol=min(3, len(handles)),
+            bbox_to_anchor=(0.5, -0.02),
+            fontsize=6, markerscale=1.5,
+        )
+
+    fig.suptitle(f"{exp_label} — Trajectory", fontsize=10, y=1.02)
+    fig.tight_layout()
+    fig.subplots_adjust(bottom=0.08)
+
+    safe_name = exp_label.lower().replace(" ", "_").replace("-", "_")
+    save_figure(fig, output_dir, f"{safe_name}_trajectory")
+    plt.close(fig)
+
+
 # ── main ─────────────────────────────────────────────────────────────
 def main():
     plt.rcParams.update(PUB_STYLE)
@@ -285,12 +361,26 @@ def main():
         help="t-SNE perplexity (default: 30).",
     )
     parser.add_argument(
+        "--rounds", type=int, nargs="+", default=None,
+        help="Checkpoint rounds for trajectory filmstrip (e.g., 0 5 10 25 50 75 100).",
+    )
+    parser.add_argument(
         "--no-pdf", action="store_true",
         help="Skip PDF output.",
     )
     args = parser.parse_args()
 
-    # Load all experiments
+    # Trajectory mode: generate filmstrips across rounds
+    if args.rounds:
+        print(f"Trajectory mode: rounds {args.rounds}\n")
+        for d in args.exp_dirs:
+            plot_trajectory_filmstrip(
+                d, args.rounds, args.target_label, args.output_dir, args.perplexity,
+            )
+        print(f"\nAll trajectory figures saved to: {args.output_dir}")
+        return
+
+    # Standard mode: load final features and compare across experiments
     experiments = []
     for d in args.exp_dirs:
         exp = load_features(d)

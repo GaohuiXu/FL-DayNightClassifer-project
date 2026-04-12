@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import os
 
+import torch
 import yaml
 
 from fl_v2.utils.io import ensure_dir, save_json
@@ -55,6 +56,14 @@ class ExperimentLogger:
                 writer.writeheader()
                 self._csv_initialized = True
             writer.writerow(row)
+
+    def save_checkpoint(self, server_round: int, state_dict: dict) -> None:
+        """Save model checkpoint for a given round."""
+        path = os.path.join(
+            self.exp_dir, "checkpoints", f"round_{server_round:04d}.pt"
+        )
+        torch.save(state_dict, path)
+        print(f"[logger] checkpoint saved → {path}", flush=True)
 
     def finalize(self) -> None:
         """Write summary.json. Call once after all rounds complete."""

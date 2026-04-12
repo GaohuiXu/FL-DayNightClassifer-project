@@ -182,6 +182,12 @@ def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger):
             trigger_position=trigger_position,
         )
 
+    # Parse checkpoint rounds for periodic saving (e.g., "0,5,10,25,50,75,100")
+    checkpoint_rounds_str = str(run_config.get("checkpoint-rounds", ""))
+    checkpoint_rounds: set[int] = set()
+    if checkpoint_rounds_str.strip():
+        checkpoint_rounds = {int(r.strip()) for r in checkpoint_rounds_str.split(",") if r.strip()}
+
     def evaluate_fn(server_round: int, arrays: ArrayRecord) -> Optional[MetricRecord]:
         model = create_model(model_type, num_classes=num_classes)
         model.load_state_dict(arrays.to_torch_state_dict())
@@ -220,6 +226,11 @@ def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger):
 
         metrics_dict = {"server-round": int(server_round), **results}
         logger.log_round(server_round, metrics_dict)
+
+        # Save periodic checkpoint if this round is in the configured set
+        if server_round in checkpoint_rounds:
+            logger.save_checkpoint(server_round, arrays.to_torch_state_dict())
+
         return MetricRecord(metrics_dict)
 
     return evaluate_fn
