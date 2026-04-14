@@ -52,7 +52,14 @@ def discover_profiles(profile_dir: Path) -> list[dict]:
 #  Comparison table
 # ─────────────────────────────────────────────────────────────
 _FINAL_METRIC_KEYS = [
+    # Axis A — Injection Success
     "asr",
+    # Axis A extended — logit-space (requires --load-head)
+    "target_logit_mean_triggered",
+    "target_logit_mean_genuine",
+    "margin_triggered",
+    "margin_genuine",
+    # Axis B — Injection Geometry
     "centroid_l2",
     "centroid_cos",
     "concentration",
@@ -60,11 +67,14 @@ _FINAL_METRIC_KEYS = [
     "shift_rank_eff",
     "shift_top3_energy",
     "shift_alignment",
+    "source_identity_preservation",
+    # Axis C — Injection Stealth
     "linear_probe_acc",
     "mmd2_rbf",
     "wasserstein2",
     "spectral_score",
     "silhouette",
+    "probe_pc_alignment",
 ]
 
 _DYNAMICS_KEYS = [

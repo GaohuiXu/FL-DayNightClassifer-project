@@ -51,6 +51,29 @@ Mean logit margin `logit_{c*}(τ(x)) − max_{c ≠ c*} logit_c(τ(x))` over `D_
 
 **Interpretation:** ASR alone is binary at the sample level; margin gives a continuous view of "how confidently" the backdoor fires.
 
+### A3 / A4. Target-logit mean on triggered vs genuine features
+
+Using the trained classifier head `(W, b)`, compute `logit_{c*}(f) = W[c*] \cdot f + b[c*]` for both feature groups:
+
+$$
+\text{A3} = \text{mean}_{x \in D_{\text{trig}}}\; W[c^*] \cdot f(\tau(x)) + b[c^*]
+$$
+$$
+\text{A4} = \text{mean}_{x \in D_{\text{clean}}}\; W[c^*] \cdot f(x) + b[c^*]
+$$
+
+**Interpretation.** A3 and A4 probe whether the classifier head treats triggered inputs *as if they were* genuine target-class samples, independent of where the features geometrically sit. When `A3 ≈ A4` despite a large `centroid_l2` (Axis B1), the evidence strongly favors **classifier-head corruption** — the head has been trained to assign the same (or comparable) target-class logit to a new, geometrically-distinct region of feature space.
+
+### A5. Margin of triggered samples
+
+$$
+\text{A5} = \text{mean}_{x \in D_{\text{trig}}}\; \left( \text{logit}_{c^*}(f(\tau(x))) - \max_{j \neq c^*} \text{logit}_j(f(\tau(x))) \right)
+$$
+
+Continuous counterpart to ASR. Positive mean margin means triggered features cross the `c*` decision boundary; larger margin = the crossing is deep, not marginal.
+
+*Metrics A3-A5 require the trained classifier head. They are computed only when `--load-head` is enabled in the CLI, which loads `final_model.pt` once per experiment and extracts `fc.weight`/`fc.bias`.*
+
 ---
 
 ## Axis B — Injection Geometry
@@ -128,11 +151,37 @@ Average over all source classes weighted by sample count.
 - High positive: the attack mimics the natural "source → target" direction (stealthy).
 - Near zero: the attack creates a novel, orthogonal direction (detectable anomaly).
 
+### B7. Source identity preservation
+
+For each source class `s ≠ c*`, compute two per-class centroids — one in triggered features and one in clean features — from the same underlying samples:
+
+$$
+\mu_T^{(s)} = \text{mean}\{f(\tau(x)) : y(x) = s\}, \quad
+\mu_C^{(s)} = \text{mean}\{f(x) : y(x) = s\}
+$$
+
+Measure how well the triggered representation preserves the *natural* per-class centroid spread by comparing the mean pairwise distances:
+
+$$
+\text{sip} = \frac{\frac{1}{\binom{|S|}{2}} \sum_{s < s'} \|\mu_T^{(s)} - \mu_T^{(s')}\|_2}{\frac{1}{\binom{|S|}{2}} \sum_{s < s'} \|\mu_C^{(s)} - \mu_C^{(s')}\|_2}
+$$
+
+The clean per-class centroid spread is the *reference scale* — it is the natural inter-class structure that the feature extractor has learned for non-target classes.
+
+**Range:** [0, ∞). **Interpretation:**
+- **≈ 1**: triggered features preserve the same per-source centroid structure as clean features. The attack is a **uniform shift** that moves each source class by roughly the same vector in feature space, so their relative positions are unchanged. Source-class identity is preserved through the transformation; the model still "knows" which source class produced the triggered sample. This is characteristic of a **weak / heuristic attack** (e.g., the pixel trigger).
+- **→ 0**: triggered features collapse toward a single point; per-source centroids all coincide. The attack produces a **destination cluster** — triggered samples lose source identity and become interchangeable in feature space. This is characteristic of a **designed / optimization-based attack** that explicitly targets a specific feature-space region.
+- **> 1**: triggered per-source centroids are *more* spread than their clean counterparts. Unusual; indicates the attack disrupts the feature extractor beyond the natural class structure.
+
+The normalization against the clean per-class spread gives this metric a natural reference point: 1.0 is "no restructuring", and lower values correspond to stronger structural manipulation. The metric is independent of the feature extractor's absolute scale, which makes it comparable across models and training regimes.
+
 ---
 
 ## Axis C — Injection Stealth
 
 **Question:** *Can a defender distinguish triggered representations from genuine target-class representations?*
+
+> **Important clarification.** "Stealth" in this framework refers specifically to **representation-space indistinguishability**: can a defender with access to features tell triggered samples apart from genuine target-class samples? This is **not** the same as "the backdoor is hidden from the model's classifier head." A backdoor can have high ASR (the classifier head outputs the target class) while simultaneously having features that are trivially separable from genuine target-class features (high linear probe accuracy). Such an attack is **stealthy to the classifier-head decision** but **exposed to any supervised representation-space defense**. The framework's stealth metrics measure the latter.
 
 ### C1. Linear probe accuracy
 
@@ -185,9 +234,25 @@ where `p` is the top-PC projection and `σ̂_p` is its pooled standard deviation
 Silhouette coefficient of the two-cluster partition `{genuine, triggered}`.
 
 **Range:** [−1, 1]. **Interpretation:**
-- `≈ 1` : tight, well-separated clusters (attack is a clear anomaly).
-- `≈ 0` : fully mixed (attack is stealthy).
-- `< 0` : triggered samples are closer to genuine cluster on average than to each other — the attack has successfully blended in.
+- `≈ 1` : tight, well-separated clusters (attack is a clear anomaly in representation space).
+- `≈ 0` : fully mixed distributions (attack blends into the target-class region).
+- `< 0` : average pairwise distance *within* the triggered cluster exceeds average distance to the genuine cluster — the triggered group does not form a coherent cluster and overlaps heavily with genuine features (one interpretation of representation-space stealth; another is that the triggered features do not cluster among themselves at all).
+
+Note: Silhouette is based on Euclidean distances between all points and does *not* search for a discriminative direction. A successful attack can have silhouette near 0 while still being trivially separable by a supervised linear probe (C1) because the separating direction may not align with the dominant variance axes that silhouette implicitly weighs.
+
+### C6. Probe direction vs top-PC alignment
+
+Let `w_{probe}` be the weight vector of the trained linear probe from C1 (the direction that best separates triggered from genuine features). Let `v_1` be the top principal component of the concatenated `{genuine, triggered}` features. Define:
+
+$$
+\text{pc-align} = \left| \frac{\langle w_{probe}, v_1 \rangle}{\|w_{probe}\|_2 \|v_1\|_2} \right|
+$$
+
+**Range:** [0, 1]. **Interpretation:**
+- **Near 1**: the probe uses the same direction PCA finds — the spectral signature (C4) and the probe agree. Spectral-based defenses (Tran et al. 2018) would detect the attack.
+- **Near 0**: the probe uses a direction **orthogonal** to the top principal component. The separating signal is hidden below the top variance; spectral defenses miss it; only supervised methods find it.
+
+This metric is what quantitatively resolves the apparent paradox between high linear probe accuracy (C1) and low spectral signature (C4) that we observe on the pixel-trigger baseline: if `pc-align ≈ 0`, both measurements are self-consistent and reflect the same underlying structure — a separating direction that carries little raw variance.
 
 ---
 
@@ -244,22 +309,26 @@ $$
 | Axis | Metric | Good-attack value |
 |------|--------|-------------------|
 | A | ASR | high (→ 1) |
+| A | A3/A4 target-logit gap | small (triggered logit ≈ genuine logit) |
+| A | A5 triggered margin | large positive |
 | B | Centroid distance | low |
 | B | Centroid cosine | high (→ 1) |
 | B | Concentration | low (tight) OR ≈ genuine class (stealthy) |
 | B | Shift rank | low (1-3), if designed; variable if heuristic |
 | B | Shift alignment | high (exploits natural direction) |
+| B | Source identity preservation (B7) | **low** (destination cluster, not per-source nudge) |
 | C | Linear probe accuracy | near 0.5 (indistinguishable) |
 | C | MMD² | small |
 | C | Wasserstein-2 | small |
 | C | Spectral score | small |
 | C | Silhouette | ≤ 0 (mixed) |
+| C | Probe–PC alignment (C6) | any value is informative; near 1 means spectral defenses would also catch it |
 | D | Time-to-ASR-90 | small |
 | D | ASR stability | small |
 | D | U-shape depth | small (attack not threatened) |
 | D | Recovery rate | high |
 
-Note the **tension between B and C**: a "concentrated" attack (B) is usually *easier to detect* (C). A truly strong attack balances the two — tight enough to reliably fire on triggers, diffuse enough to blend into the genuine class distribution.
+Note the **tension between B and C**: a "concentrated" attack (B3 low) is usually *easier to detect* (C high) if the compact cluster sits outside the genuine target-class distribution. A truly strong attack balances the two — the triggered cluster should be **inside** the genuine class distribution, which simultaneously gives low C1/C2/C3 (stealth) and arbitrary B3 (concentration).
 
 ---
 
@@ -300,7 +369,54 @@ The framework's value is not in any single metric but in the **profile shape**: 
 ## Limitations
 
 1. **Feature-space only.** The framework measures representation-space behavior; it does not assess input-space properties (trigger visibility, perceptual similarity to clean inputs).
-2. **Global centroids.** Many metrics summarize `D_trig` by its centroid/covariance. Multimodal or clustered triggered distributions are not fully captured. Future extension: per-source-class breakdowns.
+2. **Global centroids.** Many metrics summarize `D_trig` by its centroid/covariance. Multimodal or clustered triggered distributions are only partially captured by global centroids; the **B7 source-identity-preservation** metric addresses this by explicitly measuring per-source-class centroid spread.
 3. **Linear probe is a lower bound on detectability.** A nonlinear detector might separate features that a linear probe cannot. We use linear probe for efficiency and interpretability.
 4. **Finite-sample effects.** MMD and Wasserstein estimates are noisy for small `N_T` (e.g., at round 0 when the model is random). Report confidence intervals when sample size is small.
 5. **Correlated with ASR.** Several metrics (especially A1 and parts of B) are correlated with ASR by construction. The value of the framework is in the metrics that are *not* correlated with ASR — those reveal structure that ASR alone cannot see.
+6. **Probe-based defenses require labels.** The linear probe (C1) and the probe-PC alignment (C6) require labeled clean and triggered features to train. In practice a defender does not have labeled triggered data at test time. These metrics should therefore be read as **upper bounds on the stealth of the attack against a hypothetical defender who knows the trigger** — useful for comparing attacks, but not directly usable as a defense mechanism without further design.
+
+---
+
+## Corrected Interpretation: The Joint Weak Attack Pattern
+
+An initial reading of the framework metrics on the pixel-trigger baseline tempted us to a simpler hypothesis: *successful backdoor attacks place triggered features inside the genuine target-class cluster, producing low linear-probe accuracy (representation-space stealth) as a byproduct of attack success.* The data on the pixel-trigger baseline **refutes** that hypothesis. Across all successful configurations (ASR ≥ 0.86), the linear-probe accuracy is 0.99–1.00 — triggered and genuine features are trivially separable in 512-dim. The corrected interpretation is the subject of this section.
+
+### What the data actually shows
+
+Three observations must be reconciled:
+1. **ASR is high** (0.86–0.97): the model's classifier head labels triggered inputs as the target class with high confidence.
+2. **Linear probe accuracy is high** (≈ 1.0): a supervised binary classifier can distinguish triggered features from genuine target-class features.
+3. **Centroid cosine is high** (0.88–0.97) but centroid L2 distance is non-trivial (1.3–3.1): the triggered centroid points in roughly the same direction as the target-class centroid but at a substantial linear distance.
+
+Observations 1 and 2 jointly imply that the triggered features do **not** lie inside the genuine target-class distribution. Observation 3 implies that they do not lie on the source side either. They occupy a **third region** of feature space — geometrically distinct from both, yet angularly aligned with the target direction.
+
+### Mechanistic interpretation
+
+The pixel-trigger backdoor is a **joint weak attack on two components**:
+
+1. **Feature extractor partial shift.** The poisoned training data teaches the convolutional backbone to respond to the 4×4 trigger patch. Triggered features move toward the target class, but the shift is incomplete: the triggered centroid is ~25-30% of the way along the `source → target` direction and stops. The shift is distributed across 25-35 effective dimensions (B5) with 75-90% energy in the top 3 components — not a single "trigger detector" but a correlated ensemble of mid-level filter responses.
+
+2. **Classifier head decision-region extension.** Simultaneously, the linear classifier head `w_2` is trained on poisoned examples where inputs from *other* classes are labeled as the target. The head accommodates this by extending its class-`c*` decision polytope to cover the new, geometrically distinct "middle region" that the feature extractor's partial shift produces. This is not memorization of specific samples — the extension generalizes because the shift is systematic (driven by the same trigger patch).
+
+Neither modification, **individually**, would succeed. A head-only attack cannot label a region it was never trained on; a feature-only attack without head corruption would not move features far enough to reach the existing `c*` region. The backdoor works because the two components meet **halfway**, exchanging responsibility: the feature extractor provides 25-30% of the movement, and the head provides the rest by redrawing the decision boundary.
+
+### Consequences for defense design
+
+The joint weak attack pattern has direct implications for defense design:
+
+1. **Spectral defenses (Tran et al. 2018) fail on this attack class.** The separating direction between triggered and genuine features is *not* the top variance direction (C6 metric ≈ 0 on the baseline). Spectral signatures look in the wrong place.
+2. **Supervised probes succeed but require labeled triggered data.** The probe accuracy of 1.00 is a theoretical ceiling, not a deployable defense. A defender without trigger knowledge cannot train such a probe directly.
+3. **Server-side unsupervised aggregation defenses are fundamentally blind to this attack if the malicious updates look like normal gradient noise.** Krum/FedMedian only help when the poisoned updates are geometric outliers in parameter space; the pixel trigger can be tuned so that per-round updates remain within the benign envelope.
+4. **Client-side defenses with access to (unlabeled) local data** are the natural path forward. A client running local test-time adaptation or activation inspection over its own labeled data can detect the split between genuine and triggered representations that the linear probe finds. This is the basis of the thesis direction.
+
+### What Phase D attacks must change
+
+For an attack to be meaningfully "stronger" than the pixel-trigger baseline **in representation space**, it must lower one or more of the following:
+
+- `linear_probe_acc`: target **< 0.8**, ideally ≤ 0.6. This requires pushing triggered features *into* the genuine class distribution, not a separate middle region.
+- `concentration_ratio`: target **closer to 1.0** (matching natural class variance). The current baseline is 2–4×.
+- `source_identity_preservation` (B7): target **low** (destination clustering), not the current high-value pattern that reveals per-source identity.
+- `centroid_l2`: target **small** (within 1–2 units), not the current 2–3+ units.
+- `probe_pc_alignment` (C6): either near 0 (probe still finds it — baseline-like) or, ideally, the whole separating direction disappears as the attack becomes indistinguishable even to supervised methods.
+
+An attack that holds ASR constant while moving any of these metrics in the right direction is a genuine advance over the pixel-trigger heuristic, not just an ASR improvement. This is the bar that Phase D (model replacement, DBA, optimization-based attacks) needs to clear.

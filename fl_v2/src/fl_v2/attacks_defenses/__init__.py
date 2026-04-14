@@ -2,6 +2,10 @@ from fl_v2.attacks_defenses.attacks.label_flipping import (
     LabelFlippingDataset,
     parse_client_ids,
 )
+from fl_v2.attacks_defenses.attacks.model_replacement import (
+    compute_replacement_scale,
+    scale_client_update,
+)
 from fl_v2.attacks_defenses.attacks.pixel_backdoor import (
     PixelBackdoorDataset,
     make_pixel_trigger_fn,
@@ -16,6 +20,8 @@ __all__ = [
     "parse_client_ids",
     "PixelBackdoorDataset",
     "make_pixel_trigger_fn",
+    "compute_replacement_scale",
+    "scale_client_update",
     "clip_updates_by_l2_norm",
     "compute_update_norms",
 ]

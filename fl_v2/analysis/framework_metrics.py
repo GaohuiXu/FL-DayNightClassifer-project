@@ -36,29 +36,124 @@ from analysis.common import load_config_yaml, short_defense_label
 
 
 # ═══════════════════════════════════════════════════════════════════
+#  HELPER — LOAD CLASSIFIER HEAD FROM CHECKPOINT
+# ═══════════════════════════════════════════════════════════════════
+def load_classifier_head(
+    checkpoint_path: Path,
+    model_type: str = "resnet18",
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """Load only the classifier head weights from a saved checkpoint.
+
+    For ResNet18 (our GTSRBResNet18) the head is named `fc.weight` / `fc.bias`.
+    For the small CNN baseline it is `classifier.4.weight` / `classifier.4.bias`
+    (last Linear layer inside the Sequential classifier).
+
+    Returns (W, b) as numpy arrays with shapes (num_classes, d) and (num_classes,),
+    or None on failure.
+    """
+    try:
+        import torch
+    except ImportError:
+        return None
+
+    try:
+        state = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    except Exception as e:
+        print(f"  [warn] cannot load checkpoint {checkpoint_path}: {e}")
+        return None
+
+    if model_type == "resnet18":
+        w_key, b_key = "fc.weight", "fc.bias"
+    else:
+        # CNN: classifier = [Flatten, Linear(2048,256), ReLU, Dropout, Linear(256,43)]
+        # The last Linear is at index 4.
+        w_key, b_key = "classifier.4.weight", "classifier.4.bias"
+
+    if w_key not in state or b_key not in state:
+        # Try to find any fc.* or classifier.*.weight with matching shape
+        print(f"  [warn] expected keys {w_key}/{b_key} missing; available: "
+              f"{[k for k in state.keys() if 'fc' in k or 'classifier' in k][:8]}")
+        return None
+
+    W = state[w_key].detach().cpu().numpy()
+    b = state[b_key].detach().cpu().numpy()
+    return W, b
+
+
+# ═══════════════════════════════════════════════════════════════════
 #  AXIS A — INJECTION SUCCESS
 # ═══════════════════════════════════════════════════════════════════
 def compute_axis_a(
     labels: np.ndarray,
     preds_triggered: np.ndarray,
     target: int,
+    features_clean: np.ndarray | None = None,
+    features_triggered: np.ndarray | None = None,
+    head_weights: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> dict:
-    """A1 ASR + A2 target margin (if logits available — here we only have preds).
+    """A1 ASR (from preds) + optionally A3/A4/A5 logit-space metrics.
 
     Args:
         labels: true labels (N,)
         preds_triggered: predictions on triggered inputs (N,)
         target: target class label
+        features_clean, features_triggered: (N, d) arrays. Required for A3-A5.
+        head_weights: (W, b) tuple from load_classifier_head. Required for A3-A5.
     """
     non_target = labels != target
+    target_mask = labels == target
+
     if non_target.sum() == 0:
         return {"asr": 0.0, "n_triggered": 0}
 
     asr = float((preds_triggered[non_target] == target).mean())
-    return {
+    result = {
         "asr": asr,
         "n_triggered": int(non_target.sum()),
     }
+
+    # A3/A4/A5: logit-space separation (only if head weights + features provided)
+    if head_weights is not None and features_clean is not None and features_triggered is not None:
+        W, b = head_weights
+        try:
+            # Triggered logits over non-target samples
+            feat_T = features_triggered[non_target]  # (N_T, d)
+            feat_C = features_clean[target_mask]     # (N_C, d)
+
+            logits_T = feat_T @ W.T + b  # (N_T, num_classes)
+            logits_C = feat_C @ W.T + b  # (N_C, num_classes)
+
+            # A3: mean target-class logit for triggered samples
+            target_logit_T = logits_T[:, target]
+            # A4: mean target-class logit for genuine samples
+            target_logit_C = logits_C[:, target]
+
+            # A5: margin — target logit minus max over non-target classes
+            # (for triggered samples)
+            mask_nontarget = np.ones(W.shape[0], dtype=bool)
+            mask_nontarget[target] = False
+            other_max_T = logits_T[:, mask_nontarget].max(axis=1)
+            margin_T = target_logit_T - other_max_T
+
+            # Same margin metric for genuine target-class samples (sanity check)
+            other_max_C = logits_C[:, mask_nontarget].max(axis=1)
+            margin_C = target_logit_C - other_max_C
+
+            result.update({
+                "target_logit_mean_triggered": float(target_logit_T.mean()),
+                "target_logit_std_triggered":  float(target_logit_T.std()),
+                "target_logit_mean_genuine":   float(target_logit_C.mean()),
+                "target_logit_std_genuine":    float(target_logit_C.std()),
+                "margin_triggered":            float(margin_T.mean()),
+                "margin_genuine":              float(margin_C.mean()),
+                "logit_ratio_T_over_C":        float(
+                    target_logit_T.mean() / (abs(target_logit_C.mean()) + 1e-12)
+                ),
+            })
+        except Exception as e:
+            print(f"  [warn] logit-space metrics failed: {e}")
+
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -152,6 +247,51 @@ def compute_axis_b(
     else:
         shift_alignment = 0.0
 
+    # B7: source identity preservation (normalized version)
+    #
+    # Compare the per-class spread of triggered centroids against the per-class
+    # spread of the original (clean) centroids. The reference scale is the natural
+    # class structure of the model — not an arbitrary variance measure.
+    #
+    #   sip = mean_pairwise_dist(triggered per-class centroids)
+    #         ─────────────────────────────────────────────────
+    #         mean_pairwise_dist(clean    per-class centroids)
+    #
+    #   ≈ 1   -> triggered features preserve per-source inter-class structure
+    #            exactly — the attack is a uniform shift that keeps source
+    #            identity readable (characteristic of pixel-trigger heuristic).
+    #   → 0   -> triggered features collapse to a single destination cluster;
+    #            source identity is destroyed (characteristic of a designed
+    #            attack that targets a specific feature-space region).
+    #   > 1   -> triggered features are even more spread than clean
+    #            (unusual, would indicate the attack disrupts the feature
+    #            extractor beyond the original class structure).
+    per_source_trig = []
+    per_source_clean = []
+    for c in non_target_classes:
+        class_mask = labels == c
+        if class_mask.sum() < 2:
+            continue
+        per_source_trig.append(features_triggered[class_mask].mean(axis=0))
+        per_source_clean.append(features_clean[class_mask].mean(axis=0))
+
+    if len(per_source_trig) >= 2:
+        trig_centroids = np.stack(per_source_trig)
+        clean_centroids = np.stack(per_source_clean)
+
+        trig_dists = np.sqrt(np.maximum(_sq_dist(trig_centroids, trig_centroids), 0))
+        clean_dists = np.sqrt(np.maximum(_sq_dist(clean_centroids, clean_centroids), 0))
+
+        iu = np.triu_indices(len(trig_centroids), k=1)
+        mean_trig_spread = float(trig_dists[iu].mean())
+        mean_clean_spread = float(clean_dists[iu].mean())
+
+        source_identity_preservation = float(
+            mean_trig_spread / (mean_clean_spread + 1e-12)
+        )
+    else:
+        source_identity_preservation = 0.0
+
     return {
         "centroid_l2": centroid_l2,
         "centroid_cos": centroid_cos,
@@ -161,6 +301,7 @@ def compute_axis_b(
         "shift_rank_eff": shift_rank,
         "shift_top3_energy": top3_energy,
         "shift_alignment": shift_alignment,
+        "source_identity_preservation": source_identity_preservation,
     }
 
 
@@ -258,6 +399,7 @@ def compute_axis_c(
     X = np.concatenate([feat_C[idx_C], feat_T[idx_T]], axis=0)
     y = np.array([0] * n_min + [1] * n_min)
 
+    probe_weights = None
     try:
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=seed, stratify=y,
@@ -265,6 +407,8 @@ def compute_axis_c(
         probe = LogisticRegression(max_iter=1000, random_state=seed)
         probe.fit(X_train, y_train)
         probe_acc = float(probe.score(X_test, y_test))
+        # Retain the hyperplane direction for C6
+        probe_weights = probe.coef_[0]  # (d,)
     except Exception:
         probe_acc = float("nan")
 
@@ -288,6 +432,7 @@ def compute_axis_c(
     # C4: spectral signature score (top-PC separation)
     combined = np.concatenate([feat_C, feat_T], axis=0)
     group = np.array([0] * len(feat_C) + [1] * len(feat_T))
+    top_pc = None
     try:
         pca = PCA(n_components=1, random_state=seed)
         proj = pca.fit_transform(combined).ravel()
@@ -295,6 +440,8 @@ def compute_axis_c(
         m1 = proj[group == 1].mean()
         std_pooled = proj.std() + 1e-12
         spectral = float(abs(m0 - m1) / std_pooled)
+        # Retain the top-PC direction for C6
+        top_pc = pca.components_[0]  # (d,)
     except Exception:
         spectral = float("nan")
 
@@ -309,12 +456,29 @@ def compute_axis_c(
     except Exception:
         sil = float("nan")
 
+    # C6: probe direction vs top principal component alignment
+    # Near 0 -> probe uses a direction orthogonal to top variance
+    #           (spectral defenses fail, supervised probes succeed)
+    # Near 1 -> probe and spectral defense would agree
+    if probe_weights is not None and top_pc is not None:
+        pw_norm = norm(probe_weights)
+        tp_norm = norm(top_pc)
+        if pw_norm > 1e-12 and tp_norm > 1e-12:
+            probe_pc_alignment = float(
+                abs(np.dot(probe_weights, top_pc) / (pw_norm * tp_norm))
+            )
+        else:
+            probe_pc_alignment = float("nan")
+    else:
+        probe_pc_alignment = float("nan")
+
     return {
         "linear_probe_acc": probe_acc,
         "mmd2_rbf": mmd2,
         "wasserstein2": w2,
         "spectral_score": spectral,
         "silhouette": sil,
+        "probe_pc_alignment": probe_pc_alignment,
     }
 
 
@@ -397,8 +561,13 @@ def compute_round_profile(
     data: dict,
     target: int,
     seed: int = 42,
+    head_weights: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> dict:
-    """Compute axes A, B, C for one round."""
+    """Compute axes A, B, C for one round.
+
+    If head_weights (W, b) is provided, axis A also includes the logit-space
+    metrics (A3/A4/A5).
+    """
     features_clean = data["features_clean"]
     features_triggered = data.get("features_triggered")
     labels = data["labels"]
@@ -410,7 +579,14 @@ def compute_round_profile(
     if preds_triggered is None:
         preds_triggered = np.full(len(labels), -1)
 
-    axis_a = compute_axis_a(labels, preds_triggered, target)
+    axis_a = compute_axis_a(
+        labels,
+        preds_triggered,
+        target,
+        features_clean=features_clean,
+        features_triggered=features_triggered,
+        head_weights=head_weights,
+    )
     axis_b = compute_axis_b(features_clean, features_triggered, labels, target)
     axis_c = compute_axis_c(features_clean, features_triggered, labels, target, seed=seed)
 
@@ -422,26 +598,47 @@ def compute_full_profile(
     rounds: list[int],
     target: int,
     seed: int = 42,
+    checkpoint_path: Path | None = None,
+    model_type: str = "resnet18",
 ) -> dict:
-    """Compute profile (axes A, B, C per round + axis D aggregated)."""
+    """Compute profile (axes A, B, C per round + axis D aggregated).
+
+    If checkpoint_path is provided, the classifier head weights are loaded once
+    and passed to every per-round computation, enabling logit-space metrics.
+    """
+    # Load classifier head once if requested
+    head_weights = None
+    if checkpoint_path is not None:
+        head_weights = load_classifier_head(checkpoint_path, model_type=model_type)
+        if head_weights is not None:
+            W, b = head_weights
+            print(f"  [head] loaded: W shape={W.shape}, b shape={b.shape}")
+        else:
+            print("  [head] unavailable — skipping logit-space metrics")
+
     trajectory = []
     for r in rounds:
         data = load_round_features(exp_dir, r)
         if data is None or "features_triggered" not in data:
             continue
-        round_metrics = compute_round_profile(data, target, seed=seed)
+        round_metrics = compute_round_profile(
+            data, target, seed=seed, head_weights=head_weights,
+        )
         if round_metrics:
             round_metrics["round"] = r
             trajectory.append(round_metrics)
             print(f"    round {r:>3d}: ASR={round_metrics['asr']:.2%}  "
                   f"probe={round_metrics.get('linear_probe_acc', float('nan')):.3f}  "
                   f"mmd={round_metrics.get('mmd2_rbf', float('nan')):.3f}  "
-                  f"rank={round_metrics.get('shift_rank_eff', 0)}")
+                  f"rank={round_metrics.get('shift_rank_eff', 0)}  "
+                  f"pc_align={round_metrics.get('probe_pc_alignment', float('nan')):.3f}")
 
     # Final-round snapshot (from features_test.npz if present, else last trajectory entry)
     final_data = load_round_features(exp_dir, None)
     if final_data is not None and "features_triggered" in final_data:
-        final_metrics = compute_round_profile(final_data, target, seed=seed)
+        final_metrics = compute_round_profile(
+            final_data, target, seed=seed, head_weights=head_weights,
+        )
         final_metrics["round"] = "final"
     elif trajectory:
         final_metrics = {k: v for k, v in trajectory[-1].items()}
@@ -505,23 +702,42 @@ def main():
     parser.add_argument("--target-label", type=int, default=2)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--load-head", action="store_true",
+                        help="Load classifier head from final_model.pt to "
+                             "compute logit-space metrics (A3/A4/A5).")
     args = parser.parse_args()
 
     config_path = args.exp_dir / "config.yaml"
     config = load_config_yaml(config_path) if config_path.exists() else {}
     label = short_defense_label(config) if config else args.exp_dir.name
+    model_type = str(config.get("model-type", "resnet18")) if config else "resnet18"
 
     # Add mal count to name if not already in label
     mal_ids = str(config.get("malicious-client-ids", "")).strip()
     n_mal = len([x for x in mal_ids.split(",") if x.strip()]) if mal_ids else 0
 
+    # Resolve checkpoint path for head loading
+    checkpoint_path = None
+    if args.load_head:
+        checkpoint_path = args.exp_dir / "checkpoints" / "final_model.pt"
+        if not checkpoint_path.exists():
+            print(f"  [warn] --load-head requested but {checkpoint_path} not found")
+            checkpoint_path = None
+
     print(f"\n  Computing profile for: {label}")
     print(f"  Experiment dir: {args.exp_dir.name}")
     print(f"  Target label: {args.target_label}")
     print(f"  N malicious: {n_mal}")
+    print(f"  Model type:   {model_type}")
+    print(f"  Load head:    {checkpoint_path is not None}")
 
     profile = compute_full_profile(
-        args.exp_dir, args.rounds, args.target_label, seed=args.seed,
+        args.exp_dir,
+        args.rounds,
+        args.target_label,
+        seed=args.seed,
+        checkpoint_path=checkpoint_path,
+        model_type=model_type,
     )
     profile["label"] = label
     profile["n_malicious"] = n_mal

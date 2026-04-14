@@ -2,22 +2,23 @@
 #SBATCH -A NAISS2025-22-1113
 #SBATCH -p alvis
 #SBATCH -C NOGPU
-#SBATCH -t 0-04:00:00
-#SBATCH -J phaseC2_framework
+#SBATCH -t 0-02:00:00
+#SBATCH -J phaseD_framework
 #SBATCH -o /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/slurm/%x_%j.out
 #SBATCH -e /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/slurm/%x_%j.err
 
 # ──────────────────────────────────────────────────────────────
-# Phase C v2 — Representation-space framework metrics.
+# Phase D — Framework metrics on model-replacement experiments.
 #
-# Computes the 4-axis profile for each experiment using already-
-# extracted features (reads .npz, no forward passes needed).
-# Produces per-experiment profiles + cross-experiment comparison.
+# Computes the 4-axis profile for both phaseD experiments using
+# already-extracted features (reads .npz, no forward passes).
+# Also copies the phaseC_v2 profiles into the phaseD framework dir
+# so that compare_profiles.py produces a single side-by-side table.
 #
 # Usage:
-#   sbatch analysis/run_framework.sh
-#   # or run locally after sourcing activate_env.sh:
-#   ./analysis/run_framework.sh
+#   sbatch analysis/run_phaseD_framework.sh
+#   # or locally after sourcing activate_env.sh:
+#   ./analysis/run_phaseD_framework.sh
 # ──────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -27,7 +28,6 @@ echo "Node: $(hostname)"
 echo "Start: $(date)"
 
 if [[ "${SLURM_JOB_ID:-}" != "" ]]; then
-    # Running under SLURM — need to load env
     module purge
     module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0
     cd /cephyr/users/gaohui/Alvis/thesis_workspace/fl_weather_project/fl_v2
@@ -37,29 +37,26 @@ fi
 export OPENBLAS_NUM_THREADS=16
 export PYTHONUNBUFFERED=1
 
-BASE_DIR="/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb_v2/phaseC_v2"
-PROFILE_DIR="$BASE_DIR/figures/framework/profiles"
-FIG_DIR="$BASE_DIR/figures/framework"
+PHASE_C_DIR="/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb_v2/phaseC_v2"
+PHASE_D_DIR="/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb_v2/phaseD"
+
+PROFILE_DIR="$PHASE_D_DIR/figures/framework/profiles"
+FIG_DIR="$PHASE_D_DIR/figures/framework"
 ROUNDS=(0 5 10 25 50 75 100)
 
-# Only backdoor experiments (clean has no triggered features)
-BACKDOOR_EXPS=(
-    phaseC2-backdoor-5mal-nodefense
-    phaseC2-backdoor-15mal-nodefense
-    phaseC2-backdoor-15mal-fedmedian
-    phaseC2-backdoor-5mal-krum
-    phaseC2-backdoor-15mal-krum
-    phaseC2-backdoor-5mal-nodefense-partial
-    phaseC2-backdoor-15mal-nodefense-partial
+# Only the two phaseD backdoor experiments (no clean — clean reuses phaseC_v2)
+PHASE_D_EXPS=(
+    phaseD-modelrep-5mal-nodefense
+    phaseD-modelrep-15mal-nodefense
 )
 
-# ── Step 1: Compute per-experiment profiles ──
+# ── Step 1: Compute per-experiment profiles for phaseD ──
 echo ""
 echo "═══════════════════════════════════════════════════════"
-echo "  Step 1: Per-experiment framework profiles"
+echo "  Step 1: Phase D profiles (model replacement)"
 echo "═══════════════════════════════════════════════════════"
-for exp in "${BACKDOOR_EXPS[@]}"; do
-    exp_dir="$BASE_DIR/${exp}_r100_seed42"
+for exp in "${PHASE_D_EXPS[@]}"; do
+    exp_dir="$PHASE_D_DIR/${exp}_r100_seed42"
     if [[ ! -d "$exp_dir" ]]; then
         echo "  [skip] $exp: not found"
         continue
@@ -72,10 +69,28 @@ for exp in "${BACKDOOR_EXPS[@]}"; do
         --load-head
 done
 
-# ── Step 2: Cross-experiment comparison ──
+# ── Step 2: Mirror phaseC_v2 profiles into phaseD profile dir for comparison ──
 echo ""
 echo "═══════════════════════════════════════════════════════"
-echo "  Step 2: Cross-experiment comparison"
+echo "  Step 2: Copy phaseC_v2 profiles for side-by-side comparison"
+echo "═══════════════════════════════════════════════════════"
+mkdir -p "$PROFILE_DIR"
+for f in "$PHASE_C_DIR/figures/framework/profiles/"*_profile.json; do
+    if [[ -f "$f" ]]; then
+        cp -n "$f" "$PROFILE_DIR/"
+    fi
+done
+for f in "$PHASE_C_DIR/figures/framework/profiles/"*_trajectory.csv; do
+    if [[ -f "$f" ]]; then
+        cp -n "$f" "$PROFILE_DIR/"
+    fi
+done
+echo "  [done] profiles copied (existing files preserved)"
+
+# ── Step 3: Cross-phase comparison (pixel trigger vs model replacement) ──
+echo ""
+echo "═══════════════════════════════════════════════════════"
+echo "  Step 3: Cross-phase comparison table + radar"
 echo "═══════════════════════════════════════════════════════"
 python -m analysis.compare_profiles \
     --profile-dir "$PROFILE_DIR" \

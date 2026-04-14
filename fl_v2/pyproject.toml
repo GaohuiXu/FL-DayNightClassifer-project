@@ -74,6 +74,10 @@ poison-fraction = 0.1
 trigger-size = 4
 trigger-value = 1.0
 trigger-position = "bottom-right"
+# model replacement (Bagdasaryan)
+# scale factor applied to malicious client updates when attack-type = "model_replacement"
+# 0 = auto-compute as num_participants / num_malicious_clients
+model-replacement-scale = 0.0
 
 # ===== checkpoints =====
 checkpoint-rounds = ""  # comma-separated rounds to save, e.g. "0,5,10,25,50,75,100"

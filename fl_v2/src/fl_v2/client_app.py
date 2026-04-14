@@ -15,7 +15,11 @@ from fl_v2.models import create_model
 from fl_v2.training import evaluate, train_local
 from fl_v2.utils import compute_lr, get_device
 
-from fl_v2.attacks_defenses import parse_client_ids
+from fl_v2.attacks_defenses import (
+    compute_replacement_scale,
+    parse_client_ids,
+    scale_client_update,
+)
 
 
 app = ClientApp()
@@ -157,11 +161,29 @@ def train(msg: Message, context: Context) -> Message:
     model, device = _load_model_from_message(msg, context)
     client_id, client_data = _load_client_data(context)
 
+    # Cache the global state dict for model-replacement update scaling.
+    # This is essentially free — `to_torch_state_dict()` already returns a new
+    # dict and we keep a detached CPU copy so the later scaling is cheap and
+    # does not interfere with training on GPU.
+    global_state_dict = {
+        k: v.detach().cpu().clone()
+        for k, v in msg.content["arrays"].to_torch_state_dict().items()
+    }
+
     # Read static config from run_config
     run_config = context.run_config
     default_local_epochs = int(run_config["num-local-epochs"])
     default_lr = float(run_config["learning-rate"])
     default_weight_decay = float(run_config["weight-decay"])
+
+    # Re-read attack metadata (these are already used internally by
+    # _load_client_data, but we need them again here to decide whether to
+    # apply model-replacement scaling at reply time).
+    attack_type = str(run_config.get("attack-type", "none"))
+    malicious_client_ids = parse_client_ids(
+        str(run_config.get("malicious-client-ids", ""))
+    )
+    is_malicious = client_id in malicious_client_ids
 
     # Read dynamic config from the incoming message
     config: ConfigRecord = msg.content["config"]
@@ -193,7 +215,46 @@ def train(msg: Message, context: Context) -> Message:
         weight_decay=weight_decay,
     )
 
-    arrays = ArrayRecord(model.state_dict())
+    # --- Model replacement (Bagdasaryan) --------------------------------
+    # If this is a malicious client in a model_replacement run, scale the
+    # update w_sent = w_global + scale * (w_local - w_global) so that after
+    # FedAvg averaging the malicious local model effectively replaces the
+    # global model.
+    local_state_dict = model.state_dict()
+    reply_state_dict = local_state_dict
+    if is_malicious and attack_type == "model_replacement":
+        # Scale: either fixed from config (>0) or auto from participant counts.
+        cfg_scale = float(run_config.get("model-replacement-scale", 0.0))
+        if cfg_scale > 0:
+            scale = cfg_scale
+        else:
+            num_clients_total = int(run_config["num-clients"])
+            fraction_train = float(run_config.get("fraction-train", 1.0))
+            num_participants = max(
+                int(round(num_clients_total * fraction_train)), 1,
+            )
+            scale = compute_replacement_scale(
+                num_participants=num_participants,
+                num_malicious=len(malicious_client_ids),
+                fallback=1.0,
+            )
+        # Move the local (on-device) tensors to CPU so the scaling arithmetic
+        # matches the cached global state dict (CPU).
+        local_state_cpu = {
+            k: v.detach().cpu() for k, v in local_state_dict.items()
+        }
+        reply_state_dict = scale_client_update(
+            global_state_dict=global_state_dict,
+            local_state_dict=local_state_cpu,
+            scale=scale,
+        )
+        print(
+            f"[Client {client_id}] model replacement: "
+            f"scale={scale:.3f}, round={server_round}",
+            flush=True,
+        )
+
+    arrays = ArrayRecord(reply_state_dict)
     metrics = MetricRecord(
         {
             "num-examples": client_data.num_train_samples,

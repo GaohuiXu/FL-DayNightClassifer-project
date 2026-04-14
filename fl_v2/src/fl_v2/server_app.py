@@ -175,7 +175,7 @@ def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger):
 
     # Build trigger function for ASR if backdoor attack is active
     trigger_fn = None
-    if attack_type in ("pixel_backdoor",):
+    if attack_type in ("pixel_backdoor", "model_replacement"):
         trigger_fn = make_pixel_trigger_fn(
             trigger_size=trigger_size,
             trigger_value=trigger_value,
@@ -318,7 +318,7 @@ def main(grid: Grid, context: Context) -> None:
 
     # Save trigger visualization once at startup (attack-agnostic interface)
     attack_type = str(run_config.get("attack-type", "none"))
-    if attack_type in ("pixel_backdoor",):
+    if attack_type in ("pixel_backdoor", "model_replacement"):
         trigger_size = int(run_config.get("trigger-size", 4))
         trigger_value = float(run_config.get("trigger-value", 1.0))
         trigger_position = str(run_config.get("trigger-position", "bottom-right"))
