@@ -1,4 +1,32 @@
-# Near-Term Research Roadmap — Analysis & Recommendations
+# Cycle 01 — Platform Establishment & Representation-Space Baseline
+
+**Dates:** 2026-03-25 → 2026-04-15
+**Status:** closed
+**Prerequisite cycle(s):** none (first cycle)
+**Headline result:** The pixel-trigger backdoor is a "joint weak attack" that produces a middle-region cluster linearly separable from the genuine target class. Bagdasaryan model replacement amplifies but does not change this mechanism — a clean negative result. The separating direction is nearly orthogonal to the top principal component (C6 ≈ 0), so unsupervised spectral defenses structurally miss what a supervised probe trivially catches.
+
+> **ARCHIVED (2026-04-15).** This document was the strategic plan written at
+> the end of Phase A (CNN baselines). Phases B, C, C v2, and D.1 are now
+> complete.
+>
+> **For the current cycle** see [Cycle 02](cycle_02_designed_attacks_and_client_defenses.md)
+> and the roadmap [INDEX](INDEX.md).
+>
+> **For the closed scientific findings from this cycle** see:
+>
+> - `../../CLAUDE.md` — current stage, platform status, scientific findings,
+>   near-term priorities
+> - `../representation_space_framework.md` — the 4-axis analytical
+>   framework (the concrete realization of "Idea 1" below)
+> - `../pixel_trigger_baseline.md` — closed pixel-trigger baseline profile
+> - `../model_replacement_profile.md` — closed Phase D.1 model-replacement
+>   profile (negative result: scaling alone does not change the
+>   representation-space mechanism)
+>
+> The text below is kept as a historical record of how the research plan
+> was formed. Do not treat it as the source of truth for current direction.
+>
+> **Original title:** "Near-Term Research Roadmap — Analysis & Recommendations"
 
 ## Your Three Ideas — Assessment
 

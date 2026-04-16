@@ -167,15 +167,18 @@ def main():
     )
     print(f"[extract] test samples: {len(testloader.dataset)}")
 
-    # Build trigger function if backdoor experiment
+    # Build trigger function if backdoor experiment.
+    # Both pixel_backdoor and model_replacement use the same pixel-trigger
+    # data poisoning at training time, so ASR evaluation uses the same
+    # trigger function at test time.
     trigger_fn = None
-    if attack_type in ("pixel_backdoor",):
+    if attack_type in ("pixel_backdoor", "model_replacement"):
         trigger_fn = make_pixel_trigger_fn(
             trigger_size=int(config.get("trigger-size", 4)),
             trigger_value=float(config.get("trigger-value", 1.0)),
             trigger_position=str(config.get("trigger-position", "bottom-right")),
         )
-        print(f"[extract] trigger:     pixel_backdoor (target={config.get('backdoor-target-label')})")
+        print(f"[extract] trigger:     {attack_type} (target={config.get('backdoor-target-label')})")
 
     # Extract
     print("[extract] extracting features...")

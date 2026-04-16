@@ -3,8 +3,8 @@
 # Run a Flower experiment from a YAML config file.
 #
 # Usage:
-#   ./run_experiment.sh configs/experiments/cnn/clean.yaml
-#   ./run_experiment.sh configs/experiments/resnet18/backdoor_krum.yaml
+#   ./run_experiment.sh configs/experiments/phaseC_v2/1_clean.yaml
+#   ./run_experiment.sh configs/experiments/phaseD/1_modelrep_5mal_nodefense.yaml
 #
 # The YAML file should contain only the overrides from pyproject.toml defaults.
 # Each key-value pair is converted to a --run-config argument for `flwr run`.

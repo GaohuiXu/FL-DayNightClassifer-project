@@ -42,6 +42,11 @@ def load_features(exp_dir: Path, round_num: int | None = None) -> dict | None:
     Args:
         exp_dir: Path to experiment directory.
         round_num: Specific round to load (None = final model).
+
+    Returns None if the file is missing or if every row of the saved features
+    contains non-finite entries (e.g., Bagdasaryan scale=10 produces a
+    degenerate global model in early rounds whose extracted features are
+    entirely NaN — t-SNE cannot handle these and the caller should skip).
     """
     if round_num is not None:
         npz_path = exp_dir / "checkpoints" / f"round_{round_num:04d}_features.npz"
@@ -54,6 +59,25 @@ def load_features(exp_dir: Path, round_num: int | None = None) -> dict | None:
         return None
 
     data = dict(np.load(npz_path))
+
+    # Guard: non-finite features break t-SNE / PCA.
+    fc = data.get("features_clean")
+    ft = data.get("features_triggered")
+    if fc is not None and not np.isfinite(fc).all():
+        n_bad = int((~np.isfinite(fc)).any(axis=1).sum())
+        print(
+            f"  [skip] {exp_dir.name} round={round_num}: "
+            f"non-finite clean features ({n_bad}/{len(fc)})"
+        )
+        return None
+    if ft is not None and not np.isfinite(ft).all():
+        n_bad = int((~np.isfinite(ft)).any(axis=1).sum())
+        print(
+            f"  [skip] {exp_dir.name} round={round_num}: "
+            f"non-finite triggered features ({n_bad}/{len(ft)})"
+        )
+        return None
+
     config = load_config_yaml(config_path) if config_path.exists() else {}
     label = short_defense_label(config) if config else exp_dir.name
 

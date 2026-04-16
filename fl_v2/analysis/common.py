@@ -102,16 +102,18 @@ def derive_label(path: Path) -> str:
 
 
 def short_defense_label(config: dict) -> str:
-    """Return a short label that distinguishes malicious count and participation mode.
+    """Return a short label that distinguishes attack type, malicious count,
+    and participation mode.
 
     Examples:
         Clean
-        No Defense (5mal)
-        No Defense (15mal)
-        No Defense (5mal, partial)
-        FedMedian (15mal)
-        Krum (5mal)
-        Krum (15mal)
+        Pixel-Trigger + No Defense (5mal)
+        Pixel-Trigger + No Defense (15mal)
+        Pixel-Trigger + No Defense (5mal, partial)
+        Pixel-Trigger + FedMedian (15mal)
+        Pixel-Trigger + Krum (5mal)
+        ModelRep + No Defense (5mal)
+        ModelRep + No Defense (15mal)
     """
     attack = str(config.get("attack-type", "none"))
     defense = str(config.get("defense-type", "none"))
@@ -130,6 +132,15 @@ def short_defense_label(config: dict) -> str:
     }
     base = _DEFENSE_NAMES.get(defense, defense.replace("_", " ").title())
 
+    # Attack-type prefix so pixel trigger vs model replacement are distinguished
+    _ATTACK_PREFIX = {
+        "pixel_backdoor": "Pixel-Trigger",
+        "model_replacement": "ModelRep",
+        "label_flipping": "LabelFlip",
+    }
+    attack_prefix = _ATTACK_PREFIX.get(attack, attack.replace("_", "-").title())
+    base_with_attack = f"{attack_prefix} + {base}"
+
     # Add malicious client count
     mal_ids = str(config.get("malicious-client-ids", "")).strip()
     if mal_ids:
@@ -144,8 +155,8 @@ def short_defense_label(config: dict) -> str:
         suffix = f"{suffix}, partial" if suffix else "partial"
 
     if suffix:
-        return f"{base} ({suffix})"
-    return base
+        return f"{base_with_attack} ({suffix})"
+    return base_with_attack
 
 
 # Distinct colors for any label not in DEFENSE_STYLES

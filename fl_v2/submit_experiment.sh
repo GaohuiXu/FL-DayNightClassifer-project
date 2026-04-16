@@ -3,8 +3,8 @@
 # Submit an experiment to Alvis via SLURM.
 #
 # Usage:
-#   ./submit_experiment.sh configs/experiments/clean_cnn.yaml
-#   ./submit_experiment.sh configs/experiments/backdoor_cnn_krum.yaml
+#   ./submit_experiment.sh configs/experiments/phaseC_v2/1_clean.yaml
+#   ./submit_experiment.sh configs/experiments/phaseD/1_modelrep_5mal_nodefense.yaml
 #
 # The YAML filename (without .yaml) is used as the SLURM job name,
 # so `squeue` output is easy to read.
@@ -17,10 +17,17 @@ if [[ $# -lt 1 ]]; then
     echo "Usage: $0 <experiment-yaml>"
     echo ""
     echo "Available experiments:"
-    ls -1 "$SCRIPT_DIR/configs/experiments/"*.yaml 2>/dev/null | while read -r f; do
-        name=$(basename "$f" .yaml)
-        desc=$(head -1 "$f" | sed 's/^# *//')
-        printf "  %-35s  %s\n" "$name" "$desc"
+    # Experiment YAMLs live in subdirectories under configs/experiments/
+    # (grouped by phase), so iterate the subdirectories rather than the flat
+    # top-level directory.
+    for dir in "$SCRIPT_DIR/configs/experiments"/*/; do
+        group=$(basename "$dir")
+        echo "  [$group]"
+        find "$dir" -name "*.yaml" -maxdepth 1 2>/dev/null | sort | while read -r f; do
+            name=$(basename "$f" .yaml)
+            desc=$(head -1 "$f" | sed 's/^# *//')
+            printf "    %-35s  %s\n" "$name" "$desc"
+        done
     done
     exit 1
 fi

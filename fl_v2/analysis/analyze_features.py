@@ -142,9 +142,42 @@ def analyze_experiment_trajectory(
         if "features_triggered" not in data:
             continue
 
+        # Skip rounds whose features are all NaN (happens when an attack
+        # produces a degenerate global model — e.g. the early rounds of
+        # Bagdasaryan scaling, where the scale=10 replacement corrupts
+        # the weights before honest rounds can recover).
+        fc = data["features_clean"]
+        ft = data["features_triggered"]
+        if not np.isfinite(fc).all() or not np.isfinite(ft).all():
+            n_bad_c = int((~np.isfinite(fc)).any(axis=1).sum())
+            n_bad_t = int((~np.isfinite(ft)).any(axis=1).sum())
+            print(
+                f"    round {r:>3d}: [skip] non-finite features "
+                f"(clean={n_bad_c}/{len(fc)}, triggered={n_bad_t}/{len(ft)})"
+            )
+            # Record a placeholder so downstream dynamics code still sees
+            # the round slot. ASR read from the existing preds (argmax on
+            # NaN logits may still be a valid integer class label).
+            placeholder = {
+                "round": r,
+                "asr": float("nan"),
+                "cos_trig_to_target_mean": float("nan"),
+                "cos_clean_to_target_mean": float("nan"),
+                "cos_shift": float("nan"),
+                "l2_trig_to_target_mean": float("nan"),
+                "l2_clean_to_target_mean": float("nan"),
+                "l2_shift": float("nan"),
+                "perturbation_l2_mean": float("nan"),
+                "cos_centroids": float("nan"),
+                "spectral_score": float("nan"),
+                "silhouette": float("nan"),
+            }
+            results.append(placeholder)
+            continue
+
         metrics = analyze_single(
-            data["features_clean"],
-            data["features_triggered"],
+            fc,
+            ft,
             data["labels"],
             data["preds_triggered"],
             target_label,
