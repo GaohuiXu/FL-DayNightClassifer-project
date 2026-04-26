@@ -60,7 +60,7 @@ python --version
 which flwr
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 
-# --- Start SuperLink in background (same as start_superlink.sh) ---
+# --- Start SuperLink in background ---
 echo "===== Starting SuperLink ====="
 flower-superlink \
   --insecure \

@@ -337,21 +337,12 @@ repo. Datasets, outputs, SLURM logs, and the venv are all on Mimer; nothing
 in a SLURM job reads from Cephyr.
 
 ### Day-to-day workflow
-Experiments are submitted to Alvis via `submit_experiment.sh`; see
-[`docs/scripts_guide.md`](docs/scripts_guide.md) for the full pipeline. The
-legacy local workflow below is kept for reference / debugging only and is
-not used day-to-day:
-
-```bash
-# Terminal 1
-./start_superlink.sh
-# Terminal 2
-./run_flwr_local.sh
-# STOP
-./stop_superlink.sh
-```
-
-Do not replace existing entry scripts or command-line workflow unless there is a clear, tested, and simpler alternative.
+Every experiment is submitted to Alvis via `submit_experiment.sh`; see
+[`docs/scripts_guide.md`](docs/scripts_guide.md) for the full pipeline.
+ResNet18 + Flower + Ray is too heavy for login-node execution, so there
+is no local workflow — login-node Python is for analysis and plotting
+only. (When the project later migrates to a ViT backbone the situation
+will only get worse, not better.)
 
 ### Flower federation config
 The `local-simulation-gpu` federation (50 supernodes, 0.10 GPU per
@@ -363,10 +354,6 @@ supernode) is **version-controlled in the repo** at
 the destination is what matters). On exit the per-job `/tmp` directory is
 removed. Do NOT remove the `/tmp` indirection in `run_alvis.sh` — it
 isolates concurrent jobs from each other.
-
-For the legacy local workflow, `flwr_local_env.sh` still sets
-`FLWR_HOME=$HOME/.flwr` (Cephyr home, not in the repo). If you ever lose
-that file, restore it with `cp configs/flwr_config.toml ~/.flwr/config.toml`.
 
 ### Venv reproduction
 The venv at `.venv/` (Mimer) was recreated 2026-04-27 with exact pinned

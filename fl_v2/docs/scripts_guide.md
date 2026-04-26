@@ -6,11 +6,14 @@ first — every other script assumes that environment is set up (SLURM jobs
 set it up themselves inside the job; anything you run on a login node needs
 you to set it up first).
 
-> **Current workflow note.** Since ResNet18 + Flower + Ray is too heavy for
-> login-node execution, we **do not smoke-test locally anymore**. Both
-> smoke tests (short runs) and full experiments are submitted to Alvis via
-> `submit_experiment.sh`. The "local" scripts in section 2 are kept for
-> legacy / debugging use — you likely won't use them day-to-day.
+> **Current workflow.** Every experiment — smoke test or full run — is
+> submitted to Alvis via `submit_experiment.sh`. ResNet18 + Flower + Ray
+> won't run in reasonable time on a login node, and the login node has no
+> A40 GPU. Login-node Python is for analysis / plotting only. The earlier
+> "two-terminal local SuperLink" workflow (`start_superlink.sh`,
+> `run_flwr_local.sh`, `run_experiment.sh`, `stop_superlink.sh`,
+> `flwr_local_env.sh`) was retired with the Cephyr→Mimer migration on
+> 2026-04-27 — those scripts have been removed.
 
 ---
 
@@ -71,7 +74,6 @@ found" or "libpython3.12.so missing".
 | Submitting an experiment via `submit_experiment.sh` | Handled inside `run_alvis.sh` — nothing to do |
 | Any `analysis/run_phase*.sh` submitted via `sbatch` | Script detects `SLURM_JOB_ID` and activates the env itself — nothing to do |
 | Running `analysis/run_phase*.sh` **locally** (without sbatch) | **You must `source activate_env.sh`** first |
-| Legacy local experiment runs (`run_flwr_local.sh`, `run_experiment.sh`) | **You must `source activate_env.sh`** — but we don't use these anymore, see section 2 |
 
 In practice, the only time you source it interactively is to run analysis /
 plotting on a login node after experiments have finished on Alvis.
@@ -81,9 +83,7 @@ plotting on a login node after experiments have finished on Alvis.
 ## 2. Experiment Execution
 
 > **We always submit to Alvis.** ResNet18 + Flower + Ray won't run in
-> reasonable time on a login node, and the login node has no GPU. The
-> legacy local workflow (sections 2.3–2.6) is kept for reference and the
-> occasional dry-run check, but not used in day-to-day experiments.
+> reasonable time on a login node, and the login node has no A40 GPU.
 
 ### 2.1 `run_alvis.sh` — the SLURM job template
 
@@ -107,11 +107,13 @@ SLURM directives at the top control the resource request:
 Inside the job it:
 1. Loads the PyTorch module and activates the venv (same two steps as
    `activate_env.sh`).
-2. Creates a **per-job `FLWR_HOME`** at `/tmp/flwr_${SLURM_JOB_ID}`. This
-   isolates concurrent jobs so two experiments running at once don't
-   trample each other's SuperLink state.
-3. Parses `EXPERIMENT_YAML` into `--run-config` overrides (same awk parser
-   as `run_experiment.sh`).
+2. Creates a **per-job `FLWR_HOME`** at `/tmp/flwr_${SLURM_JOB_ID}` and
+   copies [`configs/flwr_config.toml`](../configs/flwr_config.toml) (the
+   repo-checked federation config — 50 supernodes, 0.10 GPU each) into
+   it. This isolates concurrent jobs so two experiments running at once
+   don't trample each other's SuperLink state.
+3. Parses `EXPERIMENT_YAML` into `--run-config` overrides via an inline
+   awk parser.
 4. Starts a private `flower-superlink` in the background on ports
    39093/39094.
 5. Calls `flwr run . local-simulation-gpu --stream --run-config ...`.
@@ -151,69 +153,7 @@ limit and `--gpus-per-node` GPU request live in `run_alvis.sh`. If a YAML
 has more rounds than fit in 3 hours, edit `run_alvis.sh`'s `#SBATCH -t`
 line before submitting.
 
-### 2.3 `run_experiment.sh` — local run from a YAML *(legacy)*
-
-**Path:** [../run_experiment.sh](../run_experiment.sh).
-
-Runs the same experiment on the current machine without SLURM. Needed the
-environment to be activated already and a local SuperLink running
-(section 2.5). **Not used day-to-day** — ResNet18 makes the forward pass
-slow on a login node and the login node has no GPU. Kept because a
-compute-node interactive session (`srun --pty bash`) can still use it.
-
-```bash
-source ../activate_env.sh
-./run_experiment.sh configs/experiments/phaseC_v2/1_clean.yaml
-```
-
-### 2.4 `run_flwr_local.sh` — raw local run (no YAML) *(legacy)*
-
-**Path:** [../run_flwr_local.sh](../run_flwr_local.sh).
-
-Minimal wrapper: sources `flwr_local_env.sh` and runs
-`flwr run . local-simulation-gpu --stream "$@"`. Was useful when iterating
-on code with hand-passed `--run-config`. Same "only works if you're on a
-GPU node with env activated and a SuperLink up" caveat as 2.3. **Not used
-day-to-day.**
-
-### 2.5 `start_superlink.sh` / `stop_superlink.sh` — local SuperLink *(legacy)*
-
-**Paths:** [../start_superlink.sh](../start_superlink.sh),
-[../stop_superlink.sh](../stop_superlink.sh).
-
-The historical two-terminal local workflow, rarely used now:
-
-```bash
-# Terminal 1
-source ../activate_env.sh
-./start_superlink.sh               # runs foreground, Ctrl+C to stop
-
-# Terminal 2
-source ../activate_env.sh
-./run_flwr_local.sh                # or ./run_experiment.sh <yaml>
-
-# When done (or if ports 39093/39094 are stuck):
-./stop_superlink.sh
-```
-
-`stop_superlink.sh` is still genuinely useful if a SLURM job died mid-run
-on a login-node shared state or if you used the legacy workflow: it kills
-anything listening on 39093/39094, pkills leftover
-`flower-superlink` / `flwr-simulation` processes, and removes
-`$FLWR_HOME/local-superlink/` so the next start gets a clean DB.
-
-### 2.6 `flwr_local_env.sh` — shared env snippet
-
-**Path:** [../flwr_local_env.sh](../flwr_local_env.sh).
-
-One-line helper that local scripts `source`:
-`export FLWR_HOME="${HOME}/.flwr"`. Ceph home is used instead of `/tmp`
-because `/tmp` is node-local and vanishes between sessions — do **not**
-change this to `/tmp`. SLURM jobs (`run_alvis.sh`) use per-job
-`/tmp/flwr_${JOBID}` internally and that's fine because they clean up on
-exit.
-
-### 2.7 `monitor.sh` — check on a submitted job
+### 2.3 `monitor.sh` — check on a submitted job
 
 **Path:** [../monitor.sh](../monitor.sh).
 
@@ -303,9 +243,6 @@ analysis/run_phaseX_analyze.sh       (t-SNE / cluster plots)
 analysis/run_phaseX_curves.sh        (training curves + defense compare)
 ```
 
-(Legacy path — rarely used: `start_superlink.sh` + `run_flwr_local.sh` /
-`run_experiment.sh` on a GPU node with `activate_env.sh` sourced.)
-
 ---
 
 ## 5. Common Gotchas
@@ -313,18 +250,11 @@ analysis/run_phaseX_curves.sh        (training curves + defense compare)
 1. **`python` doesn't find `torch` on the login node.** You forgot
    `source activate_env.sh`. Module must come before venv activation.
 2. **Inline YAML comments break parsing.** The awk parser in
-   `run_experiment.sh` / `run_alvis.sh` treats `key: 0.0  # comment` as
-   the string `0.0  # comment`. Strip inline comments from YAML values.
-3. **`FLWR_HOME` on `/tmp`.** Don't — for local scripts. `/tmp` is
-   node-local and disappears between sessions; use `$HOME/.flwr` on Ceph
-   (default in `flwr_local_env.sh`). SLURM jobs using per-job
-   `/tmp/flwr_${JOBID}` are fine because they clean up on exit.
-4. **Port 39093/39094 already in use.** Left-over SuperLink from a crashed
-   local run (or an interrupted interactive compute-node session). Run
-   `./stop_superlink.sh`.
-5. **SLURM job times out at 3 h.** Edit `#SBATCH -t` in `run_alvis.sh`
+   `run_alvis.sh` treats `key: 0.0  # comment` as the string
+   `0.0  # comment`. Strip inline comments from YAML values.
+3. **SLURM job times out at 3 h.** Edit `#SBATCH -t` in `run_alvis.sh`
    (or the specific `analysis/run_phaseX_*.sh`) before submitting.
-6. **Analysis script fails with "no such file: features_test.npz".**
+4. **Analysis script fails with "no such file: features_test.npz".**
    Stage 1 (extract) hasn't run yet, or was run before a new checkpoint
    was saved. Re-run the extract script — it's idempotent.
 
