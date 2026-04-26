@@ -68,13 +68,19 @@ _FINAL_METRIC_KEYS = [
     "shift_top3_energy",
     "shift_alignment",
     "source_identity_preservation",
-    # Axis C — Injection Stealth
-    "linear_probe_acc",
+    # Axis C — Injection Stealth (v2 schema, 2026-04-17)
+    "linear_probe_balanced_acc_mean",
+    "linear_probe_balanced_acc_std",
+    "linear_probe_auroc_mean",
+    "linear_probe_auroc_std",
     "mmd2_rbf",
     "wasserstein2",
-    "spectral_score",
+    "spectral_score_imbalanced",
+    "spectral_score_balanced",
     "silhouette",
-    "probe_pc_alignment",
+    "probe_pc_alignment_imbalanced",
+    "probe_pc_alignment_balanced",
+    "probe_pc_alignment_weighted",
 ]
 
 _DYNAMICS_KEYS = [
@@ -121,7 +127,7 @@ _RADAR_SPEC = [
     # (label, key, invert, source)
     ("ASR",             "asr",              False, "final"),
     ("Centroid align",  "centroid_cos",     False, "final"),
-    ("Stealth (1-probe)","linear_probe_acc", True,  "final"),
+    ("Stealth (1-probe)","linear_probe_balanced_acc_mean", True,  "final"),
     ("Stealth (low MMD)","mmd2_rbf",        True,  "final"),
     ("Stealth (silh→0)","silhouette",       True,  "final"),
     ("Shift alignment", "shift_alignment",  False, "final"),
@@ -251,11 +257,11 @@ def plot_dynamics(profiles: list[dict], output_dir: Path) -> None:
         if not traj:
             continue
         rounds = [t["round"] for t in traj]
-        probes = [t.get("linear_probe_acc", np.nan) for t in traj]
+        probes = [t.get("linear_probe_balanced_acc_mean", np.nan) for t in traj]
         ax.plot(rounds, probes, "o-", color=color, markersize=3, linewidth=1.3,
                 label=prof.get("label", "?"))
     ax.set_xlabel("Round")
-    ax.set_ylabel("Linear probe accuracy")
+    ax.set_ylabel("Linear probe balanced accuracy")
     ax.set_title("Stealth trajectory (lower = stealthier)", fontsize=9)
     ax.set_ylim(0.4, 1.05)
     ax.grid(alpha=0.3)

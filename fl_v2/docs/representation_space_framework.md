@@ -420,3 +420,46 @@ For an attack to be meaningfully "stronger" than the pixel-trigger baseline **in
 - `probe_pc_alignment` (C6): either near 0 (probe still finds it — baseline-like) or, ideally, the whole separating direction disappears as the attack becomes indistinguishable even to supervised methods.
 
 An attack that holds ASR constant while moving any of these metrics in the right direction is a genuine advance over the pixel-trigger heuristic, not just an ASR improvement. This is the bar that Phase D (model replacement, DBA, optimization-based attacks) needs to clear.
+
+---
+
+## Addendum — Methodology Update (2026-04-17)
+
+After Cycle 01 closed, a methodology audit surfaced five sampling and reproducibility issues in the Axis C implementation that affect how the stealth metrics should be read. The underlying mathematical definitions in the main body of this document are unchanged. Only the evaluation protocol was corrected. This section records the change and points at the errata sections in the closed profile docs for the corresponding numerical revisions.
+
+### 1. Axis C implementation replaced in place
+
+The original `compute_axis_c` balanced the linear probe by subsampling `n_min = min(len(feat_T), len(feat_C)) = 750`, which discarded ~94% of the available triggered features (~11,130 of 11,880 on the GTSRB test set) and produced a 300-sample test set whose resolution was ≈0.33 pp — below the reported precision of the "1.000" headline values. The C6 `probe_pc_alignment` metric then compared the probe direction (trained on balanced 750/750) against a top-PC computed on the imbalanced full pool, an asymmetric comparison that gave the impression "spectral defenses miss what the probe finds" with higher confidence than the data justified.
+
+The function now:
+- Trains the linear probe on **all** features via `Pipeline(StandardScaler, LogisticRegression(class_weight='balanced'))` and reports **5-fold stratified CV balanced accuracy and AUROC** — two metrics that do not inflate under 94%/6% class imbalance. Raw accuracy is intentionally **not** reported; at this imbalance, a constant-negative predictor scores 94% accuracy, making the raw number uninterpretable.
+- Emits `linear_probe_balanced_acc_mean`, `linear_probe_balanced_acc_std`, `linear_probe_auroc_mean`, `linear_probe_auroc_std`.
+
+### 2. Three variants for C4 and C6
+
+Because the scientific question — "does a spectral defender see the same direction the probe finds?" — is sensitive to whose data you give each side, we now report three variants of C6 and two of C4:
+
+- **`..._imbalanced`**: PCA on the full 12,630-sample pool. Reproduces the Cycle-01 numbers for continuity.
+- **`..._balanced`** (headline going forward): PCA on a stratified 750/750 subsample that matches the probe's effective sampling regime. This is the defender-realistic number.
+- **`..._weighted`** (C6 only): PCA on all 12,630 points with per-sample weight `w_i = 1/n_{class(i)}` so each class contributes equally to the covariance. Answers "what would a rebalanced spectral defender find?".
+
+All three variants use the same final-fit probe direction, projected into the same standardized feature space as the PCA input. Sign ambiguity is handled by `abs(⟨w, v⟩)`.
+
+### 3. Class-ratio dependency of C2, C3, C5 (documented, not changed)
+
+MMD² (C2), Wasserstein-2 (C3), and silhouette (C5) are mathematically correct per their definitions but are evaluated on the natural GTSRB test-set class ratio (~1:16 for genuine target vs triggered non-target). Absolute values are **not directly comparable to studies with different class distributions**. Within-study rankings across our Cycle-01 experiments remain valid because every run uses the same test set. A reader comparing our numbers to another paper's should re-derive with the other paper's class ratio before drawing conclusions.
+
+### 4. Independent RNG streams (reproducibility)
+
+The original implementation shared a single `np.random.RandomState(seed)` across C1/C2/C3/C5 subsampling, meaning any change to C1's subsample implicitly shifted C2/C3/C5's subsamples. The new implementation uses `RandomState(seed + k)` per metric (C2 → seed+1, C3 → seed+2, C5 → seed+3) so that the metrics are decoupled. The `_median_heuristic_gamma` and `_sinkhorn_w2` helpers now accept a `seed` parameter instead of hard-coding 42.
+
+### 5. Analysis seed vs training seed
+
+Training uses seed 42 throughout the pipeline. The analysis runners (`analysis/run_framework.sh`, `analysis/run_phaseD_framework.sh`) now pass `--seed 4242` to `framework_metrics` so that PCA, probe, and subsampling randomness is decorrelated from the training-data partition seed. The default CLI seed in `framework_metrics.main()` remains 42 for historical reproducibility; the runners explicitly override.
+
+### Where the new numbers live
+
+- The framework JSON profiles at `/mimer/.../phaseC_v2/figures/framework/profiles/*_profile.json` and `.../phaseD/figures/framework/profiles/*_profile.json` are regenerated in place with the new field names (`linear_probe_balanced_acc_mean`, `probe_pc_alignment_{imbalanced,balanced,weighted}`, `spectral_score_{imbalanced,balanced}`).
+- The side-by-side errata tables are in [`pixel_trigger_baseline.md`](pixel_trigger_baseline.md) and [`model_replacement_profile.md`](model_replacement_profile.md) under `## Errata — Axis C re-evaluation (2026-04-17)`.
+- The v1 tables in the main body of those closed profile docs are **unchanged** per the cycle-doc convention that closed documents are never edited in place.
+

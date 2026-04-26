@@ -247,3 +247,47 @@ Updated as Cycle 02 progresses.
 - [ ] Cycle 02 headline result filled in at top of this file
 - [ ] Cycle 02 entry in `INDEX.md` moved to "closed" with headline result
 - [ ] Supervisor checkpoint meeting held; Cycle 03 topic confirmed
+
+---
+
+## Update 2026-04-17 — Architecture decisions (pre-D.2)
+
+Before writing any Phase D.2 code, we ran a Ray-process verification probe (`configs/experiments/probe/ray_process_check.yaml`, SLURM job 6432245) and an Axis-C methodology audit. Both informed architectural decisions recorded here.
+
+### Ray-process probe result
+
+**Observation.** With `num-supernodes = 50` and `num-gpus = 0.10` per supernode in `$HOME/.flwr/config.toml`, running a 3-round experiment with `fraction-train = 0.2` (10 clients per round):
+
+- Ray (version **2.51.1**, Flower version **1.27.0**) instantiates **10 `ClientAppActor` processes**, each a distinct Python PID with its own memory space.
+- The 50 supernodes are multiplexed **5:1** onto the 10 actors — any given actor serves ~5 different `client_id`s over the run.
+- Module-level Python globals (`_index_map_cache`, `_probe_sentinels`) have distinct `id()` values in each actor: each actor's `_probe_sentinels` dict only ever contains sentinels written by clients running inside that actor. **No cross-actor visibility.**
+- Within an actor the cache accumulates — client 22 runs in PID 747738 round 1, leaves a sentinel, client 45 runs in PID 747738 round 3 and reads it. Across actors the sentinels never cross.
+
+**Implication for Phase D.2 coalition pooling.** The cycle plan's proposal to share `μ̂_{c*}` via a module-level cache "mirroring `_index_map_cache`" is incorrect. `_index_map_cache` appears to work only because the partition is a pure function of config; every actor recomputes the same dict independently. A coalition centroid is data-dependent on each round's global model and cannot be reconstructed without explicit cross-actor communication.
+
+### Commitment to Option A for Phase D.2 coordination
+
+Option A — **server-mediated coordinator** via Flower's existing message protocol — is adopted for Phase D.2 coalition pooling. The message flow:
+
+1. *Train reply.* Each malicious client includes in its `MetricRecord` a compact payload: the sum of its local class-`c*` penultimate features plus its class-`c*` sample count (≈ 512 floats + 1 int ≈ 2 KB per malicious client per round).
+2. *Server aggregation.* A custom strategy hook collects these payloads across the malicious clients selected in the round, sums them, divides by the total count → produces `μ̂_{c*}` for the next round.
+3. *Next train config.* The server attaches `μ̂_{c*}` (≈ 2 KB) to the outgoing `ConfigRecord`. Malicious clients read it from the incoming message and use it in the auxiliary loss.
+
+**Round-1 cold start (per Saha et al. 2020 "Hidden Trigger" / LIRA 2021 conventions).** No pooled centroid exists yet. Use the classifier-head row `W[c*]` L2-normalized as the auxiliary-loss target direction. `W[c*]` is a **direction**, not a centroid — magnitude and origin differ from `μ̂`. The round-1 loss therefore re-formulates as
+
+\[\lambda_2 \cdot \big(- \widehat{W}[c^*]^{\top} f_\theta(\tau(x))\big)\qquad\text{where } \widehat{W}[c^*] = W[c^*] / \|W[c^*]\|_2 \]
+
+(a feature-space "push along the target classifier direction"), and switches to the `‖f_θ(\tau(x)) − \hat{\mu}_{c^*}\|^2` centroid-distance loss from round 2 onwards.
+
+### Methodology audit result: Axis C metrics re-implemented in place
+
+Independently of Phase D.2, a methodology audit surfaced a sampling flaw in the Cycle-01 Axis C implementation: the linear probe discarded ~94 % of triggered features, the C6 probe–PC alignment compared a balanced probe direction against an imbalanced-pool top-PC, and C2/C3/C4/C5 shared a single `RandomState`. `compute_axis_c` in `analysis/framework_metrics.py` has been rewritten in place (no parallel v2 function); all nine Cycle-01 feature `.npz` files were re-analyzed with `--seed 4242` against the new code. Errata sections at the bottom of [`pixel_trigger_baseline.md`](../pixel_trigger_baseline.md) and [`model_replacement_profile.md`](../model_replacement_profile.md) report the new numbers alongside the v1 ones; the methodology addendum at the bottom of [`representation_space_framework.md`](../representation_space_framework.md) documents the change. One preliminary scientific consequence: under balanced-PCA C6, the probe–top-PC alignment rises from ~0.01-0.25 (imbalanced) to ~0.27-0.60 (balanced), meaning the Cycle-01 "spectral defenses look in the wrong direction" headline is weaker than the v1 numbers suggested — the probe direction is only *partially* orthogonal to the top-PC once the class imbalance is removed from the PCA input. Probe separability itself is unaffected (balanced accuracy 0.93-1.00, AUROC ≥ 0.99).
+
+### Deferred items added to Section 5 (open questions)
+
+- **R9 — Trusted-baseline-round calibration for Phase E.1 Design A.** The cycle plan assumes round 10 is a reasonable "trusted baseline" round, but under Bagdasaryan's round-1 replacement the round-1 model is already poisoned. If Phase D.2 converges in round 1 or if the attacker starts earlier than round 10, the baseline is contaminated and drift detection cannot distinguish pre- from post-attack. Open: learn the reference round from clean runs or switch to a rolling-window baseline? Resolve at E.1 implementation time.
+- **R10 — Classifier-head direction vs centroid dimensionality.** Round-1 fallback uses `W[c*]` as a direction; rounds 2+ use `μ̂_{c*}` as a centroid. Under ResNet18 both are `d = 512` vectors, but they are not comparable as geometric targets: a direction has no origin, a centroid does. The auxiliary loss switches formulation between round 1 and round 2 (see above). Open: does this switch produce a training-dynamics discontinuity worth monitoring? Resolve at D.2 implementation time.
+
+### Cleanup after this update
+
+The temporary Ray-process probe artifacts (the `debug-probe-multiproc` branch in `src/fl_v2/client_app.py`, the `debug-probe-multiproc` config key in `pyproject.toml`, and `configs/experiments/probe/ray_process_check.yaml`) are removed once this update is committed. The permanent record of the finding lives here.

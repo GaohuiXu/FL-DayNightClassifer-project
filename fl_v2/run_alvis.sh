@@ -26,13 +26,13 @@ mkdir -p /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb_v2
 module purge
 module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0
 
-cd /cephyr/users/gaohui/Alvis/thesis_workspace/fl_weather_project/fl_v2
-source /cephyr/users/gaohui/Alvis/thesis_workspace/fl_weather_project/.venv/bin/activate
+cd /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/thesis_workspace/fl_weather_project/fl_v2
+source /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/thesis_workspace/fl_weather_project/.venv/bin/activate
 
 # Per-job FLWR_HOME — isolates concurrent jobs from each other
 JOB_FLWR_HOME="/tmp/flwr_${SLURM_JOB_ID}"
 mkdir -p "$JOB_FLWR_HOME/local-superlink/ffs"
-cp /cephyr/users/gaohui/Alvis/.flwr/config.toml "$JOB_FLWR_HOME/config.toml"
+cp configs/flwr_config.toml "$JOB_FLWR_HOME/config.toml"
 export FLWR_HOME="$JOB_FLWR_HOME"
 
 export RAY_DEDUP_LOGS=0

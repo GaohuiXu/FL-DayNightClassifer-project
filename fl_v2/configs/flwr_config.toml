@@ -1,0 +1,10 @@
+[superlink]
+default = "local-simulation-gpu"
+
+[superlink.supergrid]
+address = "supergrid.flower.ai"
+
+[superlink.local-simulation-gpu]
+options.num-supernodes = 50
+options.backend.client-resources.num-cpus = 1
+options.backend.client-resources.num-gpus = 0.10

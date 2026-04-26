@@ -328,26 +328,64 @@ Longer-term (Cycle 03+, not executed in Cycle 02):
 
 ## Workflow Constraints
 
-Keep the current local workflow runnable unless there is a clearly better replacement.
+### Project location
+The project lives on Mimer at
+`/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/thesis_workspace/fl_weather_project/`
+(migrated from Cephyr on 2026-04-27 — every script and doc references the
+Mimer root). The legacy Cephyr path is no longer used by anything in the
+repo. Datasets, outputs, SLURM logs, and the venv are all on Mimer; nothing
+in a SLURM job reads from Cephyr.
 
-### Terminal 1
+### Day-to-day workflow
+Experiments are submitted to Alvis via `submit_experiment.sh`; see
+[`docs/scripts_guide.md`](docs/scripts_guide.md) for the full pipeline. The
+legacy local workflow below is kept for reference / debugging only and is
+not used day-to-day:
+
 ```bash
+# Terminal 1
 ./start_superlink.sh
-```
-### Terminal 2
-```bash
+# Terminal 2
 ./run_flwr_local.sh
-```
-### STOP
-```bash
+# STOP
 ./stop_superlink.sh
 ```
 
 Do not replace existing entry scripts or command-line workflow unless there is a clear, tested, and simpler alternative.
 
-`FLWR_HOME` is set to `$HOME/.flwr` (Ceph shared filesystem) in `flwr_local_env.sh`.
-The federation config (`local-simulation-gpu`) is defined in `$FLWR_HOME/config.toml`.
-Do NOT change `FLWR_HOME` to `/tmp` — it is node-local and disappears between HPC sessions.
+### Flower federation config
+The `local-simulation-gpu` federation (50 supernodes, 0.10 GPU per
+supernode) is **version-controlled in the repo** at
+[`configs/flwr_config.toml`](configs/flwr_config.toml).
+[`run_alvis.sh`](run_alvis.sh) creates a per-job
+`FLWR_HOME=/tmp/flwr_${SLURM_JOB_ID}` and copies that file into
+`$FLWR_HOME/config.toml` (Flower only reads `$FLWR_HOME/config.toml`, so
+the destination is what matters). On exit the per-job `/tmp` directory is
+removed. Do NOT remove the `/tmp` indirection in `run_alvis.sh` — it
+isolates concurrent jobs from each other.
+
+For the legacy local workflow, `flwr_local_env.sh` still sets
+`FLWR_HOME=$HOME/.flwr` (Cephyr home, not in the repo). If you ever lose
+that file, restore it with `cp configs/flwr_config.toml ~/.flwr/config.toml`.
+
+### Venv reproduction
+The venv at `.venv/` (Mimer) was recreated 2026-04-27 with exact pinned
+versions captured from the original Cephyr venv. Lockfile:
+[`requirements.lock.txt`](../requirements.lock.txt). Recreate with:
+
+```bash
+module purge && module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0
+python3 -m venv --system-site-packages .venv
+source .venv/bin/activate
+pip install --upgrade "pip==26.0.1"
+pip install --no-cache-dir -r requirements.lock.txt
+pip install --no-cache-dir -e fl_v2 --no-deps
+```
+
+`torch`, `numpy`, and `scipy` are inherited from the PyTorch module, not
+pinned in the lockfile — the `--system-site-packages` flag is what makes
+this work. Do not pin them in the lockfile or pip will reinstall them and
+shadow the module versions, breaking CUDA.
 
 ---
 

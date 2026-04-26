@@ -218,3 +218,41 @@ If Phase D.2 moves any of these in the target direction while maintaining high A
 - **Framework definition:** `docs/representation_space_framework.md`
 
 All numbers in this document come directly from the comparison table — no manual calculations. Seed = 42 throughout.
+
+---
+
+## Errata — Axis C re-evaluation (2026-04-17)
+
+The Cycle-01 Axis C implementation had the sampling flaws described in the `## Errata — Axis C re-evaluation (2026-04-17)` section of [`pixel_trigger_baseline.md`](pixel_trigger_baseline.md) and the `## Addendum — Methodology Update (2026-04-17)` section of [`representation_space_framework.md`](representation_space_framework.md). Both Phase D.1 model-replacement experiments were re-analyzed from the same cached features with the corrected code at `--seed 4242` (SLURM job 6432095, resubmitted as 6432249 after a mirror-ordering race with the phaseC_v2 regen).
+
+### Corrected Axis C numbers (final round)
+
+| Setting | ASR | v1 probe_acc | v2 bal_acc ± std | v2 AUROC ± std | v1 spec_score | v2 spec_imb | v2 spec_bal | v1 pc_align | v2 C6_imb | v2 C6_bal | v2 C6_wtd |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| ModelRep (5 mal)  | 0.969 | 1.000 | 0.998 ± 0.001 | 1.000 ± 0.000 | 0.736 | 0.736 | 1.685 | 0.077 | 0.438 | **0.522** | 0.526 |
+| ModelRep (15 mal) | 0.980 | 0.980 | 0.995 ± 0.002 | 1.000 ± 0.000 | 1.725 | 1.725 | 1.590 | 0.179 | 0.439 | **0.585** | 0.581 |
+
+(`..._imb` faithfully reproduces v1; `..._bal` is the headline going forward.)
+
+### Impact on the Cycle-01 Phase D.1 headline findings
+
+**"Model replacement does NOT hide triggered features inside the genuine class distribution" — robust.** v2 balanced accuracy is 0.995-0.998 with std ≤ 0.002 and AUROC 1.000 on both configs. The probe still finds the attack with essentially the same ease as for the pixel-trigger baseline. This finding survives the audit.
+
+**"Model replacement is 26× more detectable by spectral defenses" — significantly weakened.** The original claim compared `spectral_score` on the imbalanced pool: 0.065 (pixel-trigger no-defense 15 mal) vs 1.725 (ModelRep 15 mal), a ratio of 26×. Under the balanced PCA input the two attacks are much closer:
+
+- Pixel-trigger no-defense 15 mal: v2 `spectral_score_balanced` = **1.635**
+- ModelRep 15 mal: v2 `spectral_score_balanced` = **1.590**
+
+The balanced-PCA ratio is 0.97× — ModelRep is **not** more detectable than the pixel trigger in this regime; both attacks produce comparable top-PC separation when the input to PCA is class-balanced. The v1 26× claim was largely an artifact of pixel-trigger's signal being drowned by within-triggered variance in the majority-dominated top-PC, not a real mechanism difference.
+
+**Scaling still does not change the representation-space *mechanism*.** The rank concentration (`shift_rank_eff = 11` at 15 mal vs `33` for pixel-trigger) and centroid L2 distance (`~4.0` vs `~3.1`) differences in Axis B are unchanged — those metrics were not affected by the Axis C audit. The "attack mechanism, not attack strength, determines representation-space profile" conclusion survives, but the specific "ModelRep is more detectable by spectral defenses" supporting claim should be retired. The two attacks share a common representation-space fingerprint under honest defender-side sampling.
+
+**Phase D.2 direction is unchanged.** A genuinely new attack class still needs to push `linear_probe_balanced_acc` ≤ 0.80, `source_identity_preservation` ≤ 0.30, `centroid_l2` ≤ 1.0 while holding ASR ≥ 0.90. Those targets do not depend on the PCA-imbalance issue; they depend on the probe and on direct feature-space geometry.
+
+The v1 table in the main body of this document is unchanged per the cycle-doc convention. The authoritative Axis C numbers going forward are in this errata and in the regenerated profiles at `/mimer/.../phaseD/figures/framework/profiles/*_profile.json`.
+
+---
+
+## Caveat — Optimizer and LR choice (2026-04-17)
+
+The Phase D.1 runs documented above used `torch.optim.Adam` with a cosine-annealed base learning rate of 0.05 (`src/fl_v2/training/train.py:64`; `configs/experiments/phaseD/*.yaml`). This is an unusual combination — Adam is typically run with base LR in the 1e-3 to 1e-4 range — and the observed rounds-2-to-20 NaN collapse is plausibly co-caused by Adam's adaptive denominator becoming unstable under gradient magnitudes amplified by the 10× Bagdasaryan scaling factor. The collapse phenomenon is real and reproducible as reported, but the *mechanism-attribution* should be read with this qualifier in mind: a parallel run with SGD+momentum at a matched effective step size would likely moderate or eliminate the numerical-instability window. This caveat does not change the representation-space findings (the attack mechanism is still pixel-trigger data poisoning amplified by update scaling), but a future phase that runs the SGD control would tighten the claim.

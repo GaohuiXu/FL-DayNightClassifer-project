@@ -38,8 +38,8 @@ echo "Start: $(date)"
 if [[ "${SLURM_JOB_ID:-}" != "" ]]; then
     module purge
     module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0
-    cd /cephyr/users/gaohui/Alvis/thesis_workspace/fl_weather_project/fl_v2
-    source /cephyr/users/gaohui/Alvis/thesis_workspace/fl_weather_project/.venv/bin/activate
+    cd /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/thesis_workspace/fl_weather_project/fl_v2
+    source /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/thesis_workspace/fl_weather_project/.venv/bin/activate
 fi
 
 export OPENBLAS_NUM_THREADS=16

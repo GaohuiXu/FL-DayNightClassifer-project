@@ -30,7 +30,9 @@ from numpy.linalg import norm, svd
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import silhouette_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 from analysis.common import load_config_yaml, short_defense_label
 
@@ -323,9 +325,14 @@ def _sq_dist(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     return A_sq + B_sq.T - 2 * A @ B.T
 
 
-def _median_heuristic_gamma(X: np.ndarray, Y: np.ndarray, max_samples: int = 500) -> float:
+def _median_heuristic_gamma(
+    X: np.ndarray,
+    Y: np.ndarray,
+    max_samples: int = 500,
+    seed: int = 42,
+) -> float:
     """Pick RBF bandwidth γ = 1/(2σ²) using the median heuristic."""
-    rng = np.random.RandomState(42)
+    rng = np.random.RandomState(seed)
     if len(X) > max_samples:
         X = X[rng.choice(len(X), max_samples, replace=False)]
     if len(Y) > max_samples:
@@ -339,12 +346,18 @@ def _median_heuristic_gamma(X: np.ndarray, Y: np.ndarray, max_samples: int = 500
     return float(1.0 / (2 * sigma ** 2))
 
 
-def _sinkhorn_w2(X: np.ndarray, Y: np.ndarray, reg: float = 1.0, n_iter: int = 200) -> float:
+def _sinkhorn_w2(
+    X: np.ndarray,
+    Y: np.ndarray,
+    reg: float = 1.0,
+    n_iter: int = 200,
+    seed: int = 42,
+) -> float:
     """Entropy-regularized Wasserstein-2 distance (Sinkhorn).
 
     Subsampled to 500 points per side for tractability.
     """
-    rng = np.random.RandomState(42)
+    rng = np.random.RandomState(seed)
     max_n = 500
     if len(X) > max_n:
         X = X[rng.choice(len(X), max_n, replace=False)]
@@ -373,6 +386,30 @@ def _sinkhorn_w2(X: np.ndarray, Y: np.ndarray, reg: float = 1.0, n_iter: int = 2
     return float(np.sqrt(max(w2_sq, 0.0)))
 
 
+def _weighted_pca_top_direction(X: np.ndarray, weights: np.ndarray) -> np.ndarray | None:
+    """Top principal component of a weighted sample.
+
+    Computes the eigendecomposition of the weighted covariance:
+        μ_w = Σ w_i x_i / Σ w_i
+        Σ_w = Σ w_i (x_i - μ_w)(x_i - μ_w)^T / Σ w_i
+    and returns the eigenvector with the largest eigenvalue. Returns None
+    on numerical failure.
+    """
+    try:
+        w_sum = float(weights.sum())
+        if w_sum <= 0:
+            return None
+        mean_w = np.average(X, axis=0, weights=weights)
+        X_centered = X - mean_w
+        # Σ w_i x̃ x̃^T / Σ w_i  without materializing x̃ x̃^T per sample
+        cov_w = (X_centered * weights[:, None]).T @ X_centered / w_sum
+        eigvals, eigvecs = np.linalg.eigh(cov_w)
+        # eigh returns eigenvalues in ascending order; the last column is the top PC
+        return eigvecs[:, -1]
+    except np.linalg.LinAlgError:
+        return None
+
+
 def compute_axis_c(
     features_clean: np.ndarray,
     features_triggered: np.ndarray,
@@ -380,105 +417,195 @@ def compute_axis_c(
     target: int,
     seed: int = 42,
 ) -> dict:
-    """Linear probe, MMD, Wasserstein, spectral, silhouette."""
+    """Axis C — representation-space stealth metrics.
+
+    Corrected implementation (2026-04-17). See the "Methodology Update"
+    addendum in docs/representation_space_framework.md for the rationale.
+
+    Key changes vs the original:
+      - C1 linear probe: trained on ALL features (no 750/750 subsample
+        discard), StandardScaler + LogisticRegression(class_weight='balanced'),
+        reported as balanced-accuracy + AUROC via 5-fold stratified CV.
+      - C4 spectral score: both imbalanced (full pool) and balanced
+        (750/750 stratified subsample) variants emitted.
+      - C6 probe–PC alignment: three variants emitted — imbalanced
+        (continuity with v1), balanced (matches probe's sampling regime,
+        = headline), weighted (PCA with per-sample class-size weights).
+        All three use the same final-fit probe direction in standardized
+        feature space.
+      - C2/C3/C5: unchanged formulas, but each gets an independent
+        RandomState stream (seed+1/+2/+3) so changing one does not shift
+        the subsamples of the others.
+    """
     non_target = labels != target
     target_mask = labels == target
 
-    feat_T = features_triggered[non_target]  # triggered
-    feat_C = features_clean[target_mask]     # genuine target
+    feat_T = features_triggered[non_target]  # triggered (majority, ~11,880 on GTSRB)
+    feat_C = features_clean[target_mask]     # genuine target (minority, ~750)
 
     if len(feat_T) < 2 or len(feat_C) < 2:
         return {}
 
-    # C1: linear probe accuracy
-    # Balance: use the smaller of the two
-    n_min = min(len(feat_T), len(feat_C))
-    rng = np.random.RandomState(seed)
-    idx_T = rng.choice(len(feat_T), n_min, replace=False)
-    idx_C = rng.choice(len(feat_C), n_min, replace=False)
-    X = np.concatenate([feat_C[idx_C], feat_T[idx_T]], axis=0)
-    y = np.array([0] * n_min + [1] * n_min)
+    n_C = len(feat_C)
+    n_T = len(feat_T)
 
-    probe_weights = None
+    # ── Full (imbalanced) pool ──────────────────────────────────────────
+    X_full = np.concatenate([feat_C, feat_T], axis=0)
+    y_full = np.array([0] * n_C + [1] * n_T)
+
+    # ── Balanced stratified subsample: all genuine + random-triggered ──
+    n_min = min(n_T, n_C)
+    rng_bal = np.random.RandomState(seed)
+    idx_T_bal = rng_bal.choice(n_T, n_min, replace=False)
+    X_bal = np.concatenate([feat_C, feat_T[idx_T_bal]], axis=0)
+    y_bal = np.array([0] * n_C + [1] * n_min)
+
+    # ── C1: linear probe (balanced accuracy + AUROC via 5-fold CV) ─────
+    def _make_pipeline() -> Pipeline:
+        return Pipeline([
+            ("scaler", StandardScaler()),
+            ("clf", LogisticRegression(
+                max_iter=1000,
+                class_weight="balanced",
+                random_state=seed,
+            )),
+        ])
+
+    probe_balanced_acc_mean = float("nan")
+    probe_balanced_acc_std = float("nan")
+    probe_auroc_mean = float("nan")
+    probe_auroc_std = float("nan")
+    probe_weights_std: np.ndarray | None = None
+    scaler_for_pca: StandardScaler | None = None
+    X_full_std: np.ndarray | None = None
+    X_bal_std: np.ndarray | None = None
+
     try:
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=seed, stratify=y,
+        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=seed)
+        bal_accs = cross_val_score(
+            _make_pipeline(), X_full, y_full,
+            cv=cv, scoring="balanced_accuracy", n_jobs=1,
         )
-        probe = LogisticRegression(max_iter=1000, random_state=seed)
-        probe.fit(X_train, y_train)
-        probe_acc = float(probe.score(X_test, y_test))
-        # Retain the hyperplane direction for C6
-        probe_weights = probe.coef_[0]  # (d,)
-    except Exception:
-        probe_acc = float("nan")
+        aurocs = cross_val_score(
+            _make_pipeline(), X_full, y_full,
+            cv=cv, scoring="roc_auc", n_jobs=1,
+        )
+        probe_balanced_acc_mean = float(np.mean(bal_accs))
+        probe_balanced_acc_std = float(np.std(bal_accs))
+        probe_auroc_mean = float(np.mean(aurocs))
+        probe_auroc_std = float(np.std(aurocs))
+    except Exception as e:
+        print(f"  [warn] C1 CV failed: {e}")
 
-    # C2: MMD² with RBF kernel (subsampled)
-    # Limit to 1000 per side for speed
+    # Single final fit on all data → stable direction for C6
+    try:
+        final_pipeline = _make_pipeline()
+        final_pipeline.fit(X_full, y_full)
+        probe_weights_std = final_pipeline.named_steps["clf"].coef_[0]
+        scaler_for_pca = final_pipeline.named_steps["scaler"]
+        X_full_std = scaler_for_pca.transform(X_full)
+        X_bal_std = scaler_for_pca.transform(X_bal)
+    except Exception as e:
+        print(f"  [warn] final probe fit failed: {e}")
+
+    # ── C2: MMD² with RBF kernel (independent rng stream) ──────────────
+    rng_mmd = np.random.RandomState(seed + 1)
     max_mmd = 1000
-    X_mmd = feat_T[rng.choice(len(feat_T), min(max_mmd, len(feat_T)), replace=False)]
-    Y_mmd = feat_C[rng.choice(len(feat_C), min(max_mmd, len(feat_C)), replace=False)]
-    gamma = _median_heuristic_gamma(X_mmd, Y_mmd)
+    X_mmd = feat_T[rng_mmd.choice(n_T, min(max_mmd, n_T), replace=False)]
+    Y_mmd = feat_C[rng_mmd.choice(n_C, min(max_mmd, n_C), replace=False)]
+    gamma = _median_heuristic_gamma(X_mmd, Y_mmd, seed=seed + 1)
     try:
         mmd2 = _rbf_mmd2(X_mmd, Y_mmd, gamma)
     except Exception:
         mmd2 = float("nan")
 
-    # C3: Wasserstein-2 (Sinkhorn approx)
+    # ── C3: Wasserstein-2 (independent rng stream) ─────────────────────
     try:
-        w2 = _sinkhorn_w2(feat_T, feat_C, reg=0.1, n_iter=200)
+        w2 = _sinkhorn_w2(feat_T, feat_C, reg=0.1, n_iter=200, seed=seed + 2)
     except Exception:
         w2 = float("nan")
 
-    # C4: spectral signature score (top-PC separation)
-    combined = np.concatenate([feat_C, feat_T], axis=0)
-    group = np.array([0] * len(feat_C) + [1] * len(feat_T))
-    top_pc = None
-    try:
-        pca = PCA(n_components=1, random_state=seed)
-        proj = pca.fit_transform(combined).ravel()
-        m0 = proj[group == 0].mean()
-        m1 = proj[group == 1].mean()
-        std_pooled = proj.std() + 1e-12
-        spectral = float(abs(m0 - m1) / std_pooled)
-        # Retain the top-PC direction for C6
-        top_pc = pca.components_[0]  # (d,)
-    except Exception:
-        spectral = float("nan")
+    # ── C4: spectral signature score — imbalanced + balanced ───────────
+    def _spectral_score(X: np.ndarray, group: np.ndarray, s: int) -> float:
+        try:
+            pca = PCA(n_components=1, random_state=s).fit(X)
+            proj = pca.transform(X).ravel()
+            m0 = proj[group == 0].mean()
+            m1 = proj[group == 1].mean()
+            std_pooled = proj.std() + 1e-12
+            return float(abs(m0 - m1) / std_pooled)
+        except Exception:
+            return float("nan")
 
-    # C5: silhouette score (subsampled for O(n²) cost)
+    spectral_score_imbalanced = _spectral_score(X_full, y_full, seed)
+    spectral_score_balanced = _spectral_score(X_bal, y_bal, seed)
+
+    # ── C5: silhouette (independent rng stream) ────────────────────────
+    rng_sil = np.random.RandomState(seed + 3)
     try:
         max_sil = 3000
-        if len(combined) > max_sil:
-            idx = rng.choice(len(combined), max_sil, replace=False)
-            sil = float(silhouette_score(combined[idx], group[idx]))
+        if len(X_full) > max_sil:
+            idx = rng_sil.choice(len(X_full), max_sil, replace=False)
+            sil = float(silhouette_score(X_full[idx], y_full[idx]))
         else:
-            sil = float(silhouette_score(combined, group))
+            sil = float(silhouette_score(X_full, y_full))
     except Exception:
         sil = float("nan")
 
-    # C6: probe direction vs top principal component alignment
-    # Near 0 -> probe uses a direction orthogonal to top variance
-    #           (spectral defenses fail, supervised probes succeed)
-    # Near 1 -> probe and spectral defense would agree
-    if probe_weights is not None and top_pc is not None:
-        pw_norm = norm(probe_weights)
-        tp_norm = norm(top_pc)
-        if pw_norm > 1e-12 and tp_norm > 1e-12:
-            probe_pc_alignment = float(
-                abs(np.dot(probe_weights, top_pc) / (pw_norm * tp_norm))
-            )
-        else:
-            probe_pc_alignment = float("nan")
-    else:
-        probe_pc_alignment = float("nan")
+    # ── C6: probe–PC alignment — three variants in standardized space ──
+    # All three use the probe's standardized-space coefficient as the
+    # direction; PCA also runs in standardized space so both live in
+    # the same coordinates. Near 0 = probe direction ⊥ top-PC (spectral
+    # defenses miss what the probe finds); near 1 = they agree.
+    probe_pc_alignment_imbalanced = float("nan")
+    probe_pc_alignment_balanced = float("nan")
+    probe_pc_alignment_weighted = float("nan")
+
+    def _alignment(w: np.ndarray, v: np.ndarray) -> float:
+        wn, vn = norm(w), norm(v)
+        if wn < 1e-12 or vn < 1e-12:
+            return float("nan")
+        return float(abs(np.dot(w, v) / (wn * vn)))
+
+    if probe_weights_std is not None and X_full_std is not None and X_bal_std is not None:
+        try:
+            top_pc_imb = PCA(n_components=1, random_state=seed).fit(X_full_std).components_[0]
+            probe_pc_alignment_imbalanced = _alignment(probe_weights_std, top_pc_imb)
+        except Exception as e:
+            print(f"  [warn] C6 imbalanced failed: {e}")
+
+        try:
+            top_pc_bal = PCA(n_components=1, random_state=seed).fit(X_bal_std).components_[0]
+            probe_pc_alignment_balanced = _alignment(probe_weights_std, top_pc_bal)
+        except Exception as e:
+            print(f"  [warn] C6 balanced failed: {e}")
+
+        try:
+            # w_i = 1/n_class(i): genuine and triggered contribute equally
+            # to the weighted covariance regardless of sample counts.
+            w_vec = np.concatenate([
+                np.full(n_C, 1.0 / n_C),
+                np.full(n_T, 1.0 / n_T),
+            ])
+            top_pc_w = _weighted_pca_top_direction(X_full_std, w_vec)
+            if top_pc_w is not None:
+                probe_pc_alignment_weighted = _alignment(probe_weights_std, top_pc_w)
+        except Exception as e:
+            print(f"  [warn] C6 weighted failed: {e}")
 
     return {
-        "linear_probe_acc": probe_acc,
-        "mmd2_rbf": mmd2,
-        "wasserstein2": w2,
-        "spectral_score": spectral,
-        "silhouette": sil,
-        "probe_pc_alignment": probe_pc_alignment,
+        "linear_probe_balanced_acc_mean": probe_balanced_acc_mean,
+        "linear_probe_balanced_acc_std":  probe_balanced_acc_std,
+        "linear_probe_auroc_mean":        probe_auroc_mean,
+        "linear_probe_auroc_std":         probe_auroc_std,
+        "mmd2_rbf":                       mmd2,
+        "wasserstein2":                   w2,
+        "spectral_score_imbalanced":      spectral_score_imbalanced,
+        "spectral_score_balanced":        spectral_score_balanced,
+        "silhouette":                     sil,
+        "probe_pc_alignment_imbalanced":  probe_pc_alignment_imbalanced,
+        "probe_pc_alignment_balanced":    probe_pc_alignment_balanced,
+        "probe_pc_alignment_weighted":    probe_pc_alignment_weighted,
     }
 
 
@@ -628,10 +755,11 @@ def compute_full_profile(
             round_metrics["round"] = r
             trajectory.append(round_metrics)
             print(f"    round {r:>3d}: ASR={round_metrics['asr']:.2%}  "
-                  f"probe={round_metrics.get('linear_probe_acc', float('nan')):.3f}  "
+                  f"probe_bal_acc={round_metrics.get('linear_probe_balanced_acc_mean', float('nan')):.3f}  "
+                  f"probe_auroc={round_metrics.get('linear_probe_auroc_mean', float('nan')):.3f}  "
                   f"mmd={round_metrics.get('mmd2_rbf', float('nan')):.3f}  "
                   f"rank={round_metrics.get('shift_rank_eff', 0)}  "
-                  f"pc_align={round_metrics.get('probe_pc_alignment', float('nan')):.3f}")
+                  f"pc_align_bal={round_metrics.get('probe_pc_alignment_balanced', float('nan')):.3f}")
 
     # Final-round snapshot (from features_test.npz if present, else last trajectory entry)
     final_data = load_round_features(exp_dir, None)

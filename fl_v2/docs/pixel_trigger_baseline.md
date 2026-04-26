@@ -142,3 +142,35 @@ Framework numbers in this document come from:
 - Framework definitions: `docs/representation_space_framework.md`
 
 Experiment configurations are in `configs/experiments/phaseC_v2/*.yaml`. Seed = 42 throughout. SLURM jobs 6403892 (initial run) and 6404140 (after B7 normalization fix) produced the numbers in this document.
+
+---
+
+## Errata — Axis C re-evaluation (2026-04-17)
+
+The Cycle-01 Axis C implementation subsampled the triggered features to match the smaller genuine count (750/750) before training the linear probe and computed the C6 probe–PC alignment asymmetrically (probe on the balanced subsample, top-PC on the full imbalanced pool). The `compute_axis_c` function in `analysis/framework_metrics.py` has been rewritten in place to fix these issues; the `## Addendum — Methodology Update (2026-04-17)` section of [`representation_space_framework.md`](representation_space_framework.md) documents the change. All seven Cycle-01 pixel-trigger experiments were re-analyzed from the same cached features with `--seed 4242` (SLURM job 6432094).
+
+### Corrected Axis C numbers (final round)
+
+| Setting | ASR | v1 probe_acc | v2 bal_acc ± std | v2 AUROC ± std | v1 spec_score | v2 spec_imb | v2 spec_bal | v1 pc_align | v2 C6_imb | v2 C6_bal | v2 C6_wtd |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| No Defense (5 mal) | 0.863 | 0.993 | 0.999 ± 0.001 | 1.000 ± 0.000 | 0.086 | 0.086 | 1.854 | 0.103 | 0.346 | **0.596** | 0.594 |
+| No Defense (5 mal, partial) | 0.899 | 0.993 | 0.996 ± 0.002 | 1.000 ± 0.000 | 0.530 | 0.530 | 1.728 | 0.160 | 0.225 | **0.554** | 0.560 |
+| No Defense (15 mal) | 0.967 | 1.000 | 1.000 ± 0.000 | 1.000 ± 0.000 | 0.065 | 0.065 | 1.635 | 0.041 | 0.036 | **0.435** | 0.436 |
+| No Defense (15 mal, partial) | 0.965 | 0.993 | 0.997 ± 0.001 | 1.000 ± 0.000 | 1.060 | 1.059 | 1.163 | 0.065 | 0.157 | **0.331** | 0.331 |
+| FedMedian (15 mal) | 0.973 | 0.987 | 0.992 ± 0.002 | 0.998 ± 0.001 | 0.192 | 0.192 | 0.358 | 0.013 | 0.108 | **0.270** | 0.273 |
+| Krum (5 mal)  | 0.027 | 0.937 | 0.954 ± 0.005 | 0.990 ± 0.002 | 0.907 | 0.907 | 1.524 | 0.246 | 0.252 | **0.367** | 0.373 |
+| Krum (15 mal) | 0.011 | 0.910 | 0.932 ± 0.009 | 0.983 ± 0.004 | 0.953 | 0.953 | 1.160 | 0.087 | 0.311 | **0.173** | 0.228 |
+
+(`..._imb` = full 12,630-sample pool — faithful reproduction of the v1 calculation; `..._bal` = 750/750 stratified subsample, matches the probe's sampling regime and is the **headline** variant going forward; `..._wtd` = PCA on all 12,630 points with per-sample class-size weights.)
+
+### What holds and what shifts
+
+**The probe-separability finding is robust.** v2 balanced accuracy on all five successful attacks (ASR ≥ 0.86) is 0.992-1.000 with standard deviation ≤ 0.002; AUROC is 0.998-1.000. The "linearly separable triggered features" claim survives the sampling fix, and the 5-fold CV confidence bounds are much tighter than the v1 single-300-sample-split could report. The `source_identity_preservation` ≈ 0.57-0.64 and `centroid_l2` ≈ 2.7-3.1 findings in Axis B are untouched — Axis B math was not affected by the audit.
+
+**The "spectral blind-spot" headline weakens materially.** The v1 C6 ≈ 0.01-0.16 readings on successful attacks faithfully reproduce in `C6_imb` (0.04-0.35 with `--seed 4242`; small delta driven by the seed change and the new StandardScaler pipeline, not a mechanism change). But under the defender-realistic **balanced** PCA input, C6 rises to **0.27-0.60** across the five successful attacks — a 3-10× increase. The same increase shows up in the weighted variant (0.23-0.60), confirming the imbalance rather than the subsample-choice was driving the near-zero v1 values.
+
+**Reframed interpretation:** on the imbalanced input a Tran-et-al.-2018-style spectral defender is nearly blind to the probe direction. On the balanced input — which is a modest re-sampling step the defender could realistically perform — a spectral defender recovers 30-60% of the probe's discriminative direction (cosine with top-PC). That is still short of the 0.99+ that a supervised probe achieves on the same data, so the motivation for client-side supervised defenses holds. But the sharp "spectral defenses look in the *wrong* direction" framing is too strong; the honest statement is "spectral defenses on imbalanced inputs miss most of the probe direction, and still lag a supervised probe even on balanced inputs."
+
+**The `source_identity_preservation` + `centroid_l2` + `probe bal_acc ~ 1` signature of the joint-weak-attack pattern is unchanged.** The "triggered features sit in a geometrically distinct middle region" conclusion survives. The auxiliary-loss Phase D.2 target metrics (`linear_probe_balanced_acc` → 0.80, `source_identity_preservation` → 0.30, `centroid_l2` → 1.0, with ASR ≥ 0.90) are updated to use `linear_probe_balanced_acc_mean` in place of the v1 `linear_probe_acc`.
+
+The v1 table in the main body of this document is unchanged per the cycle-doc convention on closed documents. The authoritative numbers going forward are in this errata section and in the regenerated profiles at `/mimer/.../phaseC_v2/figures/framework/profiles/*_profile.json`.

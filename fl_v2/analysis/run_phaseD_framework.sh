@@ -30,8 +30,8 @@ echo "Start: $(date)"
 if [[ "${SLURM_JOB_ID:-}" != "" ]]; then
     module purge
     module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0
-    cd /cephyr/users/gaohui/Alvis/thesis_workspace/fl_weather_project/fl_v2
-    source /cephyr/users/gaohui/Alvis/thesis_workspace/fl_weather_project/.venv/bin/activate
+    cd /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/thesis_workspace/fl_weather_project/fl_v2
+    source /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/thesis_workspace/fl_weather_project/.venv/bin/activate
 fi
 
 export OPENBLAS_NUM_THREADS=16
@@ -66,6 +66,7 @@ for exp in "${PHASE_D_EXPS[@]}"; do
         --rounds "${ROUNDS[@]}" \
         --target-label 2 \
         --output-dir "$PROFILE_DIR" \
+        --seed 4242 \
         --load-head
 done
 
@@ -77,12 +78,12 @@ echo "════════════════════════�
 mkdir -p "$PROFILE_DIR"
 for f in "$PHASE_C_DIR/figures/framework/profiles/"*_profile.json; do
     if [[ -f "$f" ]]; then
-        cp -n "$f" "$PROFILE_DIR/"
+        cp "$f" "$PROFILE_DIR/"
     fi
 done
 for f in "$PHASE_C_DIR/figures/framework/profiles/"*_trajectory.csv; do
     if [[ -f "$f" ]]; then
-        cp -n "$f" "$PROFILE_DIR/"
+        cp "$f" "$PROFILE_DIR/"
     fi
 done
 echo "  [done] profiles copied (existing files preserved)"
