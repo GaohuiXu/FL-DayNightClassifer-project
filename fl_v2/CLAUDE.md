@@ -355,6 +355,62 @@ the destination is what matters). On exit the per-job `/tmp` directory is
 removed. Do NOT remove the `/tmp` indirection in `run_alvis.sh` — it
 isolates concurrent jobs from each other.
 
+### Output layout (cycle-aware, Cycle 02 onward)
+New experiments write to
+`/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb/experiments/<cycle>/<phase>/<exp>_r<rounds>_seed<seed>/`.
+The convention is:
+
+- top-level dir `gtsrb/` (the old `gtsrb_v2/` `_v2` suffix was a holdover
+  from the old vs. new Flower API distinction; with v1 retired the suffix
+  is just noise).
+- `experiments/<organizer>/` where organizer is one of `legacy`,
+  `cycle_01`, `cycle_02`, ... — empty subtrees may exist as placeholders.
+- `<phase>/` — `phaseD2`, `phaseE1`, etc.
+- `<exp>_r<rounds>_seed<seed>/` — same naming as before.
+
+YAMLs control routing via two new keys: `cycle` (e.g., `cycle_02`) and
+`phase` (e.g., `phaseD2`). YAMLs that leave both blank fall back to the
+flat `<base>/<exp>...` layout — that's how the historical
+`gtsrb_v2/phaseC_v2/...` and `gtsrb_v2/phaseD/...` Cycle 01 archives keep
+working unchanged. **The existing `gtsrb_v2/` tree is not migrated**; it's
+a frozen Cycle 01 archive.
+
+### Wandb conventions
+Every experiment with `wandb-enabled: true` (default) gets a wandb run.
+Names are derived from the existing fields, so YAMLs don't need to repeat
+information:
+
+- **Project:** `gtsrb-{cycle.replace('_','-')}` → `gtsrb-cycle-02`. Override
+  with `wandb-project`.
+- **Group:** strip trailing `<n>mal` and defense tokens (`nodefense`,
+  `fedmedian`, `krum`, `multikrum`, `bulyan`, `fedtrimmedavg`,
+  `normclipped`) from `experiment-name`. So
+  `phaseD-modelrep-15mal-nodefense` and
+  `phaseD-modelrep-15mal-fedmedian` both join group `phaseD-modelrep`.
+  Override with `wandb-group`.
+- **Run name:** `{experiment-name}_seed{seed}`.
+- **Auto tags:** `cycle`, `phase`, `model-type`, `attack:<type>`,
+  `defense:<type>`, `<n>mal` (when attack), `seed<n>`. Extras via
+  `wandb-tags: "tag1,tag2"`.
+- **Per-round metrics:** `server/test_loss`, `server/test_accuracy`,
+  `server/asr` (when attack), `server/target_class_clean_accuracy`, plus
+  `client/train_loss`, `client/train_accuracy`, `client/val_loss`,
+  `client/val_accuracy` (weighted average across selected clients;
+  captured by `_last_train_metrics` on the strategy).
+- **Auth:** `wandb login` once on alvis1 → `~/.netrc` → SLURM jobs pick
+  it up via `--export=ALL`. Compute-node egress to api.wandb.ai is
+  verified working (job 6512727, 2026-04-27).
+
+See [`docs/wandb_setup.md`](docs/wandb_setup.md) for setup; section 2.3 of
+[`docs/scripts_guide.md`](docs/scripts_guide.md) for the day-to-day flow.
+
+The legacy training-curves analysis pipeline (`run_phaseC_curves.sh`,
+`run_phaseD_curves.sh`, `analysis/plot_experiment.py`,
+`analysis/plot_comparison.py`) is **retired** — wandb covers that ground
+better with live monitoring + cross-experiment filtering. The
+representation-space pipeline (extract → framework → t-SNE) stays — it
+operates on saved checkpoints post-hoc and wandb does not replace it.
+
 ### Venv reproduction
 The venv at `.venv/` (Mimer) was recreated 2026-04-27 with exact pinned
 versions captured from the original Cephyr venv. Lockfile:
@@ -373,6 +429,11 @@ pip install --no-cache-dir -e fl_v2 --no-deps
 pinned in the lockfile — the `--system-site-packages` flag is what makes
 this work. Do not pin them in the lockfile or pip will reinstall them and
 shadow the module versions, breaking CUDA.
+
+`wandb` (and its transitives: `pydantic`, `gitpython`, `sentry-sdk`, ...)
+is pinned in the lockfile alongside the rest. It needs no system-site-
+packages magic — it's a pure Python wheel. After recreating the venv,
+run `wandb login` once on alvis1 to write the API key into `~/.netrc`.
 
 ---
 

@@ -36,6 +36,28 @@ class NormTrackingFedAvg(FedAvg):
         self.seed = seed
         self.current_arrays: ArrayRecord | None = None
         self._norm_history: list[dict] = []
+        # Populated at the end of every aggregate_train; consumed by
+        # server_app.evaluate_fn to forward client-reported metrics into
+        # the experiment logger and wandb. None when no valid replies.
+        self._last_train_metrics: dict | None = None
+
+    @staticmethod
+    def _capture_metrics(metrics) -> dict | None:
+        """Best-effort conversion of an aggregated MetricRecord to a plain dict.
+
+        Skips non-numeric entries. Returns None on any failure or for None
+        input — callers must treat None as "no client metrics this round".
+        """
+        if metrics is None:
+            return None
+        try:
+            return {
+                str(k): float(v)
+                for k, v in dict(metrics).items()
+                if isinstance(v, (int, float))
+            }
+        except Exception:
+            return None
 
     def _norm_log_path(self) -> str:
         return os.path.join(
@@ -87,6 +109,7 @@ class NormTrackingFedAvg(FedAvg):
         valid_replies, _ = self._check_and_log_replies(replies, is_train=True)
 
         if not valid_replies:
+            self._last_train_metrics = None
             return None, None
 
         if self.current_arrays is None:
@@ -106,7 +129,9 @@ class NormTrackingFedAvg(FedAvg):
         # Log norms to stdout + JSON
         self._compute_and_log_norms(server_round, original_norms)
 
-        return super().aggregate_train(server_round, valid_replies)
+        arrays, metrics = super().aggregate_train(server_round, valid_replies)
+        self._last_train_metrics = self._capture_metrics(metrics)
+        return arrays, metrics
 
     # ------------------------------------------------------------------
     # Helpers (reused by NormClippedFedAvg)

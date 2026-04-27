@@ -1,7 +1,8 @@
 """Shared utilities for FL experiment analysis.
 
-Data loaders, discovery helpers, publication style config, and plotting helpers
-used by both plot_experiment.py and plot_comparison.py.
+Data loaders, discovery helpers, and publication-style plot helpers shared
+across the analysis pipeline (extract_features, framework_metrics,
+plot_features, etc.).
 """
 from __future__ import annotations
 

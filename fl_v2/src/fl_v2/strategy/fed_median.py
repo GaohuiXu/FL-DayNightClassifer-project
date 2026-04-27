@@ -32,6 +32,7 @@ class NormTrackingFedMedian(NormTrackingFedAvg):
         valid_replies, _ = self._check_and_log_replies(replies, is_train=True)
 
         if not valid_replies:
+            self._last_train_metrics = None
             return None, None
 
         # --- norm logging (reuse parent infrastructure) ---
@@ -61,4 +62,5 @@ class NormTrackingFedMedian(NormTrackingFedAvg):
             [msg.content for msg in valid_replies],
             self.weighted_by_key,
         )
+        self._last_train_metrics = self._capture_metrics(metrics)
         return arrays, metrics

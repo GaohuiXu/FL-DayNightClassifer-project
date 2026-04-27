@@ -19,11 +19,14 @@ from fl_v2.utils import (
     ensure_dir,
     ExperimentLogger,
     get_device,
+    render_label_histogram_panel,
     save_attack_comparison,
     save_json,
 )
 
 from fl_v2.strategy import (
+    CapturedKrum,
+    CapturedMultiKrum,
     NormClippedFedAvg,
     NormTrackingBulyan,
     NormTrackingFedAvg,
@@ -112,42 +115,38 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict, exp_dir:
             **common_kwargs,
         )
 
-    # --- Flower built-in strategies (Krum/MultiKrum work correctly) ---
-    _FLOWER_STRATEGIES = {
-        "krum": ("Krum", {
-            "num_malicious_nodes": ("num-malicious-nodes", 0, int),
-        }),
-        "multi_krum": ("MultiKrum", {
-            "num_malicious_nodes": ("num-malicious-nodes", 0, int),
-            "num_nodes_to_select": ("krum-num-to-select", 5, int),
-        }),
-    }
-
-    if defense_type not in _FLOWER_STRATEGIES:
-        raise ValueError(
-            f"Unsupported defense-type: {defense_type!r}. "
-            f"Available: none, norm_clipping, fed_median, fed_trimmed_avg, "
-            f"krum, multi_krum, bulyan"
+    # --- Flower built-in Krum / MultiKrum (wrapped for client-metric capture) ---
+    if defense_type == "krum":
+        return CapturedKrum(
+            num_malicious_nodes=int(run_config.get("num-malicious-nodes", 0)),
+            **common_kwargs,
         )
 
-    class_name, param_spec = _FLOWER_STRATEGIES[defense_type]
-    import flwr.serverapp.strategy as flwr_strat
-    strategy_cls = getattr(flwr_strat, class_name)
+    if defense_type == "multi_krum":
+        return CapturedMultiKrum(
+            num_malicious_nodes=int(run_config.get("num-malicious-nodes", 0)),
+            num_nodes_to_select=int(run_config.get("krum-num-to-select", 5)),
+            **common_kwargs,
+        )
 
-    extra_kwargs = {
-        k: cast_fn(run_config.get(config_key, default))
-        for k, (config_key, default, cast_fn) in param_spec.items()
-    }
+    raise ValueError(
+        f"Unsupported defense-type: {defense_type!r}. "
+        f"Available: none, norm_clipping, fed_median, fed_trimmed_avg, "
+        f"krum, multi_krum, bulyan"
+    )
 
-    return strategy_cls(**extra_kwargs, **common_kwargs)
 
-
-def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger):
+def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger, strategy):
     """
     Build a centralized evaluation callback.
 
     Flower strategies can receive an evaluate_fn callback in strategy.start(...).
     The callback takes (server_round, arrays) and returns a MetricRecord or None.
+
+    The ``strategy`` argument is the same instance built by ``_build_strategy``;
+    we read its ``_last_train_metrics`` slot (populated by aggregate_train) so
+    client-aggregated metrics flow into ``logger.log_round`` and onward to wandb
+    on the same server-round axis as the server-side eval metrics.
     """
     run_config = context.run_config
     data_root = str(run_config["data-root"])
@@ -225,7 +224,13 @@ def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger):
             )
 
         metrics_dict = {"server-round": int(server_round), **results}
-        logger.log_round(server_round, metrics_dict)
+
+        # Pull the aggregated client MetricRecord that the strategy stashed
+        # at the end of aggregate_train. None on round 0 (no train yet) or if
+        # the strategy didn't expose the slot.
+        client_metrics = getattr(strategy, "_last_train_metrics", None)
+
+        logger.log_round(server_round, metrics_dict, client_metrics=client_metrics)
 
         # Save periodic checkpoint if this round is in the configured set
         if server_round in checkpoint_rounds:
@@ -290,10 +295,17 @@ def main(grid: Grid, context: Context) -> None:
     print("===== Client label histogram summary =====", flush=True)
     print(summary, flush=True)
 
-    save_json(
-        histograms,
-        f"{exp_dir}/{experiment_name}_seed{seed}_client_label_histograms.json",
+    histogram_json_path = (
+        f"{exp_dir}/{experiment_name}_seed{seed}_client_label_histograms.json"
     )
+    save_json(histograms, histogram_json_path)
+    # Render a heatmap PNG and upload to wandb (no-op when wandb disabled).
+    num_classes = int(run_config.get("num-classes", 43))
+    histogram_png_path = render_label_histogram_panel(
+        histogram_json_path, num_classes=num_classes
+    )
+    if histogram_png_path:
+        logger.log_image("client_label_histograms", histogram_png_path)
     print("[server] histogram stats done", flush=True)
 
     print("[server] creating strategy", flush=True)
@@ -314,7 +326,7 @@ def main(grid: Grid, context: Context) -> None:
     initial_arrays = _build_initial_arrays(context)
     train_config = _get_train_config(context)
     evaluate_config = _get_evaluate_config(context)
-    evaluate_fn = _server_side_evaluate_fn(context, logger)
+    evaluate_fn = _server_side_evaluate_fn(context, logger, strategy)
 
     # Save trigger visualization once at startup (attack-agnostic interface)
     attack_type = str(run_config.get("attack-type", "none"))

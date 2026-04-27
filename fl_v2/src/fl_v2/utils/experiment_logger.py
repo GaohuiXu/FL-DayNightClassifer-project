@@ -7,17 +7,30 @@ import torch
 import yaml
 
 from fl_v2.utils.io import ensure_dir, save_json
+from fl_v2.utils.wandb_logger import WandbLogger
 
 
 class ExperimentLogger:
     """Persist per-round metrics and experiment config to a structured output directory.
 
     Directory layout produced:
+
+    Cycle-aware (new YAMLs that set ``cycle`` and ``phase``):
+        {base_output_dir}/experiments/{cycle}/{phase}/{experiment_name}_r{num_rounds}_seed{seed}/
+            config.yaml
+            rounds.csv
+            summary.json
+            checkpoints/
+            wandb/                  — created by WandbLogger
+            wandb_offline/          — populated by run_alvis.sh on exit if WANDB_MODE=offline
+
+    Legacy fallback (closed-cycle YAMLs without ``cycle``/``phase``):
         {base_output_dir}/{experiment_name}_r{num_rounds}_seed{seed}/
-            config.yaml      — full merged run_config
-            rounds.csv       — one row per round (incremental, crash-safe)
-            summary.json     — best + final metrics (written on finalize)
-            checkpoints/     — directory stub for future checkpoint saving
+        (preserves the historical Cycle 01 layout under fl_outputs/gtsrb_v2/<phase>/.)
+
+    All per-round metrics flow through :meth:`log_round`, which also forwards
+    them to :class:`WandbLogger` when wandb is enabled. The CSV layer remains
+    the source of truth (crash-safe append-only); wandb is additive.
     """
 
     def __init__(self, run_config, base_output_dir: str) -> None:
@@ -25,9 +38,17 @@ class ExperimentLogger:
         num_rounds = int(run_config["num-server-rounds"])
         seed       = int(run_config["seed"])
 
-        self.exp_dir = os.path.join(
-            base_output_dir, f"{exp_name}_r{num_rounds}_seed{seed}"
-        )
+        cycle = str(run_config.get("cycle", "")).strip()
+        phase = str(run_config.get("phase", "")).strip()
+
+        parts = [base_output_dir]
+        if cycle and phase:
+            parts += ["experiments", cycle, phase]
+        elif cycle:
+            parts += ["experiments", cycle]
+        parts.append(f"{exp_name}_r{num_rounds}_seed{seed}")
+
+        self.exp_dir = os.path.join(*parts)
         ensure_dir(self.exp_dir)
         ensure_dir(os.path.join(self.exp_dir, "checkpoints"))
 
@@ -40,13 +61,37 @@ class ExperimentLogger:
             os.remove(self._csv_path)
         self._csv_initialized = False
 
+        # Wandb is constructed last so its WANDB_DIR sits inside exp_dir.
+        # Its constructor is a no-op when wandb-enabled=false.
+        self.wandb = WandbLogger(run_config, self.exp_dir)
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def log_round(self, server_round: int, metrics: dict) -> None:
-        """Append one row to rounds.csv. Safe to call every round."""
+    def log_round(
+        self,
+        server_round: int,
+        metrics: dict,
+        client_metrics: dict | None = None,
+    ) -> None:
+        """Append one row to rounds.csv and forward to wandb if enabled.
+
+        ``metrics`` is the server-side eval dict (test_loss, test_accuracy,
+        target_class_clean_accuracy, asr, etc.). ``client_metrics`` is the
+        weighted-average client-reported dict (train_loss, train_accuracy,
+        val_loss, val_accuracy, num-examples) — captured by strategies via
+        their ``_last_train_metrics`` slot.
+
+        The CSV row contains server metrics plus any client metrics
+        (prefixed ``client_*``). Wandb gets them as ``server/<key>`` and
+        ``client/<key>`` namespaces.
+        """
         row = {"round": server_round, **metrics}
+        if client_metrics:
+            for k, v in client_metrics.items():
+                if isinstance(v, (int, float)):
+                    row[f"client_{k}"] = v
         self._rows.append(row)
 
         write_header = not self._csv_initialized
@@ -57,6 +102,9 @@ class ExperimentLogger:
                 self._csv_initialized = True
             writer.writerow(row)
 
+        # Forward to wandb (no-op when disabled).
+        self.wandb.log_round(server_round, metrics, client_metrics)
+
     def save_checkpoint(self, server_round: int, state_dict: dict) -> None:
         """Save model checkpoint for a given round."""
         path = os.path.join(
@@ -65,9 +113,14 @@ class ExperimentLogger:
         torch.save(state_dict, path)
         print(f"[logger] checkpoint saved → {path}", flush=True)
 
+    def log_image(self, name: str, path: str) -> None:
+        """Forward a one-shot image artifact to wandb (no-op when disabled)."""
+        self.wandb.log_image(name, path)
+
     def finalize(self) -> None:
-        """Write summary.json. Call once after all rounds complete."""
+        """Write summary.json, push it to wandb, and close the wandb run."""
         if not self._rows:
+            self.wandb.finalize()
             return
 
         # Exclude round 0 (untrained model) from best-metric selection
@@ -94,6 +147,9 @@ class ExperimentLogger:
 
         save_json(summary, os.path.join(self.exp_dir, "summary.json"))
         print(f"[logger] summary saved → {self.exp_dir}/summary.json", flush=True)
+
+        self.wandb.log_summary(summary)
+        self.wandb.finalize()
 
     # ------------------------------------------------------------------
     # Private helpers

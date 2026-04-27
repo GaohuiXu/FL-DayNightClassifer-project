@@ -22,6 +22,9 @@ fi
 
 mkdir -p /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/slurm
 mkdir -p /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb_v2
+# New cycle-aware tree (Cycle 02 onward); experiment_logger.py creates the
+# nested experiments/<cycle>/<phase>/ subdirs on demand.
+mkdir -p /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb
 
 module purge
 module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0
@@ -59,6 +62,18 @@ which python
 python --version
 which flwr
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+
+# Wandb env (auth + mode flow in via --export=ALL from submit_experiment.sh).
+# WANDB_API_KEY may be in ~/.netrc instead — that's fine, wandb reads both.
+echo "===== Wandb ====="
+if [[ -n "${WANDB_API_KEY:-}" ]]; then
+    echo "WANDB_API_KEY: set (len=${#WANDB_API_KEY})"
+elif [[ -f "$HOME/.netrc" ]] && grep -q "api.wandb.ai" "$HOME/.netrc" 2>/dev/null; then
+    echo "WANDB_API_KEY: not in env — using ~/.netrc"
+else
+    echo "WANDB_API_KEY: NOT FOUND (run 'wandb login' once on a login node)"
+fi
+echo "WANDB_MODE: ${WANDB_MODE:-<unset, defaults from YAML>}"
 
 # --- Start SuperLink in background ---
 echo "===== Starting SuperLink ====="

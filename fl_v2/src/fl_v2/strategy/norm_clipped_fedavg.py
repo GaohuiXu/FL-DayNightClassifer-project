@@ -27,6 +27,7 @@ class NormClippedFedAvg(NormTrackingFedAvg):
         valid_replies, _ = self._check_and_log_replies(replies, is_train=True)
 
         if not valid_replies:
+            self._last_train_metrics = None
             return None, None
 
         if self.current_arrays is None:
@@ -88,4 +89,6 @@ class NormClippedFedAvg(NormTrackingFedAvg):
 
         # Delegate aggregation to grandparent FedAvg
         # (skip NormTrackingFedAvg.aggregate_train to avoid recomputing norms)
-        return FedAvg.aggregate_train(self, server_round, valid_replies)
+        arrays, metrics = FedAvg.aggregate_train(self, server_round, valid_replies)
+        self._last_train_metrics = self._capture_metrics(metrics)
+        return arrays, metrics

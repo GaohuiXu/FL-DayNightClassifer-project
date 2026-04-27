@@ -14,6 +14,7 @@ dependencies = [
     "torchvision>=0.17.0",
     "numpy>=1.24",
     "pyyaml>=6.0.1",
+    "wandb>=0.18,<1.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -88,3 +89,27 @@ clip-norm = 5.0  # placeholder; update after inspecting Exp 1 norm log
 trimmed-avg-beta = 0.2
 num-malicious-nodes = 0
 krum-num-to-select = 5
+
+# ===== organization (used by output path + wandb) =====
+# `cycle` and `phase` are blank in this default; new YAMLs (Cycle 02 onward)
+# set them to e.g. "cycle_02" / "phaseD2", which routes outputs to
+#   <output-dir>/experiments/<cycle>/<phase>/<exp>_r<rounds>_seed<seed>/.
+# Closed-cycle YAMLs that leave them blank get the legacy flat layout.
+cycle = ""
+phase = ""
+
+# ===== wandb =====
+# Master switch: set to false to fully disable wandb (no run created).
+wandb-enabled = true
+# online | offline | disabled. "disabled" matches wandb-enabled=false.
+# Egress to api.wandb.ai is verified working from Alvis compute nodes
+# (job 6512727, 2026-04-27); online is the default.
+wandb-mode = "online"
+# Project name. Blank → derived: f"gtsrb-{cycle.replace('_','-')}".
+wandb-project = ""
+# Group name. Blank → derived from experiment-name family prefix
+# (strip trailing tokens matching {nodefense, fedmedian, krum, ..., \d+mal}).
+wandb-group = ""
+# Comma-separated extra tags. Auto tags (cycle, phase, model-type, attack-type,
+# defense-type, num-malicious, seed) are always appended.
+wandb-tags = ""

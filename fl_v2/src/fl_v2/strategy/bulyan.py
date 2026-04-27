@@ -79,6 +79,7 @@ class NormTrackingBulyan(NormTrackingFedAvg):
                 f"(4*{f}+3). Skipping aggregation.",
                 flush=True,
             )
+            self._last_train_metrics = None
             return None, None
 
         # --- norm logging ---
@@ -134,4 +135,5 @@ class NormTrackingBulyan(NormTrackingFedAvg):
             selected_contents,
             self.weighted_by_key,
         )
+        self._last_train_metrics = self._capture_metrics(metrics)
         return arrays, metrics

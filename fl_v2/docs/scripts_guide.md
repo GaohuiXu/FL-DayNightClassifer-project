@@ -153,7 +153,51 @@ limit and `--gpus-per-node` GPU request live in `run_alvis.sh`. If a YAML
 has more rounds than fit in 3 hours, edit `run_alvis.sh`'s `#SBATCH -t`
 line before submitting.
 
-### 2.3 `monitor.sh` — check on a submitted job
+### 2.3 Wandb (live monitoring)
+
+Server-side wandb logging is wired into `ExperimentLogger` so every per-round
+metric automatically lands in a wandb run alongside `rounds.csv`. There is no
+separate "wandb mode" — set `wandb-enabled: true` in the YAML and submit
+normally.
+
+What gets logged:
+- **Per-round, server namespace:** `test_loss`, `test_accuracy`,
+  `target_class_clean_accuracy`, `asr` (when an attack is active), plus the
+  `n=` sample counts.
+- **Per-round, client namespace:** `train_loss`, `train_accuracy`,
+  `val_loss`, `val_accuracy`, `num-examples` (weighted average across
+  selected clients, captured by the strategy).
+- **One-shot artifacts:** client × class label-histogram heatmap PNG (rendered
+  at startup), final summary scalars (best test_accuracy round, best ASR
+  round).
+- **Run config:** the entire merged `run_config` is uploaded as wandb
+  config so any hyperparameter shows up in side-by-side comparisons.
+
+Naming and grouping (so dozens of runs stay readable):
+- **Project:** `gtsrb-{cycle}` (with `_` → `-`). E.g. `gtsrb-cycle-02`.
+- **Group:** auto-derived from `experiment-name` by stripping trailing
+  defense / `<n>mal` tokens. E.g. `phaseD-modelrep-15mal-nodefense` →
+  group `phaseD-modelrep`. Override with `wandb-group` in the YAML.
+- **Run name:** `<experiment-name>_seed<seed>`.
+- **Tags:** `cycle`, `phase`, `model-type`, `attack:<type>`,
+  `defense:<type>`, `<n>mal` (when attack), `seed<n>`. Add more via
+  `wandb-tags: "tag1,tag2"`.
+
+Online vs offline:
+- Default: `wandb-mode: online`. Compute-node egress to api.wandb.ai is
+  verified working on Alvis (job 6512727, 2026-04-27).
+- Offline: set `WANDB_MODE=offline` in the submit shell (or
+  `wandb-mode: offline` in the YAML). The run writes to
+  `<exp_dir>/wandb/` and you upload later with `wandb sync <exp_dir>/wandb/`
+  from a login node after `source activate_env.sh`.
+- Disable entirely: `wandb-enabled: false` (no run is created; nothing
+  uploads).
+
+First-time setup: `wandb login` once on alvis1; the API key lands in
+`~/.netrc` and SLURM jobs pick it up via `--export=ALL`. See
+[`wandb_setup.md`](wandb_setup.md) for the full setup walkthrough.
+
+### 2.4 `monitor.sh` — check on a submitted job
 
 **Path:** [../monitor.sh](../monitor.sh).
 
@@ -187,8 +231,10 @@ The standard pipeline for a phase is:
 Stage 1: extract features from checkpoints   →  run_phaseX_extract.sh
 Stage 2: compute 4-axis framework metrics    →  run_framework.sh (or run_phaseD_framework.sh)
 Stage 3: visualize (t-SNE, cluster plots)    →  run_phaseC_analyze.sh / run_phaseD_viz.sh
-Stage 4: training curves + defense compare   →  run_phaseC_curves.sh / run_phaseD_curves.sh
 ```
+
+(Training-curves / defense-comparison plots are no longer produced offline —
+wandb covers them. See section 2.3.)
 
 | Script | Stage | GPU? | Typical time |
 |---|---|---|---|
@@ -198,8 +244,6 @@ Stage 4: training curves + defense compare   →  run_phaseC_curves.sh / run_pha
 | `run_phaseD_framework.sh` | Stage 2 (Phase D) | NOGPU | ~15 min |
 | `run_phaseC_analyze.sh` | Stage 3 | NOGPU | ~30 min |
 | `run_phaseD_viz.sh` | Stage 3 | NOGPU | ~15 min |
-| `run_phaseC_curves.sh` | Stage 4 | NOGPU | ~5 min |
-| `run_phaseD_curves.sh` | Stage 4 | NOGPU | ~5 min |
 
 All stages are **idempotent**: they skip outputs that already exist, so
 re-running after a partial failure is safe.
@@ -211,7 +255,7 @@ sbatch analysis/run_phaseC_extract.sh
 sbatch --dependency=afterany:<extract_jobid> analysis/run_framework.sh
 ```
 
-Or run locally after activating the env (fine for the short Stage 2–4
+Or run locally after activating the env (fine for the short Stage 2–3
 scripts, too slow for Stage 1):
 
 ```bash
@@ -240,7 +284,9 @@ analysis/run_framework.sh            (computes 4-axis profile JSON/CSV)
             │
             ▼
 analysis/run_phaseX_analyze.sh       (t-SNE / cluster plots)
-analysis/run_phaseX_curves.sh        (training curves + defense compare)
+
+# Training curves / defense comparisons live in wandb (see section 2.3)
+# rather than as offline analysis-pipeline outputs.
 ```
 
 ---
