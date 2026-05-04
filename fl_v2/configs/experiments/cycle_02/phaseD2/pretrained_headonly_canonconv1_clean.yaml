@@ -1,0 +1,28 @@
+# Cycle 02 pivot, Phase D2 fallback — pretrained ResNet18, canonical 7x7 conv1,
+# image-size 64, head-only FT, no attack.
+# Submit ONLY if pretrained_headonly_clean (32x32 modified conv1) clean-acc < 0.60
+# at Wednesday morning checkpoint. Tests whether the modified-conv1 + ImageNet-bn1
+# distribution mismatch is the cause, by switching to ImageNet-canonical first stage.
+experiment-name: cycle02-pretrained-headonly-canonconv1-clean
+cycle: cycle_02
+phase: phaseD2
+model-type: resnet18
+pretrained-init: true
+canonical-conv1: true
+trainable-layers: head_only
+image-size: 64
+num-clients: 50
+num-server-rounds: 100
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: none
+defense-type: none
+checkpoint-rounds: "0,5,10,25,50,75,100"
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+wandb-group: cycle02-pretrained-headonly-canonconv1
+wandb-tags: pretrained-pivot,canonconv1-fallback

@@ -108,6 +108,16 @@ def _derive_tags(run_config) -> list[str]:
     if seed is not None:
         tags.append(f"seed{int(seed)}")
 
+    # Cycle 02 onward — surface fine-tuning regime so the wandb dashboard
+    # can filter `pretrained AND trainable:head_only AND 5mal` to one cell.
+    if bool(run_config.get("pretrained-init", False)):
+        tags.append("pretrained")
+    trainable_layers = str(run_config.get("trainable-layers", "full_ft")).strip()
+    if trainable_layers and trainable_layers != "full_ft":
+        tags.append(f"trainable:{trainable_layers}")
+    if bool(run_config.get("canonical-conv1", False)):
+        tags.append("canonical_conv1")
+
     extra = str(run_config.get("wandb-tags", "")).strip()
     if extra:
         tags.extend([t.strip() for t in extra.split(",") if t.strip()])

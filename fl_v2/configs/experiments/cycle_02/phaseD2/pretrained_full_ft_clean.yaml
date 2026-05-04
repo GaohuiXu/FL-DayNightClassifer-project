@@ -1,0 +1,24 @@
+# Cycle 02 pivot, Phase D2, cell 1/9 — pretrained ResNet18, full FT, no attack
+# Reference for the new regime; matches Cycle 01 phaseC2 clean baseline but
+# with pretrained ImageNet init for bn1+layer1-4.
+experiment-name: cycle02-pretrained-full-ft-clean
+cycle: cycle_02
+phase: phaseD2
+model-type: resnet18
+pretrained-init: true
+trainable-layers: full_ft
+num-clients: 50
+num-server-rounds: 100
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: none
+defense-type: none
+checkpoint-rounds: "0,5,10,25,50,75,100"
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+wandb-group: cycle02-pretrained-full-ft
+wandb-tags: pretrained-pivot

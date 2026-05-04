@@ -42,6 +42,24 @@ min-available-nodes = 10
 min-train-nodes = 2
 num-local-epochs = 1
 
+# ===== fine-tuning regime (Cycle 02 onward) =====
+# When true, ResNet18 backbone is initialized from ImageNet weights
+# (bn1, layer1-4 retain ImageNet; conv1 + fc remain randomly initialized
+# because GTSRB uses a 32x32-modified conv1 and a 43-class head).
+# Defaults to false so existing Cycle 01 YAMLs continue to work unchanged.
+pretrained-init = false
+# Which layers fine-tune locally:
+#   "full_ft"     — all parameters trainable (default; matches Cycle 01)
+#   "last_block"  — only ResNet layer4 + classifier head (fc) trainable
+#   "head_only"   — only classifier head (fc) trainable
+trainable-layers = "full_ft"
+# When true, ResNet18 keeps torchvision's canonical 7x7 stride-2 conv1 +
+# 3x3 stride-2 maxpool (ImageNet-shaped first stage). Used together with
+# `image-size: 64` (or 96/224) so the pretrained early stage sees inputs
+# closer to its training distribution. Default false preserves Cycle 01's
+# 32x32-modified conv1 (3x3 stride-1, maxpool=Identity).
+canonical-conv1 = false
+
 # ===== optimization =====
 batch-size = 64
 learning-rate = 0.001

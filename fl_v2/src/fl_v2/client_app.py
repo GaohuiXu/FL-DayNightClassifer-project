@@ -146,9 +146,16 @@ def _load_model_from_message(msg: Message, context: Context) -> Tuple[torch.nn.M
     """Instantiate model and load weights received from the server."""
     num_classes = int(context.run_config["num-classes"])
     model_type = str(context.run_config.get("model-type", "cnn"))
+    # Architecture-determining flag — must match what the server's
+    # _build_initial_arrays produced, otherwise state_dict keys mismatch.
+    canonical_conv1 = bool(context.run_config.get("canonical-conv1", False))
     device = get_device(context.run_config)
 
-    model = create_model(model_type, num_classes=num_classes)
+    model = create_model(
+        model_type,
+        num_classes=num_classes,
+        canonical_conv1=canonical_conv1,
+    )
     model.load_state_dict(msg.content["arrays"].to_torch_state_dict())
     model.to(device)
 
@@ -175,6 +182,7 @@ def train(msg: Message, context: Context) -> Message:
     default_local_epochs = int(run_config["num-local-epochs"])
     default_lr = float(run_config["learning-rate"])
     default_weight_decay = float(run_config["weight-decay"])
+    trainable_layers = str(run_config.get("trainable-layers", "full_ft"))
 
     # Re-read attack metadata (these are already used internally by
     # _load_client_data, but we need them again here to decide whether to
@@ -213,6 +221,7 @@ def train(msg: Message, context: Context) -> Message:
         num_epochs=local_epochs,
         learning_rate=learning_rate,
         weight_decay=weight_decay,
+        trainable_layers=trainable_layers,
     )
 
     # --- Model replacement (Bagdasaryan) --------------------------------

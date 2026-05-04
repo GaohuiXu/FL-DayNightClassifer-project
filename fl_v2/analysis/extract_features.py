@@ -32,9 +32,17 @@ def load_model_from_checkpoint(
     checkpoint_path: str | Path,
     model_type: str = "resnet18",
     num_classes: int = 43,
+    canonical_conv1: bool = False,
 ) -> nn.Module:
-    """Load a model from a saved state dict checkpoint."""
-    model = create_model(model_type, num_classes=num_classes)
+    """Load a model from a saved state dict checkpoint.
+
+    ``canonical_conv1`` must match the architecture that produced the
+    checkpoint, otherwise the Sequential structure differs and the state_dict
+    keys will not align.
+    """
+    model = create_model(
+        model_type, num_classes=num_classes, canonical_conv1=canonical_conv1
+    )
     state_dict = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     model.load_state_dict(state_dict)
     return model
@@ -140,6 +148,7 @@ def main():
     image_size = int(config.get("image-size", 32))
     batch_size = int(config.get("batch-size", 64))
     attack_type = str(config.get("attack-type", "none"))
+    canonical_conv1 = str(config.get("canonical-conv1", "false")).strip().lower() == "true"
 
     print(f"[extract] experiment:  {exp_dir.name}")
     print(f"[extract] model:       {model_type}")
@@ -153,9 +162,14 @@ def main():
     print(f"[extract] device:      {device}")
 
     # Load model
-    model = load_model_from_checkpoint(checkpoint_path, model_type, num_classes)
+    model = load_model_from_checkpoint(
+        checkpoint_path,
+        model_type,
+        num_classes,
+        canonical_conv1=canonical_conv1,
+    )
     model.to(device)
-    print(f"[extract] loaded checkpoint: {checkpoint_path}")
+    print(f"[extract] loaded checkpoint: {checkpoint_path} (canonical_conv1={canonical_conv1})")
 
     # Load test data
     testloader = get_global_testloader(

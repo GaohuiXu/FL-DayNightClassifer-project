@@ -39,11 +39,30 @@ app = ServerApp()
 
 
 def _build_initial_arrays(context: Context) -> ArrayRecord:
-    """Create the initial global model parameters."""
+    """Create the initial global model parameters.
+
+    Reads ``pretrained-init`` from run_config (default false) so Cycle 02
+    pretrained-pivot YAMLs can ship ImageNet weights for the backbone while
+    Cycle 01 YAMLs continue to use random init. This is the only place the
+    pretrained flag matters: every other ``create_model`` call immediately
+    overwrites init weights via ``load_state_dict``.
+    """
     num_classes = int(context.run_config["num-classes"])
     model_type = str(context.run_config.get("model-type", "cnn"))
-    model = create_model(model_type, num_classes=num_classes)
-    print(f"[server] model: {model_type} ({sum(p.numel() for p in model.parameters()):,} params)", flush=True)
+    pretrained = bool(context.run_config.get("pretrained-init", False))
+    canonical_conv1 = bool(context.run_config.get("canonical-conv1", False))
+    model = create_model(
+        model_type,
+        num_classes=num_classes,
+        pretrained=pretrained,
+        canonical_conv1=canonical_conv1,
+    )
+    print(
+        f"[server] model: {model_type} pretrained={pretrained} "
+        f"canonical_conv1={canonical_conv1} "
+        f"({sum(p.numel() for p in model.parameters()):,} params)",
+        flush=True,
+    )
     return ArrayRecord(model.state_dict())
 
 
@@ -154,6 +173,10 @@ def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger, strateg
     image_size = int(run_config["image-size"])
     num_classes = int(run_config["num-classes"])
     model_type = str(run_config.get("model-type", "cnn"))
+    # Architecture-determining flag (must match _build_initial_arrays); the
+    # state_dict from the strategy will only load into a model with the
+    # matching Sequential structure.
+    canonical_conv1 = bool(run_config.get("canonical-conv1", False))
     device = get_device(run_config)
 
     attack_type = str(run_config.get("attack-type", "none"))
@@ -188,7 +211,14 @@ def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger, strateg
         checkpoint_rounds = {int(r.strip()) for r in checkpoint_rounds_str.split(",") if r.strip()}
 
     def evaluate_fn(server_round: int, arrays: ArrayRecord) -> Optional[MetricRecord]:
-        model = create_model(model_type, num_classes=num_classes)
+        # pretrained=False — init is overwritten immediately by load_state_dict.
+        # canonical_conv1 must match the running federation's architecture so
+        # that state_dict keys align.
+        model = create_model(
+            model_type,
+            num_classes=num_classes,
+            canonical_conv1=canonical_conv1,
+        )
         model.load_state_dict(arrays.to_torch_state_dict())
         model.to(device)
 
