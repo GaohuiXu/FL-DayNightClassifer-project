@@ -1,0 +1,28 @@
+# Smoke test for run_alvis.sh v2 (port-derive-from-JID + per-mode GPU override).
+# 5-round head-only run; verifies the new port allocation and num-gpus=0.025
+# override path don't break the SuperLink startup or Flower run loop.
+# Output dir is suffixed _smoke to keep it out of the main analysis pipeline.
+experiment-name: cycle02-smoke-test-headonly-r5
+cycle: cycle_02
+phase: smoke
+model-type: resnet18
+pretrained-init: true
+canonical-conv1: true
+trainable-layers: head_only
+image-size: 64
+num-clients: 50
+num-server-rounds: 5
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: none
+defense-type: none
+checkpoint-rounds: "0,5"
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+wandb-enabled: false
+wandb-group: cycle02-smoke
+wandb-tags: smoke-test

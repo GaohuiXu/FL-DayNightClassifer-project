@@ -1,0 +1,35 @@
+# Cycle 02 pivot, Phase D2 fallback — pretrained ResNet18, canonical 7x7 conv1,
+# image-size 64, head-only FT, pixel 5/50 mal.
+# Companion to pretrained_headonly_canonconv1_clean — submit only if the
+# modified-conv1 head-only cells produce uninformative numbers (clean-acc < 0.60).
+experiment-name: cycle02-pretrained-headonly-canonconv1-pixel5
+cycle: cycle_02
+phase: phaseD2
+model-type: resnet18
+pretrained-init: true
+canonical-conv1: true
+trainable-layers: head_only
+image-size: 64
+num-clients: 50
+num-server-rounds: 100
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: pixel_backdoor
+malicious-client-ids: 0,1,2,3,4
+backdoor-target-label: 2
+poison-fraction: 0.5
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+defense-type: none
+checkpoint-rounds: "0,5,10,25,50,75,100"
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+wandb-group: cycle02-pretrained-headonly-canonconv1
+wandb-tags: pretrained-pivot,canonconv1-fallback
+seed: 43
+wandb-tags: pretrained-pivot,multi-seed
