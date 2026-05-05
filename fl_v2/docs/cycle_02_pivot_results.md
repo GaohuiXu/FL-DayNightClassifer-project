@@ -336,19 +336,33 @@ the backdoor needs to live in the encoder. If `head_attribution_pct`
 across cells in §3.3 is consistently high (≥ 70 %), the auxiliary-loss
 attack is solving a problem the realistic threat model does not pose.
 
-**Proposed redesign (Cycle 02 weeks 2–3):** D.2-revised becomes
-**head-attack-under-frozen-extractor** — a stronger, FL-native version
-of HTBA. Concretely: malicious clients receive a global model with the
-backbone frozen (operator policy), can only update the head, and apply
-a stealth-constrained optimization to push triggered logits over the
-target-class threshold while preserving clean-head accuracy. The
-auxiliary objective shifts from `‖f(τ(x)) − μ̂‖²` (feature alignment)
-to a margin-on-output formulation (logit margin, classifier-row
-alignment, or HTBA-style poisoned-target collision with the head).
+**Empirical resolution.** All six § 3.3 cells produce
+`head_attribution_pct ≥ 60 %`, with 5/6 ≥ 90 % at saturated ASR. The
+original D.2 design assumes a regime that does not occur empirically
+in our matrix. **D.2-revised proceeds as head-targeted attack under
+partially-frozen backbones.**
 
-If `head_attribution_pct` is consistently low (≤ 30 %) — i.e. backdoors
-genuinely need encoder access — the original D.2 design retains its
-premise. Either result is publishable; we wait for §3.3 to decide.
+**Proposed redesign (Cycle 02 weeks 2–3).** Two complementary attack
+variants:
+
+- **D.2a (last_block-targeted attack).** Attacker has trainable layer4
+  + fc. Loss combines the standard pixel-trigger backdoor classifier
+  loss with a stealth penalty on the layer4 weight delta (so the
+  attack avoids drawing attention via norm-based defenses). Goal:
+  raise `head_attribution_pct` toward 100 % even at low malicious
+  pressure (5 mal), where § 3.3 shows it currently sits at 60 %.
+- **D.2b (head_only-targeted with stealth).** Attacker has trainable
+  fc only. Loss adds a logit-margin penalty
+  `−margin(target, top-not-target)` on triggered samples to push
+  the attack across the decision boundary while clean-head accuracy
+  is constrained. Tests the residual feasibility of pure-head attacks
+  in the canonical-conv1 regime — currently § 3.4 shows ASR ≤ 0.23.
+  If D.2b raises this above 0.5, we have a genuinely stealthy
+  head-only attack.
+
+The auxiliary objective formally shifts from `‖f(τ(x)) − μ̂_{c*}‖²`
+(feature alignment) to **margin-on-output** plus a stealth term —
+HTBA-style, FL-native.
 
 ---
 
@@ -358,18 +372,33 @@ The original E.1 design monitored *penultimate-feature drift* per class
 and aggregated suspicious `(c → c′)` flags across clients. That design
 implicitly assumes attacks shift features.
 
-If § 3.3 confirms head-dominance, the detector switches to
-**logit-distribution drift** monitoring — comparable in spirit to FedInv
-(Zhao et al. 2022, CVPR) and STRIP-derived prediction-shift tests, but
-adapted to the FL non-IID setting. Each client measures the per-class
-output-distribution shift on its own labeled data between rounds, and the
-server aggregates flags via the same coverage analysis already done in
-`phaseE2_coverage_analysis.md` (the coverage finding transfers
-unchanged).
+**Empirical resolution.** § 3.3 confirms head-dominance is the
+realistic regime (`head_attribution_pct ≥ 60 %` in every cell). The
+detector pivots to **logit-distribution drift / output-margin
+monitoring**:
 
-If § 3.3 shows mixed regimes (`head_only` cells fail to embed, but
-`last_block`/`full_ft` cells do), the detector becomes a *combined*
-feature-drift + logit-drift sensor. We do not yet know which.
+- **E.1-revised (per-client logit drift).** Each client measures the
+  per-class softmax-output shift on its own labelled data between a
+  reference round and the current round. The trigger-induced anomaly
+  manifests as an unusually-high target-class probability mass for
+  inputs sampled from non-target classes — exactly what an HTBA-style
+  head-attack produces. Comparable in spirit to FedInv (Zhao et al.
+  2022, CVPR) and STRIP-derived prediction-shift tests, but **non-IID-
+  native** (each client uses its own observable classes).
+- **E.2-revised (cross-client aggregation).** Sparse `(c → c*)`
+  suspicion scores reported by clients aggregate identically to the
+  original E.2 design — the **coverage analysis in
+  `phaseE2_coverage_analysis.md` transfers unchanged**: at observable
+  threshold `t = 5`, 99.9 % of class pairs are covered with median
+  redundancy 10 witnesses. We do not need to redo coverage work.
+
+The **feature-drift detector is retired**, not because feature drift
+never happens, but because the regime where it would be informative
+(low `head_attribution_pct`) does not exist in the realistic
+deployment matrix. If a future cycle finds an attack mechanism that
+does corrupt features (e.g. a stealth-constrained model replacement
+operating across many rounds at low per-round magnitude), feature-
+drift detection re-enters the picture.
 
 ---
 
