@@ -61,8 +61,13 @@ echo ""
 echo "═══════════════════════════════════════════════════════"
 echo "  Step 1: Per-experiment framework profiles"
 echo "═══════════════════════════════════════════════════════"
+# SEEDS env var overrides default 42-only sweep. Example for multi-seed:
+#   SEEDS="43 44" sbatch analysis/run_cycle02_pivot_framework.sh
+SEEDS=${SEEDS:-42}
+
+for seed in $SEEDS; do
 for exp in "${ATTACK_EXPS[@]}"; do
-    exp_dir="$BASE_DIR/${exp}_r100_seed42"
+    exp_dir="$BASE_DIR/${exp}_r100_seed${seed}"
     if [[ ! -d "$exp_dir" ]]; then
         echo "  [skip] $exp: not found"
         continue
@@ -75,6 +80,7 @@ for exp in "${ATTACK_EXPS[@]}"; do
         --seed 4242 \
         --load-head
 done
+done  # close SEEDS loop
 
 echo ""
 echo "═══════════════════════════════════════════════════════"

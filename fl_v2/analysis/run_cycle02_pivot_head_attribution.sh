@@ -61,23 +61,29 @@ ATTACK_EXPS=(
     cycle02-pretrained-headonly-canonconv1-pixel15
 )
 
+# SEEDS env var overrides default 42-only sweep. Example for multi-seed:
+#   SEEDS="43 44" sbatch analysis/run_cycle02_pivot_head_attribution.sh
+SEEDS=${SEEDS:-42}
+
 echo ""
 echo "═══════════════════════════════════════════════════════"
-echo "  Cycle 02 pivot — head-feature decomposition (6 cells)"
+echo "  Cycle 02 pivot — head-feature decomposition"
+echo "  Seeds: $SEEDS  |  Cells per seed: ${#ATTACK_EXPS[@]}"
 echo "═══════════════════════════════════════════════════════"
+for seed in $SEEDS; do
 for exp in "${ATTACK_EXPS[@]}"; do
-    exp_dir="$BASE_DIR/${exp}_r100_seed42"
+    exp_dir="$BASE_DIR/${exp}_r100_seed${seed}"
     if [[ ! -d "$exp_dir" ]]; then
-        echo "  [skip] $exp: not found"
+        echo "  [skip] $exp seed=$seed: not found"
         continue
     fi
     json_out="$exp_dir/head_feature_decomposition.json"
     if [[ -f "$json_out" ]]; then
-        echo "  [skip] $exp: head_feature_decomposition.json already exists"
+        echo "  [skip] $exp seed=$seed: head_feature_decomposition.json already exists"
         continue
     fi
     echo ""
-    echo "── $exp ──"
+    echo "── $exp seed=$seed ──"
     python -m analysis.head_feature_decomposition \
         --exp-dir "$exp_dir" \
         --data-root "$DATA_ROOT" \
@@ -86,8 +92,9 @@ for exp in "${ATTACK_EXPS[@]}"; do
         --seed $SEED \
         --device auto
 done
+done
 
 echo ""
 echo "===== Done ====="
 echo "End: $(date)"
-echo "Outputs in: $BASE_DIR/<exp>_r100_seed42/head_feature_decomposition.json"
+echo "Outputs in: $BASE_DIR/<exp>_r100_seed<NN>/head_feature_decomposition.json"

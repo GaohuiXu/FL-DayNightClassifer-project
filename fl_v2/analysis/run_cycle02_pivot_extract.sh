@@ -57,9 +57,15 @@ EXPS=(
     cycle02-pretrained-headonly-canonconv1-pixel15
 )
 
+# SEEDS env var overrides default 42-only sweep. Example for multi-seed:
+#   SEEDS="43 44" sbatch analysis/run_cycle02_pivot_extract.sh
+SEEDS=${SEEDS:-42}
+
 EXP_DIRS=()
-for exp in "${EXPS[@]}"; do
-    EXP_DIRS+=("$BASE_DIR/${exp}_r100_seed42")
+for seed in $SEEDS; do
+    for exp in "${EXPS[@]}"; do
+        EXP_DIRS+=("$BASE_DIR/${exp}_r100_seed${seed}")
+    done
 done
 
 echo ""
