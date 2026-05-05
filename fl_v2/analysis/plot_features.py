@@ -81,6 +81,24 @@ def load_features(exp_dir: Path, round_num: int | None = None) -> dict | None:
     config = load_config_yaml(config_path) if config_path.exists() else {}
     label = short_defense_label(config) if config else exp_dir.name
 
+    # Cycle 02 disambiguation: when several cells share (attack, defense, n_mal)
+    # but differ in fine-tuning regime, append the regime + conv1 variant.
+    # Kept local to plot_features.py rather than common.short_defense_label
+    # so other consumers of common are unaffected.
+    if config:
+        regime_bits: list[str] = []
+        tl = str(config.get("trainable-layers", "full_ft")).strip()
+        if tl and tl != "full_ft":
+            regime_bits.append(tl.replace("_", "-"))
+        if bool(config.get("canonical-conv1", False)):
+            regime_bits.append("canon-conv1")
+        if regime_bits:
+            suffix = ", ".join(regime_bits)
+            if label.endswith(")"):
+                label = f"{label[:-1]}, {suffix})"
+            else:
+                label = f"{label} ({suffix})"
+
     return {
         "data": data,
         "config": config,
