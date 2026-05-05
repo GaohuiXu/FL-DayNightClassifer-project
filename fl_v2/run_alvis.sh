@@ -40,8 +40,27 @@ export FLWR_HOME="$JOB_FLWR_HOME"
 
 export RAY_DEDUP_LOGS=0
 
+# --- Derive unique SuperLink ports from $SLURM_JOB_ID ---
+# Two jobs landing on the same node previously collided on the hardcoded
+# 39093/39094 ports — the second job's SuperLink would crash with
+# "Port already in use". Derive a deterministic but distinct port pair
+# per job: range [39000, 40998] gives 1000 unique pairs. Collision
+# requires JIDs differing by exactly 1000, which is rare in practice.
+#
+# Both `flower-superlink` (server side, --control-api-address flags) AND
+# `flwr run` (client side, reads FLWR_LOCAL_CONTROL_API_PORT env var per
+# flwr/cli/constant.py) must agree on the ports — exporting the env vars
+# below covers the client side.
+JID=${SLURM_JOB_ID:-0}
+PORT_CTL=$((39000 + (JID % 1000) * 2))
+PORT_SIO=$((PORT_CTL + 1))
+export FLWR_LOCAL_CONTROL_API_PORT="$PORT_CTL"
+export FLWR_LOCAL_SIMULATIONIO_API_PORT="$PORT_SIO"
+echo "SuperLink ports: control=$PORT_CTL, simulationio=$PORT_SIO (derived from JID $JID)"
+
 # --- Parse experiment YAML (passed via EXPERIMENT_YAML env var) ---
 RUN_CONFIG_FROM_YAML=""
+TRAINABLE_LAYERS="full_ft"  # default
 if [[ -n "${EXPERIMENT_YAML:-}" && -f "$EXPERIMENT_YAML" ]]; then
     RUN_CONFIG_FROM_YAML=$(awk '
       /^[[:space:]]*#/ { next }
@@ -54,6 +73,34 @@ if [[ -n "${EXPERIMENT_YAML:-}" && -f "$EXPERIMENT_YAML" ]]; then
         else { printf "%s='\''%s'\'' ", key, val }
       }
     ' "$EXPERIMENT_YAML")
+    # Extract trainable-layers value for GPU-efficiency tuning below
+    TL_RAW=$(grep -E "^[[:space:]]*trainable-layers:" "$EXPERIMENT_YAML" 2>/dev/null \
+             | sed -E "s/^[[:space:]]*trainable-layers:[[:space:]]*['\"]?//" \
+             | sed -E "s/['\"]?[[:space:]]*$//" \
+             | head -1)
+    if [[ -n "$TL_RAW" ]]; then TRAINABLE_LAYERS="$TL_RAW"; fi
+fi
+
+# --- Adjust GPU allocation per supernode based on trainable-layers ---
+# Default flwr_config.toml uses 0.10 GPU/supernode = 5 GPU instances on
+# 50 supernodes, sized for full fine-tuning (~11M trainable params). For
+# lightweight modes the per-supernode workload is much smaller, so the
+# GPU sits idle and Alvis flags inefficient utilization. Override:
+#   head_only  (22K params): 0.025 / supernode → 1.25 GPU equivalents
+#   last_block (8.4M params): 0.05  / supernode → 2.5 GPU equivalents
+#   full_ft / others:        0.10  (default; matches flwr_config.toml)
+case "$TRAINABLE_LAYERS" in
+    head_only)  NUM_GPUS_PER_SUPERNODE="0.025" ;;
+    last_block) NUM_GPUS_PER_SUPERNODE="0.05"  ;;
+    *)          NUM_GPUS_PER_SUPERNODE=""      ;;  # keep default
+esac
+if [[ -n "$NUM_GPUS_PER_SUPERNODE" ]]; then
+    sed -i \
+        "s/^options\.backend\.client-resources\.num-gpus = .*/options.backend.client-resources.num-gpus = $NUM_GPUS_PER_SUPERNODE/" \
+        "$JOB_FLWR_HOME/config.toml"
+    echo "GPU efficiency override: num-gpus = $NUM_GPUS_PER_SUPERNODE per supernode (trainable-layers=$TRAINABLE_LAYERS)"
+else
+    echo "GPU allocation: default (trainable-layers=$TRAINABLE_LAYERS)"
 fi
 
 echo "===== Environment ====="
@@ -81,8 +128,8 @@ flower-superlink \
   --insecure \
   --simulation \
   --isolation subprocess \
-  --control-api-address 127.0.0.1:39093 \
-  --simulationio-api-address 127.0.0.1:39094 \
+  --control-api-address "127.0.0.1:$PORT_CTL" \
+  --simulationio-api-address "127.0.0.1:$PORT_SIO" \
   --database "$FLWR_HOME/local-superlink/state.db" \
   --storage-dir "$FLWR_HOME/local-superlink/ffs" \
   --log-file "$FLWR_HOME/local-superlink/superlink.log" &
@@ -92,7 +139,7 @@ SUPERLINK_PID=$!
 # Wait for SuperLink to be ready
 for i in $(seq 1 30); do
     if kill -0 "$SUPERLINK_PID" 2>/dev/null && \
-       python -c "import socket; s=socket.socket(); s.settimeout(1); s.connect(('127.0.0.1',39093)); s.close()" 2>/dev/null; then
+       python -c "import socket, sys; s=socket.socket(); s.settimeout(1); s.connect(('127.0.0.1',int(sys.argv[1]))); s.close()" "$PORT_CTL" 2>/dev/null; then
         echo "SuperLink ready after ${i}s (PID=$SUPERLINK_PID)"
         break
     fi

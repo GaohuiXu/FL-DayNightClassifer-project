@@ -319,12 +319,70 @@ hosts essentially everything), it is just *quantitatively suppressed*.
 The encoder being well-aligned means the head's 22 K parameters cannot
 easily move predictions across the decision boundary.
 
-### 3.5 Framework metrics (TBD)
+### 3.5 Framework metrics — `centroid_l2` × `linear_probe_acc`
 
-Feature extraction → 4-axis profile pass on the six attack cells is
-running (extract job 6572466, framework job 6572468 with `afterok`
-dependency). When complete this section will show `centroid_l2` and
-`linear_probe_balanced_acc_mean ± std` per cell.
+Feature extraction (96 .npz files: 12 cells × {7 rounds, final}) and
+the 4-axis profile pass on all 8 attack cells are complete.
+
+| Cell                              | `centroid_l2` | `linear_probe_balanced_acc_mean ± std` | ASR     | head_attr |
+|---|---|---|---|---|
+| Full FT + 5mal                    | 2.46          | 0.996 ± 0.002                          | 0.978   | 97.2 %    |
+| Full FT + 15mal                   | 2.54          | 0.993 ± 0.003                          | 0.980   | 66.9 %    |
+| Last block + 5mal                 | **1.14**      | 0.987 ± 0.003                          | 0.564   | 60.2 %    |
+| Last block + 15mal                | 1.67          | 0.993 ± 0.003                          | 0.954   | 90.6 %    |
+| Head only + 5mal (modified conv1) | 4.08          | 0.987 ± 0.004                          | 0.500   | 95.1 %    |
+| Head only + 15mal (modified conv1)| 4.08          | 0.988 ± 0.004                          | 0.724   | 96.6 %    |
+| Head only + 5mal (canonconv1)     | **13.04**     | 0.952 ± 0.006                          | 0.067   | 64.7 %    |
+| Head only + 15mal (canonconv1)    | 13.04         | 0.951 ± 0.005                          | 0.232   | 89.8 %    |
+
+Cycle 01 from-scratch reference: `centroid_l2 ≈ 2.7–3.1`,
+`linear_probe_balanced_acc ≈ 0.99–1.00`.
+
+#### Two new findings from the framework
+
+1. **Linear probe separability is regime-invariant**: every cell has
+   `linear_probe_balanced_acc ≥ 0.95`. The Cycle-01 "triggered features
+   form a separable middle region" finding generalises *unchanged*
+   across pretrained init, anchored encoders, partially-trained
+   encoders, and frozen encoders. **A defender with labelled triggered
+   samples can always find the decision direction** — but a realistic
+   FL server does not have those, which is why the supervised probe is
+   not directly deployable as a defense.
+2. **`centroid_l2` is *not* invariant — it spans an order of magnitude.**
+   - **last_block 5mal: 1.14** (smaller than Cycle 01's 2.7–3.1).
+     Layer4 being trainable lets the attacker pull triggered features
+     much closer to the genuine target-class centroid than from-scratch
+     fluid encoders ever did. ASR is only 0.56 though — the attack is
+     "structurally close" but not "behaviourally complete". This is
+     interesting and worth a Cycle 02 week 2 follow-up: can D.2a
+     (last_block-targeted) push ASR up while keeping `centroid_l2`
+     small? If yes, this is a **new attack mechanism** — close-feature
+     attack via partial fine-tuning, distinct from both pixel-trigger
+     and Bagdasaryan.
+   - **canonconv1 head_only: 13.04** (4× larger than Cycle 01). With
+     image-size 64 + canonical conv1, the encoder's class clusters are
+     much sharper, so triggered features (frozen at the encoder's
+     natural mapping of "image with sticker") sit far from genuine
+     target. Combined with low ASR (0.07/0.23), this is the cleanest
+     "encoder cannot host the attack" cell in the matrix.
+
+#### What the framework adds to the head-attribution story
+
+Head-attribution alone says "the attack lives in the head." Centroid
+alone says "triggered features may or may not be near the target."
+Together they describe **how the attack succeeds**:
+
+- High head_attr + high centroid_l2 (full_ft 5mal, head_only) →
+  classifier-routing attack: features stay where they are, head learns
+  to map that region to target.
+- Low head_attr + low centroid_l2 (last_block 5mal) → encoder partially
+  pulls features toward target, head still does some routing.
+- High head_attr + low centroid_l2 (last_block 15mal at saturated ASR,
+  centroid 1.67) → an interesting middle case. Both the encoder moved
+  features *and* the head finished the routing.
+
+This 2D characterisation is the right successor to Cycle 01's "joint
+weak attack" 1D framing. It directly informs D.2's design space.
 
 ---
 
