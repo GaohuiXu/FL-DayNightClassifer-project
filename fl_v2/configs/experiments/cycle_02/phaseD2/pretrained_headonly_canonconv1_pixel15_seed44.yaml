@@ -29,6 +29,5 @@ defense-type: none
 checkpoint-rounds: "0,5,10,25,50,75,100"
 output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
 wandb-group: cycle02-pretrained-headonly-canonconv1
-wandb-tags: pretrained-pivot,canonconv1-fallback
 seed: 44
 wandb-tags: pretrained-pivot,multi-seed
