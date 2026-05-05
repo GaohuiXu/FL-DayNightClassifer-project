@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #SBATCH -A NAISS2025-22-1113
 #SBATCH -p alvis
-#SBATCH -C NOGPU
-#SBATCH -t 0-08:00:00
+#SBATCH --gpus-per-node=A40:1
+#SBATCH -t 0-01:00:00
 #SBATCH -J cycle02_pivot_extract
 #SBATCH -o /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/slurm/%x_%j.out
 #SBATCH -e /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/slurm/%x_%j.err
@@ -50,6 +50,11 @@ EXPS=(
     cycle02-pretrained-headonly-clean
     cycle02-pretrained-headonly-pixel5
     cycle02-pretrained-headonly-pixel15
+    # canonical-conv1 fallback cells (image-size 64); skipped silently
+    # if the SLURM training jobs have not yet finished.
+    cycle02-pretrained-headonly-canonconv1-clean
+    cycle02-pretrained-headonly-canonconv1-pixel5
+    cycle02-pretrained-headonly-canonconv1-pixel15
 )
 
 EXP_DIRS=()
@@ -74,7 +79,7 @@ for dir in "${EXP_DIRS[@]}"; do
         if [[ -f "$npz" ]]; then
             echo "  [skip] round $r: already extracted"
         elif [[ -f "$ckpt" ]]; then
-            python -m analysis.extract_features --exp-dir "$dir" --data-root "$DATA_ROOT" --round "$r" --device cpu
+            python -m analysis.extract_features --exp-dir "$dir" --data-root "$DATA_ROOT" --round "$r" --device cuda
         else
             echo "  [skip] round $r: checkpoint not found"
         fi
@@ -84,7 +89,7 @@ for dir in "${EXP_DIRS[@]}"; do
     if [[ -f "$npz" ]]; then
         echo "  [skip] final: already extracted"
     elif [[ -f "$dir/checkpoints/final_model.pt" ]]; then
-        python -m analysis.extract_features --exp-dir "$dir" --data-root "$DATA_ROOT" --device cpu
+        python -m analysis.extract_features --exp-dir "$dir" --data-root "$DATA_ROOT" --device cuda
     fi
 done
 

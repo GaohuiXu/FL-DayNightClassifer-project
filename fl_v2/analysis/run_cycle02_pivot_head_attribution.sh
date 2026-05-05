@@ -56,6 +56,9 @@ ATTACK_EXPS=(
     cycle02-pretrained-lastblock-pixel15
     cycle02-pretrained-headonly-pixel5
     cycle02-pretrained-headonly-pixel15
+    # canonical-conv1 fallback cells; skipped silently if not yet available.
+    cycle02-pretrained-headonly-canonconv1-pixel5
+    cycle02-pretrained-headonly-canonconv1-pixel15
 )
 
 echo ""
