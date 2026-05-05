@@ -230,15 +230,43 @@ This headline directly motivates the redesign of Phase D.2 around
 redesign of Phase E.1/E.2 around **logit-distribution drift**
 rather than feature-drift (see § 4 and § 5).
 
-### 3.4 Canonical-conv1 fallback (submitted, in flight)
+### 3.4 Canonical-conv1 fallback — modified-conv1 ASR was an artifact
 
-3 SLURM jobs running: `pretrained_headonly_canonconv1_{clean,pixel5,
-pixel15}.yaml`. Same head-only fine-tuning regime, but with the canonical
-ImageNet first stage (7×7 stride-2 conv1 + 3×3 stride-2 maxpool) and
-image-size 64. State-dict keys differ from the modified-conv1 cells (extra
-`features.3` for maxpool); cross-loading is not supported. When these
-finish this section will compare modified vs canonical conv1 head_only
-clean utility and ASR.
+When the canonical ImageNet first stage is preserved (7×7 stride-2 conv1
+with ImageNet weights + 3×3 stride-2 maxpool, image-size 64), head-only
+attacks **almost completely fail**:
+
+| Cell                   | Clean acc (modified \| canonical) | ASR (modified \| canonical) |
+|---|---|---|
+| Head only + Clean      | **0.362** \| **0.571**            | n/a                         |
+| Head only + Pixel 5mal | 0.388 \| 0.560                    | **0.500** \| **0.067**      |
+| Head only + Pixel 15mal| 0.366 \| 0.519                    | **0.724** \| **0.232**      |
+
+**Interpretation.** The modified-conv1 head-only setup forces the
+pretrained `bn1`+`layer1-4` weights to consume activations from a
+randomly-initialised 3×3 conv1 — a strong distribution shift the head
+must compensate for. That "compensation budget" is large enough to
+*also* encode a backdoor when malicious clients are present. With the
+canonical conv1+maxpool, the encoder produces clean, in-distribution
+features and the head's 22 K parameters cannot easily overpower honest
+classifier learning, even at 30 % malicious clients.
+
+In other words: the modified-conv1 head-only ASR (0.50 / 0.72) was
+**partially an artefact of the architecturally broken setup**, not a
+generic property of pure head-attack. The realistic frozen-backbone
+deployment regime is **much more resistant** to head-only backdoors than
+§ 3.3 first suggested. Pattern 3 in § 3.3 ("Pure head-attack works under
+FL") is **substantially weakened by this fallback**: pure head-attack
+achieves only ASR ≈ 0.07–0.23, depending on attack pressure, when the
+encoder is properly aligned.
+
+**Defense implication.** A frozen pretrained encoder + a properly
+canonicalised first stage is *itself* a partial defense — the attacker
+cannot easily backdoor a 22 K-parameter head when the encoder produces
+clean features. This refines § 4 / § 5: head-only deployments are *not*
+the most vulnerable; *partial fine-tuning* (last_block) is, because it
+gives the attacker enough parameter budget to embed without the
+honest-gradient-anchoring effect that protects full_ft.
 
 ### 3.5 Framework metrics (TBD)
 
