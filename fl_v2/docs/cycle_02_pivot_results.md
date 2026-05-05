@@ -12,17 +12,43 @@ document are draft and will be filled in as analysis jobs complete.
 
 ## TL;DR
 
-After reading HTBA (Saha et al., AAAI 2020) and LIRA (Doan et al., ICCV 2021)
-we re-examined the original Cycle 02 plan and found that three load-bearing
-assumptions no longer hold (§ Context). We pivoted from "designed feature-
-space attack + feature-drift detector" to **characterizing where backdoors
-live under realistic FL fine-tuning regimes**. The Week 1 deliverable is a
-3×3 design matrix (`{full_ft, last_block, head_only} × {clean, pixel 5mal,
-pixel 15mal}`) that varies trainable capacity against attack pressure on a
-pretrained ImageNet ResNet18. The headline empirical claim is `[TBD: head
-attribution number across regimes]`. We propose a redesigned Phase D.2 and
-Phase E.1/E.2 informed by this finding (§ Implications), plus a paper-shape
-question for the supervisor (§ Open questions).
+After reading HTBA (Saha et al., AAAI 2020) and LIRA (Doan et al., ICCV
+2021) we pivoted Cycle 02 from "designed feature-space attack +
+feature-drift detector" to **characterizing where pixel-trigger
+backdoors live under realistic FL fine-tuning of a pretrained backbone**.
+Week 1 ran a 3×3 design matrix (`{full_ft, last_block, head_only} ×
+{clean, pixel 5/50 mal, pixel 15/50 mal}`) plus a 3-cell canonical-conv1
+fallback. Three findings sharpen the thesis direction:
+
+1. **Pretraining anchors the encoder; the attack is forced into the
+   classifier head.** Under full fine-tuning at 5 mal (~10 % malicious),
+   `head_attribution_pct = 97.2 %` — almost every bit of ASR is removable
+   by re-training a fresh classifier head on clean data. Cycle 01's
+   from-scratch baseline (58.1 %) is the "fluid encoder" extreme of the
+   same axis; pretrained init is a qualitatively different regime.
+2. **Heavy attack pressure overcomes the anchor.** Going from 5 → 15 mal
+   under full FT drops `head_attribution_pct` to 66.9 %, comparable to
+   the Cycle 01 from-scratch 5 mal number — i.e. pretrained init at
+   15 mal "behaves like" from-scratch at 5 mal. The encoder anchoring
+   has a finite robustness budget.
+3. **Pure head-attack is *not* generically feasible under FL.** When
+   the canonical ImageNet conv1+maxpool first stage is preserved
+   (no architectural surgery), head-only attacks at 5/15 mal achieve
+   only ASR 0.07 / 0.23 — much lower than the 0.50 / 0.72 obtained with
+   the architecturally broken modified-conv1 setup. The "head-only is a
+   weak attack" finding is a **scope-defining boundary**, not a defense.
+
+**Together these flip the original Phase D.2 design.** The auxiliary
+loss `λ‖f(τ(x)) − μ̂_{c*}‖²` was conceived to *move features into the
+target manifold*; the realistic threat model says the attack does not
+need to do this — the head suffices, given enough trainable capacity
+to exploit. Phase D.2 redesigns around **head-targeted attacks under
+partially-frozen backbones** (last_block / last_few_blocks), which is
+where the matrix shows the largest residual encoder-attribution under
+realistic deployment. Phase E.1/E.2 redesigns around **logit-distribution
+drift / output-margin monitoring** rather than penultimate-feature
+drift. A USENIX-Sec-shape vs AAAI-shape paper decision (open question
+for the supervisor) follows naturally from this finding.
 
 ---
 
@@ -267,6 +293,31 @@ clean features. This refines § 4 / § 5: head-only deployments are *not*
 the most vulnerable; *partial fine-tuning* (last_block) is, because it
 gives the attacker enough parameter budget to embed without the
 honest-gradient-anchoring effect that protects full_ft.
+
+#### Canonical-conv1 head-feature decomposition
+
+| Cell | Original ASR | Clean-head ASR | Clean-head clean acc | `head_attribution_pct` |
+|---|---|---|---|---|
+| canonconv1 + 5mal  | 0.0672 | 0.0237 | 0.6020 | **64.7 %** |
+| canonconv1 + 15mal | 0.2322 | 0.0237 | 0.6021 | **89.8 %** |
+
+The clean-head ASR floor of **2.4 %** is identical across both cells —
+this is the **natural encoder rate** at which triggered images get
+classified as target by chance with a fully-clean classifier head. It is
+a property of the pretrained encoder's representation, not of the
+backdoor.
+
+**Subtracting that natural floor**, the *encoder's* attributable
+contribution to ASR is essentially zero across both canonconv1 cells
+(0.043 / 0.208 above floor) and the head's contribution is nearly the
+entire ASR signal — but absolute ASR is so small (0.07 / 0.23) that
+"99 %-head" doesn't have practical bite.
+
+Translated: under canonical-conv1 head-only, the attack is **not
+mechanistically different** from modified-conv1 head-only (head still
+hosts essentially everything), it is just *quantitatively suppressed*.
+The encoder being well-aligned means the head's 22 K parameters cannot
+easily move predictions across the decision boundary.
 
 ### 3.5 Framework metrics (TBD)
 
