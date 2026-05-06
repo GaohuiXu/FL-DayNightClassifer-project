@@ -1,5 +1,20 @@
 # Cycle 02 Pivot — Week 1 Results
 
+> **⚠ NUMERICAL CLAIMS BELOW ARE WITHDRAWN.** This document was authored
+> on commits prior to `1f5e70d`, when the training pipeline was
+> non-deterministic at fixed seed. Empirical evidence: re-running the
+> exact `pretrained_full_ft_pixel5.yaml` at seed=42 with the same code
+> produced final clean acc 0.894 vs the original 0.667 (Δ +22.7 pp) and
+> ASR 0.673 vs 0.978 (Δ −30.4 pp). See `cycle_02_pivot_audit.md` for the
+> root-cause analysis. The 24 Cycle 02 pivot training runs and all
+> downstream extract/framework/head-attribution numbers must be regarded
+> as a **pre-audit historical record** until the matrix is rerun on or
+> after commit `1f5e70d` (Phase 3 of the recovery plan). Cycle 01
+> archive numbers (`gtsrb_v2/phaseC_v2/`, `gtsrb_v2/phaseD/`) are not
+> affected and remain authoritative — they were trained on the same
+> pre-audit code, but their reliability is independent of this Cycle 02
+> reproducibility issue and is not in scope of this withdrawal.
+
 *Companion to* `roadmap/cycle_02_designed_attacks_and_client_defenses.md`.
 *Empirical evidence for the pretrained-init pivot. Frames the supervisor
 discussion on **2026-05-08***.

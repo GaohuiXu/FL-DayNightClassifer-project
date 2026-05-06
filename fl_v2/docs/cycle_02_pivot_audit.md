@@ -478,3 +478,42 @@ and we report mean ± std + the attractor finding).
 
 This document will be re-committed with their numbers as soon as they
 land.
+
+---
+
+## 9. Closing the audit — fixes implemented and verification status
+
+### 9.1 Six non-determinism sources, all addressed
+
+| # | Source | Resolution | Commit |
+|---|---|---|---|
+| 1 | `bool("false") == True` in 7 config sites | `truthy()` helper in `utils/runtime.py` | `795f75e` |
+| 2 | Client `torch.manual_seed()` never called | Per-call seeding in `@app.train()` | `795f75e` |
+| 3 | `DataLoader(shuffle=True, generator=None)` | Explicit `torch.Generator()` | `795f75e` |
+| 4 | `fl_v2/src/fl_v2/data/` source `.gitignore`d | Anchored `/data/` to repo root | `795f75e` |
+| 5 | cuDNN atomic-add conv backward | `cudnn.deterministic=True`, `benchmark=False` | `725cae5` |
+| 6 | Strategy aggregation order followed Ray's task order | `valid_replies.sort(key=...src_node_id)` in 6 strategies + `derive_seed` to hashlib + `PYTHONHASHSEED=0` + `CUBLAS_WORKSPACE_CONFIG=:4096:8` | `1f5e70d` |
+
+### 9.2 Same-seed reproducibility verification
+
+**v1 verification (jobs 6592415 / 6592416, after fixes 1–4 only):** rounds 0–7 bit-identical, diverged at round 8. Final acc 0.6690 vs 0.6187 (Δ 5 pp); final ASR 0.2032 vs 0.1009 (Δ 10 pp). Confirmed seeding fixes worked but cuDNN was still drifting → motivated fix 5.
+
+**v3 verification (jobs 6593797 / 6593798, after fix 5):** never executed — cancelled before running because additional Phase 1 fixes (env vars, hashlib `derive_seed`, strategy sort) landed on top of fix 5. Replaced by v4.
+
+**v4 verification (jobs 6594138 / 6594139, after all six fixes including 9.1#6):** **submitted 2026-05-07; pending in queue at audit close.** Same YAML, same seed=42, 30 rounds, fresh Ray actors. Pass criterion: identical `summary.json`, identical `rounds.csv`, identical SHA-256 of final checkpoint. **Status to be filled in here when the jobs complete.**
+
+### 9.3 Aggregation order-dependence — what we found and fixed
+
+Read-only inspection of `fl_v2/src/fl_v2/strategy/*.py` and `flwr.serverapp.strategy.*` (Flower 1.27.0) confirmed the user's hypothesis:
+
+- `aggregate_arrayrecords` in `flwr.serverapp.strategy.strategy_utils` line ~101 performs in-place float summation across clients in whatever order the caller iterates the reply list (`aggregated_np_arrays[key] += value.numpy() * weight`). Floating-point summation is non-associative — different orders give different bit patterns.
+- None of our six strategies (`NormTrackingFedAvg`, `NormClippedFedAvg`, `Bulyan`, `FedMedian`, `FedTrimmedAvg`, `CapturedKrum`/`CapturedMultiKrum`) sorted `valid_replies` by client id before iterating, so Ray's task-completion order leaked into the aggregated weights.
+- Krum/MultiKrum additionally have an order-dependent argsort tie-break in `flwr/.../multikrum.py:246` when several clients have near-identical Krum scores — original list position decides the winner.
+
+Fix: every strategy's `aggregate_train` now sorts replies by `metadata.src_node_id` (commit `1f5e70d`). The sort cost is one `O(n log n)` pass on a list of ≤50 messages — completely free at FL runtime.
+
+### 9.4 Closing verdict
+
+The audit identified **six** distinct non-determinism sources (one more than the initial five-source post-mortem in §1.1). All six have committed fixes. The v4 verification confirms or refutes whether the combined fixes are sufficient.
+
+**No new science work proceeds until v4 verification passes** (Phase 1 of the recovery plan, see `/cephyr/users/gaohui/Alvis/.claude/plans/cheerful-honking-shell.md`). After v4 passes, the recovery plan moves to Phase 3.0 (Cycle 01 sentinel) → 3.1 (9-cell minimum-viable rerun) → 3.2 (full Cycle 02 pivot rerun, 24 cells) → Phase 4 (Friday supervisor meeting) → Phase 5 (regression test institutionalisation).
