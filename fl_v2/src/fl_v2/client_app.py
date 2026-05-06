@@ -181,6 +181,12 @@ def train(msg: Message, context: Context) -> Message:
     torch.manual_seed(leaf_seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(leaf_seed)
+    # cuDNN deterministic mode — last residual source of non-determinism
+    # after seeding. Setting once here is idempotent and ~free; the cost
+    # is paid by torch's conv backward selecting an atomic-add-free
+    # algorithm. ~10 % training-step slowdown on ResNet18.
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     model, device = _load_model_from_message(msg, context)
     _, client_data = _load_client_data(context)
