@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import random
 from typing import Tuple
 
+import numpy as np
 import torch
 from flwr.app import ArrayRecord, ConfigRecord, Context, Message, MetricRecord, RecordDict
 from flwr.clientapp import ClientApp
@@ -13,7 +15,7 @@ from fl_v2.data.dataset import (
 )
 from fl_v2.models import create_model
 from fl_v2.training import evaluate, train_local
-from fl_v2.utils import compute_lr, get_device
+from fl_v2.utils import compute_lr, derive_seed, get_device, truthy
 
 from fl_v2.attacks_defenses import (
     compute_replacement_scale,
@@ -148,7 +150,7 @@ def _load_model_from_message(msg: Message, context: Context) -> Tuple[torch.nn.M
     model_type = str(context.run_config.get("model-type", "cnn"))
     # Architecture-determining flag — must match what the server's
     # _build_initial_arrays produced, otherwise state_dict keys mismatch.
-    canonical_conv1 = bool(context.run_config.get("canonical-conv1", False))
+    canonical_conv1 = truthy(context.run_config.get("canonical-conv1", False))
     device = get_device(context.run_config)
 
     model = create_model(
@@ -165,8 +167,23 @@ def _load_model_from_message(msg: Message, context: Context) -> Tuple[torch.nn.M
 @app.train()
 def train(msg: Message, context: Context) -> Message:
     """Train the global model on local client data."""
+    # Per-call deterministic seeding. Without this, two runs of the same
+    # YAML produce different trajectories because (a) each Ray actor
+    # initialises torch.default_generator from the OS clock, and
+    # (b) DataLoader(shuffle=True, generator=None) inherits that state.
+    # See docs/cycle_02_pivot_audit.md §1.3 for the empirical evidence.
+    run_seed = int(context.run_config.get("seed", 42))
+    client_id = _get_client_id(context)
+    server_round = int(msg.content["config"].get("server-round", 0))
+    leaf_seed = derive_seed(run_seed, client_id, server_round)
+    random.seed(leaf_seed)
+    np.random.seed(leaf_seed)
+    torch.manual_seed(leaf_seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(leaf_seed)
+
     model, device = _load_model_from_message(msg, context)
-    client_id, client_data = _load_client_data(context)
+    _, client_data = _load_client_data(context)
 
     # Cache the global state dict for model-replacement update scaling.
     # This is essentially free — `to_torch_state_dict()` already returns a new

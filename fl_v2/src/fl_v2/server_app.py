@@ -22,6 +22,7 @@ from fl_v2.utils import (
     render_label_histogram_panel,
     save_attack_comparison,
     save_json,
+    truthy,
 )
 
 from fl_v2.strategy import (
@@ -49,8 +50,8 @@ def _build_initial_arrays(context: Context) -> ArrayRecord:
     """
     num_classes = int(context.run_config["num-classes"])
     model_type = str(context.run_config.get("model-type", "cnn"))
-    pretrained = bool(context.run_config.get("pretrained-init", False))
-    canonical_conv1 = bool(context.run_config.get("canonical-conv1", False))
+    pretrained = truthy(context.run_config.get("pretrained-init", False))
+    canonical_conv1 = truthy(context.run_config.get("canonical-conv1", False))
     model = create_model(
         model_type,
         num_classes=num_classes,
@@ -176,7 +177,7 @@ def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger, strateg
     # Architecture-determining flag (must match _build_initial_arrays); the
     # state_dict from the strategy will only load into a model with the
     # matching Sequential structure.
-    canonical_conv1 = bool(run_config.get("canonical-conv1", False))
+    canonical_conv1 = truthy(run_config.get("canonical-conv1", False))
     device = get_device(run_config)
 
     attack_type = str(run_config.get("attack-type", "none"))

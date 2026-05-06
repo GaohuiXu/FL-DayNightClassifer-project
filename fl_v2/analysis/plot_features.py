@@ -33,6 +33,7 @@ from analysis.common import (
     save_figure,
     short_defense_label,
 )
+from fl_v2.utils.runtime import truthy
 
 
 # ── data loading ─────────────────────────────────────────────────────
@@ -85,22 +86,12 @@ def load_features(exp_dir: Path, round_num: int | None = None) -> dict | None:
     # but differ in fine-tuning regime, append the regime + conv1 variant.
     # Kept local to plot_features.py rather than common.short_defense_label
     # so other consumers of common are unaffected.
-    #
-    # NB: the experiment logger writes booleans to config.yaml as the strings
-    # 'true' / 'false' (the yaml.safe_dump round-trip preserves source repr),
-    # so a plain bool() coercion would treat *every* cell as canonical-conv1
-    # because bool('false') is True. Compare strings explicitly.
-    def _truthy(v) -> bool:
-        if isinstance(v, bool):
-            return v
-        return str(v).strip().lower() in ("true", "1", "yes")
-
     if config:
         regime_bits: list[str] = []
         tl = str(config.get("trainable-layers", "full_ft")).strip()
         if tl and tl != "full_ft":
             regime_bits.append(tl.replace("_", "-"))
-        if _truthy(config.get("canonical-conv1", False)):
+        if truthy(config.get("canonical-conv1", False)):
             regime_bits.append("canon-conv1")
         if regime_bits:
             suffix = ", ".join(regime_bits)

@@ -23,6 +23,8 @@ import os
 import re
 from typing import Any
 
+from fl_v2.utils.runtime import truthy
+
 # Strategy / defense names that appear as suffixes in experiment names.
 # Used to strip them from the auto-derived wandb group name so e.g.
 # ``phaseD-modelrep-15mal-nodefense`` and ``phaseD-modelrep-15mal-fedmedian``
@@ -40,7 +42,7 @@ _MAL_RE = re.compile(r"^\d+mal$")
 
 
 def _is_disabled(run_config) -> bool:
-    enabled = bool(run_config.get("wandb-enabled", False))
+    enabled = truthy(run_config.get("wandb-enabled", False))
     mode = str(run_config.get("wandb-mode", "online")).strip().lower()
     return (not enabled) or mode == "disabled"
 
@@ -110,12 +112,12 @@ def _derive_tags(run_config) -> list[str]:
 
     # Cycle 02 onward — surface fine-tuning regime so the wandb dashboard
     # can filter `pretrained AND trainable:head_only AND 5mal` to one cell.
-    if bool(run_config.get("pretrained-init", False)):
+    if truthy(run_config.get("pretrained-init", False)):
         tags.append("pretrained")
     trainable_layers = str(run_config.get("trainable-layers", "full_ft")).strip()
     if trainable_layers and trainable_layers != "full_ft":
         tags.append(f"trainable:{trainable_layers}")
-    if bool(run_config.get("canonical-conv1", False)):
+    if truthy(run_config.get("canonical-conv1", False)):
         tags.append("canonical_conv1")
 
     extra = str(run_config.get("wandb-tags", "")).strip()

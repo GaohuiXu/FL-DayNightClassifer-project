@@ -16,7 +16,7 @@ __pycache__/
 fl_v2/data/
 fl_v2/outputs/
 fl_v2/analysis/figures/
-data/
+/data/
 outputs/
 
 # gtsrb dataset
