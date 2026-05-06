@@ -292,14 +292,18 @@ def main(grid: Grid, context: Context) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-    # cuDNN convolution autotuner / atomic-add backwards are the residual
-    # source of non-determinism after our per-call seeding; force the
-    # deterministic algorithm path. ~10 % slowdown on ResNet18 backward is
-    # acceptable in exchange for bit-reproducible trajectories. Same
-    # configuration is set inside @app.train() in client_app.py — server
-    # actor is independent of Ray client actors and needs its own toggle.
+    # cuDNN convolution autotuner / atomic-add backwards are one source of
+    # non-determinism after our per-call seeding. The wider catch is
+    # `torch.use_deterministic_algorithms(True, warn_only=True)` which
+    # forces deterministic alternatives for any op that has one (BatchNorm
+    # backward, scatter_add, index_add, etc.) and warns on those that don't.
+    # Together they aim at full bit-equality across same-seed runs even on
+    # different physical GPUs. Same configuration is set inside @app.train()
+    # in client_app.py — server actor is independent of Ray client actors
+    # and needs its own toggle.
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=True)
 
     num_rounds = int(run_config["num-server-rounds"])
     fraction_train = float(run_config["fraction-train"])
