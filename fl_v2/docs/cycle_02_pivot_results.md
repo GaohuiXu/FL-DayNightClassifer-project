@@ -4,9 +4,15 @@
 *Empirical evidence for the pretrained-init pivot. Frames the supervisor
 discussion on **2026-05-08***.
 
-**Status:** in-progress; synthesis pending the head-feature decomposition
-diagnostic and framework-metric pass on the 9 main cells. Numbers in this
-document are draft and will be filled in as analysis jobs complete.
+**Status (as of Wed AM):** all empirical work complete. 12 main + 3
+canonconv1 fallback runs at seed 42, plus 12 multi-seed runs at seeds
+43+44 on the 6 most-decisive cells (6 / 6 / 0 successes wave 1, all 5
+remaining recovered in wave 2 after fixing a duplicate-`wandb-tags`
+generator bug and a transient gRPC failure). Feature extraction (96
+.npz on GPU + 36 multi-seed) → framework metrics (8 + 12 profiles) →
+head-feature decomposition (8 + 12 JSONs) all completed. t-SNE
+comparison panel with disambiguated cell labels resubmitted (in queue;
+see § 3.6 below — figures embedded once the job lands).
 
 ---
 
@@ -442,9 +448,30 @@ Together they describe **how the attack succeeds**:
 This 2D characterisation is the right successor to Cycle 01's "joint
 weak attack" 1D framing. It directly informs D.2's design space.
 
----
+### 3.6 t-SNE visualisations
 
-## 4. Implications for the redesigned Phase D.2
+t-SNE is run on the saved penultimate features for the 5 most-informative
+cells (full_ft clean ref + 4 attack regimes) plus per-cell trajectory
+filmstrips across rounds 0-100. SLURM job `cycle02_pivot_tsne` produces
+two outputs:
+
+- `figures/tsne/comparison/comparison_panel_tsne.{png,pdf}` — 5-axis
+  comparison panel with disambiguated subplot titles
+  (`Pixel-Trigger + No Defense (5mal)`,
+  `... (5mal, last-block)`,
+  `... (15mal, head-only)`,
+  `... (15mal, head-only, canon-conv1)`).
+- `figures/tsne/trajectory/<cell>_trajectory.{png,pdf}` — 7-panel filmstrip
+  per attack cell at rounds 0, 5, 10, 25, 50, 75, 100.
+
+**Note.** A first run of the t-SNE job mislabelled all 5 cells with
+the canon-conv1 suffix because experiment_logger writes booleans as
+the strings `'true'/'false'` (yaml round-trip) and `bool('false')`
+is `True` in Python. The fix is in `analysis/plot_features.py` (commit
+`<TBD when t-SNE lands>`), and a second run was OOM-killed during the
+trajectory step at 1:50 wallclock — the comparison panel itself
+completed cleanly. The third run (with `-c 32` cores, ~256 GB memory)
+is currently in queue; figures will be embedded here once it lands.
 
 The original D.2 was an auxiliary loss that pulls triggered features
 *toward* the genuine target-class centroid `μ̂_{c*}`. That design assumes
