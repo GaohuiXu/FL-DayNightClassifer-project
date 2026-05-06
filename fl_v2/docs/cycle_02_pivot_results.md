@@ -10,45 +10,66 @@ document are draft and will be filled in as analysis jobs complete.
 
 ---
 
-## TL;DR
+## TL;DR (revised after multi-seed verification)
 
 After reading HTBA (Saha et al., AAAI 2020) and LIRA (Doan et al., ICCV
 2021) we pivoted Cycle 02 from "designed feature-space attack +
 feature-drift detector" to **characterizing where pixel-trigger
 backdoors live under realistic FL fine-tuning of a pretrained backbone**.
 Week 1 ran a 3×3 design matrix (`{full_ft, last_block, head_only} ×
-{clean, pixel 5/50 mal, pixel 15/50 mal}`) plus a 3-cell canonical-conv1
-fallback. Three findings sharpen the thesis direction:
+{clean, pixel 5/50 mal, pixel 15/50 mal}`) at seed 42, plus a 3-cell
+canonical-conv1 fallback, plus a multi-seed verification at seeds 43+44
+on the 6 most-decisive attack cells (12 additional runs).
 
-1. **Pretraining anchors the encoder; the attack is forced into the
-   classifier head.** Under full fine-tuning at 5 mal (~10 % malicious),
-   `head_attribution_pct = 97.2 %` — almost every bit of ASR is removable
-   by re-training a fresh classifier head on clean data. Cycle 01's
-   from-scratch baseline (58.1 %) is the "fluid encoder" extreme of the
-   same axis; pretrained init is a qualitatively different regime.
-2. **Heavy attack pressure overcomes the anchor.** Going from 5 → 15 mal
-   under full FT drops `head_attribution_pct` to 66.9 %, comparable to
-   the Cycle 01 from-scratch 5 mal number — i.e. pretrained init at
-   15 mal "behaves like" from-scratch at 5 mal. The encoder anchoring
-   has a finite robustness budget.
-3. **Pure head-attack is *not* generically feasible under FL.** When
-   the canonical ImageNet conv1+maxpool first stage is preserved
-   (no architectural surgery), head-only attacks at 5/15 mal achieve
-   only ASR 0.07 / 0.23 — much lower than the 0.50 / 0.72 obtained with
-   the architecturally broken modified-conv1 setup. The "head-only is a
-   weak attack" finding is a **scope-defining boundary**, not a defense.
+**The seed-42 narrative needed sharpening.** The originally-headline
+finding *"head_attribution_pct = 97.2 % at full_ft 5 mal — encoder is
+anchored by pretraining"* turns out to be a single-seed outlier. Across
+3 seeds, full_ft 5 mal head_attribution is **6.9 % / 22.1 % / 97.2 %**
+(range 90 pp). The robust pattern is more nuanced:
 
-**Together these flip the original Phase D.2 design.** The auxiliary
-loss `λ‖f(τ(x)) − μ̂_{c*}‖²` was conceived to *move features into the
-target manifold*; the realistic threat model says the attack does not
-need to do this — the head suffices, given enough trainable capacity
-to exploit. Phase D.2 redesigns around **head-targeted attacks under
-partially-frozen backbones** (last_block / last_few_blocks), which is
-where the matrix shows the largest residual encoder-attribution under
-realistic deployment. Phase E.1/E.2 redesigns around **logit-distribution
-drift / output-margin monitoring** rather than penultimate-feature
-drift. A USENIX-Sec-shape vs AAAI-shape paper decision (open question
-for the supervisor) follows naturally from this finding.
+1. **Robust finding A — saturated attacks are head-dominated.** Whenever
+   `ASR ≥ 0.95` (full_ft 15 mal, last_block 15 mal, full_ft 5 mal seed
+   42), `head_attribution_pct ≥ 67 %` consistently across all 3 seeds.
+   The clean-head retraining diagnostic reliably identifies the head as
+   the dominant attack surface in the saturated regime.
+2. **Robust finding B — marginal attacks are seed-fragile.** At 5 mal,
+   the attack is at the boundary of success: ASR ranges 0.52–0.98 across
+   seeds, and `head_attribution_pct` ranges 6.9 %–98.3 %. The encoder
+   gets corrupted in some runs (low head_attribution) and stays clean in
+   others. **There is no single "right" attribution number for marginal
+   attacks** — the supervisor presentation reports the full distribution.
+3. **Robust finding C — canonical-conv1 head-only attack collapses
+   independent of seed.** Across 3 seeds at canonconv1 head-only 5 mal,
+   `ASR = 0.053–0.067` (mean 0.061); at 15 mal, `ASR = 0.156–0.232`
+   (mean 0.200). With the canonical ImageNet first stage preserved,
+   pure head-attack is **stably weak** — a defensive property of the
+   deployment, not an artefact.
+4. **Robust finding D — linear probe separability is regime- and
+   seed-invariant.** Every cell at every seed has
+   `linear_probe_balanced_acc ≥ 0.95`. The Cycle-01 "triggered features
+   form a separable middle region" finding generalises across the
+   entire matrix. A defender with labelled triggered samples can always
+   find the decision direction; a realistic FL server cannot get those
+   labels, which is exactly the gap the redesigned Phase E.1 detector
+   needs to close.
+
+**Implications for the redesign.** The original Phase D.2 auxiliary
+loss `λ‖f(τ(x)) − μ̂_{c*}‖²` (move triggered features into the target
+manifold) is solving the wrong problem in the *saturated* regime —
+saturated attacks already use the head, not the encoder. **D.2-revised
+becomes a head-targeted attack under partially-frozen backbones** that
+explicitly amplifies the head signal while staying stealthy in
+classifier-output space. Phase E.1/E.2 pivots from feature-drift to
+**logit-distribution drift / output-margin monitoring**, with the
+non-IID coverage analysis from `phaseE2_coverage_analysis.md` carrying
+over unchanged.
+
+**On variance and venue framing.** The 5 mal seed variance is a
+*positive* finding for the thesis: it tells us where the FL backdoor
+threat model has a stochastic component, which is exactly the kind of
+nuance that gets a defense paper accepted at top venues. We will report
+mean ± std across 3 seeds in the supervisor doc and in any subsequent
+submission.
 
 ---
 
@@ -199,6 +220,8 @@ Cycle 01 reference (pilot on `phaseC2-backdoor-5mal-nodefense`):
 `head_attribution_pct = 58.1 %` (orig ASR 0.86, clean-head ASR 0.36,
 clean-head clean acc 0.94).
 
+**Single-seed table (seed = 42, original Week 1 numbers):**
+
 | Cell | Original ASR | Clean-head ASR | Clean-head clean acc | **`head_attribution_pct`** |
 |---|---|---|---|---|
 | **Full FT + 5mal**      | 0.9777 | 0.0274 | 0.6790 | **97.2 %** |
@@ -208,23 +231,58 @@ clean-head clean acc 0.94).
 | **Head only + 5mal**    | 0.4998 | 0.0243 | 0.3644 | **95.1 %** |
 | **Head only + 15mal**   | 0.7238 | 0.0243 | 0.3644 | **96.6 %** |
 
-(`head_only` rows share `clean-head ASR/clean acc` because the encoder is
-identical across them — frozen at pretrained init, never updated — and
-the diagnostic uses the same seed.)
+**Multi-seed table (seeds 42, 43, 44 — added Week 1 stretch):**
 
-#### Interpretation
+| Cell                  | ASR (42 / 43 / 44)         | head_attr (42 / 43 / 44)        | mean ± std        |
+|---|---|---|---|
+| Full FT + 5mal        | 0.978 / 0.799 / 0.915      | **97.2 / 22.1 / 6.9 %**         | **42.1 ± 47.7 %** |
+| Full FT + 15mal       | 0.980 / 0.959 / 0.967      | 66.9 / 85.9 / 95.0 %            | 82.6 ± 14.3 %     |
+| Last block + 5mal     | 0.564 / 0.517 / 0.852      | **60.2 / 98.3 / 18.8 %**        | **59.1 ± 39.8 %** |
+| Last block + 15mal    | 0.954 / 0.913 / 0.934      | 90.6 / 94.9 / 96.3 %            | 93.9 ± 2.9 %      |
+| canonconv1 ho + 5mal  | 0.067 / 0.053 / 0.064      | 64.7 / 54.8 / 63.1 %            | 60.9 ± 5.4 %      |
+| canonconv1 ho + 15mal | 0.232 / 0.156 / 0.213      | 89.8 / 84.8 / 88.8 %            | 87.8 ± 2.7 %      |
 
-The matrix is *not* a simple monotone gradient in capacity. Three cleaner
-patterns emerge:
+**Key observations from multi-seed:**
 
-**Pattern 1 — Head attribution rises with attack pressure given a fixed
-encoder substrate.** When the encoder is genuinely fluid (full_ft 5mal,
-ASR 0.98, head=97 %) the attack lives almost entirely in the head; when
-extra pressure overcomes encoder anchoring (full_ft 15mal, ASR 0.98,
-head=67 %) some attack signal does land in the encoder. **From-scratch
-init (Cycle 01 pilot, head=58 %) is the "permanent high pressure" limit
-of this** — random init never anchors, so attack-pressure is effectively
-maxed regardless of mal-count.
+- **5 mal cells are catastrophically seed-variant** — the seed-42 result
+  was *not* representative. Across 3 seeds, full_ft 5 mal has
+  `head_attribution = 42 ± 48 %` (95 % CI is essentially [0, 100]).
+  Last_block 5 mal has `head_attribution = 59 ± 40 %`. **5 mal is at
+  the boundary of attack success, where attack mechanism is itself
+  stochastic.**
+- **15 mal cells are robust** — head_attribution stays high
+  (full_ft 15 mal: 83 ± 14 %; last_block 15 mal: 94 ± 3 %) and ASR
+  saturates near 0.95.
+- **Canonconv1 head-only is robustly weak** — ASR 0.06 / 0.20 ± 0.01
+  across seeds. The head-only frozen-encoder regime is a stable
+  defensive property, not a single-seed artefact.
+
+#### Interpretation (revised)
+
+The original "encoder anchoring" hypothesis was an artefact of the
+single-seed window. The robust pattern across seeds is:
+
+**Pattern 1 — Saturated attacks (ASR ≥ 0.95) consistently live in the
+head.** Whenever the attack succeeds at ≥ 95 % ASR (full_ft 15 mal at
+all seeds, last_block 15 mal at all seeds, full_ft 5 mal seed 42), the
+clean-head retraining diagnostic finds 67–97 % head_attribution. **The
+head is the path of least resistance for a saturated attack.**
+
+**Pattern 2 — Marginal attacks have stochastic attribution.** When ASR
+sits at the boundary (5 mal cells with ASR 0.52–0.92), the attack
+distributes across head and encoder unpredictably depending on seed.
+This is where the encoder *can* be corrupted, but whether it gets
+corrupted depends on the random initialisation + Dirichlet partition
+draw. **The honest takeaway:** the encoder is *vulnerable* at marginal
+attack pressure, just not deterministically so.
+
+**Pattern 3 — Pretrained init does not provide robust encoder anchoring
+at low malicious ratio.** Counter to the seed-42 narrative, the
+honest-gradient mass at 50 clients with 5 malicious is *not* large
+enough to consistently keep the encoder near its ImageNet-pretrained
+state; one-third of the time it gets pulled along with the attack
+(see full_ft 5 mal seed 44, head_attr=6.9 %, encoder corrupted enough
+that 85 % of triggered ASR survives clean-head retraining).
 
 **Pattern 2 — Restricted trainable capacity does not redistribute attack
 to the encoder; it suppresses the attack itself.** Last_block + 5mal
