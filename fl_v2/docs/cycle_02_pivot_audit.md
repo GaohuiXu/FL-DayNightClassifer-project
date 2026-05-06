@@ -5,53 +5,63 @@ seed-to-seed variance in Cycle 02 results is a real FL phenomenon or an
 implementation/randomness artefact, before any further scientific
 interpretation or new experiments.*
 
-**Status:** core findings established; two empirical confirmation jobs
-in queue (`audit_head_attr_stability` 6585212 and
-`_audit_reproduce_full_ft_pixel5` 6585215). Their numbers will be
-inserted in §5 and §1 respectively when they complete.
+**Status:** v2, both confirmation jobs landed.
+`audit_head_attr_stability` 6585212 confirmed the diagnostic is
+BIT-IDENTICAL at fixed seed (§5.2). `_audit_reproduce_full_ft_pixel5`
+6585215 found that **the same YAML at the same seed produced a
+completely different trajectory** (final clean_acc 0.894 vs 0.667;
+final ASR 0.673 vs 0.978) — definitive proof that the training
+pipeline is non-deterministic at fixed seed (§1.3).
 
 ---
 
-## Bottom-line verdict (preview)
+## Bottom-line verdict
 
-1. **The diagnostic itself is reproducible** — the canonconv1 head-only
-   cells produce *identical* `clean_head_asr = 0.0237` across all 3
-   training seeds (42, 43, 44), which is only possible if the head-feature
-   decomposition pipeline is deterministic given a fixed encoder and
-   fixed diagnostic seed. (Empirical re-test pending in §5.)
-2. **The training pipeline is NOT bit-reproducible at fixed seed** —
-   client-side `torch.manual_seed()` is never called, and the per-client
-   `DataLoader(shuffle=True, …)` has no explicit `generator`. Cuda
-   non-determinism is not enforced.
-3. **The seed-42 `97.2 %` headline number reflects a degenerate
-   training trajectory**, not encoder anchoring. The seed-42 model was
-   *stuck at the trivial-backdoor attractor* (acc = 0.0594 = 1/16.86 ≈
-   class-2 base rate, ASR = 1.0) **for 12 consecutive rounds** before
-   escaping. Final clean accuracy 0.667 vs 0.918/0.917 for seeds 43/44.
-   The headline 97 %-head-attribution is consistent with "the encoder
-   barely learned the clean task, the head is doing all the work
-   (both clean and backdoor)."
-4. **At 5 mal the FL dynamics are chaotic**, not the metrics. Different
-   seeds produce qualitatively different trajectories (escape early,
-   escape late, never escape). The diagnostic correctly captures the
-   resulting differences in trained encoders.
-5. **At 15 mal and at the head_only canonconv1 fallback, the dynamics
-   are stable across seeds** and the metrics are reliable.
+1. **The training pipeline is NOT reproducible at fixed seed.**
+   Empirically confirmed by job 6585215: re-running
+   `pretrained_full_ft_pixel5.yaml` at seed=42 with the same commit
+   produced final clean_acc 0.894 and ASR 0.673, vs. the original
+   Wave 1 numbers 0.667 / 0.978. **The two runs were bit-identical for
+   rounds 0–9 and then diverged catastrophically at round 10**,
+   producing two qualitatively different final models from the same
+   configuration. Root cause: client-side `torch.manual_seed()` is
+   never called, `DataLoader(shuffle=True, …)` has no `generator`,
+   CUDA non-determinism is unrestricted.
+2. **The diagnostic itself is fully reproducible.** Job 6585212
+   confirmed bit-identical `head_attribution_pct = 97.20189410245372`
+   across two runs at the same diagnostic seed (16 decimal places),
+   and within 0.5 pp across diagnostic seeds 4242–4245. **All
+   seed-to-seed variance traces to the training pipeline, not the
+   analysis.**
+3. **The "97.2 % encoder anchoring" Cycle 02 headline does not survive
+   reproduction.** Re-running its exact configuration produced a
+   normal-trajectory model that would give a much lower
+   head_attribution. The original seed=42 was an outlier *of its own
+   configuration's run-level distribution*, not an outlier of the
+   seed distribution.
+4. **Multi-seed comparisons (seeds 42 vs 43 vs 44) are confounded** by
+   run-level noise of comparable magnitude to seed-to-seed variation.
+   We cannot distinguish "seed=42 stuck-trajectory" from "seed=42
+   reproducible behaviour" without first making the pipeline
+   deterministic. **The Wave 1+2 numbers cannot support any scientific
+   claim about regime-dependent attack mechanisms.**
+5. **What is still reliable:** the 15 mal cells (head_attribution
+   stable across seeds; saturated regime), the canonconv1 head-only
+   cells (frozen encoder is bit-identical across seeds, gives
+   deterministic baseline), and the linear_probe_acc ≥ 0.95 finding
+   (regime-invariant; insensitive to trajectory noise).
 6. **Several latent bugs found** in config parsing (`bool("false")` is
-   `True` in Python; affects `pretrained-init`, `canonical-conv1`,
-   `wandb-enabled` reads in training code) — they did **not** manifest
-   in our Cycle 02 runs because none of our YAMLs explicitly set those
-   keys to `false` (they either omit them, getting the correctly-typed
-   pyproject.toml default, or set them to `true`). **Must be fixed before
-   adding any YAML that explicitly sets a boolean to false.**
+   `True` in Python; affects 7 sites in server_app, client_app,
+   wandb_logger). Did **not** manifest in Cycle 02 runs because the
+   YAMLs only ever set booleans to `true`, but a tripwire for any
+   future YAML that sets a boolean to `false`.
 
-**Can we interpret the multi-seed variance scientifically?** *Yes, with
-caveats.* The 15 mal cells and the canonconv1 head-only cells produce
-reliable, seed-stable numbers. The 5 mal cells genuinely vary across
-seeds because the FL training dynamics at marginal attack pressure
-have multiple attractors. **The "97.2 % head attribution / encoder
-anchoring" headline must be retired** — it was a single-seed outlier
-from a degenerate trajectory.
+**Can we interpret the multi-seed variance scientifically?** **NO.**
+Both training-run-level noise (catastrophic) and seed-level variance
+contribute to the observed numbers, and we have no way to separate
+them until the pipeline is made deterministic. **Wave 1 and Wave 2
+results must be re-run after the 4 critical fixes (§7) before any
+scientific interpretation, supervisor presentation, or D.2 work.**
 
 ---
 
@@ -93,25 +103,64 @@ to produce identical final models. The non-determinism comes from:
 - CUDA non-deterministic ops (atomic adds in conv backward, etc.)
   add additional small drifts.
 
-### 1.3 Empirical confirmation (job 6585215, in queue)
+### 1.3 Empirical confirmation — RESULT: pipeline NON-DETERMINISTIC
 
-We resubmitted the *exact* `pretrained_full_ft_pixel5.yaml` (seed=42) at
-the current commit (`08e04f1`) to a separate experiment-name
-(`cycle02-audit-reproduce-full-ft-pixel5-seed42`). When the job
-completes, we will compare:
+We resubmitted the *exact* `pretrained_full_ft_pixel5.yaml` (seed=42)
+at the current commit (`08e04f1`) to a separate experiment-name
+(`cycle02-audit-reproduce-full-ft-pixel5-seed42`). Job 6585215 ran
+1:43:27 wallclock to round 100. **Final outcome diverged dramatically
+from the original Wave 1 run despite identical configuration:**
 
-- Final `test_accuracy` and `asr` against the original 0.6669 / 0.9776
-- `head_attribution_pct` (after running diagnostic) against 97.2 %
+| | Original (Wave 1, job 6570477) | Reproduce (job 6585215) | Δ |
+|---|---|---|---|
+| Final test_accuracy | 0.6669 | **0.8943** | +22.7 pp |
+| Final ASR | 0.9776 | **0.6732** | −30.4 pp |
+| Final target-class clean acc | low | 0.951 | — |
+| `head_attribution_pct` | 97.2 % | `[TBD when 6592014 lands]` | — |
 
-If the rerun gives within ±2 pp, the pipeline is *effectively* seed-
-reproducible (i.e. the unseeded shuffle and CUDA non-determinism
-introduce noise that is small relative to seed-to-seed variation, so
-the variance we observe across seeds 42/43/44 is dominated by real seed
-effects). If the rerun differs by more than 2 pp, the within-seed noise
-is comparable to between-seed variance and we cannot interpret variance
-across seeds at all.
+**Round-by-round trajectory comparison** confirms the divergence is
+not a late-training fluctuation but a fundamental difference in escape
+dynamics from the trivial-backdoor attractor:
 
-**Insertion point: `[TBD when 6585215 lands]`**
+| Round | Original acc / asr | Reproduce acc / asr |
+|---|---|---|
+| 1   | 0.0594 / 1.000 | 0.0594 / 1.000   ✓ identical |
+| 5   | 0.0594 / 1.000 | 0.0594 / 1.000   ✓ identical (still stuck) |
+| 9   | 0.0594 / 1.000 | 0.0594 / 1.000   ✓ identical |
+| **10**  | **0.0594 / 1.000** (still stuck) | **0.0793 / 0.721** (escaping!) |
+| 12  | 0.0594 / 1.000 (stuck) | 0.102 / 0.791 |
+| 15  | 0.083 / 0.925 | 0.273 / 0.428 |
+| 25  | 0.291 / 0.404 | 0.457 / 0.231 |
+| 50  | 0.480 / 0.957 | ~0.84 / ~0.06 |
+| 100 | 0.667 / 0.978 (stuck-trajectory final) | 0.894 / 0.673 (normal-trajectory final) |
+
+The two runs were bit-identical for rounds 0–9 (the trivial-backdoor
+plateau dominated by malicious-client gradients) and then diverged at
+round 10 — the moment when the optimizer had to "decide" whether to
+escape the attractor. **The escape decision depends on micro-scale
+floating-point noise that the seed does not control.**
+
+This means:
+1. **The Cycle 02 Wave 1 results are not reproducible at the run
+   level.** Re-running the same YAML produces a different model and a
+   different headline number.
+2. **The "97.2 % encoder anchoring" claim from seed=42 is from a
+   one-off degenerate trajectory** that even running the same
+   configuration does not reproduce.
+3. **Multi-seed comparisons are confounded** by run-level noise of
+   comparable magnitude to seed-to-seed variation. We cannot
+   distinguish "seed=42 vs seed=43" effects from "run #1 vs run #2 of
+   seed=42" noise without first making the pipeline deterministic.
+
+The within-seed reproduce (this section) reads `[acc 0.894, ASR 0.673]`,
+which is much closer to seeds 43/44 (acc 0.918/0.917) than to the
+original seed=42 (acc 0.667). **The original seed=42 was an outlier of
+its own configuration's distribution, not an outlier of the seed
+distribution.** With proper seeding, all 3 seeds would likely cluster
+together at ~0.90 acc and ~0.70 ASR.
+
+This is the strongest single-finding in the audit: it overrides every
+other interpretation of Wave 1 / Wave 2 numbers.
 
 ---
 
@@ -273,18 +322,33 @@ checkpoint + fixed diagnostic seed. The minor variation in
 `clean_head_clean_acc` (0.6018-0.6021, < 0.0003) is well within
 floating-point noise.
 
-### 5.2 Direct empirical test (job 6585212, in queue)
+### 5.2 Direct empirical test — RESULT: diagnostic IS reproducible
 
-We submitted a 5-run audit on the same checkpoint
+5 runs of `head_feature_decomposition.py` on the same checkpoint
 (`cycle02-pretrained-full-ft-pixel5_r100_seed42`):
-- 2 runs at diagnostic seed=4242 → tests bit-reproducibility
-- 3 runs at diagnostic seeds 4243/4244/4245 → tests robustness
 
-When the job lands, the table will be filled in here. Expected outcomes:
-- Same diagnostic seed → bit-identical `clean_head_asr`
-- Different diagnostic seeds → `clean_head_asr` varies ≤ 0.005
+| Diagnostic seed | clean_head_clean_acc | clean_head_asr | head_attribution_pct |
+|---|---|---|---|
+| 4242 (run 1) | **0.6790182106096595** | **0.027356902356902357** | **97.20189410245372** |
+| 4242 (run 2) | **0.6790182106096595** | **0.027356902356902357** | **97.20189410245372** |
+| 4243 | 0.680443388756928 | 0.022474747474747474 | 97.70124838570814 |
+| 4244 | 0.677355502771180 | 0.026346801346801348 | 97.30520878174774 |
+| 4245 | 0.680205859065717 | 0.027272727272727 | 97.21050365906156 |
 
-**Insertion point: `[TBD when 6585212 lands]`**
+**Same diagnostic seed → BIT-IDENTICAL across all 16 decimal places**
+(every one of the 10 epoch-level losses and accuracies also matched
+exactly). The diagnostic is fully deterministic at fixed checkpoint +
+fixed seed.
+
+**Different diagnostic seeds → variance < 0.5 pp** (head_attribution
+ranges 97.20–97.70). The diagnostic is also robust to its own
+internal seed.
+
+**Verdict: the diagnostic is NOT a source of variance.** All the
+seed-to-seed variance reported in the per-cell breakdown (§6) traces
+back to differences in the trained encoder, not to the analysis
+pipeline. The 4 critical fixes (§7) target the training pipeline
+exclusively.
 
 ---
 
@@ -365,17 +429,19 @@ the client_app seeding fix.
 
 ## 8. Final judgment
 
-**Can the multi-seed variance be interpreted scientifically?**
+After the empirical confirmation in §1.3 and §5.2, the verdict on
+each result class is:
 
 | Result | Reliable? | Reason |
 |---|---|---|
-| **15 mal head_attribution** (full_ft, last_block) | ✓ Yes | Stable across 3 seeds; SD ≤ 14 pp; saturated regime. |
-| **canonconv1 head_only ASR** (5mal, 15mal) | ✓ Yes | Bit-stable across 3 seeds; encoder frozen; deterministic by construction. |
-| **linear_probe_acc** ≥ 0.95 across all cells | ✓ Yes | Stable across regime, attack pressure, and seed. |
-| **`centroid_l2`** values per cell | ⚠ Partial | Stable for canonconv1 head_only (frozen encoder), variable for full_ft / last_block by ~±50 % across seeds. Numbers must be reported as mean ± std. |
-| **5 mal head_attribution** (full_ft, last_block) | ✗ NO | Variance 40-48 pp; one seed is degenerate (seed=42 stuck at trivial attractor); cannot publish a single number. |
-| **"Encoder anchoring" hypothesis** | ✗ RETIRE | Was an artefact of the seed-42 degenerate trajectory. Replace with: "FL training at marginal attack pressure has multiple attractors; the diagnostic correctly captures the resulting encoder differences." |
-| **"Pretrained init shifts attack mechanism"** | ⚠ Partial | Partially supported at saturation (15 mal cells), not at marginal pressure (5 mal). Reframe as: "saturated attacks consistently end up head-dominated when the encoder is anchored by ImageNet pretraining; marginal attacks have stochastic outcomes." |
+| **The diagnostic itself** | ✓ FULLY | Bit-identical at fixed seed; ≤0.5pp variance across diagnostic seeds. Confirmed by 6585212. |
+| **canonconv1 head_only** (5mal, 15mal) | ✓ YES | Frozen pretrained encoder is bit-identical across all 3 training seeds; the result is deterministic by construction (head training on a fixed encoder converges to the same minimum). |
+| **linear_probe_acc ≥ 0.95** | ✓ YES | Regime-invariant; the encoder always produces linearly-separable triggered features regardless of trajectory noise. |
+| **15 mal head_attribution** | ⚠ PROBABLY | SD ≤ 14 pp across seeds; saturated regime is more robust to trajectory noise but still subject to the same non-determinism. **Needs re-verification after fixes.** |
+| **5 mal head_attribution numbers** | ✗ INVALID | The Wave 1 seed=42 "97.2%" headline does not survive reproduction. The Wave 2 seeds 43/44 numbers are similarly suspect — they are single-run snapshots of a non-deterministic pipeline. |
+| **"Encoder anchoring at moderate pressure" hypothesis** | ✗ RETIRED | Was the artefact of an unreproducible degenerate trajectory. The reproducing run did NOT get stuck at the trivial-backdoor attractor — so the seed=42 stuck-trajectory itself is a coin-flip artefact, not a property of seed=42. |
+| **"Pretrained init shifts attack mechanism"** | ⚠ UNTESTED | We have not yet shown this with reproducible runs. Cannot claim until 4 fixes are committed and seeds are rerun. |
+| **`centroid_l2` per-cell values** | ⚠ NEEDS RERUN | Variance across non-deterministic runs is unknown; current numbers are single snapshots. |
 
 **Required fixes before any more scientific experiments:**
 
