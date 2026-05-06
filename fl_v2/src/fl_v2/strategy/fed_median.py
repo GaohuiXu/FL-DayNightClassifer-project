@@ -35,6 +35,12 @@ class NormTrackingFedMedian(NormTrackingFedAvg):
             self._last_train_metrics = None
             return None, None
 
+        # Deterministic ordering — see norm_tracking_fedavg.aggregate_train.
+        # np.median is value-based so the median itself is order-independent,
+        # but per-client iteration in the norm-logging path below is, so we
+        # sort up front for consistency with the rest of the strategy family.
+        valid_replies.sort(key=lambda msg: msg.metadata.src_node_id)
+
         # --- norm logging (reuse parent infrastructure) ---
         if self.current_arrays is not None:
             global_params = self.current_arrays.to_numpy_ndarrays()

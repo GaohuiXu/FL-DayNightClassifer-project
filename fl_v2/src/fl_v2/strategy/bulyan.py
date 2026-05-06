@@ -70,6 +70,11 @@ class NormTrackingBulyan(NormTrackingFedAvg):
     ) -> tuple[ArrayRecord | None, MetricRecord | None]:
         valid_replies, _ = self._check_and_log_replies(replies, is_train=True)
 
+        # Deterministic ordering — see norm_tracking_fedavg.aggregate_train.
+        # Especially important for Bulyan because the inner MultiKrum tie-break
+        # is order-sensitive.
+        valid_replies.sort(key=lambda msg: msg.metadata.src_node_id)
+
         n = len(valid_replies)
         f = self.num_malicious_nodes
         required = 4 * f + 3

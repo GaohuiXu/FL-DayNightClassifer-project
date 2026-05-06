@@ -66,6 +66,9 @@ class NormTrackingFedTrimmedAvg(NormTrackingFedAvg):
             self._last_train_metrics = None
             return None, None
 
+        # Deterministic ordering — see norm_tracking_fedavg.aggregate_train.
+        valid_replies.sort(key=lambda msg: msg.metadata.src_node_id)
+
         # --- norm logging ---
         if self.current_arrays is not None:
             global_params = self.current_arrays.to_numpy_ndarrays()

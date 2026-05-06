@@ -112,6 +112,16 @@ class NormTrackingFedAvg(FedAvg):
             self._last_train_metrics = None
             return None, None
 
+        # Deterministic ordering: floating-point summation is non-associative,
+        # so iteration order over `valid_replies` leaks into the aggregated
+        # weights via the in-place sum at flwr.serverapp.strategy.strategy_utils
+        # (~line 101). Without this sort, Ray's task-completion order changes
+        # the bit-level result. See docs/cycle_02_pivot_audit.md source #6.
+        # Subclasses (NormClippedFedAvg, Bulyan, Krum-wrappers, FedMedian,
+        # FedTrimmedAvg) all flow through this method, so sorting here covers
+        # the whole strategy hierarchy.
+        valid_replies.sort(key=lambda msg: msg.metadata.src_node_id)
+
         if self.current_arrays is None:
             raise RuntimeError(
                 "Current global arrays are not available. "

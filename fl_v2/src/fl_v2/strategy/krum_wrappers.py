@@ -25,6 +25,9 @@ class CapturedKrum(Krum):
         self._last_train_metrics: dict | None = None
 
     def aggregate_train(self, server_round, replies):
+        # Sort by src_node_id so Krum's argsort tie-break + the aggregate's
+        # in-place sum are deterministic across runs (audit source #6).
+        replies = sorted(replies, key=lambda msg: msg.metadata.src_node_id)
         result = super().aggregate_train(server_round, replies)
         self._last_train_metrics = _extract_metrics_from_result(result)
         return result
@@ -38,6 +41,8 @@ class CapturedMultiKrum(MultiKrum):
         self._last_train_metrics: dict | None = None
 
     def aggregate_train(self, server_round, replies):
+        # See CapturedKrum.aggregate_train for rationale.
+        replies = sorted(replies, key=lambda msg: msg.metadata.src_node_id)
         result = super().aggregate_train(server_round, replies)
         self._last_train_metrics = _extract_metrics_from_result(result)
         return result

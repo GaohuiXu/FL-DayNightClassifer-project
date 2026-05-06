@@ -40,6 +40,15 @@ export FLWR_HOME="$JOB_FLWR_HOME"
 
 export RAY_DEDUP_LOGS=0
 
+# --- Reproducibility env vars (Phase 1.0 of the recovery plan) ---
+# PYTHONHASHSEED=0 makes Python's hash randomisation deterministic across
+# runs; protects any code that hashes strings (e.g. dict ordering during
+# serialisation). CUBLAS_WORKSPACE_CONFIG is required by
+# torch.use_deterministic_algorithms (we may opt-in later) and is harmless
+# when that flag is off. Both are runtime requirements, not polish.
+export PYTHONHASHSEED=0
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+
 # --- Derive unique SuperLink ports from $SLURM_JOB_ID ---
 # Two jobs landing on the same node previously collided on the hardcoded
 # 39093/39094 ports — the second job's SuperLink would crash with
