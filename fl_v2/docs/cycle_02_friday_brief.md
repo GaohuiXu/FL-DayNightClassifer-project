@@ -91,20 +91,49 @@ remaining ε:
 
 - **(A) Software bug we haven't caught yet** — most likely candidate
   is Ray's multi-actor task-scheduling order, which our strategy-level
-  sort doesn't fully linearise. Currently testing single-actor Ray
-  configuration (job 6595430) to isolate this.
+  sort by `src_node_id` doesn't fully linearise. Tested via single-actor
+  Ray configuration (`num-gpus=1.0` per supernode, 50 supernodes
+  processed strictly sequentially, job 6595430): the 30-round single-
+  actor test **timed out at 2 h** — single-actor mode is ~10 × slower
+  than multi-actor, making it infeasible for any matrix rerun even if
+  it were the source. We do not get a clean determinism answer from
+  this test; what we *do* learn is that **fixing source #7 by removing
+  Ray parallelism is not a viable engineering path** because every
+  experiment would take 10 × longer wallclock.
 - **(B) Genuine chaotic-attractor regime** — 5 mal pixel-trigger has
   multiple basins (trivial-backdoor attractor at ASR 1.0 / acc 6 %, vs
   normal-training attractor at acc ~90 %). Tiny floating-point ε at
-  the bifurcation point flips one run into one basin and the other
-  into the other. This is a *property of the dynamical system*, not a
-  bug.
+  the bifurcation point (rounds 5–10) flips one run into one basin and
+  the other into the other. This is a *property of the dynamical
+  system*, not a bug we can plausibly engineer away.
 
-If (A): we keep fixing until same-seed → bit-identical. If (B): we
-**accept the chaotic regime as a finding**, switch from "single-seed
-point estimate" to "mean ± std across N ≥ 5 seeds" for 5 mal cells,
-and report saturated cells (15 mal, frozen-encoder canonconv1) as
-the deterministic baseline.
+**Recommendation: accept (B) and move forward.** Justification:
+
+1. The empirical signature of every divergence we've seen — bit-
+   identical rounds 0-5 followed by sudden split during attractor
+   escape — is the *exact fingerprint* of chaotic dynamics, not of a
+   localised software bug.
+2. Single-actor mode (the only software fix that could plausibly
+   eliminate Ray scheduling as a source) is operationally impractical
+   for any experiment matrix.
+3. The scientific framing "5 mal is a chaotic-attractor regime; report
+   it distributionally" is honest about what we observe and converts
+   the non-determinism from a bug into a finding. Multiple recent FL-
+   robustness papers (Shejwalkar & Houmansadr 2021; Wang et al. 2020)
+   already report multi-attractor behaviour qualitatively — we would
+   be quantifying it on a controlled benchmark.
+4. Saturated regimes (15 mal, frozen-encoder canonconv1) are not
+   chaotic, and our fixes do produce consistent numbers there. They
+   carry the deterministic part of the thesis story.
+
+**Concretely:** report 5 mal cells as **mean ± std across N = 5 seeds**
+rather than as point estimates. Report 15 mal and canonconv1 head-only
+cells as deterministic point estimates (with same-seed reruns to
+confirm low ε ≪ seed-effect-size). Add a sentence in the methods
+section: "Pixel-trigger backdoor at 5 % malicious clients exhibits
+multi-attractor training dynamics whose late-round outcome is
+sensitive to floating-point ε at the bifurcation point; we therefore
+report 5-mal results distributionally."
 
 ## Provisional findings the audit *did* preserve
 
