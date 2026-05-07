@@ -1,0 +1,44 @@
+# Reproducibility CHECK — same training-side knobs as
+# _phase3_fixed_full_ft_pixel5_seed42.yaml (which job 6599453 ran),
+# only the experiment-name differs so the new output dir does not
+# overwrite 6599453's summary.json / checkpoints / head_feature_decomposition_v2.json.
+#
+# Question being answered: now that the Ray-port-derivation fix
+# (commit 6db1dd1) is active in run_alvis.sh, does re-running the same
+# YAML at the same seed produce a bit-identical training trajectory to
+# the existing 6599453 wandb run?
+#
+# - YES (lines coincide on every per-round metric) → the 6598089 vs
+#   6599453 divergence was caused entirely by the Ray-port commit
+#   change; the post-fix codebase IS bit-reproducible.
+# - NO (lines diverge after rounds 0-5) → there is residual
+#   non-determinism the audit's 7 fixes did not catch (likely cross-
+#   node hardware / Ray scheduling / something we missed).
+experiment-name: cycle02-reprocheck-full-ft-pixel5
+cycle: cycle_02
+phase: phaseD2
+model-type: resnet18
+pretrained-init: true
+trainable-layers: full_ft
+num-clients: 50
+num-server-rounds: 100
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: pixel_backdoor
+malicious-client-ids: 0,1,2,3,4
+backdoor-target-label: 2
+poison-fraction: 0.5
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+defense-type: none
+checkpoint-rounds: "0,5,10,25,50,75,100"
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+wandb-group: cycle02-pretrained-full-ft
+seed: 42
+wandb-tags: pretrained-pivot,reprocheck,vs-6599453
