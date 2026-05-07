@@ -67,6 +67,22 @@ export FLWR_LOCAL_CONTROL_API_PORT="$PORT_CTL"
 export FLWR_LOCAL_SIMULATIONIO_API_PORT="$PORT_SIO"
 echo "SuperLink ports: control=$PORT_CTL, simulationio=$PORT_SIO (derived from JID $JID)"
 
+# --- Derive unique Ray internal ports from $SLURM_JOB_ID ---
+# Even with unique flower-superlink ports, Ray's own GCS / dashboard /
+# object-manager / metrics-agent default ports cause the second simulation
+# on the same node to silently fail (the wrapper script reports exit 0
+# because flwr run returns 0, but no rounds actually train — see audit
+# v5 same-node and 6598090/91 same-alvis6-07 collision). Set per-job
+# Ray ports out of the way of any other Alvis job and our own concurrent
+# jobs.
+RAY_BASE=$((10000 + (JID % 1000) * 10))
+export RAY_GCS_SERVER_PORT=$((RAY_BASE + 1))
+export RAY_DASHBOARD_PORT=$((RAY_BASE + 2))
+export RAY_NODE_MANAGER_PORT=$((RAY_BASE + 3))
+export RAY_OBJECT_MANAGER_PORT=$((RAY_BASE + 4))
+export RAY_RUNTIME_ENV_AGENT_PORT=$((RAY_BASE + 5))
+echo "Ray ports: GCS=$RAY_GCS_SERVER_PORT dashboard=$RAY_DASHBOARD_PORT node-mgr=$RAY_NODE_MANAGER_PORT object-mgr=$RAY_OBJECT_MANAGER_PORT runtime-env=$RAY_RUNTIME_ENV_AGENT_PORT"
+
 # --- Parse experiment YAML (passed via EXPERIMENT_YAML env var) ---
 RUN_CONFIG_FROM_YAML=""
 TRAINABLE_LAYERS="full_ft"  # default
