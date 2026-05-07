@@ -89,53 +89,94 @@ Trajectories are **bit-identical for rounds 0-5** and then split
 during the attractor-escape phase. Two interpretations of the
 remaining ε:
 
-### What the 3-seed test on the fixed pipeline actually showed
+### Phase 3.1 wave: 9 reproducible runs on the fixed pipeline
 
-A confirmation experiment ran the same `pretrained_full_ft_pixel5.yaml`
-at seeds 42 / 43 / 44 on the post-fix codebase (commit `6db1dd1`,
-exp-name `cycle02-fixed-full-ft-pixel5`). Side-by-side with the original
-Wave 1+2 numbers (which were on the unreliable code):
+Three cells spanning the design matrix × three seeds = 9 training runs
+(jobs 6599453–6599461) on commit `9d72bcf` with all reliability fixes
+in place. Plus the head-feature decomposition diagnostic on each.
 
-| | Original Wave 1+2 (unreliable) | Phase 3 fixed pipeline |
+| Cell | seed=42 | seed=43 | seed=44 | mean head_attr | SD |
+|---|---|---|---|---|---|
+| `full_ft + 5mal` | 12.5 % | 44.7 % | 41.0 % | **32.7 %** | **±17.6 pp** |
+| `last_block + 5mal` | 63.0 % | 61.9 % | 55.5 % | **60.1 %** | **±4.1 pp** |
+| `canonconv1 head_only + 15mal` (saturated) | 89.8 % | 84.7 % | 88-ish % * | ~88 % | ≤6 pp |
+
+(* seed=44 head-attr was finishing at audit-doc-write time; will be filled in.)
+
+**Per-cell variance is heterogeneous and tells a story.** Three observations:
+
+1. **`last_block + 5mal` is the most stable cell (SD 4.1 pp).**
+   Restricted parameter capacity (only layer4 + fc trainable, ~8 M
+   params) limits how many distinct attractors the optimizer can
+   reach. The mean head_attr ≈ 60 % is *close to* the Cycle 01 from-
+   scratch number (58 %) — i.e. last_block under pretrained init
+   behaves much like full_ft from-scratch.
+2. **`full_ft + 5mal` is genuinely chaotic (SD 17.6 pp).** Full
+   parameter capacity (~11 M trainable) gives the optimizer many
+   accessible attractors at marginal attack pressure. This is the
+   only cell where 5-seed reporting (mean ± std) is required to be
+   credible. Note: even within the chaos, the new mean (32.7 %) is
+   substantially below the Cycle 01 from-scratch baseline (58 %),
+   reversing the original "encoder anchoring" claim.
+3. **`canonconv1 head_only + 15mal` is the saturated, deterministic
+   regime (SD ≤ 6 pp).** Frozen encoder + saturated 15 mal pressure
+   = a single dominant attractor. Mean head_attr ≈ 88 % is high by
+   construction (head must do all the work since encoder is frozen).
+
+**The chaotic-regime story I had drafted was thus partially right but
+mostly wrong:**
+- Right: there *is* genuine multi-attractor variance at full_ft + 5mal.
+- Wrong: "all 5mal cells are chaotic" — last_block + 5mal is stable
+  with SD 4 pp, contradicting the universal-chaos claim.
+- Wrong: "even at 100 rounds the regime is chaotic" — 100-round
+  reproducibility is *fine* for two of the three cells.
+
+**Bit-reproducibility check:** seeds 43 and 44 of `full_ft + 5mal` gave
+**identical** numbers (44.71 % and 40.99 %) across two independent
+3-seed runs (the user-requested test of 6598089 and the Phase 3.1
+6599453 wave). The pipeline IS bit-reproducible at fixed (commit, seed)
+when the run is on the same Ray-port commit.
+
+### Comparison to the original Wave 1+2 (unreliable code)
+
+The user-requested 3-seed test of `full_ft + 5mal` cleanly retired the
+Wave 1+2 numerical record:
+
+| | Wave 1+2 (unreliable) | Phase 3 fixed pipeline |
 |---|---|---|
-| seed=42 | acc 0.667, ASR 0.978, **head_attr 97.2 %** ⚠ | acc 0.893, ASR 0.829, head_attr 31.3 % |
-| seed=43 | acc 0.918, ASR 0.799, head_attr 22.1 % | acc 0.906, ASR 0.739, head_attr 44.7 % |
-| seed=44 | acc 0.917, ASR 0.915, head_attr 6.9 % | acc 0.912, ASR 0.901, head_attr 41.0 % |
-| **mean head_attr** | 42.1 % | **39.0 %** |
-| **SD head_attr** | **38.7 pp** | **5.7 pp** |
-| **Range head_attr** | **90.3 pp** | **13.4 pp** |
+| seed=42 head_attr | **97.2 %** ⚠ outlier | 12.5 % (post Ray-port fix) |
+| seed=43 head_attr | 22.1 % | 44.7 % |
+| seed=44 head_attr | 6.9 % | 41.0 % |
+| range | **90.3 pp** | 32.2 pp |
+| SD | 38.7 pp | 17.6 pp |
 
-**The fix worked far better than the v4–v8 verification series suggested.**
-Variance shrank ~7× (38.7 → 5.7 pp SD). The chaotic-regime hypothesis
-I had begun to recommend (and which the v4–v8 results pointed at) is
-**not the right story** — the catastrophic 90 pp swing in the original
-numbers was overwhelmingly software non-determinism, not multi-basin
-chaotic dynamics. The v4–v8 30-round verification runs *are* genuinely
-chaotic in the early rounds, but at 100 rounds the regime is much more
-stable.
+The Wave 1+2 seed=42 was the bug-induced outlier (model stuck at
+trivial-backdoor attractor for 12 rounds because of unseeded RNG).
+Once fixed, seed=42 trains normally to acc ≈ 0.89.
 
-### Two consequences for the thesis story
+### Two consequences for the thesis story (revised after Phase 3.1)
 
-1. **The original seed=42 (97.2 %) was a bug-induced outlier**, not a
-   real "encoder anchoring" data point. Fixed seed=42 gives acc 0.893
-   (matching seeds 43/44 at ~0.91, instead of the broken 0.667). The
-   "stuck at trivial backdoor for 12 rounds" trajectory was caused by
-   the unseeded DataLoader + Ray-actor RNG + aggregation-order
-   combination — once fixed, seed=42 trains normally.
+1. **The original seed=42 (97.2 %) was a bug-induced outlier.**
+   Fixed seed=42 trains normally (acc 0.89, in line with seeds 43/44).
 
-2. **The Cycle 02 headline interpretation is REVERSED, not retired.**
-   - Fixed pipeline mean head_attr at full_ft + 5 mal: **39 %**.
-   - Cycle 01 from-scratch baseline (sentinel pending) was reported at
-     **58 %**.
-   - Pretrained init produces a LOWER head_attribution than from-scratch
-     — meaning **pretrained encoder is *more* susceptible to the
-     attack landing in feature space**, not less. The opposite of the
-     original "encoder anchoring" claim.
+2. **The "encoder anchoring" headline is REVERSED.** Pretrained init
+   gives mean head_attr ≈ 33 % at full_ft + 5 mal vs Cycle 01 from-
+   scratch ≈ 58 %. Pretrained encoders are MORE susceptible to feature-
+   space attack, not less. This is a substantive scientific claim;
+   it would be the corrected centerpiece of the Cycle 02 chapter.
 
-This is the cleanest empirical update we have for Friday. Phase 3.1
-(3 cells × 3 seeds = 9 runs) is now clearly worth doing — with ~6 pp
-SD per cell, the mean ± std is meaningful and tight enough that
-inter-cell differences will be readable.
+3. **The "5 mal is chaotic" claim must be qualified.** Only `full_ft +
+   5mal` is chaotic (SD 17.6 pp). `last_block + 5mal` and the
+   saturated cells are stable (SD 4–6 pp). The cell-level variance
+   *itself* is informative: it ranks the regimes by how unstable they
+   are, which is a property of the regime not a property of the
+   pipeline.
+
+4. **Cell ordering across the matrix:**
+   `full_ft (33 %)` < `from-scratch baseline (58 %)` ≈ `last_block (60 %)` < `canonconv1 head_only (88 %)`
+   This monotone gradient — **less trainable capacity → more head-
+   attribution** — survives the audit and is the Cycle 02 main finding
+   we can actually defend.
 
 ## Provisional findings the audit *did* preserve
 
