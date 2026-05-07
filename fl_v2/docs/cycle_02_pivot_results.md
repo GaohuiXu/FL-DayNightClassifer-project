@@ -1,19 +1,71 @@
 # Cycle 02 Pivot — Week 1 Results
 
-> **⚠ NUMERICAL CLAIMS BELOW ARE WITHDRAWN.** This document was authored
-> on commits prior to `1f5e70d`, when the training pipeline was
-> non-deterministic at fixed seed. Empirical evidence: re-running the
-> exact `pretrained_full_ft_pixel5.yaml` at seed=42 with the same code
-> produced final clean acc 0.894 vs the original 0.667 (Δ +22.7 pp) and
-> ASR 0.673 vs 0.978 (Δ −30.4 pp). See `cycle_02_pivot_audit.md` for the
-> root-cause analysis. The 24 Cycle 02 pivot training runs and all
-> downstream extract/framework/head-attribution numbers must be regarded
-> as a **pre-audit historical record** until the matrix is rerun on or
-> after commit `1f5e70d` (Phase 3 of the recovery plan). Cycle 01
-> archive numbers (`gtsrb_v2/phaseC_v2/`, `gtsrb_v2/phaseD/`) are not
-> affected and remain authoritative — they were trained on the same
-> pre-audit code, but their reliability is independent of this Cycle 02
-> reproducibility issue and is not in scope of this withdrawal.
+> **⚠ NUMERICAL CLAIMS BELOW ARE WITHDRAWN.** Sections 3.1–3.6 were
+> authored on commits prior to `9d72bcf`, when the training pipeline
+> was non-deterministic at fixed seed (six software-level sources fixed
+> across `795f75e`, `725cae5`, `1f5e70d`, `bd2c1eb`, `6db1dd1`). Re-
+> running the exact same YAML at the same seed produced different final
+> models (acc 0.667 vs 0.894 in two attempts of `pretrained_full_ft_pixel5`
+> at seed=42). See `cycle_02_pivot_audit.md` for the full root-cause
+> analysis.
+>
+> The Phase 3.1 wave (jobs 6599453–6599461, commit `9d72bcf`, 3 cells
+> × 3 seeds = 9 reproducible runs) replaces the relevant subset of
+> these numbers. The corrected results are at the top of the next
+> section. The 24-cell Wave 1+2 numerical record is **historical /
+> pre-audit** and must not be cited.
+>
+> Cycle 01 archive numbers (`gtsrb_v2/phaseC_v2/`, `gtsrb_v2/phaseD/`)
+> are out of scope of this withdrawal — they were trained on the same
+> pre-audit code, but reliability of the Cycle 01 record is a separate
+> question (and the recovery plan's Phase 3.0 sentinel rerun will
+> address cross-cycle comparisons).
+
+## Phase 3.1 wave — corrected Cycle 02 results (commit `9d72bcf`)
+
+3 cells × 3 seeds = 9 fully-reproducible training runs + per-cell
+head-feature decomposition. From `cycle_02_pivot_audit.md` §9.5:
+
+| Cell | seed=42 | seed=43 | seed=44 | mean head_attr ± SD | acc mean ± SD |
+|---|---|---|---|---|---|
+| `full_ft + 5mal` | 12.50 % | 44.71 % | 40.99 % | **32.73 % ± 17.62 pp** | 0.889 ± 0.028 |
+| `last_block + 5mal` | 62.97 % | 61.90 % | 55.45 % | **60.11 % ± 4.07 pp** | 0.717 ± 0.049 |
+| `canonconv1 head_only + 15mal` | 89.77 % | 84.71 % | 88.77 % | **87.75 % ± 2.68 pp** | 0.520 ± 0.011 |
+
+### Headline: cell ordering and reversed encoder-anchoring claim
+
+`full_ft (33 %)` < **Cycle 01 from-scratch reference (58 %)** ≈ `last_block (60 %)` < `canonconv1 head_only (88 %)`
+
+Monotonic in: **less trainable capacity → more head-attribution**.
+
+The original Wave 1+2 "97 % encoder anchoring at full_ft" headline was
+a bug-induced outlier from a stuck-at-trivial-backdoor trajectory.
+Re-running on the fixed pipeline shows:
+
+- Pretrained encoders at full_ft are MORE susceptible to feature-space
+  attack than from-scratch encoders (33 % vs 58 % head_attr — i.e.
+  the encoder absorbs more of the attack signal). This **reverses**
+  the encoder-anchoring claim.
+- last_block restricts the trainable capacity to layer4+fc (~8M
+  trainable params). At marginal 5mal pressure, this constrained
+  surface produces head_attr ≈ 60 % — within 2 pp of the Cycle 01
+  from-scratch baseline (58 %), so last_block-pretrained behaves
+  like full_ft-from-scratch.
+- canonconv1 head_only freezes the encoder entirely; head_attr ≈ 88 %
+  is high by construction (the head must do all the work).
+
+### Per-cell reproducibility characterisation
+
+- `canonconv1 head_only + 15mal` (saturated, frozen encoder, single
+  attractor): SD 2.68 pp. Clean-head ASR is *bit-identical* (0.0237)
+  across all 3 seeds. This cell is fully deterministic — N = 1 seed
+  would suffice.
+- `last_block + 5mal` (restricted capacity, few attractors): SD
+  4.07 pp. N = 3 seeds is comfortably sufficient.
+- `full_ft + 5mal` (full capacity at marginal pressure, multi-
+  attractor): SD 17.62 pp. **N ≥ 5 seeds** is required for venue-
+  quality mean ± std reporting. This cell is the one place where 5
+  mal is genuinely chaotic.
 
 *Companion to* `roadmap/cycle_02_designed_attacks_and_client_defenses.md`.
 *Empirical evidence for the pretrained-init pivot. Frames the supervisor

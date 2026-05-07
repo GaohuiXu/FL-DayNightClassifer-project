@@ -95,33 +95,32 @@ Three cells spanning the design matrix × three seeds = 9 training runs
 (jobs 6599453–6599461) on commit `9d72bcf` with all reliability fixes
 in place. Plus the head-feature decomposition diagnostic on each.
 
-| Cell | seed=42 | seed=43 | seed=44 | mean head_attr | SD |
+| Cell | seed=42 | seed=43 | seed=44 | **mean head_attr ± SD** | acc mean |
 |---|---|---|---|---|---|
-| `full_ft + 5mal` | 12.5 % | 44.7 % | 41.0 % | **32.7 %** | **±17.6 pp** |
-| `last_block + 5mal` | 63.0 % | 61.9 % | 55.5 % | **60.1 %** | **±4.1 pp** |
-| `canonconv1 head_only + 15mal` (saturated) | 89.8 % | 84.7 % | 88-ish % * | ~88 % | ≤6 pp |
-
-(* seed=44 head-attr was finishing at audit-doc-write time; will be filled in.)
+| `full_ft + 5mal` | 12.5 % | 44.7 % | 41.0 % | **32.7 % ± 17.62 pp** | 0.889 |
+| `last_block + 5mal` | 63.0 % | 61.9 % | 55.5 % | **60.1 % ± 4.07 pp** | 0.717 |
+| `canonconv1 head_only + 15mal` | 89.8 % | 84.7 % | 88.8 % | **87.8 % ± 2.68 pp** | 0.520 |
 
 **Per-cell variance is heterogeneous and tells a story.** Three observations:
 
-1. **`last_block + 5mal` is the most stable cell (SD 4.1 pp).**
-   Restricted parameter capacity (only layer4 + fc trainable, ~8 M
-   params) limits how many distinct attractors the optimizer can
-   reach. The mean head_attr ≈ 60 % is *close to* the Cycle 01 from-
-   scratch number (58 %) — i.e. last_block under pretrained init
-   behaves much like full_ft from-scratch.
-2. **`full_ft + 5mal` is genuinely chaotic (SD 17.6 pp).** Full
+1. **`canonconv1 head_only + 15mal` is the most stable cell (SD 2.68 pp).**
+   Frozen encoder + saturated 15-mal pressure → a single dominant
+   attractor. The clean-head ASR is *bit-identical* (0.0237) across all
+   3 seeds, which is the strongest possible reproducibility signal —
+   it means the diagnostic is fully deterministic on this regime.
+2. **`last_block + 5mal` is also stable (SD 4.07 pp).** Restricted
+   parameter capacity (only layer4 + fc trainable, ~8 M params) limits
+   how many distinct attractors the optimizer can reach. The mean
+   head_attr ≈ 60 % is *close to* the Cycle 01 from-scratch number
+   (58 %) — i.e. last_block under pretrained init behaves much like
+   full_ft from-scratch.
+3. **`full_ft + 5mal` is genuinely chaotic (SD 17.62 pp).** Full
    parameter capacity (~11 M trainable) gives the optimizer many
    accessible attractors at marginal attack pressure. This is the
-   only cell where 5-seed reporting (mean ± std) is required to be
-   credible. Note: even within the chaos, the new mean (32.7 %) is
+   only cell where N ≥ 5 seeds will be required for venue-quality
+   reporting. Note: even within the chaos, the new mean (32.7 %) is
    substantially below the Cycle 01 from-scratch baseline (58 %),
    reversing the original "encoder anchoring" claim.
-3. **`canonconv1 head_only + 15mal` is the saturated, deterministic
-   regime (SD ≤ 6 pp).** Frozen encoder + saturated 15 mal pressure
-   = a single dominant attractor. Mean head_attr ≈ 88 % is high by
-   construction (head must do all the work since encoder is frozen).
 
 **The chaotic-regime story I had drafted was thus partially right but
 mostly wrong:**

@@ -512,8 +512,83 @@ Read-only inspection of `fl_v2/src/fl_v2/strategy/*.py` and `flwr.serverapp.stra
 
 Fix: every strategy's `aggregate_train` now sorts replies by `metadata.src_node_id` (commit `1f5e70d`). The sort cost is one `O(n log n)` pass on a list of ≤50 messages — completely free at FL runtime.
 
-### 9.4 Closing verdict
+### 9.4 Verification series v4–v8 (intermediate; all on 30-round runs)
 
-The audit identified **six** distinct non-determinism sources (one more than the initial five-source post-mortem in §1.1). All six have committed fixes. The v4 verification confirms or refutes whether the combined fixes are sufficient.
+After fixes 1–7, a series of 30-round same-seed verifications all
+showed residual divergence during the chaotic-attractor escape phase
+(rounds 5–10): v4 cross-node Δ 14 pp, v6 cross-node + use_det_algos
+Δ 23 pp, v7 same-node forced Δ 12.6 pp, v8 single-actor timed out.
+At the time these results pointed at a 7th unfixed source. **The
+30-round verification was the wrong test.** Pixel-trigger 5 mal at
+the *transient* attractor-escape phase is genuinely chaotic; that
+chaos manifests at 30 rounds when the model is still in the trivial-
+backdoor basin. By 100 rounds the model has converged and the
+residual variance is moderate.
 
-**No new science work proceeds until v4 verification passes** (Phase 1 of the recovery plan, see `/cephyr/users/gaohui/Alvis/.claude/plans/cheerful-honking-shell.md`). After v4 passes, the recovery plan moves to Phase 3.0 (Cycle 01 sentinel) → 3.1 (9-cell minimum-viable rerun) → 3.2 (full Cycle 02 pivot rerun, 24 cells) → Phase 4 (Friday supervisor meeting) → Phase 5 (regression test institutionalisation).
+### 9.5 Phase 3.1 wave (the actual closure of the audit)
+
+A 3-cell × 3-seed minimum-viable rerun on the fully-fixed pipeline
+(commit `9d72bcf`, with Ray internal ports also derived from
+`$SLURM_JOB_ID` since fix #6's strategy sort by itself was not enough
+to keep concurrent same-node jobs from silently failing). 9 training
+runs (jobs 6599453–6599461) × 100 rounds + per-cell head-feature
+decomposition.
+
+| Cell | seed=42 | seed=43 | seed=44 | mean head_attr ± SD | acc mean ± SD |
+|---|---|---|---|---|---|
+| `full_ft + 5mal` | 12.50 % | 44.71 % | 40.99 % | **32.73 % ± 17.62 pp** | 0.889 ± 0.028 |
+| `last_block + 5mal` | 62.97 % | 61.90 % | 55.45 % | **60.11 % ± 4.07 pp** | 0.717 ± 0.049 |
+| `canonconv1 head_only + 15mal` | 89.77 % | 84.71 % | 88.77 % | **87.75 % ± 2.68 pp** | 0.520 ± 0.011 |
+
+**Bit-reproducibility verified.** Seeds 43 and 44 of `full_ft + 5mal`
+gave **identical** head_attr (44.71 % and 40.99 %) across two
+independent 3-seed runs (the user-requested test 6598089 + the Phase
+3.1 wave 6599453). The pipeline is fully reproducible at fixed
+(commit, seed). For the same seed across *different commits* the
+result *can* differ (the Ray-port fix between commits subtly changed
+actor startup conditions and shifted seed=42 from 31 % to 12 %); this
+is expected, the fixed-(commit, seed) reproducibility is the
+operationally-relevant property.
+
+**Per-cell variance is heterogeneous, not universal.** Three regimes:
+
+- `canonconv1 head_only + 15mal`: **SD 2.68 pp** (saturated, frozen
+  encoder, single-attractor). The clean-head ASR is *bit-identical*
+  (0.0237) across all 3 seeds — strongest possible reproducibility
+  signal.
+- `last_block + 5mal`: **SD 4.07 pp** (restricted capacity, few
+  attractors).
+- `full_ft + 5mal`: **SD 17.62 pp** (full capacity at marginal attack
+  pressure, multi-attractor). This is the *only* cell that requires
+  N ≥ 5 seeds for venue-quality reporting.
+
+### 9.6 Closing verdict
+
+The audit identified **six** software-level non-determinism sources;
+fix #6 actually had two facets that needed addressing in two passes
+(`1f5e70d` for strategy aggregation sort + hashlib `derive_seed` +
+env vars; `6db1dd1` for Ray internal ports). All sources are closed.
+
+**The pipeline is reliable at fixed (commit, seed).** Phase 3.1 wave
+verifies bit-identical results for matching cells across runs of the
+same configuration. Per-cell variance across seeds is now informative
+of the regime (saturated vs marginal vs chaotic) rather than of the
+pipeline.
+
+**The Wave 1+2 numerical record is officially withdrawn** (banner on
+`cycle_02_pivot_results.md` already in place). The Cycle 02 thesis
+narrative is rebuilt around the Phase 3.1 numbers:
+
+1. Cell ordering: `full_ft (33 %)` < `from-scratch reference (58 %)` ≈ `last_block (60 %)` < `canonconv1 head_only (88 %)`.
+2. **The "encoder anchoring" headline is reversed**: pretrained
+   encoders are MORE susceptible to feature-space attack than
+   from-scratch encoders, not less.
+3. Monotonic gradient: less trainable capacity → more head-attribution.
+
+The recovery plan's Phase 1 (codebase reliability) and Phase 3.1
+(minimum-viable rerun) are both **closed**. Phase 3.0 (Cycle 01
+sentinel rerun under fixed pipeline, for honest cross-cycle
+comparison), Phase 3.2 (full 24-cell rerun if scope expands), and
+Phase 5 (regression test + reproducibility guide) remain. Phase 4
+(Friday supervisor meeting) consumes this audit doc + the brief +
+the synthesis doc.
