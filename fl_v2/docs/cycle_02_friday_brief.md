@@ -89,51 +89,53 @@ Trajectories are **bit-identical for rounds 0-5** and then split
 during the attractor-escape phase. Two interpretations of the
 remaining ε:
 
-- **(A) Software bug we haven't caught yet** — most likely candidate
-  is Ray's multi-actor task-scheduling order, which our strategy-level
-  sort by `src_node_id` doesn't fully linearise. Tested via single-actor
-  Ray configuration (`num-gpus=1.0` per supernode, 50 supernodes
-  processed strictly sequentially, job 6595430): the 30-round single-
-  actor test **timed out at 2 h** — single-actor mode is ~10 × slower
-  than multi-actor, making it infeasible for any matrix rerun even if
-  it were the source. We do not get a clean determinism answer from
-  this test; what we *do* learn is that **fixing source #7 by removing
-  Ray parallelism is not a viable engineering path** because every
-  experiment would take 10 × longer wallclock.
-- **(B) Genuine chaotic-attractor regime** — 5 mal pixel-trigger has
-  multiple basins (trivial-backdoor attractor at ASR 1.0 / acc 6 %, vs
-  normal-training attractor at acc ~90 %). Tiny floating-point ε at
-  the bifurcation point (rounds 5–10) flips one run into one basin and
-  the other into the other. This is a *property of the dynamical
-  system*, not a bug we can plausibly engineer away.
+### What the 3-seed test on the fixed pipeline actually showed
 
-**Recommendation: accept (B) and move forward.** Justification:
+A confirmation experiment ran the same `pretrained_full_ft_pixel5.yaml`
+at seeds 42 / 43 / 44 on the post-fix codebase (commit `6db1dd1`,
+exp-name `cycle02-fixed-full-ft-pixel5`). Side-by-side with the original
+Wave 1+2 numbers (which were on the unreliable code):
 
-1. The empirical signature of every divergence we've seen — bit-
-   identical rounds 0-5 followed by sudden split during attractor
-   escape — is the *exact fingerprint* of chaotic dynamics, not of a
-   localised software bug.
-2. Single-actor mode (the only software fix that could plausibly
-   eliminate Ray scheduling as a source) is operationally impractical
-   for any experiment matrix.
-3. The scientific framing "5 mal is a chaotic-attractor regime; report
-   it distributionally" is honest about what we observe and converts
-   the non-determinism from a bug into a finding. Multiple recent FL-
-   robustness papers (Shejwalkar & Houmansadr 2021; Wang et al. 2020)
-   already report multi-attractor behaviour qualitatively — we would
-   be quantifying it on a controlled benchmark.
-4. Saturated regimes (15 mal, frozen-encoder canonconv1) are not
-   chaotic, and our fixes do produce consistent numbers there. They
-   carry the deterministic part of the thesis story.
+| | Original Wave 1+2 (unreliable) | Phase 3 fixed pipeline |
+|---|---|---|
+| seed=42 | acc 0.667, ASR 0.978, **head_attr 97.2 %** ⚠ | acc 0.893, ASR 0.829, head_attr 31.3 % |
+| seed=43 | acc 0.918, ASR 0.799, head_attr 22.1 % | acc 0.906, ASR 0.739, head_attr 44.7 % |
+| seed=44 | acc 0.917, ASR 0.915, head_attr 6.9 % | acc 0.912, ASR 0.901, head_attr 41.0 % |
+| **mean head_attr** | 42.1 % | **39.0 %** |
+| **SD head_attr** | **38.7 pp** | **5.7 pp** |
+| **Range head_attr** | **90.3 pp** | **13.4 pp** |
 
-**Concretely:** report 5 mal cells as **mean ± std across N = 5 seeds**
-rather than as point estimates. Report 15 mal and canonconv1 head-only
-cells as deterministic point estimates (with same-seed reruns to
-confirm low ε ≪ seed-effect-size). Add a sentence in the methods
-section: "Pixel-trigger backdoor at 5 % malicious clients exhibits
-multi-attractor training dynamics whose late-round outcome is
-sensitive to floating-point ε at the bifurcation point; we therefore
-report 5-mal results distributionally."
+**The fix worked far better than the v4–v8 verification series suggested.**
+Variance shrank ~7× (38.7 → 5.7 pp SD). The chaotic-regime hypothesis
+I had begun to recommend (and which the v4–v8 results pointed at) is
+**not the right story** — the catastrophic 90 pp swing in the original
+numbers was overwhelmingly software non-determinism, not multi-basin
+chaotic dynamics. The v4–v8 30-round verification runs *are* genuinely
+chaotic in the early rounds, but at 100 rounds the regime is much more
+stable.
+
+### Two consequences for the thesis story
+
+1. **The original seed=42 (97.2 %) was a bug-induced outlier**, not a
+   real "encoder anchoring" data point. Fixed seed=42 gives acc 0.893
+   (matching seeds 43/44 at ~0.91, instead of the broken 0.667). The
+   "stuck at trivial backdoor for 12 rounds" trajectory was caused by
+   the unseeded DataLoader + Ray-actor RNG + aggregation-order
+   combination — once fixed, seed=42 trains normally.
+
+2. **The Cycle 02 headline interpretation is REVERSED, not retired.**
+   - Fixed pipeline mean head_attr at full_ft + 5 mal: **39 %**.
+   - Cycle 01 from-scratch baseline (sentinel pending) was reported at
+     **58 %**.
+   - Pretrained init produces a LOWER head_attribution than from-scratch
+     — meaning **pretrained encoder is *more* susceptible to the
+     attack landing in feature space**, not less. The opposite of the
+     original "encoder anchoring" claim.
+
+This is the cleanest empirical update we have for Friday. Phase 3.1
+(3 cells × 3 seeds = 9 runs) is now clearly worth doing — with ~6 pp
+SD per cell, the mean ± std is meaningful and tight enough that
+inter-cell differences will be readable.
 
 ## Provisional findings the audit *did* preserve
 
