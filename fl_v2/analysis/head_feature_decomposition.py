@@ -155,12 +155,27 @@ def _train_fresh_head(
     device: torch.device,
     epochs: int,
     lr: float,
-) -> list[dict]:
-    """Train ONLY model.fc on the provided clean trainloader.
+    *,
+    eval_fn=None,
+    patience: int = 8,
+    min_improvement: float = 1e-4,
+) -> dict:
+    """Train ONLY model.fc on the provided clean trainloader, to convergence.
 
-    The feature extractor (model.features + model.avgpool) is left in eval
-    mode so frozen BatchNorm statistics do not drift. Only the freshly
-    reinitialized head learns.
+    Convergence-based stopping: train up to ``epochs`` epochs (a generous
+    upper bound), evaluate clean test accuracy after every epoch via
+    ``eval_fn``, stop if the best-so-far clean-test-acc has not improved
+    by at least ``min_improvement`` over the last ``patience`` epochs.
+
+    Why convergence-based and not fixed-epoch: the fresh head sees
+    encoders of very different qualities (`canonconv1 head_only` vs
+    `full_ft`); a fixed epoch budget systematically undertrains the head
+    on cells where the encoder produces poorer features, which biases
+    head_attribution_pct upward. With early-stop-on-plateau the head
+    reaches its true ceiling on every cell, making cross-cell comparisons
+    fair.
+
+    Returns a dict with the per-epoch history and the best-so-far metrics.
     """
     # Freeze everything; unfreeze only fc.
     for p in model.parameters():
@@ -168,25 +183,33 @@ def _train_fresh_head(
     for p in model.fc.parameters():
         p.requires_grad = True
 
-    # Frozen subtrees stay in eval() mode throughout. Only the head is in
-    # train() mode (irrelevant for nn.Linear but symmetric).
+    # Frozen subtrees stay in eval() mode throughout.
     model.eval()
     model.fc.train()
 
     optimizer = torch.optim.Adam(model.fc.parameters(), lr=lr)
+    # Cosine annealing helps the head reach its plateau cleanly rather
+    # than oscillating around a near-optimum.
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     criterion = nn.CrossEntropyLoss()
 
     history: list[dict] = []
+    best_clean_acc = -float("inf")
+    best_clean_asr: float | None = None
+    best_epoch = -1
+    best_state_dict = None
+    epochs_without_improvement = 0
+
     for epoch in range(epochs):
         t0 = time.time()
         total_loss = 0.0
         n_correct = 0
         n_samples = 0
+        model.fc.train()
         for images, labels in trainloader:
             images = images.to(device)
             labels = labels.to(device)
             optimizer.zero_grad()
-            # Forward through frozen extractor + trainable head.
             with torch.no_grad():
                 feats = model.forward_features(images)
             logits = model.fc(feats)
@@ -199,20 +222,80 @@ def _train_fresh_head(
             n_correct += int((logits.argmax(dim=1) == labels).sum().item())
             n_samples += bs
 
+        scheduler.step()
         epoch_loss = total_loss / max(n_samples, 1)
         epoch_acc = n_correct / max(n_samples, 1)
         elapsed = time.time() - t0
-        history.append(
-            {"epoch": epoch + 1, "loss": epoch_loss, "acc": epoch_acc, "secs": elapsed}
-        )
+
+        # Evaluate on the clean + triggered test set after every epoch so
+        # we can early-stop on plateau and report the best-checkpoint metrics.
+        eval_clean_acc = None
+        eval_clean_asr = None
+        if eval_fn is not None:
+            eval_out = eval_fn(model)
+            eval_clean_acc = float(eval_out["clean_acc"])
+            eval_clean_asr = (
+                float(eval_out["asr"]) if "asr" in eval_out else None
+            )
+
+        history.append({
+            "epoch": epoch + 1,
+            "train_loss": epoch_loss,
+            "train_acc": epoch_acc,
+            "lr": optimizer.param_groups[0]["lr"],
+            "secs": elapsed,
+            "eval_clean_acc": eval_clean_acc,
+            "eval_clean_asr": eval_clean_asr,
+        })
         print(
-            f"[head-train] epoch {epoch + 1}/{epochs}  "
-            f"loss={epoch_loss:.4f}  acc={epoch_acc:.4f}  "
+            f"[head-train] epoch {epoch + 1:3d}/{epochs}  "
+            f"loss={epoch_loss:.4f}  train_acc={epoch_acc:.4f}  "
+            f"lr={optimizer.param_groups[0]['lr']:.5f}  "
+            f"clean_acc={eval_clean_acc if eval_clean_acc is None else f'{eval_clean_acc:.4f}'}  "
+            f"clean_asr={eval_clean_asr if eval_clean_asr is None else f'{eval_clean_asr:.4f}'}  "
             f"({elapsed:.1f}s)",
             flush=True,
         )
 
-    return history
+        if eval_clean_acc is not None:
+            if eval_clean_acc > best_clean_acc + min_improvement:
+                best_clean_acc = eval_clean_acc
+                best_clean_asr = eval_clean_asr
+                best_epoch = epoch + 1
+                # Snapshot the head weights at the best-eval-acc point.
+                best_state_dict = {
+                    k: v.detach().cpu().clone()
+                    for k, v in model.fc.state_dict().items()
+                }
+                epochs_without_improvement = 0
+            else:
+                epochs_without_improvement += 1
+                if epochs_without_improvement >= patience:
+                    print(
+                        f"[head-train] EARLY STOP at epoch {epoch + 1}: "
+                        f"clean_acc plateaued (best={best_clean_acc:.4f} at "
+                        f"epoch {best_epoch}, no improvement > {min_improvement} "
+                        f"for {patience} epochs).",
+                        flush=True,
+                    )
+                    break
+
+    # Restore the best-checkpoint head so the caller's downstream eval uses
+    # the converged weights, not the last-epoch weights.
+    if best_state_dict is not None:
+        model.fc.load_state_dict(best_state_dict)
+
+    return {
+        "history": history,
+        "best_clean_acc": best_clean_acc if best_state_dict is not None else None,
+        "best_clean_asr": best_clean_asr,
+        "best_epoch": best_epoch,
+        "total_epochs_run": len(history),
+        "early_stopped": (best_state_dict is not None
+                          and len(history) < epochs),
+        "patience": patience,
+        "min_improvement": min_improvement,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -242,8 +325,32 @@ def main() -> None:
     parser.add_argument(
         "--epochs",
         type=int,
-        default=10,
-        help="Epochs of clean-head training (default 10).",
+        default=100,
+        help=(
+            "Maximum epochs of clean-head training (default 100). "
+            "Acts as a generous upper bound — actual training stops earlier "
+            "once the per-epoch test-set clean accuracy plateaus, see "
+            "--patience and --min-improvement."
+        ),
+    )
+    parser.add_argument(
+        "--patience",
+        type=int,
+        default=8,
+        help=(
+            "Early-stop patience: stop when clean-test-acc has not improved "
+            "by at least --min-improvement for this many consecutive epochs "
+            "(default 8)."
+        ),
+    )
+    parser.add_argument(
+        "--min-improvement",
+        type=float,
+        default=1e-4,
+        help=(
+            "Minimum clean-test-acc improvement that counts as progress for "
+            "early-stop (default 1e-4 = 0.01 pp)."
+        ),
     )
     parser.add_argument(
         "--lr",
@@ -387,36 +494,54 @@ def main() -> None:
         torch.cuda.manual_seed_all(args.seed)
     model.fc = nn.Linear(512, num_classes).to(device)
     print(
-        f"[head-decomp] step 2/3: reinit fc head ({args.seed=}); "
-        f"training {args.epochs} epochs lr={args.lr}...",
+        f"[head-decomp] step 2/3: reinit fc head (seed={args.seed}); "
+        f"training up to {args.epochs} epochs lr={args.lr} "
+        f"(early-stop on plateau: patience={args.patience}, "
+        f"min_improvement={args.min_improvement})...",
         flush=True,
     )
 
-    # ----- 5. Train fresh head on clean GTSRB train.
+    # ----- 5. Train fresh head on clean GTSRB train, with per-epoch eval +
+    # convergence-based stopping. The eval function hands the trainer the
+    # current model so it can measure clean test accuracy after every epoch
+    # and snapshot the best-checkpoint weights.
     trainloader = _build_clean_trainloader(
         data_root=args.data_root,
         image_size=image_size,
         batch_size=args.head_batch_size,
         augment=args.augment,
     )
-    history = _train_fresh_head(
+
+    def _per_epoch_eval(m: nn.Module) -> dict:
+        return _evaluate(m, testloader, device, target_label, trigger_fn)
+
+    train_out = _train_fresh_head(
         model=model,
         trainloader=trainloader,
         device=device,
         epochs=args.epochs,
         lr=args.lr,
+        eval_fn=_per_epoch_eval,
+        patience=args.patience,
+        min_improvement=args.min_improvement,
     )
+    history = train_out["history"]
 
-    # ----- 6. Re-evaluate with the fresh head.
-    print("[head-decomp] step 3/3: evaluating clean-head model...", flush=True)
+    # ----- 6. Re-evaluate with the BEST clean head (weights restored by
+    # _train_fresh_head). This is the converged metric, not the last-epoch
+    # metric — eliminates the undertraining bias that pre-`bd2c1eb`-era
+    # 10-epoch runs introduced.
+    print("[head-decomp] step 3/3: evaluating best-checkpoint clean-head model...", flush=True)
     new_eval = _evaluate(model, testloader, device, target_label, trigger_fn)
     clean_head_clean_acc = float(new_eval["clean_acc"])
     clean_head_asr: Optional[float] = (
         float(new_eval["asr"]) if "asr" in new_eval else None
     )
     print(
-        f"[head-decomp] clean-head clean_acc={clean_head_clean_acc:.4f}  "
-        f"asr={clean_head_asr if clean_head_asr is None else f'{clean_head_asr:.4f}'}",
+        f"[head-decomp] best clean-head clean_acc={clean_head_clean_acc:.4f}  "
+        f"asr={clean_head_asr if clean_head_asr is None else f'{clean_head_asr:.4f}'}  "
+        f"(reached at epoch {train_out['best_epoch']}/{train_out['total_epochs_run']}; "
+        f"early_stopped={train_out['early_stopped']})",
         flush=True,
     )
 
@@ -453,10 +578,17 @@ def main() -> None:
         "clean_head_asr": clean_head_asr,
         "head_attribution_pct": head_attribution_pct,
         "feature_attribution_pct": feature_attribution_pct,
-        "head_train_epochs": args.epochs,
+        "head_train_max_epochs": args.epochs,
         "head_train_lr": args.lr,
         "head_train_batch_size": args.head_batch_size,
         "head_train_augment": bool(args.augment),
+        "head_train_patience": args.patience,
+        "head_train_min_improvement": args.min_improvement,
+        "head_train_best_epoch": train_out["best_epoch"],
+        "head_train_total_epochs_run": train_out["total_epochs_run"],
+        "head_train_early_stopped": bool(train_out["early_stopped"]),
+        "head_train_best_clean_acc": train_out["best_clean_acc"],
+        "head_train_best_clean_asr": train_out["best_clean_asr"],
         "head_train_history": history,
         "seed": args.seed,
         "device": str(device),

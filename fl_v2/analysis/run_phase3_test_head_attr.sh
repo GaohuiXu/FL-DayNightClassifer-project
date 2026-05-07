@@ -2,7 +2,7 @@
 #SBATCH -A NAISS2025-22-1113
 #SBATCH -p alvis
 #SBATCH --gpus-per-node=A40:1
-#SBATCH -t 0-01:00:00
+#SBATCH -t 0-04:00:00
 #SBATCH -J phase3_test_head_attr
 #SBATCH -o /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/slurm/%x_%j.out
 #SBATCH -e /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/slurm/%x_%j.err
@@ -29,6 +29,12 @@ CELLS=(
     cycle02-fixed-headonly-canonconv1-pixel15
 )
 
+# v2 diagnostic: convergence-based clean-head retraining (max 100 epochs,
+# early-stop on plateau patience=8, min-improvement=1e-4). Writes to
+# head_feature_decomposition_v2.json so the original 10-epoch v1 results
+# stay on disk for direct before/after comparison.
+OUT_NAME=head_feature_decomposition_v2.json
+
 for cell in "${CELLS[@]}"; do
     for seed in 42 43 44; do
         exp_dir=$BASE/${cell}_r100_seed${seed}
@@ -36,8 +42,8 @@ for cell in "${CELLS[@]}"; do
             echo "  [skip] $cell seed=$seed: final_model.pt not found"
             continue
         fi
-        if [[ -f "$exp_dir/head_feature_decomposition.json" ]]; then
-            echo "  [skip] $cell seed=$seed: diagnostic already ran"
+        if [[ -f "$exp_dir/$OUT_NAME" ]]; then
+            echo "  [skip] $cell seed=$seed: v2 diagnostic already ran"
             continue
         fi
         echo ""
@@ -45,13 +51,33 @@ for cell in "${CELLS[@]}"; do
         python -m analysis.head_feature_decomposition \
             --exp-dir "$exp_dir" \
             --data-root "$DATA_ROOT" \
-            --epochs 10 --lr 1e-3 \
-            --seed 4242 --device auto
+            --epochs 100 --patience 8 --min-improvement 1e-4 \
+            --lr 1e-3 \
+            --seed 4242 --device auto \
+            --output "$exp_dir/$OUT_NAME"
     done
 done
 
 echo ""
-echo "===== Phase 3.1 fixed-pipeline summary (9 cells: 3 cells x 3 seeds) ====="
+echo "===== Phase 3.1 v2 (convergent) summary (9 cells: 3 cells x 3 seeds) ====="
+for cell in "${CELLS[@]}"; do
+    for seed in 42 43 44; do
+        f=$BASE/${cell}_r100_seed${seed}/$OUT_NAME
+        s=$BASE/${cell}_r100_seed${seed}/summary.json
+        if [[ -f "$f" && -f "$s" ]]; then
+            python3 -c "
+import json
+hd = json.load(open('$f'))
+sm = json.load(open('$s'))
+fin = sm['final']
+print(f'$cell  seed=${seed}  acc={fin[\"test_accuracy\"]:.4f}  asr={fin[\"asr\"]:.4f}  ch_acc={hd[\"clean_head_clean_acc\"]:.4f}  ch_asr={hd[\"clean_head_asr\"]:.4f}  HEAD_ATTR={hd[\"head_attribution_pct\"]:6.2f}%  best_ep={hd[\"head_train_best_epoch\"]}/{hd[\"head_train_total_epochs_run\"]}  early_stop={hd[\"head_train_early_stopped\"]}')
+"
+        fi
+    done
+done
+
+echo ""
+echo "===== Phase 3.1 v1 (fixed 10-epoch) — for comparison ====="
 for cell in "${CELLS[@]}"; do
     for seed in 42 43 44; do
         f=$BASE/${cell}_r100_seed${seed}/head_feature_decomposition.json
