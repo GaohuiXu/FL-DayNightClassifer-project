@@ -47,9 +47,13 @@ pipeline is non-deterministic at fixed seed (§1.3).
    claim about regime-dependent attack mechanisms.**
 5. **What is still reliable:** the 15 mal cells (head_attribution
    stable across seeds; saturated regime), the canonconv1 head-only
-   cells (frozen encoder is bit-identical across seeds, gives
-   deterministic baseline), and the linear_probe_acc ≥ 0.95 finding
-   (regime-invariant; insensitive to trajectory noise).
+   cells (frozen pretrained encoder loaded from the same ImageNet
+   checkpoint is bit-identical across seeds, giving a near-
+   deterministic — but, per measurement, not literally bit-identical
+   — diagnostic baseline; precise values 0.0237373737 / 0.0237373737 /
+   0.0236531987 across seeds 42/43/44, fourth-decimal divergence on
+   seed 44), and the linear_probe_acc ≥ 0.95 finding (regime-invariant;
+   insensitive to trajectory noise).
 6. **Several latent bugs found** in config parsing (`bool("false")` is
    `True` in Python; affects 7 sites in server_app, client_app,
    wandb_logger). Did **not** manifest in Cycle 02 runs because the
@@ -305,22 +309,28 @@ from per-client sample counts.
 Across the 6 head_only canonconv1 cells (3 seeds × {pixel5, pixel15}),
 the diagnostic produces:
 
-| Cell | clean_head_asr | clean_head_clean_acc |
-|---|---|---|
-| canonconv1 + 5mal seeds 42/43/44 | 0.0237 / 0.0237 / 0.0237 | 0.6020 / 0.6018 / 0.6020 |
-| canonconv1 + 15mal seeds 42/43/44 | 0.0237 / 0.0237 / 0.0237 | 0.6021 / 0.6020 / 0.6019 |
+Re-checked against the Phase 3.1 wave canonconv1 head_only + 15mal
+JSONs (full 10-decimal precision):
 
-The 6-decimal-place identity of `clean_head_asr` is only possible if:
-- The encoder is bit-identical across runs (TRUE: head_only never
-  updates the encoder, so it stays at pretrained init across all 6
-  cells regardless of training seed).
-- The clean-head retraining converges to a deterministic state given
-  fixed encoder + fixed diagnostic seed (seed=4242 used by default).
+| Cell (15mal) | seed=42 | seed=43 | seed=44 |
+|---|---|---|---|
+| `clean_head_asr` | 0.0237373737 | 0.0237373737 | **0.0236531987** |
+| `clean_head_clean_acc` | 0.6020585907 | 0.6019002375 | 0.6020585907 |
 
-This is strong evidence that the diagnostic is reproducible at fixed
-checkpoint + fixed diagnostic seed. The minor variation in
-`clean_head_clean_acc` (0.6018-0.6021, < 0.0003) is well within
-floating-point noise.
+Two of three seeds (42, 43) are bit-identical to ten decimals on
+`clean_head_asr`; seed 44 differs at the **fourth decimal place**.
+The encoder is genuinely bit-identical across runs (head_only never
+updates the encoder, so it stays at pretrained init), but the
+clean-head retraining does not converge to a literally identical
+state across all three training seeds.
+
+The earlier draft of this section claimed "6-decimal-place identity
+of `clean_head_asr`" with rounded values (0.0237 / 0.0237 / 0.0237);
+that rounding hid the seed-44 divergence. The corrected reading: the
+diagnostic is *near-deterministic* on canonconv1 head_only — strongly
+consistent with "frozen encoder + same diagnostic seed → essentially
+deterministic head training" but with a small residual that may
+trace to whatever causes the audit's general round-6+ ε.
 
 ### 5.2 Direct empirical test — RESULT: diagnostic IS reproducible
 
@@ -434,8 +444,8 @@ each result class is:
 
 | Result | Reliable? | Reason |
 |---|---|---|
-| **The diagnostic itself** | ✓ FULLY | Bit-identical at fixed seed; ≤0.5pp variance across diagnostic seeds. Confirmed by 6585212. |
-| **canonconv1 head_only** (5mal, 15mal) | ✓ YES | Frozen pretrained encoder is bit-identical across all 3 training seeds; the result is deterministic by construction (head training on a fixed encoder converges to the same minimum). |
+| **The diagnostic itself, given a fixed input checkpoint** | ✓ FULLY | Job 6585212 ran the v1 diagnostic 5 times on the same checkpoint at the same diagnostic seed and produced bit-identical outputs. This isolates the diagnostic from training-pipeline non-determinism but does not address whether the input checkpoint itself is reproducible. |
+| **canonconv1 head_only** (5mal, 15mal) | ⚠ MOSTLY | Frozen pretrained encoder + same diagnostic seed should give deterministic head training. Empirically: 3-seed clean_head_asr = 0.0237373737 / 0.0237373737 / 0.0236531987 — bit-identical for two of three seeds, fourth-decimal divergence on seed 44. Direction matches "near-deterministic by construction" but is not literally bit-identical. |
 | **linear_probe_acc ≥ 0.95** | ✓ YES | Regime-invariant; the encoder always produces linearly-separable triggered features regardless of trajectory noise. |
 | **15 mal head_attribution** | ⚠ PROBABLY | SD ≤ 14 pp across seeds; saturated regime is more robust to trajectory noise but still subject to the same non-determinism. **Needs re-verification after fixes.** |
 | **5 mal head_attribution numbers** | ✗ INVALID | The Wave 1 seed=42 "97.2%" headline does not survive reproduction. The Wave 2 seeds 43/44 numbers are similarly suspect — they are single-run snapshots of a non-deterministic pipeline. |
@@ -456,7 +466,9 @@ each result class is:
 4. **CUDA determinism** — set `torch.backends.cudnn.deterministic =
    True` and `torch.use_deterministic_algorithms(True, warn_only=True)`
    in run_alvis.sh and inside server / client startup. Trade-off:
-   slightly slower runs but bit-reproducible.
+   slightly slower runs; targets cuDNN as a non-determinism source but
+   on its own is not sufficient for end-to-end bit-reproducibility (a
+   residual ε remains and is being investigated separately).
 
 **No new experiments (D.2 prototype, more seeds, new attacks) until the
 above 4 fixes are committed and verified by re-running the same-seed
@@ -540,55 +552,83 @@ decomposition.
 | `last_block + 5mal` | 62.97 % | 61.90 % | 55.45 % | **60.11 % ± 4.07 pp** | 0.717 ± 0.049 |
 | `canonconv1 head_only + 15mal` | 89.77 % | 84.71 % | 88.77 % | **87.75 % ± 2.68 pp** | 0.520 ± 0.011 |
 
-**Bit-reproducibility verified.** Seeds 43 and 44 of `full_ft + 5mal`
-gave **identical** head_attr (44.71 % and 40.99 %) across two
-independent 3-seed runs (the user-requested test 6598089 + the Phase
-3.1 wave 6599453). The pipeline is fully reproducible at fixed
-(commit, seed). For the same seed across *different commits* the
-result *can* differ (the Ray-port fix between commits subtly changed
-actor startup conditions and shifted seed=42 from 31 % to 12 %); this
-is expected, the fixed-(commit, seed) reproducibility is the
-operationally-relevant property.
+**Bit-reproducibility — withdrawn claim.** An earlier draft of this
+section asserted that seeds 43 and 44 of `full_ft + 5mal` gave
+identical head_attr (44.71 % and 40.99 %) across two independent
+3-seed runs (the user-requested 6598089 wave + the Phase 3.1 wave
+6599453). That comparison **does not exist in the data**.
+`sacct -j 6598089,6598090,6598091` shows wave-1 seeds 43 and 44
+"COMPLETED" in 1 m 27 s and 1 m 39 s respectively — the Ray-port
+silent-failure pattern (no rounds trained, no head-attribution
+produced). Only seed=42 (job 6598089, 1 h 53 m) ran the full 100
+rounds on the pre-Ray-port-fix commit; the other two failed. There
+was nothing to compare wave-2 against, and the "bit-reproducibility
+verified" claim was an unverified inference repeated as fact. It is
+withdrawn.
 
-**Per-cell variance is heterogeneous, not universal.** Three regimes:
+What we can defensibly say from the existing data:
+
+- The audit reproducibility pair 6594906 / 6594907 (post-7-fixes,
+  same commit, same seed) was bit-identical for rounds 0–5 and then
+  diverged at round 6+ (Δ ≈ 12–23 pp final accuracy).
+- All 9 Phase 3.1 wave-2 runs completed their 100 rounds without
+  silent failure, so the *numerical outputs are valid as one
+  realisation each* — but a within-commit rerun has not yet been
+  measured to quantify how much they would shift on a second
+  realisation.
+- A within-commit reprocheck has been queued (job 6600759,
+  `cycle02-reprocheck-full-ft-pixel5_seed42`) specifically to fill
+  this gap. Wandb already shows that 6598089 (pre-Ray-port commit)
+  vs 6599453 (post-Ray-port commit) have visibly different
+  per-round trajectories that converge to similar but not identical
+  final values; whether the divergence holds within a single commit
+  is what 6600759 will tell us.
+
+**Per-cell variance is heterogeneous, not universal.** Three regimes
+under the v1 fixed-10-epoch diagnostic:
 
 - `canonconv1 head_only + 15mal`: **SD 2.68 pp** (saturated, frozen
-  encoder, single-attractor). The clean-head ASR is *bit-identical*
-  (0.0237) across all 3 seeds — strongest possible reproducibility
-  signal.
+  encoder, single-attractor). Clean-head ASR rounds to 0.024 across
+  all 3 seeds; precise values 0.0237373737 (seed 42), 0.0237373737
+  (seed 43), 0.0236531987 (seed 44) — bit-identical for two of
+  three seeds, fourth-decimal divergence on seed 44.
 - `last_block + 5mal`: **SD 4.07 pp** (restricted capacity, few
   attractors).
 - `full_ft + 5mal`: **SD 17.62 pp** (full capacity at marginal attack
-  pressure, multi-attractor). This is the *only* cell that requires
-  N ≥ 5 seeds for venue-quality reporting.
+  pressure, multi-attractor). This is the cell with the largest
+  spread; whether N ≥ 5 seeds collapses the spread or grows it
+  remains to be tested.
 
 ### 9.6 Closing verdict
 
-The audit identified **six** software-level non-determinism sources;
-fix #6 actually had two facets that needed addressing in two passes
-(`1f5e70d` for strategy aggregation sort + hashlib `derive_seed` +
-env vars; `6db1dd1` for Ray internal ports). All sources are closed.
+The audit identified seven software-level non-determinism sources
+(one of which had two facets, addressed in two passes: `1f5e70d`
+for strategy aggregation sort + hashlib `derive_seed` + env vars;
+`6db1dd1` for Ray internal ports). All identified sources are closed
+in code, but the audit's own pair 6594906 / 6594907 already
+established that bit-identical reproducibility holds only through
+rounds 0–5; rounds 6+ still drift under residual ε whose origin
+is not yet pinpointed.
 
-**The pipeline is reliable at fixed (commit, seed).** Phase 3.1 wave
-verifies bit-identical results for matching cells across runs of the
-same configuration. Per-cell variance across seeds is now informative
-of the regime (saturated vs marginal vs chaotic) rather than of the
-pipeline.
+**Pipeline status (honest):** *valid runs* (no silent failures, full
+100-round trajectories) but *not yet bit-reproducible end-to-end*.
+The single-realisation per-cell numbers are usable for ordering
+arguments and for revealing seed-to-seed variance bands, but should
+not be quoted to many decimal places as if the underlying pipeline
+were deterministic.
 
-**The Wave 1+2 numerical record is officially withdrawn** (banner on
-`cycle_02_pivot_results.md` already in place). The Cycle 02 thesis
-narrative is rebuilt around the Phase 3.1 numbers:
+The Wave 1+2 numerical record remains withdrawn (banner on
+`cycle_02_pivot_results.md`). The Cycle 02 thesis narrative is being
+rebuilt — see the in-flight v2 (convergent diagnostic) results in
+the Friday brief — and all cross-cycle comparisons are now treated
+as provisional pending the Phase 3.0 sentinel + the Phase 3.1 v2
+rerun completing on the audit-fixed pipeline.
 
-1. Cell ordering: `full_ft (33 %)` < `from-scratch reference (58 %)` ≈ `last_block (60 %)` < `canonconv1 head_only (88 %)`.
-2. **The "encoder anchoring" headline is reversed**: pretrained
-   encoders are MORE susceptible to feature-space attack than
-   from-scratch encoders, not less.
-3. Monotonic gradient: less trainable capacity → more head-attribution.
-
-The recovery plan's Phase 1 (codebase reliability) and Phase 3.1
-(minimum-viable rerun) are both **closed**. Phase 3.0 (Cycle 01
-sentinel rerun under fixed pipeline, for honest cross-cycle
-comparison), Phase 3.2 (full 24-cell rerun if scope expands), and
-Phase 5 (regression test + reproducibility guide) remain. Phase 4
-(Friday supervisor meeting) consumes this audit doc + the brief +
-the synthesis doc.
+The recovery plan's Phase 1 (codebase reliability) is closed in the
+sense that the seven identified bugs are fixed, but a residual ε
+remains. Phase 3.0 (Cycle 01 sentinel rerun) has produced its first
+deterministic-pipeline number (sentinel head_attr v2 = 18.2 %).
+Phase 3.1 (minimum-viable rerun) is closed for v1 numbers, in
+flight for v2. Phase 3.2 (full 24-cell rerun) and Phase 5
+(regression test + reproducibility guide) remain. A separate
+investigation has been spawned to characterise the residual ε.

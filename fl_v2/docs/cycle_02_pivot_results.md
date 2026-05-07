@@ -2,29 +2,55 @@
 
 > **⚠ NUMERICAL CLAIMS BELOW ARE WITHDRAWN.** Sections 3.1–3.6 were
 > authored on commits prior to `9d72bcf`, when the training pipeline
-> was non-deterministic at fixed seed (six software-level sources fixed
-> across `795f75e`, `725cae5`, `1f5e70d`, `bd2c1eb`, `6db1dd1`). Re-
-> running the exact same YAML at the same seed produced different final
-> models (acc 0.667 vs 0.894 in two attempts of `pretrained_full_ft_pixel5`
-> at seed=42). See `cycle_02_pivot_audit.md` for the full root-cause
-> analysis.
+> was non-deterministic at fixed seed (seven software-level sources
+> fixed across `795f75e`, `725cae5`, `1f5e70d`, `bd2c1eb`, `6db1dd1`).
+> Re-running the exact same YAML at the same seed produced different
+> final models (acc 0.667 vs 0.894 in two attempts of
+> `pretrained_full_ft_pixel5` at seed=42). See `cycle_02_pivot_audit.md`
+> for the full root-cause analysis.
 >
 > The Phase 3.1 wave (jobs 6599453–6599461, commit `9d72bcf`, 3 cells
-> × 3 seeds = 9 reproducible runs) replaces the relevant subset of
-> these numbers. The corrected results are at the top of the next
-> section. The 24-cell Wave 1+2 numerical record is **historical /
-> pre-audit** and must not be cited.
+> × 3 seeds = 9 valid runs) replaces the relevant subset of these
+> numbers. The corrected results are at the top of the next section.
+> The 24-cell Wave 1+2 numerical record is **historical / pre-audit**
+> and must not be cited.
+>
+> **Reproducibility caveat (added 2026-05-08).** "9 valid runs"
+> means the runs completed 100 rounds without silent failure; it does
+> NOT mean within-(commit, seed) bit-reproducibility has been
+> established. The audit's own pair 6594906 / 6594907 found
+> bit-identical rounds 0–5 followed by round-6+ divergence even after
+> all 7 fixes. Each Phase 3.1 number is therefore **one realisation**;
+> a within-commit reprocheck (job 6600759) is in flight to quantify
+> the residue. Do not quote the v1 numbers below to many decimal
+> places as if the underlying pipeline were deterministic.
+>
+> **v2 (convergent diagnostic) update (added 2026-05-08).** The
+> v1 fixed-10-epoch clean-head retraining systematically undertrains
+> the head; the v2 convergent diagnostic (commit `0f4eb49`,
+> early-stop on plateau, patience 8, max 100 epochs) produces
+> materially different per-cell numbers. Partial v2 results from
+> `full_ft + 5mal`: seed 42 = 19.6 % (v1 was 12.50 %), seed 43 =
+> 60.8 % (v1 was 44.71 %), seed 44 = 49.4 % (v1 was 40.99 %); v2
+> mean 43.3 %, v2 SD 21.0 pp. Cells 4–9 of the v2 rerun are
+> running on job 6600819. The v1 numbers in the table below are
+> retained as the historical record but should be treated as
+> superseded once v2 lands.
 >
 > Cycle 01 archive numbers (`gtsrb_v2/phaseC_v2/`, `gtsrb_v2/phaseD/`)
 > are out of scope of this withdrawal — they were trained on the same
 > pre-audit code, but reliability of the Cycle 01 record is a separate
-> question (and the recovery plan's Phase 3.0 sentinel rerun will
-> address cross-cycle comparisons).
+> question. The Phase 3.0 sentinel
+> (`gtsrb_v2/phaseC_v2_sentinel/phaseC2-backdoor-5mal-nodefense-sentinel_r100_seed42/`)
+> reruns the Cycle 01 cell on the audit-fixed pipeline; v2 head_attr
+> = 18.2 %, well below the v1 Cycle 01 reference of 58 %. Cross-cycle
+> comparisons that quote the 58 % number are no longer apples-to-apples.
 
-## Phase 3.1 wave — corrected Cycle 02 results (commit `9d72bcf`)
+## Phase 3.1 wave — Cycle 02 v1 results (commit `9d72bcf`)
 
-3 cells × 3 seeds = 9 fully-reproducible training runs + per-cell
-head-feature decomposition. From `cycle_02_pivot_audit.md` §9.5:
+3 cells × 3 seeds = 9 valid training runs + per-cell head-feature
+decomposition under the v1 fixed-10-epoch diagnostic. From
+`cycle_02_pivot_audit.md` §9.5:
 
 | Cell | seed=42 | seed=43 | seed=44 | mean head_attr ± SD | acc mean ± SD |
 |---|---|---|---|---|---|
@@ -32,40 +58,50 @@ head-feature decomposition. From `cycle_02_pivot_audit.md` §9.5:
 | `last_block + 5mal` | 62.97 % | 61.90 % | 55.45 % | **60.11 % ± 4.07 pp** | 0.717 ± 0.049 |
 | `canonconv1 head_only + 15mal` | 89.77 % | 84.71 % | 88.77 % | **87.75 % ± 2.68 pp** | 0.520 ± 0.011 |
 
-### Headline: cell ordering and reversed encoder-anchoring claim
+### Provisional cell-ordering claim (v1, audit-fixed pipeline)
 
-`full_ft (33 %)` < **Cycle 01 from-scratch reference (58 %)** ≈ `last_block (60 %)` < `canonconv1 head_only (88 %)`
+`full_ft (33 %)` < **Cycle 01 v1 from-scratch reference (58 %, pre-audit pipeline, suspect)** ≈ `last_block (60 %)` < `canonconv1 head_only (88 %)`
 
-Monotonic in: **less trainable capacity → more head-attribution**.
+Monotonic in: less trainable capacity → more head-attribution under
+the v1 diagnostic.
 
 The original Wave 1+2 "97 % encoder anchoring at full_ft" headline was
-a bug-induced outlier from a stuck-at-trivial-backdoor trajectory.
-Re-running on the fixed pipeline shows:
+a bug-induced outlier (model stuck at trivial-backdoor attractor for
+12 rounds because of unseeded RNG); the audit-fixed pipeline does not
+reproduce it.
 
-- Pretrained encoders at full_ft are MORE susceptible to feature-space
-  attack than from-scratch encoders (33 % vs 58 % head_attr — i.e.
-  the encoder absorbs more of the attack signal). This **reverses**
-  the encoder-anchoring claim.
-- last_block restricts the trainable capacity to layer4+fc (~8M
-  trainable params). At marginal 5mal pressure, this constrained
-  surface produces head_attr ≈ 60 % — within 2 pp of the Cycle 01
-  from-scratch baseline (58 %), so last_block-pretrained behaves
-  like full_ft-from-scratch.
-- canonconv1 head_only freezes the encoder entirely; head_attr ≈ 88 %
-  is high by construction (the head must do all the work).
+What we **cannot yet defensibly claim** until v2 cells 4–9 land:
 
-### Per-cell reproducibility characterisation
+- Whether pretrained encoders at full_ft are MORE susceptible to
+  feature-space attack than from-scratch encoders. The v1 comparison
+  (33 % vs 58 %) leans that way, but the 58 % is a pre-audit Cycle 01
+  number; the Phase 3.0 sentinel under v2 gives 18.2 %, which is
+  *below* the Cycle 02 v2 mean of 43.3 % — direction reversed under
+  v2 / audit-fixed-pipeline anchoring. We do not have enough v2
+  data to rule between (a) Cycle 02 mean rises further when cells
+  4–9 land and the comparison becomes significant, (b) the
+  comparison stays within 1–2 SD and the directional claim cannot be
+  made.
+- Whether last_block + 5mal under pretrained init "behaves like
+  full_ft from-scratch" — was based on the v1 60.11 % vs the
+  pre-audit 58 % comparison, not yet v2-verified.
 
-- `canonconv1 head_only + 15mal` (saturated, frozen encoder, single
-  attractor): SD 2.68 pp. Clean-head ASR is *bit-identical* (0.0237)
-  across all 3 seeds. This cell is fully deterministic — N = 1 seed
-  would suffice.
-- `last_block + 5mal` (restricted capacity, few attractors): SD
-  4.07 pp. N = 3 seeds is comfortably sufficient.
-- `full_ft + 5mal` (full capacity at marginal pressure, multi-
-  attractor): SD 17.62 pp. **N ≥ 5 seeds** is required for venue-
-  quality mean ± std reporting. This cell is the one place where 5
-  mal is genuinely chaotic.
+### Per-cell reproducibility characterisation (v1)
+
+- `canonconv1 head_only + 15mal` (saturated, frozen encoder): v1
+  SD 2.68 pp. Clean-head ASR rounds to 0.024 across all 3 seeds;
+  precise values 0.0237373737, 0.0237373737, 0.0236531987 — two of
+  three bit-identical, fourth-decimal divergence on seed 44.
+  Consistent with "near-deterministic by construction" but not
+  literally bit-identical across all three seeds.
+- `last_block + 5mal` (restricted capacity, few attractors): v1
+  SD 4.07 pp. N = 3 is enough to bound the cell's spread under the
+  v1 diagnostic.
+- `full_ft + 5mal` (full capacity at marginal pressure,
+  multi-attractor): v1 SD 17.62 pp; v2 SD 21.0 pp on the partial
+  3-seed rerun. **N ≥ 5 seeds** is required for venue-quality mean ±
+  std reporting. This is the cell that gives us the largest spread
+  and is therefore the most exposed to the residual ε.
 
 *Companion to* `roadmap/cycle_02_designed_attacks_and_client_defenses.md`.
 *Empirical evidence for the pretrained-init pivot. Frames the supervisor

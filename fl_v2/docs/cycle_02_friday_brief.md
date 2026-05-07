@@ -89,11 +89,21 @@ Trajectories are **bit-identical for rounds 0-5** and then split
 during the attractor-escape phase. Two interpretations of the
 remaining ε:
 
-### Phase 3.1 wave: 9 reproducible runs on the fixed pipeline
+### Phase 3.1 wave: 9 valid runs on the fixed pipeline
 
 Three cells spanning the design matrix × three seeds = 9 training runs
 (jobs 6599453–6599461) on commit `9d72bcf` with all reliability fixes
 in place. Plus the head-feature decomposition diagnostic on each.
+
+**Caveat: "valid" ≠ "reproducible".** Each of these 9 runs completed
+its 100 rounds without silent failure, which makes their numerical
+outputs trustworthy *as one realisation*. We have not yet verified
+that re-running any one of these YAMLs at the same seed on the same
+commit produces a bit-identical trajectory — the audit's own pair
+6594906 / 6594907 found bit-identical rounds 0–5 followed by round-6+
+divergence even after all 7 fixes. A within-commit reprocheck submission
+(job 6600759, `cycle02-reprocheck-full-ft-pixel5_seed42`) is in flight
+specifically to characterise this residue.
 
 | Cell | seed=42 | seed=43 | seed=44 | **mean head_attr ± SD** | acc mean |
 |---|---|---|---|---|---|
@@ -105,9 +115,13 @@ in place. Plus the head-feature decomposition diagnostic on each.
 
 1. **`canonconv1 head_only + 15mal` is the most stable cell (SD 2.68 pp).**
    Frozen encoder + saturated 15-mal pressure → a single dominant
-   attractor. The clean-head ASR is *bit-identical* (0.0237) across all
-   3 seeds, which is the strongest possible reproducibility signal —
-   it means the diagnostic is fully deterministic on this regime.
+   attractor. The clean-head ASR rounds to **0.024 across all 3 seeds**
+   (precise values: seed 42 = 0.0237373737, seed 43 = 0.0237373737,
+   seed 44 = 0.0236531987 — seeds 42/43 match to 10 decimals, seed 44
+   differs at the fourth decimal). Two of three diagnostics are
+   bit-identical, which is consistent with "frozen encoder + same
+   diagnostic seed → deterministic head training" but is not strong
+   enough to claim full bit-reproducibility on this regime.
 2. **`last_block + 5mal` is also stable (SD 4.07 pp).** Restricted
    parameter capacity (only layer4 + fc trainable, ~8 M params) limits
    how many distinct attractors the optimizer can reach. The mean
@@ -130,70 +144,137 @@ mostly wrong:**
 - Wrong: "even at 100 rounds the regime is chaotic" — 100-round
   reproducibility is *fine* for two of the three cells.
 
-**Bit-reproducibility check:** seeds 43 and 44 of `full_ft + 5mal` gave
-**identical** numbers (44.71 % and 40.99 %) across two independent
-3-seed runs (the user-requested test of 6598089 and the Phase 3.1
-6599453 wave). The pipeline IS bit-reproducible at fixed (commit, seed)
-when the run is on the same Ray-port commit.
+**Bit-reproducibility check — what we have, what we DON'T have:**
+
+What we *don't* have: an earlier draft of this brief claimed seeds 43
+and 44 gave bit-identical head_attr (44.71 % and 40.99 %) "across two
+independent 3-seed runs (6598089 and the Phase 3.1 6599453 wave)". That
+claim is **withdrawn**. `sacct -j 6598089,6598090,6598091` shows wave-1
+seeds 43/44 (jobs 6598090/6598091) "COMPLETED" in 1 m 27 s and 1 m 39 s
+respectively — the Ray-port-collision silent-failure pattern, no rounds
+trained, no head-attribution computed. There is no wave-1 number for
+seeds 43/44 to compare wave-2 against. Only seed=42 (job 6598089) ran
+the full 1 h 53 m on the pre-Ray-port commit.
+
+What we *do* have:
+- Audit reproducibility pair 6594906 / 6594907 (post-7-fixes, same
+  commit, same seed): rounds 0-5 bit-identical, then round-6+ divergence
+  (Δ ≈ 12-23 pp final accuracy).
+- Wandb screenshot of seed=42 across the Ray-port commit boundary
+  (6598089 vs 6599453): trajectories visibly diverge — but those are on
+  *different commits*, so this conflates "Ray-port commit change" with
+  "any residual ε".
+- A new within-commit, within-YAML reprocheck (job 6600759,
+  `cycle02-reprocheck-full-ft-pixel5_seed42`) in flight to give us the
+  first clean same-(commit, seed) divergence measurement. Until it
+  completes (~2 h) we cannot quantify the residual.
 
 ### Comparison to the original Wave 1+2 (unreliable code)
 
-The user-requested 3-seed test of `full_ft + 5mal` cleanly retired the
-Wave 1+2 numerical record:
+The Wave 1+2 numerical record (seed=42 = 97.2 %, seed=43 = 22.1 %,
+seed=44 = 6.9 %, SD 38.7 pp) is retired because Wave 1+2 ran on the
+pre-audit pipeline with unseeded client RNG. We do **not** treat the
+new Phase 3.1 numbers as a strict head-to-head comparison against
+Wave 1+2 because (a) the pipelines differ in 7 documented places, and
+(b) within-commit bit-reproducibility for the new pipeline has not yet
+been demonstrated. The Wave 1+2 seed=42 (97.2 %) was, however,
+diagnosed at the time as a bug-induced outlier (model stuck at the
+trivial-backdoor attractor for 12 rounds because of unseeded RNG); the
+audit-fixed pipeline does not reproduce that outlier.
 
-| | Wave 1+2 (unreliable) | Phase 3 fixed pipeline |
-|---|---|---|
-| seed=42 head_attr | **97.2 %** ⚠ outlier | 12.5 % (post Ray-port fix) |
-| seed=43 head_attr | 22.1 % | 44.7 % |
-| seed=44 head_attr | 6.9 % | 41.0 % |
-| range | **90.3 pp** | 32.2 pp |
-| SD | 38.7 pp | 17.6 pp |
+### Provisional consequences for the thesis story (Phase 3.1)
 
-The Wave 1+2 seed=42 was the bug-induced outlier (model stuck at
-trivial-backdoor attractor for 12 rounds because of unseeded RNG).
-Once fixed, seed=42 trains normally to acc ≈ 0.89.
+These are stated as *current best-guesses on the v1 fixed-10-epoch
+diagnostic*. The v2 convergent diagnostic is in flight (jobs 6600186 +
+6600819) and is producing materially different per-cell numbers — see
+the "v2 update" subsection below. Cross-cycle (Cycle 01 ↔ Cycle 02)
+comparison is also provisional because the Cycle 01 reference number
+(58 %) was computed on the pre-audit pipeline; the apples-to-apples
+Phase 3.0 sentinel (Cycle 01 cell on the audit-fixed pipeline) is now
+in (head_attr v2 = 18.2 %), and is much lower than that 58 %.
 
-### Two consequences for the thesis story (revised after Phase 3.1)
+1. **The original Wave 1+2 seed=42 head_attr of 97.2 % does not
+   reproduce on the audit-fixed pipeline.** Fixed seed=42 trains
+   normally (acc 0.89). We do not have a within-commit reprocheck of
+   12.5 % yet; until 6600759 lands we treat 12.5 % as one realisation
+   on the audit-fixed pipeline, with an as-yet-uncharacterised residual
+   ε relative to a hypothetical second realisation.
 
-1. **The original seed=42 (97.2 %) was a bug-induced outlier.**
-   Fixed seed=42 trains normally (acc 0.89, in line with seeds 43/44).
+2. **An "encoder anchoring is REVERSED" claim is premature.** The
+   Phase 3.1 v1 mean of 32.7 % at `full_ft + 5 mal` is below the
+   Cycle 01 v1 reference of 58 %, but: (a) the v1 diagnostic
+   systematically undertrains the clean head (see v2 update below),
+   and (b) the Cycle 01 reference is on the pre-audit pipeline, not
+   the audit-fixed one. The audit-fixed Cycle 01 sentinel under v2 is
+   18.2 %. We cannot yet make a directional claim about
+   pretrained vs from-scratch susceptibility until we have v2 numbers
+   for the full 9-cell Cycle 02 matrix.
 
-2. **The "encoder anchoring" headline is REVERSED.** Pretrained init
-   gives mean head_attr ≈ 33 % at full_ft + 5 mal vs Cycle 01 from-
-   scratch ≈ 58 %. Pretrained encoders are MORE susceptible to feature-
-   space attack, not less. This is a substantive scientific claim;
-   it would be the corrected centerpiece of the Cycle 02 chapter.
+3. **The "5 mal is chaotic" claim must be qualified.** Under v1, only
+   `full_ft + 5 mal` showed high SD (17.6 pp); `last_block + 5 mal`
+   and the saturated cells were stable (SD 4–6 pp). The cell-level
+   variance is informative: it ranks the regimes by how unstable they
+   are, which is a property of the regime, not a property of the
+   pipeline. Whether v2 preserves this stratification is open until
+   cells 4-9 land.
 
-3. **The "5 mal is chaotic" claim must be qualified.** Only `full_ft +
-   5mal` is chaotic (SD 17.6 pp). `last_block + 5mal` and the
-   saturated cells are stable (SD 4–6 pp). The cell-level variance
-   *itself* is informative: it ranks the regimes by how unstable they
-   are, which is a property of the regime not a property of the
-   pipeline.
+4. **Cell ordering under v1:**
+   `full_ft (33 %)` < `from-scratch baseline (58 %, pre-audit, suspect)` ≈ `last_block (60 %)` < `canonconv1 head_only (88 %)`
+   The monotone "less trainable capacity → more head-attribution"
+   gradient holds on the v1 diagnostic. Whether it survives v2 +
+   audit-fixed Cycle 01 sentinel re-anchoring is being tested now.
 
-4. **Cell ordering across the matrix:**
-   `full_ft (33 %)` < `from-scratch baseline (58 %)` ≈ `last_block (60 %)` < `canonconv1 head_only (88 %)`
-   This monotone gradient — **less trainable capacity → more head-
-   attribution** — survives the audit and is the Cycle 02 main finding
-   we can actually defend.
+### v2 (convergent diagnostic) update — partial results
+
+Cells 1–3 of the v2 rerun on the audit-fixed pipeline (`full_ft + 5mal`
+seeds 42/43/44):
+
+| seed | orig_asr | v1 ch_asr (10 ep, fixed) | v1 head_attr | v2 ch_asr (converged) | v2 head_attr | v2 best_ep / total |
+|---|---|---|---|---|---|---|
+| 42 | 0.8144 | 0.7126 | 12.50 % | 0.6551 | 19.6 % | 42 / 50 |
+| 43 | 0.5243 | 0.4088 | 44.71 % | 0.2055 | 60.8 % | 45 / 53 |
+| 44 | 0.7956 | 0.5317 | 40.99 % | 0.4029 | 49.4 % | 59 / 67 |
+| **mean** | — | — | **32.73 %** | — | **43.3 %** | — |
+| **SD** | — | — | **17.62 pp** | — | **21.0 pp** | — |
+
+Phase 3.0 sentinel (Cycle 01 phaseC2-backdoor-5mal-nodefense on the
+audit-fixed pipeline, seed=42, v2 convergent diagnostic): orig_asr
+0.8958, ch_asr 0.7326, **head_attr = 18.2 %**, best_ep 18/26.
+
+Sentinel 18.2 % sits below the Cycle 02 v2 mean of 43.3 % but well
+within 1.2 SD given the seed-2-seed variance. Cells 4–9 of the v2
+rerun (lastblock + 5mal × 3 seeds; canonconv1 head_only + 15mal × 3
+seeds) are running on job 6600819; until they land, no v2 cell-ordering
+claim is supported.
 
 ## Provisional findings the audit *did* preserve
 
-These are robust to the non-determinism (verified empirically as
-either deterministic by construction or stable across seeds):
+These are robust to the residual non-determinism in the sense that
+they are either deterministic by construction or measured stable
+across seeds within the data we have:
 
-1. **Head-feature decomposition diagnostic is fully reproducible.**
-   Bit-identical across 5 runs at fixed seed (job 6585212).
-2. **canonconv1 head_only cells are bit-stable across training seeds**
-   (frozen encoder + same diagnostic seed → identical clean_head_asr =
-   0.0237 across all 6 runs). This gives us a clean baseline.
+1. **Head-feature decomposition diagnostic is reproducible on a fixed
+   input checkpoint.** Job 6585212 ran the v1 diagnostic 5 times on
+   the same checkpoint at the same diagnostic seed and produced
+   bit-identical outputs. This isolates the diagnostic itself from
+   any training-pipeline non-determinism.
+2. **canonconv1 head_only diagnostic is mostly stable across training
+   seeds.** Three runs gave clean_head_asr 0.0237373737, 0.0237373737,
+   0.0236531987 (seeds 42 / 43 / 44). Two of three are bit-identical
+   to ten decimals; seed 44 differs at the fourth decimal. Direction is
+   consistent with "frozen pretrained encoder + same diagnostic seed
+   ⇒ near-deterministic head training", but not literally bit-identical
+   across all three.
 3. **`linear_probe_balanced_acc ≥ 0.95` in every cell, every seed.**
    The Cycle-01 finding that "triggered features form a separable
-   middle region" generalises to every regime in our matrix.
-4. **The pretrained-init pipeline works.** Even if numerics aren't
-   reproducible, the architectural pivot (pretrained ResNet18 + one
-   of {full_ft, last_block, head_only}, with optional canonical conv1)
-   is operational and ready to receive a deterministic rerun.
+   middle region" generalises to every regime in our matrix on the
+   v1 framework metrics.
+4. **The pretrained-init pipeline works.** The architectural pivot
+   (pretrained ResNet18 + one of {full_ft, last_block, head_only},
+   with optional canonical conv1) is operational end-to-end. Whether
+   the round-by-round trajectory is bit-reproducible at fixed
+   (commit, seed) is the open question being characterised by job
+   6600759.
 
 ## Decision points for the supervisor
 
