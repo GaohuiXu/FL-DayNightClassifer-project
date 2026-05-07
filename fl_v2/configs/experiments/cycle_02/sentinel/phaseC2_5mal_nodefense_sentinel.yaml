@@ -1,0 +1,40 @@
+# Phase 3.0 sentinel — Cycle 01 phaseC2-backdoor-5mal-nodefense rerun
+# under the fixed deterministic pipeline (commits 795f75e..bd2c1eb +
+# strategy aggregation sort + Ray internal port derivation +
+# convergent head-attr diagnostic). Single cell, single seed = one
+# Cycle 01 anchor we can compare honestly against the Cycle 02 pivot
+# numbers (which are all on the fixed pipeline).
+#
+# IMPORTANT: keep every training-side knob identical to the original
+# Cycle 01 YAML at fl_v2/configs/experiments/phaseC_v2/2_backdoor_5mal_nodefense.yaml.
+# The only intentional changes are:
+#   - experiment-name + output-dir (so the result is filed under
+#     phaseC_v2_sentinel, not the frozen Cycle 01 archive at phaseC_v2/)
+#   - explicit `seed: 42` (Cycle 01 used the global default 42; spell it
+#     out so future re-readers don't have to chase the default)
+# pretrained-init and canonical-conv1 are intentionally absent (default
+# False for both) so the architecture matches Cycle 01 from-scratch
+# modified-conv1 ResNet18.
+experiment-name: phaseC2-backdoor-5mal-nodefense-sentinel
+seed: 42
+model-type: resnet18
+num-clients: 50
+num-server-rounds: 100
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: pixel_backdoor
+malicious-client-ids: 0,1,2,3,4
+backdoor-target-label: 2
+poison-fraction: 0.5
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+defense-type: none
+checkpoint-rounds: "0,5,10,25,50,75,100"
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb_v2/phaseC_v2_sentinel'
+wandb-tags: "phase3-sentinel,cycle01-rerun,fixed-pipeline"
