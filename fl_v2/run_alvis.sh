@@ -98,11 +98,17 @@ if [[ -n "${EXPERIMENT_YAML:-}" && -f "$EXPERIMENT_YAML" ]]; then
         else { printf "%s='\''%s'\'' ", key, val }
       }
     ' "$EXPERIMENT_YAML")
-    # Extract trainable-layers value for GPU-efficiency tuning below
+    # Extract trainable-layers value for GPU-efficiency tuning below.
+    # The key is OPTIONAL — Cycle 01 YAMLs and the Phase 3.0 sentinel
+    # don't set it. Without `|| true` the pipeline returns grep's exit-1
+    # under `set -o pipefail`, which under `set -e` kills the whole
+    # SLURM script silently right after the Ray-ports announcement (no
+    # error, no train, exit 1). That bug took out sentinel job 6600187
+    # before the fix.
     TL_RAW=$(grep -E "^[[:space:]]*trainable-layers:" "$EXPERIMENT_YAML" 2>/dev/null \
              | sed -E "s/^[[:space:]]*trainable-layers:[[:space:]]*['\"]?//" \
              | sed -E "s/['\"]?[[:space:]]*$//" \
-             | head -1)
+             | head -1 || true)
     if [[ -n "$TL_RAW" ]]; then TRAINABLE_LAYERS="$TL_RAW"; fi
 fi
 

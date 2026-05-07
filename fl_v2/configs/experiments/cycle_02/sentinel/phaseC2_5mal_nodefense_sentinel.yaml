@@ -18,6 +18,10 @@
 experiment-name: phaseC2-backdoor-5mal-nodefense-sentinel
 seed: 42
 model-type: resnet18
+# Cycle 01 implicitly trained the whole network end-to-end. Spell that
+# out so it's obvious in the YAML and so the GPU-efficiency override in
+# run_alvis.sh sees a value (it is now also tolerant of missing keys).
+trainable-layers: full_ft
 num-clients: 50
 num-server-rounds: 100
 fraction-train: 1.0
