@@ -71,10 +71,23 @@ commit `0f4eb49`) diagnostics on the SAME final checkpoint per cell.
 | `last_block + 5mal` | 58.42 % | 50.62 % | 48.08 % | **52.37 % ± 5.41 pp** |
 | `canonconv1 head_only + 15mal` | 84.00 % | 76.08 % | 82.38 % | **80.82 % ± 4.20 pp** |
 
-**Saturated cell bit-stability:** all three canonconv1 head_only seeds
-have v2 ch_asr = 0.0371 (to 4 sig fig), vs v1's 0.0237 — the convergent
-diagnostic raises the floor uniformly, but seed-to-seed agreement on the
-saturated cell is preserved.
+**Saturated-cell "bit-stability" is diagnostic-side, not training-side.**
+All three canonconv1 head_only seeds have v2 ch_asr = 0.0371 (to 4
+sig fig), and the v1 ch_asr was likewise tightly clustered around
+0.0237. The mechanism is structural: `pretrained=True` +
+`canonical_conv1=True` + `trainable-layers: head_only` freezes the
+entire ImageNet encoder, so the encoder is byte-identical across
+model seeds. The diagnostic discards the FL-trained head and trains
+a fresh one with diagnostic seed 4242 on the same frozen encoder
+across all three runs — by construction it returns the same number
+regardless of model seed. The seed-to-seed signal on these cells
+lives instead in the **FL-trained head's** ASR (`original_asr` =
+0.232 / 0.155 / 0.211, range 7.6 pp), but the diagnostic methodology
+cannot probe deeper than that on frozen-encoder regimes.
+
+For full_ft and lastblock cells the encoder IS trained across seeds,
+so the diagnostic genuinely picks up encoder-level variance — that's
+why their v2 SDs are non-trivial (21 pp / 5 pp).
 
 **Phase 3.0 sentinel** (Cycle 01 phaseC2-backdoor-5mal-nodefense on
 audit-fixed pipeline, seed=42, v2 convergent): orig_asr 0.8958, ch_asr

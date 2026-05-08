@@ -307,13 +307,44 @@ than from-scratch encoders under the same regime.**
    The shifts are entirely attributable to the v1→v2 diagnostic
    change (fixed-10-epoch → convergent), not to retrained models.
 
-**Saturated-regime bit-stability** (canonconv1 head_only + 15mal):
-all three seeds' v2 ch_asr round to **0.0371** (vs v1's 0.0237),
-suggesting that the convergent diagnostic finds the same converged
-head-attractor regardless of the original training seed — consistent
-with "frozen pretrained encoder + same diagnostic seed → deterministic
-head training". This is the cleanest reproducibility signal in the
-matrix.
+**Saturated-regime "bit-stability" (canonconv1 head_only + 15mal) is
+diagnostic-side, not training-side.** All three seeds' v2 ch_asr round
+to **0.0371** (vs v1's 0.0237). At first glance this looks like
+strong reproducibility evidence, but the mechanism is structural,
+not informative about FL training:
+
+- `pretrained=True` + `canonical_conv1=True` loads the entire encoder
+  (`conv1`, `bn1`, `layer1`–`layer4`) from ImageNet's pretrained
+  checkpoint — a fixed external file, byte-identical across all
+  model seeds.
+- `trainable-layers: head_only` freezes that encoder; only `model.fc`
+  is updated during FL training.
+- The diagnostic loads the final FL checkpoint, **discards the
+  FL-trained `fc`**, reinitialises a fresh head with the diagnostic
+  seed (`args.seed=4242`), retrains it on the full clean GTSRB train
+  with the same frozen encoder, and reports the resulting ASR.
+
+So across model seeds 42/43/44 the diagnostic sees: the same
+ImageNet encoder (frozen, identical), a fresh head from the same
+diagnostic seed, the same training data, the same shuffle order.
+**By construction the result is identical** — it cannot vary,
+regardless of how different the FL-trained heads were. The "ch_asr
+= 0.0371 across 3 seeds" is reproducibility *of the diagnostic on a
+frozen-encoder regime*, not of the FL training.
+
+The genuine seed-to-seed signal on canonconv1 head_only cells lives
+in `original_asr` (the ASR using the FL-trained head): 0.2320 /
+0.1553 / 0.2107, range = 7.6 pp. That spread reflects how the
+malicious-client coalition's seed-dependent data partition affected
+the trained head. The diagnostic methodology cannot probe deeper
+than that — its convergent retrain washes out exactly the part of
+the model that varied.
+
+For the full_ft and lastblock regimes the encoder IS trained across
+seeds, so different model seeds → different encoders → different
+diagnostic-side `ch_asr`. That's why their v2 SDs are non-trivial
+(21 pp on full_ft, 5 pp on lastblock) — the diagnostic genuinely
+sees encoder-level variance there.
 
 ## Provisional findings the audit *did* preserve
 

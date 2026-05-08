@@ -613,11 +613,21 @@ What we can defensibly say from the existing data:
 **Per-cell variance is heterogeneous, not universal.** Three regimes
 under the v1 fixed-10-epoch diagnostic:
 
-- `canonconv1 head_only + 15mal`: **SD 2.68 pp** (saturated, frozen
-  encoder, single-attractor). Clean-head ASR rounds to 0.024 across
-  all 3 seeds; precise values 0.0237373737 (seed 42), 0.0237373737
-  (seed 43), 0.0236531987 (seed 44) — bit-identical for two of
-  three seeds, fourth-decimal divergence on seed 44.
+- `canonconv1 head_only + 15mal`: **SD 2.68 pp** on `head_attribution_pct`,
+  but this is diagnostic-side, not training-side. The encoder is
+  frozen at ImageNet across all model seeds, and the diagnostic
+  discards the FL-trained head, so the diagnostic returns nearly
+  the same number regardless of model seed by construction. Clean-head
+  ASR precise values: 0.0237373737 (seed 42), 0.0237373737 (seed 43),
+  0.0236531987 (seed 44) — bit-identical for two of three seeds,
+  fourth-decimal divergence on seed 44 (the source of the residual
+  is the same audit-noted ε that drives round-6+ divergence elsewhere
+  but here its impact is amplified by the frozen-encoder regime
+  having no other variance to mask it). The genuine seed-to-seed
+  signal on these cells lives in `original_asr` (the ASR using the
+  FL-trained head): 0.2320 / 0.1553 / 0.2107, range = 7.6 pp. That
+  spread reflects how the malicious coalition's seed-dependent
+  Dirichlet partition affects the trained head.
 - `last_block + 5mal`: **SD 4.07 pp** (restricted capacity, few
   attractors).
 - `full_ft + 5mal`: **SD 17.62 pp** (full capacity at marginal attack
