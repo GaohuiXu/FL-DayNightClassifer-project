@@ -275,59 +275,82 @@ Chance = 1/43 ≈ 2.33 %. Read-offs:
    triggered features to class 2; the ImageNet encoder alone provides
    no shortcut.
 
-Together, these establish the lower endpoint of the utility hierarchy:
+Together with the centralised clean baseline below, this establishes
+the full utility ladder:
 
-  zero-FT (chance ~2 %)  ≪  FL clean-train (36-95 %)  <  centralised clean-train (presumed near 99 %)
+  zero-FT (~2 %)  ≪  FL clean × 3 seeds (92.2 ± 1.3 %)  <  centralised clean (98.97 %)
 
-### Clean-utility baselines (no attack, 100 rounds, seed=42)
+The FL gap to centralised (~7 pp) measures the cost of distributed
+learning under our setup: Dirichlet α=0.5 partition + 50 clients +
+3 local epochs + FedAvg + 100 rounds. The full_ft architecture is
+strong enough that this cost is small but real.
 
-For the supervisor's utility-vs-robustness reading. All numbers are
-final-round `summary.json::final.test_accuracy` on the GTSRB official
-test split (12 630 samples). **Caveat:** every row except phaseC2
-was run on the *pre-audit* pipeline (Wave 1+2 era), so each is one
-realisation under residual non-determinism — not bit-reproducible.
-We do NOT yet have audit-fixed-pipeline clean baselines for the
-Cycle 02 cells; rerunning them is a 4-job, ~6-h wallclock task,
-deferred until after the supervisor decides which directions to
-prioritise.
+### Clean-utility baselines (audit-fixed pipeline, 100 rounds, full_ft + 3 seeds + centralised)
 
-| Run | Architecture | Trainable-layers | Clean test_acc |
+For the supervisor's utility-vs-robustness reading. The first three
+rows below are **audit-fixed pipeline** (commits up to `db21d2a`,
+seven reliability fixes applied): `cycle02-fixed-full-ft-clean` × 3
+seeds (jobs 6603555 / 6602987 / 6602988) and centralised clean (job
+6602985). Numbers are final-round
+`summary.json::final.test_accuracy` on the GTSRB official test split
+(12,630 samples).
+
+| Run | Architecture | Trainable-layers | acc | target_acc |
+|---|---|---|---|---|
+| `centralised_clean_pretrained_modified_conv1` (seed 42, 50 epochs centralised) | pretrained, modified-conv1 (32×32) | full (centralised) | **0.9897** | 0.9960 |
+| `cycle02-fixed-full-ft-clean` seed=42 (audit-fixed FL, 100 rounds) | pretrained, modified-conv1 | full_ft | 0.9067 | 0.9533 |
+| `cycle02-fixed-full-ft-clean` seed=43 | pretrained, modified-conv1 | full_ft | 0.9213 | 0.9693 |
+| `cycle02-fixed-full-ft-clean` seed=44 | pretrained, modified-conv1 | full_ft | 0.9378 | 0.9840 |
+| **mean ± SD (audit-fixed FL, N=3)** | | | **0.9219 ± 0.0127** | **0.9689 ± 0.0125** |
+
+The remaining rows are **pre-audit pipeline** (Wave 1+2 era), one
+realisation each under non-deterministic training. Kept for context
+on the architectural variants we did not re-run on the audit-fixed
+pipeline. Direct numerical comparison to the audit-fixed numbers
+above is approximate.
+
+| Run (pre-audit) | Architecture | Trainable-layers | Clean acc |
 |---|---|---|---|
-| `phaseC2-clean_r100_seed42` | from-scratch ResNet18, modified-conv1 (32×32) | full_ft | **0.9533** |
-| `cycle02-pretrained-full-ft-clean_r100_seed42` | pretrained encoder + random-init conv1 (modified-conv1) | full_ft | **0.9228** |
-| `cycle02-pretrained-lastblock-clean_r100_seed42` | pretrained encoder + random-init conv1 | last_block (layer4 + fc) | **0.6647** |
-| `cycle02-pretrained-headonly-canonconv1-clean_r100_seed42` | pretrained, canonical 7×7 conv1 (image-size=64) | head_only (fc only) | **0.5709** |
-| `cycle02-pretrained-headonly-clean_r100_seed42` | pretrained, **random-init conv1** (modified-conv1) | head_only (fc only) | **0.3621** |
+| `phaseC2-clean_r100_seed42` | **from-scratch** ResNet18, modified-conv1 | full_ft | 0.9533 |
+| `cycle02-pretrained-full-ft-clean_r100_seed42` | pretrained, modified-conv1 | full_ft | 0.9228 |
+| `cycle02-pretrained-lastblock-clean_r100_seed42` | pretrained, modified-conv1 | last_block (layer4 + fc) | 0.6647 |
+| `cycle02-pretrained-headonly-canonconv1-clean_r100_seed42` | pretrained, canonical 7×7 conv1 (image-size=64) | head_only | 0.5709 |
+| `cycle02-pretrained-headonly-clean_r100_seed42` | pretrained, **random-init conv1** (modified-conv1) | head_only | 0.3621 |
 
 Read-offs to flag in the meeting:
 
-1. **Cycle 02 pretrained full_ft clean (92.3 %) is *lower* than Cycle 01
-   from-scratch clean (95.3 %).** The "pretrained init" pivot does NOT
-   improve clean utility under our setup at 32×32. Likely cause:
-   risk-audit C2 — our "pretrained" model has a random-init conv1
-   that is trained from scratch alongside the FL training, so the
-   ImageNet head-start applies only to bn1+layer1-4.
-2. **The canonical-conv1 head_only clean baseline (57.1 %) is the
+1. **Centralised clean = 98.97 %.** This is the absolute ceiling
+   for ResNet18 on GTSRB with our architecture (pretrained +
+   modified-conv1 + image-size 32). target_acc = 99.6 %, asr ≈ 0
+   (clean model never sees the trigger and barely classifies any
+   triggered sample as the target — a sanity check on the trigger
+   pattern).
+2. **Audit-fixed clean FL = 92.19 % ± 1.27 pp** (N=3 seeds). The
+   gap to centralised is **~6.8 pp**, which measures the cost of
+   distributed learning under our setup: Dirichlet α=0.5 + 50
+   clients + 3 local epochs + FedAvg + 100 rounds.
+3. **Compared to the *pre-audit* Cycle 02 full_ft clean (0.9228, single
+   seed), the audit-fixed run lands at 0.9219 ± 0.0127** — within
+   noise. Encouragingly, this means the audit fixes did NOT
+   meaningfully shift clean utility; the per-seed spread now visible
+   (~1.3 pp) is the genuine seed-to-seed variance of the regime.
+4. **Pre-audit Cycle 01 from-scratch clean (95.3 %) is *higher* than
+   Cycle 02 pretrained full_ft clean (92.2 % audit-fixed mean).** The
+   "pretrained-init" pivot does NOT improve clean utility under our
+   setup at 32×32 — it actually hurts by ~3 pp. Likely cause:
+   risk-audit C2 — the "pretrained" model has a random-init conv1
+   that is trained from scratch, so the ImageNet head-start applies
+   only to bn1+layer1-4 and the model has to learn conv1 from
+   scratch on top of a partially-mismatched mid-stack.
+5. **The canonical-conv1 head_only clean baseline (57.1 %) is the
    closest measurement we have for "ImageNet pretrained ResNet18 on
-   GTSRB without GTSRB-specific encoder training".** ImageNet features
-   transfer to GTSRB's small-image traffic-sign classification only
-   modestly — ~57 % vs 95 % for from-scratch end-to-end. This is a
-   useful upper-bound reference for any future "frozen-encoder" defense.
-3. **Modified-conv1 head_only clean = 36.2 %.** Risk-audit C2 in the
-   open: a "pretrained" model whose conv1 is frozen at random init
-   has a broken encoder pipeline (random low-level filters → ImageNet
-   middle expects natural-image inputs but gets random projections →
-   useless features for the head). Documenting for the supervisor so
-   they understand why we eventually pivoted to canonical-conv1 for
-   the head_only ablations.
-
-The clean baselines are also relevant for interpreting the v2 head-
-attribution numbers below: the encoder's *attainable clean accuracy*
-is the natural upper bound on what a clean-head retrain can recover.
-For canonconv1 head_only, the v2 `clean_head_clean_acc ≈ 0.60`
-matches the centralised linear-probe limit of ImageNet features on
-GTSRB at 64×64; the FL clean-baseline (0.57) is slightly below it
-because of Dirichlet non-IID + 50-client averaging + 3 local epochs.
+   GTSRB without GTSRB-specific encoder training".** ImageNet
+   features transfer to GTSRB's small-image traffic-sign
+   classification only modestly. Useful upper-bound reference for
+   any future "frozen-encoder" defense.
+6. **Modified-conv1 head_only clean = 36.2 %.** Risk-audit C2 in the
+   open — a "pretrained" model whose conv1 is frozen at random init
+   has a broken encoder pipeline.
 
 ### Final-round main metrics per cell (audit-fixed pipeline, 100 rounds)
 
