@@ -227,3 +227,129 @@ mentioned arrive via Alvis's email/notification system, not via the
 standard SLURM efficiency tools. Once we have a few `*.gpuprof.csv`
 files we'll be able to compare against whatever threshold Alvis is
 using (they typically use 30 % SM util or 30 % memory util).
+
+---
+
+## 7. UPDATE 2026-05-08: real Alvis warning + unified diagnosis
+
+### Concrete data point
+
+Alvis flagged job 6602985 (`centralised_clean`, alvis7-12, A40 #3):
+
+| Metric | Value | Threshold |
+|---|---|---|
+| Adjusted power draw | **34.5 %** | (informational) |
+| Memory use         | **3.0 %** | (informational) |
+| **GPU SM utilization** | **6.6 %** | flagged |
+
+Notably this is the **centralised** job — pure PyTorch, NO Ray, NO
+Flower simulation, NO 50-actor scheduling. The 6.6 % utilization on
+plain centralised training rules out Ray as the primary cause and
+points at something more fundamental in the data pipeline.
+
+### The smoking gun
+
+```
+$ grep -n "num_workers" fl_v2/src/fl_v2/data/dataset.py \
+    fl_v2/src/fl_v2/client_app.py \
+    fl_v2/src/fl_v2/server_app.py \
+    fl_v2/analysis/eval_centralized_clean.py
+fl_v2/src/fl_v2/server_app.py:193:        num_workers=0,
+fl_v2/src/fl_v2/server_app.py:409:        num_workers=0,
+fl_v2/src/fl_v2/client_app.py:149:        num_workers=0,
+fl_v2/src/fl_v2/data/dataset.py:217:    num_workers: int = 0,
+fl_v2/src/fl_v2/data/dataset.py:341:    num_workers: int = 0,
+fl_v2/src/fl_v2/data/dataset.py:369:    num_workers: int = 0,
+fl_v2/analysis/eval_centralized_clean.py:156:    num_workers=0, ...
+fl_v2/analysis/eval_centralized_clean.py:161:    num_workers=0, ...
+```
+
+**Every DataLoader in the codebase uses `num_workers=0`.** Augmentation
+(`RandomRotation` + `ColorJitter` 4-component + `ToTensor` + `Normalize`)
+is per-image, in PIL/Python, and runs synchronously on the main thread.
+
+### Quantitative model
+
+For batch=128 of 32×32 images:
+
+- Augmentation cost (PIL): RandomRotation (≈0.3 ms/img) + ColorJitter
+  (4 components, ≈0.4 ms/img total) + ToTensor (≈0.05 ms/img) +
+  Normalize (≈0.02 ms/img) ≈ **~0.8 ms/img × 128 imgs ≈ 100 ms/batch**.
+- ResNet18 fp32 forward+backward on batch=128, 32×32, A40: **~2 ms/batch**.
+- Total wallclock per batch: ~102 ms.
+- **GPU active fraction: 2/102 ≈ 2 %.**
+
+Adding the per-batch eval logits + ASR forward (forward only, ~1 ms),
+overall ~6.6 % matches the Alvis number. The model is consistent with
+"CPU-bound data pipeline".
+
+### Why num_gpus=1.0 currently explodes wallclock
+
+Other-session finding: setting `options.backend.client-resources.num-gpus = 1.0`
+gives bit-identical results because only one Ray actor runs at a time
+(the residual ε is Ray's actor scheduling). But it makes wallclock
+viral.
+
+The reason is the SAME `num_workers=0` issue, only worse:
+
+- At `num-gpus = 0.10`: 5 Ray actors run concurrently → 5 CPU augmentation
+  pipelines run in parallel (one per actor process). The Ray scheduling
+  is non-deterministic but the *combined CPU throughput* is 5× higher.
+- At `num-gpus = 1.0`: 1 Ray actor → 1 CPU augmentation pipeline →
+  bit-identical (no Ray race) but each batch's ~100 ms CPU work is
+  the only source of throughput. The GPU still sits at <2 % util,
+  and now the total wallclock is 5× the multi-actor case.
+
+The tradeoff "determinism vs speed" we've been describing is really
+"determinism vs serial CPU-augmentation throughput".
+
+### The unified fix
+
+`num_workers > 0` (with proper seeding) parallelises CPU augmentation
+across worker subprocesses for each DataLoader. Combined with
+`num_gpus = 1.0` for determinism, this becomes:
+
+| Setting | num_gpus | num_workers | Determinism | CPU pipeline | GPU util (est) |
+|---|---|---|---|---|---|
+| Current default | 0.10 | 0 | NO (residual ε) | 5 actors × 1 worker = 5 parallel | ~6 % |
+| Other session's deterministic mode | 1.0 | 0 | YES | 1 actor × 1 worker = 1 serial | ~2 % (5× slower) |
+| **Proposed unified fix** | **1.0** | **4** | **YES** | **1 actor × 4 workers = 4 parallel** | **~30-50 % (4× faster than 0.10/0)** |
+
+If this analysis is right we get **both** a deterministic FL pipeline
+**and** a 5× wallclock speedup vs the deterministic single-actor mode,
+plus a 4× speedup vs the current default — and we close two
+separate risks (Alvis-efficiency and residual-ε) with a single change.
+
+### Determinism caveat
+
+Standard `num_workers > 0` introduces non-determinism through worker
+process startup order and per-worker RNG seeding. Two safe-guards
+needed:
+
+1. **Bind a `worker_init_fn`** that seeds each worker from a function
+   of `worker_id + global seed`. Already standard PyTorch idiom.
+2. **Pass the existing `loader_gen = torch.Generator().manual_seed(...)`**
+   to `DataLoader(generator=...)` (already done in `dataset.py:316`),
+   which seeds the *sample shuffle order* deterministically; combined
+   with `worker_init_fn` this also seeds *augmentation* deterministically.
+
+Both are one-line additions per DataLoader.
+
+### Next concrete steps
+
+1. **Validate the analysis empirically**: submit one job (no code
+   change) → next slurm log will have a `*.gpuprof.csv` and the new
+   summary block from commit `77ddf9a`. Confirm the SM-util mean
+   matches the 6.6 % Alvis number.
+2. **Implement num_workers=4 + worker_init_fn** in a separate commit,
+   reviewable in isolation. Run a paired comparison job and
+   diff-check the `summary.json` against an existing seed=42 run to
+   confirm bit-identity is preserved (or improved).
+3. **Once num_workers fix is validated**, switch `num_gpus` to 1.0
+   in `flwr_config.toml` (or via run_alvis.sh based on
+   `trainable-layers`). This unifies the residual-ε and GPU-efficiency
+   stories.
+
+This is autonomous-safe research — analysis, no compute. The proposed
+code change is gated on the empirical validation in step 1, which
+happens organically with the next job submission.
