@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from flwr.serverapp.strategy import Krum, MultiKrum
 
-from fl_v2.strategy.norm_tracking_fedavg import NormTrackingFedAvg
+from fl_v2.strategy.norm_tracking_fedavg import NormTrackingFedAvg, partition_sort_key
 
 
 class CapturedKrum(Krum):
@@ -25,9 +25,12 @@ class CapturedKrum(Krum):
         self._last_train_metrics: dict | None = None
 
     def aggregate_train(self, server_round, replies):
-        # Sort by src_node_id so Krum's argsort tie-break + the aggregate's
-        # in-place sum are deterministic across runs (audit source #6).
-        replies = sorted(replies, key=lambda msg: msg.metadata.src_node_id)
+        # Sort by partition-id (cross-run-stable) so Krum's argsort tie-break
+        # + the aggregate's in-place sum are deterministic across runs.
+        # See norm_tracking_fedavg.partition_sort_key for the rationale —
+        # Flower 1.27's `metadata.src_node_id` is per-driver random
+        # (`os.urandom`), so sorting by it only fixes within-run order.
+        replies = sorted(list(replies), key=partition_sort_key)
         result = super().aggregate_train(server_round, replies)
         self._last_train_metrics = _extract_metrics_from_result(result)
         return result
@@ -42,7 +45,7 @@ class CapturedMultiKrum(MultiKrum):
 
     def aggregate_train(self, server_round, replies):
         # See CapturedKrum.aggregate_train for rationale.
-        replies = sorted(replies, key=lambda msg: msg.metadata.src_node_id)
+        replies = sorted(list(replies), key=partition_sort_key)
         result = super().aggregate_train(server_round, replies)
         self._last_train_metrics = _extract_metrics_from_result(result)
         return result

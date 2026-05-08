@@ -22,7 +22,7 @@ from flwr.common import NDArrays
 from flwr.serverapp.strategy.multikrum import select_multikrum
 
 from fl_v2.attacks_defenses import compute_update_norms
-from fl_v2.strategy.norm_tracking_fedavg import NormTrackingFedAvg
+from fl_v2.strategy.norm_tracking_fedavg import NormTrackingFedAvg, partition_sort_key
 
 
 def _aggregate_n_closest_weights(
@@ -70,10 +70,12 @@ class NormTrackingBulyan(NormTrackingFedAvg):
     ) -> tuple[ArrayRecord | None, MetricRecord | None]:
         valid_replies, _ = self._check_and_log_replies(replies, is_train=True)
 
-        # Deterministic ordering — see norm_tracking_fedavg.aggregate_train.
+        # Deterministic ordering — see norm_tracking_fedavg.partition_sort_key.
         # Especially important for Bulyan because the inner MultiKrum tie-break
-        # is order-sensitive.
-        valid_replies.sort(key=lambda msg: msg.metadata.src_node_id)
+        # is order-sensitive AND uses src_node_id for the tie-break — sorting
+        # the input by partition-id ensures the MultiKrum selection is also
+        # cross-run-stable.
+        valid_replies.sort(key=partition_sort_key)
 
         n = len(valid_replies)
         f = self.num_malicious_nodes

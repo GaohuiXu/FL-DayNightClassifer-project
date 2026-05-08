@@ -319,7 +319,22 @@ def train(msg: Message, context: Context) -> Message:
         }
     )
 
-    content = RecordDict({"arrays": arrays, "metrics": metrics})
+    # Cross-run-stable identifier for the strategy aggregation sort key.
+    # Flower 1.27 generates `metadata.src_node_id` per driver via
+    # `os.urandom` (flwr.server.superlink.linkstate.utils.generate_rand_int_from_bytes),
+    # so the *same* logical partition gets a *different* node_id across
+    # two fresh simulation drivers. Sorting valid_replies by src_node_id
+    # therefore only fixes within-run order; the floating-point summation
+    # in the aggregator still sees a different order across runs and the
+    # result diverges (non-associative FP).
+    #
+    # `partition-id` is the deterministic 0..num_clients-1 index Flower
+    # writes into context.node_config; embedding it here lets the
+    # strategy sort by it for cross-run reproducibility.
+    # See fl_v2/strategy/norm_tracking_fedavg.py::partition_sort_key.
+    reply_meta = ConfigRecord({"partition-id": int(client_id)})
+
+    content = RecordDict({"arrays": arrays, "metrics": metrics, "reply-meta": reply_meta})
     return Message(content=content, reply_to=msg)
 
 

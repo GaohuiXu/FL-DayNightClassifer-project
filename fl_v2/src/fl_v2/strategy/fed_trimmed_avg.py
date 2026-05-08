@@ -15,7 +15,7 @@ from flwr.app import Array, ArrayRecord, Message, MetricRecord
 from flwr.common import NDArray
 
 from fl_v2.attacks_defenses import compute_update_norms
-from fl_v2.strategy.norm_tracking_fedavg import NormTrackingFedAvg
+from fl_v2.strategy.norm_tracking_fedavg import NormTrackingFedAvg, partition_sort_key
 
 
 def _trim_mean(array: NDArray, cut_fraction: float) -> NDArray:
@@ -66,8 +66,8 @@ class NormTrackingFedTrimmedAvg(NormTrackingFedAvg):
             self._last_train_metrics = None
             return None, None
 
-        # Deterministic ordering — see norm_tracking_fedavg.aggregate_train.
-        valid_replies.sort(key=lambda msg: msg.metadata.src_node_id)
+        # Deterministic ordering — see norm_tracking_fedavg.partition_sort_key.
+        valid_replies.sort(key=partition_sort_key)
 
         # --- norm logging ---
         if self.current_arrays is not None:

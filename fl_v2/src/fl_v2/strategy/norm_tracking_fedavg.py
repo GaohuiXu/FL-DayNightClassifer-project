@@ -14,6 +14,36 @@ from fl_v2.attacks_defenses import compute_update_norms
 _SEP = "─" * 60
 
 
+def partition_sort_key(msg) -> int:
+    """Cross-run-stable sort key for the strategy aggregation order.
+
+    Flower 1.27 generates `metadata.src_node_id` per driver via
+    ``os.urandom`` (flwr.server.superlink.linkstate.utils.generate_rand_int_from_bytes),
+    so the *same* logical partition gets a *different* `src_node_id`
+    across two fresh simulation drivers. Sorting `valid_replies` by
+    `src_node_id` therefore only fixes within-run order; the
+    floating-point summation in
+    `flwr.serverapp.strategy.strategy_utils.aggregate_arrayrecords`
+    still sees a different order across runs and the result is
+    non-associative — which is the residual ε that survived the
+    audit's seven fixes.
+
+    Clients now embed the deterministic 0..num_clients-1 partition-id
+    in `content["reply-meta"]["partition-id"]`
+    (see fl_v2/src/fl_v2/client_app.py). Sorting by that gives
+    bit-reproducible aggregation across runs.
+
+    Defensive fallback to `src_node_id` keeps the strategy runnable
+    if a client somehow omits the field (e.g., a future client-app
+    variant that doesn't include the reply-meta record); within a
+    single run this still gives stable order.
+    """
+    try:
+        return int(msg.content["reply-meta"]["partition-id"])
+    except (KeyError, TypeError, ValueError):
+        return int(msg.metadata.src_node_id)
+
+
 class NormTrackingFedAvg(FedAvg):
     """FedAvg that computes and logs client update L2 norms every round.
 
@@ -116,11 +146,14 @@ class NormTrackingFedAvg(FedAvg):
         # so iteration order over `valid_replies` leaks into the aggregated
         # weights via the in-place sum at flwr.serverapp.strategy.strategy_utils
         # (~line 101). Without this sort, Ray's task-completion order changes
-        # the bit-level result. See docs/cycle_02_pivot_audit.md source #6.
+        # the bit-level result.
         # Subclasses (NormClippedFedAvg, Bulyan, Krum-wrappers, FedMedian,
         # FedTrimmedAvg) all flow through this method, so sorting here covers
         # the whole strategy hierarchy.
-        valid_replies.sort(key=lambda msg: msg.metadata.src_node_id)
+        # Sort key MUST be cross-run-stable; see `partition_sort_key`
+        # at the top of this module — `metadata.src_node_id` is per-driver
+        # random in Flower 1.27 and was the residual-ε source.
+        valid_replies.sort(key=partition_sort_key)
 
         if self.current_arrays is None:
             raise RuntimeError(
