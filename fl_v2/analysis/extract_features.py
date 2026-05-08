@@ -171,12 +171,15 @@ def main():
     model.to(device)
     print(f"[extract] loaded checkpoint: {checkpoint_path} (canonical_conv1={canonical_conv1})")
 
-    # Load test data
+    # Load test data. Single-pass extraction script (one forward pass over
+    # the test set, twice if there's a trigger) → small benefit from
+    # workers but no harm; default 4 keeps it consistent with the rest of
+    # the pipeline.
     testloader = get_global_testloader(
         data_root=args.data_root,
         batch_size=batch_size,
         image_size=image_size,
-        num_workers=0,
+        num_workers=4,
         download=False,
     )
     print(f"[extract] test samples: {len(testloader.dataset)}")

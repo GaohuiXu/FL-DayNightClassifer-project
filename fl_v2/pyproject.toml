@@ -67,6 +67,12 @@ weight-decay = 0.0
 lr-schedule = "none"
 lr-warmup-rounds = 0
 lr-min = 0.0001
+# DataLoader worker subprocesses for CPU-side augmentation. Default 4
+# parallelises augment so the GPU stays fed. With num-gpus=1.0 in
+# flwr_config.toml (single Ray actor) this combination yields
+# bit-identical FL training AND Alvis-friendly GPU utilization. Set to
+# 0 only if you need to debug a specific worker-related issue.
+num-workers = 4
 
 # ===== data =====
 num-classes = 43

@@ -7,4 +7,13 @@ address = "supergrid.flower.ai"
 [superlink.local-simulation-gpu]
 options.num-supernodes = 50
 options.backend.client-resources.num-cpus = 1
-options.backend.client-resources.num-gpus = 0.10
+# num-gpus = 1.0  →  one Ray actor on the GPU at a time.
+# Combined with DataLoader num_workers >= 4 (default in pyproject.toml's
+# [tool.flwr.app.config]) this gives:
+#   - bit-identical FL training trajectories at fixed (commit, seed),
+#     because no inter-actor race on the GPU
+#   - GPU SM utilization >= 30 % (Alvis-friendly), because the 4 worker
+#     subprocesses pipeline CPU augmentation while the single actor
+#     keeps the GPU busy
+# See docs/cycle_02_gpu_efficiency_investigation.md for the analysis.
+options.backend.client-resources.num-gpus = 1.0

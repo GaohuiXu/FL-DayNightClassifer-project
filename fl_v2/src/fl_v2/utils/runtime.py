@@ -1,11 +1,16 @@
 """Runtime helpers shared by server, client, and analysis code.
 
-Two tiny utilities, kept together because they have no dependencies and
-are used at the same call sites (config parsing + per-call seeding).
+Three tiny utilities, kept together because they have no dependencies
+and are used at the same call sites (config parsing + per-call seeding
++ DataLoader-worker seeding).
 """
 from __future__ import annotations
 
 import hashlib
+import random as _random
+
+import numpy as _np
+import torch
 
 
 _TRUTHY = frozenset({"true", "1", "yes", "y", "on"})
@@ -47,3 +52,24 @@ def derive_seed(run_seed: int, client_id: int = 0, server_round: int = 0) -> int
     payload = f"{int(run_seed)}:{int(client_id)}:{int(server_round)}".encode("utf-8")
     digest = hashlib.sha256(payload).digest()
     return int.from_bytes(digest[:4], "big")
+
+
+def seeded_worker_init(worker_id: int) -> None:
+    """Seed each DataLoader worker's numpy/random RNG from its torch seed.
+
+    PyTorch already seeds ``torch.default_generator`` inside each worker
+    using the DataLoader's ``generator=`` argument; this helper propagates
+    that seed to ``numpy.random`` and the stdlib ``random`` module so any
+    transform reaching for those (some torchvision augmentations call
+    ``random`` and ``numpy`` under the hood) produces bit-deterministic
+    augmented batches across runs at the same seed. Pass as
+    ``DataLoader(worker_init_fn=seeded_worker_init, ...)``.
+
+    No-op outside a worker context.
+    """
+    info = torch.utils.data.get_worker_info()
+    if info is None:
+        return
+    seed = int(info.seed) % (2 ** 32)
+    _random.seed(seed)
+    _np.random.seed(seed)

@@ -186,11 +186,16 @@ def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger, strateg
     trigger_value = float(run_config.get("trigger-value", 1.0))
     trigger_position = str(run_config.get("trigger-position", "bottom-right"))
 
+    # Number of CPU workers for the server-side test DataLoader. The default
+    # (4) parallelises preprocessing so the GPU stays fed; see
+    # docs/cycle_02_gpu_efficiency_investigation.md for the rationale.
+    num_workers = int(run_config.get("num-workers", 4))
+
     testloader = get_global_testloader(
         data_root=data_root,
         batch_size=batch_size,
         image_size=image_size,
-        num_workers=0,
+        num_workers=num_workers,
         download=False,
     )
 

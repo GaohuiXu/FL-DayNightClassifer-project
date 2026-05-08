@@ -115,6 +115,13 @@ def main() -> None:
     parser.add_argument("--trigger-value", type=float, default=1.0)
     parser.add_argument("--trigger-position", type=str, default="bottom-right")
     parser.add_argument("--device", type=str, default="auto")
+    parser.add_argument(
+        "--num-workers", type=int, default=4,
+        help="DataLoader worker subprocesses for CPU-side augmentation. "
+             "Default 4 keeps the GPU fed; set 0 to revert to "
+             "single-threaded data loading (slow, see "
+             "docs/cycle_02_gpu_efficiency_investigation.md).",
+    )
     args = parser.parse_args()
 
     device = torch.device(
@@ -151,15 +158,31 @@ def main() -> None:
     )
 
     loader_gen = torch.Generator().manual_seed(args.seed)
-    trainloader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True,
-        num_workers=0, pin_memory=torch.cuda.is_available(),
+    train_kwargs = dict(
+        batch_size=args.batch_size, shuffle=True,
+        num_workers=args.num_workers,
+        pin_memory=torch.cuda.is_available(),
         generator=loader_gen,
     )
-    testloader = DataLoader(
-        test_dataset, batch_size=args.batch_size, shuffle=False,
-        num_workers=0, pin_memory=torch.cuda.is_available(),
+    test_kwargs = dict(
+        batch_size=args.batch_size, shuffle=False,
+        num_workers=args.num_workers,
+        pin_memory=torch.cuda.is_available(),
     )
+    if args.num_workers > 0:
+        from fl_v2.utils.runtime import seeded_worker_init
+        train_kwargs.update(
+            worker_init_fn=seeded_worker_init,
+            persistent_workers=True,
+            prefetch_factor=2,
+        )
+        test_kwargs.update(
+            worker_init_fn=seeded_worker_init,
+            persistent_workers=True,
+            prefetch_factor=2,
+        )
+    trainloader = DataLoader(train_dataset, **train_kwargs)
+    testloader = DataLoader(test_dataset, **test_kwargs)
 
     trigger_fn = make_pixel_trigger_fn(
         trigger_size=args.trigger_size,

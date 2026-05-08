@@ -71,13 +71,17 @@ def _build_clean_trainloader(
     data_root: str,
     image_size: int,
     batch_size: int,
-    num_workers: int = 0,
+    num_workers: int = 4,
     augment: bool = False,
 ) -> DataLoader:
     """Build a DataLoader over the full clean GTSRB train split.
 
     No FL partition, no attack, no triggered samples. Used to retrain a
     fresh classifier head from scratch in the head-feature decomposition.
+
+    `num_workers > 0` parallelises augmentation; `persistent_workers`
+    avoids re-spawn cost across the up to 100 epochs of clean-head
+    retraining. See docs/cycle_02_gpu_efficiency_investigation.md.
     """
     transform = (
         get_train_transforms(image_size=image_size)
@@ -90,13 +94,20 @@ def _build_clean_trainloader(
         download=False,
         transform=transform,
     )
-    return DataLoader(
-        dataset,
+    kwargs = dict(
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
         pin_memory=torch.cuda.is_available(),
     )
+    if num_workers > 0:
+        from fl_v2.utils.runtime import seeded_worker_init
+        kwargs.update(
+            worker_init_fn=seeded_worker_init,
+            persistent_workers=True,
+            prefetch_factor=2,
+        )
+    return DataLoader(dataset, **kwargs)
 
 
 @torch.no_grad()
@@ -454,11 +465,14 @@ def main() -> None:
     )
 
     # ----- 2. Build evaluation pipeline (test loader + trigger).
+    # Test loader is iterated after every epoch of clean-head retraining
+    # (up to 100 epochs), so num_workers > 0 is a real win here. The
+    # testloader itself is non-shuffled so determinism is unaffected.
     testloader = get_global_testloader(
         data_root=args.data_root,
         batch_size=eval_batch_size,
         image_size=image_size,
-        num_workers=0,
+        num_workers=4,
         download=False,
     )
     trigger_fn = None

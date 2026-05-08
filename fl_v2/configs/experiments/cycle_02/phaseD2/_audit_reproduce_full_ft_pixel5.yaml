@@ -1,0 +1,34 @@
+# Audit: same-seed training reproducibility test.
+# Identical config to pretrained_full_ft_pixel5.yaml (seed=42), but different
+# experiment-name so it routes to a separate output dir for comparison.
+# We compare final clean_acc, ASR, and head_attribution against the original
+# Wave 1 run. If they differ, the training pipeline is non-deterministic at
+# fixed seed.
+experiment-name: cycle02-audit-reproduce-full-ft-pixel5-seed42
+cycle: cycle_02
+phase: phaseD2
+model-type: resnet18
+pretrained-init: true
+trainable-layers: full_ft
+num-clients: 50
+num-server-rounds: 100
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: pixel_backdoor
+malicious-client-ids: 0,1,2,3,4
+backdoor-target-label: 2
+poison-fraction: 0.5
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+defense-type: none
+checkpoint-rounds: "0,5,10,25,50,75,100"
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+wandb-group: cycle02-pretrained-full-ft
+wandb-tags: pretrained-pivot,audit-reproduce
+seed: 42

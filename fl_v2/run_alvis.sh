@@ -84,8 +84,8 @@ export RAY_RUNTIME_ENV_AGENT_PORT=$((RAY_BASE + 5))
 echo "Ray ports: GCS=$RAY_GCS_SERVER_PORT dashboard=$RAY_DASHBOARD_PORT node-mgr=$RAY_NODE_MANAGER_PORT object-mgr=$RAY_OBJECT_MANAGER_PORT runtime-env=$RAY_RUNTIME_ENV_AGENT_PORT"
 
 # --- Parse experiment YAML (passed via EXPERIMENT_YAML env var) ---
+# Builds RUN_CONFIG_FROM_YAML="key1='val1' key2=42 ..." for `flwr run --run-config`.
 RUN_CONFIG_FROM_YAML=""
-TRAINABLE_LAYERS="full_ft"  # default
 if [[ -n "${EXPERIMENT_YAML:-}" && -f "$EXPERIMENT_YAML" ]]; then
     RUN_CONFIG_FROM_YAML=$(awk '
       /^[[:space:]]*#/ { next }
@@ -98,41 +98,14 @@ if [[ -n "${EXPERIMENT_YAML:-}" && -f "$EXPERIMENT_YAML" ]]; then
         else { printf "%s='\''%s'\'' ", key, val }
       }
     ' "$EXPERIMENT_YAML")
-    # Extract trainable-layers value for GPU-efficiency tuning below.
-    # The key is OPTIONAL — Cycle 01 YAMLs and the Phase 3.0 sentinel
-    # don't set it. Without `|| true` the pipeline returns grep's exit-1
-    # under `set -o pipefail`, which under `set -e` kills the whole
-    # SLURM script silently right after the Ray-ports announcement (no
-    # error, no train, exit 1). That bug took out sentinel job 6600187
-    # before the fix.
-    TL_RAW=$(grep -E "^[[:space:]]*trainable-layers:" "$EXPERIMENT_YAML" 2>/dev/null \
-             | sed -E "s/^[[:space:]]*trainable-layers:[[:space:]]*['\"]?//" \
-             | sed -E "s/['\"]?[[:space:]]*$//" \
-             | head -1 || true)
-    if [[ -n "$TL_RAW" ]]; then TRAINABLE_LAYERS="$TL_RAW"; fi
 fi
 
-# --- Adjust GPU allocation per supernode based on trainable-layers ---
-# Default flwr_config.toml uses 0.10 GPU/supernode = 5 GPU instances on
-# 50 supernodes, sized for full fine-tuning (~11M trainable params). For
-# lightweight modes the per-supernode workload is much smaller, so the
-# GPU sits idle and Alvis flags inefficient utilization. Override:
-#   head_only  (22K params): 0.025 / supernode → 1.25 GPU equivalents
-#   last_block (8.4M params): 0.05  / supernode → 2.5 GPU equivalents
-#   full_ft / others:        0.10  (default; matches flwr_config.toml)
-case "$TRAINABLE_LAYERS" in
-    head_only)  NUM_GPUS_PER_SUPERNODE="0.025" ;;
-    last_block) NUM_GPUS_PER_SUPERNODE="0.05"  ;;
-    *)          NUM_GPUS_PER_SUPERNODE=""      ;;  # keep default
-esac
-if [[ -n "$NUM_GPUS_PER_SUPERNODE" ]]; then
-    sed -i \
-        "s/^options\.backend\.client-resources\.num-gpus = .*/options.backend.client-resources.num-gpus = $NUM_GPUS_PER_SUPERNODE/" \
-        "$JOB_FLWR_HOME/config.toml"
-    echo "GPU efficiency override: num-gpus = $NUM_GPUS_PER_SUPERNODE per supernode (trainable-layers=$TRAINABLE_LAYERS)"
-else
-    echo "GPU allocation: default (trainable-layers=$TRAINABLE_LAYERS)"
-fi
+# GPU allocation is now uniformly num-gpus=1.0 in configs/flwr_config.toml
+# (single Ray actor on the GPU). Combined with DataLoader num_workers=4
+# (default in pyproject.toml) this gives bit-identical FL training AND
+# Alvis-friendly GPU utilization. The pre-2026-05-09 per-mode override
+# block (head_only=0.025, last_block=0.05, full_ft=0.10) is retired —
+# see docs/cycle_02_gpu_efficiency_investigation.md.
 
 echo "===== Environment ====="
 echo "FLWR_HOME: $FLWR_HOME"

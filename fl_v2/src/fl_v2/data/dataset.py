@@ -14,7 +14,7 @@ from fl_v2.data.partition import (
     summarize_partition_histograms,
 )
 from fl_v2.data.transforms import get_eval_transforms, get_train_transforms
-from fl_v2.utils.runtime import derive_seed
+from fl_v2.utils.runtime import derive_seed, seeded_worker_init
 
 from fl_v2.attacks_defenses import LabelFlippingDataset, PixelBackdoorDataset
 
@@ -214,7 +214,7 @@ def get_client_dataloaders(
     image_size: int = 32,
     val_ratio: float = 0.1,
     seed: int = 42,
-    num_workers: int = 0,
+    num_workers: int = 4,
     download: bool = True,
     attack_type: str = "none",
     label_flip_source: int = 1,
@@ -310,22 +310,40 @@ def get_client_dataloaders(
     # OS-clock-seeded torch.default_generator and trajectories diverge.
     # The DataLoader is cached per-client, so the generator persists and
     # advances naturally across rounds.
+    #
+    # `num_workers > 0` parallelises CPU augmentation across worker
+    # subprocesses; `persistent_workers=True` keeps them alive across
+    # rounds (avoids per-round respawn overhead — important since FL
+    # re-iterates the loader many times); `worker_init_fn` propagates
+    # the loader's seed to numpy/random in each worker so augmentation
+    # is bit-deterministic.
     loader_gen = torch.Generator().manual_seed(derive_seed(seed, client_id))
-    trainloader = DataLoader(
-        train_dataset,
+    train_kwargs = dict(
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
         pin_memory=torch.cuda.is_available(),
         generator=loader_gen,
     )
-    valloader = DataLoader(
-        val_dataset,
+    val_kwargs = dict(
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
         pin_memory=torch.cuda.is_available(),
     )
+    if num_workers > 0:
+        train_kwargs.update(
+            worker_init_fn=seeded_worker_init,
+            persistent_workers=True,
+            prefetch_factor=2,
+        )
+        val_kwargs.update(
+            worker_init_fn=seeded_worker_init,
+            persistent_workers=True,
+            prefetch_factor=2,
+        )
+    trainloader = DataLoader(train_dataset, **train_kwargs)
+    valloader = DataLoader(val_dataset, **val_kwargs)
 
     return ClientDataLoaders(
         trainloader=trainloader,
@@ -338,7 +356,7 @@ def get_global_testloader(
     data_root: str,
     batch_size: int = 64,
     image_size: int = 32,
-    num_workers: int = 0,
+    num_workers: int = 4,
     download: bool = True,
 ) -> DataLoader:
     """Build the global test dataloader (full 12,630 GTSRB test samples).
@@ -346,6 +364,10 @@ def get_global_testloader(
     Backward-compatible default: returns a loader over the full test
     split. For the val/test-decoupled flow (risk-audit H1), see
     `get_global_val_test_split_loaders` instead.
+
+    `num_workers > 0` parallelises preprocessing; `persistent_workers`
+    avoids respawn cost when the server re-iterates the test loader
+    every round.
     """
     test_dataset = load_gtsrb_test_dataset(
         data_root=data_root,
@@ -353,20 +375,26 @@ def get_global_testloader(
         download=download,
     )
 
-    return DataLoader(
-        test_dataset,
+    kwargs = dict(
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
         pin_memory=torch.cuda.is_available(),
     )
+    if num_workers > 0:
+        kwargs.update(
+            worker_init_fn=seeded_worker_init,
+            persistent_workers=True,
+            prefetch_factor=2,
+        )
+    return DataLoader(test_dataset, **kwargs)
 
 
 def get_global_val_test_split_loaders(
     data_root: str,
     batch_size: int = 64,
     image_size: int = 32,
-    num_workers: int = 0,
+    num_workers: int = 4,
     download: bool = True,
     val_size: int = 1000,
     split_seed: int = 4242,
@@ -400,18 +428,18 @@ def get_global_val_test_split_loaders(
     val_subset = Subset(full_test, val_idx.tolist())
     test_subset = Subset(full_test, test_idx.tolist())
 
-    val_loader = DataLoader(
-        val_subset,
+    common = dict(
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
         pin_memory=torch.cuda.is_available(),
     )
-    test_loader = DataLoader(
-        test_subset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=torch.cuda.is_available(),
-    )
+    if num_workers > 0:
+        common.update(
+            worker_init_fn=seeded_worker_init,
+            persistent_workers=True,
+            prefetch_factor=2,
+        )
+    val_loader = DataLoader(val_subset, **common)
+    test_loader = DataLoader(test_subset, **common)
     return val_loader, test_loader

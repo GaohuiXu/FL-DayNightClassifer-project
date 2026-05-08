@@ -146,7 +146,7 @@ def _load_client_data(context: Context):
         val_ratio=val_ratio,
         seed=seed,  # model-side: drives DataLoader shuffle order
         partition_seed=_resolve_partition_seed(run_config),  # data-side: val split + poison/flip mask
-        num_workers=0,
+        num_workers=int(run_config.get("num-workers", 4)),
         download=False,
         attack_type=attack_type,
         label_flip_source=label_flip_source,
