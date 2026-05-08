@@ -288,6 +288,54 @@ matches the centralised linear-probe limit of ImageNet features on
 GTSRB at 64×64; the FL clean-baseline (0.57) is slightly below it
 because of Dirichlet non-IID + 50-client averaging + 3 local epochs.
 
+### Final-round main metrics per cell (audit-fixed pipeline, 100 rounds)
+
+These are the headline FL-training outputs from each `summary.json::final`,
+*before* any diagnostic post-processing. `acc` is overall clean test
+accuracy (12,630 GTSRB test samples). `target_acc` is clean accuracy
+restricted to genuine class-2 samples (n=750, the natural target class).
+`asr` is attack success rate over non-target samples (n=11,880).
+
+| Cell | seed | acc | target_acc | asr |
+|---|---|---|---|---|
+| `full_ft + 5mal` (Cycle 02 pretrained) | 42 | 0.8910 | 0.9520 | 0.8144 |
+| | 43 | 0.9147 | 0.9680 | 0.5243 |
+| | 44 | 0.8598 | 0.9440 | 0.7956 |
+| | mean ± SD | **0.8885 ± 0.0276** | **0.9547 ± 0.0124** | **0.7114 ± 0.1623** |
+| `lastblock + 5mal` (Cycle 02 pretrained) | 42 | 0.6644 | 0.6173 | 0.5736 |
+| | 43 | 0.7253 | 0.7253 | 0.7386 |
+| | 44 | 0.7605 | 0.8280 | 0.6511 |
+| | mean ± SD | **0.7167 ± 0.0486** | **0.7235 ± 0.1054** | **0.6544 ± 0.0825** |
+| `canonconv1 head_only + 15mal` (Cycle 02 pretrained) | 42 | 0.5149 | 0.5987 | 0.2320 |
+| | 43 | 0.5333 | 0.5187 | 0.1553 |
+| | 44 | 0.5128 | 0.5333 | 0.2107 |
+| | mean ± SD | **0.5203 ± 0.0112** | **0.5502 ± 0.0421** | **0.1993 ± 0.0396** |
+| **Phase 3.0 sentinel** (Cycle 01 from-scratch, 5mal) | 42 | **0.9537** | **0.9933** | **0.8958** |
+
+A few read-offs the supervisor will likely look at:
+
+1. **Cycle 02 full_ft acc (88.9 % mean) is *lower* than Cycle 01
+   sentinel acc (95.4 %, N=1).** Same as the clean-baseline reading
+   above — pretrained-init at 32×32 with random-init conv1 doesn't
+   improve clean utility over from-scratch.
+2. **`lastblock` and especially `head_only` cells take a serious hit
+   in clean utility** (71.7 % / 52.0 %). The trade-off here is that
+   restricting trainable layers (a common defense intuition) sacrifices
+   accuracy on the main task. For a thesis that frames "client-side
+   defense via restricted updates" as a strategy, this is a hard
+   ceiling.
+3. **`target_acc` is consistently HIGH across cells** (66 %–99 %).
+   Class 2 is over-represented in GTSRB train (5.6 %) so the model
+   overfits to it; that's also why ASR ceilings are high — the model
+   already wants to predict class 2.
+4. **Sentinel `target_acc` = 99.3 %** is a striking number. The
+   audit-fixed pipeline trains class 2 to near-perfect under attack
+   pressure — the FL-trained head fully cooperates with the
+   "everything-becomes-class-2" attack signal because class 2 was
+   already the most-represented class. Flagging this for the
+   supervisor as the operationalisation of risk-audit C3 (target
+   class is too easy).
+
 ### v2 (convergent diagnostic) — full 9-cell rerun complete
 
 All 9 cells of the v2 rerun on the audit-fixed pipeline are now in.
