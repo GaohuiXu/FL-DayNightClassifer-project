@@ -164,10 +164,24 @@ What we *do* have:
   (6598089 vs 6599453): trajectories visibly diverge — but those are on
   *different commits*, so this conflates "Ray-port commit change" with
   "any residual ε".
-- A new within-commit, within-YAML reprocheck (job 6600759,
-  `cycle02-reprocheck-full-ft-pixel5_seed42`) in flight to give us the
-  first clean same-(commit, seed) divergence measurement. Until it
-  completes (~2 h) we cannot quantify the residual.
+- A within-commit, within-YAML reprocheck (job 6600759,
+  `cycle02-reprocheck-full-ft-pixel5_seed42`) — the first clean
+  same-(commit, seed) divergence measurement — has now landed.
+  Result (rounds.csv comparison vs 6599453):
+
+  | round | 6599453 acc | 6600759 acc | 6599453 ASR | 6600759 ASR |
+  |---|---|---|---|---|
+  | 50  | 83.75 % | 85.00 % | 14.87 % | 8.70 %  |
+  | 75  | 88.61 % | 89.47 % | 65.78 % | 72.99 % |
+  | 90  | 88.92 % | 89.75 % | 79.87 % | 85.18 % |
+  | 100 | 89.10 % | 89.74 % | 81.44 % | **86.59 %** |
+
+  Two runs of the same YAML at the same seed on effectively the same
+  training source (only `87fa3e6`, a one-line shell-only fix, sits
+  between the two commits) ended at **Δ test_acc = 0.64 pp, Δ ASR =
+  5.15 pp at round 100**, with a peak intermediate divergence of Δ ASR
+  ≈ 6 pp at round 50. The within-commit residual ε is real, ~5 pp at
+  the final round, and not just a Ray-port-commit artefact.
 
 ### Comparison to the original Wave 1+2 (unreliable code)
 

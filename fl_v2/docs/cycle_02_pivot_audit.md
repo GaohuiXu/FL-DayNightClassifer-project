@@ -576,13 +576,26 @@ What we can defensibly say from the existing data:
   realisation each* — but a within-commit rerun has not yet been
   measured to quantify how much they would shift on a second
   realisation.
-- A within-commit reprocheck has been queued (job 6600759,
-  `cycle02-reprocheck-full-ft-pixel5_seed42`) specifically to fill
-  this gap. Wandb already shows that 6598089 (pre-Ray-port commit)
-  vs 6599453 (post-Ray-port commit) have visibly different
-  per-round trajectories that converge to similar but not identical
-  final values; whether the divergence holds within a single commit
-  is what 6600759 will tell us.
+- The within-commit reprocheck (job 6600759,
+  `cycle02-reprocheck-full-ft-pixel5_seed42`) has now landed.
+  Two runs of the same YAML at the same seed on effectively the
+  same training source (only `87fa3e6`, a shell-only fix, sits
+  between the two commits) ended at **Δ test_acc = 0.64 pp, Δ ASR =
+  5.15 pp at round 100**, with a peak intermediate divergence of
+  Δ ASR ≈ 6 pp at round 50. Direct rounds.csv comparison:
+
+  | round | 6599453 acc | 6600759 acc | 6599453 ASR | 6600759 ASR |
+  |---|---|---|---|---|
+  | 50  | 83.75 % | 85.00 % | 14.87 % | 8.70 %  |
+  | 75  | 88.61 % | 89.47 % | 65.78 % | 72.99 % |
+  | 90  | 88.92 % | 89.75 % | 79.87 % | 85.18 % |
+  | 100 | 89.10 % | 89.74 % | 81.44 % | **86.59 %** |
+
+  The within-commit residual ε is real (~5 pp ASR at the final round)
+  and not just a Ray-port-commit artefact. A separate investigation
+  has been spawned to track down the source(s) — at minimum we know
+  the audit's seven fixes do not eliminate the round-6+ divergence
+  identified by pair 6594906 / 6594907.
 
 **Per-cell variance is heterogeneous, not universal.** Three regimes
 under the v1 fixed-10-epoch diagnostic:

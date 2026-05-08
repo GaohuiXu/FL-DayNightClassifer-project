@@ -20,10 +20,15 @@
 > NOT mean within-(commit, seed) bit-reproducibility has been
 > established. The audit's own pair 6594906 / 6594907 found
 > bit-identical rounds 0–5 followed by round-6+ divergence even after
-> all 7 fixes. Each Phase 3.1 number is therefore **one realisation**;
-> a within-commit reprocheck (job 6600759) is in flight to quantify
-> the residue. Do not quote the v1 numbers below to many decimal
-> places as if the underlying pipeline were deterministic.
+> all 7 fixes. The within-commit reprocheck (job 6600759, same YAML
+> as 6599453, same seed=42, only a shell-only commit between them)
+> now confirms: **Δ test_acc = 0.64 pp and Δ ASR = 5.15 pp at round
+> 100**, with peak intermediate Δ ASR ≈ 6 pp at round 50. Each Phase
+> 3.1 number below is therefore **one realisation** with a residual
+> ε of order 5 pp ASR — much smaller than the seed-to-seed SD
+> (17.6 pp v1, 21.0 pp v2 on full_ft 5mal) but not negligible. Do
+> not quote the v1 numbers below to many decimal places as if the
+> underlying pipeline were deterministic.
 >
 > **v2 (convergent diagnostic) update (added 2026-05-08).** The
 > v1 fixed-10-epoch clean-head retraining systematically undertrains
