@@ -84,13 +84,50 @@ def load_gtsrb_test_dataset(
     image_size: int = 32,
     download: bool = True,
 ):
-    """Load the transformed GTSRB test split."""
+    """Load the transformed GTSRB test split (full 12,630 samples)."""
     return GTSRB(
         root=data_root,
         split="test",
         download=download,
         transform=get_eval_transforms(image_size=image_size),
     )
+
+
+def make_global_val_test_split(
+    n_total: int,
+    val_size: int = 1000,
+    seed: int = 4242,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Deterministically split a held-out subset off the GTSRB test set.
+
+    Risk-audit H1: the FL server uses GTSRB(split="test") for
+    round-by-round monitoring (test_acc / asr per round), which is
+    test-set leakage by venue norms. To fix this we partition the
+    test split into:
+
+        val_indices: a held-out validation subset of size `val_size`
+                     (default 1000), suitable for round-by-round
+                     monitoring and any future hyperparameter selection.
+        test_indices: the remaining samples (default 11,630), held out
+                      until final reporting.
+
+    Both partitions are deterministic given (n_total, val_size, seed).
+    The default seed = 4242 (the same as the head-feature decomposition
+    diagnostic seed) anchors a single canonical split that all docs
+    and analyses can reference.
+
+    Returns (val_indices, test_indices) as np.ndarray[int].
+    """
+    if val_size < 0 or val_size >= n_total:
+        raise ValueError(
+            f"val_size must be in [0, n_total); got val_size={val_size}, "
+            f"n_total={n_total}"
+        )
+    rng = np.random.default_rng(seed)
+    perm = rng.permutation(n_total)
+    val_indices = np.sort(perm[:val_size]).astype(np.intp)
+    test_indices = np.sort(perm[val_size:]).astype(np.intp)
+    return val_indices, test_indices
 
 
 def build_client_index_map(
@@ -304,7 +341,12 @@ def get_global_testloader(
     num_workers: int = 0,
     download: bool = True,
 ) -> DataLoader:
-    """Build the global test dataloader."""
+    """Build the global test dataloader (full 12,630 GTSRB test samples).
+
+    Backward-compatible default: returns a loader over the full test
+    split. For the val/test-decoupled flow (risk-audit H1), see
+    `get_global_val_test_split_loaders` instead.
+    """
     test_dataset = load_gtsrb_test_dataset(
         data_root=data_root,
         image_size=image_size,
@@ -318,3 +360,58 @@ def get_global_testloader(
         num_workers=num_workers,
         pin_memory=torch.cuda.is_available(),
     )
+
+
+def get_global_val_test_split_loaders(
+    data_root: str,
+    batch_size: int = 64,
+    image_size: int = 32,
+    num_workers: int = 0,
+    download: bool = True,
+    val_size: int = 1000,
+    split_seed: int = 4242,
+) -> tuple[DataLoader, DataLoader]:
+    """Build (val_loader, test_loader) by splitting the GTSRB test set.
+
+    Risk-audit H1 fix: the FL server has been using GTSRB(split="test")
+    for round-by-round monitoring, which by venue norms is test-set
+    leakage. Use this function to obtain a held-out validation loader
+    (default 1000 samples, deterministic by `split_seed`) for
+    round-by-round monitoring + a non-overlapping test loader (default
+    11,630 samples) for final-only reporting.
+
+    Both loaders are non-shuffled. The split is deterministic given
+    (val_size, split_seed); the default split_seed = 4242 anchors a
+    single canonical split shared across all experiments and the
+    head-feature decomposition diagnostic.
+
+    Existing wandb/summary.json fields named "test_*" remain untouched;
+    callers can layer "val_*" alongside without breaking the analysis
+    pipeline.
+    """
+    full_test = load_gtsrb_test_dataset(
+        data_root=data_root,
+        image_size=image_size,
+        download=download,
+    )
+    val_idx, test_idx = make_global_val_test_split(
+        n_total=len(full_test), val_size=val_size, seed=split_seed,
+    )
+    val_subset = Subset(full_test, val_idx.tolist())
+    test_subset = Subset(full_test, test_idx.tolist())
+
+    val_loader = DataLoader(
+        val_subset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=torch.cuda.is_available(),
+    )
+    test_loader = DataLoader(
+        test_subset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=torch.cuda.is_available(),
+    )
+    return val_loader, test_loader

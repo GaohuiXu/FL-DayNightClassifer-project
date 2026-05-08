@@ -211,7 +211,7 @@ SDs let us state which component dominates the seed-to-seed spread
 
 ## HIGH
 
-### H1. FL test-set leakage: server uses official GTSRB test for round-by-round eval
+### H1. FL test-set leakage: server uses official GTSRB test for round-by-round eval — INFRASTRUCTURE LANDED 2026-05-08
 
 **Evidence:** `fl_v2/src/fl_v2/server_app.py:189-195`. The server's
 `testloader` is `get_global_testloader(...)` which loads
@@ -246,6 +246,28 @@ samples for final evaluation only. Document the split in
 `docs/representation_space_framework.md`. This is a minimal
 refactor in `data/dataset.py::load_gtsrb_test_dataset` to support
 a `holdout_for_val` argument.
+
+**Code change landed (2026-05-08, partial):**
+
+- `data/dataset.py::make_global_val_test_split(n_total, val_size, seed)`
+  — deterministic permutation-based split helper; default seed = 4242.
+- `data/dataset.py::get_global_val_test_split_loaders(...)` — returns a
+  `(val_loader, test_loader)` pair built via the split. Default
+  val_size = 1000 (≈ 8 % of GTSRB test).
+- `get_global_testloader` is unchanged (full-test loader); the new
+  function is additive so all existing callers still compile.
+
+**Wiring still pending:** `server_app.py` should be updated in a
+follow-on commit to use the val_loader for round-by-round monitoring
+(emit `server/val_loss / val_accuracy / val_asr`) and the test_loader
+only at configured checkpoint rounds (emit `server/test_*`). That
+change touches the wandb metric stream + the `summary.json` schema,
+so it's deliberately separated from the infrastructure landing here
+to keep the diff reviewable. Until that wiring lands, all Phase 3.1
+v1/v2 numbers, the Phase 3.0 sentinel, and the cells in flight should
+be treated as having "test_* = round-by-round-monitoring" semantics
+(i.e., the test-set-leakage exposure is the same as before this
+infrastructure landed).
 
 ---
 
