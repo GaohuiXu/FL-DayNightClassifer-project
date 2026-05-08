@@ -494,11 +494,13 @@ Verified runs always log to wandb online. No `wandb-enabled: false`
 mode tested for whether disabling wandb affects determinism (one of
 the open hypotheses for the residual ε).
 
-### L5. No GTSRB class-name lookup table in the code
+### L5. No GTSRB class-name lookup table in the code — DONE 2026-05-08
 
-`docs/scripts_guide.md` (or a new file) should include the GTSRB
-43-class index → name mapping so future sessions don't have to look
-up "class 2 = Speed-50" externally.
+`fl_v2/src/fl_v2/data/gtsrb_classes.py` adds the 43-class
+index → name mapping plus a `SAFETY_CRITICAL_CLASS_INDICES` tuple
+flagging Yield (13), Stop (14), No-entry (17), Pedestrians (27),
+Children-crossing (28) as the thesis-relevant attack-target candidates
+referenced in C3.
 
 ---
 
