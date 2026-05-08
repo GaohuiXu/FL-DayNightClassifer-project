@@ -49,6 +49,61 @@
 > = 18.2 %, well below the v1 Cycle 01 reference of 58 %. Cross-cycle
 > comparisons that quote the 58 % number are no longer apples-to-apples.
 
+## Utility ladder (audit-fixed pipeline)
+
+Added 2026-05-08 after the supervisor meeting. Establishes the
+endpoints of the clean-utility scale we care about, all on the
+same architecture (pretrained ResNet18 + modified-conv1, image-size
+32, full_ft trainable), with attack as the only varying axis.
+
+```
+zero-FT (~2 %)  ≪  FL clean × 3 seeds (92.2 ± 1.3 %)  <  centralised clean (98.97 %)
+```
+
+| Setting | source | acc | target_acc | asr |
+|---|---|---|---|---|
+| **Centralised clean** (50 epochs) | job 6602985 | **0.9897** | 0.9960 | 0.0002 |
+| **Clean FL × 3 seeds (audit-fixed)** | jobs 6603555 / 6602987 / 6602988 | **0.9219 ± 0.0127** | **0.9689 ± 0.0125** | (no attack) |
+| Cycle 02 attack 5mal × 3 seeds (audit-fixed) | jobs 6599453-55 | 0.8885 ± 0.0276 | 0.9547 ± 0.0124 | 0.7114 ± 0.1623 |
+| Cycle 01 sentinel attack 5mal (N=1) | job 6600208 | 0.9537 | 0.9933 | 0.8958 |
+| Pretrained zero-FT (modified-conv1, N=3 fc seeds) | job 6602864 | 0.0169 ± 0.0087 | 0.0022 ± 0.0031 | 0.0029 ± 0.0021 |
+| Pretrained zero-FT (canonical-conv1, N=3 fc seeds) | job 6602864 | 0.0328 ± 0.0158 | 0.0018 ± 0.0025 | 0.0015 ± 0.0014 |
+
+### What the ladder tells us
+
+1. **FL fine-tuning is necessary.** Strict zero-FT on either
+   architecture is at chance (1/43 ≈ 2.33 %). The pretrained backbone
+   alone — with a random-init fc head — produces accuracy below or
+   barely above chance. *Every* useful number we report comes from
+   the FL training.
+2. **The FL→centralised gap is 6.8 pp.** Distributed learning under
+   our setup (Dirichlet α=0.5, 50 clients, 3 local epochs, FedAvg,
+   100 rounds, full_ft) costs ~6.8 pp of clean accuracy vs centralised
+   training of the same architecture. The full_ft architecture is
+   strong enough that this cost is small but real.
+3. **Attack vs clean degrades main-task acc by ~3 pp** (92.2 % clean
+   → 88.9 % under 5mal pixel attack). The model still mostly
+   classifies correctly while the backdoor is installed; the attack
+   is *additive*, not destructive.
+4. **Sentinel acc (95.4 %) is HIGHER than Cycle 02 attack mean
+   (88.9 %)** despite Sentinel having a stronger ASR (89.6 % vs
+   71.1 %). The from-scratch architecture is more robust to attack
+   on the main task than the pretrained-with-random-init-conv1
+   architecture. This is consistent with the C2 pitfall — when the
+   pretrained model has to train conv1 from scratch alongside the
+   attack signal, the attack hurts main-task acc more.
+5. **Asr ≈ 0 in zero-FT and centralised.** Sanity check on the
+   trigger: a model that has never been trained to associate the
+   trigger with any class doesn't predict the target class on
+   triggered samples (no ImageNet shortcut, no spurious cue). The
+   >80 % ASR in attack runs is *entirely* a product of FL training
+   on poisoned data.
+
+The Cycle 02 head_attr results below should be read with this
+ladder in mind: the diagnostic measures *where* in the model the
+attack is encoded; the ladder above measures *how much* the attack
+costs on main-task utility.
+
 ## Phase 3.1 wave — Cycle 02 head_attr (commit `9d72bcf`)
 
 3 cells × 3 seeds = 9 valid training runs + per-cell head-feature
