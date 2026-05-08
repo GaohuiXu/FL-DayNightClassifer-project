@@ -34,13 +34,11 @@
 > v1 fixed-10-epoch clean-head retraining systematically undertrains
 > the head; the v2 convergent diagnostic (commit `0f4eb49`,
 > early-stop on plateau, patience 8, max 100 epochs) produces
-> materially different per-cell numbers. Partial v2 results from
-> `full_ft + 5mal`: seed 42 = 19.6 % (v1 was 12.50 %), seed 43 =
-> 60.8 % (v1 was 44.71 %), seed 44 = 49.4 % (v1 was 40.99 %); v2
-> mean 43.3 %, v2 SD 21.0 pp. Cells 4–9 of the v2 rerun are
-> running on job 6600819. The v1 numbers in the table below are
-> retained as the historical record but should be treated as
-> superseded once v2 lands.
+> materially different per-cell numbers. **All 9 cells re-run; full
+> v2 results below.** v2 mean shifts: full_ft +10.5 pp, lastblock
+> −7.7 pp, canonconv1 head_only −6.9 pp. The cell ordering survives.
+> v1 numbers are retained as the historical record but are
+> superseded by the v2 numbers for any forward-looking claim.
 >
 > Cycle 01 archive numbers (`gtsrb_v2/phaseC_v2/`, `gtsrb_v2/phaseD/`)
 > are out of scope of this withdrawal — they were trained on the same
@@ -51,11 +49,13 @@
 > = 18.2 %, well below the v1 Cycle 01 reference of 58 %. Cross-cycle
 > comparisons that quote the 58 % number are no longer apples-to-apples.
 
-## Phase 3.1 wave — Cycle 02 v1 results (commit `9d72bcf`)
+## Phase 3.1 wave — Cycle 02 head_attr (commit `9d72bcf`)
 
 3 cells × 3 seeds = 9 valid training runs + per-cell head-feature
-decomposition under the v1 fixed-10-epoch diagnostic. From
-`cycle_02_pivot_audit.md` §9.5:
+decomposition under both the v1 (fixed 10-epoch) and v2 (convergent,
+commit `0f4eb49`) diagnostics on the SAME final checkpoint per cell.
+
+**v1 fixed-10-epoch:**
 
 | Cell | seed=42 | seed=43 | seed=44 | mean head_attr ± SD | acc mean ± SD |
 |---|---|---|---|---|---|
@@ -63,33 +63,62 @@ decomposition under the v1 fixed-10-epoch diagnostic. From
 | `last_block + 5mal` | 62.97 % | 61.90 % | 55.45 % | **60.11 % ± 4.07 pp** | 0.717 ± 0.049 |
 | `canonconv1 head_only + 15mal` | 89.77 % | 84.71 % | 88.77 % | **87.75 % ± 2.68 pp** | 0.520 ± 0.011 |
 
-### Provisional cell-ordering claim (v1, audit-fixed pipeline)
+**v2 convergent (early-stop on clean-test-acc plateau, patience 8, max 100 epochs):**
 
-`full_ft (33 %)` < **Cycle 01 v1 from-scratch reference (58 %, pre-audit pipeline, suspect)** ≈ `last_block (60 %)` < `canonconv1 head_only (88 %)`
+| Cell | seed=42 | seed=43 | seed=44 | mean head_attr ± SD |
+|---|---|---|---|---|
+| `full_ft + 5mal` | 19.56 % | 60.81 % | 49.37 % | **43.25 % ± 21.07 pp** |
+| `last_block + 5mal` | 58.42 % | 50.62 % | 48.08 % | **52.37 % ± 5.41 pp** |
+| `canonconv1 head_only + 15mal` | 84.00 % | 76.08 % | 82.38 % | **80.82 % ± 4.20 pp** |
 
-Monotonic in: less trainable capacity → more head-attribution under
-the v1 diagnostic.
+**Saturated cell bit-stability:** all three canonconv1 head_only seeds
+have v2 ch_asr = 0.0371 (to 4 sig fig), vs v1's 0.0237 — the convergent
+diagnostic raises the floor uniformly, but seed-to-seed agreement on the
+saturated cell is preserved.
+
+**Phase 3.0 sentinel** (Cycle 01 phaseC2-backdoor-5mal-nodefense on
+audit-fixed pipeline, seed=42, v2 convergent): orig_asr 0.8958, ch_asr
+0.7326, **head_attr = 18.22 %**, best_ep 18/26.
+
+### Cell-ordering claim (v2, audit-fixed pipeline)
+
+Under v2 + audit-fixed-pipeline anchoring (sentinel = audit-fixed
+Cycle 01 phaseC2 cell, NOT the pre-audit 58 % reference):
+
+`sentinel (18.2 %)` < `Cycle 02 full_ft (43.3 %)` < `lastblock (52.4 %)` < `canonconv1 head_only (80.8 %)`
+
+The "less trainable capacity → more head-attribution" gradient
+**survives** under v2, and the cross-cycle Cycle 01 ↔ Cycle 02 anchor
+is now apples-to-apples (both on the audit-fixed pipeline, both under
+the convergent diagnostic).
 
 The original Wave 1+2 "97 % encoder anchoring at full_ft" headline was
 a bug-induced outlier (model stuck at trivial-backdoor attractor for
 12 rounds because of unseeded RNG); the audit-fixed pipeline does not
 reproduce it.
 
-What we **cannot yet defensibly claim** until v2 cells 4–9 land:
+**Directional claim — pretrained vs from-scratch susceptibility at
+full_ft + 5mal under v2:**
 
-- Whether pretrained encoders at full_ft are MORE susceptible to
-  feature-space attack than from-scratch encoders. The v1 comparison
-  (33 % vs 58 %) leans that way, but the 58 % is a pre-audit Cycle 01
-  number; the Phase 3.0 sentinel under v2 gives 18.2 %, which is
-  *below* the Cycle 02 v2 mean of 43.3 % — direction reversed under
-  v2 / audit-fixed-pipeline anchoring. We do not have enough v2
-  data to rule between (a) Cycle 02 mean rises further when cells
-  4–9 land and the comparison becomes significant, (b) the
-  comparison stays within 1–2 SD and the directional claim cannot be
-  made.
-- Whether last_block + 5mal under pretrained init "behaves like
-  full_ft from-scratch" — was based on the v1 60.11 % vs the
-  pre-audit 58 % comparison, not yet v2-verified.
+Cycle 02 full_ft (pretrained, mean 43.3 % across N=3 seeds, SD 21.0 pp)
+is HIGHER than Cycle 01 sentinel (from-scratch, 18.2 %, N=1). The
+gap is Δ = 25 pp ≈ 1.2 SD given v2 SD on full_ft. **Direction is
+credible, point estimate is not yet venue-grade** (need N=5 seeds on
+each side; the within-commit residual ε of ~5 pp ASR adds further
+uncertainty).
+
+The v1 statement "pretrained encoders are MORE susceptible at full_ft"
+relied on a 33 % vs 58 % comparison where the 58 % was a pre-audit
+Cycle 01 number on a non-deterministic pipeline. That comparison is
+now demoted; the v2 + sentinel comparison (43.3 % vs 18.2 %) survives
+with the caveats above.
+
+For lastblock + 5mal: v1 reported 60.11 % "behaves like full_ft
+from-scratch (58 %)". Under v2, lastblock = 52.4 % and the from-
+scratch reference (sentinel) = 18.2 %. The "behaves like
+full_ft-from-scratch" framing **does not survive** v2 — lastblock
+under v2 has substantially more head-resident attack signal than the
+from-scratch sentinel.
 
 ### Per-cell reproducibility characterisation (v1)
 

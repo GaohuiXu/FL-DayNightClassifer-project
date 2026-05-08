@@ -546,11 +546,24 @@ to keep concurrent same-node jobs from silently failing). 9 training
 runs (jobs 6599453–6599461) × 100 rounds + per-cell head-feature
 decomposition.
 
+**v1 fixed-10-epoch:**
+
 | Cell | seed=42 | seed=43 | seed=44 | mean head_attr ± SD | acc mean ± SD |
 |---|---|---|---|---|---|
 | `full_ft + 5mal` | 12.50 % | 44.71 % | 40.99 % | **32.73 % ± 17.62 pp** | 0.889 ± 0.028 |
 | `last_block + 5mal` | 62.97 % | 61.90 % | 55.45 % | **60.11 % ± 4.07 pp** | 0.717 ± 0.049 |
 | `canonconv1 head_only + 15mal` | 89.77 % | 84.71 % | 88.77 % | **87.75 % ± 2.68 pp** | 0.520 ± 0.011 |
+
+**v2 convergent (added 2026-05-08):**
+
+| Cell | seed=42 | seed=43 | seed=44 | mean head_attr ± SD |
+|---|---|---|---|---|
+| `full_ft + 5mal` | 19.56 % | 60.81 % | 49.37 % | **43.25 % ± 21.07 pp** |
+| `last_block + 5mal` | 58.42 % | 50.62 % | 48.08 % | **52.37 % ± 5.41 pp** |
+| `canonconv1 head_only + 15mal` | 84.00 % | 76.08 % | 82.38 % | **80.82 % ± 4.20 pp** |
+
+Phase 3.0 sentinel (Cycle 01 phaseC2 on audit-fixed pipeline, seed=42,
+v2): orig_asr 0.8958, ch_asr 0.7326, head_attr = 18.22 %.
 
 **Bit-reproducibility — withdrawn claim.** An earlier draft of this
 section asserted that seeds 43 and 44 of `full_ft + 5mal` gave

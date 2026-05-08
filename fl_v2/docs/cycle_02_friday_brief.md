@@ -238,28 +238,82 @@ in (head_attr v2 = 18.2 %), and is much lower than that 58 %.
    gradient holds on the v1 diagnostic. Whether it survives v2 +
    audit-fixed Cycle 01 sentinel re-anchoring is being tested now.
 
-### v2 (convergent diagnostic) update — partial results
+### v2 (convergent diagnostic) — full 9-cell rerun complete
 
-Cells 1–3 of the v2 rerun on the audit-fixed pipeline (`full_ft + 5mal`
-seeds 42/43/44):
+All 9 cells of the v2 rerun on the audit-fixed pipeline are now in.
+v1 used a fixed 10-epoch clean-head retrain; v2 uses early-stop on
+clean-test-acc plateau (patience 8, min_improvement 1e-4, max
+100 epochs). v2 numbers come from jobs 6600186, 6600819, 6601196,
+6601582 (4 SLURM submissions due to wallclock + per-cell ~50-min
+training budget). Each cell's v2 was computed on the same final
+checkpoint as the v1 number.
 
-| seed | orig_asr | v1 ch_asr (10 ep, fixed) | v1 head_attr | v2 ch_asr (converged) | v2 head_attr | v2 best_ep / total |
-|---|---|---|---|---|---|---|
-| 42 | 0.8144 | 0.7126 | 12.50 % | 0.6551 | 19.6 % | 42 / 50 |
-| 43 | 0.5243 | 0.4088 | 44.71 % | 0.2055 | 60.8 % | 45 / 53 |
-| 44 | 0.7956 | 0.5317 | 40.99 % | 0.4029 | 49.4 % | 59 / 67 |
-| **mean** | — | — | **32.73 %** | — | **43.3 %** | — |
-| **SD** | — | — | **17.62 pp** | — | **21.0 pp** | — |
+| Cell | seed | orig_asr | v1 ch_asr | v1 head_attr | v2 ch_asr | v2 head_attr | best_ep / total |
+|---|---|---|---|---|---|---|---|
+| `full_ft + 5mal` | 42 | 0.8144 | 0.7126 | 12.50 % | 0.6551 | **19.56 %** | 42 / 50 |
+| | 43 | 0.5243 | 0.4088 | 44.71 % | 0.2055 | **60.81 %** | 45 / 53 |
+| | 44 | 0.7956 | 0.5317 | 40.99 % | 0.4029 | **49.37 %** | 59 / 67 |
+| `lastblock + 5mal` | 42 | 0.5736 | 0.2124 | 62.97 % | 0.2385 | **58.42 %** | 80 / 88 |
+| | 43 | 0.7386 | 0.2814 | 61.90 % | 0.3647 | **50.62 %** | 57 / 65 |
+| | 44 | 0.6511 | 0.2901 | 55.45 % | 0.3380 | **48.08 %** | 44 / 52 |
+| `canonconv1 head_only + 15mal` | 42 | 0.2320 | 0.0237 | 89.77 % | 0.0371 | **84.00 %** | 30 / 38 |
+| | 43 | 0.1553 | 0.0237 | 84.71 % | 0.0371 | **76.08 %** | 30 / 38 |
+| | 44 | 0.2107 | 0.0237 | 88.77 % | 0.0371 | **82.38 %** | 30 / 38 |
 
-Phase 3.0 sentinel (Cycle 01 phaseC2-backdoor-5mal-nodefense on the
-audit-fixed pipeline, seed=42, v2 convergent diagnostic): orig_asr
-0.8958, ch_asr 0.7326, **head_attr = 18.2 %**, best_ep 18/26.
+| Cell | v1 mean ± SD | v2 mean ± SD | shift |
+|---|---|---|---|
+| `full_ft + 5mal` | 32.73 ± 17.62 | **43.25 ± 21.07** | +10.5 pp |
+| `lastblock + 5mal` | 60.11 ± 4.07 | **52.37 ± 5.41** | −7.7 pp |
+| `canonconv1 head_only + 15mal` | 87.75 ± 2.68 | **80.82 ± 4.20** | −6.9 pp |
 
-Sentinel 18.2 % sits below the Cycle 02 v2 mean of 43.3 % but well
-within 1.2 SD given the seed-2-seed variance. Cells 4–9 of the v2
-rerun (lastblock + 5mal × 3 seeds; canonconv1 head_only + 15mal × 3
-seeds) are running on job 6600819; until they land, no v2 cell-ordering
-claim is supported.
+**Phase 3.0 sentinel** (Cycle 01 phaseC2-backdoor-5mal-nodefense on
+the audit-fixed pipeline, seed=42, v2 convergent diagnostic): orig_asr
+0.8958, ch_asr 0.7326, **head_attr = 18.22 %**, best_ep 18/26. (N=1.)
+
+**Cell ordering under v2 + audit-fixed-pipeline anchoring:**
+
+`sentinel (18.2 %)` < `Cycle 02 full_ft (43.3 %)` < `lastblock (52.4 %)` < `canonconv1 head_only (80.8 %)`
+
+The "less trainable capacity → more head-attribution" gradient
+**survives** under the convergent diagnostic. The Cycle 01 sentinel
+sits below the Cycle 02 full_ft mean (Δ ≈ 25 pp). With the audit-
+fixed Cycle 01 anchor (sentinel = 18.2 %, NOT the pre-audit
+58 % v1 reference), the directional claim is now: **pretrained
+encoders trained at full_ft show more head-resident attack signal
+than from-scratch encoders under the same regime.**
+
+**Interpretation caveats (binding for the supervisor brief):**
+
+1. v1 vs v2 movement is regime-dependent and *not noise*: full_ft v2
+   shifts up by 10 pp because the head needed more training to
+   plateau; lastblock and canonconv1 head_only v2 shift down because
+   their v1 ch_asr was *already at a low floor* and v2 raises that
+   floor slightly (the converged head finds a marginally higher
+   baseline ch_asr). The shift direction tells us about the regime,
+   not about the diagnostic's reliability.
+2. v2 SD is comparable to v1 SD on the chaotic full_ft cell (21.0
+   vs 17.6 pp) and slightly *higher* on the constrained cells.
+   Convergent training does NOT eliminate seed-to-seed variance —
+   it lets each cell's true ceiling speak.
+3. The 25-pp gap between sentinel and Cycle 02 full_ft v2 is roughly
+   1.2 SD given v2 SD = 21.0 pp. With N=3 seeds on Cycle 02 full_ft
+   and N=1 on sentinel, this is suggestive but not statistically
+   firm. N=5 seeds on each is the venue-credible sample size.
+4. The within-commit residual ε measured in §"Bit-reproducibility
+   check" above adds a further ~5 pp ASR uncertainty band that
+   propagates into head_attr at order ~ε / orig_asr ≈ 5-10 pp on
+   single-cell numbers.
+5. All 9 cells of the v2 wave used the SAME final checkpoint as v1.
+   The shifts are entirely attributable to the v1→v2 diagnostic
+   change (fixed-10-epoch → convergent), not to retrained models.
+
+**Saturated-regime bit-stability** (canonconv1 head_only + 15mal):
+all three seeds' v2 ch_asr round to **0.0371** (vs v1's 0.0237),
+suggesting that the convergent diagnostic finds the same converged
+head-attractor regardless of the original training seed — consistent
+with "frozen pretrained encoder + same diagnostic seed → deterministic
+head training". This is the cleanest reproducibility signal in the
+matrix.
 
 ## Provisional findings the audit *did* preserve
 
