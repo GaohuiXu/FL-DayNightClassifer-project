@@ -190,10 +190,22 @@ def get_client_dataloaders(
     trigger_size: int = 4,
     trigger_value: float = 1.0,
     trigger_position: str = "bottom-right",
+    partition_seed: int | None = None,
 ) -> ClientDataLoaders:
-    """Build train/val dataloaders for one client."""
+    """Build train/val dataloaders for one client.
+
+    `seed` controls model-side / training-time RNG (per-epoch shuffle order
+    via the DataLoader generator). `partition_seed` controls data-side
+    "which samples go where" decisions: per-client train/val split, poison
+    mask for backdoor attacks, label-flip mask. When `partition_seed` is
+    None it falls back to `seed` (backward-compatible with all
+    pre-2026-05-08 callers). See cycle_02_codebase_risk_audit.md C4.
+    """
     if client_id not in client_index_map:
         raise KeyError(f"client_id={client_id} not found in client_index_map")
+
+    if partition_seed is None:
+        partition_seed = seed
 
     base_train_dataset = load_gtsrb_train_dataset(
         data_root=data_root,
@@ -204,7 +216,7 @@ def get_client_dataloaders(
     train_indices, val_indices = split_train_val_indices(
         indices=client_indices,
         val_ratio=val_ratio,
-        seed=seed + client_id,
+        seed=partition_seed + client_id,
     )
 
     train_dataset = TransformedSubset(
@@ -224,7 +236,7 @@ def get_client_dataloaders(
             source_label=label_flip_source,
             target_label=label_flip_target,
             poison_fraction=label_flip_fraction,
-            seed=seed + client_id,
+            seed=partition_seed + client_id,
         )
         print(
             f"[Client {client_id}] label flipping enabled: "
@@ -244,7 +256,7 @@ def get_client_dataloaders(
             trigger_size=trigger_size,
             trigger_value=trigger_value,
             trigger_position=trigger_position,
-            seed=seed + client_id,
+            seed=partition_seed + client_id,
         )
         print(
             f"[Client {client_id}] {attack_type} enabled: "

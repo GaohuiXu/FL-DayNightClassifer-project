@@ -1,0 +1,55 @@
+# Cycle 02 — partition-seed decoupling example.
+#
+# Demonstrates the C4 risk-audit fix: `seed` controls model-side RNG
+# (server torch.manual_seed, client per-call derive_seed,
+# DataLoader.shuffle generator), while `partition-seed` controls
+# data-side decisions (Dirichlet client_index_map, per-client
+# train/val split, poison-mask, label-flip-mask).
+#
+# Usage pattern for a clean variance decomposition:
+#
+#   Run A — model-RNG variance only (data partition fixed):
+#     partition-seed: 42 (fixed)
+#     seed: 42 / 43 / 44 (varies)
+#
+#   Run B — data-distribution variance only (model RNG fixed):
+#     seed: 42 (fixed)
+#     partition-seed: 42 / 43 / 44 (varies)
+#
+# Subtracting Var(A) and Var(B) from the joint variance gives an
+# attribution of how much of the seed-to-seed spread we have been
+# reporting traces to model RNG vs data partition.
+#
+# Backward compatibility: if `partition-seed` is left as the empty
+# default, the old behaviour (partition-seed = seed) is preserved
+# byte-for-byte and all pre-2026-05-08 YAMLs continue to produce
+# identical numbers.
+experiment-name: cycle02-partition-seed-example
+cycle: cycle_02
+phase: phaseD2
+model-type: resnet18
+pretrained-init: true
+trainable-layers: full_ft
+num-clients: 50
+num-server-rounds: 100
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: pixel_backdoor
+malicious-client-ids: 0,1,2,3,4
+backdoor-target-label: 2
+poison-fraction: 0.5
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+defense-type: none
+checkpoint-rounds: "0,5,10,25,50,75,100"
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+seed: 42
+partition-seed: 42  # set to 42/43/44 across cells to vary partition
+wandb-group: cycle02-partition-seed-decoupling
+wandb-tags: c4-remediation,partition-seed-example

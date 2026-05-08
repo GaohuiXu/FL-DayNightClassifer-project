@@ -325,13 +325,33 @@ def main(grid: Grid, context: Context) -> None:
     dirichlet_alpha = float(run_config["dirichlet-alpha"])
     experiment_name = str(run_config.get("experiment-name", "default"))
 
+    # Partition seed (decoupled from model-RNG seed). If `partition-seed` is
+    # empty / unset, fall back to the run's `seed` (backward-compatible
+    # behaviour: identical to the pre-2026-05-08 pipeline). When set
+    # explicitly, the data partition uses this seed and the model RNG uses
+    # `seed`, letting us isolate model-init variance from
+    # data-distribution variance across cells. See
+    # cycle_02_codebase_risk_audit.md C4.
+    partition_seed_raw = run_config.get("partition-seed", "")
+    if isinstance(partition_seed_raw, str) and partition_seed_raw.strip() == "":
+        partition_seed = seed
+        partition_seed_source = "fallback to run seed"
+    else:
+        partition_seed = int(partition_seed_raw)
+        partition_seed_source = "explicit"
+    print(
+        f"[server] partition_seed={partition_seed} ({partition_seed_source}); "
+        f"model RNG seed={seed}",
+        flush=True,
+    )
+
     print("[server] building histogram stats", flush=True)
     _, histograms, summary = build_client_index_map_with_stats(
         data_root=data_root,
         num_clients=num_clients,
         partition_mode=partition_mode,
         dirichlet_alpha=dirichlet_alpha,
-        seed=seed,
+        seed=partition_seed,
         download=False,
     )
 

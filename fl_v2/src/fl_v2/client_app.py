@@ -37,14 +37,33 @@ _index_map_cache_key: str | None = None
 _client_data_cache: dict[int, ClientDataLoaders] = {}
 
 
+def _resolve_partition_seed(run_config) -> int:
+    """Return the partition seed (separate from model-RNG seed when set).
+
+    `partition-seed` empty / unset ⇒ fall back to `seed` (backward
+    compatible with all pre-2026-05-08 YAMLs). Set explicitly to
+    decouple partition variance from model-RNG variance per the
+    cycle_02_codebase_risk_audit.md C4 finding.
+    """
+    raw = run_config.get("partition-seed", "")
+    if isinstance(raw, str) and raw.strip() == "":
+        return int(run_config["seed"])
+    return int(raw)
+
+
 def _make_cache_key(run_config) -> str:
-    """Build a hashable key from partition-relevant config values."""
+    """Build a hashable key from partition-relevant config values.
+
+    Partition cache must include partition-seed (not just seed) so that
+    a within-process re-init with a different partition seed forces a
+    re-partition.
+    """
     return (
         f"{run_config['data-root']}|"
         f"{run_config['num-clients']}|"
         f"{run_config['partition-mode']}|"
         f"{run_config['dirichlet-alpha']}|"
-        f"{run_config['seed']}"
+        f"{_resolve_partition_seed(run_config)}"
     )
 
 
@@ -76,14 +95,14 @@ def _load_client_data(context: Context):
         num_clients = int(run_config["num-clients"])
         partition_mode = str(run_config["partition-mode"])
         dirichlet_alpha = float(run_config["dirichlet-alpha"])
-        seed = int(run_config["seed"])
+        partition_seed = _resolve_partition_seed(run_config)
 
         _index_map_cache = build_client_index_map(
             data_root=data_root,
             num_clients=num_clients,
             partition_mode=partition_mode,
             dirichlet_alpha=dirichlet_alpha,
-            seed=seed,
+            seed=partition_seed,
             download=False,
         )
         _index_map_cache_key = cache_key
@@ -125,7 +144,8 @@ def _load_client_data(context: Context):
         batch_size=batch_size,
         image_size=image_size,
         val_ratio=val_ratio,
-        seed=seed,
+        seed=seed,  # model-side: drives DataLoader shuffle order
+        partition_seed=_resolve_partition_seed(run_config),  # data-side: val split + poison/flip mask
         num_workers=0,
         download=False,
         attack_type=attack_type,

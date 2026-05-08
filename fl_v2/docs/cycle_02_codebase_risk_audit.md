@@ -138,7 +138,7 @@ class 14 (Stop) as the "thesis target" while keeping class 2 as the
 
 ---
 
-### C4. Partition seed = training seed (variance components confounded)
+### C4. Partition seed = training seed (variance components confounded) — REMEDIATED 2026-05-08
 
 **Evidence:** `fl_v2/src/fl_v2/server_app.py:325-336`.
 `build_client_index_map_with_stats(seed=seed)` is called with the
@@ -173,6 +173,39 @@ backward compatibility. Run two ablations:
 - Varying partition-seed × fixed training seed → "partition-noise SD".
 
 Report both decomposed; the SD we currently report is their sum.
+
+**Code change landed (2026-05-08):**
+
+- `pyproject.toml` — `partition-seed = ""` added to default config; empty
+  string means "fall back to `seed`" (backward-compatible with all
+  pre-existing YAMLs).
+- `server_app.py` — reads `partition-seed`, falls back to `seed`,
+  passes to `build_client_index_map_with_stats`. Logs the resolved
+  value at server startup.
+- `client_app.py` — `_resolve_partition_seed()` helper; partition cache
+  key includes partition-seed; `get_client_dataloaders` receives both
+  `seed` (model-side) and `partition_seed` (data-side).
+- `data/dataset.py::get_client_dataloaders` — new optional
+  `partition_seed` param; defaults to `seed`; routes data-side
+  decisions (val split, poison mask, label-flip mask) through
+  `partition_seed` while keeping the DataLoader shuffle generator
+  on the model `seed`.
+
+Variance-decomposition ablation pattern (see
+`configs/experiments/cycle_02/phaseD2/_partition_seed_decoupling_example.yaml`):
+
+| Run | partition-seed | seed | Measures |
+|---|---|---|---|
+| A1 | 42 | 42 | (joint baseline; same as old) |
+| A2 | 42 | 43 | model-RNG variance only |
+| A3 | 42 | 44 | model-RNG variance only |
+| B1 | 42 | 42 | (joint baseline; reused) |
+| B2 | 43 | 42 | partition variance only |
+| B3 | 44 | 42 | partition variance only |
+
+`Var(joint) ≈ Var(model_rng) + Var(partition) + interaction`. Decomposed
+SDs let us state which component dominates the seed-to-seed spread
+(currently reported v2 SD on full_ft 5mal = 21 pp).
 
 ---
 

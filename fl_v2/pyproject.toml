@@ -75,6 +75,13 @@ num-clients = 10
 partition-mode = "dirichlet"
 dirichlet-alpha = 0.5
 val-ratio = 0.1
+# partition-seed: drives the Dirichlet draw over clients. Default empty
+# string means "fall back to the run's `seed` field" (backward-compatible
+# behaviour). Set to an integer (or a different integer per cell) to
+# decouple the data partition from the model-RNG seed — necessary for
+# clean attribution of seed-to-seed variance to (a) model-init noise vs
+# (b) data-distribution noise. See cycle_02_codebase_risk_audit.md C4.
+partition-seed = ""
 data-root = "/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_datasets/gtsrb"
 
 # ===== paths =====
