@@ -238,6 +238,56 @@ in (head_attr v2 = 18.2 %), and is much lower than that 58 %.
    gradient holds on the v1 diagnostic. Whether it survives v2 +
    audit-fixed Cycle 01 sentinel re-anchoring is being tested now.
 
+### Clean-utility baselines (no attack, 100 rounds, seed=42)
+
+For the supervisor's utility-vs-robustness reading. All numbers are
+final-round `summary.json::final.test_accuracy` on the GTSRB official
+test split (12 630 samples). **Caveat:** every row except phaseC2
+was run on the *pre-audit* pipeline (Wave 1+2 era), so each is one
+realisation under residual non-determinism — not bit-reproducible.
+We do NOT yet have audit-fixed-pipeline clean baselines for the
+Cycle 02 cells; rerunning them is a 4-job, ~6-h wallclock task,
+deferred until after the supervisor decides which directions to
+prioritise.
+
+| Run | Architecture | Trainable-layers | Clean test_acc |
+|---|---|---|---|
+| `phaseC2-clean_r100_seed42` | from-scratch ResNet18, modified-conv1 (32×32) | full_ft | **0.9533** |
+| `cycle02-pretrained-full-ft-clean_r100_seed42` | pretrained encoder + random-init conv1 (modified-conv1) | full_ft | **0.9228** |
+| `cycle02-pretrained-lastblock-clean_r100_seed42` | pretrained encoder + random-init conv1 | last_block (layer4 + fc) | **0.6647** |
+| `cycle02-pretrained-headonly-canonconv1-clean_r100_seed42` | pretrained, canonical 7×7 conv1 (image-size=64) | head_only (fc only) | **0.5709** |
+| `cycle02-pretrained-headonly-clean_r100_seed42` | pretrained, **random-init conv1** (modified-conv1) | head_only (fc only) | **0.3621** |
+
+Read-offs to flag in the meeting:
+
+1. **Cycle 02 pretrained full_ft clean (92.3 %) is *lower* than Cycle 01
+   from-scratch clean (95.3 %).** The "pretrained init" pivot does NOT
+   improve clean utility under our setup at 32×32. Likely cause:
+   risk-audit C2 — our "pretrained" model has a random-init conv1
+   that is trained from scratch alongside the FL training, so the
+   ImageNet head-start applies only to bn1+layer1-4.
+2. **The canonical-conv1 head_only clean baseline (57.1 %) is the
+   closest measurement we have for "ImageNet pretrained ResNet18 on
+   GTSRB without GTSRB-specific encoder training".** ImageNet features
+   transfer to GTSRB's small-image traffic-sign classification only
+   modestly — ~57 % vs 95 % for from-scratch end-to-end. This is a
+   useful upper-bound reference for any future "frozen-encoder" defense.
+3. **Modified-conv1 head_only clean = 36.2 %.** Risk-audit C2 in the
+   open: a "pretrained" model whose conv1 is frozen at random init
+   has a broken encoder pipeline (random low-level filters → ImageNet
+   middle expects natural-image inputs but gets random projections →
+   useless features for the head). Documenting for the supervisor so
+   they understand why we eventually pivoted to canonical-conv1 for
+   the head_only ablations.
+
+The clean baselines are also relevant for interpreting the v2 head-
+attribution numbers below: the encoder's *attainable clean accuracy*
+is the natural upper bound on what a clean-head retrain can recover.
+For canonconv1 head_only, the v2 `clean_head_clean_acc ≈ 0.60`
+matches the centralised linear-probe limit of ImageNet features on
+GTSRB at 64×64; the FL clean-baseline (0.57) is slightly below it
+because of Dirichlet non-IID + 50-client averaging + 3 local epochs.
+
 ### v2 (convergent diagnostic) — full 9-cell rerun complete
 
 All 9 cells of the v2 rerun on the audit-fixed pipeline are now in.
