@@ -238,6 +238,47 @@ in (head_attr v2 = 18.2 %), and is much lower than that 58 %.
    gradient holds on the v1 diagnostic. Whether it survives v2 +
    audit-fixed Cycle 01 sentinel re-anchoring is being tested now.
 
+### Strict zero-fine-tuning baseline — "is FL necessary?"
+
+ImageNet-pretrained ResNet18 evaluated directly on GTSRB test with
+**no GTSRB-specific training of any kind**: pretrained encoder
+loaded as-is, random-init 43-class fc head, immediate inference.
+Three fc seeds (42/43/44) per architecture so the chance baseline
+has a small spread. From job 6602864
+(`baselines/zero_finetune_baseline.json`):
+
+| Architecture | clean_acc | target_class_acc | asr |
+|---|---|---|---|
+| `canonical_conv1` (image-size 64, full ImageNet 7×7 stem) | **3.28 % ± 1.58** | 0.18 % ± 0.25 | 0.15 % ± 0.14 |
+| `modified_conv1` (image-size 32, random-init 3×3 conv1) | **1.69 % ± 0.87** | 0.22 % ± 0.31 | 0.29 % ± 0.21 |
+
+Chance = 1/43 ≈ 2.33 %. Read-offs:
+
+1. **Canonical-conv1 zero-FT is barely above chance** (3.3 % vs 2.3 %).
+   ImageNet features carry a tiny signal for GTSRB but the random fc
+   can't exploit it without training. **FL fine-tuning is necessary.**
+2. **Modified-conv1 zero-FT is *below* chance** (1.7 %). The random-
+   init conv1 + frozen-ImageNet mid-blocks pipeline doesn't produce
+   coherent features — random low-level filters projected through
+   ImageNet's natural-image-trained mid-layers gives features the
+   random fc literally can't classify better than 1.7 %. This is the
+   strongest empirical evidence so far for risk-audit C2 (the
+   pretrained-with-modified-conv1 architecture is broken). Note that
+   FL training of the fc on top recovers to 36.2 % (the
+   `cycle02-pretrained-headonly-clean` baseline below) — useful but
+   far below the from-scratch 95 %.
+3. **Zero-FT ASR is also at chance** (~0 %). The trigger doesn't
+   systematically push predictions toward class 2 because the random
+   head doesn't have a class-2 bias to exploit. ASR > 80 % in all
+   our attack runs is therefore *entirely a product of FL training*
+   — the attack works because the FL-trained head learned to map
+   triggered features to class 2; the ImageNet encoder alone provides
+   no shortcut.
+
+Together, these establish the lower endpoint of the utility hierarchy:
+
+  zero-FT (chance ~2 %)  ≪  FL clean-train (36-95 %)  <  centralised clean-train (presumed near 99 %)
+
 ### Clean-utility baselines (no attack, 100 rounds, seed=42)
 
 For the supervisor's utility-vs-robustness reading. All numbers are
