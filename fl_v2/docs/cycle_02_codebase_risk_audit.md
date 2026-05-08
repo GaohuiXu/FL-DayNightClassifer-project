@@ -504,6 +504,147 @@ referenced in C3.
 
 ---
 
+## Round 2 — code-level audit (framework metrics + defenses, 2026-05-08)
+
+After the Round-1 critical/high findings landed, I went through
+`analysis/framework_metrics.py` (886 lines) and the strategy
+implementations under `src/fl_v2/strategy/` line-by-line. The
+implementations are **mostly correct** but carry a few methodology
+choices and small numerical concerns that a careful reviewer will
+ask about.
+
+### Framework metrics (`analysis/framework_metrics.py`)
+
+**M7. C4 spectral score has *two* variants (imbalanced vs balanced) but
+the docs only quote one without saying which.** Lines 528–541 emit
+both `spectral_score_imbalanced` (PCA on the full 11 880 + 750 pool,
+dominated by the triggered/non-target majority) and
+`spectral_score_balanced` (PCA on a 750+750 stratified subsample).
+The Cycle 01 baseline doc reports `spectral_score ≈ 0.07-0.16` for
+the pixel-trigger profile — those numbers correspond to the
+*imbalanced* variant. If a future cycle ever switches to the
+balanced variant, all cross-cycle comparisons become apples-to-
+oranges silently. **Action:** state explicitly in
+`docs/representation_space_framework.md` that the headline metric
+is `spectral_score_imbalanced` (or migrate to balanced + retire the
+imbalanced numbers). One sentence.
+
+**M8. MMD² subsamples to 1000 per side (line 513-514).** The pool
+sizes are 11 880 (triggered) and 750 (target). Subsampling to 1000+
+750 biases the MMD² estimate; the bias is sample-size-dependent.
+Standard MMD usage is full-pool. **Action:** make the subsample
+size a config knob (`max_mmd` is hardcoded), document the bias in
+the framework doc, and consider running one no-subsample reference
+job to bound the bias.
+
+**M9. Sinkhorn W2 with reg=0.1 / 200 iterations (line 524) may not
+converge for high-dimensional point clouds.** The code clamps
+`np.sqrt(max(w2_sq, 0.0))` (line 386), suggesting that during
+testing the author saw negative w2_sq values — typically a sign of
+unconverged Sinkhorn iterations or numerical underflow. **Action:**
+log the marginal-violation gap (||u_n − u_(n-1)||) at iteration end,
+warn-or-fail on non-converged runs, or bump n_iter / increase reg.
+
+**M10. `source_identity_preservation` (B7) is sensitive to small-
+class noise (lines 271-295).** The metric averages pairwise distances
+between per-class centroids in both triggered and clean spaces, and
+takes the ratio. Classes with very few samples per (client, partition)
+have noisy centroid estimators. The current implementation only
+skips classes with `< 2 samples` (line 274) — too low a bar.
+**Action:** raise the cutoff to `< 10` (or weight pairwise
+contributions by `min(n_a, n_b)`); add a warning when fewer than 5
+non-target classes survive the cutoff.
+
+**M11. C1 linear probe is fit on the full imbalanced pool with
+`class_weight='balanced'`** (line 467). The reported metric is
+balanced accuracy via 5-fold CV. This is correct. But the **probe's
+final-fit coefficient direction** (used for C6 probe-PC alignment)
+is also from the full imbalanced fit. The C6 imbalanced/balanced/
+weighted variants (lines 555-594) probe the alignment between this
+single direction and three different PCA top-PCs. A reviewer might
+expect the probe direction to ALSO have balanced/weighted variants,
+but the code uses one direction with three PCAs. **Action:**
+methodologically defensible (the probe direction is unique per the
+scoring metric reported), but document this asymmetry in
+`representation_space_framework.md`.
+
+**M12. Random subsample sizes are hardcoded (`max_mmd = 1000`,
+`max_n = 500` in Sinkhorn, `max_sil = 3000` in silhouette).** With
+default Cycle 02 parameters these are fine, but if anyone runs the
+framework on a different dataset (CIFAR-100, SVHN, BDD100K) the
+constants may not be appropriate. **Action:** lift to function
+params with documented defaults.
+
+### Defenses (`src/fl_v2/strategy/`)
+
+**M13. `np.argpartition` in Bulyan's `_aggregate_n_closest_weights`
+(`bulyan.py` line 42) is non-deterministic for tied values across
+numpy minor versions.** Two clients with exactly the same
+coordinate-wise `|w_i - median|` could be partitioned in different
+orders. With float32 weights the probability of an exact tie is
+near-zero in practice, but not impossible. **Action:** add a
+secondary sort key (e.g., the original client index) inside
+`_aggregate_n_closest_weights` to fully deterministically resolve
+ties. ~5 lines.
+
+**M14. `select_multikrum` is imported from `flwr.serverapp.strategy.multikrum`
+(`bulyan.py` line 22) — Flower's implementation, not ours.** We
+sort `valid_replies` by `src_node_id` before passing to
+`select_multikrum`, which makes the *input* order deterministic,
+but Flower's internal Krum tie-break (when two clients have the
+same nearest-neighbor distance) is library-version-dependent. If
+upstream Flower ever changes its tie-break, our Bulyan results
+shift silently. **Action:** vendor the Krum selection
+into our codebase or pin Flower's version exactly. The
+`requirements.lock.txt` already pins Flower 1.27.0; an upgrade
+must be treated as a methodology change, not a routine bump.
+
+**M15. NormClippedFedAvg's clipping is reproducible by construction**
+(`norm_clipped_fedavg.py` line 54-60: `clip_updates_by_l2_norm`)
+**but the clip_norm value itself is a hyperparameter chosen
+externally.** YAML files set `defense-clip-norm` to a fixed value
+(e.g., 100k for Cycle 01 phaseC2). Reviewers will ask: how was
+this value chosen? If it was chosen by inspecting the
+`norm_log.json` from a clean baseline run, that's reasonable, but
+should be documented. **Action:** add a comment in the YAML where
+clip-norm is set citing the upstream norm_log it was calibrated
+from.
+
+**M16. FedMedian / FedTrimmedAvg / Bulyan all cast back to
+`layers[0].dtype`.** The aggregation is computed in float64 by
+`np.median` / `np.mean`; the cast back to float32 (typical) drops
+~7 trailing decimal digits. Summing 50 float32 client updates
+naively can hit catastrophic cancellation on very small deltas; the
+median/trimmed-mean are safer because they don't sum, just select.
+For NormClippedFedAvg the underlying FedAvg.aggregate_train does
+a sum that could see catastrophic cancellation, but Flower handles
+this internally. Worth a one-line note in the docs that all
+strategies operate in float64 internally and cast back at output.
+
+### Cross-cutting
+
+**M17. `wandb` logging code path was not audited line-by-line in
+this round.** The 9-cell wave's wandb metrics matched their
+`summary.json` final-round values when I spot-checked. A full
+audit of `utils/wandb_logger.py` would require ~30 min of reading
+plus running a smoke test; deferred to a future iteration unless a
+specific wandb anomaly surfaces.
+
+**M18. `extract_features.py` (222 lines) was not audited in detail.**
+Spot-check: the script extracts (clean, triggered) features for the
+test set + final round, deterministic ordering by sample index.
+Used by both framework_metrics and head_feature_decomposition. A
+bug there would propagate, but no anomaly was visible in the
+~30-minute read.
+
+These Round-2 findings are **methodological** — none are blocking
+bugs, but each is the kind of thing a thoughtful reviewer would
+flag as "explain or fix". Severity classification: M7 / M9 / M11
+are highest-priority (the spectral-score / Sinkhorn / linear-probe
+choices directly affect headline numbers); the rest are polish.
+
+---
+
 ## What survives all of these
 
 1. **The framework metrics architecture** (4-axis profile, linear
