@@ -1,0 +1,35 @@
+# V4 paired test — run A.
+#
+# Same training-side knobs as cycle02-fixed-full-ft-pixel5_seed42 but at
+# 25 rounds (short paired test of the unified fix: num-gpus=1.0,
+# num-workers=4, worker_init_fn). Submitted alongside run B to verify
+# both bit-identical results AND wallclock speedup. See V4 in
+# /cephyr/users/gaohui/Alvis/.claude/plans/cheerful-honking-shell.md.
+experiment-name: cycle02-unified-fix-full-ft-pixel5-r25-runA
+cycle: cycle_02
+phase: phaseD2
+model-type: resnet18
+pretrained-init: true
+trainable-layers: full_ft
+num-clients: 50
+num-server-rounds: 25
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: pixel_backdoor
+malicious-client-ids: 0,1,2,3,4
+backdoor-target-label: 2
+poison-fraction: 0.5
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+defense-type: none
+checkpoint-rounds: "0,5,10,25"
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+seed: 42
+wandb-group: cycle02-unified-fix
+wandb-tags: unified-fix,V4-paired,run-A
