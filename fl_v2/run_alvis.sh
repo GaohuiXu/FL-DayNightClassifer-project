@@ -141,6 +141,24 @@ python --version
 which flwr
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 
+# --- Background GPU profiler (Alvis efficiency-warning remediation) ---
+# Sample SM utilization, memory, power every 5s during the job and dump
+# to a CSV next to the slurm log. Lets us retroactively diagnose
+# inefficient-GPU-usage warnings (Alvis flags <30 % avg SM utilization)
+# without re-running. Lightweight — ~50 KB / hour of CSV.
+GPU_PROFILE_LOG=/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/slurm/${SLURM_JOB_NAME:-flwr_gtsrb}_${SLURM_JOB_ID:-0}.gpuprof.csv
+nvidia-smi \
+  --query-gpu=timestamp,index,name,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw,temperature.gpu \
+  --format=csv,nounits \
+  -l 5 \
+  > "$GPU_PROFILE_LOG" &
+GPU_PROFILER_PID=$!
+echo "GPU profiler PID=$GPU_PROFILER_PID writing to $GPU_PROFILE_LOG"
+
+# Make sure the profiler is killed at job exit, even on early termination.
+# This trap composes with the Cleanup section at the bottom of the script.
+trap '[[ -n "${GPU_PROFILER_PID:-}" ]] && kill "$GPU_PROFILER_PID" 2>/dev/null || true' EXIT
+
 # Wandb env (auth + mode flow in via --export=ALL from submit_experiment.sh).
 # WANDB_API_KEY may be in ~/.netrc instead — that's fine, wandb reads both.
 echo "===== Wandb ====="
@@ -199,6 +217,47 @@ FLWR_EXIT=$?
 echo "===== Cleanup ====="
 kill "$SUPERLINK_PID" 2>/dev/null || true
 wait "$SUPERLINK_PID" 2>/dev/null || true
+# GPU profiler — kill explicitly + summarise utilization
+if [[ -n "${GPU_PROFILER_PID:-}" ]]; then
+    kill "$GPU_PROFILER_PID" 2>/dev/null || true
+    wait "$GPU_PROFILER_PID" 2>/dev/null || true
+fi
+if [[ -f "$GPU_PROFILE_LOG" ]]; then
+    echo "===== GPU utilization summary ====="
+    python3 -c "
+import csv
+gpu_utils = []
+mem_utils = []
+mem_used  = []
+power     = []
+with open('$GPU_PROFILE_LOG') as f:
+    rdr = csv.reader(f)
+    next(rdr, None)  # header
+    for row in rdr:
+        if len(row) < 9: continue
+        try:
+            gpu_utils.append(float(row[3]))
+            mem_utils.append(float(row[4]))
+            mem_used.append(float(row[5]))
+            power.append(float(row[7]))
+        except ValueError:
+            continue
+if gpu_utils:
+    n = len(gpu_utils)
+    print(f'  samples              = {n} (5s interval, {n*5/60:.1f} min)')
+    print(f'  GPU SM util  mean    = {sum(gpu_utils)/n:.1f} %  (max {max(gpu_utils):.0f}, min {min(gpu_utils):.0f})')
+    print(f'  GPU mem util mean    = {sum(mem_utils)/n:.1f} %  (max {max(mem_utils):.0f})')
+    print(f'  GPU mem used mean    = {sum(mem_used)/n:.0f} MiB  (max {max(mem_used):.0f})')
+    print(f'  Power draw   mean    = {sum(power)/n:.1f} W  (max {max(power):.0f})')
+    high = sum(1 for u in gpu_utils if u >= 50)
+    low  = sum(1 for u in gpu_utils if u <  10)
+    print(f'  Time at >=50 % SM    = {high*5/60:.1f} min ({100*high/n:.1f} %)')
+    print(f'  Time at <10 % SM     = {low*5/60:.1f} min ({100*low/n:.1f} %)')
+else:
+    print('  (no samples captured)')
+"
+fi
+
 rm -rf "$JOB_FLWR_HOME"
 
 echo "End: $(date)"
