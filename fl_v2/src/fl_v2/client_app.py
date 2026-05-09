@@ -31,10 +31,23 @@ app = ClientApp()
 # Safe because config is constant within a run and partitioning is
 # deterministic (same seed → same result).  Each simulation worker process
 # has its own copy of these globals.
+#
+# `_model_cache` is the R1 speedup: rather than re-instantiating an 11M-param
+# ResNet18 (~80 ms of allocation + random-init) on every train() / evaluate()
+# call and immediately overwriting all weights via load_state_dict(...), keep
+# one model per (model_type, num_classes, canonical_conv1) combo on the
+# actor's device. The state_dict load overwrites every parameter AND every
+# buffer (BN running_mean, running_var, num_batches_tracked are part of
+# state_dict), so the cached model after load_state_dict is functionally
+# identical to a freshly-built one. Determinism preserved; the only thing
+# that changes is that we skip the wasted random-init work.
+#
+# See docs/cycle_02_speedup_investigation.md (R1) for the full rationale.
 # ---------------------------------------------------------------------------
 _index_map_cache: dict[int, list[int]] | None = None
 _index_map_cache_key: str | None = None
 _client_data_cache: dict[int, ClientDataLoaders] = {}
+_model_cache: dict[tuple, "torch.nn.Module"] = {}
 
 
 def _resolve_partition_seed(run_config) -> int:
@@ -165,7 +178,16 @@ def _load_client_data(context: Context):
 
 
 def _load_model_from_message(msg: Message, context: Context) -> Tuple[torch.nn.Module, torch.device]:
-    """Instantiate model and load weights received from the server."""
+    """Instantiate (or fetch cached) model and load weights from the server.
+
+    R1 cache: per (model_type, num_classes, canonical_conv1) we keep one
+    nn.Module on the actor's device. Subsequent calls reuse the same
+    object and only run load_state_dict — saving the ~80 ms of fresh
+    11M-param random-init that otherwise happens 50× per round.
+    Determinism preserved: load_state_dict overwrites every parameter
+    AND every buffer (BatchNorm running stats are part of state_dict),
+    so the cached model is functionally a fresh model after the load.
+    """
     num_classes = int(context.run_config["num-classes"])
     model_type = str(context.run_config.get("model-type", "cnn"))
     # Architecture-determining flag — must match what the server's
@@ -173,14 +195,18 @@ def _load_model_from_message(msg: Message, context: Context) -> Tuple[torch.nn.M
     canonical_conv1 = truthy(context.run_config.get("canonical-conv1", False))
     device = get_device(context.run_config)
 
-    model = create_model(
-        model_type,
-        num_classes=num_classes,
-        canonical_conv1=canonical_conv1,
-    )
-    model.load_state_dict(msg.content["arrays"].to_torch_state_dict())
-    model.to(device)
+    cache_key = (model_type, num_classes, canonical_conv1, str(device))
+    model = _model_cache.get(cache_key)
+    if model is None:
+        model = create_model(
+            model_type,
+            num_classes=num_classes,
+            canonical_conv1=canonical_conv1,
+        )
+        model.to(device)
+        _model_cache[cache_key] = model
 
+    model.load_state_dict(msg.content["arrays"].to_torch_state_dict())
     return model, device
 
 

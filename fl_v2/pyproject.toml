@@ -61,7 +61,13 @@ trainable-layers = "full_ft"
 canonical-conv1 = false
 
 # ===== optimization =====
-batch-size = 64
+# batch-size = 128 (R2 speedup: was 64). ResNet18 on A40 is heavily
+# under-batched at 64 (10,752 CUDA cores barely lit). At 128 each
+# forward+backward kernel does ~2× the work for ~1.5× the wallclock,
+# raising per-batch GPU SM utilisation. Combined with R1 (model cache)
+# this is the path to per-round wallclock ≤ 60 s and SM util ≥ 30 %.
+# See docs/cycle_02_speedup_investigation.md.
+batch-size = 128
 learning-rate = 0.001
 weight-decay = 0.0
 lr-schedule = "none"
