@@ -290,3 +290,104 @@ R1 attacks the per-client overhead directly; R2 attacks the
 per-batch GPU under-utilisation. Together they should beat the old
 config on wallclock AND beat Alvis' threshold AND remain
 bit-deterministic.
+
+---
+
+## 7. UPDATE 2026-05-09: V4 paired test of R1+R2 — neutral, not the win we expected
+
+After committing R1 + R2 (ee5d734) we ran a paired V4 test
+(jobs 6606100 / 6606101 at the new config). Results:
+
+### V4-A determinism — PASS
+
+  acc=0.4231987332  asr=0.1787878788  target=0.7466666667 (both runs)
+  rounds.csv : IDENTICAL
+  round_0025.pt SHA-256 : a2ee5e95... (both runs)
+
+Bit-identity holds, even across different physical A40 GPUs (runA on
+alvis7-11, runB on alvis5-08). R1+R2 do not break determinism.
+
+### V4-B speedup — 0 % wallclock improvement
+
+| Config | Per-round wallclock | Total / 25 rounds |
+|---|---|---|
+| Old non-deterministic 0.10/0          | ~60 s  | ~25 min |
+| Pre-R1+R2 unified (1.0/4, batch=64)    | ~106 s | ~44 min |
+| **R1+R2 (1.0/4, batch=128, model cache)** | **~104 s** | **~43 min** |
+
+R1+R2 saved essentially nothing.
+
+### V4-C GPU util — slightly worse
+
+| Config | Mean SM util | Time <10 % util |
+|---|---|---|
+| Pre-R1+R2 | 22 % | 54 % |
+| **R1+R2** | **17 %** | **68 %** |
+
+### Why R1+R2 missed
+
+The earlier per-client time decomposition was directionally right
+(91 % overhead, 9 % GPU compute) but wrong about *which* overhead
+dominates. Two corrections:
+
+1. **`create_model()` is faster than 80 ms.** Empirically it's
+   ~10-20 ms for ResNet18. R1's cache saves ~15-25 sec total over a
+   25-round V4 run = ~1 s/round, well inside the per-node variance
+   (jobs 6606100 = 112 s/round on alvis7-11, 6606101 = 97 s/round on
+   alvis5-08 — 14 % spread between same-seed runs on different
+   hardware).
+
+2. **R2 (batch=128) doesn't help because the GPU is not the
+   bottleneck.** With `num_workers=4`, CPU augmentation runs at
+   ~12 ms/image throttled. Doubling batch size doubles per-batch
+   wallclock (50 → 100 ms) and halves the number of batches, so
+   per-epoch wallclock is unchanged. GPU SM util actually drops
+   slightly because the slightly larger memory footprint and
+   different kernel-launch overhead spread the GPU activity over
+   more wallclock without delivering proportional compute.
+
+### What the bottleneck actually is
+
+Looking at the GPU profiler more carefully:
+
+  Median SM util = 6 %. Longest sustained ≥ 80 % stretch = 5 s.
+  Pattern: short repetitive bursts of 5-15 s at moderate util,
+           interspersed with long stretches at 0-5 %.
+
+This is consistent with **state-dict serialisation back-and-forth
+dominating** the per-client time, not augmentation throttle. Per
+round:
+
+  - Server → 50 clients : 50 × 44 MiB = 2.2 GiB of param transfer
+  - 50 clients → server : another 2.2 GiB of reply
+  - Total : 4.4 GiB / round of in-memory copy work, all on CPU
+
+That, plus Ray task dispatch overhead (~100–200 ms × 50 clients
+= ~5-10 sec/round), eats the 80 % of per-round wallclock that
+isn't GPU compute. The model rebuild (R1 target) was a minor
+contributor; CPU augment (R2 target via batch-size) is gated by
+num_workers, which is already at 4.
+
+### Practical conclusion
+
+R1+R2 are kept — they're correctness-neutral and add ~+4 %
+GPU memory but no harm. They're just not the speedup we needed.
+
+Two paths forward:
+
+- **R4 (kornia GPU augment)**: would let us drop num_workers→0,
+  remove the CPU augment chain, and push more work to the GPU.
+  This is the next logical lever IF wallclock matters more than
+  bit-determinism for that specific augmentation.
+- **Accept the wallclock cost as the price of bit-determinism at
+  single-actor.** The serialisation cost is fundamental to the
+  Flower simulation design (one reply per client per round). To
+  beat it we'd need to change the simulation backend or the
+  per-client cost structure (smaller state dicts → use
+  `trainable-layers=last_block` or `head_only` for those cells —
+  but that's an experimental setting, not a universal fix).
+
+Recommendation: **adopt R1+R2, hold off on R4 for now**, accept
+~104 s/round as the cost of correctness, revisit GPU efficiency
+once we have more cells run and a clearer picture of which
+experiments are wallclock-sensitive vs determinism-sensitive.
