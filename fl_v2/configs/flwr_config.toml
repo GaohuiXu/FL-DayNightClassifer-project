@@ -7,13 +7,15 @@ address = "supergrid.flower.ai"
 [superlink.local-simulation-gpu]
 options.num-supernodes = 50
 options.backend.client-resources.num-cpus = 1
-# num-gpus = 1.0  →  one Ray actor on the GPU at a time.
-# Combined with DataLoader num_workers >= 4 (default in pyproject.toml's
-# [tool.flwr.app.config]) this gives:
-#   - bit-identical FL training trajectories at fixed (commit, seed),
-#     because no inter-actor race on the GPU
-#   - GPU SM utilization >= 30 % (Alvis-friendly), because the 4 worker
-#     subprocesses pipeline CPU augmentation while the single actor
-#     keeps the GPU busy
-# See docs/cycle_02_gpu_efficiency_investigation.md for the analysis.
-options.backend.client-resources.num-gpus = 1.0
+# num-gpus = 0.10  →  5 concurrent Ray actors on the A40 (50 supernodes
+# / 0.10 = 5 GPU instances). Multi-actor is the higher-throughput
+# regime; combined with the partition-id sort fix in
+# fl_v2/src/fl_v2/strategy/norm_tracking_fedavg.py::partition_sort_key
+# the strategy aggregator processes replies in partition-id order
+# regardless of Ray's task-completion order, so bit-reproducibility is
+# preserved across runs even with multi-actor scheduling.
+# DataLoader num_workers=4 (default in pyproject.toml) parallelises
+# CPU augmentation within each actor.
+# See docs/cycle_02_gpu_efficiency_investigation.md for the analysis
+# and the partition-id fix commit message for the determinism story.
+options.backend.client-resources.num-gpus = 0.10
