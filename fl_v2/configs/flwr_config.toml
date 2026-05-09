@@ -7,15 +7,28 @@ address = "supergrid.flower.ai"
 [superlink.local-simulation-gpu]
 options.num-supernodes = 50
 options.backend.client-resources.num-cpus = 1
-# num-gpus = 0.10  →  5 concurrent Ray actors on the A40 (50 supernodes
-# / 0.10 = 5 GPU instances). Multi-actor is the higher-throughput
-# regime; combined with the partition-id sort fix in
-# fl_v2/src/fl_v2/strategy/norm_tracking_fedavg.py::partition_sort_key
-# the strategy aggregator processes replies in partition-id order
-# regardless of Ray's task-completion order, so bit-reproducibility is
-# preserved across runs even with multi-actor scheduling.
-# DataLoader num_workers=4 (default in pyproject.toml) parallelises
-# CPU augmentation within each actor.
-# See docs/cycle_02_gpu_efficiency_investigation.md for the analysis
-# and the partition-id fix commit message for the determinism story.
-options.backend.client-resources.num-gpus = 0.10
+# num-gpus = 1.0  →  ONE Ray actor on the GPU at a time.
+#
+# Determinism story (verified by V4 paired tests at this commit):
+#   - At num-gpus = 0.10 (5 concurrent actors) + partition-id sort:
+#     trajectories DIVERGE starting round 2. The partition-id sort
+#     fixes the strategy-aggregator order, but multi-actor introduces
+#     a separate ε source (CUDA kernel scheduling across concurrent
+#     actors / atomicAdd ordering on the shared GPU / per-actor
+#     DataLoader-worker RNG state). Tested in V4-3rd-try jobs
+#     6605828/6605829 — diverged at round 2.
+#   - At num-gpus = 1.0 (1 actor) + partition-id sort: bit-identical
+#     end-to-end. Verified in V4 jobs 6605728/6605729: identical
+#     summary.json (acc 0.4967537609, asr 0.1229797980), identical
+#     rounds.csv, identical round_0025.pt SHA-256
+#     (99556e25a8fd2354d8868775c975a559869bb75f53b0235cbda48ac7eba043bd).
+#
+# Cost: single-actor processes 50 clients sequentially → ~106 s/round
+# vs ~60 s/round at the old 0.10/0 setting (~1.7× slower). DataLoader
+# num_workers=4 (default in pyproject.toml) parallelises CPU augment
+# within the single actor and lifts GPU SM util from ~6 % → ~22 %
+# (still below Alvis' 30 % threshold; further GPU-utilization gains
+# require batch-size or other tuning beyond this commit).
+#
+# See docs/cycle_02_gpu_efficiency_investigation.md.
+options.backend.client-resources.num-gpus = 1.0
