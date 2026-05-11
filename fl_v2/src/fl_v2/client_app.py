@@ -239,15 +239,6 @@ def train(msg: Message, context: Context) -> Message:
     model, device = _load_model_from_message(msg, context)
     _, client_data = _load_client_data(context)
 
-    # Cache the global state dict for model-replacement update scaling.
-    # This is essentially free — `to_torch_state_dict()` already returns a new
-    # dict and we keep a detached CPU copy so the later scaling is cheap and
-    # does not interfere with training on GPU.
-    global_state_dict = {
-        k: v.detach().cpu().clone()
-        for k, v in msg.content["arrays"].to_torch_state_dict().items()
-    }
-
     # Read static config from run_config
     run_config = context.run_config
     default_local_epochs = int(run_config["num-local-epochs"])
@@ -318,6 +309,15 @@ def train(msg: Message, context: Context) -> Message:
                 num_malicious=len(malicious_client_ids),
                 fallback=1.0,
             )
+        # Cache the global state dict for the scaling arithmetic. Gated by
+        # the model-replacement check above because the clone (~600 ms /
+        # client / round on a ResNet18 11M-param state_dict) is pure
+        # overhead for every other configuration. See
+        # docs/cycle_02_pipeline_speedup_review.md C1.
+        global_state_dict = {
+            k: v.detach().cpu().clone()
+            for k, v in msg.content["arrays"].to_torch_state_dict().items()
+        }
         # Move the local (on-device) tensors to CPU so the scaling arithmetic
         # matches the cached global state dict (CPU).
         local_state_cpu = {

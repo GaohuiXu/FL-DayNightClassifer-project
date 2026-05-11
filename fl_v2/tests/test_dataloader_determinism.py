@@ -31,7 +31,11 @@ import torch
 from torch.utils.data import DataLoader, Subset
 from torchvision.datasets import GTSRB
 
-from fl_v2.data.transforms import get_train_transforms
+from fl_v2.data.dataset import TransformedSubset
+from fl_v2.data.transforms import (
+    get_train_transforms,
+    get_train_transforms_split,
+)
 from fl_v2.utils.runtime import seeded_worker_init
 
 
@@ -157,6 +161,130 @@ def test_singleworker_is_bit_identical_at_fixed_seed():
     _assert_bit_identical(a, b, tag="num_workers=0 same seed")
 
 
+def _build_loader_split(
+    data_root: str,
+    num_workers: int,
+    seed: int,
+    n_samples: int = 100,
+    batch_size: int = 16,
+) -> DataLoader:
+    """Build a TransformedSubset-backed loader using the split (pre, post)
+    transforms. Bit-equality with `_build_loader` (which uses the fused
+    chain) is the C5 / pre-cache contract.
+    """
+    import random as _random
+    _random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+    base = GTSRB(
+        root=data_root, split="train", download=False,
+        transform=None,  # raw PIL — TransformedSubset applies the chain
+    )
+    pre, post = get_train_transforms_split(image_size=32)
+    indices = list(range(min(n_samples, len(base))))
+    subset = TransformedSubset(
+        base_dataset=base,
+        indices=indices,
+        transform=post,
+        pre_transform=pre,
+    )
+
+    gen = torch.Generator().manual_seed(seed)
+    kwargs = dict(
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=False,
+        generator=gen,
+    )
+    if num_workers > 0:
+        kwargs.update(
+            worker_init_fn=seeded_worker_init,
+            persistent_workers=True,
+            prefetch_factor=2,
+        )
+    return DataLoader(subset, **kwargs)
+
+
+def test_pre_cache_is_bit_identical_to_fused_chain():
+    """C5 contract: pre_transform=Resize cache must produce the same
+    augmented batches as the fused Resize+Rotation+Jitter+ToTensor+Normalize
+    chain at the same seed.
+
+    Resize is purely deterministic (PIL bilinear is byte-stable for fixed
+    input + fixed output size). Pre-applying it once at __init__ and
+    storing the resized PIL image must produce bit-equivalent
+    DataLoader output to applying it inside the per-__getitem__ chain.
+    """
+    _ensure_gtsrb_available()
+    seed = 4242
+    fused = _collect_one_epoch(
+        _build_loader(_data_root(), num_workers=4, seed=seed)
+    )
+    cached = _collect_one_epoch(
+        _build_loader_split(_data_root(), num_workers=4, seed=seed)
+    )
+    _assert_bit_identical(
+        fused, cached, tag="fused-chain vs pre_transform-cache (num_workers=4)",
+    )
+
+
+def test_pre_cache_is_bit_identical_singleworker():
+    """Same C5 contract, num_workers=0 path."""
+    _ensure_gtsrb_available()
+    seed = 4242
+    fused = _collect_one_epoch(
+        _build_loader(_data_root(), num_workers=0, seed=seed)
+    )
+    cached = _collect_one_epoch(
+        _build_loader_split(_data_root(), num_workers=0, seed=seed)
+    )
+    _assert_bit_identical(
+        fused, cached, tag="fused-chain vs pre_transform-cache (num_workers=0)",
+    )
+
+
+def test_full_pre_cache_eval_chain_bit_identical():
+    """For deterministic-only chains (eval-side: Resize+ToTensor+Normalize)
+    we cache the FINAL tensor (transform=None, pre_transform=full chain).
+    Must be bit-equivalent to applying the chain inline per __getitem__.
+
+    Used by `get_global_testloader` and the valloader to skip per-batch
+    CPU work entirely.
+    """
+    _ensure_gtsrb_available()
+    from fl_v2.data.transforms import get_eval_transforms
+
+    seed = 4242
+    base = GTSRB(
+        root=_data_root(), split="train", download=False, transform=None,
+    )
+    indices = list(range(min(100, len(base))))
+    eval_chain = get_eval_transforms(image_size=32)
+
+    # Inline path: transform applied per __getitem__
+    inline = TransformedSubset(
+        base_dataset=base, indices=indices,
+        transform=eval_chain, pre_transform=None,
+    )
+    # Cached path: transform applied once at __init__, output cached
+    cached = TransformedSubset(
+        base_dataset=base, indices=indices,
+        transform=None, pre_transform=eval_chain,
+    )
+
+    inline_loader = DataLoader(inline, batch_size=16, shuffle=False, num_workers=0)
+    cached_loader = DataLoader(cached, batch_size=16, shuffle=False, num_workers=0)
+
+    inline_batches = _collect_one_epoch(inline_loader)
+    cached_batches = _collect_one_epoch(cached_loader)
+    _assert_bit_identical(
+        inline_batches, cached_batches,
+        tag="full-pre-cache vs inline (eval chain, no augmentation)",
+    )
+
+
 def test_different_seeds_diverge():
     """Sanity: different seeds DO produce different augmented batches."""
     _ensure_gtsrb_available()
@@ -183,6 +311,12 @@ if __name__ == "__main__":
     print("[ok] test_multiworker_is_bit_identical_at_fixed_seed")
     test_singleworker_is_bit_identical_at_fixed_seed()
     print("[ok] test_singleworker_is_bit_identical_at_fixed_seed")
+    test_pre_cache_is_bit_identical_to_fused_chain()
+    print("[ok] test_pre_cache_is_bit_identical_to_fused_chain")
+    test_pre_cache_is_bit_identical_singleworker()
+    print("[ok] test_pre_cache_is_bit_identical_singleworker")
+    test_full_pre_cache_eval_chain_bit_identical()
+    print("[ok] test_full_pre_cache_eval_chain_bit_identical")
     test_different_seeds_diverge()
     print("[ok] test_different_seeds_diverge")
     print("ALL TESTS PASSED")

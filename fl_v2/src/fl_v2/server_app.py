@@ -216,17 +216,29 @@ def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger, strateg
     if checkpoint_rounds_str.strip():
         checkpoint_rounds = {int(r.strip()) for r in checkpoint_rounds_str.split(",") if r.strip()}
 
+    # C4: server-side mirror of the client R1 model cache. evaluate_fn is
+    # called once per round; without the cache it allocates a fresh
+    # ResNet18 (~95 ms) every time. The state_dict load + .to(device)
+    # immediately afterward overwrites every parameter and BN buffer, so
+    # the cached model is functionally identical to a fresh one. Held in
+    # the closure so it persists across rounds within the same server
+    # actor.
+    _eval_model_cache = {"model": None}
+
     def evaluate_fn(server_round: int, arrays: ArrayRecord) -> Optional[MetricRecord]:
         # pretrained=False — init is overwritten immediately by load_state_dict.
         # canonical_conv1 must match the running federation's architecture so
         # that state_dict keys align.
-        model = create_model(
-            model_type,
-            num_classes=num_classes,
-            canonical_conv1=canonical_conv1,
-        )
+        if _eval_model_cache["model"] is None:
+            model = create_model(
+                model_type,
+                num_classes=num_classes,
+                canonical_conv1=canonical_conv1,
+            )
+            model.to(device)
+            _eval_model_cache["model"] = model
+        model = _eval_model_cache["model"]
         model.load_state_dict(arrays.to_torch_state_dict())
-        model.to(device)
 
         # Single-pass evaluation: accuracy + TCA + ASR in one dataloader iteration
         results = server_evaluate(

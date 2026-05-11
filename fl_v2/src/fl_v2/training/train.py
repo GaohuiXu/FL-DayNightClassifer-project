@@ -191,12 +191,23 @@ def train_local(
             trainable_layers=trainable_layers,
         )
 
-        val_metrics = evaluate(
-            model=model,
-            dataloader=valloader,
-            criterion=criterion,
-            device=device,
-        )
+        # C2: only the LAST epoch's val_metrics is consumed downstream
+        # (`results["final_val_loss"]` / `final_val_accuracy` in
+        # client_app.py:343-344). Intermediate epochs' val passes were
+        # ~50 ms each × 50 clients × (num_epochs - 1) ≈ several seconds
+        # per round of pure waste. `evaluate()` is read-only on the
+        # model and (for ResNet18) consumes no RNG, so skipping the
+        # intermediate calls is bit-equivalent.
+        is_last_epoch = (epoch == num_epochs - 1)
+        if is_last_epoch:
+            val_metrics = evaluate(
+                model=model,
+                dataloader=valloader,
+                criterion=criterion,
+                device=device,
+            )
+        else:
+            val_metrics = {"loss": 0.0, "accuracy": 0.0}
 
         epoch_result = {
             "epoch": float(epoch + 1),

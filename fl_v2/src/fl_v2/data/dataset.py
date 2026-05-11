@@ -13,25 +13,67 @@ from fl_v2.data.partition import (
     make_partition,
     summarize_partition_histograms,
 )
-from fl_v2.data.transforms import get_eval_transforms, get_train_transforms
+from fl_v2.data.transforms import (
+    get_eval_transforms,
+    get_eval_transforms_split,
+    get_train_transforms,
+    get_train_transforms_split,
+)
 from fl_v2.utils.runtime import derive_seed, seeded_worker_init
 
 from fl_v2.attacks_defenses import LabelFlippingDataset, PixelBackdoorDataset
 
 
 class TransformedSubset(Dataset):
-    """Apply a transform on top of a subset of a base dataset."""
+    """Apply a transform on top of a subset of a base dataset.
 
-    def __init__(self, base_dataset: Dataset, indices: List[int], transform=None) -> None:
+    Optional ``pre_transform`` runs once at construction time on every
+    sample, caching the result (e.g., post-Resize PIL images). The
+    remaining ``transform`` is applied per ``__getitem__`` (e.g.,
+    stochastic augmentations + ToTensor + Normalize). This eliminates
+    the per-batch cost of deterministic ops on the DataLoader worker
+    path while preserving bit-equality: deterministic ops produce
+    identical output regardless of when they run, and the stochastic
+    ops downstream see the same PIL pixels they would have seen with
+    a single fused transform.
+
+    See docs/cycle_02_pipeline_speedup_review.md §8.4 for the
+    rationale; the determinism gate is in
+    tests/test_dataloader_determinism.py.
+    """
+
+    def __init__(
+        self,
+        base_dataset: Dataset,
+        indices: List[int],
+        transform=None,
+        pre_transform=None,
+    ) -> None:
         self.base_dataset = base_dataset
         self.indices = list(indices)
         self.transform = transform
+        self.pre_transform = pre_transform
+        self._pre_cache = None
+        if pre_transform is not None:
+            # Materialise: load each base sample, apply pre_transform once,
+            # store the result + label. Force eager pixel decode so workers
+            # forked later don't re-read from disk.
+            self._pre_cache = []
+            for i in self.indices:
+                img, lab = self.base_dataset[i]
+                pre = pre_transform(img)
+                if hasattr(pre, "load"):
+                    pre.load()  # eager-decode PIL Image so workers don't lazy-load
+                self._pre_cache.append((pre, int(lab)))
 
     def __len__(self) -> int:
         return len(self.indices)
 
     def __getitem__(self, idx: int):
-        image, label = self.base_dataset[self.indices[idx]]
+        if self._pre_cache is not None:
+            image, label = self._pre_cache[idx]
+        else:
+            image, label = self.base_dataset[self.indices[idx]]
         if self.transform is not None:
             image = self.transform(image)
         return image, label
@@ -256,15 +298,21 @@ def get_client_dataloaders(
         seed=partition_seed + client_id,
     )
 
+    train_pre, train_post = get_train_transforms_split(image_size=image_size)
     train_dataset = TransformedSubset(
         base_dataset=base_train_dataset,
         indices=train_indices,
-        transform=get_train_transforms(image_size=image_size),
+        transform=train_post,
+        pre_transform=train_pre,
     )
+    # Valloader has no augmentation — the entire eval chain is
+    # deterministic, so we cache the FINAL tensor (not just post-Resize
+    # PIL) and skip per-batch transform work entirely.
     val_dataset = TransformedSubset(
         base_dataset=base_train_dataset,
         indices=val_indices,
-        transform=get_eval_transforms(image_size=image_size),
+        transform=None,
+        pre_transform=get_eval_transforms(image_size=image_size),
     )
 
     if attack_type == "label_flipping" and is_malicious:
@@ -361,18 +409,29 @@ def get_global_testloader(
 ) -> DataLoader:
     """Build the global test dataloader (full 12,630 GTSRB test samples).
 
+    The eval transform chain (Resize + ToTensor + Normalize) is purely
+    deterministic, so we wrap the raw GTSRB test split in a
+    ``TransformedSubset`` with ``pre_transform=full chain`` and
+    ``transform=None`` — every transformed tensor is cached at
+    construction, eliminating per-batch CPU work on the server actor.
+    The cache costs ~150 MiB (12,630 × 3 × 32 × 32 × 4 B) at server
+    startup, amortised across all server-eval calls in the run.
+
     Backward-compatible default: returns a loader over the full test
     split. For the val/test-decoupled flow (risk-audit H1), see
     `get_global_val_test_split_loaders` instead.
-
-    `num_workers > 0` parallelises preprocessing; `persistent_workers`
-    avoids respawn cost when the server re-iterates the test loader
-    every round.
     """
-    test_dataset = load_gtsrb_test_dataset(
-        data_root=data_root,
-        image_size=image_size,
+    raw_test = GTSRB(
+        root=data_root,
+        split="test",
         download=download,
+        transform=None,  # raw PIL — TransformedSubset applies full chain
+    )
+    test_dataset = TransformedSubset(
+        base_dataset=raw_test,
+        indices=list(range(len(raw_test))),
+        transform=None,
+        pre_transform=get_eval_transforms(image_size=image_size),
     )
 
     kwargs = dict(
@@ -417,16 +476,30 @@ def get_global_val_test_split_loaders(
     callers can layer "val_*" alongside without breaking the analysis
     pipeline.
     """
-    full_test = load_gtsrb_test_dataset(
-        data_root=data_root,
-        image_size=image_size,
+    raw_test = GTSRB(
+        root=data_root,
+        split="test",
         download=download,
+        transform=None,
     )
     val_idx, test_idx = make_global_val_test_split(
-        n_total=len(full_test), val_size=val_size, seed=split_seed,
+        n_total=len(raw_test), val_size=val_size, seed=split_seed,
     )
-    val_subset = Subset(full_test, val_idx.tolist())
-    test_subset = Subset(full_test, test_idx.tolist())
+    # Both halves cache the full deterministic transform output — same
+    # rationale as `get_global_testloader` above.
+    eval_chain = get_eval_transforms(image_size=image_size)
+    val_subset = TransformedSubset(
+        base_dataset=raw_test,
+        indices=val_idx.tolist(),
+        transform=None,
+        pre_transform=eval_chain,
+    )
+    test_subset = TransformedSubset(
+        base_dataset=raw_test,
+        indices=test_idx.tolist(),
+        transform=None,
+        pre_transform=eval_chain,
+    )
 
     common = dict(
         batch_size=batch_size,
