@@ -1,0 +1,34 @@
+# C1 + num-workers=8 — double the current default (4 workers).
+#
+# SLURM allocates 16 CPUs per A40:1; baseline uses 4. Tests whether
+# more augment-side parallelism reduces the 59 ms/batch yield wait
+# observed in profile job 6609354.
+experiment-name: cycle02-c1-workers8-pixel5-r20
+cycle: cycle_02
+phase: phaseD2
+model-type: resnet18
+pretrained-init: true
+trainable-layers: full_ft
+num-clients: 50
+num-server-rounds: 20
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: pixel_backdoor
+malicious-client-ids: 0,1,2,3,4
+backdoor-target-label: 2
+poison-fraction: 0.5
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+defense-type: none
+checkpoint-rounds: ""
+num-workers: 8
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+seed: 42
+wandb-enabled: false
+wandb-tags: c1-workers8

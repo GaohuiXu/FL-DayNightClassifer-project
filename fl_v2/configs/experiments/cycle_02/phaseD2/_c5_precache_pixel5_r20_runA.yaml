@@ -1,0 +1,38 @@
+# C5 (pre-cache deterministic transforms) verification — run A.
+#
+# Same training knobs as _c1_check_pixel5_r20_runA.yaml but on the
+# pre_transform-cache pipeline. Determinism gate: paired runA vs runB
+# must be bit-identical AND identical to the prior C1-only baseline
+# (6609204 / 6609205) — the unit test
+# tests/test_dataloader_determinism.py::test_pre_cache_is_bit_identical_to_fused_chain
+# already enforces this at the DataLoader level.
+#
+# Wallclock target: ~15-25 s/round drop vs C1-only baseline (105-110 s/round).
+experiment-name: cycle02-c5-precache-pixel5-r20-runA
+cycle: cycle_02
+phase: phaseD2
+model-type: resnet18
+pretrained-init: true
+trainable-layers: full_ft
+num-clients: 50
+num-server-rounds: 20
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: pixel_backdoor
+malicious-client-ids: 0,1,2,3,4
+backdoor-target-label: 2
+poison-fraction: 0.5
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+defense-type: none
+checkpoint-rounds: "20"
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+seed: 42
+wandb-group: cycle02-c5-precache
+wandb-tags: c5-precache,run-A

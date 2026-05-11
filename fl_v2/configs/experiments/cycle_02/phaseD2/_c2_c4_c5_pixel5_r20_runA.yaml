@@ -1,0 +1,37 @@
+# C1+C2+C4+C5 stack verification — run A.
+#
+# C1: gate global_state_dict clone behind model_replacement (kept).
+# C2: skip val pass on non-final local epochs (new).
+# C4: server-side evaluate_fn model cache (new).
+# C5: pre-cache deterministic transforms (kept).
+#
+# Determinism gate: paired runA vs runB must be bit-identical AND
+# identical to prior C1+C5 baseline (6610087/8 SHA 8c15ebb5...).
+experiment-name: cycle02-c2c4c5-pixel5-r20-runA
+cycle: cycle_02
+phase: phaseD2
+model-type: resnet18
+pretrained-init: true
+trainable-layers: full_ft
+num-clients: 50
+num-server-rounds: 20
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: pixel_backdoor
+malicious-client-ids: 0,1,2,3,4
+backdoor-target-label: 2
+poison-fraction: 0.5
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+defense-type: none
+checkpoint-rounds: "20"
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+seed: 42
+wandb-group: cycle02-c2c4c5
+wandb-tags: c2c4c5,run-A
