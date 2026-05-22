@@ -1,15 +1,14 @@
-# Cycle 02 — Job 1 determinism check, run A (paired with run B).
+# Cycle 02 - Job 1 determinism check, run A (paired with run B).
 #
-# Same config as job1_clean_rebaseline but 20 rounds (per the verification
-# convention: bit-determinism checks cap at 20 rounds). runA and runB are
-# identical; their summary.json AND norm_log.json must be byte-identical,
-# confirming WS1 (gradient-space logging) and WS0 (inert on a clean run)
-# preserved the audit's bit-deterministic invariant.
+# 20-round clean from-scratch run; runA and runB are identical except
+# experiment-name and must produce byte-identical summary.json and
+# norm_log.json. No inline (#) comments on value lines (run_alvis.sh
+# parser limitation).
 experiment-name: cycle02-det-clean-r20-runA
 cycle: cycle_02
 phase: mechanism
 model-type: resnet18
-pretrained-init: false   # train from scratch (random init) — matches the backdoor literature
+pretrained-init: false
 trainable-layers: full_ft
 num-clients: 50
 num-server-rounds: 20
@@ -17,7 +16,7 @@ fraction-train: 1.0
 min-available-nodes: 50
 min-train-nodes: 2
 num-local-epochs: 3
-learning-rate: 0.001   # Adam, from-scratch — 0.05 was a fine-tuning LR and would diverge
+learning-rate: 0.001
 lr-schedule: cosine
 lr-min: 0.0001
 attack-type: none

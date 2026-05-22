@@ -1,20 +1,21 @@
-# Cycle 02 — Gradient-Space Mechanism Study — Job 2: pixel backdoor vs FedAvg.
+# Cycle 02 - Gradient-Space Mechanism Study - Job 2: pixel backdoor vs FedAvg.
 #
 # The first-attack-signal gate. Pixel-trigger backdoor (the trivial
-# baseline attack) against FedAvg (no defense), 100 rounds. Confirms the
-# WS1 gradient-space metrics visibly separate malicious from honest
-# updates, the WS0 attack-window machinery works, and ASR converges
-# sensibly. To be REVIEWED with the user before any batch configs are
-# written — DO NOT submit until Job 1 + the determinism check pass.
+# baseline attack) against FedAvg (no defense), 100 rounds, ResNet18 from
+# scratch. Confirms the WS1 gradient-space metrics visibly separate
+# malicious from honest updates, the WS0 attack-window machinery works,
+# and ASR converges sensibly. Reviewed with the user before any batch
+# configs - do NOT submit until Job 1 passes.
 #
 # Threat model: m=10/50 malicious clients (20%); target class 14 (Stop);
 # base poison regime (common source classes {1,2,5,12,13}); attack window
 # rounds 10-50 with post-attack decay observed over rounds 51-100.
+# No inline (#) comments on value lines (run_alvis.sh parser limitation).
 experiment-name: cycle02-job2-pixel-base-fedavg
 cycle: cycle_02
 phase: mechanism
 model-type: resnet18
-pretrained-init: false   # train from scratch (random init) — matches the backdoor literature
+pretrained-init: false
 trainable-layers: full_ft
 num-clients: 50
 num-server-rounds: 100
@@ -22,7 +23,7 @@ fraction-train: 1.0
 min-available-nodes: 50
 min-train-nodes: 2
 num-local-epochs: 3
-learning-rate: 0.001   # Adam, from-scratch — 0.05 was a fine-tuning LR and would diverge
+learning-rate: 0.001
 lr-schedule: cosine
 lr-min: 0.0001
 attack-type: pixel_backdoor
@@ -41,5 +42,6 @@ partition-seed: 42
 topk-energy-k: 4096
 checkpoint-rounds: ""
 output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+wandb-project: cycle-02
 wandb-group: cycle02-mechanism
 wandb-tags: cycle02,mechanism,job2,pixel,base,fedavg
