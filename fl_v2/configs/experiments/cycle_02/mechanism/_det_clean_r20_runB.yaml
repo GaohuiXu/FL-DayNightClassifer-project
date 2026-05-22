@@ -1,0 +1,29 @@
+# Cycle 02 — Job 1 determinism check, run B (paired with run A).
+#
+# Identical to _det_clean_r20_runA except experiment-name. summary.json
+# and norm_log.json from runA and runB must be byte-identical.
+experiment-name: cycle02-det-clean-r20-runB
+cycle: cycle_02
+phase: mechanism
+model-type: resnet18
+pretrained-init: true
+trainable-layers: full_ft
+num-clients: 50
+num-server-rounds: 20
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: none
+defense-type: none
+seed: 42
+partition-seed: 42
+topk-energy-k: 4096
+checkpoint-rounds: ""
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+wandb-enabled: false
+wandb-group: cycle02-mechanism
+wandb-tags: cycle02,mechanism,determinism

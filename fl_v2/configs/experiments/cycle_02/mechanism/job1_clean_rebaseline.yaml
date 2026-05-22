@@ -1,0 +1,32 @@
+# Cycle 02 — Gradient-Space Mechanism Study — Job 1: clean re-baseline.
+#
+# First job of the redesigned Cycle 02. Confirms the audit-fixed codebase
+# trains cleanly and converges over 100 rounds, and that the WS1
+# gradient-space metrics on honest-only updates are sane (this run
+# establishes the honest cosine / energy baseline for the evasion matrix).
+# GATE: Job 1 + the paired _det_clean_r20 determinism check must pass
+# before Job 2 (pixel attack) is submitted.
+experiment-name: cycle02-job1-clean-rebaseline
+cycle: cycle_02
+phase: mechanism
+model-type: resnet18
+pretrained-init: true
+trainable-layers: full_ft
+num-clients: 50
+num-server-rounds: 100
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: none
+defense-type: none
+seed: 42
+partition-seed: 42
+topk-energy-k: 4096
+checkpoint-rounds: ""
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+wandb-group: cycle02-mechanism
+wandb-tags: cycle02,mechanism,job1,clean,rebaseline
