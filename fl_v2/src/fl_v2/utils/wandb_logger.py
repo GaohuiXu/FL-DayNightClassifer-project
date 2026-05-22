@@ -186,16 +186,34 @@ class WandbLogger:
         exp_name = str(run_config.get("experiment-name", "exp"))
         run_name = f"{exp_name}_seed{seed}"
 
-        self.run = wandb.init(
-            project=_derive_project(run_config),
-            group=_derive_group(run_config),
-            name=run_name,
-            tags=_derive_tags(run_config),
-            mode=mode,
-            dir=wandb_dir,
-            config=_config_to_dict(run_config),
-            reinit=True,
-        )
+        # wandb is a monitoring side-channel — its service failing to
+        # start (e.g. ServicePollForTokenError when the wandb-core
+        # subprocess cannot write its port file within the timeout) must
+        # never kill a multi-hour FL run. Degrade gracefully on any
+        # failure: continue with wandb disabled. The experiment's primary
+        # outputs (norm_log.json, summary.json, rounds.csv, checkpoints)
+        # do not depend on wandb.
+        try:
+            self.run = wandb.init(
+                project=_derive_project(run_config),
+                group=_derive_group(run_config),
+                name=run_name,
+                tags=_derive_tags(run_config),
+                mode=mode,
+                dir=wandb_dir,
+                config=_config_to_dict(run_config),
+                reinit=True,
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.disabled = True
+            self.run = None
+            print(
+                f"[wandb] init FAILED ({e!r}) — continuing with wandb "
+                f"disabled; experiment outputs are unaffected.",
+                flush=True,
+            )
+            return
+
         # Use server-round as the x-axis for all per-round metrics.
         try:
             self.run.define_metric("server-round")
