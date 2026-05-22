@@ -22,10 +22,12 @@ from fl_v2.training import evaluate, train_local
 from fl_v2.utils import compute_lr, derive_seed, get_device, truthy
 
 from fl_v2.attacks_defenses import (
+    compute_clean_proxy_gradient,
     compute_replacement_scale,
     dba_subregions,
     parse_client_ids,
     scale_client_update,
+    topk_mask_from_proxy,
 )
 
 
@@ -334,6 +336,27 @@ def train(msg: Message, context: Context) -> Message:
             lr_min=float(run_config.get("lr-min", 0.0001)),
         )
 
+    # Cycle-02 Neurotoxin: a malicious client estimates the benign
+    # heavy-hitter coordinates from its own clean-data gradient at the
+    # current global model, then masks those coordinates out of its
+    # backdoor gradient during local training — the backdoor lands in the
+    # cold coordinates honest training does not overwrite (durability).
+    # grad_mask stays None for every other client / attack / round, and
+    # neurotoxin-topk-ratio 0.0 skips the proxy entirely (== plain pixel).
+    grad_mask = None
+    if attack_type == "neurotoxin" and is_malicious and in_attack_window:
+        neurotoxin_ratio = float(run_config.get("neurotoxin-topk-ratio", 0.0))
+        if neurotoxin_ratio > 0.0:
+            proxy = compute_clean_proxy_gradient(
+                model, client_data.trainloader, device
+            )
+            grad_mask = topk_mask_from_proxy(proxy, neurotoxin_ratio)
+            print(
+                f"[Client {client_id}] neurotoxin: masked top-"
+                f"{neurotoxin_ratio:.2f} benign coords, round={server_round}",
+                flush=True,
+            )
+
     results = train_local(
         model=model,
         trainloader=trainloader,
@@ -343,6 +366,7 @@ def train(msg: Message, context: Context) -> Message:
         learning_rate=learning_rate,
         weight_decay=weight_decay,
         trainable_layers=trainable_layers,
+        grad_mask=grad_mask,
     )
 
     # --- Model replacement (Bagdasaryan) --------------------------------

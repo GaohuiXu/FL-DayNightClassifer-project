@@ -10,6 +10,8 @@ from torch.utils.data import DataLoader
 from fl_v2.training.eval import evaluate
 from fl_v2.training.metrics import compute_accuracy, count_correct
 
+from fl_v2.attacks_defenses.attacks.neurotoxin import project_grad_away_from_topk
+
 
 # ---------------------------------------------------------------------------
 # Layer-freezing helpers (Cycle 02 onward)
@@ -109,6 +111,7 @@ def train_one_epoch(
     optimizer: Optimizer,
     device: torch.device,
     trainable_layers: str = "full_ft",
+    grad_mask: Dict[str, torch.Tensor] | None = None,
 ) -> Dict[str, float]:
     """Train model for one epoch.
 
@@ -131,6 +134,11 @@ def train_one_epoch(
         logits = model(inputs)
         loss = criterion(logits, targets)
         loss.backward()
+        if grad_mask is not None:
+            # Neurotoxin: zero the malicious gradient at the benign
+            # heavy-hitter coordinates before the optimizer step, so the
+            # backdoor is written only into low-energy coordinates.
+            project_grad_away_from_topk(model, grad_mask)
         optimizer.step()
 
         batch_size = targets.size(0)
@@ -157,6 +165,7 @@ def train_local(
     learning_rate: float = 1e-3,
     weight_decay: float = 0.0,
     trainable_layers: str = "full_ft",
+    grad_mask: Dict[str, torch.Tensor] | None = None,
 ) -> Dict[str, object]:
     """Train locally for multiple epochs and evaluate on validation data.
 
@@ -189,6 +198,7 @@ def train_local(
             optimizer=optimizer,
             device=device,
             trainable_layers=trainable_layers,
+            grad_mask=grad_mask,
         )
 
         # C2: only the LAST epoch's val_metrics is consumed downstream
