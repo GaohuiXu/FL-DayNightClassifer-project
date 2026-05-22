@@ -83,6 +83,17 @@ export RAY_OBJECT_MANAGER_PORT=$((RAY_BASE + 4))
 export RAY_RUNTIME_ENV_AGENT_PORT=$((RAY_BASE + 5))
 echo "Ray ports: GCS=$RAY_GCS_SERVER_PORT dashboard=$RAY_DASHBOARD_PORT node-mgr=$RAY_NODE_MANAGER_PORT object-mgr=$RAY_OBJECT_MANAGER_PORT runtime-env=$RAY_RUNTIME_ENV_AGENT_PORT"
 
+# --- Per-job Ray temp/session dir ---
+# The per-job ports above are not enough on a shared node: every Ray
+# instance otherwise roots its session under /tmp/ray and collides on the
+# raylet / plasma UNIX sockets and lock files, so a 2nd/3rd simulation on
+# the same node intermittently dies at engine startup (silent exit 0, no
+# rounds trained — observed in the cycle-02 Wave-1 batch, ~25% of jobs).
+# An isolated per-job temp dir removes that shared state.
+export RAY_TMPDIR="/tmp/ray_${SLURM_JOB_ID}"
+mkdir -p "$RAY_TMPDIR"
+echo "Ray temp dir: $RAY_TMPDIR"
+
 # --- Parse experiment YAML (passed via EXPERIMENT_YAML env var) ---
 # Builds RUN_CONFIG_FROM_YAML="key1='val1' key2=42 ..." for `flwr run --run-config`.
 RUN_CONFIG_FROM_YAML=""
@@ -231,7 +242,7 @@ else:
 "
 fi
 
-rm -rf "$JOB_FLWR_HOME"
+rm -rf "$JOB_FLWR_HOME" "$RAY_TMPDIR"
 
 echo "End: $(date)"
 echo "Elapsed: $(printf '%02d:%02d:%02d' $((SECONDS/3600)) $((SECONDS%3600/60)) $((SECONDS%60))) (total ${SECONDS}s)"
