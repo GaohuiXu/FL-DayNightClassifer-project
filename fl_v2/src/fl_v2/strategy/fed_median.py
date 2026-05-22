@@ -14,7 +14,11 @@ import numpy as np
 from flwr.app import Array, ArrayRecord, Message, MetricRecord
 
 from fl_v2.attacks_defenses import compute_update_norms
-from fl_v2.strategy.norm_tracking_fedavg import NormTrackingFedAvg, partition_sort_key
+from fl_v2.strategy.norm_tracking_fedavg import (
+    NormTrackingFedAvg,
+    drop_nonfinite_replies,
+    partition_sort_key,
+)
 
 
 class NormTrackingFedMedian(NormTrackingFedAvg):
@@ -35,6 +39,14 @@ class NormTrackingFedMedian(NormTrackingFedAvg):
             self._last_train_metrics = None
             return None, None
 
+        # NaN/Inf robustness: np.median returns NaN if any coordinate has
+        # a NaN among the stacked clients, so drop offending replies
+        # before aggregation. See norm_tracking_fedavg.drop_nonfinite_replies.
+        valid_replies = drop_nonfinite_replies(valid_replies, self.arrayrecord_key)
+        if not valid_replies:
+            self._last_train_metrics = None
+            return None, None
+
         # Deterministic ordering — see norm_tracking_fedavg.partition_sort_key.
         # np.median is value-based so the median itself is order-independent,
         # but per-client iteration in the norm-logging path below is, so we
@@ -47,7 +59,13 @@ class NormTrackingFedMedian(NormTrackingFedAvg):
             client_params_list = self._extract_client_params(valid_replies)
             original_norms = compute_update_norms(global_params, client_params_list)
             self._print_client_table(valid_replies)
-            self._compute_and_log_norms(server_round, original_norms)
+            self._compute_and_log_norms(
+                server_round,
+                original_norms,
+                global_params=global_params,
+                client_params_list=client_params_list,
+                partition_ids=[partition_sort_key(m) for m in valid_replies],
+            )
 
         # --- coordinate-wise median aggregation ---
         record_key = list(valid_replies[0].content.array_records.keys())[0]

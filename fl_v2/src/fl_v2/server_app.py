@@ -89,6 +89,8 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict, exp_dir:
     """Instantiate the aggregation strategy for the given defense type."""
     experiment_name = str(run_config.get("experiment-name", "default"))
     seed = int(run_config["seed"])
+    # Cycle-02 gradient-space instrumentation knob (NormTracking family only).
+    topk_energy_k = int(run_config.get("topk-energy-k", 4096))
 
     # --- Custom strategies (extra kwargs: exp_dir, seed, etc.) ---
     if defense_type == "none":
@@ -96,6 +98,7 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict, exp_dir:
             output_dir=exp_dir,
             experiment_name=experiment_name,
             seed=seed,
+            topk_energy_k=topk_energy_k,
             **common_kwargs,
         )
 
@@ -105,6 +108,7 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict, exp_dir:
             output_dir=exp_dir,
             experiment_name=experiment_name,
             seed=seed,
+            topk_energy_k=topk_energy_k,
             **common_kwargs,
         )
 
@@ -114,6 +118,7 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict, exp_dir:
             output_dir=exp_dir,
             experiment_name=experiment_name,
             seed=seed,
+            topk_energy_k=topk_energy_k,
             **common_kwargs,
         )
 
@@ -123,6 +128,7 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict, exp_dir:
             output_dir=exp_dir,
             experiment_name=experiment_name,
             seed=seed,
+            topk_energy_k=topk_energy_k,
             **common_kwargs,
         )
 
@@ -132,6 +138,7 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict, exp_dir:
             output_dir=exp_dir,
             experiment_name=experiment_name,
             seed=seed,
+            topk_energy_k=topk_energy_k,
             **common_kwargs,
         )
 

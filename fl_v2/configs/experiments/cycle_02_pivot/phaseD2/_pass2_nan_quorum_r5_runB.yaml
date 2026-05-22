@@ -1,0 +1,36 @@
+# Pass-2 audit verification — run B (paired same-seed sibling of runA).
+#
+# Identical knobs to _pass2_nan_quorum_r5_runA.yaml; only the
+# experiment-name and wandb tag differ so the two runs land in separate
+# output directories. Bit-equivalence of the two summary.json files
+# verifies that the Pass-2 code changes did not introduce any non-
+# determinism.
+experiment-name: cycle02-pass2-r5-runB
+cycle: cycle_02
+phase: phaseD2
+model-type: resnet18
+pretrained-init: true
+trainable-layers: full_ft
+num-clients: 50
+num-server-rounds: 5
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: pixel_backdoor
+malicious-client-ids: 0,1,2,3,4
+backdoor-target-label: 2
+poison-fraction: 0.5
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+defense-type: none
+checkpoint-rounds: "5"
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+seed: 42
+partition-seed: 42
+wandb-group: cycle02-pass2-r5
+wandb-tags: pass2,nan-filter,run-B

@@ -66,7 +66,7 @@ The following platform components are implemented and in active use:
 - CNN baseline and **ResNet18** (used for all recent experiments)
 - end-to-end FL simulation with checkpoint saving at configured rounds
 - server-side global test evaluation (accuracy, TCA, ASR in a single pass)
-- **Representation-space analysis framework** (`src/fl_v2/analysis/`): feature
+- **Representation-space analysis framework** (`analysis/`): feature
   extraction from saved checkpoints, 4-axis rigorous attack profile
   (`analysis/framework_metrics.py`), per-experiment JSON + CSV outputs,
   cross-experiment comparison (`analysis/compare_profiles.py`),
@@ -76,10 +76,10 @@ The following platform components are implemented and in active use:
 Implemented attack modules:
 - label flipping attack (data poisoning baseline)
 - pixel-trigger backdoor attack (with ASR metric) — **closed baseline**, see
-  `docs/pixel_trigger_baseline.md`
+  `docs/cycle01_docs/pixel_trigger_baseline.md`
 - model replacement (Bagdasaryan) — data poisoning reuses pixel-trigger,
   client update is scaled by `n/k` before sending. **Closed baseline**, see
-  `docs/model_replacement_profile.md`
+  `docs/cycle01_docs/model_replacement_profile.md`
 
 Implemented defense modules:
 - NormTrackingFedAvg (update norm logging, wraps FedAvg)
@@ -121,7 +121,7 @@ is not sufficient to claim a representation-space improvement.
    `centroid_l2 ≈ 2.7-3.1` (far from target), `shift_alignment ≈ 0.65-0.80`
    (partially exploits natural inter-class direction),
    `source_identity_preservation ≈ 0.56-0.64` (per-source structure
-   preserved, ~40% compression only). See `docs/pixel_trigger_baseline.md`.
+   preserved, ~40% compression only). See `docs/cycle01_docs/pixel_trigger_baseline.md`.
 
 2. **Model replacement (Bagdasaryan) is stronger in ASR but NOT in
    representation space.** Scaling client updates by `n/k` amplifies the
@@ -136,7 +136,7 @@ is not sufficient to claim a representation-space improvement.
    ModelRep also has a **brittle early window** — `ASR@5 = ASR@10 = 0.00`
    despite scaling by 10× because the round-1 replacement has poor clean
    utility and honest updates wash it out until the attack rebuilds
-   around round 25. See `docs/model_replacement_profile.md`.
+   around round 25. See `docs/cycle01_docs/model_replacement_profile.md`.
 
 3. **Unsupervised server-side defenses have a fundamental blind spot.**
    The separating direction between triggered and genuine features is
@@ -273,7 +273,7 @@ Completed (the current empirical baseline):
 3. ~~compare clean / attack / defense / attack+defense~~ ✓ done (Phase B smoke-tested, Phase C v2 produced the full comparison at 100 rounds)
 4. ~~run full-round experiments (100 rounds) to validate ASR vs defense tradeoffs~~ ✓ done (8 experiments in phaseC_v2, 2 in phaseD)
 5. ~~strengthen backbone choices (ResNet18)~~ ✓ done (all recent experiments)
-6. ~~gradually move from heuristic attacks toward stronger attack settings (model replacement)~~ ✓ done — produced a clean negative result documented in `docs/model_replacement_profile.md`
+6. ~~gradually move from heuristic attacks toward stronger attack settings (model replacement)~~ ✓ done — produced a clean negative result documented in `docs/cycle01_docs/model_replacement_profile.md`
 7. ~~build a rigorous representation-space analysis framework~~ ✓ done (`docs/representation_space_framework.md`, 4-axis profile, closed baselines)
 
 Current focus: **Cycle 02 — Designed Attacks & Client-Side Defenses.**

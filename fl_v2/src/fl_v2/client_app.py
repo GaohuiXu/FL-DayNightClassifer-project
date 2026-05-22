@@ -56,7 +56,7 @@ def _resolve_partition_seed(run_config) -> int:
     `partition-seed` empty / unset ⇒ fall back to `seed` (backward
     compatible with all pre-2026-05-08 YAMLs). Set explicitly to
     decouple partition variance from model-RNG variance per the
-    cycle_02_codebase_risk_audit.md C4 finding.
+    docs/cycle02_docs/cycle_02_codebase_risk_audit.md C4 finding.
     """
     raw = run_config.get("partition-seed", "")
     if isinstance(raw, str) and raw.strip() == "":
@@ -103,12 +103,16 @@ def _load_client_data(context: Context):
 
     # Build or retrieve the index map (shared across clients in this worker)
     cache_key = _make_cache_key(run_config)
+    # Resolve the partition seed once and reuse for both the index-map
+    # build and the per-client DataLoader factory below. _resolve_partition_seed
+    # is pure (no side effects), so the dedup is a clarity win, not a
+    # correctness fix.
+    partition_seed = _resolve_partition_seed(run_config)
     if _index_map_cache is None or _index_map_cache_key != cache_key:
         data_root = str(run_config["data-root"])
         num_clients = int(run_config["num-clients"])
         partition_mode = str(run_config["partition-mode"])
         dirichlet_alpha = float(run_config["dirichlet-alpha"])
-        partition_seed = _resolve_partition_seed(run_config)
 
         _index_map_cache = build_client_index_map(
             data_root=data_root,
@@ -158,7 +162,7 @@ def _load_client_data(context: Context):
         image_size=image_size,
         val_ratio=val_ratio,
         seed=seed,  # model-side: drives DataLoader shuffle order
-        partition_seed=_resolve_partition_seed(run_config),  # data-side: val split + poison/flip mask
+        partition_seed=partition_seed,  # data-side: val split + poison/flip mask
         num_workers=int(run_config.get("num-workers", 4)),
         download=False,
         attack_type=attack_type,
@@ -367,6 +371,24 @@ def train(msg: Message, context: Context) -> Message:
 @app.evaluate()
 def evaluate_client(msg: Message, context: Context) -> Message:
     """Evaluate the received global model on local validation data."""
+    # Per-call deterministic seeding. Mirrors train() above. Eval is
+    # currently deterministic by construction (val_loader shuffle=False,
+    # deterministic eval transforms), but seeding here locks the
+    # invariant against future stochastic eval-time ops (TTA, MC dropout,
+    # ...). Idempotent and ~free if no randomness is consumed.
+    run_seed = int(context.run_config.get("seed", 42))
+    client_id_for_seed = _get_client_id(context)
+    server_round_for_seed = int(msg.content["config"].get("server-round", 0))
+    leaf_seed = derive_seed(run_seed, client_id_for_seed, server_round_for_seed)
+    random.seed(leaf_seed)
+    np.random.seed(leaf_seed)
+    torch.manual_seed(leaf_seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(leaf_seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=True)
+
     model, device = _load_model_from_message(msg, context)
     client_id, client_data = _load_client_data(context)
 

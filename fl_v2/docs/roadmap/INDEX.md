@@ -9,20 +9,19 @@ The cycle is the unit of planning: typically 2–3 weeks of work, one well-defin
 | Cycle | Dates | Theme | Status | Headline result |
 |---|---|---|---|---|
 | [01](cycle_01_platform_and_representation_baseline.md) | 2026-03-25 → 2026-04-15 | Platform establishment + representation-space baseline | **closed** | Pixel trigger is a "joint weak attack" (middle-region cluster, linearly separable from genuine target). Bagdasaryan replacement amplifies but does not change the representation-space mechanism. The probe direction is nearly orthogonal to top-PC, so unsupervised spectral defenses miss what a supervised probe trivially catches. |
-| [02](cycle_02_designed_attacks_and_client_defenses.md) | 2026-04-15 → TBD | Designed attacks (optimization-based feature-space) + non-IID-aware client-side detection | **active** | — |
-| 03 | TBD | Adaptive attacks + ViT migration (planned) | — | — |
+| ~~02-pivot~~ | 2026-04-15 → 2026-05-12 | Designed attacks + representation-space framework (**retired** — ran on pre-audit codebase; archived under `cycle_02_pivot/`) | **retired** | Findings not trusted; superseded. |
+| [02](cycle_02_gradient_space_mechanism_study.md) | 2026-05-13 → TBD | Gradient-space backdoor mechanism study — modern attacks/defenses on the audit-fixed codebase, threat-model design, client-side prototype | **active** | — |
+| 03 | TBD | Defense design (informed by Cycle-02 go/no-go) — gradient-space law or other-space pivot | — | — |
 
 ## Reading order for a new collaborator
 
 If you're reading this for the first time and want to understand the project state in one session:
 
-1. **`../../CLAUDE.md`** — project identity, platform status, current scientific findings, near-term priorities (short, high signal)
-2. **`../representation_space_framework.md`** — the 4-axis analytical framework (methodology reference)
-3. **`../pixel_trigger_baseline.md`** — Cycle 01 closed baseline profile (pixel trigger)
-4. **`../model_replacement_profile.md`** — Cycle 01 closed profile (Bagdasaryan model replacement, negative result)
-5. **[cycle_02_designed_attacks_and_client_defenses.md](cycle_02_designed_attacks_and_client_defenses.md)** — what we're working on now
+1. **`../../CLAUDE.md`** — project identity, platform status, near-term priorities (short, high signal)
+2. **[cycle_02_gradient_space_mechanism_study.md](cycle_02_gradient_space_mechanism_study.md)** — the current cycle: research question, threat model, phases
+3. **`../active_reading/`** — the literature active-reading cards the current cycle is built on (BadNets, Krum, DBA, Neurotoxin, FoolsGold, FLAME, STRIP)
 
-Steps 3 and 4 are the empirical ground truth that Cycle 02 builds on.
+The Cycle-01 representation-space documents (`../cycle01_docs/`) and the retired Cycle-02-pivot documents (`../cycle_02_pivot/`) are historical context. Their quantitative findings were produced on the pre-audit codebase and are **not** current ground truth — Cycle 02 re-baselines from scratch.
 
 ## Document conventions
 

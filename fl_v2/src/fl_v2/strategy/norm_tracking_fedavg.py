@@ -9,9 +9,56 @@ from flwr.app import ArrayRecord, ConfigRecord, Message
 from flwr.serverapp import Grid
 from flwr.serverapp.strategy import FedAvg
 
-from fl_v2.attacks_defenses import compute_update_norms
+from fl_v2.attacks_defenses import (
+    compute_gradient_space_metrics,
+    compute_update_norms,
+)
 
 _SEP = "─" * 60
+
+
+def drop_nonfinite_replies(
+    valid_replies: list,
+    arrayrecord_key: str,
+) -> list:
+    """Filter out replies whose ArrayRecord contains NaN/Inf parameters.
+
+    Robust aggregators (median, trimmed mean, Bulyan-closest, norm
+    clipping) silently propagate NaN/Inf — `np.median` returns NaN for
+    any coordinate that has a NaN among the stacked clients, and
+    `np.argpartition` on `abs(diff)` puts NaN at the end (treated as
+    "closest"). The only safe response is to drop the offending reply
+    before aggregation.
+
+    The reply may be non-finite because of (a) honest gradient
+    divergence on the client side (rare under our LR schedule, but
+    possible), or (b) a malicious client deliberately sending NaN to
+    break the defense. Both cases should be excluded from aggregation.
+
+    Logs dropped node_ids so the per-round aggregation table tells you
+    which clients were excluded. Order of `valid_replies` is preserved
+    for the kept subset.
+    """
+    kept = []
+    dropped: list[int] = []
+    for msg in valid_replies:
+        arrays = msg.content[arrayrecord_key]
+        any_nonfinite = False
+        for arr in arrays.to_numpy_ndarrays():
+            if not np.all(np.isfinite(arr)):
+                any_nonfinite = True
+                break
+        if any_nonfinite:
+            dropped.append(int(msg.metadata.src_node_id))
+        else:
+            kept.append(msg)
+    if dropped:
+        print(
+            f"[NaN-Filter] dropped {len(dropped)} non-finite replies: "
+            f"node_ids={dropped}",
+            flush=True,
+        )
+    return kept
 
 
 def partition_sort_key(msg) -> int:
@@ -57,6 +104,7 @@ class NormTrackingFedAvg(FedAvg):
         output_dir: str = "./outputs",
         experiment_name: str = "default",
         seed: int = 42,
+        topk_energy_k: int = 4096,
         *args,
         **kwargs,
     ) -> None:
@@ -64,6 +112,10 @@ class NormTrackingFedAvg(FedAvg):
         self.output_dir = output_dir
         self.experiment_name = experiment_name
         self.seed = seed
+        # Cycle-02 gradient-space instrumentation: number of top
+        # |coordinates| of the mean update used for the energy-split
+        # metric. See compute_gradient_space_metrics.
+        self.topk_energy_k = int(topk_energy_k)
         self.current_arrays: ArrayRecord | None = None
         self._norm_history: list[dict] = []
         # Populated at the end of every aggregate_train; consumed by
@@ -142,6 +194,14 @@ class NormTrackingFedAvg(FedAvg):
             self._last_train_metrics = None
             return None, None
 
+        # NaN/Inf robustness: drop replies whose parameters diverged.
+        # FedAvg's in-place sum would propagate NaN to every coordinate
+        # touched by an offending client. See `drop_nonfinite_replies`.
+        valid_replies = drop_nonfinite_replies(valid_replies, self.arrayrecord_key)
+        if not valid_replies:
+            self._last_train_metrics = None
+            return None, None
+
         # Deterministic ordering: floating-point summation is non-associative,
         # so iteration order over `valid_replies` leaks into the aggregated
         # weights via the in-place sum at flwr.serverapp.strategy.strategy_utils
@@ -169,8 +229,14 @@ class NormTrackingFedAvg(FedAvg):
         # Print per-client metrics table (sequential — always ordered)
         self._print_client_table(valid_replies)
 
-        # Log norms to stdout + JSON
-        self._compute_and_log_norms(server_round, original_norms)
+        # Log norms + gradient-space metrics to stdout + JSON
+        self._compute_and_log_norms(
+            server_round,
+            original_norms,
+            global_params=global_params,
+            client_params_list=client_params_list,
+            partition_ids=[partition_sort_key(m) for m in valid_replies],
+        )
 
         arrays, metrics = super().aggregate_train(server_round, valid_replies)
         self._last_train_metrics = self._capture_metrics(metrics)
@@ -224,8 +290,20 @@ class NormTrackingFedAvg(FedAvg):
         server_round: int,
         original_norms: List[float],
         clipped_norms: List[float] | None = None,
+        *,
+        global_params: list | None = None,
+        client_params_list: list | None = None,
+        partition_ids: list[int] | None = None,
     ) -> None:
-        """Log norms to stdout and persist to JSON."""
+        """Log norms (and gradient-space metrics) to stdout and JSON.
+
+        When ``global_params`` and ``client_params_list`` are both
+        provided, the three Cycle-02 gradient-space metrics
+        (cosine-to-mean, pairwise cosine, top-k coordinate-energy split)
+        are computed and written into the round record. ``partition_ids``
+        (if provided) lets the offline analysis map each per-client row
+        to a logical client id without relying on list order.
+        """
         norm_stats = {
             "mean": float(np.mean(original_norms)),
             "max": float(np.max(original_norms)),
@@ -241,6 +319,24 @@ class NormTrackingFedAvg(FedAvg):
         }
         if clipped_norms is not None:
             round_record["clipped_norms"] = [round(n, 6) for n in clipped_norms]
+
+        if partition_ids is not None:
+            round_record["partition_ids"] = [int(p) for p in partition_ids]
+
+        if global_params is not None and client_params_list is not None:
+            gsm = compute_gradient_space_metrics(
+                global_params, client_params_list, self.topk_energy_k,
+            )
+            round_record["topk_energy_k"] = gsm["topk_energy_k"]
+            round_record["cosine_to_mean"] = [
+                round(x, 6) for x in gsm["cosine_to_mean"]
+            ]
+            round_record["topk_energy_frac"] = [
+                round(x, 6) for x in gsm["topk_energy_frac"]
+            ]
+            round_record["pairwise_cosine"] = [
+                [round(x, 6) for x in row] for row in gsm["pairwise_cosine"]
+            ]
 
         self._norm_history.append(round_record)
 

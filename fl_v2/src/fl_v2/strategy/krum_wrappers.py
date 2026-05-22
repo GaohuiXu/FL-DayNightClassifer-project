@@ -14,7 +14,11 @@ from __future__ import annotations
 
 from flwr.serverapp.strategy import Krum, MultiKrum
 
-from fl_v2.strategy.norm_tracking_fedavg import NormTrackingFedAvg, partition_sort_key
+from fl_v2.strategy.norm_tracking_fedavg import (
+    NormTrackingFedAvg,
+    drop_nonfinite_replies,
+    partition_sort_key,
+)
 
 
 class CapturedKrum(Krum):
@@ -25,12 +29,19 @@ class CapturedKrum(Krum):
         self._last_train_metrics: dict | None = None
 
     def aggregate_train(self, server_round, replies):
+        # NaN/Inf robustness: drop replies with non-finite parameters
+        # before Krum's distance computation (NaN distances would
+        # silently dominate the selection).
+        replies = drop_nonfinite_replies(list(replies), self.arrayrecord_key)
+        if not replies:
+            self._last_train_metrics = None
+            return None, None
         # Sort by partition-id (cross-run-stable) so Krum's argsort tie-break
         # + the aggregate's in-place sum are deterministic across runs.
         # See norm_tracking_fedavg.partition_sort_key for the rationale —
         # Flower 1.27's `metadata.src_node_id` is per-driver random
         # (`os.urandom`), so sorting by it only fixes within-run order.
-        replies = sorted(list(replies), key=partition_sort_key)
+        replies = sorted(replies, key=partition_sort_key)
         result = super().aggregate_train(server_round, replies)
         self._last_train_metrics = _extract_metrics_from_result(result)
         return result
@@ -45,7 +56,11 @@ class CapturedMultiKrum(MultiKrum):
 
     def aggregate_train(self, server_round, replies):
         # See CapturedKrum.aggregate_train for rationale.
-        replies = sorted(list(replies), key=partition_sort_key)
+        replies = drop_nonfinite_replies(list(replies), self.arrayrecord_key)
+        if not replies:
+            self._last_train_metrics = None
+            return None, None
+        replies = sorted(replies, key=partition_sort_key)
         result = super().aggregate_train(server_round, replies)
         self._last_train_metrics = _extract_metrics_from_result(result)
         return result

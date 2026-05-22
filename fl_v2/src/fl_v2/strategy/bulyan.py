@@ -22,7 +22,11 @@ from flwr.common import NDArrays
 from flwr.serverapp.strategy.multikrum import select_multikrum
 
 from fl_v2.attacks_defenses import compute_update_norms
-from fl_v2.strategy.norm_tracking_fedavg import NormTrackingFedAvg, partition_sort_key
+from fl_v2.strategy.norm_tracking_fedavg import (
+    NormTrackingFedAvg,
+    drop_nonfinite_replies,
+    partition_sort_key,
+)
 
 
 def _aggregate_n_closest_weights(
@@ -70,6 +74,15 @@ class NormTrackingBulyan(NormTrackingFedAvg):
     ) -> tuple[ArrayRecord | None, MetricRecord | None]:
         valid_replies, _ = self._check_and_log_replies(replies, is_train=True)
 
+        # NaN/Inf robustness: argpartition on abs(diff) places NaN
+        # distances last (treated as "closest"), so a single NaN client
+        # would silently dominate the closest-beta averaging. Drop
+        # offending replies before MultiKrum selection.
+        valid_replies = drop_nonfinite_replies(valid_replies, self.arrayrecord_key)
+        if not valid_replies:
+            self._last_train_metrics = None
+            return None, None
+
         # Deterministic ordering — see norm_tracking_fedavg.partition_sort_key.
         # Especially important for Bulyan because the inner MultiKrum tie-break
         # is order-sensitive AND uses src_node_id for the tie-break — sorting
@@ -95,7 +108,13 @@ class NormTrackingBulyan(NormTrackingFedAvg):
             client_params_list = self._extract_client_params(valid_replies)
             original_norms = compute_update_norms(global_params, client_params_list)
             self._print_client_table(valid_replies)
-            self._compute_and_log_norms(server_round, original_norms)
+            self._compute_and_log_norms(
+                server_round,
+                original_norms,
+                global_params=global_params,
+                client_params_list=client_params_list,
+                partition_ids=[partition_sort_key(m) for m in valid_replies],
+            )
 
         # --- Phase 1: MultiKrum selection ---
         theta = n - 2 * f
@@ -111,6 +130,21 @@ class NormTrackingBulyan(NormTrackingFedAvg):
             cast(ArrayRecord, ctnt[key]).to_numpy_ndarrays(keep_input=False)
             for ctnt in selected_contents
         ]
+
+        # Dtype consistency check (R-011): every selected client's
+        # per-layer dtype must match the reference (client 0). Silent
+        # downcast across clients — e.g., if a future client emits fp16
+        # while the rest emit fp32 — would corrupt the aggregated weights
+        # via the cast at the Array() construction below.
+        ref_dtypes = [arr.dtype for arr in selected_ndarrays[0]]
+        for client_idx, client_arrays in enumerate(selected_ndarrays[1:], start=1):
+            for layer_idx, arr in enumerate(client_arrays):
+                if arr.dtype != ref_dtypes[layer_idx]:
+                    raise ValueError(
+                        f"[Bulyan] dtype mismatch in selected_ndarrays at "
+                        f"layer {layer_idx}: client 0 has {ref_dtypes[layer_idx]}, "
+                        f"client {client_idx} has {arr.dtype}"
+                    )
 
         # --- Phase 2: Median then closest-beta averaging ---
         median_ndarrays = [

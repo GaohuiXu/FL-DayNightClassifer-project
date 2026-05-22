@@ -60,6 +60,13 @@ def server_evaluate(
 
         # --- Forward pass 2: triggered images (only if backdoor active) ---
         if trigger_fn is not None:
+            # Mask + index on CPU because trigger_fn operates on the CPU
+            # `images` tensor (the global testloader yields CPU tensors);
+            # the masked subset is moved to device only for the forward pass.
+            # Bit-equivalent to indexing `images_dev[labels_dev != target_label]`
+            # because the pixel trigger is a constant assignment, but
+            # keeping the masking on CPU avoids an unnecessary device
+            # round-trip on every batch.
             non_target_mask = labels != target_label
             if non_target_mask.sum() > 0:
                 triggered = trigger_fn(images[non_target_mask]).to(device)

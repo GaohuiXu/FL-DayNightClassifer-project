@@ -1,0 +1,44 @@
+# Pass-2 audit verification — run A.
+#
+# Paired same-seed regression check after the Pass-2 fixes:
+#   - R-002 NaN/Inf reply filter in all 5 custom strategies + 2 Krum
+#     wrappers (no-op when no NaN appears, but adds an early-return
+#     branch).
+#   - R-003 per-call seeding in evaluate_client (no-op on normal eval).
+#   - R-010 trim-mean quorum guard (no-op for non-degenerate cases).
+#   - R-014 docstring fix (no behaviour change).
+# Plus an explicit partition-seed: 42 to also exercise the R-001
+# isolation infrastructure (decoupled partition vs model RNG).
+#
+# Bit-equivalence gate: runA vs runB summary.json must be identical.
+# Wallclock target: ≤ 12 min based on 60-62 s/round (5 rounds + ~3 min
+# startup/eval/teardown).
+experiment-name: cycle02-pass2-r5-runA
+cycle: cycle_02
+phase: phaseD2
+model-type: resnet18
+pretrained-init: true
+trainable-layers: full_ft
+num-clients: 50
+num-server-rounds: 5
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.05
+lr-schedule: cosine
+lr-min: 0.0001
+attack-type: pixel_backdoor
+malicious-client-ids: 0,1,2,3,4
+backdoor-target-label: 2
+poison-fraction: 0.5
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+defense-type: none
+checkpoint-rounds: "5"
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+seed: 42
+partition-seed: 42
+wandb-group: cycle02-pass2-r5
+wandb-tags: pass2,nan-filter,run-A

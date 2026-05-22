@@ -8,7 +8,11 @@ from flwr.app import ArrayRecord
 from flwr.serverapp.strategy import FedAvg
 
 from fl_v2.attacks_defenses import clip_updates_by_l2_norm
-from fl_v2.strategy.norm_tracking_fedavg import NormTrackingFedAvg, partition_sort_key
+from fl_v2.strategy.norm_tracking_fedavg import (
+    NormTrackingFedAvg,
+    drop_nonfinite_replies,
+    partition_sort_key,
+)
 
 
 class NormClippedFedAvg(NormTrackingFedAvg):
@@ -26,6 +30,12 @@ class NormClippedFedAvg(NormTrackingFedAvg):
         """Clip client updates, log norms, then aggregate via FedAvg."""
         valid_replies, _ = self._check_and_log_replies(replies, is_train=True)
 
+        if not valid_replies:
+            self._last_train_metrics = None
+            return None, None
+
+        # NaN/Inf robustness — see drop_nonfinite_replies.
+        valid_replies = drop_nonfinite_replies(valid_replies, self.arrayrecord_key)
         if not valid_replies:
             self._last_train_metrics = None
             return None, None
@@ -79,9 +89,16 @@ class NormClippedFedAvg(NormTrackingFedAvg):
 
             msg.content[self.arrayrecord_key] = ArrayRecord(new_state_dict)
 
-        # Log norms (both original and clipped) via parent's method
+        # Log norms (both original and clipped) + gradient-space metrics
+        # via parent's method. client_params_list here holds the
+        # pre-clip updates, so the metrics describe the raw signature.
         self._compute_and_log_norms(
-            server_round, original_norms, clipped_norms
+            server_round,
+            original_norms,
+            clipped_norms,
+            global_params=global_params,
+            client_params_list=client_params_list,
+            partition_ids=[partition_sort_key(m) for m in valid_replies],
         )
 
         print(

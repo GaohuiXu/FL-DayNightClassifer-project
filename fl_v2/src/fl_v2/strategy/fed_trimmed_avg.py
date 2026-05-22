@@ -15,7 +15,11 @@ from flwr.app import Array, ArrayRecord, Message, MetricRecord
 from flwr.common import NDArray
 
 from fl_v2.attacks_defenses import compute_update_norms
-from fl_v2.strategy.norm_tracking_fedavg import NormTrackingFedAvg, partition_sort_key
+from fl_v2.strategy.norm_tracking_fedavg import (
+    NormTrackingFedAvg,
+    drop_nonfinite_replies,
+    partition_sort_key,
+)
 
 
 def _trim_mean(array: NDArray, cut_fraction: float) -> NDArray:
@@ -66,6 +70,30 @@ class NormTrackingFedTrimmedAvg(NormTrackingFedAvg):
             self._last_train_metrics = None
             return None, None
 
+        # NaN/Inf robustness: np.partition (used by _trim_mean) places
+        # NaN at the end of the sort order so it survives trimming from
+        # the upper tail. Drop offending replies before aggregation.
+        valid_replies = drop_nonfinite_replies(valid_replies, self.arrayrecord_key)
+        if not valid_replies:
+            self._last_train_metrics = None
+            return None, None
+
+        # Quorum guard: `_trim_mean` raises ValueError when
+        # lowercut >= uppercut (`int(beta * n) >= n - int(beta * n)`),
+        # i.e. when the trim would discard every client. Skip the round
+        # gracefully with a warning instead of bubbling the exception.
+        n_replies = len(valid_replies)
+        lowercut = int(self.beta * n_replies)
+        if lowercut >= n_replies - lowercut:
+            print(
+                f"[FedTrimmedAvg] insufficient replies for beta={self.beta}: "
+                f"n={n_replies}, lowercut={lowercut} — would trim all clients. "
+                f"Skipping aggregation.",
+                flush=True,
+            )
+            self._last_train_metrics = None
+            return None, None
+
         # Deterministic ordering — see norm_tracking_fedavg.partition_sort_key.
         valid_replies.sort(key=partition_sort_key)
 
@@ -75,7 +103,13 @@ class NormTrackingFedTrimmedAvg(NormTrackingFedAvg):
             client_params_list = self._extract_client_params(valid_replies)
             original_norms = compute_update_norms(global_params, client_params_list)
             self._print_client_table(valid_replies)
-            self._compute_and_log_norms(server_round, original_norms)
+            self._compute_and_log_norms(
+                server_round,
+                original_norms,
+                global_params=global_params,
+                client_params_list=client_params_list,
+                partition_ids=[partition_sort_key(m) for m in valid_replies],
+            )
 
         # --- trimmed mean aggregation ---
         record_key = list(valid_replies[0].content.array_records.keys())[0]
