@@ -5,7 +5,7 @@ import os
 from typing import Iterable, List
 
 import numpy as np
-from flwr.app import ArrayRecord, ConfigRecord, Message
+from flwr.app import Array, ArrayRecord, ConfigRecord, Message
 from flwr.serverapp import Grid
 from flwr.serverapp.strategy import FedAvg
 
@@ -89,6 +89,45 @@ def partition_sort_key(msg) -> int:
         return int(msg.content["reply-meta"]["partition-id"])
     except (KeyError, TypeError, ValueError):
         return int(msg.metadata.src_node_id)
+
+
+def aggregate_weighted_updates(
+    global_params: list,
+    client_params_list: list,
+    array_keys: list,
+    coefs: list,
+    noise: list | None = None,
+) -> ArrayRecord:
+    """Aggregate client updates with explicit per-client weights.
+
+    Computes, per parameter tensor k:
+
+        new[k] = global[k] + sum_i coefs[i] * (client_i[k] - global[k])
+
+    optionally plus a per-tensor ``noise[k]`` term (FLAME). ``coefs`` are
+    the FINAL per-client weights — the caller is responsible for any
+    normalisation (FoolsGold normalises to sum 1; FLAME uses
+    clip-scale / |admitted|). fp64 accumulation; the result is cast back
+    to each tensor's dtype. Deterministic for a fixed, caller-ordered
+    input — used by the WS5 gradient-space defenses (FoolsGold, FLAME).
+    """
+    arrays = ArrayRecord()
+    for idx, array_key in enumerate(array_keys):
+        g64 = np.asarray(global_params[idx], dtype=np.float64)
+        acc = np.zeros_like(g64)
+        for coef, cp in zip(coefs, client_params_list):
+            if coef == 0.0:
+                continue
+            acc += float(coef) * (
+                np.asarray(cp[idx], dtype=np.float64) - g64
+            )
+        new_k = g64 + acc
+        if noise is not None:
+            new_k = new_k + np.asarray(noise[idx], dtype=np.float64)
+        arrays[array_key] = Array(
+            np.asarray(new_k, dtype=np.asarray(global_params[idx]).dtype)
+        )
+    return arrays
 
 
 class NormTrackingFedAvg(FedAvg):

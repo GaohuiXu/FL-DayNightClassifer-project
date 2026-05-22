@@ -32,6 +32,8 @@ from fl_v2.utils import (
 from fl_v2.strategy import (
     CapturedKrum,
     CapturedMultiKrum,
+    FlameFedAvg,
+    FoolsGoldFedAvg,
     NormClippedFedAvg,
     NormTrackingBulyan,
     NormTrackingFedAvg,
@@ -146,6 +148,26 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict, exp_dir:
             **common_kwargs,
         )
 
+    # --- Cycle-02 gradient-space defenses (WS5) ---
+    if defense_type == "foolsgold":
+        return FoolsGoldFedAvg(
+            output_dir=exp_dir,
+            experiment_name=experiment_name,
+            seed=seed,
+            topk_energy_k=topk_energy_k,
+            **common_kwargs,
+        )
+
+    if defense_type == "flame":
+        return FlameFedAvg(
+            noise_multiplier=float(run_config.get("flame-noise-multiplier", 0.001)),
+            output_dir=exp_dir,
+            experiment_name=experiment_name,
+            seed=seed,
+            topk_energy_k=topk_energy_k,
+            **common_kwargs,
+        )
+
     # --- Flower built-in Krum / MultiKrum (wrapped for client-metric capture) ---
     if defense_type == "krum":
         return CapturedKrum(
@@ -163,7 +185,7 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict, exp_dir:
     raise ValueError(
         f"Unsupported defense-type: {defense_type!r}. "
         f"Available: none, norm_clipping, fed_median, fed_trimmed_avg, "
-        f"krum, multi_krum, bulyan"
+        f"krum, multi_krum, bulyan, foolsgold, flame"
     )
 
 
