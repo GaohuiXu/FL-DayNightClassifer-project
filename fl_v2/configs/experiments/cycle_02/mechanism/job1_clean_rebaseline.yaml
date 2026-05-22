@@ -31,6 +31,7 @@ partition-seed: 42
 topk-energy-k: 4096
 checkpoint-rounds: ""
 output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+wandb-enabled: false
 wandb-project: cycle-02
 wandb-group: cycle02-mechanism
 wandb-tags: cycle02,mechanism,job1,clean,rebaseline
