@@ -275,6 +275,7 @@ def get_client_dataloaders(
     trigger_value: float = 1.0,
     trigger_position: str = "bottom-right",
     poison_source_classes: tuple[int, ...] | None = None,
+    trigger_rects: list[tuple[int, int, int, int]] | None = None,
     partition_seed: int | None = None,
 ) -> ClientDataLoaders:
     """Build train/val dataloaders for one client.
@@ -339,13 +340,17 @@ def get_client_dataloaders(
             f"num_flipped={train_dataset.num_flipped()}",
             flush=True,
         )
-    elif attack_type in ("pixel_backdoor", "model_replacement") and is_malicious:
-        # Both attacks use the same data poisoning (pixel patch + relabel).
-        # The poisoned dataset WRAPS the clean TransformedSubset (shared
-        # pre-transform cache). train_dataset stays clean — the malicious
-        # client gets BOTH loaders and client_app.train() selects per
-        # round via the attack window. Model replacement adds a
-        # post-training update-scaling step in the client app.
+    elif attack_type in (
+        "pixel_backdoor", "model_replacement", "dba", "neurotoxin"
+    ) and is_malicious:
+        # pixel / model_replacement / dba / neurotoxin all use the same
+        # data poisoning (pixel patch + relabel). The poisoned dataset
+        # WRAPS the clean TransformedSubset (shared pre-transform cache);
+        # train_dataset stays clean — the malicious client gets BOTH
+        # loaders and client_app.train() selects per round via the attack
+        # window. dba passes its per-client sub-trigger rectangle via
+        # `trigger_rects`; model_replacement / neurotoxin add their own
+        # update-scaling / gradient-masking step in the client app.
         poison_dataset = PixelBackdoorDataset(
             base_dataset=train_dataset,
             target_label=backdoor_target_label,
@@ -355,6 +360,7 @@ def get_client_dataloaders(
             trigger_position=trigger_position,
             seed=partition_seed + client_id,
             source_classes=poison_source_classes,
+            trigger_rects=trigger_rects,
         )
         print(
             f"[Client {client_id}] {attack_type} enabled: "

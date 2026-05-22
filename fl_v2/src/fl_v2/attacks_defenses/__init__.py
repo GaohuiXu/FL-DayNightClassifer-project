@@ -8,6 +8,7 @@ from fl_v2.attacks_defenses.attacks.model_replacement import (
 )
 from fl_v2.attacks_defenses.attacks.pixel_backdoor import (
     PixelBackdoorDataset,
+    dba_subregions,
     make_pixel_trigger_fn,
 )
 from fl_v2.attacks_defenses.defenses.norm_clipping import (
@@ -21,6 +22,7 @@ __all__ = [
     "parse_client_ids",
     "PixelBackdoorDataset",
     "make_pixel_trigger_fn",
+    "dba_subregions",
     "compute_replacement_scale",
     "scale_client_update",
     "clip_updates_by_l2_norm",

@@ -23,6 +23,7 @@ from fl_v2.utils import compute_lr, derive_seed, get_device, truthy
 
 from fl_v2.attacks_defenses import (
     compute_replacement_scale,
+    dba_subregions,
     parse_client_ids,
     scale_client_update,
 )
@@ -168,6 +169,27 @@ def _load_client_data(context: Context):
             flush=True,
         )
 
+    # Cycle-02 DBA: a malicious client stamps only its assigned grid
+    # sub-trigger. dba_subregions is the single source of truth shared
+    # with server_app (the union ASR trigger). trigger_rects=None keeps
+    # the corner square — used by pixel / model_replacement / neurotoxin
+    # and by dba-grid "1x1" (whose single sub-region IS the full square).
+    trigger_rects = None
+    if attack_type == "dba" and is_malicious:
+        dba_grid = str(run_config.get("dba-grid", "1x1"))
+        per_client_rects, _union_rect = dba_subregions(
+            trigger_size, trigger_position, dba_grid, image_size
+        )
+        sub_idx = sorted(malicious_client_ids).index(client_id) % len(
+            per_client_rects
+        )
+        trigger_rects = [per_client_rects[sub_idx]]
+        print(
+            f"[Client {client_id}] DBA sub-trigger {sub_idx}/"
+            f"{len(per_client_rects)} (grid={dba_grid}) rect={trigger_rects[0]}",
+            flush=True,
+        )
+
     client_data = get_client_dataloaders(
         client_id=client_id,
         client_index_map=_index_map_cache,
@@ -190,6 +212,7 @@ def _load_client_data(context: Context):
         trigger_value=trigger_value,
         trigger_position=trigger_position,
         poison_source_classes=poison_source_classes,
+        trigger_rects=trigger_rects,
     )
 
     _client_data_cache[client_id] = client_data

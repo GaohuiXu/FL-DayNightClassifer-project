@@ -11,7 +11,11 @@ from fl_v2.data.dataset import (
     build_client_index_map_with_stats,
     get_global_testloader,
 )
-from fl_v2.attacks_defenses import make_pixel_trigger_fn, parse_client_ids
+from fl_v2.attacks_defenses import (
+    dba_subregions,
+    make_pixel_trigger_fn,
+    parse_client_ids,
+)
 from fl_v2.models import create_model
 from fl_v2.training import server_evaluate
 
@@ -280,13 +284,31 @@ def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger, strateg
 
     criterion = nn.CrossEntropyLoss()
 
-    # Build trigger function for ASR if backdoor attack is active
+    # Build trigger function for ASR if backdoor attack is active.
+    # pixel / model_replacement / neurotoxin all use the corner square.
+    # DBA measures ASR with the union of the per-client sub-triggers:
+    # dba_subregions is the single source of truth (its union_rect is the
+    # full corner square the client sub-rects tile), so the train-time and
+    # eval-time triggers cannot drift apart.
     trigger_fn = None
-    if attack_type in ("pixel_backdoor", "model_replacement"):
+    if attack_type in ("pixel_backdoor", "model_replacement", "neurotoxin"):
         trigger_fn = make_pixel_trigger_fn(
             trigger_size=trigger_size,
             trigger_value=trigger_value,
             trigger_position=trigger_position,
+        )
+    elif attack_type == "dba":
+        _per_client_rects, union_rect = dba_subregions(
+            trigger_size,
+            trigger_position,
+            str(run_config.get("dba-grid", "1x1")),
+            image_size,
+        )
+        trigger_fn = make_pixel_trigger_fn(
+            trigger_size=trigger_size,
+            trigger_value=trigger_value,
+            trigger_position=trigger_position,
+            trigger_rects=[union_rect],
         )
 
     # Parse checkpoint rounds for periodic saving (e.g., "0,5,10,25,50,75,100")
@@ -513,7 +535,7 @@ def main(grid: Grid, context: Context) -> None:
 
     # Save trigger visualization once at startup (attack-agnostic interface)
     attack_type = str(run_config.get("attack-type", "none"))
-    if attack_type in ("pixel_backdoor", "model_replacement"):
+    if attack_type in ("pixel_backdoor", "model_replacement", "dba", "neurotoxin"):
         trigger_size = int(run_config.get("trigger-size", 4))
         trigger_value = float(run_config.get("trigger-value", 1.0))
         trigger_position = str(run_config.get("trigger-position", "bottom-right"))
