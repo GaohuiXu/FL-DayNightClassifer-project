@@ -193,6 +193,15 @@ class WandbLogger:
         # failure: continue with wandb disabled. The experiment's primary
         # outputs (norm_log.json, summary.json, rounds.csv, checkpoints)
         # do not depend on wandb.
+        #
+        # x_service_wait: wandb's 30 s default deadline for the wandb-core
+        # service subprocess to come up is too tight on a contended FL
+        # simulation node (50 Ray actors + SuperLink + SuperExec all
+        # spawning at once) — the freshly-forked wandb-core loses the CPU
+        # race and the port-file poll times out (observed: job 6665514).
+        # Raise it to 120 s. It is a deadline, not a fixed wait: a fast
+        # start still returns immediately, so the only cost is a longer
+        # ceiling before the graceful-degrade path above triggers.
         try:
             self.run = wandb.init(
                 project=_derive_project(run_config),
@@ -203,6 +212,7 @@ class WandbLogger:
                 dir=wandb_dir,
                 config=_config_to_dict(run_config),
                 reinit=True,
+                settings=wandb.Settings(x_service_wait=120.0),
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.disabled = True
