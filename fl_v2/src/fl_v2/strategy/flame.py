@@ -7,8 +7,10 @@ FLAME suppresses backdoor updates in three steps each round:
      majority forms a cluster; clients outside it are dropped.
   2. Clipping — admitted updates are clipped to the median L2 update
      norm, bounding the influence of any single client.
-  3. Noise — calibrated Gaussian noise (std = multiplier x median norm)
-     is added to the aggregate to wash out residual backdoor signal.
+  3. Noise — calibrated Gaussian noise is added to the aggregate to wash
+     out residual backdoor signal. The per-coordinate std is normalised
+     by sqrt(num-params) so the multiplier is the dimension-independent
+     noise-vector-norm / median-update-norm ratio.
 
 Extends NormTrackingFedAvg, so the WS1 gradient-space metrics are logged
 every round for free. Bit-determinism: HDBSCAN is deterministic for a
@@ -157,9 +159,15 @@ class FlameFedAvg(NormTrackingFedAvg):
             clip = min(1.0, s_t / (norms[i] + 1e-12))
             coefs[i] = clip / len(admitted)
 
-        # Calibrated Gaussian noise — a generator seeded off the run seed
-        # and the server round keeps the run bit-deterministic.
-        sigma = self.noise_multiplier * s_t
+        # Calibrated Gaussian noise. The per-coordinate std is normalised
+        # by sqrt(d) so noise_multiplier is the dimension-INDEPENDENT ratio
+        # of the noise-vector norm to the median update norm: a raw
+        # sigma = multiplier * s_t on an ~11 M-parameter model would give a
+        # noise vector ~sqrt(d) too large and destroy the model. The
+        # generator is seeded off the run seed and the server round, so
+        # the noise is reproducible across re-runs yet varies by round.
+        d_total = int(sum(np.asarray(g).size for g in global_params))
+        sigma = self.noise_multiplier * s_t / max(1.0, float(d_total) ** 0.5)
         rng = np.random.default_rng(
             (int(self.seed) & 0xFFFFFFFF) * 1_000_003 + int(server_round)
         )
@@ -171,7 +179,7 @@ class FlameFedAvg(NormTrackingFedAvg):
         print(
             f"[Defense] round={server_round} FLAME admitted "
             f"{len(admitted)}/{n} clients, clip_bound={s_t:.4f}, "
-            f"noise_sigma={sigma:.6f}",
+            f"noise_sigma={sigma:.3e}",
             flush=True,
         )
 

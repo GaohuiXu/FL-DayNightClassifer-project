@@ -145,10 +145,11 @@ clip-norm = 5.0  # placeholder; update after inspecting Exp 1 norm log
 trimmed-avg-beta = 0.2
 num-malicious-nodes = 0
 krum-num-to-select = 5
-# FLAME (Nguyen et al. 2022): Gaussian-noise std = multiplier x median
-# update norm, added after clustering + clipping. Noise is drawn from a
-# generator seeded off the run seed so the run stays bit-deterministic.
-flame-noise-multiplier = 0.001
+# FLAME (Nguyen et al. 2022): Gaussian noise added after clustering +
+# clipping. multiplier is the dimension-independent ratio of the
+# noise-vector norm to the median update norm (per-coordinate std =
+# multiplier x median-norm / sqrt(num-params)). Seeded off the run seed.
+flame-noise-multiplier = 0.01
 
 # ===== gradient-space instrumentation (Cycle 02) =====
 # Number of top-|coordinate| positions of the mean update used for the
