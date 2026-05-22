@@ -41,8 +41,12 @@ threat-model design, not a finished defense.
 
 Encoded in YAML config; full rationale in `docs/cycle_02/` (threat-model note).
 
-- **Platform:** GTSRB 43-class, ResNet18 (ImageNet-init), 50 clients, Dirichlet α=0.5,
-  `fraction-train=1.0`, `partition-seed` fixed and decoupled from the model seed.
+- **Platform:** GTSRB 43-class, ResNet18 **trained from scratch** (random init — matches the
+  backdoor literature), 50 clients, Dirichlet α=0.5, `fraction-train=1.0`, `partition-seed`
+  fixed and decoupled from the model seed. Fine-tuning from a pretrained backbone is **out of
+  scope this cycle** — a deferred follow-up: once gradient-space laws are established, test
+  whether they transfer to the fine-tuning regime. Understand the mechanism on the simplest,
+  literature-standard setting first.
 - **Attacker goal:** targeted all-to-one backdoor; target = **class 14 (Stop)** (safety-
   critical, visually distinct — not the most-common class 2, which inflates ASR).
 - **Attacker control:** `m=10` of `n=50` malicious clients; hard bound `m < n/2`

@@ -6,7 +6,7 @@ experiment-name: cycle02-det-clean-r20-runB
 cycle: cycle_02
 phase: mechanism
 model-type: resnet18
-pretrained-init: true
+pretrained-init: false   # train from scratch (random init) — matches the backdoor literature
 trainable-layers: full_ft
 num-clients: 50
 num-server-rounds: 20
@@ -14,7 +14,7 @@ fraction-train: 1.0
 min-available-nodes: 50
 min-train-nodes: 2
 num-local-epochs: 3
-learning-rate: 0.05
+learning-rate: 0.001   # Adam, from-scratch — 0.05 was a fine-tuning LR and would diverge
 lr-schedule: cosine
 lr-min: 0.0001
 attack-type: none
