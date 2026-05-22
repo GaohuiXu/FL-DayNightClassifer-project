@@ -102,6 +102,11 @@ class ClientDataLoaders:
     valloader: DataLoader
     num_train_samples: int
     num_val_samples: int
+    # Cycle-02: a second trainloader over the poisoned dataset, present
+    # only for malicious data-poisoning clients. client_app.train()
+    # selects between trainloader (clean) and attack_trainloader per
+    # round via the attack window. None for honest clients / clean runs.
+    attack_trainloader: DataLoader | None = None
 
 
 def load_gtsrb_train_dataset(
@@ -269,6 +274,7 @@ def get_client_dataloaders(
     trigger_size: int = 4,
     trigger_value: float = 1.0,
     trigger_position: str = "bottom-right",
+    poison_source_classes: tuple[int, ...] | None = None,
     partition_seed: int | None = None,
 ) -> ClientDataLoaders:
     """Build train/val dataloaders for one client.
@@ -315,6 +321,9 @@ def get_client_dataloaders(
         pre_transform=get_eval_transforms(image_size=image_size),
     )
 
+    # Poisoned dataset for windowed pixel/model-replacement attacks; built
+    # below only for malicious clients, kept separate from train_dataset.
+    poison_dataset = None
     if attack_type == "label_flipping" and is_malicious:
         train_dataset = LabelFlippingDataset(
             base_dataset=train_dataset,
@@ -332,9 +341,12 @@ def get_client_dataloaders(
         )
     elif attack_type in ("pixel_backdoor", "model_replacement") and is_malicious:
         # Both attacks use the same data poisoning (pixel patch + relabel).
-        # Model replacement adds a post-training update scaling step in the
-        # client app; that logic lives outside this function.
-        train_dataset = PixelBackdoorDataset(
+        # The poisoned dataset WRAPS the clean TransformedSubset (shared
+        # pre-transform cache). train_dataset stays clean — the malicious
+        # client gets BOTH loaders and client_app.train() selects per
+        # round via the attack window. Model replacement adds a
+        # post-training update-scaling step in the client app.
+        poison_dataset = PixelBackdoorDataset(
             base_dataset=train_dataset,
             target_label=backdoor_target_label,
             poison_fraction=poison_fraction,
@@ -342,13 +354,14 @@ def get_client_dataloaders(
             trigger_value=trigger_value,
             trigger_position=trigger_position,
             seed=partition_seed + client_id,
+            source_classes=poison_source_classes,
         )
         print(
             f"[Client {client_id}] {attack_type} enabled: "
             f"target={backdoor_target_label}, "
             f"poison_fraction={poison_fraction:.2f}, "
             f"trigger_size={trigger_size}, "
-            f"num_poisoned={train_dataset.num_poisoned()}",
+            f"num_poisoned={poison_dataset.num_poisoned()}",
             flush=True,
         )
 
@@ -393,11 +406,24 @@ def get_client_dataloaders(
     trainloader = DataLoader(train_dataset, **train_kwargs)
     valloader = DataLoader(val_dataset, **val_kwargs)
 
+    # Windowed data-poisoning attacks: a second trainloader over the
+    # poisoned dataset, with its own seeded generator so the run stays
+    # bit-deterministic. client_app.train() picks clean vs. poisoned
+    # per round based on the attack window.
+    attack_trainloader = None
+    if poison_dataset is not None:
+        attack_kwargs = dict(train_kwargs)
+        attack_kwargs["generator"] = torch.Generator().manual_seed(
+            derive_seed(seed, client_id) + 1
+        )
+        attack_trainloader = DataLoader(poison_dataset, **attack_kwargs)
+
     return ClientDataLoaders(
         trainloader=trainloader,
         valloader=valloader,
         num_train_samples=len(train_dataset),
         num_val_samples=len(val_dataset),
+        attack_trainloader=attack_trainloader,
     )
 
 def get_global_testloader(

@@ -77,6 +77,7 @@ class PixelBackdoorDataset(Dataset):
         trigger_value: float = 1.0,
         trigger_position: str = "bottom-right",
         seed: int = 42,
+        source_classes: tuple[int, ...] | None = None,
     ) -> None:
         self.base_dataset = base_dataset
         self.target_label = int(target_label)
@@ -85,6 +86,13 @@ class PixelBackdoorDataset(Dataset):
         self.trigger_value = float(trigger_value)
         self.trigger_position = str(trigger_position)
         self.seed = int(seed)
+        # Cycle-02 base/edge regime: when set, only samples whose clean
+        # label is in this set are eligible to be poisoned. None => every
+        # non-target class is eligible (the original behaviour).
+        self.source_classes = (
+            tuple(int(c) for c in source_classes)
+            if source_classes is not None else None
+        )
 
         if not 0.0 <= self.poison_fraction <= 1.0:
             raise ValueError(
@@ -104,8 +112,15 @@ class PixelBackdoorDataset(Dataset):
             labels = self.base_dataset.get_labels()
         else:
             labels = [int(self.base_dataset[i][1]) for i in range(n)]
+        # Eligible sources: non-target classes, optionally restricted to
+        # the configured base/edge source-class pool.
+        allowed = self.source_classes  # None => all non-target classes
         non_target_indices = np.array(
-            [i for i, lbl in enumerate(labels) if int(lbl) != self.target_label],
+            [
+                i for i, lbl in enumerate(labels)
+                if int(lbl) != self.target_label
+                and (allowed is None or int(lbl) in allowed)
+            ],
             dtype=np.intp,
         )
 

@@ -13,6 +13,10 @@ from fl_v2.data.dataset import (
     build_client_index_map,
     get_client_dataloaders,
 )
+from fl_v2.data.gtsrb_classes import (
+    BASE_REGIME_SOURCE_CLASSES,
+    EDGE_REGIME_SOURCE_CLASSES,
+)
 from fl_v2.models import create_model
 from fl_v2.training import evaluate, train_local
 from fl_v2.utils import compute_lr, derive_seed, get_device, truthy
@@ -145,6 +149,16 @@ def _load_client_data(context: Context):
     trigger_value = float(run_config.get("trigger-value", 1.0))
     trigger_position = str(run_config.get("trigger-position", "bottom-right"))
 
+    # Cycle-02 poison-data regime -> eligible source classes for the
+    # backdoor poison mask. "all" keeps the original behaviour.
+    poison_data_regime = str(run_config.get("poison-data-regime", "all"))
+    if poison_data_regime == "base":
+        poison_source_classes = BASE_REGIME_SOURCE_CLASSES
+    elif poison_data_regime == "edge":
+        poison_source_classes = EDGE_REGIME_SOURCE_CLASSES
+    else:
+        poison_source_classes = None  # every non-target class eligible
+
     is_malicious = client_id in malicious_client_ids
 
     if attack_type != "none":
@@ -175,6 +189,7 @@ def _load_client_data(context: Context):
         trigger_size=trigger_size,
         trigger_value=trigger_value,
         trigger_position=trigger_position,
+        poison_source_classes=poison_source_classes,
     )
 
     _client_data_cache[client_id] = client_data
@@ -259,6 +274,23 @@ def train(msg: Message, context: Context) -> Message:
     )
     is_malicious = client_id in malicious_client_ids
 
+    # Cycle-02 attack window: malicious clients poison / scale only on
+    # rounds in [attack-start-round, attack-end-round]; outside it they
+    # behave honestly so post-attack ASR decay (durability) is visible.
+    attack_start = int(run_config.get("attack-start-round", 1))
+    attack_end = int(run_config.get("attack-end-round", 100000))
+    in_attack_window = attack_start <= server_round <= attack_end
+
+    # Select the trainloader: the poisoned loader only for a malicious
+    # data-poisoning client inside the window; clean loader otherwise.
+    trainloader = client_data.trainloader
+    if (
+        is_malicious
+        and in_attack_window
+        and client_data.attack_trainloader is not None
+    ):
+        trainloader = client_data.attack_trainloader
+
     # Read dynamic config from the incoming message
     config: ConfigRecord = msg.content["config"]
     local_epochs = int(config.get("num-local-epochs", default_local_epochs))
@@ -281,7 +313,7 @@ def train(msg: Message, context: Context) -> Message:
 
     results = train_local(
         model=model,
-        trainloader=client_data.trainloader,
+        trainloader=trainloader,
         valloader=client_data.valloader,
         device=device,
         num_epochs=local_epochs,
@@ -297,7 +329,7 @@ def train(msg: Message, context: Context) -> Message:
     # global model.
     local_state_dict = model.state_dict()
     reply_state_dict = local_state_dict
-    if is_malicious and attack_type == "model_replacement":
+    if is_malicious and attack_type == "model_replacement" and in_attack_window:
         # Scale: either fixed from config (>0) or auto from participant counts.
         cfg_scale = float(run_config.get("model-replacement-scale", 0.0))
         if cfg_scale > 0:

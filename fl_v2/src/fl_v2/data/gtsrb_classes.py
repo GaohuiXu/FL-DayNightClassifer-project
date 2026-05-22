@@ -85,6 +85,16 @@ SAFETY_CRITICAL_CLASS_INDICES: tuple[int, ...] = (
     28,  # Children crossing
 )
 
+# Cycle-02 poison-data-regime source-class pools (see the threat model in
+# docs/roadmap/cycle_02_gradient_space_mechanism_study.md). `base` poisons
+# common, well-represented source classes — the easy control where the
+# backdoor competes with a strong clean gradient. `edge` poisons rare
+# long-tail source classes — the durable, stealthy, AD-relevant case
+# (cf. Neurotoxin / "Attack of the Tails"). The backdoor target stays
+# class 14 (Stop) regardless of regime.
+BASE_REGIME_SOURCE_CLASSES: tuple[int, ...] = (1, 2, 5, 12, 13)
+EDGE_REGIME_SOURCE_CLASSES: tuple[int, ...] = (0, 19, 37)
+
 
 def class_name(idx: int) -> str:
     """Return the human-readable name for a GTSRB class index 0-42."""

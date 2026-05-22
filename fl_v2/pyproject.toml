@@ -102,6 +102,15 @@ output-dir = "./outputs"
 # ===== attack =====
 attack-type = "none"
 malicious-client-ids = ""
+# Cycle-02 attack window: malicious clients poison/scale only on rounds
+# in [attack-start-round, attack-end-round]; outside the window they
+# behave honestly so post-attack ASR decay (durability) is observable.
+# Defaults span the whole run (attack always on).
+attack-start-round = 1
+attack-end-round = 100000
+# Cycle-02 poison-data regime: "all" (every non-target class eligible),
+# "base" (common source classes) or "edge" (rare long-tail sources).
+poison-data-regime = "all"
 # label flipping
 label-flip-source = 1
 label-flip-target = 2
