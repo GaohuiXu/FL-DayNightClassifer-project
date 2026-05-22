@@ -234,4 +234,5 @@ fi
 rm -rf "$JOB_FLWR_HOME"
 
 echo "End: $(date)"
+echo "Elapsed: $(printf '%02d:%02d:%02d' $((SECONDS/3600)) $((SECONDS%3600/60)) $((SECONDS%60))) (total ${SECONDS}s)"
 exit $FLWR_EXIT

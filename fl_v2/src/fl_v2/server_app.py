@@ -11,7 +11,7 @@ from fl_v2.data.dataset import (
     build_client_index_map_with_stats,
     get_global_testloader,
 )
-from fl_v2.attacks_defenses import make_pixel_trigger_fn
+from fl_v2.attacks_defenses import make_pixel_trigger_fn, parse_client_ids
 from fl_v2.models import create_model
 from fl_v2.training import server_evaluate
 
@@ -163,6 +163,75 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict, exp_dir:
     )
 
 
+def _summarize_update_metrics(
+    norm_record: dict, malicious_ids: set
+) -> dict:
+    """Summarise one norm-log round record into malicious-vs-honest scalars.
+
+    ``norm_record`` is the per-round dict produced by the NormTracking
+    strategies' ``_compute_and_log_norms`` (keys: ``partition_ids``,
+    ``original_norms``, ``cosine_to_mean``, ``topk_energy_frac``,
+    ``pairwise_cosine``). Per-client metrics are split by partition-id into
+    malicious (id in ``malicious_ids``) and honest groups; the return is a
+    flat dict of group-mean scalars for wandb (the ``updates/*`` namespace).
+
+    Logging / analysis only — never touches aggregation. Honest-group keys
+    are always emitted; malicious-group keys only when malicious clients
+    participated this round, so clean runs degrade gracefully.
+    """
+    pids = norm_record.get("partition_ids")
+    if not pids:
+        return {}
+    n = len(pids)
+    mal = [i for i in range(n) if int(pids[i]) in malicious_ids]
+    hon = [i for i in range(n) if int(pids[i]) not in malicious_ids]
+    out: dict = {}
+
+    def _grp_mean(values, idx):
+        vals = [values[i] for i in idx if values[i] is not None]
+        return sum(vals) / len(vals) if vals else None
+
+    for key, short in (
+        ("original_norms", "norm"),
+        ("cosine_to_mean", "cos2mean"),
+        ("topk_energy_frac", "topk_energy"),
+    ):
+        values = norm_record.get(key)
+        if not values or len(values) != n:
+            continue
+        h = _grp_mean(values, hon)
+        if h is not None:
+            out[f"{short}_honest"] = float(h)
+        if mal:
+            m = _grp_mean(values, mal)
+            if m is not None:
+                out[f"{short}_malicious"] = float(m)
+
+    pw = norm_record.get("pairwise_cosine")
+    if pw and len(pw) == n:
+        def _pair_mean(rows, cols, skip_diag):
+            acc = [
+                pw[i][j]
+                for i in rows
+                for j in cols
+                if not (skip_diag and i == j)
+            ]
+            return sum(acc) / len(acc) if acc else None
+
+        hh = _pair_mean(hon, hon, True)
+        if hh is not None:
+            out["pairwise_honest_honest"] = float(hh)
+        if len(mal) >= 2:
+            mm = _pair_mean(mal, mal, True)
+            if mm is not None:
+                out["pairwise_malicious_malicious"] = float(mm)
+        if mal and hon:
+            mh = _pair_mean(mal, hon, False)
+            if mh is not None:
+                out["pairwise_malicious_honest"] = float(mh)
+    return out
+
+
 def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger, strategy):
     """
     Build a centralized evaluation callback.
@@ -189,6 +258,9 @@ def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger, strateg
 
     attack_type = str(run_config.get("attack-type", "none"))
     backdoor_target_label = int(run_config.get("backdoor-target-label", 0))
+    # Cycle-02: malicious partition-ids — used only to split the per-round
+    # gradient-space metrics into malicious-vs-honest summaries for wandb.
+    malicious_ids = parse_client_ids(str(run_config.get("malicious-client-ids", "")))
     trigger_size = int(run_config.get("trigger-size", 4))
     trigger_value = float(run_config.get("trigger-value", 1.0))
     trigger_position = str(run_config.get("trigger-position", "bottom-right"))
@@ -285,7 +357,31 @@ def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger, strateg
         # the strategy didn't expose the slot.
         client_metrics = getattr(strategy, "_last_train_metrics", None)
 
-        logger.log_round(server_round, metrics_dict, client_metrics=client_metrics)
+        # Cycle-02: summarise this round's gradient-space metrics into
+        # malicious-vs-honest scalars for wandb. The strategy's _norm_history
+        # last entry is this round's record (aggregate_train ran just before
+        # this callback). Fully guarded — logging only, never blocks a round.
+        update_metrics = None
+        norm_history = getattr(strategy, "_norm_history", None)
+        if norm_history:
+            last_record = norm_history[-1]
+            if int(last_record.get("round", -1)) == int(server_round):
+                try:
+                    update_metrics = _summarize_update_metrics(
+                        last_record, malicious_ids
+                    )
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    print(
+                        f"[server] update-metric summary skipped: {e!r}",
+                        flush=True,
+                    )
+
+        logger.log_round(
+            server_round,
+            metrics_dict,
+            client_metrics=client_metrics,
+            update_metrics=update_metrics,
+        )
 
         # Save periodic checkpoint if this round is in the configured set
         if server_round in checkpoint_rounds:

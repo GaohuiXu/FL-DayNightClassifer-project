@@ -229,6 +229,7 @@ class WandbLogger:
             self.run.define_metric("server-round")
             self.run.define_metric("server/*", step_metric="server-round")
             self.run.define_metric("client/*", step_metric="server-round")
+            self.run.define_metric("updates/*", step_metric="server-round")
         except Exception as e:
             print(f"[wandb] define_metric warning: {e!r}", flush=True)
 
@@ -248,6 +249,7 @@ class WandbLogger:
         server_round: int,
         server_metrics: dict | None,
         client_metrics: dict | None = None,
+        update_metrics: dict | None = None,
     ) -> None:
         if self.disabled or self.run is None:
             return
@@ -260,6 +262,12 @@ class WandbLogger:
             for k, v in client_metrics.items():
                 if isinstance(v, (int, float)):
                     payload[f"client/{k}"] = float(v)
+        # Cycle-02 gradient-space metrics: malicious-vs-honest update
+        # summaries computed server-side from the strategy's norm log.
+        if update_metrics:
+            for k, v in update_metrics.items():
+                if isinstance(v, (int, float)):
+                    payload[f"updates/{k}"] = float(v)
         try:
             self.run.log(payload)
         except Exception as e:

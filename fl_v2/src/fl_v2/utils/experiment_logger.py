@@ -74,6 +74,7 @@ class ExperimentLogger:
         server_round: int,
         metrics: dict,
         client_metrics: dict | None = None,
+        update_metrics: dict | None = None,
     ) -> None:
         """Append one row to rounds.csv and forward to wandb if enabled.
 
@@ -102,8 +103,10 @@ class ExperimentLogger:
                 self._csv_initialized = True
             writer.writerow(row)
 
-        # Forward to wandb (no-op when disabled).
-        self.wandb.log_round(server_round, metrics, client_metrics)
+        # Forward to wandb (no-op when disabled). update_metrics (the
+        # Cycle-02 gradient-space malicious-vs-honest summary) goes to
+        # wandb only — the full per-client data lives in norm_log.json.
+        self.wandb.log_round(server_round, metrics, client_metrics, update_metrics)
 
     def save_checkpoint(self, server_round: int, state_dict: dict) -> None:
         """Save model checkpoint for a given round."""
