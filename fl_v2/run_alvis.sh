@@ -157,6 +157,9 @@ echo "WANDB_MODE: ${WANDB_MODE:-<unset, defaults from YAML>}"
 
 # --- Start SuperLink in background ---
 echo "===== Starting SuperLink ====="
+SUPERLINK_STDERR="$FLWR_HOME/local-superlink/superlink.stderr.log"
+# tee SuperLink stderr to a file so the wait loops below can grep it,
+# while still relaying it to the script stderr (SLURM .err).
 flower-superlink \
   --insecure \
   --simulation \
@@ -165,24 +168,57 @@ flower-superlink \
   --simulationio-api-address "127.0.0.1:$PORT_SIO" \
   --database "$FLWR_HOME/local-superlink/state.db" \
   --storage-dir "$FLWR_HOME/local-superlink/ffs" \
-  --log-file "$FLWR_HOME/local-superlink/superlink.log" &
+  --log-file "$FLWR_HOME/local-superlink/superlink.log" \
+  2> >(tee "$SUPERLINK_STDERR" >&2) &
 
 SUPERLINK_PID=$!
 
-# Wait for SuperLink to be ready
-for i in $(seq 1 30); do
+# (1) Wait for the Control API to bind.
+for i in $(seq 1 60); do
     if kill -0 "$SUPERLINK_PID" 2>/dev/null && \
        python -c "import socket, sys; s=socket.socket(); s.settimeout(1); s.connect(('127.0.0.1',int(sys.argv[1]))); s.close()" "$PORT_CTL" 2>/dev/null; then
-        echo "SuperLink ready after ${i}s (PID=$SUPERLINK_PID)"
+        echo "SuperLink Control API ready after ${i}s (PID=$SUPERLINK_PID)"
         break
     fi
     if ! kill -0 "$SUPERLINK_PID" 2>/dev/null; then
         echo "ERROR: SuperLink died. Check $FLWR_HOME/local-superlink/superlink.log"
         cat "$FLWR_HOME/local-superlink/superlink.log" 2>/dev/null || true
+        cat "$SUPERLINK_STDERR" 2>/dev/null || true
         exit 1
     fi
     sleep 1
 done
+
+# (2) CRITICAL: also wait for SuperExec to actually start before calling
+# `flwr run`. On a contended shared node SuperExec startup is delayed
+# 10-30 s AFTER the Control API binds; if we send the run-create before
+# SuperExec is up, SuperLink accepts and books the run but no ServerApp
+# is ever spawned to execute it -- the run "completes" with no logs and
+# the wrapper exits 0 silently (the same-node race that ate ~25 % of
+# Wave-1 jobs). Polling SuperLink stderr for the "Starting Flower
+# SuperExec" line guarantees we wait for the right startup event.
+SUPEREXEC_OK=0
+for i in $(seq 1 120); do
+    if grep -q "Starting Flower SuperExec" "$SUPERLINK_STDERR" 2>/dev/null; then
+        echo "SuperLink SuperExec started after ${i}s"
+        # Brief settle delay so SuperExec finishes bootstrapping its
+        # subprocess factory before the run-create lands.
+        sleep 3
+        SUPEREXEC_OK=1
+        break
+    fi
+    if ! kill -0 "$SUPERLINK_PID" 2>/dev/null; then
+        echo "ERROR: SuperLink died while waiting for SuperExec startup"
+        cat "$SUPERLINK_STDERR" 2>/dev/null || true
+        exit 1
+    fi
+    sleep 1
+done
+if [ "$SUPEREXEC_OK" -ne 1 ]; then
+    echo "ERROR: SuperExec did not start within 120 s -- aborting to avoid the silent same-node race"
+    cat "$SUPERLINK_STDERR" 2>/dev/null || true
+    exit 1
+fi
 
 # --- Run Flower ---
 echo "===== Running Flower ====="
