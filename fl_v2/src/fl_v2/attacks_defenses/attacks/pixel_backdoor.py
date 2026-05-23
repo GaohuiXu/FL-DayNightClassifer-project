@@ -84,26 +84,51 @@ def dba_subregions(
     trigger_position: str,
     grid: str,
     image_size: int,
-) -> tuple[list[tuple[int, int, int, int]], tuple[int, int, int, int]]:
-    """Split the corner trigger square into a grid of DBA sub-triggers.
+    pattern: str = "corner-grid",
+) -> tuple[list[tuple[int, int, int, int]], list[tuple[int, int, int, int]]]:
+    """Sub-trigger geometry for the DBA distributed-backdoor attack.
 
-    Distributed Backdoor Attack (Xie et al. 2020): the full trigger is
-    decomposed into ``grid`` (e.g. '2x2' -> 4) disjoint sub-rectangles;
-    each malicious client stamps ONE of them during local training, and
-    the server measures ASR with the UNION (the full trigger).
+    Returns ``(per_client_rects, union_rects)``:
+      - ``per_client_rects``: a list of single rectangles -- one
+        sub-trigger per slot. Each malicious client stamps the rectangle
+        assigned to its index in (sorted) malicious-client-ids modulo
+        ``len(per_client_rects)``.
+      - ``union_rects``: the list of rectangles the server stamps at
+        eval time for ASR (the union of all sub-triggers the malicious
+        clients are stamping). Always a list, possibly of one element.
 
-    Returns ``(per_client_rects, union_rect)``:
+    Two patterns:
 
-      - ``per_client_rects``: the grid sub-rectangles, row-major, tiling
-        the corner square exactly and disjointly.
-      - ``union_rect``: the full corner trigger square. The sub-rects tile
-        it exactly, so this is the single source of truth shared by the
-        client (per-client sub-stamp) and the server (union ASR stamp) —
-        preventing any train/eval trigger drift.
+    - ``"corner-grid"`` (legacy / null-config-compatible): splits the
+      ``trigger_size x trigger_size`` square at ``trigger_position`` into
+      a ``grid`` (e.g. '2x2' -> 4) of disjoint sub-rectangles tiling the
+      square. The union is the single corner square the sub-rects tile.
+      ``grid='1x1'`` returns ``([corner_square], [corner_square])`` --
+      bit-identical to the plain pixel backdoor.
 
-    grid '1x1' returns ``([union_rect], union_rect)`` — the trigger is not
-    split, reproducing the plain pixel-backdoor attack bit-for-bit.
+    - ``"scattered-bars"`` (paper-faithful, Xie et al. 2020): four
+      non-contiguous 1x6 horizontal bars with 3-px gaps in the top
+      region of a 32x32 image -- the CIFAR pattern from the DBA reference
+      ``cifar_params.yaml``. Each malicious client stamps ONE bar; the
+      server measures ASR with all 4 bars stamped together (the gaps
+      stay clean, NOT filled by a bounding box). ``grid``,
+      ``trigger_size``, and ``trigger_position`` are IGNORED in this
+      mode -- the pattern is hardcoded paper-faithful for image_size=32.
     """
+    if pattern == "scattered-bars":
+        bars: list[tuple[int, int, int, int]] = [
+            (0, 0, 1, 6),    # row 0, cols 0..5
+            (0, 9, 1, 15),   # row 0, cols 9..14
+            (4, 0, 5, 6),    # row 4, cols 0..5
+            (4, 9, 5, 15),   # row 4, cols 9..14
+        ]
+        return bars, bars
+
+    if pattern != "corner-grid":
+        raise ValueError(
+            f"Unknown dba-pattern {pattern!r}; expected 'corner-grid' or 'scattered-bars'."
+        )
+
     gr, gc = _parse_grid(grid)
     r0, c0, r1, c1 = _corner_rect(
         image_size, image_size, trigger_size, trigger_position
@@ -118,7 +143,7 @@ def dba_subregions(
                 (row_edges[i], col_edges[j], row_edges[i + 1], col_edges[j + 1])
             )
     union_rect = (r0, c0, r1, c1)
-    return per_client_rects, union_rect
+    return per_client_rects, [union_rect]
 
 
 def make_pixel_trigger_fn(

@@ -126,9 +126,15 @@ trigger-position = "bottom-right"
 # 0 = auto-compute as num_participants / num_malicious_clients
 model-replacement-scale = 0.0
 # DBA (Distributed Backdoor Attack, Xie et al. 2020)
-# dba-grid splits the trigger square into an RxC grid of sub-triggers,
-# one per malicious client; ASR is measured with the union. "1x1"
-# reproduces the plain pixel backdoor bit-for-bit (the null config).
+# dba-pattern: "corner-grid" (default; uses dba-grid to tile the corner
+# trigger square) or "scattered-bars" (paper-faithful CIFAR pattern --
+# four non-contiguous 1x6 horizontal bars with 3-px gaps; ignores
+# dba-grid and trigger-size). Default "corner-grid" keeps the null
+# config (dba-grid 1x1 == plain pixel) bit-identical.
+dba-pattern = "corner-grid"
+# dba-grid splits the trigger square into an RxC grid of sub-triggers
+# under "corner-grid"; ignored under "scattered-bars". "1x1" reproduces
+# the plain pixel backdoor bit-for-bit (the null config).
 dba-grid = "1x1"
 # Neurotoxin (Zhang et al. 2022)
 # Fraction of benign heavy-hitter coordinates whose gradient is masked
@@ -145,11 +151,11 @@ clip-norm = 5.0  # placeholder; update after inspecting Exp 1 norm log
 trimmed-avg-beta = 0.2
 num-malicious-nodes = 0
 krum-num-to-select = 5
-# FLAME (Nguyen et al. 2022): Gaussian noise added after clustering +
-# clipping. multiplier is the dimension-independent ratio of the
-# noise-vector norm to the median update norm (per-coordinate std =
-# multiplier x median-norm / sqrt(num-params)). Seeded off the run seed.
-flame-noise-multiplier = 0.01
+# FLAME (Nguyen et al. 2022): per-coordinate noise std = multiplier *
+# median_norm (no sqrt(d) scaling -- the paper intends a large
+# per-coord noise; zero-mean Gaussian averages out over rounds).
+# lambda = 0.001 is the paper's value for image classification.
+flame-noise-multiplier = 0.001
 
 # ===== gradient-space instrumentation (Cycle 02) =====
 # Number of top-|coordinate| positions of the mean update used for the

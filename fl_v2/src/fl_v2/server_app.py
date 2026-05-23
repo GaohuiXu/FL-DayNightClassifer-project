@@ -320,17 +320,18 @@ def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger, strateg
             trigger_position=trigger_position,
         )
     elif attack_type == "dba":
-        _per_client_rects, union_rect = dba_subregions(
+        _per_client_rects, union_rects = dba_subregions(
             trigger_size,
             trigger_position,
             str(run_config.get("dba-grid", "1x1")),
             image_size,
+            pattern=str(run_config.get("dba-pattern", "corner-grid")),
         )
         trigger_fn = make_pixel_trigger_fn(
             trigger_size=trigger_size,
             trigger_value=trigger_value,
             trigger_position=trigger_position,
-            trigger_rects=[union_rect],
+            trigger_rects=union_rects,
         )
 
     # Parse checkpoint rounds for periodic saving (e.g., "0,5,10,25,50,75,100")

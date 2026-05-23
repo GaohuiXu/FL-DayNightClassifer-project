@@ -8,9 +8,11 @@ FLAME suppresses backdoor updates in three steps each round:
   2. Clipping — admitted updates are clipped to the median L2 update
      norm, bounding the influence of any single client.
   3. Noise — calibrated Gaussian noise is added to the aggregate to wash
-     out residual backdoor signal. The per-coordinate std is normalised
-     by sqrt(num-params) so the multiplier is the dimension-independent
-     noise-vector-norm / median-update-norm ratio.
+     out residual backdoor signal. Per-coordinate std = noise_multiplier
+     * S_t (NO sqrt(d) normalisation — the paper intends a large per-
+     coordinate noise; the noise vector is ~3*S_t on an 11M-param model,
+     yet zero-mean Gaussian noise averages out over rounds so training
+     still converges).
 
 Extends NormTrackingFedAvg, so the WS1 gradient-space metrics are logged
 every round for free. Bit-determinism: HDBSCAN is deterministic for a
@@ -49,23 +51,17 @@ class FlameFedAvg(NormTrackingFedAvg):
     def _cluster_admitted(flat: np.ndarray, norms: np.ndarray) -> list[int]:
         """HDBSCAN on pairwise cosine distance; return the benign majority.
 
-        FLAME's intent: drop the minority outlier (malicious) cluster and
-        keep the benign majority. ``min_cluster_size`` is set SMALL (5):
-        sklearn's HDBSCAN MERGES any group smaller than ``min_cluster_size``
-        into its parent, so the paper's ``min_cluster_size = N/2 + 1``
-        cannot isolate a small malicious minority (the merged result
-        admits every malicious client — the defense silently breaks). A
-        small ``min_cluster_size`` lets the malicious minority form its own
-        cluster; we then admit the LARGEST cluster. Documented deviation
-        from the paper's literal parameter, forced by the sklearn HDBSCAN
-        ``min_cluster_size`` semantics.
-
-        Majority guard: if the largest cluster is not itself a majority
-        (< n/2) — e.g. a clean round with no attack structure, where
-        HDBSCAN over-splits the diffuse honest cloud into small spurious
-        clusters — admit everyone rather than aggressively dropping honest
-        clients (which would wreck clean accuracy). FLAME drops the
-        minority only when a clear benign-majority cluster exists.
+        FLAME paper (Nguyen et al. 2022): with ``min_cluster_size = N/2+1``
+        and ``allow_single_cluster=True``, HDBSCAN can find AT MOST ONE
+        cluster — the benign majority — and labels the minority malicious
+        group as noise (any group of size < N/2+1 cannot satisfy
+        min_cluster_size, so it stays noise rather than forming its own
+        cluster). ``min_samples=1`` keeps that noise labeling sparse so
+        the benign cluster stays cohesive. ``cluster_selection_method
+        ="eom"`` matches the reference implementation. Fall back to
+        admitting all clients when no cluster forms (degenerate input,
+        e.g. n < 4 or a perfectly uniform clean round) — FedAvg behaviour
+        is the right "do no harm" default when clustering is ambiguous.
         """
         n = int(flat.shape[0])
         if n < 4:
@@ -82,19 +78,15 @@ class FlameFedAvg(NormTrackingFedAvg):
         from sklearn.cluster import HDBSCAN
 
         labels = HDBSCAN(
-            min_cluster_size=5,
+            min_cluster_size=n // 2 + 1,
             min_samples=1,
             metric="precomputed",
             cluster_selection_method="eom",
             allow_single_cluster=True,
             copy=True,
         ).fit_predict(dist)
-        admitted_labels = labels[labels >= 0]
-        if admitted_labels.size == 0:
-            return list(range(n))
-        majority = int(np.argmax(np.bincount(admitted_labels)))
-        admitted = [i for i in range(n) if labels[i] == majority]
-        if len(admitted) < n // 2:
+        admitted = [i for i in range(n) if labels[i] >= 0]
+        if not admitted:
             return list(range(n))
         return admitted
 
@@ -159,15 +151,15 @@ class FlameFedAvg(NormTrackingFedAvg):
             clip = min(1.0, s_t / (norms[i] + 1e-12))
             coefs[i] = clip / len(admitted)
 
-        # Calibrated Gaussian noise. The per-coordinate std is normalised
-        # by sqrt(d) so noise_multiplier is the dimension-INDEPENDENT ratio
-        # of the noise-vector norm to the median update norm: a raw
-        # sigma = multiplier * s_t on an ~11 M-parameter model would give a
-        # noise vector ~sqrt(d) too large and destroy the model. The
-        # generator is seeded off the run seed and the server round, so
-        # the noise is reproducible across re-runs yet varies by round.
-        d_total = int(sum(np.asarray(g).size for g in global_params))
-        sigma = self.noise_multiplier * s_t / max(1.0, float(d_total) ** 0.5)
+        # Calibrated Gaussian noise per FLAME paper (Nguyen et al. 2022,
+        # Eq. 7): per-coordinate sigma = noise_multiplier * S_t. NO sqrt(d)
+        # normalisation -- the paper intends a large per-coordinate noise
+        # (with lambda=0.001 on an ~11M-param model the noise vector has
+        # norm ~3*S_t). Zero-mean Gaussian noise averages out across
+        # rounds so the model still trains; the noise washes out residual
+        # backdoor signal. Generator seeded off the run seed and the
+        # server round -> bit-deterministic.
+        sigma = self.noise_multiplier * s_t
         rng = np.random.default_rng(
             (int(self.seed) & 0xFFFFFFFF) * 1_000_003 + int(server_round)
         )
@@ -179,7 +171,7 @@ class FlameFedAvg(NormTrackingFedAvg):
         print(
             f"[Defense] round={server_round} FLAME admitted "
             f"{len(admitted)}/{n} clients, clip_bound={s_t:.4f}, "
-            f"noise_sigma={sigma:.3e}",
+            f"noise_sigma={sigma:.4f}",
             flush=True,
         )
 

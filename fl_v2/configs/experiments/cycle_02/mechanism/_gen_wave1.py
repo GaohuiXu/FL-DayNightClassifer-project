@@ -1,19 +1,34 @@
 #!/usr/bin/env python3
-"""Generate the Cycle-02 Wave-1 batch YAMLs.
+"""Generate the Cycle-02 Wave-1 batch YAMLs (post-implementation-review).
 
-Wave 1 = 19 runs:
-  Batch A (raw gradient signatures vs FedAvg): {model_replacement, dba,
-    neurotoxin}. pixel x FedAvg is Job 2 (already run).
+Wave 1 (post-fix re-run set) = 13 cells:
+  Batch A (raw signatures vs FedAvg): {model_replacement, dba}
+    -- pixel x FedAvg is Job 2 (kept as historical baseline).
+    -- neurotoxin DROPPED per review (GTSRB converges too fast to need
+       the durability angle Neurotoxin targets).
   Batch B (attack x defense outcome table): {pixel, model_replacement,
-    dba, neurotoxin} x {norm_clipping, multi_krum, foolsgold, flame}.
+    dba} x {norm_clipping, multi_krum, foolsgold, flame}.
 
-Plus 2 determinism-check YAMLs (_det_ws_r20_run{A,B}): neurotoxin x flame,
-20 rounds, paired same-seed -- they exercise the WS3 (Neurotoxin grad
-mask) and WS5 (FLAME seeded noise) code paths so bit-reproducibility can
-be confirmed before the batch is submitted.
+Post-implementation-review code fixes (DBA / FLAME / FoolsGold):
+  - DBA uses dba-pattern "scattered-bars" (paper-faithful CIFAR layout:
+    4 non-contiguous 1x6 horizontal bars with 3-px gaps); the old
+    contiguous "corner-grid" was too geometrically weak to backdoor.
+  - FLAME inherits pyproject default flame-noise-multiplier=0.001
+    (paper's lambda for image classification, per-coordinate, no
+    sqrt(d) normalisation -- our previous sqrt(d) scaling made the
+    noise ~3340x too small and degenerated FLAME to FedAvg).
+  - FoolsGold computes cosine on the output-layer (head) weights only
+    (code-side change in foolsgold.py; no YAML change needed).
 
-Frozen platform: ResNet18 from scratch, 50 clients, Dirichlet a=0.5, 60
-rounds, attack window rounds 10-35, base poison regime, m=10 malicious.
+Plus 2 smoke-check YAMLs (20 rounds, attack window 5-15, wandb off):
+  _smoke_dba_fedavg_r20  : DBA x FedAvg, scattered-bars -- verifies the
+                           new DBA pattern produces meaningful ASR.
+  _smoke_flame_pixel_r20 : pixel x FLAME, fixed noise -- verifies FLAME
+                           still trains the model AND suppresses pixel
+                           ASR vs the broken-FLAME baseline (0.68).
+
+Frozen platform: ResNet18 from scratch, 50 clients, Dirichlet alpha=0.5,
+60 rounds (smokes: 20), base poison regime, m=10 malicious.
 
 NB: no inline (#) comments on value lines -- the run_alvis.sh YAML parser
 does not strip them. Re-run this script to regenerate every YAML.
@@ -23,8 +38,8 @@ import os
 OUT = os.path.dirname(os.path.abspath(__file__))
 
 
-def shared(rounds: int, wandb_on: bool) -> str:
-    """Keys common to every Wave-1 cell (all 19 are attacked, m=10)."""
+def shared(rounds: int, wandb_on: bool, attack_start: int, attack_end: int) -> str:
+    """Keys common to every Wave-1 cell."""
     return f"""cycle: cycle_02
 phase: mechanism
 model-type: resnet18
@@ -46,8 +61,8 @@ poison-fraction: 0.5
 trigger-size: 4
 trigger-value: 1.0
 trigger-position: bottom-right
-attack-start-round: 10
-attack-end-round: 35
+attack-start-round: {attack_start}
+attack-end-round: {attack_end}
 poison-data-regime: base
 seed: 42
 partition-seed: 42
@@ -59,36 +74,38 @@ wandb-project: cycle-02"""
 
 
 ATTACKS = {
-    "pixel":      ("pixel_backdoor",    []),
-    "modelrep":   ("model_replacement", ["model-replacement-scale: 0.0"]),
-    "dba":        ("dba",               ["dba-grid: 2x2"]),
-    "neurotoxin": ("neurotoxin",        ["neurotoxin-topk-ratio: 0.25"]),
+    "pixel":    ("pixel_backdoor",    []),
+    "modelrep": ("model_replacement", ["model-replacement-scale: 0.0"]),
+    # DBA: paper-faithful 4-bar CIFAR layout (Xie et al. 2020).
+    "dba":      ("dba",               ["dba-pattern: scattered-bars"]),
 }
 DEFENSES = {
     "fedavg":    ("none",          []),
     "normclip":  ("norm_clipping", ["clip-norm: 100.0"]),
     "multikrum": ("multi_krum",    ["krum-num-to-select: 40"]),
     "foolsgold": ("foolsgold",     []),
-    "flame":     ("flame",         ["flame-noise-multiplier: 0.01"]),
+    # FLAME inherits flame-noise-multiplier=0.001 from pyproject.
+    "flame":     ("flame",         []),
 }
 
-# 19 Wave-1 cells (pixel x fedavg = Job 2, excluded).
-CELLS = [("modelrep", "fedavg"), ("dba", "fedavg"), ("neurotoxin", "fedavg")]
+# 13 Wave-1 cells (pixel x fedavg = Job 2, excluded).
+CELLS = [("modelrep", "fedavg"), ("dba", "fedavg")]
 CELLS += [
     (a, d)
-    for a in ("pixel", "modelrep", "dba", "neurotoxin")
+    for a in ("pixel", "modelrep", "dba")
     for d in ("normclip", "multikrum", "foolsgold", "flame")
 ]
 
 
-def write_yaml(name, header, attack, defense, rounds, wandb_on, group, tags):
+def write_yaml(name, header, attack, defense, rounds, wandb_on, group, tags,
+               attack_start=10, attack_end=35):
     attack_type, attack_keys = ATTACKS[attack]
     defense_type, defense_keys = DEFENSES[defense]
     lines = [
         f"# {header}",
         "# Generated by _gen_wave1.py -- do NOT edit by hand.",
         f"experiment-name: {name}",
-        shared(rounds, wandb_on),
+        shared(rounds, wandb_on, attack_start, attack_end),
         f"attack-type: {attack_type}",
         *attack_keys,
         f"defense-type: {defense_type}",
@@ -105,19 +122,32 @@ for atk, dfn in CELLS:
     nm = f"cycle02-{atk}-base-{dfn}"
     batch = "A" if dfn == "fedavg" else "B"
     write_yaml(
-        nm, f"Cycle 02 Wave 1 (Batch {batch}): {atk} vs {dfn}.",
+        nm, f"Cycle 02 Wave 1 (Batch {batch}) re-run: {atk} vs {dfn}.",
         atk, dfn, 60, True,
         f"cycle02-{atk}-base", f"cycle02,mechanism,wave1,{atk},base,{dfn}",
     )
     count += 1
 
-for run in ("A", "B"):
-    nm = f"_det_ws_r20_run{run}"
-    write_yaml(
-        nm, f"WS2/3/5 determinism check run {run} -- neurotoxin x flame, 20 rounds.",
-        "neurotoxin", "flame", 20, False,
-        "cycle02-det", "cycle02,determinism,ws",
-    )
-    count += 1
+# Smoke YAMLs for the implementation review (20 rounds, attack window 5-15,
+# wandb off). Run these BEFORE the 9-cell re-run batch to confirm the fixes
+# work; on PASS, submit the batch.
+write_yaml(
+    "_smoke_dba_fedavg_r20",
+    "Smoke: DBA scattered-bars vs FedAvg, 20 rounds, window 5-15 -- "
+    "verifies the new DBA pattern produces meaningful ASR vs old 0.07.",
+    "dba", "fedavg", 20, False,
+    "cycle02-smoke", "cycle02,smoke,dba,scattered-bars",
+    attack_start=5, attack_end=15,
+)
+count += 1
+write_yaml(
+    "_smoke_flame_pixel_r20",
+    "Smoke: pixel vs FLAME (paper-faithful noise), 20 rounds, window 5-15 -- "
+    "verifies FLAME trains the model AND suppresses pixel ASR vs the broken 0.68.",
+    "pixel", "flame", 20, False,
+    "cycle02-smoke", "cycle02,smoke,flame,pixel",
+    attack_start=5, attack_end=15,
+)
+count += 1
 
 print(f"wrote {count} YAMLs to {OUT}")

@@ -179,8 +179,10 @@ def _load_client_data(context: Context):
     trigger_rects = None
     if attack_type == "dba" and is_malicious:
         dba_grid = str(run_config.get("dba-grid", "1x1"))
-        per_client_rects, _union_rect = dba_subregions(
-            trigger_size, trigger_position, dba_grid, image_size
+        dba_pattern = str(run_config.get("dba-pattern", "corner-grid"))
+        per_client_rects, _union_rects = dba_subregions(
+            trigger_size, trigger_position, dba_grid, image_size,
+            pattern=dba_pattern,
         )
         sub_idx = sorted(malicious_client_ids).index(client_id) % len(
             per_client_rects
@@ -188,7 +190,8 @@ def _load_client_data(context: Context):
         trigger_rects = [per_client_rects[sub_idx]]
         print(
             f"[Client {client_id}] DBA sub-trigger {sub_idx}/"
-            f"{len(per_client_rects)} (grid={dba_grid}) rect={trigger_rects[0]}",
+            f"{len(per_client_rects)} (pattern={dba_pattern} grid={dba_grid}) "
+            f"rect={trigger_rects[0]}",
             flush=True,
         )
 

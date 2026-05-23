@@ -115,13 +115,19 @@ class FoolsGoldFedAvg(NormTrackingFedAvg):
             partition_ids=partition_ids,
         )
 
-        # --- FoolsGold reweighting ---
+        # --- FoolsGold reweighting (paper: cosine on OUTPUT-LAYER weights only) ---
+        # The FoolsGold paper (Fung et al. 2020) restricts the cosine
+        # similarity to "indicative features" -- the final classifier
+        # head weights. Using full-model updates buries the backdoor
+        # sybils' output-row collusion signal under feature-extractor
+        # noise that is common to all clients (our Job-2 saw an MM-HH
+        # gap of only +0.03 on full updates). For our ResNet18 the head
+        # weight `fc.weight` is the second-to-last named-parameter
+        # (`fc.bias` is the last), so HEAD_IDX = -2 in to_numpy_ndarrays.
+        HEAD_IDX = -2
         updates = [
-            np.concatenate([
-                (np.asarray(c, dtype=np.float32)
-                 - np.asarray(g, dtype=np.float32)).reshape(-1)
-                for c, g in zip(cp, global_params)
-            ])
+            (np.asarray(cp[HEAD_IDX], dtype=np.float32)
+             - np.asarray(global_params[HEAD_IDX], dtype=np.float32)).reshape(-1)
             for cp in client_params_list
         ]
         for pid, upd in zip(partition_ids, updates):
