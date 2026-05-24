@@ -201,9 +201,17 @@ SUPEREXEC_OK=0
 for i in $(seq 1 120); do
     if grep -q "Starting Flower SuperExec" "$SUPERLINK_STDERR" 2>/dev/null; then
         echo "SuperLink SuperExec started after ${i}s"
-        # Brief settle delay so SuperExec finishes bootstrapping its
-        # subprocess factory before the run-create lands.
-        sleep 3
+        # Settle delay so SuperExec finishes bootstrapping its subprocess
+        # factory BEFORE the run-create lands. The "Starting Flower
+        # SuperExec" log line means SuperExec began startup; it then
+        # needs to initialise its subprocess-spawning machinery before
+        # it can actually launch a ServerApp. There is no API port to
+        # poll, so we wait. 3 s was empirically insufficient on a slow
+        # node (job 6676948 hit it: SuperExec line appeared at 13 s,
+        # `flwr run` reported "Successfully started run" but no
+        # ServerApp ever spawned -- silent exit 0 again). 30 s is
+        # generous; total wrapper startup is still under a minute.
+        sleep 30
         SUPEREXEC_OK=1
         break
     fi
