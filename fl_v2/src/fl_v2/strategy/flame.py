@@ -9,10 +9,13 @@ FLAME suppresses backdoor updates in three steps each round:
      norm, bounding the influence of any single client.
   3. Noise — calibrated Gaussian noise is added to the aggregate to wash
      out residual backdoor signal. Per-coordinate std = noise_multiplier
-     * S_t (NO sqrt(d) normalisation — the paper intends a large per-
-     coordinate noise; the noise vector is ~3*S_t on an 11M-param model,
-     yet zero-mean Gaussian noise averages out over rounds so training
-     still converges).
+     * S_t (NO sqrt(d) normalisation — matches paper Eq. 7 and the
+     reference impls (zhmzm/FLAME defense.py L348, Guncuke server.py
+     L120)). NB the paper's lambda=0.001 is calibrated for SGD lr=0.01;
+     under our Adam optimizer (~1000x larger updates) it diverges in
+     round 1. The pyproject default lambda=1e-6 is the optimizer-aware
+     calibration -- see the comment beside flame-noise-multiplier in
+     pyproject.toml for the math.
 
 Extends NormTrackingFedAvg, so the WS1 gradient-space metrics are logged
 every round for free. Bit-determinism: HDBSCAN is deterministic for a
@@ -153,12 +156,15 @@ class FlameFedAvg(NormTrackingFedAvg):
 
         # Calibrated Gaussian noise per FLAME paper (Nguyen et al. 2022,
         # Eq. 7): per-coordinate sigma = noise_multiplier * S_t. NO sqrt(d)
-        # normalisation -- the paper intends a large per-coordinate noise
-        # (with lambda=0.001 on an ~11M-param model the noise vector has
-        # norm ~3*S_t). Zero-mean Gaussian noise averages out across
-        # rounds so the model still trains; the noise washes out residual
-        # backdoor signal. Generator seeded off the run seed and the
-        # server round -> bit-deterministic.
+        # normalisation -- matches paper Eq. 7 and both ref impls
+        # (zhmzm/FLAME, Guncuke). NB the paper's lambda=0.001 is
+        # calibrated for SGD lr=0.01 (S_t ~ 0.1); under our Adam optimizer
+        # (S_t ~ 100, 1000x larger) the recipe diverges in one round.
+        # Pyproject default lambda=1e-6 is the optimizer-aware
+        # calibration; see comment beside flame-noise-multiplier in
+        # pyproject.toml for the math.
+        # Generator seeded off the run seed and server round
+        # -> bit-deterministic.
         sigma = self.noise_multiplier * s_t
         rng = np.random.default_rng(
             (int(self.seed) & 0xFFFFFFFF) * 1_000_003 + int(server_round)

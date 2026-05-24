@@ -152,10 +152,25 @@ trimmed-avg-beta = 0.2
 num-malicious-nodes = 0
 krum-num-to-select = 5
 # FLAME (Nguyen et al. 2022): per-coordinate noise std = multiplier *
-# median_norm (no sqrt(d) scaling -- the paper intends a large
-# per-coord noise; zero-mean Gaussian averages out over rounds).
-# lambda = 0.001 is the paper's value for image classification.
-flame-noise-multiplier = 0.001
+# median_norm (per paper Eq. 7, no sqrt(d) scaling). The paper's
+# lambda=0.001 is calibrated for SGD lr=0.01 (their reference impl,
+# zhmzm/FLAME): SGD weight deltas have L2 ~0.1, so the noise vector
+# has L2 ~3.3 * delta -- dominant per round but tolerable because
+# updates are ~0.5 % of weight magnitude.
+#
+# OUR setup uses Adam lr=0.001, which produces weight deltas with L2
+# ~100 (~1000x larger than the paper's SGD setup). Applying lambda=
+# 0.001 verbatim makes the round-1 noise vector have L2 ~360 vs init
+# weight norm ~30 -- it destroys the model in one round (empirically
+# verified: smoke 6676906 collapsed to test_loss=NaN by round 2).
+#
+# Optimizer-aware calibration: lambda=1e-6 keeps round-1 noise L2
+# under ~0.4 (well below ||W||~30) for our Adam updates, while still
+# inheriting the paper's recipe sigma = lambda * S_t. Trade-off
+# documented: steady-state noise becomes negligible as S_t shrinks,
+# so FLAME effectively reduces to clustering+clipping under Adam --
+# itself a publishable finding about FLAME's optimizer sensitivity.
+flame-noise-multiplier = 0.000001
 
 # ===== gradient-space instrumentation (Cycle 02) =====
 # Number of top-|coordinate| positions of the mean update used for the

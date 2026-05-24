@@ -13,10 +13,13 @@ Post-implementation-review code fixes (DBA / FLAME / FoolsGold):
   - DBA uses dba-pattern "scattered-bars" (paper-faithful CIFAR layout:
     4 non-contiguous 1x6 horizontal bars with 3-px gaps); the old
     contiguous "corner-grid" was too geometrically weak to backdoor.
-  - FLAME inherits pyproject default flame-noise-multiplier=0.001
-    (paper's lambda for image classification, per-coordinate, no
-    sqrt(d) normalisation -- our previous sqrt(d) scaling made the
-    noise ~3340x too small and degenerated FLAME to FedAvg).
+  - FLAME inherits pyproject default flame-noise-multiplier=1e-6
+    (optimizer-aware calibration -- paper recipe sigma = lambda * S_t
+    is correct, but the paper's lambda=0.001 is for SGD lr=0.01;
+    under our Adam optimizer (~1000x larger updates) lambda=0.001
+    diverges in one round -- empirically verified, smoke 6676906).
+    lambda=1e-6 keeps round-1 noise L2 below ~0.4 (vs init weight
+    norm ~30), inheriting the paper's recipe at our scale.
   - FoolsGold computes cosine on the output-layer (head) weights only
     (code-side change in foolsgold.py; no YAML change needed).
 
