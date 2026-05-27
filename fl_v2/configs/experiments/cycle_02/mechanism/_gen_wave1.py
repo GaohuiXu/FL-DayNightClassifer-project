@@ -91,8 +91,11 @@ DEFENSES = {
     "flame":     ("flame",         []),
 }
 
-# 13 Wave-1 cells (pixel x fedavg = Job 2, excluded).
-CELLS = [("modelrep", "fedavg"), ("dba", "fedavg")]
+# 14 Wave-1 cells. pixel x FedAvg is now included as a Wave-1 cell
+# (re-aligned: 60 rounds, attack window 10-35) rather than re-using
+# Job 2 (100 rounds, attack window 10-50). The aligned cell makes the
+# Wave-1 row of the outcome table internally comparable.
+CELLS = [("pixel", "fedavg"), ("modelrep", "fedavg"), ("dba", "fedavg")]
 CELLS += [
     (a, d)
     for a in ("pixel", "modelrep", "dba")
