@@ -31,7 +31,6 @@ from fl_v2.utils import (
 
 from fl_v2.strategy import (
     CapturedKrum,
-    CapturedMultiKrum,
     FlameFedAvg,
     FoolsGoldFedAvg,
     NormClippedFedAvg,
@@ -39,6 +38,7 @@ from fl_v2.strategy import (
     NormTrackingFedAvg,
     NormTrackingFedMedian,
     NormTrackingFedTrimmedAvg,
+    NormTrackingMultiKrum,
 )
 
 
@@ -176,9 +176,13 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict, exp_dir:
         )
 
     if defense_type == "multi_krum":
-        return CapturedMultiKrum(
+        return NormTrackingMultiKrum(
             num_malicious_nodes=int(run_config.get("num-malicious-nodes", 0)),
             num_nodes_to_select=int(run_config.get("krum-num-to-select", 5)),
+            output_dir=exp_dir,
+            experiment_name=experiment_name,
+            seed=seed,
+            topk_energy_k=topk_energy_k,
             **common_kwargs,
         )
 

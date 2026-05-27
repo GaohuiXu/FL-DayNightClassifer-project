@@ -143,10 +143,31 @@ class ExperimentLogger:
 
         if "asr" in final:
             best_asr = max(rows_for_best, key=lambda r: r.get("asr", 0.0))
-            summary["best_asr"] = {
+            best_asr_entry: dict = {
                 "round": best_asr["round"],
                 "asr": best_asr["asr"],
             }
+            # Cycle-03 WS-A: surface clean-floor + trigger-attributable ASR
+            # next to the headline ASR so summary.json carries the
+            # backdoor-attribution story end-to-end. Keys are absent on
+            # Wave-1 cells re-read under this schema; consumers should
+            # default missing keys to 0/NaN.
+            if "clean_floor_to_target" in best_asr:
+                best_asr_entry["clean_floor_to_target"] = best_asr["clean_floor_to_target"]
+            if "tasr" in best_asr:
+                best_asr_entry["tasr"] = best_asr["tasr"]
+            summary["best_asr"] = best_asr_entry
+
+            if "tasr" in final:
+                best_tasr = max(rows_for_best, key=lambda r: r.get("tasr", 0.0))
+                summary["best_tasr"] = {
+                    "round": best_tasr["round"],
+                    "tasr": best_tasr["tasr"],
+                    "asr": best_tasr.get("asr", 0.0),
+                    "clean_floor_to_target": best_tasr.get(
+                        "clean_floor_to_target", 0.0
+                    ),
+                }
 
         save_json(summary, os.path.join(self.exp_dir, "summary.json"))
         print(f"[logger] summary saved → {self.exp_dir}/summary.json", flush=True)
