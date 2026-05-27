@@ -2,218 +2,267 @@
 
 ## Project Identity
 
-This repository is a federated learning research platform built with the latest Flower Message API.
+This repository is a federated learning research platform built on the latest
+Flower Message API.
 
-Its current role is to serve as a clean, modular, reproducible experimentation platform for:
-- non-IID federated image classification
-- attack baselines
-- defense baselines
-- stronger backbone experiments
-- later migration toward autonomous-driving research settings
+**Thesis-paper target: USENIX-Security.** The contribution is a **novel
+general backdoor defense for federated learning**. The current benchmark
+is GTSRB-43 / ResNet18; the long-term migration target is federated
+learning for autonomous driving (multimodal / fusion-layer backdoors).
 
 ---
 
 ## Current Stage vs Final Thesis Direction
 
 ### Current stage
-The current codebase uses GTSRB as a platform-building benchmark:
-- 43-class image classification
-- multi-client federated learning
-- non-IID partitioning
-- attack/defense modularization
-- experiment logging and reproducibility validation
-
-GTSRB is not the final thesis task. It is the current engineering and experimentation platform.
+Audit-fixed codebase, evaluated on GTSRB-43 (43-class traffic-sign
+classification) with ResNet18 trained from scratch, 50 clients, Dirichlet
+α=0.5 non-IID. Used as the experimentation platform for backdoor
+attack/defense mechanism study.
 
 ### Final thesis direction
-The final thesis direction is:
-- securing federated learning-based autonomous driving against backdoor attacks
-- studying stronger and more structural attack settings beyond simple heuristics
-- later moving toward autonomous-driving and possibly multimodal settings
-- eventually supporting research on fusion-layer vulnerability and stronger defenses
+A novel general backdoor defense for federated learning, targeting
+**USENIX-Security**. The defense will be evaluated against:
+- The closed Cycle-02 Wave-1 baselines on GTSRB-43 (pixel, model
+  replacement, DBA × {FedAvg, NormClip, MultiKrum, FoolsGold, FLAME}).
+- Stronger adaptive attacks reproduced from 2023-2025 literature
+  (current Cycle 03).
+- Eventually: federated learning for autonomous driving (multimodal /
+  fusion-layer) once the GTSRB platform results are paper-ready.
 
 When giving suggestions, prioritize ideas that either:
-1. improve the current FL experimentation platform, or
-2. prepare the codebase for later migration toward the thesis direction.
+1. advance the current cycle's research goal (see **Current Focus** below),
+2. improve the FL experimentation platform's reproducibility / efficiency,
+   or
+3. prepare the codebase for the later AD migration.
 
 ---
 
 ## Current Research Direction
 
-The current research direction is evolving beyond simple FL benchmark engineering.
+The cycle-based research pipeline is:
 
-The working research hypothesis is:
+1. **Reproduce** current strong and novel attacks/defenses from
+   2022-2025 literature faithfully on the audit-fixed codebase.
+2. **Understand mechanisms** — for each implemented attack, characterize
+   its gradient-space signature; for each defense, characterize what
+   signal it exploits and where it fails.
+3. **Build intuitions and experience** for what a new general defense
+   must do that existing ones don't — guided by attacks that break SOTA
+   defenses on our threat model.
+4. **Design a novel defense** — only after step 3 produces a concrete
+   attack class that the literature's strongest defenses (FLAME, as of
+   2026) cannot handle.
 
-1. move from heuristic attacks toward stronger optimization-based attacks
-2. evaluate whether strong server-side defenses remain effective under stronger attack settings
-3. if server-side defenses become insufficient, explore whether part of the defense should move to the client side
-4. investigate whether ideas from test-time adaptation (TTA), although not originally designed for backdoor defense, can inspire client-side defense mechanisms
+Cycle-02 Wave-1 closed step 2 for the static-attack matrix: FLAME drives
+ASR to 0.000 across {pixel, model_replacement, DBA} on our threat model.
+There is no design target for step 4 yet. **Cycle 03 is in step 1 for
+adaptive attacks** (LP, small-LR, A3FL) precisely to find a target — see
+the plan referenced in **Current Focus**.
 
-This is still an evolving research direction rather than a fixed conclusion.
 When giving suggestions, distinguish clearly between:
 - currently implemented baseline engineering
-- short-term experimental extensions
-- longer-term thesis-facing research ideas
+- short-term experimental extensions (current cycle plan)
+- longer-term thesis-facing research ideas (post current cycle)
+
+---
+
+## Current Focus
+
+**Cycle 03 — Stronger Adaptive Backdoor Attacks for FL.**
+
+- Plan: `~/.claude/plans/codebase-docs-swirling-gosling.md` (approved
+  2026-05-28).
+- Wave-1 baseline log: `fl_v2/docs/cycle_02/wave1_log.md`.
+
+**Cycle 03 goal**: reproduce ≥1 adaptive backdoor attack from the
+literature that drives FLAME-defended ASR above the 0.000 baseline.
+Without such an attack, designing a new defense is busywork. The plan
+covers a Day-0 logging hardening PR (per-class ASR + exact
+trigger-attributable ASR + MultiKrum NormTracking refactor), then 3
+adaptive attack workstreams (small-LR / BackdoorIndicator USENIX'24,
+LP / Backdoor-Critical-Layers ICLR'24, A3FL NeurIPS'23), then a
+conditional heaviest one (3DFed S&P'23). Estimated ~10 working days at
+Wave-1 cadence.
+
+Decision-points still pending in the plan:
+- A3FL coordination mechanism (user reading paper before WS-D starts).
+- 3DFed go/no-go (auto-triggered if Phases 1+2 leave FLAME standing).
+- Multi-seed escalation (auto-triggered if Day-0 seed-43 determinism
+  check fails).
+
+### Future cycles (post-Cycle-03)
+
+- **Cycle 04 — Defense design.** Triggered only if Cycle 03 produces an
+  attack that breaks FLAME. Design a new general defense informed by
+  what the breaking attack reveals about FLAME's failure mode.
+- **Cycle 05+ — Threat-model extensions.** Edge poison regime
+  (rare-class sources); malicious-majority; real-time probing adaptive
+  attacker.
+- **Longer-term — Autonomous-driving migration.** ViT backbone
+  (supervisor suggestion); multimodal / fusion-layer backdoors on a
+  perception benchmark (BDD100K, nuScenes).
+
+---
+
+## Scientific Findings
+
+### Cycle 01 (pre-audit codebase — exploratory, NOT authoritative)
+
+Cycle 01 (Phase C / Phase D) was run on the pre-audit codebase. Its
+findings (representation-space framework on pixel-trigger and
+model-replacement; defense comparison incl. FedMedian breakdown point,
+Krum vulnerability window, spectral-defense blind spot) **should not be
+treated as authoritative**. The underlying experiments contained
+reproducibility issues identified by the 2026-05-11 audit (see
+`docs/audit_2026-05-11.md`). The findings remain in `docs/cycle01_docs/`
+for historical reference but every empirical conclusion needs re-running
+on the audit-fixed codebase before it can be cited.
+
+### Cycle 02 Wave-1 (audit-fixed codebase — authoritative)
+
+Full results: `fl_v2/docs/cycle_02/wave1_log.md`. Headline observations:
+
+1. **FLAME drives ASR to 0.000** across all 3 static attacks (pixel,
+   model_replacement, DBA) on our threat model. Implementation was
+   audited 10/10 clean against the paper + reference impls
+   (`zhmzm/FLAME`, `Guncuke/flame-Taming-backdoor`). Under Adam (vs the
+   paper's SGD), the noise multiplier λ must be calibrated to 1e-6
+   (1000× smaller than the paper) to avoid divergence — see
+   `pyproject.toml` comment for the math.
+2. **DBA is the strongest non-defended attack on durability** (final ASR
+   0.80 at r60 vs r35 attack-end) and **completely evades FoolsGold** —
+   sub-trigger groups produce low pairwise cosine between colluders,
+   defeating the similarity-downweighting recipe by design.
+3. **MultiKrum is bimodal**: totally defeats model_replacement (n/k
+   scaling is an obvious outlier), partial defense against DBA (~50%
+   peak / ~70% final ASR reduction), useless against pixel.
+4. **NormClipping (`clip-norm: 100`) provides no defense** on this
+   threat model — too loose to bite honest gradients. Dropped from
+   future cycle matrices.
+5. **Candidate gradient-space signal**: `cos2mean` (cosine angle between
+   a client's update and the all-client mean direction) separates
+   malicious from honest with Cohen's |d| ≥ 1.0 across all 3 attacks on
+   no-defense runs. Stable across defenses for pixel (6.6% spread) and
+   DBA (15.9%). This is descriptive evidence to inform Cycle-04 defense
+   design — not a "law" in any strong sense.
+
+### Cycle 03 (in progress)
+
+Reproducing 3-4 adaptive attacks from 2023-2025 literature to find one
+that breaks FLAME's 0.000 baseline on our threat model. No findings yet.
 
 ---
 
 ## Current Platform Status
 
-The following platform components are implemented and in active use:
-- Flower latest Message API baseline (ClientApp / ServerApp)
-- GTSRB data pipeline with non-IID Dirichlet partitioning
-- client-local train/val split
-- CNN baseline and **ResNet18** (used for all recent experiments)
-- end-to-end FL simulation with checkpoint saving at configured rounds
-- server-side global test evaluation (accuracy, TCA, ASR in a single pass)
-- **Representation-space analysis framework** (`analysis/`): feature
-  extraction from saved checkpoints, 4-axis rigorous attack profile
-  (`analysis/framework_metrics.py`), per-experiment JSON + CSV outputs,
-  cross-experiment comparison (`analysis/compare_profiles.py`),
-  t-SNE trajectory visualization, training-curves + defense-comparison plots.
-  See `docs/representation_space_framework.md` for the methodology.
+### Federation engine
+- Flower latest Message API (ClientApp / ServerApp) on Ray simulation
+  backend.
+- 50 simulated clients on a single A40 GPU per SLURM job; per-job
+  `FLWR_HOME`, per-job Ray temp dir, per-job Ray ports (`run_alvis.sh`).
+- **Bit-deterministic**: same-seed runs are byte-identical (DataLoader
+  test in `tests/test_dataloader_determinism.py`; FLAME's seeded noise
+  generator verified across re-runs).
 
-Implemented attack modules:
-- label flipping attack (data poisoning baseline)
-- pixel-trigger backdoor attack (with ASR metric) — **closed baseline**, see
-  `docs/cycle01_docs/pixel_trigger_baseline.md`
-- model replacement (Bagdasaryan) — data poisoning reuses pixel-trigger,
-  client update is scaled by `n/k` before sending. **Closed baseline**, see
-  `docs/cycle01_docs/model_replacement_profile.md`
+### Datasets / model
+- GTSRB-43 with non-IID Dirichlet partitioning, `partition-seed`
+  decoupled from `seed` (closes audit R-001).
+- ResNet18 trained from scratch (all current experiments). CNN baseline
+  retained but not used.
+- Client-local train / val split.
 
-Implemented defense modules:
-- NormTrackingFedAvg (update norm logging, wraps FedAvg)
-- NormClippedFedAvg (L2 norm clipping before aggregation)
-- FedMedian, FedTrimmedAvg (coordinate-wise robust aggregation — custom
-  implementations with norm logging, not Flower's built-ins)
-- Krum, MultiKrum (Flower built-in Byzantine-tolerant selection)
-- Bulyan (custom implementation with norm logging — Flower's built-in has a
-  known dtype bug at 1.27.0)
+### Implemented attacks (`src/fl_v2/attacks_defenses/attacks/`)
+- `label_flipping` — data-poisoning baseline.
+- `pixel_backdoor` — fixed-position pixel trigger; supports DBA's
+  scattered-bars and corner-grid sub-trigger geometry.
+- `model_replacement` — n/k update scaling (Bagdasaryan et al. 2020).
+- `dba` — Distributed Backdoor Attack, paper-faithful scattered-bars
+  pattern (Xie et al. 2020).
+- `neurotoxin` — local-clean-gradient proxy + top-k coord projection
+  (Zhang et al. 2022). Documented deviation: stateless local proxy
+  instead of cross-round cached global, for bit-determinism.
 
-Possible near-term additions:
-- DBA (Distributed Backdoor Attack, Xie et al. 2020)
-- Client-side representation-space defenses (TTA-inspired)
-- Multimodal / autonomous-driving dataset migration (long-term)
+### Implemented defenses (`src/fl_v2/strategy/` + `attacks_defenses/defenses/`)
+- `NormTrackingFedAvg` — FedAvg + per-round gradient-space metric
+  logging (`L2 norm`, `cosine_to_mean`, `pairwise_cosine`,
+  `topk_energy_frac`).
+- `NormClippedFedAvg` — L2 norm clipping.
+- `FedMedian`, `FedTrimmedAvg`, `Bulyan` — robust aggregation, custom
+  implementations with norm logging (Flower built-ins had dtype bugs).
+- `CapturedKrum`, `CapturedMultiKrum` — wrappers around Flower built-ins
+  (currently no NormTracking; Cycle-03 WS-A composes MultiKrum into
+  NormTracking).
+- `FoolsGoldFedAvg` — output-layer cosine on cumulative client histories
+  (Fung et al. 2020). Head-only as the paper specifies.
+- `FlameFedAvg` — HDBSCAN clustering + median-norm clipping + Gaussian
+  noise (Nguyen et al. 2022). λ=1e-6 optimizer-aware calibration for
+  Adam (1000× smaller than the paper's SGD-calibrated value).
 
-Do not assume every module in this list is finalized unless verified from the
-code — but the representation-space framework, ResNet18, pixel-trigger, and
-model replacement have all been fully evaluated.
+### Server-side eval
+- Single-pass evaluation in `training/server_eval.py`: clean accuracy +
+  target-class clean accuracy + ASR.
+- Cycle-03 WS-A adds: per-class ASR breakdown, exact
+  trigger-attributable ASR (extra no-trigger forward pass).
 
----
+### Analysis surfaces
+- **Wandb live logging** (per-round server + client metrics) — replaces
+  the retired training-curves analysis pipeline.
+- **Gradient-space metrics** (`norm_log.json` per cell) — primary
+  analysis surface for Cycle 02+.
+- **Representation-space framework** (`analysis/`, t-SNE,
+  `framework_metrics`) — implemented but used only for Cycle 01
+  findings; not the current primary analysis tool.
 
-## Current Scientific Findings (Phase C v2 + Phase D.1)
-
-The representation-space framework in `docs/representation_space_framework.md`
-and the two closed baseline profiles provide the current empirical ground
-truth for how backdoor attacks manifest in feature space. When suggesting new
-attacks or defenses, evaluate them against this framework — moving ASR alone
-is not sufficient to claim a representation-space improvement.
-
-1. **The pixel-trigger backdoor is a "joint weak attack".** Successful
-   attacks (ASR 0.86–0.97) place triggered features in a **geometrically
-   distinct "middle region"** that is linearly separable from both the
-   original source class and the genuine target class. The feature extractor
-   partially shifts triggered features ~25-30% along the natural
-   source→target direction; simultaneously the classifier head extends its
-   target-class decision region to cover this middle region. Neither
-   component is strongly attacked individually — they meet halfway. Key
-   evidence: `linear_probe_acc = 0.99-1.00` (trivially separable),
-   `centroid_l2 ≈ 2.7-3.1` (far from target), `shift_alignment ≈ 0.65-0.80`
-   (partially exploits natural inter-class direction),
-   `source_identity_preservation ≈ 0.56-0.64` (per-source structure
-   preserved, ~40% compression only). See `docs/cycle01_docs/pixel_trigger_baseline.md`.
-
-2. **Model replacement (Bagdasaryan) is stronger in ASR but NOT in
-   representation space.** Scaling client updates by `n/k` amplifies the
-   same pixel-trigger signal and concentrates it into a lower-dimensional
-   subspace (`shift_rank_eff` drops from 33 to 11 at 15 mal), but does not
-   change the mechanism. Triggered features are still linearly separable
-   (`linear_probe_acc = 0.98-1.00`), still sit in a middle region
-   (`centroid_l2` actually *grows* to 3.7-4.3), and are now **markedly more
-   detectable by spectral defenses** (`spectral_score` rises from 0.07 to
-   1.73 — a 26× increase). The clean negative finding: attack *mechanism*
-   determines the representation-space profile, not attack *strength*.
-   ModelRep also has a **brittle early window** — `ASR@5 = ASR@10 = 0.00`
-   despite scaling by 10× because the round-1 replacement has poor clean
-   utility and honest updates wash it out until the attack rebuilds
-   around round 25. See `docs/cycle01_docs/model_replacement_profile.md`.
-
-3. **Unsupervised server-side defenses have a fundamental blind spot.**
-   The separating direction between triggered and genuine features is
-   nearly orthogonal to the top principal component
-   (`probe_pc_alignment ≈ 0.01-0.16` for the pixel-trigger baseline), so
-   spectral signature defenses (Tran et al. 2018) cannot locate it. A
-   supervised linear probe finds it trivially (0.99-1.00 accuracy) but
-   requires labeled triggered examples — which only **clients** have in
-   federated learning. This quantitatively motivates the thesis direction
-   of client-side representation-space defenses (TTA-inspired).
-
-4. **FedMedian has a breakdown point around 30% malicious.** At 15/50
-   malicious clients, FedMedian fails to suppress the attack and
-   paradoxically produces the **cleanest** backdoor fingerprint
-   (`centroid_l2 = 1.33`, smallest of all runs; `spectral_score = 0.19`,
-   vs 0.06 for vanilla no-defense). The failed defense *sharpens* the
-   attack because the median aggregator filters out the benign gradient
-   diversity while the malicious majority passes through unfiltered.
-
-5. **Krum has a temporary vulnerability window at round 10.** ASR briefly
-   spikes to 0.96-1.00 before Krum begins reliably selecting honest
-   clients and the ASR collapses to near-zero. This is a real-time attack
-   opportunity that standard Byzantine analysis of Krum does not
-   emphasize. The cost: Krum's final accuracy drops to 73-74% (vs 94-95%
-   baseline), confirming the utility-robustness trade-off.
-
-6. **Phase D.2 target:** an optimization-based attack that adds an
-   auxiliary loss at local training time:
-   `L = L_clean + λ1 L_backdoor + λ2 ‖f(τ(x)) − μ_{c*}‖²`
-   to explicitly pull triggered features onto the genuine target-class
-   centroid. If this succeeds, the target metric movements are:
-   `linear_probe_acc → 0.5` (indistinguishable),
-   `source_identity_preservation → 0` (destination clustering),
-   `centroid_l2 → 0` (features reach the genuine class region),
-   `concentration_ratio → 1.0` (match natural class variance),
-   all while holding ASR ≥ 0.9. If these move in the target direction,
-   we have a qualitatively new attack class in representation space
-   rather than just a stronger version of the pixel-trigger heuristic.
+### Cycle 03 in-progress additions
+Per the active plan: small-LR / LP / A3FL adaptive attack modules,
+per-class ASR + trigger-attributable ASR logging, MultiKrum
+NormTracking composition refactor.
 
 ---
 
 ## Architecture Expectations
 
-Please preserve the modular project structure:
+Preserve the modular project structure:
 
-- `data/` → dataset loading, partitioning, transforms
-- `models/` → model definitions
-- `training/` → local training/evaluation logic
-- `client_app.py` → client-side FL behavior
-- `server_app.py` → server-side orchestration
-- `strategy/` → custom FL strategies and aggregation control
-- `attacks_defenses/` → attack and defense implementations
-- `utils/` → generic helpers
+- `data/` — dataset loading, partitioning, transforms.
+- `models/` — model definitions.
+- `training/` — local training / evaluation logic.
+- `client_app.py` — client-side FL behavior.
+- `server_app.py` — server-side orchestration.
+- `strategy/` — custom FL strategies and aggregation control.
+- `attacks_defenses/` — attack and defense implementations.
+- `utils/` — generic helpers.
 
-Do not collapse multiple responsibilities into one file unless there is a strong reason.
+Do not collapse multiple responsibilities into one file unless there is
+a strong reason.
 
 ---
 
 ## Attack / Defense Design Expectations
 
-### Attacks
-Attacks should preferably be modular and easy to enable/disable.
-Typical current examples:
-- label flipping
-- backdoor trigger injection
-- malicious local update manipulation
+### Attack module pattern
+Three integration shapes are in use, follow whichever fits:
+- **Data-poisoning attacks** (pixel, DBA, label-flip): hook into the
+  dataset wrapper in `client_app.py::_load_client_data`. Gate on
+  `is_malicious && in_attack_window`. No grad hook.
+- **Gradient-mask attacks** (Neurotoxin; Cycle-03 LP): module exposes a
+  `mask_fn(named_params, ...) → dict[id, bool]`. Hook into
+  `train.py:141` between `loss.backward()` and `optimizer.step()`.
+- **State-dict-transform attacks** (model_replacement): apply
+  post-training in `client_app.py` before the reply state-dict is
+  built.
 
-### Defenses
-Defenses should preferably be modular and easy to compare.
-Typical current examples:
-- norm clipping
-- median
-- trimmed mean
-- other robust aggregation methods
+Every attack module gets a YAML knob and a **null config** that
+reproduces the no-attack baseline bit-identically.
 
-Heuristic attacks/defenses are mainly baseline steps.
-Future thesis-oriented work may require stronger optimization-based attacks and more AD-specific analysis.
+### Defense module pattern
+Defenses live in `strategy/`. All should inherit from
+`NormTrackingFedAvg` (or compose its logging) so they automatically log
+gradient-space metrics. Stateful defenses (FoolsGold's cumulative
+history) keep state on the strategy instance — pure accumulation, no
+RNG. Defenses that draw RNG (FLAME's noise) use a generator seeded off
+the run seed × server round.
 
 ---
 
@@ -225,104 +274,50 @@ When assisting with this repository:
 2. Prefer minimal, explicit, incremental changes.
 3. Do not introduce broad refactors unless necessary.
 4. Keep the clean baseline runnable at all times.
-5. Preserve compatibility with the latest Flower Message API.
-6. Do not revert the codebase to legacy `NumPyClient` style.
-7. Preserve reproducibility of data partitioning and experiment setup.
-8. Separate:
-   - immediate engineering fixes
-   - experiment-platform improvements
-   - thesis-facing research suggestions
-9. When suggesting a new feature, explain how it helps either:
-   - the current benchmark platform, or
-   - future migration toward the thesis direction.
-10. For research-facing suggestions, do not treat current hypotheses as proven conclusions.
-11. When discussing attacks or defenses, distinguish between:
-    - heuristic baselines
-    - stronger optimization-based methods
-    - server-side defenses
-    - client-side defenses
-12. When suggesting TTA-related ideas, treat them as inspiration for client-side defense exploration, not as an already validated backdoor defense solution.
+5. Preserve compatibility with the latest Flower Message API. Do not
+   revert to legacy `NumPyClient` style.
+6. Preserve reproducibility of data partitioning and experiment setup.
+   Bit-determinism is sacred — any new RNG must be seeded via
+   `derive_seed` (`src/fl_v2/utils/runtime.py:43-54`).
+7. Separate immediate engineering fixes, experiment-platform
+   improvements, and thesis-facing research suggestions.
+8. When suggesting a new feature, explain how it helps either the
+   current benchmark platform or the long-term thesis direction.
+9. For research-facing suggestions, do not treat current hypotheses
+   as proven conclusions. The Cycle-02 Wave-1 log is the current
+   authoritative source for empirical claims; Cycle-01 results are
+   exploratory.
+10. When discussing attacks or defenses, distinguish between heuristic
+    baselines, optimization-based methods, server-side defenses, and
+    client-side defenses.
+11. Client-side defense ideas (TTA-inspired or otherwise) are
+    explicitly deferred until Cycle 03 produces an attack that breaks
+    server-side gradient-space defenses (FLAME). Until then they are
+    background research, not active work.
 
 ---
 
 ## Experiment Principles
 
 - Always keep a clean baseline for comparison.
-- Attack modules should be evaluated against clean training behavior.
-- Defense modules should be evaluated in terms of both utility and robustness.
-- Prefer explicit logging, saved results, and reproducible configurations.
-- Global RNG seeding (`random`, `numpy`, `torch`) is performed at server startup using the configured `seed` value. This ensures identical initial model weights across all experiments with the same seed.
-- New modules should be easy to reuse across future datasets and tasks.
-- Avoid adding tightly coupled code that would make future migration difficult.
+- Attack modules are evaluated against clean training behavior.
+- Defense modules are evaluated on both utility (clean acc) and
+  robustness (ASR).
+- Every new attack module must have a **null config** that reproduces
+  the no-attack baseline bit-identically.
+- Explicit logging, saved results, reproducible configurations.
+- Global RNG seeding (`random`, `numpy`, `torch`) at server startup
+  using the configured `seed`. Per-round / per-client seeds via
+  `derive_seed`.
+- New modules should be easy to reuse across future datasets and
+  tasks.
+- Avoid tightly coupled code that would make future migration
+  difficult.
 - For non-trivial tasks, first provide:
-  1. codebase understanding
-  2. minimal change plan
-  3. risks / edge cases
-  4. implementation proposal
-
----
-
-## Near-Term Priorities
-
-Near-term work should prioritize platform stability and controlled comparison before thesis-scale expansion.
-
-Completed (the current empirical baseline):
-
-1. ~~stabilize baseline platform behavior~~ ✓ done
-2. ~~complete and verify modular defense integration~~ ✓ done
-3. ~~compare clean / attack / defense / attack+defense~~ ✓ done (Phase B smoke-tested, Phase C v2 produced the full comparison at 100 rounds)
-4. ~~run full-round experiments (100 rounds) to validate ASR vs defense tradeoffs~~ ✓ done (8 experiments in phaseC_v2, 2 in phaseD)
-5. ~~strengthen backbone choices (ResNet18)~~ ✓ done (all recent experiments)
-6. ~~gradually move from heuristic attacks toward stronger attack settings (model replacement)~~ ✓ done — produced a clean negative result documented in `docs/cycle01_docs/model_replacement_profile.md`
-7. ~~build a rigorous representation-space analysis framework~~ ✓ done (`docs/representation_space_framework.md`, 4-axis profile, closed baselines)
-
-Current focus: **Cycle 02 — Designed Attacks & Client-Side Defenses.**
-
-Research cycles are recorded in `docs/roadmap/`. The current cycle document
-is [`docs/roadmap/cycle_02_designed_attacks_and_client_defenses.md`](docs/roadmap/cycle_02_designed_attacks_and_client_defenses.md),
-and the chronological index of all cycles is at
-[`docs/roadmap/INDEX.md`](docs/roadmap/INDEX.md).
-
-Cycle 02 phases (see the roadmap for details, success criteria, and risks):
-
-8. **Phase D.2 — optimization-based feature-space attack.** Malicious
-   clients add an auxiliary loss `λ‖f(τ(x)) − μ̂_{c*}‖²` to local training
-   to place triggered features *inside* the genuine target-class region.
-   `μ̂_{c*}` is estimated via coalition pooling across malicious clients
-   (required because under Dirichlet α=0.5 any individual malicious client
-   may have few or zero class-c* samples). Success ⇔ `linear_probe_acc` ≤
-   0.80, `source_identity_preservation` ≤ 0.30, `centroid_l2` ≤ 1.0, while
-   holding ASR ≥ 0.90.
-9. **Phase E.1 — client-side detection under non-IID.** Each client uses
-   only its own labeled non-IID local data (no trigger knowledge) to run
-   two complementary detectors on each received global model: (A) a
-   per-client feature-drift monitor that measures how much each observable
-   class has drifted toward each other observable class relative to a
-   trusted baseline round, and (B) a random-augmentation prediction-shift
-   probe inspired by STRIP. Both are trigger-agnostic. **Note:** the
-   Cycle-01 framework's linear probe used 12 k balanced labeled samples,
-   which a single client does not have — the defense must be non-IID-native
-   from the start, and the "client trains a linear probe" story does not
-   directly transfer.
-10. **Phase E.2 — cross-client detection aggregation.** Clients report
-    sparse `(c → c')` suspicion scores to the server via a side channel.
-    Consensus across clients covers the class pairs that no single client
-    can observe alone — the non-IID partition becomes the reason the
-    defense has complete coverage rather than the reason it fails.
-
-Longer-term (Cycle 03+, not executed in Cycle 02):
-
-11. **Adaptive attacks (supervisor suggestion).** Attackers sacrifice a few
-    malicious clients to probe the defender's aggregation behavior, then
-    adapt the remaining attack. Reference: Shejwalkar & Houmansadr 2021.
-12. **ViT client models (supervisor suggestion).** Migrate to a pre-trained
-    Vision Transformer backbone and re-run the representation-space
-    framework. Tests whether Cycle-01 findings and the Phase E drift
-    detector generalize to attention-based architectures.
-13. **Multimodal / fusion-layer backdoors (autonomous-driving migration).**
-    Once GTSRB platform work is complete, migrate to a perception
-    benchmark (BDD100K, nuScenes) and study whether the same
-    representation-space framework applies to fusion-layer features.
+  1. codebase understanding,
+  2. minimal change plan,
+  3. risks / edge cases,
+  4. implementation proposal.
 
 ---
 
@@ -331,89 +326,76 @@ Longer-term (Cycle 03+, not executed in Cycle 02):
 ### Project location
 The project lives on Mimer at
 `/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/thesis_workspace/fl_weather_project/`
-(migrated from Cephyr on 2026-04-27 — every script and doc references the
-Mimer root). The legacy Cephyr path is no longer used by anything in the
-repo. Datasets, outputs, SLURM logs, and the venv are all on Mimer; nothing
-in a SLURM job reads from Cephyr.
+(migrated from Cephyr on 2026-04-27 — every script and doc references
+the Mimer root). Datasets, outputs, SLURM logs, and the venv are all on
+Mimer; nothing in a SLURM job reads from Cephyr.
 
 ### Day-to-day workflow
 Every experiment is submitted to Alvis via `submit_experiment.sh`; see
 [`docs/scripts_guide.md`](docs/scripts_guide.md) for the full pipeline.
-ResNet18 + Flower + Ray is too heavy for login-node execution, so there
-is no local workflow — login-node Python is for analysis and plotting
-only. (When the project later migrates to a ViT backbone the situation
-will only get worse, not better.)
+ResNet18 + Flower + Ray is too heavy for login-node execution — there is
+no local workflow. Login-node Python is for analysis and plotting only.
+(When the project later migrates to a ViT backbone the situation only
+gets worse, not better.)
 
 ### Flower federation config
 The `local-simulation-gpu` federation (50 supernodes, 0.10 GPU per
-supernode) is **version-controlled in the repo** at
-[`configs/flwr_config.toml`](configs/flwr_config.toml).
-[`run_alvis.sh`](run_alvis.sh) creates a per-job
-`FLWR_HOME=/tmp/flwr_${SLURM_JOB_ID}` and copies that file into
-`$FLWR_HOME/config.toml` (Flower only reads `$FLWR_HOME/config.toml`, so
-the destination is what matters). On exit the per-job `/tmp` directory is
-removed. Do NOT remove the `/tmp` indirection in `run_alvis.sh` — it
-isolates concurrent jobs from each other.
+supernode) is version-controlled at
+[`configs/flwr_config.toml`](configs/flwr_config.toml). `run_alvis.sh`
+creates a per-job `FLWR_HOME=/tmp/flwr_${SLURM_JOB_ID}` and copies that
+file into `$FLWR_HOME/config.toml`. On exit the per-job `/tmp` directory
+is removed. Do NOT remove the `/tmp` indirection — it isolates
+concurrent jobs from each other.
 
-### Output layout (cycle-aware, Cycle 02 onward)
+### Same-node startup races (closed)
+`run_alvis.sh` waits on **two** SLURM startup events before allowing
+`flwr run`: (1) SuperLink Control API binds, (2) SuperLink emits
+`Starting Flower SuperExec` and then sleeps 30 s for its subprocess
+factory to be ready. Both waits abort loudly on absence — no more
+silent exit-0 same-node races (the failure mode that ate ~25% of
+original Wave-1 jobs).
+
+### Output layout (cycle-aware)
 New experiments write to
 `/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb/experiments/<cycle>/<phase>/<exp>_r<rounds>_seed<seed>/`.
-The convention is:
 
-- top-level dir `gtsrb/` (the old `gtsrb_v2/` `_v2` suffix was a holdover
-  from the old vs. new Flower API distinction; with v1 retired the suffix
-  is just noise).
-- `experiments/<organizer>/` where organizer is one of `legacy`,
-  `cycle_01`, `cycle_02`, ... — empty subtrees may exist as placeholders.
-- `<phase>/` — `phaseD2`, `phaseE1`, etc.
-- `<exp>_r<rounds>_seed<seed>/` — same naming as before.
+- Top-level `gtsrb/` (the old `gtsrb_v2/` `_v2` suffix was a Flower-v1
+  vs v2 holdover; with v1 retired the suffix is noise).
+- `experiments/<organizer>/`: `legacy`, `cycle_01`, `cycle_02`,
+  `cycle_03`, …
+- `<phase>/`: Cycle 02 used `mechanism`. Cycle 03 will use
+  `phase0_logging`, `phase1_smalllr`, `phase2_lp`, `phase3_a3fl`, etc.
+- `<exp>_r<rounds>_seed<seed>/` — unchanged.
 
-YAMLs control routing via two new keys: `cycle` (e.g., `cycle_02`) and
-`phase` (e.g., `phaseD2`). YAMLs that leave both blank fall back to the
-flat `<base>/<exp>...` layout — that's how the historical
-`gtsrb_v2/phaseC_v2/...` and `gtsrb_v2/phaseD/...` Cycle 01 archives keep
-working unchanged. **The existing `gtsrb_v2/` tree is not migrated**; it's
-a frozen Cycle 01 archive.
+YAMLs control routing via two keys: `cycle` (e.g. `cycle_02`) and
+`phase` (e.g. `mechanism`). YAMLs that leave both blank fall back to the
+flat `<base>/<exp>...` layout — preserves historical
+`gtsrb_v2/phaseC_v2/...` and `gtsrb_v2/phaseD/...` Cycle-01 archives.
+**The existing `gtsrb_v2/` tree is not migrated**; it's a frozen Cycle 01
+archive.
 
 ### Wandb conventions
-Every experiment with `wandb-enabled: true` (default) gets a wandb run.
-Names are derived from the existing fields, so YAMLs don't need to repeat
-information:
-
-- **Project:** `gtsrb-{cycle.replace('_','-')}` → `gtsrb-cycle-02`. Override
-  with `wandb-project`.
-- **Group:** strip trailing `<n>mal` and defense tokens (`nodefense`,
-  `fedmedian`, `krum`, `multikrum`, `bulyan`, `fedtrimmedavg`,
-  `normclipped`) from `experiment-name`. So
-  `phaseD-modelrep-15mal-nodefense` and
-  `phaseD-modelrep-15mal-fedmedian` both join group `phaseD-modelrep`.
-  Override with `wandb-group`.
+Every experiment with `wandb-enabled: true` (default) gets a wandb run:
+- **Project:** `gtsrb-{cycle.replace('_','-')}` → `gtsrb-cycle-02`,
+  `gtsrb-cycle-03`. Override with `wandb-project`.
+- **Group:** strip trailing `<n>mal` and defense tokens from
+  `experiment-name`. Override with `wandb-group`.
 - **Run name:** `{experiment-name}_seed{seed}`.
 - **Auto tags:** `cycle`, `phase`, `model-type`, `attack:<type>`,
-  `defense:<type>`, `<n>mal` (when attack), `seed<n>`. Extras via
-  `wandb-tags: "tag1,tag2"`.
-- **Per-round metrics:** `server/test_loss`, `server/test_accuracy`,
-  `server/asr` (when attack), `server/target_class_clean_accuracy`, plus
-  `client/train_loss`, `client/train_accuracy`, `client/val_loss`,
-  `client/val_accuracy` (weighted average across selected clients;
-  captured by `_last_train_metrics` on the strategy).
+  `defense:<type>`, `<n>mal`, `seed<n>`. Extras via `wandb-tags`.
+- **Per-round metrics:** `server/{test_loss, test_accuracy, asr,
+  target_class_clean_accuracy}`, `client/{train_loss, train_accuracy,
+  val_loss, val_accuracy}` (weighted average across selected clients).
 - **Auth:** `wandb login` once on alvis1 → `~/.netrc` → SLURM jobs pick
-  it up via `--export=ALL`. Compute-node egress to api.wandb.ai is
-  verified working (job 6512727, 2026-04-27).
+  it up via `--export=ALL`.
 
-See [`docs/wandb_setup.md`](docs/wandb_setup.md) for setup; section 2.3 of
-[`docs/scripts_guide.md`](docs/scripts_guide.md) for the day-to-day flow.
-
-The legacy training-curves analysis pipeline (`run_phaseC_curves.sh`,
-`run_phaseD_curves.sh`, `analysis/plot_experiment.py`,
-`analysis/plot_comparison.py`) is **retired** — wandb covers that ground
-better with live monitoring + cross-experiment filtering. The
-representation-space pipeline (extract → framework → t-SNE) stays — it
-operates on saved checkpoints post-hoc and wandb does not replace it.
+See [`docs/wandb_setup.md`](docs/wandb_setup.md) for setup; section 2.3
+of [`docs/scripts_guide.md`](docs/scripts_guide.md) for the day-to-day
+flow.
 
 ### Venv reproduction
-The venv at `.venv/` (Mimer) was recreated 2026-04-27 with exact pinned
-versions captured from the original Cephyr venv. Lockfile:
+The venv at `.venv/` (Mimer) uses exact pinned versions captured from
+the original Cephyr venv. Lockfile:
 [`requirements.lock.txt`](../requirements.lock.txt). Recreate with:
 
 ```bash
@@ -426,24 +408,28 @@ pip install --no-cache-dir -e fl_v2 --no-deps
 ```
 
 `torch`, `numpy`, and `scipy` are inherited from the PyTorch module, not
-pinned in the lockfile — the `--system-site-packages` flag is what makes
-this work. Do not pin them in the lockfile or pip will reinstall them and
-shadow the module versions, breaking CUDA.
+pinned in the lockfile — the `--system-site-packages` flag enables this.
+Do not pin them in the lockfile or pip will reinstall them and shadow
+the module versions, breaking CUDA.
 
-`wandb` (and its transitives: `pydantic`, `gitpython`, `sentry-sdk`, ...)
-is pinned in the lockfile alongside the rest. It needs no system-site-
-packages magic — it's a pure Python wheel. After recreating the venv,
-run `wandb login` once on alvis1 to write the API key into `~/.netrc`.
+`wandb` (and transitives) is pinned in the lockfile. After recreating
+the venv, run `wandb login` once on alvis1 to write the API key into
+`~/.netrc`.
 
 ---
 
 ## Things To Avoid
-1. do not rewrite the project into a monolithic structure
-2. do not silently replace the latest Flower API design with older patterns
-3. do not mix attack logic and defense logic into unrelated files
-4. do not remove reproducibility-related controls without reason
-5. do not over-engineer for the final multimodal setting too early
-6. do not assume the current GTSRB benchmark is the final scientific target
+
+1. Do not rewrite the project into a monolithic structure.
+2. Do not silently replace the latest Flower API design with older
+   patterns.
+3. Do not mix attack logic and defense logic into unrelated files.
+4. Do not remove reproducibility-related controls without reason.
+5. Do not cite Cycle-01 representation-space findings as authoritative
+   evidence (they were on the pre-audit codebase).
+6. Do not over-engineer for the final AD setting too early.
+7. Do not assume the current GTSRB benchmark is the final scientific
+   target.
 
 ---
 
@@ -451,12 +437,13 @@ run `wandb login` once on alvis1 to write the API key into `~/.netrc`.
 
 For complex tasks, first produce a plan based on the current codebase.
 The plan should explicitly include:
-1. which files are relevant
-2. what is already implemented
-3. what should be minimally changed
-4. possible edge cases or risks
-5. how the proposed change supports either:
-   - the current FL experimentation platform, or
-   - the longer-term thesis direction
 
-Do not jump directly into broad implementation proposals before understanding the existing code structure.
+1. which files are relevant,
+2. what is already implemented,
+3. what should be minimally changed,
+4. possible edge cases or risks,
+5. how the proposed change supports either the current FL
+   experimentation platform or the long-term thesis direction.
+
+Do not jump directly into broad implementation proposals before
+understanding the existing code structure.
