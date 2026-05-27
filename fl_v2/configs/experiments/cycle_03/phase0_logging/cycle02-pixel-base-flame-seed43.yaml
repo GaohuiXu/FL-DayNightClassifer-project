@@ -1,0 +1,44 @@
+# Cycle 03 WS-A Day-0 determinism baseline.
+# Re-run of cycle02-pixel-base-flame with seed: 43 (was 42) to verify
+# the Wave-1 result "FLAME drives pixel-trigger ASR to 0.000" is not a
+# seed-42 artifact. Expected ASR = 0.000; if so, the single-seed
+# adaptive-attack cells later in Cycle 03 are interpretable against a
+# deterministic FLAME baseline. If ASR > 0.01, escalate the 3 headline
+# adaptive cells to 3 seeds (+6 GPU-h per the plan).
+# All other knobs are bit-identical to cycle02-pixel-base-flame.yaml.
+experiment-name: cycle02-pixel-base-flame-seed43
+cycle: cycle_03
+phase: phase0_logging
+model-type: resnet18
+pretrained-init: false
+trainable-layers: full_ft
+num-clients: 50
+num-server-rounds: 60
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.001
+lr-schedule: cosine
+lr-min: 0.0001
+malicious-client-ids: 0,1,2,3,4,5,6,7,8,9
+num-malicious-nodes: 10
+backdoor-target-label: 14
+poison-fraction: 0.5
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+attack-start-round: 10
+attack-end-round: 35
+poison-data-regime: base
+seed: 43
+partition-seed: 43
+topk-energy-k: 4096
+checkpoint-rounds: ""
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+wandb-enabled: true
+wandb-project: cycle-03
+attack-type: pixel_backdoor
+defense-type: flame
+wandb-group: cycle02-pixel-base
+wandb-tags: cycle03,phase0_logging,determinism-check,pixel,base,flame,seed43
