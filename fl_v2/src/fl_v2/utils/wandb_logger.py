@@ -43,10 +43,11 @@ _MAL_RE = re.compile(r"^\d+mal$")
 # Headline server-side metrics surfaced into the wandb ``server/*``
 # namespace. Restricted to keep the dashboard scannable — the full
 # server_evaluate output (including WS-A's per-class asr_src<c> /
-# asr_src<c>_n breakdown, clean_floor_to_target, tasr, etc.) is always
-# written to rounds.csv and summary.json for offline analysis. Add a
-# key here explicitly to surface it in wandb.
+# asr_src<c>_n breakdown) is always written to rounds.csv and
+# summary.json for offline analysis. Add a key here explicitly to
+# surface it in wandb.
 _SERVER_WANDB_KEYS: frozenset[str] = frozenset({
+    # Wave-1 headline set (clean accuracy + ASR + sample counts).
     "test_loss",
     "test_accuracy",
     "num-test-examples",
@@ -54,6 +55,11 @@ _SERVER_WANDB_KEYS: frozenset[str] = frozenset({
     "target_class_num_samples",
     "asr",
     "asr_num_samples",
+    # Cycle-03 WS-A backdoor-attribution metrics. Scalar headlines —
+    # the per-source-class asr_src<c> breakdown stays CSV-only.
+    "clean_floor_to_target",
+    "clean_floor_num_samples",
+    "backdoor_attribute_asr",
 })
 
 

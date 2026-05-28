@@ -32,9 +32,9 @@ def server_evaluate(
       heterogeneous source classes).
     - ``clean_floor_to_target`` — fraction of non-target test samples
       classified as ``target_label`` WITHOUT the trigger applied.
-      Derived ``tasr = asr - clean_floor_to_target`` is the exact
-      trigger-attributable ASR. Both reuse pass-1 predictions; no extra
-      forward pass.
+      Derived ``backdoor_attribute_asr = asr - clean_floor_to_target``
+      is the exact trigger-attributable ASR. Both reuse pass-1
+      predictions; no extra forward pass.
     """
     model.eval()
 
@@ -139,6 +139,6 @@ def server_evaluate(
         # Clean floor + derived trigger-attributable ASR.
         result["clean_floor_to_target"] = clean_floor
         result["clean_floor_num_samples"] = float(clean_floor_total)
-        result["tasr"] = asr_value - clean_floor
+        result["backdoor_attribute_asr"] = asr_value - clean_floor
 
     return result

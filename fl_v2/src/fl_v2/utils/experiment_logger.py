@@ -147,24 +147,29 @@ class ExperimentLogger:
                 "round": best_asr["round"],
                 "asr": best_asr["asr"],
             }
-            # Cycle-03 WS-A: surface clean-floor + trigger-attributable ASR
-            # next to the headline ASR so summary.json carries the
+            # Cycle-03 WS-A: surface clean-floor + backdoor-attributable
+            # ASR next to the headline ASR so summary.json carries the
             # backdoor-attribution story end-to-end. Keys are absent on
             # Wave-1 cells re-read under this schema; consumers should
             # default missing keys to 0/NaN.
             if "clean_floor_to_target" in best_asr:
                 best_asr_entry["clean_floor_to_target"] = best_asr["clean_floor_to_target"]
-            if "tasr" in best_asr:
-                best_asr_entry["tasr"] = best_asr["tasr"]
+            if "backdoor_attribute_asr" in best_asr:
+                best_asr_entry["backdoor_attribute_asr"] = best_asr[
+                    "backdoor_attribute_asr"
+                ]
             summary["best_asr"] = best_asr_entry
 
-            if "tasr" in final:
-                best_tasr = max(rows_for_best, key=lambda r: r.get("tasr", 0.0))
-                summary["best_tasr"] = {
-                    "round": best_tasr["round"],
-                    "tasr": best_tasr["tasr"],
-                    "asr": best_tasr.get("asr", 0.0),
-                    "clean_floor_to_target": best_tasr.get(
+            if "backdoor_attribute_asr" in final:
+                best_baa = max(
+                    rows_for_best,
+                    key=lambda r: r.get("backdoor_attribute_asr", 0.0),
+                )
+                summary["best_backdoor_attribute_asr"] = {
+                    "round": best_baa["round"],
+                    "backdoor_attribute_asr": best_baa["backdoor_attribute_asr"],
+                    "asr": best_baa.get("asr", 0.0),
+                    "clean_floor_to_target": best_baa.get(
                         "clean_floor_to_target", 0.0
                     ),
                 }
