@@ -71,9 +71,16 @@ When giving suggestions, distinguish clearly between:
 
 **Cycle 03 — Stronger Adaptive Backdoor Attacks for FL.**
 
-- Plan: `~/.claude/plans/codebase-docs-swirling-gosling.md` (approved
-  2026-05-28).
+- Roadmap: `fl_v2/docs/roadmap/cycle_03_stronger_adaptive_attacks.md`
+  (why/what); execution plan:
+  `fl_v2/docs/cycle_03/implementation_plan.md` (how — per-file,
+  per-WS). These two repo docs are the durable Cycle-03 references.
 - Wave-1 baseline log: `fl_v2/docs/cycle_02/wave1_log.md`.
+
+**Progress:** WS-A (Day-0 logging hardening + MultiKrum NormTracking
+refactor + seed-43 determinism baseline) is ✅ DONE — seed-43 PASSED
+(ASR ≪ 0.01), single-seed cells interpretable. **Current: WS-B
+(small-LR).**
 
 **Cycle 03 goal**: reproduce ≥1 adaptive backdoor attack from the
 literature that drives FLAME-defended ASR above the 0.000 baseline.
@@ -88,8 +95,8 @@ Wave-1 cadence.
 Decision-points still pending in the plan:
 - A3FL coordination mechanism (user reading paper before WS-D starts).
 - 3DFed go/no-go (auto-triggered if Phases 1+2 leave FLAME standing).
-- Multi-seed escalation (auto-triggered if Day-0 seed-43 determinism
-  check fails).
+- ~~Multi-seed escalation~~ — RESOLVED: Day-0 seed-43 baseline passed,
+  no escalation.
 
 ### Future cycles (post-Cycle-03)
 
@@ -190,9 +197,12 @@ that breaks FLAME's 0.000 baseline on our threat model. No findings yet.
 - `NormClippedFedAvg` — L2 norm clipping.
 - `FedMedian`, `FedTrimmedAvg`, `Bulyan` — robust aggregation, custom
   implementations with norm logging (Flower built-ins had dtype bugs).
-- `CapturedKrum`, `CapturedMultiKrum` — wrappers around Flower built-ins
-  (currently no NormTracking; Cycle-03 WS-A composes MultiKrum into
-  NormTracking).
+- `CapturedKrum` — wrapper around Flower's built-in Krum (client-metric
+  capture only, no NormTracking).
+- `NormTrackingMultiKrum` — Cycle-03 WS-A composition refactor (replaced
+  `CapturedMultiKrum`): `MultiKrum` selection + composed
+  `NormTrackingFedAvg` gradient-space logging. Fills the previously
+  empty MultiKrum column of the gradient-space matrix.
 - `FoolsGoldFedAvg` — output-layer cosine on cumulative client histories
   (Fung et al. 2020). Head-only as the paper specifies.
 - `FlameFedAvg` — HDBSCAN clustering + median-norm clipping + Gaussian
@@ -202,8 +212,11 @@ that breaks FLAME's 0.000 baseline on our threat model. No findings yet.
 ### Server-side eval
 - Single-pass evaluation in `training/server_eval.py`: clean accuracy +
   target-class clean accuracy + ASR.
-- Cycle-03 WS-A adds: per-class ASR breakdown, exact
-  trigger-attributable ASR (extra no-trigger forward pass).
+- Cycle-03 WS-A adds: per-source-class ASR breakdown (`asr_src<c>`) and
+  exact trigger-attributable ASR (`backdoor_attribute_asr = asr −
+  clean_floor_to_target`, where the clean floor reuses the clean
+  forward pass — no extra model call). Wandb `server/*` is whitelisted
+  to 10 headline keys; the per-class breakdown is CSV/JSON-only.
 
 ### Analysis surfaces
 - **Wandb live logging** (per-round server + client metrics) — replaces
@@ -214,10 +227,11 @@ that breaks FLAME's 0.000 baseline on our threat model. No findings yet.
   `framework_metrics`) — implemented but used only for Cycle 01
   findings; not the current primary analysis tool.
 
-### Cycle 03 in-progress additions
-Per the active plan: small-LR / LP / A3FL adaptive attack modules,
-per-class ASR + trigger-attributable ASR logging, MultiKrum
-NormTracking composition refactor.
+### Cycle 03 additions
+- ✅ Done (WS-A): per-source-class ASR + `backdoor_attribute_asr`
+  logging; `NormTrackingMultiKrum` composition refactor.
+- ⏳ Pending: small-LR (WS-B) / LP (WS-C) / A3FL (WS-D) adaptive attack
+  modules.
 
 ---
 
@@ -383,9 +397,15 @@ Every experiment with `wandb-enabled: true` (default) gets a wandb run:
 - **Run name:** `{experiment-name}_seed{seed}`.
 - **Auto tags:** `cycle`, `phase`, `model-type`, `attack:<type>`,
   `defense:<type>`, `<n>mal`, `seed<n>`. Extras via `wandb-tags`.
-- **Per-round metrics:** `server/{test_loss, test_accuracy, asr,
-  target_class_clean_accuracy}`, `client/{train_loss, train_accuracy,
-  val_loss, val_accuracy}` (weighted average across selected clients).
+- **Per-round metrics:** `server/*` is restricted to a 10-key whitelist
+  (`_SERVER_WANDB_KEYS` in `utils/wandb_logger.py`): `test_loss`,
+  `test_accuracy`, `num-test-examples`, `target_class_clean_accuracy`,
+  `target_class_num_samples`, `asr`, `asr_num_samples`,
+  `clean_floor_to_target`, `clean_floor_num_samples`,
+  `backdoor_attribute_asr`. The per-source-class `asr_src<c>` breakdown
+  is CSV/JSON-only (kept off wandb to keep the dashboard scannable).
+  `client/{train_loss, train_accuracy, val_loss, val_accuracy}`
+  (weighted average across selected clients).
 - **Auth:** `wandb login` once on alvis1 → `~/.netrc` → SLURM jobs pick
   it up via `--export=ALL`.
 

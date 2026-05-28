@@ -86,11 +86,13 @@ reviewer demands it.
 
 Workstreams, ordered for cheap-decisive-first (≈10 working days at Wave-1 cadence):
 
-- **WS-A — Day 0: logging hardening + determinism baseline.** Three batched additions:
-  per-class ASR breakdown, exact trigger-attributable ASR (extra no-trigger forward pass),
-  and a MultiKrum → NormTracking composition refactor (fills the empty MultiKrum column of
-  the gradient-space matrix). Plus a seed-43 re-run of pixel × FLAME to verify the 0.000
-  baseline is robust to randomness, not a seed-42 artifact.
+- **WS-A — Day 0: logging hardening + determinism baseline. ✅ DONE.** Three batched
+  additions: per-class ASR breakdown (`asr_src<c>`), exact trigger-attributable ASR
+  (`backdoor_attribute_asr = asr − clean_floor_to_target`, computed by reusing the clean
+  forward pass — no extra model call), and a MultiKrum → NormTracking composition refactor
+  (`NormTrackingMultiKrum`, fills the empty MultiKrum column). Seed-43 re-run of pixel ×
+  FLAME **passed** (peak ASR 0.0081% / final 0.0008%) → the 0.000 baseline is seed-robust,
+  not a seed-42 artifact; single-seed adaptive cells are interpretable.
 - **WS-B — Day 1: small-LR attack.** One YAML knob (`malicious-learning-rate`). No new
   module.
 - **WS-C — Day 2–3: LP attack.** New module `attacks_defenses/attacks/layer_poisoning.py`;
@@ -145,5 +147,5 @@ Background (already covered in Cycle 02): FLAME, FoolsGold, DBA, Neurotoxin.
 1. **A3FL coordination mechanism (WS-D)** — user reading the A3FL paper; decision required
    before Day 4.
 2. **3DFed go/no-go (WS-E)** — auto-triggered if WS-B/C/D leave FLAME standing.
-3. **Multi-seed escalation** — if the Day-0 seed-43 baseline is not ~0.000, escalate the 3
-   headline FLAME cells to 3 seeds (+6 GPU-h).
+3. **Multi-seed escalation** — ✅ RESOLVED: the Day-0 seed-43 baseline passed (≪ 0.01), so
+   single-seed headline cells are interpretable; no 3-seed escalation needed.

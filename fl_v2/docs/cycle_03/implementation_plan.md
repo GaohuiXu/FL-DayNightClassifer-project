@@ -39,38 +39,64 @@ still `m < n/2`; still no inter-client communication.
 
 ## WS-A — Day 0: Logging hardening + determinism baseline (half day)
 
+**Status: ✅ DONE (2026-05-28).** Commits `7ca47dc` (3 changes + tests), `013d1ac` (seed-43
+YAML), `7a81be8` + `bfdbec0` (wandb whitelist + metric rename). Seed-43 baseline PASSED
+(peak ASR 0.0081% / final 0.0008%, ≪ 0.01 escalation threshold) → single-seed adaptive cells
+are interpretable; no multi-seed escalation. `tests/test_ws5_defenses.py` (7) +
+`tests/test_dba_trigger.py` (11) green.
+
 Three batched additions land before any new attack code.
 
-1. **Per-class ASR breakdown.** In `src/fl_v2/training/server_eval.py::server_evaluate`
-   (lines 41–89), track `asr_by_source_class[c]` for c ∈ {0..42} \ {target}. Add to the
-   returned metrics dict. Splits global ASR into "trained-on" (base sources `{1,2,5,12,13}`)
-   and "unseen" averages — Wave-1's global ASR averages over heterogeneous sources and
-   under-reports worst-case effectiveness.
-2. **Exact trigger-attributable ASR.** Add a third forward pass at eval: non-target test
-   samples WITHOUT trigger, count how many are classified as target → `clean_floor_to_target`.
-   Returned in metrics; derived `tasr = asr − clean_floor_to_target`. Floor was ≤ 0.07% in
-   Wave-1, but the exact value makes the claim defensible.
+1. **Per-class ASR breakdown.** In `src/fl_v2/training/server_eval.py::server_evaluate`,
+   track per-source-class ASR for c ∈ {0..42} \ {target}. Emitted as flat scalar keys
+   `asr_src<c>` + sample counts `asr_src<c>_n` in the returned metrics dict (flat scalars,
+   not a nested dict, so they round-trip through rounds.csv columns and the wandb numeric
+   filter). Lets offline analysis split global ASR into "trained-on" (base sources
+   `{1,2,5,12,13}`) and "unseen" averages — Wave-1's global ASR averaged over heterogeneous
+   sources and under-reported worst-case effectiveness.
+2. **Exact trigger-attributable ASR.** At eval, count how many non-target test samples are
+   classified as target WITHOUT the trigger → `clean_floor_to_target` (+ `clean_floor_num_samples`).
+   Derived `backdoor_attribute_asr = asr − clean_floor_to_target`. **Note:** the clean-floor
+   reuses the existing clean (pass-1) predictions rather than adding a literal extra forward
+   pass — pass 1 already classifies every non-target image cleanly, so a third pass would
+   recompute identical logits. Bit-equivalent, faster, consistent with the file's single-pass
+   design. (`backdoor_attribute_asr` was originally drafted as `tasr`; renamed for clarity.)
+   Floor was ≤ 0.07% in Wave-1; the exact per-round value makes the claim defensible.
 3. **MultiKrum NormTracking refactor.** `CapturedMultiKrum` in
-   `src/fl_v2/strategy/krum_wrappers.py` (lines 50–66) does not inherit `NormTrackingFedAvg`,
-   so the MultiKrum column of the gradient-space matrix is empty (Wave-1 Table 2). Refactor
-   via **composition**: keep `NormTrackingFedAvg._compute_and_log_norms` body for logging,
-   delegate the selection step to Flower's `MultiKrum.aggregate_train`. (Direct multiple
-   inheritance `NormTrackingMultiKrum(NormTrackingFedAvg, MultiKrum)` hits an MRO conflict —
-   confirmed by exploration; use composition.)
+   `src/fl_v2/strategy/krum_wrappers.py` did not inherit `NormTrackingFedAvg`, so the MultiKrum
+   column of the gradient-space matrix was empty (Wave-1 Table 2). Replaced by
+   `NormTrackingMultiKrum` via **composition**: `NormTrackingMultiKrum(MultiKrum)` holds a
+   composed `NormTrackingFedAvg` instance and calls its `_compute_and_log_norms` for logging,
+   then delegates selection to `MultiKrum.aggregate_train`. (Direct multiple inheritance
+   `NormTrackingMultiKrum(NormTrackingFedAvg, MultiKrum)` hits an MRO conflict — confirmed by
+   exploration; use composition.) Selection is bit-identical to the old class (same sorted
+   replies into the same `super().aggregate_train`); the refactor purely adds norm logging.
+   *Not yet exercised on real data (seed-43 baseline used FLAME) — first real run is a
+   WS-B/C MultiKrum cell; deferred smoke-check until then.*
 
-**Plus one determinism baseline.** Re-run `cycle02-pixel-base-flame` with `seed: 43` (≤30
-min). Expected ASR = 0.000. If yes → single-seed adaptive cells are interpretable against
-the deterministic baseline. If no (ASR > 0.01) → escalate the 3 headline cells to 3 seeds
-(+6 GPU-h).
+**Wandb noise control (added on user request).** The `server/*` wandb namespace is restricted
+to a 10-key whitelist (`_SERVER_WANDB_KEYS` in `utils/wandb_logger.py`): the 7 Wave-1 headline
+keys + `clean_floor_to_target`, `clean_floor_num_samples`, `backdoor_attribute_asr`. The 84-key
+per-class `asr_src<c>` breakdown stays CSV/JSON-only so the dashboard stays scannable.
+
+**Plus one determinism baseline.** Re-run `cycle02-pixel-base-flame` with `seed: 43`.
+Expected ASR = 0.000. If yes → single-seed adaptive cells are interpretable against the
+deterministic baseline. If no (ASR > 0.01) → escalate the 3 headline cells to 3 seeds
+(+6 GPU-h). **Result: PASS** (see status line above).
 
 **Null-config regression.** Existing Wave-1 cells loaded under the new schema must populate
-new metric keys via default-0/NaN — no breakage of `summary.json` consumers.
+new metric keys via default-0/NaN — no breakage of `summary.json` consumers. **Verified** via
+a legacy-schema smoke test (no `asr_src*`/`backdoor_attribute_asr` keys → unchanged summary).
 
 **Critical files.**
-- `src/fl_v2/training/server_eval.py` (lines 41–89).
-- `src/fl_v2/utils/experiment_logger.py` (lines 136–149 — schema extension).
-- `src/fl_v2/strategy/krum_wrappers.py` (composition refactor).
-- New YAML: `configs/experiments/cycle_03/phase0/cycle02-pixel-base-flame-seed43.yaml`.
+- `src/fl_v2/training/server_eval.py` (per-class + clean-floor).
+- `src/fl_v2/utils/experiment_logger.py` (schema extension — `best_asr` augmented +
+  `best_backdoor_attribute_asr` block).
+- `src/fl_v2/utils/wandb_logger.py` (server/* whitelist).
+- `src/fl_v2/strategy/krum_wrappers.py` + `strategy/__init__.py` + `server_app.py`
+  (composition refactor + wiring).
+- New YAML: `configs/experiments/cycle_03/phase0_logging/cycle02-pixel-base-flame-seed43.yaml`
+  (folder follows the `phase<N>_<name>` convention used for WS-B `phase1_smalllr` etc.).
 
 ---
 
@@ -238,7 +264,9 @@ For each HEAD cell:
   LP with `lp-num-layers: -1` (no masking) = pixel baseline; A3FL with `a3fl-inner-steps: 0`
   = fixed fallback trigger (no-op). Each diffed against the Wave-1 result.
 - **Determinism baseline (Day 0).** pixel × FLAME × seed-43 → ASR 0.000 within float
-  tolerance; else escalate headline cells to 3 seeds.
+  tolerance; else escalate headline cells to 3 seeds. ✅ **PASS** — peak 0.0081% /
+  final 0.0008%; `backdoor_attribute_asr` = 0.0 (every ASR hit is also a clean-floor hit).
+  No escalation.
 - **Unit tests.** `select_critical_layers` (synthetic-batch ranking), `make_lp_grad_mask`
   (param shapes), `a3fl.learnable_trigger_init` (deterministic given seed).
 - **Per-cell scientific gates.** `ctrl` cell ASR > 0.3 before the FLAME cell; LP layer-name
@@ -248,7 +276,8 @@ For each HEAD cell:
 
 1. **A3FL coordination mechanism (WS-D)** — user reads paper, decides before Day 4.
 2. **3DFed go/no-go (WS-E)** — auto-triggered if WS-B/C/D leave FLAME standing.
-3. **Multi-seed escalation** — if Day-0 seed-43 ≠ 0.000, escalate 3 headline cells to 3 seeds.
+3. **Multi-seed escalation** — ✅ RESOLVED: seed-43 baseline PASSED (≪ 0.01), single-seed
+   cells are interpretable; no escalation.
 4. **NormClip** — dropped per Wave-1; reinstate as a tight-clip (`clip-norm: 10`) ablation
    only if a reviewer demands it.
 
@@ -256,8 +285,13 @@ For each HEAD cell:
 
 ## Suggested starting point for a fresh session
 
-1. Read this file, `./wave1_log.md`, and `../../CLAUDE.md`.
-2. Start **WS-A**: read the 3 target files, propose the minimal diff, apply, run
-   `tests/test_ws5_defenses.py` + `tests/test_dba_trigger.py` for regression, commit.
-3. Submit the seed-43 verification YAML; confirm ASR ≈ 0.000.
-4. Proceed to WS-B (small-LR), running the `ctrl` cell first per the guardrail.
+1. Read this file, `../cycle_02/wave1_log.md`, and `../../CLAUDE.md`.
+2. ✅ **WS-A done** (see its status line). Logging hardening + MultiKrum refactor landed;
+   seed-43 determinism baseline PASSED.
+3. **Current: WS-B (small-LR).** Run the `small-LR × FedAvg` `ctrl` cell FIRST per the
+   guardrail — only if its ASR > 0.3 is the FLAME row interpretable. If ASR < 0.1 the attack
+   is broken by its own LR; sweep `malicious-learning-rate` ∈ {1e-4, 5e-5, 1e-5} before
+   touching the defense columns.
+4. Carry the deferred WS-A MultiKrum smoke into the first WS-B batch (a small-LR × MultiKrum
+   cell exercises `NormTrackingMultiKrum.aggregate_train` on real data + populates its
+   `norm_log.json`).
