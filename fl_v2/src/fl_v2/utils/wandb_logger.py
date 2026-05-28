@@ -40,6 +40,22 @@ _GROUP_SUFFIX_TOKENS = {
 }
 _MAL_RE = re.compile(r"^\d+mal$")
 
+# Headline server-side metrics surfaced into the wandb ``server/*``
+# namespace. Restricted to keep the dashboard scannable — the full
+# server_evaluate output (including WS-A's per-class asr_src<c> /
+# asr_src<c>_n breakdown, clean_floor_to_target, tasr, etc.) is always
+# written to rounds.csv and summary.json for offline analysis. Add a
+# key here explicitly to surface it in wandb.
+_SERVER_WANDB_KEYS: frozenset[str] = frozenset({
+    "test_loss",
+    "test_accuracy",
+    "num-test-examples",
+    "target_class_clean_accuracy",
+    "target_class_num_samples",
+    "asr",
+    "asr_num_samples",
+})
+
 
 def _is_disabled(run_config) -> bool:
     enabled = truthy(run_config.get("wandb-enabled", False))
@@ -255,8 +271,15 @@ class WandbLogger:
             return
         payload: dict[str, Any] = {"server-round": int(server_round)}
         if server_metrics:
+            # Whitelist — see _SERVER_WANDB_KEYS at module top for the
+            # rationale. The full metrics dict is preserved in
+            # rounds.csv / summary.json regardless.
             for k, v in server_metrics.items():
-                if isinstance(v, (int, float)) and k != "server-round":
+                if (
+                    k in _SERVER_WANDB_KEYS
+                    and isinstance(v, (int, float))
+                    and k != "server-round"
+                ):
                     payload[f"server/{k}"] = float(v)
         if client_metrics:
             for k, v in client_metrics.items():
