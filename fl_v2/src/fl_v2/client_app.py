@@ -339,6 +339,24 @@ def train(msg: Message, context: Context) -> Message:
             lr_min=float(run_config.get("lr-min", 0.0001)),
         )
 
+    # Cycle-03 WS-B (small-LR / BackdoorIndicator motivating expt): a
+    # malicious client inside the attack window overrides its LR with a
+    # fixed small value, nudging its update into the benign norm/manifold
+    # so FLAME's clustering can't separate it. Empty string = no override
+    # (null config == Wave-1 baseline, bit-identical: the gate is never
+    # entered). The override REPLACES the scheduled LR (the paper uses a
+    # fixed poisoned LR), and only for malicious in-window clients —
+    # benign clients and out-of-window malicious clients keep the
+    # `learning-rate` key + cosine schedule so they don't stick out.
+    mal_lr_raw = str(run_config.get("malicious-learning-rate", "")).strip()
+    if is_malicious and in_attack_window and mal_lr_raw:
+        learning_rate = float(mal_lr_raw)
+        print(
+            f"[Client {client_id}] small-LR override: lr={learning_rate:g} "
+            f"round={server_round}",
+            flush=True,
+        )
+
     # Cycle-02 Neurotoxin: a malicious client estimates the benign
     # heavy-hitter coordinates from its own clean-data gradient at the
     # current global model, then masks those coordinates out of its

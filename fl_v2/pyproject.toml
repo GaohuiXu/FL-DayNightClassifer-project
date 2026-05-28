@@ -141,6 +141,14 @@ dba-grid = "1x1"
 # out on malicious clients (constrains the backdoor to "cold" coords for
 # durability). 0.0 disables the projection -> plain pixel backdoor.
 neurotoxin-topk-ratio = 0.0
+# Cycle-03 WS-B (small-LR / BackdoorIndicator motivating expt): fixed LR
+# override for malicious clients INSIDE the attack window. "" = no
+# override (null config == Wave-1 baseline, bit-identical). When set, it
+# REPLACES the scheduled LR for malicious in-window clients only; benign
+# clients and out-of-window malicious clients keep `learning-rate` + the
+# cosine schedule. A small value nudges malicious updates into the benign
+# norm/manifold so FLAME's clustering can't separate them.
+malicious-learning-rate = ""
 
 # ===== checkpoints =====
 checkpoint-rounds = ""  # comma-separated rounds to save, e.g. "0,5,10,25,50,75,100"

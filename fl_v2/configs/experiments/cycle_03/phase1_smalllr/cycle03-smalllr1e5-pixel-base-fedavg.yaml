@@ -1,0 +1,43 @@
+# Cycle 03 WS-B Batch 1a control: small-LR pixel x FedAvg, malicious LR = 1e-5.
+# Guardrail cell — establishes whether the small-LR attack plants a backdoor
+# AT ALL (no defense). Interpret the FLAME row only if some sweep LR gives
+# ASR > 0.3 here; if all < 0.1 the attack is broken by its own LR.
+# malicious-learning-rate REPLACES the scheduled LR for malicious clients
+# inside the attack window only; benign clients keep learning-rate + cosine.
+experiment-name: cycle03-smalllr1e5-pixel-base-fedavg
+cycle: cycle_03
+phase: phase1_smalllr
+model-type: resnet18
+pretrained-init: false
+trainable-layers: full_ft
+num-clients: 50
+num-server-rounds: 60
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.001
+lr-schedule: cosine
+lr-min: 0.0001
+malicious-client-ids: 0,1,2,3,4,5,6,7,8,9
+num-malicious-nodes: 10
+malicious-learning-rate: 0.00001
+backdoor-target-label: 14
+poison-fraction: 0.5
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+attack-start-round: 10
+attack-end-round: 35
+poison-data-regime: base
+seed: 42
+partition-seed: 42
+topk-energy-k: 4096
+checkpoint-rounds: ""
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+wandb-enabled: true
+wandb-project: cycle-03
+attack-type: pixel_backdoor
+defense-type: none
+wandb-group: cycle03-smalllr-pixel-base
+wandb-tags: cycle03,phase1_smalllr,smalllr,ctrl,pixel,base,fedavg,mlr1e-5

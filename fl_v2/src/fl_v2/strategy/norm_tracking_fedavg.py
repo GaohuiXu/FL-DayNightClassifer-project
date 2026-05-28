@@ -333,6 +333,7 @@ class NormTrackingFedAvg(FedAvg):
         global_params: list | None = None,
         client_params_list: list | None = None,
         partition_ids: list[int] | None = None,
+        extra_round_fields: dict | None = None,
     ) -> None:
         """Log norms (and gradient-space metrics) to stdout and JSON.
 
@@ -342,6 +343,11 @@ class NormTrackingFedAvg(FedAvg):
         are computed and written into the round record. ``partition_ids``
         (if provided) lets the offline analysis map each per-client row
         to a logical client id without relying on list order.
+
+        ``extra_round_fields`` (if provided) are merged verbatim into the
+        round record before the JSON dump — a reusable hook for a defense
+        to record its per-round decision (Cycle-03 WS-B: FLAME's admitted
+        partition-ids). Keys collide-last-wins with the computed fields.
         """
         norm_stats = {
             "mean": float(np.mean(original_norms)),
@@ -376,6 +382,9 @@ class NormTrackingFedAvg(FedAvg):
             round_record["pairwise_cosine"] = [
                 [round(x, 6) for x in row] for row in gsm["pairwise_cosine"]
             ]
+
+        if extra_round_fields:
+            round_record.update(extra_round_fields)
 
         self._norm_history.append(round_record)
 

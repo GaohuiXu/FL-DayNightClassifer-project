@@ -60,6 +60,12 @@ _SERVER_WANDB_KEYS: frozenset[str] = frozenset({
     "clean_floor_to_target",
     "clean_floor_num_samples",
     "backdoor_attribute_asr",
+    # Cycle-03 WS-B defense admit-decision metrics (FLAME). TPR =
+    # malicious rejected; FPR = honest rejected; + raw admit counts.
+    "defense_tpr",
+    "defense_fpr",
+    "defense_n_admitted",
+    "defense_n_total",
 })
 
 

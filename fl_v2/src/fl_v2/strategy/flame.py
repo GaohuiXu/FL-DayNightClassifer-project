@@ -121,17 +121,11 @@ class FlameFedAvg(NormTrackingFedAvg):
         partition_ids = [partition_sort_key(m) for m in valid_replies]
         original_norms = compute_update_norms(global_params, client_params_list)
 
-        # WS1 gradient-space logging describes the RAW (pre-defense) signature.
-        self._print_client_table(valid_replies)
-        self._compute_and_log_norms(
-            server_round,
-            original_norms,
-            global_params=global_params,
-            client_params_list=client_params_list,
-            partition_ids=partition_ids,
-        )
-
         # --- FLAME: cluster -> clip -> noise ---
+        # Clustering runs BEFORE the norm log so the admit decision can be
+        # recorded into the round record (Cycle-03 WS-B). The ground-truth
+        # malicious/honest labelling of these admitted ids is applied
+        # downstream in server_app (the defense itself stays label-blind).
         n = len(valid_replies)
         flat = np.stack([
             np.concatenate([
@@ -145,6 +139,22 @@ class FlameFedAvg(NormTrackingFedAvg):
         admitted = self._cluster_admitted(flat, norms)
         del flat
         s_t = float(np.median(norms))               # clipping bound
+
+        # WS1 gradient-space logging describes the RAW (pre-defense)
+        # signature; WS-B adds FLAME's per-round admit decision.
+        self._print_client_table(valid_replies)
+        self._compute_and_log_norms(
+            server_round,
+            original_norms,
+            global_params=global_params,
+            client_params_list=client_params_list,
+            partition_ids=partition_ids,
+            extra_round_fields={
+                "admitted_partition_ids": [int(partition_ids[i]) for i in admitted],
+                "n_admitted": int(len(admitted)),
+                "n_total": int(n),
+            },
+        )
 
         # Effective per-client weight: clip-scale / |admitted| for admitted
         # clients (the mean of the clipped updates over the admitted set),

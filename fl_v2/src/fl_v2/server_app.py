@@ -262,6 +262,50 @@ def _summarize_update_metrics(
     return out
 
 
+def _summarize_defense_decision(norm_record: dict, malicious_ids: set) -> dict:
+    """Detector TPR/FPR from a defense's per-round admit decision.
+
+    Reads ``partition_ids`` (all clients that reached aggregation this
+    round) and ``admitted_partition_ids`` (those the defense kept) from
+    the strategy's norm-log record, splitting them against the
+    ground-truth ``malicious_ids`` (which the harness knows but the
+    defense does not). Returns:
+
+    - ``defense_tpr``: malicious REJECTED / malicious total — security.
+      The BackdoorIndicator Table-1 metric: collapses to 0 when the
+      defense can no longer separate (small-LR) malicious updates.
+    - ``defense_fpr``: honest REJECTED / honest total — utility cost /
+      collateral. Has a nonzero clean-round baseline in non-IID FL, so
+      interpret relative to the no-attack / pre-window value.
+    - ``defense_n_admitted`` / ``defense_n_total``: raw counts.
+
+    Returns {} when the record carries no admit decision (non-FLAME
+    defenses, or round 0). Logging / analysis only — never aggregation.
+    """
+    pids = norm_record.get("partition_ids")
+    admitted = norm_record.get("admitted_partition_ids")
+    if not pids or admitted is None:
+        return {}
+    admitted_set = {int(a) for a in admitted}
+    mal_total = [int(p) for p in pids if int(p) in malicious_ids]
+    hon_total = [int(p) for p in pids if int(p) not in malicious_ids]
+    out: dict = {
+        "defense_n_admitted": float(len(admitted_set)),
+        "defense_n_total": float(len(pids)),
+    }
+    if mal_total:
+        mal_admitted = sum(1 for p in mal_total if p in admitted_set)
+        out["defense_tpr"] = float(
+            (len(mal_total) - mal_admitted) / len(mal_total)
+        )
+    if hon_total:
+        hon_admitted = sum(1 for p in hon_total if p in admitted_set)
+        out["defense_fpr"] = float(
+            (len(hon_total) - hon_admitted) / len(hon_total)
+        )
+    return out
+
+
 def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger, strategy):
     """
     Build a centralized evaluation callback.
@@ -422,6 +466,21 @@ def _server_side_evaluate_fn(context: Context, logger: ExperimentLogger, strateg
                 except Exception as e:  # pylint: disable=broad-exception-caught
                     print(
                         f"[server] update-metric summary skipped: {e!r}",
+                        flush=True,
+                    )
+                # Cycle-03 WS-B: a defense's per-round admit decision (FLAME
+                # logs admitted_partition_ids) -> detector TPR/FPR vs the
+                # ground-truth malicious set. Merged into metrics_dict so it
+                # rides into rounds.csv + summary.json + wandb server/*.
+                # Absent for non-FLAME defenses / round 0 (keys just omitted).
+                try:
+                    defense_metrics = _summarize_defense_decision(
+                        last_record, malicious_ids
+                    )
+                    metrics_dict.update(defense_metrics)
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    print(
+                        f"[server] defense-decision summary skipped: {e!r}",
                         flush=True,
                     )
 
