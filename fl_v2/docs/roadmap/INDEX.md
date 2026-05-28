@@ -10,18 +10,20 @@ The cycle is the unit of planning: typically 2–3 weeks of work, one well-defin
 |---|---|---|---|---|
 | [01](cycle_01_platform_and_representation_baseline.md) | 2026-03-25 → 2026-04-15 | Platform establishment + representation-space baseline | **closed** | Pixel trigger is a "joint weak attack" (middle-region cluster, linearly separable from genuine target). Bagdasaryan replacement amplifies but does not change the representation-space mechanism. The probe direction is nearly orthogonal to top-PC, so unsupervised spectral defenses miss what a supervised probe trivially catches. |
 | ~~02-pivot~~ | 2026-04-15 → 2026-05-12 | Designed attacks + representation-space framework (**retired** — ran on pre-audit codebase; archived under `cycle_02_pivot/`) | **retired** | Findings not trusted; superseded. |
-| [02](cycle_02_gradient_space_mechanism_study.md) | 2026-05-13 → TBD | Gradient-space backdoor mechanism study — modern attacks/defenses on the audit-fixed codebase, threat-model design, client-side prototype | **active** | — |
-| 03 | TBD | Defense design (informed by Cycle-02 go/no-go) — gradient-space law or other-space pivot | — | — |
+| [02](cycle_02_gradient_space_mechanism_study.md) | 2026-05-13 → 2026-05-28 | Gradient-space backdoor mechanism study — modern attacks/defenses on the audit-fixed codebase, threat-model design | **closed** | FLAME drives ASR to 0.000 against all 3 static attacks (pixel, model_replacement, DBA); MultiKrum bimodal; FoolsGold evaded by DBA; NormClip a no-op. The "gradient-space law" question is moot until a stronger attacker exists — so the next cycle builds one. Full results: `../cycle_02/wave1_log.md`. |
+| [03](cycle_03_stronger_adaptive_attacks.md) | 2026-05-28 → TBD | Stronger adaptive attacks — reproduce 2023-25 SOTA (small-LR, LP, A3FL, cond. 3DFed) to find one that breaks FLAME's 0.000 baseline | **active** | — |
+| 04 | TBD | Defense design — triggered only if Cycle 03 produces an attack that breaks FLAME; design informed by that attack's failure mode | — | — |
 
 ## Reading order for a new collaborator
 
 If you're reading this for the first time and want to understand the project state in one session:
 
-1. **`../../CLAUDE.md`** — project identity, platform status, near-term priorities (short, high signal)
-2. **[cycle_02_gradient_space_mechanism_study.md](cycle_02_gradient_space_mechanism_study.md)** — the current cycle: research question, threat model, phases
-3. **`../active_reading/`** — the literature active-reading cards the current cycle is built on (BadNets, Krum, DBA, Neurotoxin, FoolsGold, FLAME, STRIP)
+1. **`../../CLAUDE.md`** — project identity, platform status, current focus (short, high signal)
+2. **[cycle_03_stronger_adaptive_attacks.md](cycle_03_stronger_adaptive_attacks.md)** — the current cycle: research question, threat model, phases
+3. **`../cycle_02/wave1_log.md`** — the closed Cycle-02 results that motivate Cycle 03 (FLAME defeats all static attacks)
+4. **`../active_reading/`** — the literature active-reading cards the cycles are built on (BadNets, Krum, DBA, Neurotoxin, FoolsGold, FLAME, STRIP; Cycle-03 adds BackdoorIndicator, LP, A3FL, 3DFed)
 
-The Cycle-01 representation-space documents (`../cycle01_docs/`) and the retired Cycle-02-pivot documents (`../cycle_02_pivot/`) are historical context. Their quantitative findings were produced on the pre-audit codebase and are **not** current ground truth — Cycle 02 re-baselines from scratch.
+The Cycle-01 representation-space documents (`../cycle01_docs/`) and the retired Cycle-02-pivot documents (`../cycle_02_pivot/`) are historical context. Their quantitative findings were produced on the pre-audit codebase and are **not** current ground truth.
 
 ## Document conventions
 

@@ -1,9 +1,25 @@
 # Cycle 02 — Gradient-Space Backdoor Mechanism Study
 
-**Dates:** 2026-05-13 → TBD
-**Status:** active
+**Dates:** 2026-05-13 → 2026-05-28
+**Status:** closed (Wave-1 deliverables met; Wave-2 edge regime + client-side prototype
+deferred to later cycles — see below)
 **Prerequisite:** the audit-fixed, bit-deterministic codebase (post 7-fix audit + Pass 2/3a).
-**Headline result (filled in when closed):** —
+**Headline result:** On the audit-fixed codebase, **FLAME (clustering + median-clip + noise)
+drives ASR to 0.000 against all three static attacks** (pixel, model_replacement, DBA);
+MultiKrum is bimodal (kills model_replacement, partial on DBA, useless on pixel); FoolsGold
+is evaded by DBA's distributed sub-triggers; NormClip is a no-op. cos2mean separates
+malicious from honest with |d| ≥ 1.0 across all attacks but is a descriptive signal, not a
+strong "law". Because FLAME shuts down every static attack, the gradient-space "law" question
+is moot until a stronger attacker exists — Cycle 03 builds one. Full results:
+`../cycle_02/wave1_log.md`.
+
+> **Closing note.** Cycle 02's core deliverables (threat model, gradient-space evasion
+> matrix, attack × defense outcome table) were met by Wave-1. Two originally-planned items
+> were explicitly deferred rather than executed: the **edge poison regime** (Wave-2 — only
+> meaningful once an attack produces non-trivial ASR under FLAME) and the **client-side STRIP
+> prototype** (only meaningful once server-side gradient-space defense is shown
+> insufficient). Both move to post-Cycle-03 work. The successor cycle is
+> `cycle_03_stronger_adaptive_attacks.md`.
 
 > This document **replaces** the retired Cycle-02 plan ("Designed Attacks & Client-Side
 > Defenses"). That plan and the Cycle-01 representation-space findings it built on were
