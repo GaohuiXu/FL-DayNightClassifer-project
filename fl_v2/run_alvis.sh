@@ -233,13 +233,34 @@ echo "===== Running Flower ====="
 if [[ -n "${EXPERIMENT_YAML:-}" ]]; then
     echo "Experiment config: $EXPERIMENT_YAML"
 fi
+# Tee the streamed stdout to a log so the silent-exit guard (below) can
+# verify the run actually produced a summary. stderr is left on the job's
+# stderr (SLURM .err) unchanged. [logger]/[server] prints go to stdout.
+FLWR_RUN_LOG="$FLWR_HOME/flwr_run.log"
 if [[ -n "$RUN_CONFIG_FROM_YAML" ]]; then
     echo "Run config (YAML): $RUN_CONFIG_FROM_YAML"
-    flwr run . local-simulation-gpu --stream --run-config "$RUN_CONFIG_FROM_YAML"
+    flwr run . local-simulation-gpu --stream --run-config "$RUN_CONFIG_FROM_YAML" | tee "$FLWR_RUN_LOG"
+    FLWR_EXIT=${PIPESTATUS[0]}
 else
-    flwr run . local-simulation-gpu --stream "$@"
+    flwr run . local-simulation-gpu --stream "$@" | tee "$FLWR_RUN_LOG"
+    FLWR_EXIT=${PIPESTATUS[0]}
 fi
-FLWR_EXIT=$?
+
+# --- Silent-exit guard (residual same-node startup race) ---------------
+# `flwr run` returns 0 even when the ServerApp starts, inits wandb, but the
+# simulation trains ZERO rounds (engine startup race on a contended node) --
+# producing no summary.json, GPU 0 %. A successful run prints exactly one
+# "[logger] summary saved" line at completion (experiment_logger.py:178).
+# Its absence => the run silently did nothing; set a flag so the final exit
+# is non-zero and SLURM marks the job FAILED (visible) rather than COMPLETED
+# (a dead run masquerading as a real 0%-ASR result). Grep here while
+# $FLWR_HOME still exists -- cleanup removes it below.
+SILENT_FAIL=0
+if ! grep -q "\[logger\] summary saved" "$FLWR_RUN_LOG" 2>/dev/null; then
+    SILENT_FAIL=1
+    echo "ERROR: flwr run produced NO summary.json -- silent same-node startup race."
+    echo "       Forcing FAILED so this is not mistaken for a real result. Resubmit."
+fi
 
 # --- Cleanup ---
 echo "===== Cleanup ====="
@@ -290,4 +311,8 @@ rm -rf "$JOB_FLWR_HOME" "$RAY_TMPDIR"
 
 echo "End: $(date)"
 echo "Elapsed: $(printf '%02d:%02d:%02d' $((SECONDS/3600)) $((SECONDS%3600/60)) $((SECONDS%60))) (total ${SECONDS}s)"
+if [[ "${SILENT_FAIL:-0}" -eq 1 ]]; then
+    echo "Exit: 1 (silent-exit guard tripped -- no summary.json produced)"
+    exit 1
+fi
 exit $FLWR_EXIT
