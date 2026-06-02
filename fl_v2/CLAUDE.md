@@ -159,12 +159,31 @@ Full results: `fl_v2/docs/cycle_02/wave1_log.md`. Headline observations:
    `min_cluster_size = N/2+1` aggressively admitting only the single
    majority cluster. On GTSRB (43 classes, α=0.5, easy features) this
    costs only 0.66 pp clean acc because 26 admitted clients still
-   train fine. Plausibly catastrophic on harder / more-non-IID data
-   (α=0.2, or richer datasets) where the honest cloud has no coherent
-   majority structure. Also stage-dependent finding: attack viability
-   strongly varies (mid sweet spot, late nearly fails without
-   defense), and FLAME's TPR climbs from 0.85 (early) to 1.00 (mid+)
-   as the honest cloud tightens around convergence.
+   train fine. **Stress-tested at α=0.2** (close-out ablation,
+   `docs/cycle_02/ablation_log.md`): FPR rose only marginally
+   (0.469 → 0.508, +8 % relative), clean acc bit-identical at 0.966,
+   HDBSCAN still found the size-26 majority cluster — the catastrophic
+   honest-collateral hypothesis was **refuted on GTSRB**. Likely still
+   applies on richer datasets where the honest cloud has no coherent
+   majority, but GTSRB-43 traffic-sign gradients are coherent enough
+   that α=0.2 partitioning doesn't fragment them. Stage-dependent
+   detection also confirmed: attack viability strongly varies (mid
+   sweet spot, late nearly fails without defense), and FLAME's TPR
+   climbs from 0.85 (early) to 1.00 (mid+) as the honest cloud
+   tightens around convergence.
+7. **FLAME ≡ HDBSCAN majority filter on this platform** (close-out
+   ablation, `docs/cycle_02/ablation_log.md`): component isolation on
+   the mid-pixel test bed shows cluster-only matches full FLAME
+   bit-for-bit (TPR 1.00, FPR 0.33, ASR 0); clip-only and noise-only
+   both collapse to FedAvg-equivalent (peak ASR 0.58–0.60, TPR=FPR=0).
+   Median-norm clipping and Gaussian noise at the Adam-calibrated
+   λ=1e-6 are cosmetic — the entire defense is HDBSCAN with
+   `min_cluster_size = N/2+1` rejecting everything outside the benign
+   majority. Resolves the supervisor's "is FLAME a trick?" doubt: not
+   a trick, but also not three components — it's one (clustering).
+   Implication: a Cycle-03 adaptive attack that survives FLAME must
+   either (a) sit inside the benign-majority cluster, or (b) split the
+   honest cloud so HDBSCAN's majority is no longer benign.
 
 ### Cycle 03 (in progress)
 
