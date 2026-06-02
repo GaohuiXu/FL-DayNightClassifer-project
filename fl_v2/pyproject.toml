@@ -180,18 +180,6 @@ krum-num-to-select = 5
 # itself a publishable finding about FLAME's optimizer sensitivity.
 flame-noise-multiplier = 0.000001
 
-# Cycle-02 stage-study follow-up: FLAME component-ablation knobs.
-# Both default true => bit-identical to current FLAME (full cluster +
-# clip + noise). Setting either to false isolates the remaining
-# components. Used only by the 3 mid-pixel ablation cells under
-# configs/experiments/cycle_02/ablation/. **These knobs are SCHEDULED
-# FOR REMOVAL once the ablation is analyzed** -- see the closing
-# revert commit at the end of the stage study.
-#   enable-cluster false => admit ALL clients (skip HDBSCAN)
-#   enable-clip    false => uniform coef over admitted (no median clip)
-flame-enable-cluster = true
-flame-enable-clip = true
-
 # ===== gradient-space instrumentation (Cycle 02) =====
 # Number of top-|coordinate| positions of the mean update used for the
 # per-client coordinate-energy-split metric logged each round by the

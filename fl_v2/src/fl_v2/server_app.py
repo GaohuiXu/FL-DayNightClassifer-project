@@ -161,10 +161,6 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict, exp_dir:
     if defense_type == "flame":
         return FlameFedAvg(
             noise_multiplier=float(run_config.get("flame-noise-multiplier", 0.001)),
-            # Cycle-02 ablation knobs (scheduled for removal). Defensive
-            # str->bool parse handles bool, "true"/"false", and missing.
-            enable_cluster=str(run_config.get("flame-enable-cluster", "true")).strip().lower() != "false",
-            enable_clip=str(run_config.get("flame-enable-clip", "true")).strip().lower() != "false",
             output_dir=exp_dir,
             experiment_name=experiment_name,
             seed=seed,
