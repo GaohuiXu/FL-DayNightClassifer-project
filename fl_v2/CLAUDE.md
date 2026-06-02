@@ -153,6 +153,18 @@ Full results: `fl_v2/docs/cycle_02/wave1_log.md`. Headline observations:
    no-defense runs. Stable across defenses for pixel (6.6% spread) and
    DBA (15.9%). This is descriptive evidence to inform Cycle-04 defense
    design — not a "law" in any strong sense.
+6. **FLAME's clean honest-rejection rate is 0.469** (post-Wave-1 stage
+   study, `docs/cycle_02/stage_study_log.md`): with NO attack present,
+   FLAME still drops ~23/50 honest clients every round — the cost of
+   `min_cluster_size = N/2+1` aggressively admitting only the single
+   majority cluster. On GTSRB (43 classes, α=0.5, easy features) this
+   costs only 0.66 pp clean acc because 26 admitted clients still
+   train fine. Plausibly catastrophic on harder / more-non-IID data
+   (α=0.2, or richer datasets) where the honest cloud has no coherent
+   majority structure. Also stage-dependent finding: attack viability
+   strongly varies (mid sweet spot, late nearly fails without
+   defense), and FLAME's TPR climbs from 0.85 (early) to 1.00 (mid+)
+   as the honest cloud tightens around convergence.
 
 ### Cycle 03 (in progress)
 

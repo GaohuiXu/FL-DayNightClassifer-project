@@ -20,6 +20,8 @@ is moot until a stronger attacker exists — Cycle 03 builds one. Full results:
 > prototype** (only meaningful once server-side gradient-space defense is shown
 > insufficient). Both move to post-Cycle-03 work. The successor cycle is
 > `cycle_03_stronger_adaptive_attacks.md`.
+>
+> **Post-Wave-1 follow-up (2026-05-29) — stage study.** A 14-cell stage study (`../cycle_02/stage_study_log.md`) added a CLEAN × FLAME baseline and split the attack window into early / mid / late (relative to convergence R_c≈12). Key new findings: attack viability is strongly stage-dependent (mid is the sweet spot; late nearly fails even without defense); FLAME holds at 0% where the attack lands (early+mid); and **FLAME's honest-client collateral is large — clean FPR = 0.469** (drops ~half the honest clients every clean round, costing only 0.66 pp acc on GTSRB). The "is FLAME a trick?" question is answered: aggressive but honest filtering, not an artifact. The clean FPR opens the next question — does this collateral collapse main-task accuracy on harder / more-non-IID data?
 
 > This document **replaces** the retired Cycle-02 plan ("Designed Attacks & Client-Side
 > Defenses"). That plan and the Cycle-01 representation-space findings it built on were
