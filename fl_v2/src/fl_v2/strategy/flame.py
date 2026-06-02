@@ -45,10 +45,18 @@ class FlameFedAvg(NormTrackingFedAvg):
     """FedAvg with FLAME clustering + norm-median clipping + noise."""
 
     def __init__(
-        self, noise_multiplier: float = 0.001, *args, **kwargs
+        self,
+        noise_multiplier: float = 0.001,
+        enable_cluster: bool = True,
+        enable_clip: bool = True,
+        *args, **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
         self.noise_multiplier = float(noise_multiplier)
+        # Cycle-02 stage-study ablation knobs (scheduled for removal --
+        # see pyproject.toml comment). Defaults preserve full FLAME.
+        self.enable_cluster = bool(enable_cluster)
+        self.enable_clip = bool(enable_clip)
 
     @staticmethod
     def _cluster_admitted(flat: np.ndarray, norms: np.ndarray) -> list[int]:
@@ -136,7 +144,11 @@ class FlameFedAvg(NormTrackingFedAvg):
             for cp in client_params_list
         ])
         norms = np.asarray(original_norms, dtype=np.float64)
-        admitted = self._cluster_admitted(flat, norms)
+        # Cycle-02 ablation: enable_cluster=false admits all clients (no HDBSCAN).
+        if self.enable_cluster:
+            admitted = self._cluster_admitted(flat, norms)
+        else:
+            admitted = list(range(n))
         del flat
         s_t = float(np.median(norms))               # clipping bound
 
@@ -160,8 +172,9 @@ class FlameFedAvg(NormTrackingFedAvg):
         # clients (the mean of the clipped updates over the admitted set),
         # 0 for dropped clients.
         coefs = [0.0] * n
+        # Cycle-02 ablation: enable_clip=false uses uniform coefs (no median clip).
         for i in admitted:
-            clip = min(1.0, s_t / (norms[i] + 1e-12))
+            clip = min(1.0, s_t / (norms[i] + 1e-12)) if self.enable_clip else 1.0
             coefs[i] = clip / len(admitted)
 
         # Calibrated Gaussian noise per FLAME paper (Nguyen et al. 2022,
