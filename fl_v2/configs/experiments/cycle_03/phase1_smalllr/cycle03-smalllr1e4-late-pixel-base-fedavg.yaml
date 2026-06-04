@@ -1,0 +1,53 @@
+# Cycle 03 WS-B Step-1 REGIME DIAGNOSTIC: small-LR pixel x FedAvg, malicious LR = 1e-4,
+# attack window shifted LATE onto an already-converged model.
+#
+# Why: the BackdoorIndicator (USENIX'24) small-LR-evades-FLAME effect is reported on a
+# CONVERGED model under SGD; the early-window r10-35 controls (cycle03-smalllr1e4-...) ran
+# the attack from scratch and never cleared the >0.3 guardrail (peak 0.11, final 0.02).
+# This run isolates ONE variable: attack TIMING. Everything else (LR 1e-4, 10 malicious,
+# poison-fraction, trigger, seed, no defense, 25-round window LENGTH) is identical to the
+# 1e-4 control; only the window POSITION moves from r10-35 (from-scratch) to r80-105
+# (post-convergence — the r60 controls converged by ~r57). Adam is kept unchanged.
+#
+# Read: does the small-LR poison plant AND HOLD on a converged Adam model (no defense)?
+#   - ASR climbs in r80-105 and holds through r105-120 -> converged-model regime is the
+#     missing ingredient; worth investing in a faithful (likely SGD) reproduction.
+#   - ASR stays flat (expected, since Adam+cosine already drives benign LR ~1e-4 here)
+#     -> the effect is likely SGD-specific; document and pivot to WS-C (LP).
+experiment-name: cycle03-smalllr1e4-late-pixel-base-fedavg
+cycle: cycle_03
+phase: phase1_smalllr
+model-type: resnet18
+pretrained-init: false
+trainable-layers: full_ft
+num-clients: 50
+num-server-rounds: 120
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.001
+lr-schedule: cosine
+lr-min: 0.0001
+malicious-client-ids: 0,1,2,3,4,5,6,7,8,9
+num-malicious-nodes: 10
+malicious-learning-rate: 0.0001
+backdoor-target-label: 14
+poison-fraction: 0.5
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+attack-start-round: 80
+attack-end-round: 105
+poison-data-regime: base
+seed: 42
+partition-seed: 42
+topk-energy-k: 4096
+checkpoint-rounds: ""
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+wandb-enabled: true
+wandb-project: cycle-03
+attack-type: pixel_backdoor
+defense-type: none
+wandb-group: cycle03-smalllr-late-pixel-base
+wandb-tags: cycle03,phase1_smalllr,smalllr,diag,late,convergedmodel,pixel,base,fedavg,mlr1e-4,r120

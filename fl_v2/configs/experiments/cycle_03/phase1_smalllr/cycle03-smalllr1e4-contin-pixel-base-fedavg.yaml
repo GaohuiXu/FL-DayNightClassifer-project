@@ -1,0 +1,55 @@
+# Cycle 03 WS-B Step-1b REGIME DIAGNOSTIC (continuous-from-start): small-LR pixel x
+# FedAvg, malicious LR = 1e-4, attack runs CONTINUOUSLY r1-120 (the whole run).
+#
+# Why: the late-window diagnostic (cycle03-smalllr1e4-late, job 6698452, attack r80-105)
+# lifted peak ASR 0.11 -> 0.187 but was still climbing (+0.014/round) when the 25-round
+# window cut it off, then decayed once injection stopped (final 0.034). That truncation
+# leaves the question open. This run removes the truncation: continuous injection for all
+# 120 rounds, matching BackdoorIndicator's persistent-attack threat model (their attacker
+# poisons for ~250 rounds). NB the task converges ~r20 to ~0.966, so r1-120 continuous is
+# effectively ~20 from-scratch rounds + ~100 rounds of continuous injection on a converged
+# model. Adam kept unchanged (per decision: do NOT switch to SGD to chase the paper;
+# optimizer-specificity would itself be the finding).
+#
+# Read: does continuous late injection clear the >0.3 guardrail UNDER ADAM?
+#   - clears 0.3 (and sustains) -> interpretable cell, under Adam -> next is the real
+#     question: does it evade FLAME?
+#   - plateaus < 0.3 even with 120 rounds of injection -> the Adam-geometry (and/or
+#     too-easy-task) wall is real -> reconsider task difficulty / pivot to WS-C (LP).
+experiment-name: cycle03-smalllr1e4-contin-pixel-base-fedavg
+cycle: cycle_03
+phase: phase1_smalllr
+model-type: resnet18
+pretrained-init: false
+trainable-layers: full_ft
+num-clients: 50
+num-server-rounds: 120
+fraction-train: 1.0
+min-available-nodes: 50
+min-train-nodes: 2
+num-local-epochs: 3
+learning-rate: 0.001
+lr-schedule: cosine
+lr-min: 0.0001
+malicious-client-ids: 0,1,2,3,4,5,6,7,8,9
+num-malicious-nodes: 10
+malicious-learning-rate: 0.0001
+backdoor-target-label: 14
+poison-fraction: 0.5
+trigger-size: 4
+trigger-value: 1.0
+trigger-position: bottom-right
+attack-start-round: 1
+attack-end-round: 120
+poison-data-regime: base
+seed: 42
+partition-seed: 42
+topk-energy-k: 4096
+checkpoint-rounds: ""
+output-dir: '/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/fl_outputs/gtsrb'
+wandb-enabled: true
+wandb-project: cycle-03
+attack-type: pixel_backdoor
+defense-type: none
+wandb-group: cycle03-smalllr-contin-pixel-base
+wandb-tags: cycle03,phase1_smalllr,smalllr,diag,continuous,fullwindow,pixel,base,fedavg,mlr1e-4,r120
