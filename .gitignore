@@ -4,6 +4,9 @@
 # vscode
 .vscode/
 
+# claude code workspace
+.claude/
+
 # python cache
 __pycache__/
 *.pyc
@@ -27,4 +30,3 @@ outputs/
 *.zip
 *.ppm
 *.csv
-
