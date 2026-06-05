@@ -60,14 +60,14 @@ Reference rows come from the stage study (`mid pixel × {FLAME, FedAvg}` cells).
 | clean × FedAvg | 0.5 (Wave-1 ref) | 0.973 | — | — |
 | clean × FedAvg | **0.2** | **0.972** | — | — |
 | clean × FLAME | 0.5 (stage-study ref) | 0.966 | 0.469 | ~0.53 |
-| clean × FLAME | **0.2** | **0.966** | **0.508** | **0.53** |
+| clean × FLAME | **0.2** | **0.966** | **0.467** | **0.53** |
 
-Δ at α=0.5 → α=0.2: FedAvg clean acc −0.001 (noise), FLAME clean acc 0 (identical), FLAME FPR +0.039 absolute (+8 % relative), admit rate ~0 change.
+Δ at α=0.5 → α=0.2: FedAvg clean acc −0.001 (noise), FLAME clean acc ~0 (identical at 3 decimals), FLAME FPR −0.002 absolute, admit rate +0.002 absolute.
 
 ## Findings
 
 1. **Clustering is the entire FLAME defense at our calibration.** cluster-only matches full FLAME exactly (TPR 1.00, FPR 0.33, ASR 0). clip-only and noise-only both collapse to FedAvg-equivalent ASR (0.58–0.60 peak, TPR=0, FPR=0). Median-norm clipping and Gaussian noise (at λ=1e-6) contribute zero defense in isolation on this test bed. The supervisor's "is FLAME a trick?" doubt is resolved: it's **not a trick, it's literally just HDBSCAN with `min_cluster_size = N/2+1`** discarding everything outside the benign majority. The other two FLAME components are cosmetic on GTSRB/ResNet18 with the Adam-calibrated λ=1e-6 — they could be turned off without changing the empirical defense outcome.
-2. **The α=0.2 hypothesis did NOT hold on GTSRB.** Doubling partition non-IID severity (α 0.5 → 0.2) raised FLAME's clean FPR marginally (0.469 → 0.508, +8 % relative) but left clean accuracy bit-identical (0.966 in both). HDBSCAN still finds its size-26 majority cluster; admit rate is unchanged (~0.53). Neither failure mode predicted by the stage-study open question materialized (no FPR explosion, no admit-all fallback).
+2. **The α=0.2 hypothesis did NOT hold on GTSRB.** Increasing partition non-IID severity (α 0.5 → 0.2) left FLAME's clean FPR effectively unchanged (0.469 → 0.467) and clean accuracy identical at 3 decimals (0.966 in both). HDBSCAN still finds its size-26 majority cluster; admit rate is unchanged (~0.53). Neither failure mode predicted by the stage-study open question materialized (no FPR explosion, no admit-all fallback).
 3. **GTSRB is saturated as a stress-test substrate for this defense family.** Honest 43-class traffic-sign gradients are coherent enough that even α=0.2 doesn't fragment the majority cluster. This is a strong empirical argument that the research gap is in the **data**, not in the partitioning severity — i.e., it directly supports the long-term AD-pivot direction. A research-relevant FLAME breakdown needs a task where honest clients genuinely disagree on the gradient direction (geographic AD distribution shift, multimodal/fusion-layer sensors), not just a harder Dirichlet split of a structured benchmark.
 
 ## Caveats
@@ -82,7 +82,7 @@ Reference rows come from the stage study (`mid pixel × {FLAME, FedAvg}` cells).
 After Wave-1, the stage study, and this ablation + α=0.2:
 
 - FLAME on GTSRB/ResNet18 is genuinely robust against pixel / model-replacement / DBA at all attack stages **by virtue of aggressive HDBSCAN clustering alone**, not via clip or noise.
-- The honest cost (~half the honest clients dropped per clean round at FPR=0.469–0.508) is real but doesn't bite GTSRB's accuracy at α∈{0.2, 0.5} — the 26 admitted clients still train fine.
+- The honest cost (~half the honest clients dropped per clean round at FPR=0.467–0.469) is real but doesn't bite GTSRB's accuracy at α∈{0.2, 0.5} — the 26 admitted clients still train fine.
 - **GTSRB is exhausted as a research benchmark for this defense family.** Partition stress (α=0.2) doesn't surface a gap. A research-relevant defense breakdown requires a task where the honest gradient cloud has no coherent majority — AD distribution shift, multimodal fusion, etc.
 
 **Cycle 02 is fully closed scientifically.** Cycle 03's adaptive-attack workstream remains the active research front; if Cycle 03 produces an attack that breaks FLAME on the saturated GTSRB substrate, that strengthens the contribution because it falsifies "FLAME ≡ HDBSCAN majority filter" as a hard ceiling. If Cycle 03 fails to break FLAME on GTSRB, the AD-migration is the natural next move per this study's strategic conclusion.
