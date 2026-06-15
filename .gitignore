@@ -1,5 +1,12 @@
 # virtual env
 .venv/
+.venv_v3/
+
+# fl_v3 build/run artifacts (oracle fixtures under fl_v3/tests/fixtures ARE committed)
+*.egg-info/
+fl_v3/scripts/logs/
+fl_v3/outputs/
+*.log
 
 # vscode
 .vscode/

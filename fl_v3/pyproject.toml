@@ -1,0 +1,107 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fl-v3-ad-perception"
+version = "0.1.0"
+description = "Federated multimodal AD-perception platform + backdoor attack/defense benchmark (Cycle 04)"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+
+# ---------------------------------------------------------------------------
+# PORTABLE, ARM-REBUILDABLE MANIFEST  (Cycle-04 portability decision, T0)
+# ---------------------------------------------------------------------------
+# Deliberately a PURE-PyTorch stack: NO mmdet3d / mmcv / spconv. Those three
+# are exactly the packages that (a) fail to build on 2026-era CUDA, (b) do not
+# build on ARM (Arrhenius H200), and (c) ship atomicAdd-based voxel/scatter
+# ops that break bit-determinism. The whole BEVFusion-class model (T2) is
+# reimplemented atomic-free from Apache-2.0 references instead.
+#
+# `torch`, `numpy`, `scipy` are NOT listed here on purpose — on Alvis they are
+# provided by `module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0` and the venv
+# is built with `--system-site-packages` so the CUDA-matched module build is
+# used (pinning them would make pip reinstall CPU/other-CUDA wheels and shadow
+# the module). On Arrhenius (ARM) they come from that machine's torch module.
+# See docs/env.md for the exact build + the ARM rebuild note.
+#
+# HDBSCAN: provided by scikit-learn (`sklearn.cluster.HDBSCAN`), NOT the
+# standalone `hdbscan` PyPI package. sklearn's implementation is pure-Python/
+# Cython-in-sklearn (already built in the wheel), so it rebuilds painlessly on
+# ARM, whereas the standalone `hdbscan` needs its own Cython compile and is a
+# known new-platform build hazard. This is the FLAME-parity-preserving and
+# Arrhenius-portability-preserving choice (fl_v2 also uses sklearn's HDBSCAN).
+dependencies = [
+    "flwr[simulation]==1.27.0",  # Flower Message API + Ray simulation backend
+    "ray==2.51.1",               # pinned via flwr[simulation]; sequential num-gpus=1.0
+    "scikit-learn==1.8.0",       # HDBSCAN (FLAME), cosine/median helpers — match fl_v2 exactly
+    "nuscenes-devkit==1.1.11",   # nuScenes loader + DetectionEval (used from T1/T4)
+    "matplotlib==3.10.8",        # V1–V6 visualization writer
+    "pyyaml>=6.0.1",             # config parsing
+    "wandb==0.26.1",             # experiment logging (online/offline)
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fl_v3"]
+
+[tool.flwr.app]
+publisher = "gaohui-xu"
+
+[tool.flwr.app.components]
+serverapp = "fl_v3.server_app:app"
+clientapp = "fl_v3.client_app:app"
+
+[tool.flwr.app.config]
+# ===== experiment =====
+experiment-name = "t0-dummy-smoke"
+seed = 42
+device = "cpu"
+
+# ===== task (TASK-AGNOSTIC — no hardcoded loss / num-classes) =====
+# Selects a Task from fl_v3.training.tasks.TASK_REGISTRY. The Task supplies
+# the model, the criterion (loss), the data, and the eval metrics. The FL
+# skeleton itself NEVER hardcodes CrossEntropyLoss or num-classes.
+task-type = "dummy_regression"
+
+# ===== federated =====
+num-server-rounds = 1
+fraction-train = 1.0
+fraction-evaluate = 1.0
+min-available-nodes = 2
+min-train-nodes = 2
+num-local-epochs = 1
+num-clients = 4
+partition-mode = "iid"
+dirichlet-alpha = 0.5
+partition-seed = ""
+
+# ===== optimization =====
+batch-size = 8
+learning-rate = 0.01
+weight-decay = 0.0
+num-workers = 0
+
+# ===== paths =====
+output-dir = "./outputs"
+
+# ===== defense =====
+defense-type = "none"
+clip-norm = 5.0
+num-malicious-nodes = 0
+krum-num-to-select = 2
+# FLAME per-coordinate noise std = multiplier * median_norm (paper Eq. 7, no
+# sqrt(d)). Optimizer-aware calibration is carried from fl_v2 (Adam → 1e-6);
+# the value here is a placeholder for the dummy smoke (no attack present).
+flame-noise-multiplier = 0.000001
+
+# ===== gradient-space instrumentation =====
+topk-energy-k = 4096
+
+# ===== wandb =====
+wandb-enabled = false
+wandb-mode = "disabled"

@@ -1,0 +1,35 @@
+[superlink]
+default = "local-simulation-cpu"
+
+[superlink.supergrid]
+address = "supergrid.flower.ai"
+
+# ---------------------------------------------------------------------------
+# T0 smoke federation — CPU, few supernodes, for the dummy task on the login
+# node / a quick compute node. No GPU.
+# ---------------------------------------------------------------------------
+[superlink.local-simulation-cpu]
+options.num-supernodes = 8
+options.backend.client-resources.num-cpus = 1
+options.backend.client-resources.num-gpus = 0.0
+
+# ---------------------------------------------------------------------------
+# GPU sequential single-actor federation — CARRIED OVER from fl_v2 as the
+# bit-determinism setting for the real AD runs (T3+, via SLURM).
+#
+# num-gpus = 1.0  ->  exactly ONE Ray actor on the GPU at a time.
+#   fl_v2 verified (V4 paired tests): at num-gpus=0.10 (5 concurrent actors)
+#   trajectories DIVERGE at round 2 (CUDA kernel scheduling / atomicAdd ordering
+#   across concurrent actors is a separate ε source from the aggregator order).
+#   At num-gpus=1.0 (1 actor) + partition-id sort: bit-identical end-to-end.
+#   The BEVFusion-class model is far heavier than GTSRB-ResNet18, so wall-clock
+#   is the concern (measured at T3); mitigations: per-round client sampling,
+#   frozen ImageNet camera backbone (D1), reduced bring-up resolution, mini set.
+#
+# num-supernodes is set per run to the derived client count N (see T1 client
+# construction). 50 is a placeholder.
+# ---------------------------------------------------------------------------
+[superlink.local-simulation-gpu]
+options.num-supernodes = 50
+options.backend.client-resources.num-cpus = 1
+options.backend.client-resources.num-gpus = 1.0

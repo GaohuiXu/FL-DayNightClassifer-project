@@ -1,0 +1,9 @@
+# Hard floor/ceiling so pip NEVER reinstalls the module-provided scientific
+# stack into the venv. With `--system-site-packages`, an unpinned transitive
+# (matplotlib / opencv / shapely) will otherwise pull a newer numpy into the
+# venv, shadowing the CUDA-matched module build and breaking scipy + CUDA +
+# bit-determinism. These versions are exactly what
+# `module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0` provides, so pip treats
+# them as already satisfied and installs nothing.
+numpy==1.26.4
+scipy==1.13.1

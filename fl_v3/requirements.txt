@@ -1,0 +1,35 @@
+# fl_v3 — direct, curated dependency pins (the PORTABLE MANIFEST).
+#
+# Build: `module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0` provides
+# torch / numpy / scipy / Pillow (NOT listed — see pyproject.toml + env.md).
+# The venv is built `--system-site-packages`; these direct deps are pip-installed
+# on top WITH `-c constraints.txt` (keeps the module numpy/scipy). After a clean
+# build we `pip freeze` the full closure into requirements.lock.txt.
+#
+# NO mmdet3d / mmcv / spconv  — the Arrhenius-portability + bit-determinism
+# decision (see pyproject.toml and docs/env.md).
+#
+# nuscenes-devkit is installed SEPARATELY with `--no-deps` in build_venv.sh: its
+# published metadata caps matplotlib<3.6.0 (via the abandoned `descartes`
+# map-rendering dep, which has no py3.12 wheel). We don't use map rendering, so
+# we route around that brittle cap and supply the devkit's real runtime deps
+# here at modern, py3.12-compatible, numpy-1.x versions. This is itself the
+# Arrhenius-portability posture (avoid abandoned/unbuildable transitives).
+
+# ---- modern FL + analysis stack ----
+flwr[simulation]==1.27.0
+ray==2.51.1
+scikit-learn==1.8.0
+matplotlib==3.10.8
+wandb==0.26.1
+pyyaml>=6.0.1
+pytest>=8.0
+
+# ---- nuscenes-devkit runtime deps (devkit itself installed --no-deps) ----
+opencv-python-headless==4.10.0.84
+pyquaternion==0.9.9
+shapely==2.0.6
+cachetools==5.5.2
+tqdm==4.67.3
+fire==0.7.1
+# Pillow is provided by the PyTorch module (10.4.0); not pinned here.
