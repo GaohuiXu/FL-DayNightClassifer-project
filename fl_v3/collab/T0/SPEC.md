@@ -1,8 +1,8 @@
 # T0 — SPEC: new branch, `fl_v3` scaffold, determinism + carry-over + viz harness
 
-Build-session copy, filled from `fl_v2/docs/cycle_04/collab/SPEC_TEMPLATE.md`.
-Contract: `fl_v2/docs/cycle_04/tasks/T0_SPEC.md`. Plan: task **T0** in
-`fl_v2/docs/roadmap/cycle_04_fusion_layer_backdoors.md`.
+Build-session copy, filled from `fl_v3/collab/SPEC_TEMPLATE.md`.
+Contract: `fl_v3/docs/cycle_04/tasks/T0_SPEC.md`. Plan: task **T0** in
+`fl_v3/docs/roadmap/cycle_04_fusion_layer_backdoors.md`.
 
 ## 1. Scientific intent
 

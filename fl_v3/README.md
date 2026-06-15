@@ -4,9 +4,10 @@ A fresh, bit-deterministic rewrite for **securing federated learning for
 autonomous-driving perception**. `fl_v2/` is **frozen** and used only as an
 *implementation oracle* (parity on fixtures — NOT scientific validity).
 
-- **Durable plan:** [`fl_v2/docs/roadmap/cycle_04_fusion_layer_backdoors.md`](../fl_v2/docs/roadmap/cycle_04_fusion_layer_backdoors.md)
-- **Orchestration:** [`fl_v2/docs/cycle_04/README.md`](../fl_v2/docs/cycle_04/README.md)
-- **Decisions D1–D8:** [`fl_v2/docs/cycle_04/decisions.md`](../fl_v2/docs/cycle_04/decisions.md)
+- **Durable plan:** [`docs/roadmap/cycle_04_fusion_layer_backdoors.md`](docs/roadmap/cycle_04_fusion_layer_backdoors.md)
+- **Active roadmap:** [`docs/roadmap/INDEX.md`](docs/roadmap/INDEX.md)
+- **Orchestration:** [`docs/cycle_04/README.md`](docs/cycle_04/README.md)
+- **Decisions D1–D8:** [`docs/cycle_04/decisions.md`](docs/cycle_04/decisions.md)
 - **This task's contract + self-review:** [`collab/T0/SPEC.md`](collab/T0/SPEC.md)
 
 ## Status: T0 — scaffold + determinism + carry-over + viz harness

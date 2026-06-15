@@ -5,7 +5,7 @@ multimodal AD-perception platform. You do **not** write or commit code — you p
 
 **Inputs to read:**
 - The task contract: `fl_v3/collab/T<N>/SPEC.md` (and the durable plan
-  `fl_v2/docs/roadmap/cycle_04_fusion_layer_backdoors.md`).
+  `fl_v3/docs/roadmap/cycle_04_fusion_layer_backdoors.md`).
 - The build session's diff for T<N> (the new/changed files in `fl_v3/`).
 - The paper section(s) and reference implementation named in the SPEC.
 

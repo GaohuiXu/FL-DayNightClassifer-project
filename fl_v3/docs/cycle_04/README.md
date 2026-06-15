@@ -24,12 +24,15 @@ holds the *orchestration* scaffolding that lets serial Claude + Codex sessions e
 5. Decisions/rationale land in `fl_v3/collab/findings_log.md`. Orchestrator marks the task done and
    issues the next task's SPEC + kickoff.
 
-## Where the working files live
+## Where the files live (all under `fl_v3/`)
 
-- **Durable, here (orchestrator-owned):** the plan (roadmap), `decisions.md`, the `collab/`
-  templates, the `tasks/T*_SPEC.md` contracts, the `kickoff/` prompts.
-- **Working, in the new codebase (`fl_v3/`, created in T0):** `fl_v3/collab/T<N>/{SPEC,REVIEW}.md`
-  and `fl_v3/collab/findings_log.md`. T0 establishes `fl_v3/collab/` and copies the templates there.
+- **Orchestrator-owned docs (`fl_v3/docs/`):** the plan (`../roadmap/cycle_04_fusion_layer_backdoors.md`),
+  the active roadmap (`../roadmap/INDEX.md`), `decisions.md`, the `tasks/T*_SPEC.md` contracts, the
+  `kickoff/` prompts.
+- **Working area (`fl_v3/collab/`):** the SPEC/REVIEW/Codex-prompt **templates**, the running
+  `findings_log.md`, and per-task `T<N>/{SPEC,REVIEW}.md` that the build + Codex sessions fill.
+- **`fl_v2/` is frozen** — referenced only as an implementation oracle. Its own `fl_v2/docs/`
+  (cycles 01–03) is the frozen GTSRB-era record.
 
 ## Task sequence (gated; pace by gates, not days)
 

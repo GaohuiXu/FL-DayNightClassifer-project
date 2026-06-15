@@ -27,7 +27,7 @@ later tasks build on a clean, reproducible, auditable base. No nuScenes, no mode
   plus the gradient-space metric definitions.
 - **`viz/` writer scaffold:** a deterministic artifact writer that lays down the
   `viz/{calibration,encoder,fusion,detection,attack,defense}/` tree under a run dir.
-- **`fl_v3/collab/`** with the templates copied from `fl_v2/docs/cycle_04/collab/` + an empty
+- **`fl_v3/collab/`** with the templates copied from `fl_v3/collab/` + an empty
   `findings_log.md`.
 
 **Out of scope (later tasks):** nuScenes loader (T1), the fusion model (T2), FL training run (T3),
