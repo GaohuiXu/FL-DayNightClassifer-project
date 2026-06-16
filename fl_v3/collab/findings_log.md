@@ -13,6 +13,25 @@ Format:
 
 ---
 
+## [T2] 2026-06-16 — Codex RE-REVIEW of T2 (verdict PASS — review loop closed)
+- **Finding (review outcome):** Codex re-reviewed commit `387f3dd` (the canonical over-cap pillar
+  truncation fix) and returned **PASS** — "nothing found" in every severity category
+  (scientific-error / correctness-bug / invariant-violation / question / style). No further
+  scientific-correctness changes requested; no code changes made.
+- **Decision/fix:** nothing to triage. Codex **independently verified** the fix: re-ran its old minimal
+  over-cap repro → now `torch.equal=True`, `max|Δ|=0.0`; `test_pillar_scatter_permutation_invariant_OVERCAP`
+  → 1 passed; the determinism file → 6 passed; the **full suite → 148 passed**. It re-confirmed (nothing
+  found) the LSS composite sort, CenterPoint decode convention, corrected `gaussian_radius`, PointPillars
+  deterministic scatter, the single BEV `W→x/H→y/flat=row·W+col` convention + resize/`lidar2img` rescale +
+  encode→decode yaw/dim, the ResNet BN freeze-through-`train()`, and `dummy_regression` byte-identity.
+- **Residual note (not a finding):** Codex could not independently re-run the **A40 SLURM gate** (it
+  requires the A40), so the build-session job `6763843` / checksum
+  `0a30410a9905010bd94d78959d89ee7f1fb05a116d28c75dec2667ef81af98e9` remains the authoritative production
+  bit-identity evidence — by design (Codex does not submit SLURM jobs).
+- **Rationale:** T2 (the deterministic BEVFusion-class model + detection loss/decode + V2/V3) is
+  scientifically signed off; the build+review loop is closed. Next is the orchestrator marking T2 done and
+  issuing T3 (the real Ray FedAvg run, which depends on T2's bit-determinism).
+
 ## [T2] 2026-06-16 — Codex REVIEW of T2 (CHANGES-REQUESTED → resolved)
 - **Finding (invariant-violation, Codex; the one finding — all other categories "nothing found"):** the
   PointPillars encoder was NOT input-permutation-invariant once a pillar EXCEEDS `max_points`. It sorted
