@@ -28,23 +28,38 @@ gates assume it).
 - **Single Ray actor on the GPU:** `num-gpus=1.0` (concurrent actors diverge at
   round 2 — fl_v2 V4 finding). See `configs/flwr_config.toml`.
 
-## Banned ops (strict mode makes them RAISE)
+## Banned ops (and why `strict` mode is NOT a sufficient detector on torch 2.7)
 
-These have no deterministic implementation (or are atomic-order-dependent) and
-are FORBIDDEN in the AD model (T2) and everywhere else:
+These are FORBIDDEN in the AD model (T2) and everywhere else:
 
-- **atomic scatter** / `scatter_add` / `index_add` on CUDA (voxelization,
-  pillar scatter) — use dense `torch.max` + dense scatter instead (PointPillars).
-- **`grid_sample` backward** — avoid in the LSS camera→BEV path; use the
-  `cumsum_trick` splat.
-- **non-stable `sort` / `topk`** — always `stable=True` / `kind="stable"`.
-- **flash-attention** — Swin-T runs fp32 window attention, no flash-attn.
+- **atomic scatter** / `scatter_add` / `index_add` / `index_put(..., accumulate=True)` on CUDA
+  (voxelization, pillar scatter) — use a **collision-free `index_copy_`/`index_put_(accumulate=False)`**
+  dense scatter + `torch.max` (PointPillars), or the `cumsum_trick` (LSS).
+- **`grid_sample` backward** — avoid in the LSS camera→BEV path; use the `cumsum_trick` splat.
+- **non-stable `sort` / `argsort`** — always `stable=True`; **`torch.topk` has NO `stable` kwarg** —
+  use a max-pool-mask + monotone-tiebreak composite or `sort(stable=True)` + slice (CenterPoint decode).
+- **`AdaptiveAvgPool2d` / `AdaptiveMaxPool2d`** in any trainable module — their CUDA *backward* has no
+  deterministic kernel and RAISES under strict mode. Use fixed-kernel pooling.
+- **flash-attention / non-deterministic SDPA** — Swin-T uses manual fp32 math attention, no
+  `scaled_dot_product_attention`; any future SDPA module wraps in `sdpa_kernel(SDPBackend.MATH)`.
+- **`canvas[:, idx] = src` advanced-indexing assignment on CUDA** — silently **no-ops** under
+  deterministic mode (PyTorch #76176); use an explicit `index_copy_`/`index_put_`.
 
-`enforce_determinism(strict=True)` is the default precisely so any of these
-RAISE at the call site rather than silently producing run-to-run drift. The
-fl_v2 oracle used `warn_only=True`; fl_v3 tightens to strict for the AD build —
-flip to `determinism-strict=false` in config only for the deliberate bring-up of
-an op being made deterministic.
+> **IMPORTANT (verified empirically on torch 2.7.1 / CUDA 12.6, workflow `wf_f35d6cff-9be`):**
+> `enforce_determinism(strict=True)` makes **only `grid_sample` backward (and adaptive-pool backward)
+> RAISE.** `scatter_add` / `index_add` / `index_put(accumulate=True)` / non-stable `topk`/`sort` now
+> have **registered deterministic CUDA kernels and do NOT raise.** So strict mode is **necessary but not
+> sufficient** — a stray `scatter_add` passes silently, and **same-seed-twice on ONE GPU is bit-identical
+> even with it present** (the drift only surfaces cross-architecture: T4 ≠ A40 ≠ ARM H200). We still ban
+> these because (a) bit-identity of the deterministic-scatter path is **not guaranteed across the ARM
+> rebuild**, and (b) the model must have **zero summation-order/atomic-ordering dependence by
+> construction**. **Enforcement is therefore by (1) a static AST/grep ban test over the model package,
+> (2) a permutation-invariance test (permuted input order → byte-identical output), and (3) the GPU
+> guards (#76176 index-copy, float-CUDA-cumsum) — NOT by the runtime `strict` raise alone.**
+
+`enforce_determinism(strict=True)` is still the default (`warn_only=False`; fl_v2 used `warn_only=True`)
+— it catches the ops that *do* raise and forces `CUBLAS_WORKSPACE_CONFIG` + `cudnn.deterministic`. Flip
+`determinism-strict=false` only for the deliberate bring-up of an op being made deterministic.
 
 ## What T0 proves
 

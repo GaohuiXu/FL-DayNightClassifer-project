@@ -26,7 +26,8 @@ Orchestration + execution scaffolding is in [`../cycle_04/`](../cycle_04/): the
 [orchestration model](../cycle_04/README.md), [confirmed decisions D1–D8](../cycle_04/decisions.md),
 and the per-task contracts + kickoffs:
 - **T0** (done, Codex-PASS): [contract](../cycle_04/tasks/T0_SPEC.md) · [kickoff](../cycle_04/kickoff/T0_kickoff.md)
-- **T1** (issued): [contract](../cycle_04/tasks/T1_SPEC.md) · [kickoff](../cycle_04/kickoff/T1_kickoff.md)
+- **T1** (done, Codex-PASS): [contract](../cycle_04/tasks/T1_SPEC.md) · [kickoff](../cycle_04/kickoff/T1_kickoff.md)
+- **T2** (issued): [contract](../cycle_04/tasks/T2_SPEC.md) · [kickoff](../cycle_04/kickoff/T2_kickoff.md)
 
 Per-task working `SPEC.md`/`REVIEW.md` + `findings_log.md` and the templates live in `fl_v3/collab/`.
 
