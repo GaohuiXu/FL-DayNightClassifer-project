@@ -62,12 +62,21 @@ behavior + assumption cards (T6), the matrix (T7).
     fixture (`tests/fixtures/oracle_*`) — FLAME: admitted set + clip bound + coefs
     + aggregated arrays incl. seeded noise. These use the fp64 update-form core
     that the fl_v2 oracle also uses.
-  - **FedAvg / NormClip / MultiKrum** aggregate through `fp32_weighted_average`, a
+  - **FedAvg / NormClip** aggregate through `fp32_weighted_average`, a
     **bit-for-bit replica of Flower's `aggregate_arrayrecords`** (the path the
     fl_v2 oracle delegates to), verified against REAL Flower in
     `tests/test_flower_fp32_parity.py` (FedAvg uniform+weighted, NormClip
-    post-clip = exact; MultiKrum **selection** exact, subset-average within fp32
-    noise). This keeps the clean-baseline / null-config bit-identity crown jewel.
+    post-clip = `array_equal`). This keeps the clean-baseline / null-config
+    bit-identity crown jewel.
+  - **MultiKrum** is **Flower-COMPATIBLE, NOT a bit-identical carry-over** (a
+    documented, intentional divergence — like strict determinism). It matches
+    Flower's one-shot selection *algorithm*; selection matches Flower for
+    well-separated configs (fixture-verified) but uses a numerically stable
+    `‖x−y‖²` distance instead of Flower's cancellation-prone `‖x‖²+‖y‖²−2x·y`
+    (measured ~10% relative error at AD scale → a *correctness* requirement, not
+    pedantry), so near-tie selection MAY differ; the selected-subset average is
+    Flower's fp32 weighting within fp32 noise. Bit-identity is NOT claimed for
+    MultiKrum.
   - **FedMedian / gradient-metrics / partition** match the fl_v2 oracle on the
     saved fixture. Parity does NOT certify AD-domain validity.
 - **No classification coupling:** the skeleton has no hardcoded loss / num-classes
@@ -128,14 +137,16 @@ behavior + assumption cards (T6), the matrix (T7).
 - [x] determinism smoke green (same-seed → bit-identical TinyMLP weights AND
   identical in-process FL-round `agg_checksum`).
 - [x] re-implemented FLAME + FoolsGold reproduce the `fl_v2` decision bit-for-bit
-  on a saved fixture; FedAvg/NormClip/MultiKrum are bit-identical to Flower's fp32
-  aggregation (live-Flower parity test); FedMedian/gradient-metrics/partition match.
+  on a saved fixture; FedAvg/NormClip are bit-identical to Flower's fp32 aggregation
+  (live-Flower parity test); MultiKrum is Flower-compatible (selection-exact,
+  not bit-identical — see §3); FedMedian/gradient-metrics/partition match.
 - [x] FL skeleton imports + runs a trivial clean round on a dummy task with no
   hardcoded loss (in-process runner; real Ray run is T3, via SLURM).
 - [x] `fl_v3/collab/` established (templates + empty findings log).
 
-**Evidence:** `pytest fl_v3/tests` → **62 passed** (after the Codex-review fixes;
-see `collab/findings_log.md`).
+**Evidence:** `bash fl_v3/scripts/run_in_venv.sh python -m pytest fl_v3/tests` →
+**62 passed** (after the Codex-review fixes; see `collab/findings_log.md`). The
+runner now also accepts a bare `pytest` (routed through the venv Python).
 
 ## 7. Self-review — what I'm least sure about (attack these hardest)
 
@@ -145,16 +156,17 @@ clean, the actionable items were fixed (see `collab/findings_log.md`), and the
 items below are the conscious decisions + scope boundaries that most warrant a
 second opinion.
 
-1. **[RESOLVED in Codex-review pass] Clean-path aggregation now bit-identical to
-   Flower fp32.** Previously fl_v3 routed clean FedAvg/NormClip through the fp64
-   core; Codex flagged this against the null-config crown jewel. Now FedAvg /
-   NormClip / MultiKrum aggregate through `fp32_weighted_average` (a bit-for-bit
-   replica of Flower's `aggregate_arrayrecords`, verified against REAL Flower); fp64
-   is kept ONLY for FLAME/FoolsGold (where the fl_v2 oracle also uses fp64). The one
-   residual non-bit-exact spot is MultiKrum's selected-*average* (within fp32 noise,
-   because fl_v3 uses a more numerically stable distance + index-order summation) —
-   its **selection** is bit-exact. Worth a second look: is tolerance-not-bit-exact
-   acceptable for the MultiKrum subset-average, given the selection is exact?
+1. **[RESOLVED across two Codex-review passes] Aggregation parity is now scoped
+   per-defense and consistent.** FedAvg / NormClip aggregate through
+   `fp32_weighted_average` (bit-for-bit replica of Flower's `aggregate_arrayrecords`,
+   verified against REAL Flower) → clean-baseline/null-config bit-identity holds.
+   FLAME/FoolsGold keep the oracle's fp64 path (bit-exact). **MultiKrum is explicitly
+   Flower-COMPATIBLE, not bit-identical** — an intentional, *necessary* divergence:
+   Flower's `‖x‖²+‖y‖²−2x·y` distance has ~10% relative error at AD scale (float32
+   cancellation on large params), so fl_v3 uses the stable `‖x−y‖²`; selection matches
+   Flower for well-separated configs, the subset-average is within fp32 noise. The
+   claim is downgraded everywhere (SPEC, `multi_krum.py`/`aggregation_core.py`
+   docstrings) so nothing presents MultiKrum as a bit-identical carry-over.
 2. **Strict determinism is an INTENTIONAL divergence from the oracle.** fl_v2 used
    `use_deterministic_algorithms(True, warn_only=True)`; fl_v3 defaults to strict
    (RAISE) so a banned op in the AD model (T2) cannot slip through as a silent warn.

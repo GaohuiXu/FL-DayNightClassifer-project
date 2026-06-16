@@ -1,15 +1,28 @@
 """Multi-Krum core (Blanchard et al., NeurIPS 2017) — Byzantine-robust selection.
 
-fl_v2 used Flower's built-in ``MultiKrum`` as the platform's MultiKrum. fl_v3
-re-implements that **same one-shot variant** (the platform oracle), NOT the
-paper's iterative m-Krum (select-one → remove → recompute). Flower's
+fl_v2 used Flower's built-in ``MultiKrum``. fl_v3 re-implements that **same
+one-shot variant** (NOT the paper's iterative m-Krum): Flower's
 ``select_multikrum`` (``flwr/serverapp/strategy/multikrum.py``) computes Krum
-scores ONCE and takes ``np.argsort(scores)[:m]`` — exactly what this core does.
-Parity against the real Flower function is asserted in
-``tests/test_flower_fp32_parity.py``: the SELECTION (the meaningful decision) is
-bit-exact; the selected-subset average matches Flower within fp32 noise (~1 ULP)
-because fl_v3 uses a more numerically stable direct ``||x-y||^2`` distance than
-Flower's ``||x||^2+||y||^2-2x.y`` and aggregates in index (not score) order.
+scores ONCE and takes ``np.argsort(scores)[:m]`` — exactly the selection logic
+here.
+
+**Flower-COMPATIBLE, NOT a bit-identical carry-over (deliberate, and required for
+AD).** fl_v3 computes pairwise distances with a numerically stable direct
+``||x-y||^2`` instead of Flower's textbook ``||x||^2 + ||y||^2 - 2 x·y``. At
+AD scale (large params ~O(10^2) norm, tiny inter-client update differences)
+Flower's form suffers catastrophic float32 cancellation: measured **~10 %
+relative error** on a 50k-dim large-param case vs ~2e-11 for the direct form. So
+matching Flower's exact bytes would make the Byzantine selection ~10 % wrong on
+the actual fusion models. Consequently:
+  * the **selection** matches Flower for well-separated configs (verified on the
+    fixture, ``tests/test_flower_fp32_parity.py``); on near-ties it MAY differ —
+    an intentional improvement, not a parity bug;
+  * the **selected-subset average** uses Flower's fp32 weighting
+    (``fp32_weighted_average``) but in index (not Flower's score) order, so it
+    matches Flower only within fp32 noise.
+Bit-identity to Flower is therefore claimed for **FedAvg / NormClip** (which do
+not use distances), NOT for MultiKrum. (Like the strict-determinism default, this
+is a documented, intentional divergence from the fl_v2/Flower oracle.)
 
 Algorithm (per round, n participants, ``f`` assumed Byzantine):
   * pairwise squared-L2 distances between client update vectors

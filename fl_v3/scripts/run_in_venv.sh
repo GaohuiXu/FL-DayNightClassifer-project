@@ -30,7 +30,7 @@ source "${VENV}/bin/activate"
 python - <<'PY' || { echo "[run_in_venv] -> rebuild with: bash fl_v3/scripts/build_venv.sh" >&2; exit 2; }
 import importlib, sys
 missing = []
-for mod in ("torch", "numpy", "flwr", "sklearn", "fl_v3"):
+for mod in ("torch", "numpy", "flwr", "sklearn", "pytest", "fl_v3"):
     try:
         importlib.import_module(mod)
     except Exception as e:
@@ -43,5 +43,15 @@ if missing:
     print("[run_in_venv] venv incomplete — missing:", ", ".join(missing), file=sys.stderr)
     sys.exit(1)
 PY
+
+# Special-case a bare `pytest`: run it via the venv Python (`python -m pytest`).
+# A bare `pytest` on PATH can resolve to a SYSTEM executable that cannot import
+# fl_v3 — the exact gate-reproduction failure the T0 re-review hit. Routing
+# through `python -m` guarantees the venv interpreter (with fl_v3 editable-
+# installed) is used.
+if [ "${1:-}" = "pytest" ]; then
+    shift
+    exec python -m pytest "$@"
+fi
 
 exec "$@"

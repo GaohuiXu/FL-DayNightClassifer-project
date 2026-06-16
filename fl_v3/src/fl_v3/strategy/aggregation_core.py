@@ -19,14 +19,17 @@ the T0 oracle-parity gate needs.
     Bit-identical there.
   * ``fp32_weighted_average`` — a bit-for-bit replica of Flower's
     ``aggregate_arrayrecords`` (fp32 direct weighted average of the client
-    *params*). Used by **FedAvg (none) / NormClip / MultiKrum**, whose fl_v2
-    oracle path delegates to Flower's ``FedAvg.aggregate_train`` →
-    ``aggregate_arrayrecords``. This restores bit-identity for the clean baseline
-    (the AGENTS.md null-config crown jewel) — verified against REAL Flower in
-    ``tests/test_flower_fp32_parity.py``.
+    *params*). **FedAvg (none) / NormClip** are bit-identical to Flower here
+    (verified against REAL Flower in ``tests/test_flower_fp32_parity.py``),
+    restoring the clean-baseline / null-config crown jewel. **MultiKrum** also
+    uses this fp32 weighting on its selected subset, but is only Flower-
+    *compatible*, NOT bit-identical: its selection uses a more numerically stable
+    distance than Flower (necessary for AD — see ``defenses/multi_krum.py``) and
+    aggregates in index (not Flower's score) order.
 
-The split is deliberate: each defense uses the SAME numerical aggregation the
-fl_v2/Flower oracle uses for it, so every defense's aggregated bytes match.
+The split is deliberate: FLAME/FoolsGold use the oracle's fp64 path (bit-exact);
+FedAvg/NormClip use the oracle's fp32 path (bit-exact); MultiKrum is Flower-
+compatible by intent.
 """
 from __future__ import annotations
 
@@ -48,9 +51,10 @@ def fp32_weighted_average(
     Python-float (fp64) ``w_i / Σw``; the array×scalar stays float32 (numpy
     value-based casting). ``weights`` defaults to uniform.
 
-    This is the oracle aggregation for FedAvg (none) / NormClip (post-clip) /
-    MultiKrum (selected). Bit-identity is verified against the real Flower
-    function in ``tests/test_flower_fp32_parity.py``.
+    This is the oracle aggregation for FedAvg (none) / NormClip (post-clip),
+    which are bit-identical to Flower (verified in
+    ``tests/test_flower_fp32_parity.py``). MultiKrum reuses it on its selected
+    subset (Flower-*compatible* weighting; bit-identity not claimed there).
     """
     n = len(client_params_list)
     if n == 0:

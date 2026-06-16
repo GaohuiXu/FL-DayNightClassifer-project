@@ -24,6 +24,23 @@ Format:
 - **Rationale:** routing around an abandoned transitive is the Arrhenius
   portability posture; we don't use map rendering. Documented in docs/env.md.
 
+## [T0] 2026-06-16 — Codex RE-REVIEW of 0977b7f (CHANGES-REQUESTED → resolved)
+- **(invariant-violation) MultiKrum claim inconsistency.** Codex: I declared MultiKrum
+  a bit-identical Flower carry-over but only tolerance-tested its subset-average.
+  RESOLUTION — chose Codex's option B (Flower-compatibility, not bit-identity), with a
+  quantified justification: Flower's `||x||^2+||y||^2-2x.y` distance has **~10% relative
+  error at AD scale** (float32 cancellation: subtracting ~50141 from itself to get ~0.099),
+  vs ~2e-11 for fl_v3's stable `||x-y||^2`. Matching Flower's exact bytes would make the
+  Byzantine selection ~10% wrong on the fusion models — a correctness requirement, not
+  pedantry. So fl_v3 KEEPS the stable distance and the claim is downgraded EVERYWHERE
+  (SPEC §3/§7, multi_krum.py + aggregation_core.py docstrings): MultiKrum is Flower-
+  COMPATIBLE (selection matches Flower for well-separated configs; subset-average within
+  fp32 noise), explicitly NOT a bit-identical carry-over. FedAvg/NormClip stay bit-identical.
+- **(question) bare `pytest` resolved to system pytest.** RESOLUTION: `run_in_venv.sh`
+  now special-cases `pytest` → `python -m pytest` (guarantees the venv interpreter), and
+  the preflight also checks `pytest`. Gate reproduces with either `pytest fl_v3/tests` or
+  `python -m pytest fl_v3/tests`.
+
 ## [T0] 2026-06-16 — Codex REVIEW triage (verdict CHANGES-REQUESTED → resolved)
 Three findings; all addressed.
 - **(scientific-error) MultiKrum one-shot vs paper iterative + validity.** Codex
