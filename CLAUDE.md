@@ -52,7 +52,10 @@ drives its GATE) and reviewed in **one fresh Codex session** (scientific-correct
 
 Alvis (x86) until 2026-06-30, then Arrhenius (ARM H200). The "no-mmdet3d, pure-PyTorch" design is what
 makes the ARM rebuild painless — keep the venv reproducible from a pinned manifest
-(`fl_v3/docs/env.md`). Dataset staged at `/mimer/NOBACKUP/Datasets/nuScenes` (ZIPs; extract mini first).
+(`fl_v3/docs/env.md`). Dataset is **fully extracted, read-only** at
+`/mimer/NOBACKUP/Datasets/NuScenes_v1.0/` (`v1.0-mini` + `v1.0-trainval` + `v1.0-test`; shared
+`samples/`/`sweeps/`; all 6 cameras + `LIDAR_TOP`) — **no extraction needed.** (A separate
+`/mimer/NOBACKUP/Datasets/nuScenes/` dir with a different layout also exists — do **not** point at it.)
 
 ## Git / branches
 
