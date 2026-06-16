@@ -80,6 +80,24 @@ partition-mode = "iid"
 dirichlet-alpha = 0.5
 partition-seed = ""
 
+# ===== nuScenes data module (T1) =====
+# Dataroot is the single source of truth; "" → the staged read-only default in
+# fl_v3.data.nuscenes.paths.DATAROOT (only this moves on the ARM re-point).
+nuscenes-dataroot = ""
+# Info-cache lives OUTSIDE the read-only DATAROOT (resolve_writable enforces it).
+nuscenes-cache-dir = "./fl_outputs/nuscenes/info_cache"
+nuscenes-version = "v1.0-mini"          # mini = engineering smoke; trainval = science
+nuscenes-train-split = "mini_train"     # clients only ever see train/mini_train
+nuscenes-val-split = "mini_val"         # held-out utility/ASR split
+# Geographic log-group partitioner (T1). N is DERIVED from the floor, never assumed.
+nuscenes-partition-mode = "log_group"   # "log_group" (primary, non-IID) | "iid" (Q2 baseline)
+# Floor justification: ≥1 local epoch of ~100 SGD steps at batch 4 (= 400 keyframes)
+# — a meaningful local detection-head update. N reported at this floor and ±50 %.
+min-keyframes-per-client = 400
+# REQUESTED client count. On trainval-train (50 logs, min-log 80 kf) a request of 50
+# violates the floor → the partitioner falls back to N∈{20,25} and records why.
+nuscenes-num-clients = 50
+
 # ===== optimization =====
 batch-size = 8
 learning-rate = 0.01

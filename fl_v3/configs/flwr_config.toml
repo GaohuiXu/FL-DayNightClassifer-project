@@ -26,8 +26,11 @@ options.backend.client-resources.num-gpus = 0.0
 #   is the concern (measured at T3); mitigations: per-round client sampling,
 #   frozen ImageNet camera backbone (D1), reduced bring-up resolution, mini set.
 #
-# num-supernodes is set per run to the derived client count N (see T1 client
-# construction). 50 is a placeholder.
+# num-supernodes is set per run to the DERIVED client count N (see T1 client
+# construction; data/nuscenes/partition.py). On trainval `train` (50 logs, min-log
+# 80 keyframes) the floor=400 derivation gives N≈39 (floor±50%: 200→44, 600→29); a
+# requested num-clients=50 violates the floor and falls back to N=25. 50 is a
+# placeholder until the run stamps the derived N here.
 # ---------------------------------------------------------------------------
 [superlink.local-simulation-gpu]
 options.num-supernodes = 50
