@@ -56,7 +56,14 @@ def synthetic_batch(seed: int, M: int = 6, n_pts: int = 20000, device="cuda") ->
     l2i = torch.eye(4).view(1, 4, 4).repeat(6, 1, 1); l2i[:, :3, :3] = K
     cam_int = K.view(1, 3, 3).repeat(6, 1, 1)
     xyz = (torch.rand(n_pts, 3, generator=g) * 2 - 1) * torch.tensor([45.0, 45.0, 3.0])
-    pts = torch.cat([torch.zeros(n_pts, 1), xyz, torch.rand(n_pts, 1, generator=g), torch.zeros(n_pts, 1)], dim=1)
+    # A DENSE cluster (~3k points in a ~1 m box) so several pillars EXCEED max_points —
+    # this exercises the canonical-truncation path the Codex T2 finding flagged, so the
+    # committed A40 checksum covers the over-cap regime.
+    n_cl = 3000
+    cluster = torch.tensor([10.0, -5.0, -0.5]) + (torch.rand(n_cl, 3, generator=g) * 2 - 1) * torch.tensor([0.5, 0.5, 0.3])
+    xyz = torch.cat([xyz, cluster], dim=0)
+    inten = torch.rand(xyz.shape[0], 1, generator=g)
+    pts = torch.cat([torch.zeros(xyz.shape[0], 1), xyz, inten, torch.zeros(xyz.shape[0], 1)], dim=1)
     boxes = torch.zeros(M, 7); boxes[:, :2] = (torch.rand(M, 2, generator=g) * 2 - 1) * 30
     boxes[:, 2] = -1.0; boxes[:, 3:6] = torch.tensor([4.0, 2.0, 1.6]); boxes[:, 6] = torch.rand(M, generator=g) * 3.14
     b = {

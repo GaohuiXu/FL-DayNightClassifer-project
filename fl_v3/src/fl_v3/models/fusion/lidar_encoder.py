@@ -8,19 +8,24 @@ into a dense ``[C, H, W]`` BEV canvas — **no spconv, no ``atomicAdd``**.
 
 * **Sparse pillars, not a dense ``[H*W, max_points, C]`` tensor** (that is ~2 GiB at
   512²). We materialize only the ``P`` occupied pillars as ``[P, max_points, C]``.
-* **Slot assignment via a STABLE int64 sort** of the global pillar key
-  (``unique_consecutive(return_counts=True)`` for segment boundaries) — **NOT** float
-  ``cumsum`` / weighted ``bincount`` / ``unique(return_inverse)`` for slots (tie-unstable
-  or raising on CUDA). Over-cap truncation keeps the **first ``max_points`` in file
-  order** (the stable sort preserves it).
+* **Slot assignment via a CANONICAL lexicographic sort** — ``(pillar_key, x, y, z,
+  intensity)`` via successive STABLE int64/float sorts (``unique_consecutive(return_counts
+  =True)`` for segment boundaries) — **NOT** float ``cumsum`` / weighted ``bincount`` /
+  ``unique(return_inverse)`` for slots (tie-unstable or raising on CUDA). Over-cap
+  truncation keeps the **first ``max_points`` by point CONTENT** (NOT file order), so the
+  kept subset is a pure function of the points — **permutation-invariant even when a
+  pillar exceeds the cap** (the only ties are exact-duplicate points, which are
+  value-equivalent for ``torch.max``). *(A plain stable sort on ``pillar_key`` alone would
+  keep a file-order subset → a permutation would change the max-pool; the Codex T2
+  finding. The lexicographic content sort fixes it.)*
 * **Permutation-invariant by construction.** The PFN consumes only **per-point**
   features ``[x, y, z, intensity, x_p, y_p, z_p]`` (raw coords + offset to the pillar
   center) — **no within-pillar cluster-mean** (a float mean whose summation order would
-  drift under an input permutation). With per-point features, ``torch.max`` over the
-  points dim is **value-order-independent**, so the whole encoder is invariant to the
-  LiDAR point order (the permutation-invariance gate). *(The PointPillars cluster-center
-  offset is dropped as a deliberate determinism trade — a minor accuracy feature; a
-  canonical-order cluster mean is a deferred refinement.)*
+  drift under an input permutation). With per-point features + the canonical truncation,
+  ``torch.max`` over the points dim is **value-order-independent**, so the whole encoder
+  is invariant to the LiDAR point order (the permutation-invariance gate). *(The
+  PointPillars cluster-center offset is dropped as a deliberate determinism trade — a
+  minor accuracy feature; a canonical-order cluster mean is a deferred refinement.)*
 * **Scatter via ``index_copy_``** on the flat canvas at the **unique** pillar keys
   (pillar identity == cell identity ⇒ injective) — assignment, not accumulation;
   **never** ``canvas[:, idx] = voxels`` (#76176 silent no-op on CUDA). Index uniqueness
@@ -92,8 +97,20 @@ class PointPillarsEncoder(nn.Module):
         # global pillar key (batch offset so pillars don't collide across the batch)
         pillar_key = b * (cfg.nx * cfg.ny) + flat_index(col, row, cfg.nx)  # [Nk]
 
-        # --- group by pillar via a STABLE sort (file order preserved within a pillar) ---
-        order = torch.argsort(pillar_key, stable=True)
+        # --- group by pillar; CANONICAL within-pillar order by point CONTENT (NOT file
+        #     order) so the over-cap truncation keeps a PERMUTATION-INVARIANT subset ---
+        # A plain stable sort on pillar_key alone preserves the incoming order within a
+        # pillar, so `within < max_points` would keep a DIFFERENT subset after a LiDAR
+        # point permutation (a different max-pool → a different BEV; the Codex T2 finding).
+        # We instead lexicographically sort (pillar_key primary, then x, y, z, intensity)
+        # via successive STABLE sorts, least-significant key first. Within a pillar the
+        # kept first `max_points` are then a pure function of point CONTENT — independent
+        # of input order — and the only ties (exact-duplicate points) are value-equivalent
+        # for `torch.max`, so a point permutation yields a byte-identical canvas even when
+        # a pillar exceeds the cap.
+        order = torch.arange(pillar_key.numel(), device=device)
+        for key in (intensity[:, 0], xyz[:, 2], xyz[:, 1], xyz[:, 0], pillar_key):
+            order = order[torch.argsort(key[order], stable=True)]
         pk_s = pillar_key[order]
         xyz_s, int_s = xyz[order], intensity[order]
         col_s, row_s = col[order], row[order]
@@ -104,7 +121,7 @@ class PointPillarsEncoder(nn.Module):
         offsets = torch.cat([counts.new_zeros(1), counts.cumsum(0)[:-1]])       # [P]
         pillar_of = torch.repeat_interleave(torch.arange(P, device=device), counts)  # [Nk]
         within = torch.arange(pk_s.numel(), device=device) - offsets[pillar_of]  # [Nk]
-        cap = within < self.max_points                                         # file-order truncation
+        cap = within < self.max_points                                         # canonical-order truncation
         pillar_of_c = pillar_of[cap]
         within_c = within[cap]
         xyz_c, int_c = xyz_s[cap], int_s[cap]

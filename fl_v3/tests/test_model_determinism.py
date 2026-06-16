@@ -83,11 +83,11 @@ def test_splat_permutation_invariant():
 
 
 def test_pillar_scatter_permutation_invariant():
-    """PointPillars encoder is byte-identical under a LiDAR point permutation (no truncation)."""
+    """PointPillars encoder is byte-identical under a LiDAR point permutation (sparse)."""
     from fl_v3.models.fusion.lidar_encoder import PointPillarsEncoder
 
     enforce_determinism(strict=True); seed_everything(1)
-    enc = PointPillarsEncoder(out_channels=32, max_points=128)  # large cap → no truncation
+    enc = PointPillarsEncoder(out_channels=32, max_points=32)
     n = 3000
     xyz = (torch.rand(n, 3) * 2 - 1) * torch.tensor([45.0, 45.0, 3.0])
     pts = torch.cat([torch.zeros(n, 1), xyz, torch.rand(n, 1), torch.zeros(n, 1)], dim=1)
@@ -95,6 +95,29 @@ def test_pillar_scatter_permutation_invariant():
     perm = torch.randperm(n)
     b = enc(pts[perm], B=1)
     assert torch.equal(a, b), f"pillar scatter not permutation-invariant: max|Δ|={(a-b).abs().max()}"
+
+
+def test_pillar_scatter_permutation_invariant_OVERCAP():
+    """The Codex T2 finding: with a pillar EXCEEDING max_points, a LiDAR point permutation
+    must STILL give a byte-identical canvas (canonical content-order truncation, not file
+    order). A plain stable-sort-on-pillar_key encoder would fail this (max|Δ|~2e-5)."""
+    from fl_v3.models.fusion.lidar_encoder import PointPillarsEncoder
+
+    enforce_determinism(strict=True); seed_everything(2)
+    enc = PointPillarsEncoder(out_channels=32, max_points=8)  # small cap → truncation fires
+    # a dense cluster in a ~1m box → many points land in a handful of pillars (>> 8 each)
+    n = 2000
+    cluster = torch.tensor([10.0, -5.0, -0.5]) + (torch.rand(n, 3) * 2 - 1) * torch.tensor([0.5, 0.5, 0.3])
+    pts = torch.cat([torch.zeros(n, 1), cluster, torch.rand(n, 1), torch.zeros(n, 1)], dim=1)
+    # sanity: at least one pillar must exceed the cap, else the test is vacuous
+    from fl_v3.models.fusion.bev_grid import BEVConfig, metric_to_grid
+    cfg = BEVConfig()
+    c, r = metric_to_grid(pts[:, 1], pts[:, 2], cfg.x_min, cfg.y_min, cfg.vx, cfg.vy)
+    _, counts = torch.unique(r * cfg.nx + c, return_counts=True)
+    assert int(counts.max()) > enc.max_points, "test not exercising the over-cap path"
+    a = enc(pts, B=1)
+    b = enc(pts[torch.randperm(n)], B=1)
+    assert torch.equal(a, b), f"over-cap pillar scatter not permutation-invariant: max|Δ|={(a-b).abs().max()}"
 
 
 def test_decode_tie_break_is_canonical():

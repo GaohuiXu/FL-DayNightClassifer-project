@@ -13,6 +13,32 @@ Format:
 
 ---
 
+## [T2] 2026-06-16 — Codex REVIEW of T2 (CHANGES-REQUESTED → resolved)
+- **Finding (invariant-violation, Codex; the one finding — all other categories "nothing found"):** the
+  PointPillars encoder was NOT input-permutation-invariant once a pillar EXCEEDS `max_points`. It sorted
+  only by `pillar_key` (stable), so within-pillar ties kept the incoming/file order, and `cap = within <
+  max_points` then kept the **first `max_points` in file order** → a LiDAR point permutation selects a
+  different subset → a different PFN/max-pool → a different BEV canvas. Codex reproduced it (1 pillar, 3
+  points, `max_points=2`: `torch.equal==False`, `max|Δ|≈1.97e-5`). The existing test masked it with
+  `max_points=128` (no truncation). This contradicted the SPEC's "pillar scatter byte-identical under
+  input permutation" claim and the T2 contract's permutation-invariance requirement.
+- **Decision/fix (Codex's recommended minimal fix):** make the within-pillar truncation **canonical** —
+  `lidar_encoder.py` now lexicographically sorts `(pillar_key, x, y, z, intensity)` via successive STABLE
+  sorts (least-significant first), so the kept `max_points` are a pure function of point CONTENT,
+  independent of input order; the only residual ties are exact-duplicate points (value-equivalent for
+  `torch.max`). Added `test_pillar_scatter_permutation_invariant_OVERCAP` (a dense cluster + `max_points=8`
+  with a runtime assert that the over-cap path actually fires — would FAIL on the old code) and a **dense
+  over-cap cluster in the A40 gate's synthetic batch** so the committed checksum exercises the fixed path.
+- **Verification:** `148 passed` (was 147; +1 over-cap test); A40 bit-identity gate re-ran clean WITH the
+  over-cap path exercised (job 6763843, node alvis9-01) → new
+  `A40_WEIGHT_CHECKSUM = 0a30410a9905010bd94d78959d89ee7f1fb05a116d28c75dec2667ef81af98e9` (supersedes
+  31f23465…); wall-clock unchanged (headline ~3.1 min/round). SPEC §3/§6/§7 + this log updated.
+- **Rationale:** the build session had flagged this exact caveat in SPEC §7, but left the claim
+  unqualified and the test in the no-truncation regime — Codex correctly required the production path
+  itself be invariant, not just the common case. Canonical content-order truncation closes it with no
+  new banned op (only `stable=True` sorts) and a negligible cost (5 extra stable sorts on the in-range
+  points).
+
 ## [T2] 2026-06-16 — A40 bit-identity gate PASS + committed weight checksum (crown jewel)
 - **Finding (the §0 spine):** `strict` mode does NOT raise on `scatter_add`/non-stable `topk` on torch
   2.7, and same-seed-twice on ONE GPU is bit-identical even with a `scatter_add` present — so the
@@ -21,8 +47,9 @@ Format:
   `run_det_gate_a40.sh`): asserts `get_device_name()∋"A40"` + `CUBLAS_WORKSPACE_CONFIG=:4096:8` pre-CUDA,
   runs two same-seed 12-step central trainings → `torch.equal` on every param, and commits the per-param
   SHA-256 checksum. **Errors LOUD (exit 2) on no-CUDA / non-A40** (verified: the T4 login run exits 2).
-  PASS on NVIDIA A40 (job 6763718): `A40_WEIGHT_CHECKSUM =
-  31f23465bef5b46c5aa241b23d7b0726eb7a22502f3fdeb3a0191353a75afcd5`.
+  PASS on NVIDIA A40: `A40_WEIGHT_CHECKSUM =
+  0a30410a9905010bd94d78959d89ee7f1fb05a116d28c75dec2667ef81af98e9` (job 6763843; the post-review value
+  with the over-cap pillar path exercised — supersedes the pre-review 31f23465… from job 6763718).
 - **Rationale:** determinism that passes on a T4 can still drift on the A40 / ARM H200 (the Arrhenius
   portability bet). Enforcement is by (1) a static AST ban over `models/fusion/**`, (2) permutation-
   invariance (CPU `max|Δ|=0`), (3) the #76176 + float-cumsum GPU guards, and (4) this A40 gate — NOT the

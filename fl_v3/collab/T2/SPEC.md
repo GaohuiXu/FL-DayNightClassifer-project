@@ -130,13 +130,16 @@ decode (CenterPoint, +offset, NO half-cell): cx = (col + offset_x)·head_vx + x_
       A40**, `CUBLAS_WORKSPACE_CONFIG=:4096:8` pre-CUDA, two same-seed **12-step** trainings → `torch.equal`
       on every param. **Errors LOUD (exit 2) on no-CUDA / non-A40** (verified: the login Tesla T4 run
       exits 2). Also bit-identical on CPU (`test_full_forward_same_seed_bit_identical_cpu`).
-      **`A40_WEIGHT_CHECKSUM = 31f23465bef5b46c5aa241b23d7b0726eb7a22502f3fdeb3a0191353a75afcd5`**
+      **`A40_WEIGHT_CHECKSUM = 0a30410a9905010bd94d78959d89ee7f1fb05a116d28c75dec2667ef81af98e9`**
       (per-parameter SHA-256, ResNet bring-up config, 12 steps, seed 7; reproducible on any A40;
-      job 6763718, node alvis9-07).
+      job 6763843, node alvis9-01). The synthetic batch includes a **dense over-cap cluster** so the
+      checksum exercises the canonical-truncation pillar path (the resolved Codex finding).
 - [x] **Static AST ban test** over `models/fusion/**` (no `scatter_add`/`index_add`/
       `index_put(accumulate=True)`/`grid_sample`/`topk`/non-stable sort).
 - [x] **Permutation-invariance:** splat + pillar-scatter byte-identical under input permutation (CPU
-      `max|Δ|=0`; A40 bit-identity covered by the gate). **Decode tie:** canonical, reproducible.
+      `max|Δ|=0`), **including the over-cap pillar regime** (`test_pillar_scatter_permutation_invariant_
+      OVERCAP` — canonical content-order truncation; the resolved Codex finding); A40 bit-identity covered
+      by the gate. **Decode tie:** canonical, reproducible.
 - [x] **#76176 + cumsum guards (GPU):** `index_copy_` scatter correct under strict mode; float-CUDA
       `cumsum` does not raise & is `torch.equal` fwd+bwd (run on T4 in the suite; **re-run on ARM/H200**).
 - [x] **Trains centrally on mini end-to-end:** full multimodal forward + loss + backward + decode on real
@@ -159,9 +162,10 @@ decode (CenterPoint, +offset, NO half-cell): cx = (col + offset_x)·head_vx + x_
 - [x] **Env:** `torchvision==0.22.1 --no-deps` pinned; login-node weights pre-cached; `TORCH_HOME` pinned
       in build + run scripts; post-install asserts (`numpy==1.26.4`, both `.pth` exist, `torch.cuda`);
       `docs/env.md` + `docs/determinism.md` §T2 enforcement landed.
-- [x] **Tests green:** `bash fl_v3/scripts/run_in_venv.sh python -m pytest fl_v3/tests` → **147 passed**
-      (T0+T1's 120 + **27** T2). GPU-requiring set (overfit, central smoke, #76176, cumsum) runs on any
-      CUDA in the suite; the **A40 SLURM job is the authoritative bit-identity gate** (NOT in pytest).
+- [x] **Tests green:** `bash fl_v3/scripts/run_in_venv.sh python -m pytest fl_v3/tests` → **148 passed**
+      (T0+T1's 120 + **28** T2; the +1 vs the pre-review 147 is the over-cap permutation test added for the
+      resolved Codex finding). GPU-requiring set (overfit, central smoke, #76176, cumsum) runs on any CUDA
+      in the suite; the **A40 SLURM job is the authoritative bit-identity gate** (NOT in pytest).
 - [x] **`collab/T2/SPEC.md`** filled (this file) + `findings_log.md`; least-certain items flagged (§7).
 
 ### Per-module parameter table — headline config (frozen Swin-T, 256×704, fine BEV 256², head 128²)
@@ -184,12 +188,12 @@ seed (will be re-measured under each trained-component config; do NOT assume a f
 PointPillars PFN is a single Linear (576 params) — minimal by design (the LiDAR-BEV is mostly geometric:
 pillar scatter + `torch.max`); deepening it is a later refinement.
 
-### Wall-clock (A40, job 6763718, batch=1; warmup'd; per-call mean over 10 iters)
+### Wall-clock (A40, job 6763843, batch=1; warmup'd; per-call mean over 10 iters)
 
 | config | forward | full train step | projected /round (25 clients × 100 steps) |
 |---|---:|---:|---:|
-| bring-up ResNet-18 | 16.0 ms | 29.2 ms | **1.2 min** |
-| **headline frozen Swin-T (6 cam, 256×704, real grid)** | 54.4 ms | 76.0 ms | **3.2 min** |
+| bring-up ResNet-18 | 16.3 ms | 29.4 ms | **1.2 min** |
+| **headline frozen Swin-T (6 cam, 256×704, real grid)** | 55.4 ms | 75.5 ms | **3.1 min** |
 
 → T3 headroom: a ≤20-round FedAvg at the headline config ≈ **~64 min** of compute (25 clients × 100
 local steps/round). The bring-up backbone is the recommended T3 first-light config (~24 min for 20
@@ -202,13 +206,13 @@ rounds). These are A40 single-actor numbers; T3 owns client-sampling mitigations
    construction** — proven by the static AST ban + permutation-invariance (CPU `max|Δ|=0`) + the A40
    bit-identity gate (checksum above), NOT by the now-hollow `strict`-mode raise. **Scrutinize:** (a) the
    splat's canonical `(rank, geom_id)` lexsort really makes the per-cell `cumsum` order input-permutation-
-   independent (vs the LSS reference's non-stable `argsort`); (b) dropping the PointPillars within-pillar
-   **cluster-mean** to keep the PFN per-point (a float-mean over points would be order-dependent) — is
-   that the right determinism/accuracy trade, or should it be a canonical-order mean? Also: the over-cap
-   truncation keeps the first `max_points` in **file order** — confirm that is acceptable (a permutation
-   changes the kept subset only when a pillar exceeds the cap; the permutation test runs without
-   truncation). (c) the float-CUDA `cumsum` guard passed on the A40 here but the **ARM/H200 rebuild must
-   re-run it** (torch docstring still lists it as potentially raising).
+   independent (vs the LSS reference's non-stable `argsort`); (b) the PointPillars **over-cap truncation is
+   now canonical** — it sorts within-pillar by point CONTENT (`(pillar_key, x, y, z, intensity)` lexsort),
+   so the kept `max_points` are permutation-invariant even when a pillar exceeds the cap (the **resolved
+   Codex finding**; `test_pillar_scatter_permutation_invariant_OVERCAP` + the A40 over-cap cluster); the
+   only residual ties are exact-duplicate points, value-equivalent for `torch.max`. The cluster-mean stays
+   dropped (a deliberate per-point-feature trade; a canonical-order mean is a deferred refinement). (c) the
+   float-CUDA `cumsum` guard passed on the A40 here but the **ARM/H200 rebuild must re-run it**.
 2. **The single shared BEV `(x,y)→(row,col)` binding, anchored to T1 (not self-consistency).** The
    no-oracle trap. **Scrutinize:** the ground-truth anchor (real GT car center vs its physical LiDAR
    returns in the same fine cell, ≤2-cell median) + the injected row↔col-swap negative are genuinely
