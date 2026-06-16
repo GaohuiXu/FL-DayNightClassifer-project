@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
-from typing import Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 import torch
@@ -25,11 +25,14 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from fl_v3.data.partition import iid_partition
 from fl_v3.models.dummy import TinyMLP
-from fl_v3.utils.runtime import derive_seed, seeded_worker_init
+from fl_v3.utils.runtime import derive_seed, seeded_worker_init, truthy
 
 # A criterion maps (model_output, target) -> scalar loss tensor. NOT assumed to
-# be classification — MSE, L1, a detection loss, etc. all satisfy this.
-Criterion = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+# be classification — MSE, L1, a detection loss, etc. all satisfy this. ``target``
+# is widened (T2) from ``torch.Tensor`` to ``Any`` so the AD detection criterion can
+# take the multimodal batch dict as its target (the loop passes it through). Mirrors
+# the widened alias in ``training/loop.py``.
+Criterion = Callable[[Any, Any], torch.Tensor]
 
 # Loss factory registry — the loss is config-injected, never hardcoded in the
 # skeleton. The AD detection loss registers here in T2.
@@ -207,3 +210,248 @@ class DummyRegressionTask(Task):
 
 
 register_task(DummyRegressionTask())
+
+
+# ---------------------------------------------------------------------------
+# nuScenes multimodal detection task (T2) — the AD perception task.
+# ---------------------------------------------------------------------------
+def _det_config_from_run(run_config: dict):
+    """Build a DetectorConfig from the flat run_config (config-injected knobs)."""
+    from fl_v3.models.fusion.bev_grid import BEVConfig
+    from fl_v3.models.fusion.detector import DetectorConfig
+
+    pcr = run_config.get("det-pc-range", None)
+    voxel = float(run_config.get("det-bev-voxel", 0.4))
+    osf = int(run_config.get("det-out-size-factor", 2))
+    bev_kwargs = {"bev_voxel": (voxel, voxel), "out_size_factor": osf}
+    if pcr:
+        bev_kwargs["point_cloud_range"] = tuple(float(v) for v in pcr)
+    bev = BEVConfig(**bev_kwargs)
+    return DetectorConfig(
+        camera_backbone=str(run_config.get("det-camera-backbone", "swin_t")),
+        freeze_camera_backbone=truthy(run_config.get("det-freeze-backbone", True)),
+        pretrained_backbone=truthy(run_config.get("det-pretrained-backbone", True)),
+        image_hw=(int(run_config.get("det-image-h", 256)), int(run_config.get("det-image-w", 704))),
+        feat_stride=int(run_config.get("det-feat-stride", 16)),
+        neck_channels=int(run_config.get("det-neck-channels", 128)),
+        context_channels=int(run_config.get("det-context-channels", 80)),
+        depth_bins=(
+            float(run_config.get("det-depth-min", 1.0)),
+            float(run_config.get("det-depth-max", 60.0)),
+            float(run_config.get("det-depth-step", 1.0)),
+        ),
+        lidar_channels=int(run_config.get("det-lidar-channels", 64)),
+        max_points_per_pillar=int(run_config.get("det-max-points-per-pillar", 32)),
+        max_pillars=int(run_config.get("det-max-pillars", 30000)),
+        fusion_channels=int(run_config.get("det-fusion-channels", 128)),
+        bev_neck_channels=int(run_config.get("det-bev-neck-channels", 256)),
+        head_channels=int(run_config.get("det-head-channels", 64)),
+        n_classes=int(run_config.get("det-n-classes", 10)),
+        max_objects=int(run_config.get("det-max-objects", 200)),
+        score_threshold=float(run_config.get("det-score-threshold", 0.1)),
+        bev=bev,
+    )
+
+
+def center_distance_proxy(
+    decoded: List[dict],
+    batch: dict,
+    target_class: int = 0,
+    max_dist: float = 2.0,
+) -> Dict[str, float]:
+    """Provisional center-distance proxy (NOT the T4 DetectionEval).
+
+    For the D8 target class, match decoded boxes to GT by **metric BEV-center L2 in the
+    canonical frame** (greedy nearest, each GT matched at most once). Reports
+    ``recall@max_dist`` (distinct GT matched / total GT), mean best-match distance, and
+    decoded/GT counts — the falsifiable overfit signal + anti-collapse evidence."""
+    import numpy as np
+
+    gt_boxes_list = batch["gt_boxes"]
+    gt_labels_list = batch["gt_labels"]
+    total_gt = 0
+    matched_gt = 0
+    best_dists: List[float] = []
+    total_decoded = 0
+    for b, res in enumerate(decoded):
+        gtb = gt_boxes_list[b].detach().cpu().numpy()
+        gtl = gt_labels_list[b].detach().cpu().numpy()
+        gt_xy = gtb[gtl == target_class][:, :2]
+        det_mask = (res["labels"].detach().cpu().numpy() == target_class)
+        det_xy = res["boxes"].detach().cpu().numpy()[det_mask][:, :2]
+        total_gt += int(gt_xy.shape[0])
+        total_decoded += int(det_xy.shape[0])
+        used = np.zeros(det_xy.shape[0], dtype=bool)
+        for g in range(gt_xy.shape[0]):
+            if det_xy.shape[0] == 0:
+                best_dists.append(float("inf"))
+                continue
+            d = np.linalg.norm(det_xy - gt_xy[g][None, :], axis=1)
+            d_masked = np.where(used, np.inf, d)
+            j = int(np.argmin(d_masked))
+            best = float(d_masked[j])
+            best_dists.append(best if np.isfinite(best) else float(np.min(d)))
+            if best <= max_dist:
+                matched_gt += 1
+                used[j] = True
+    finite = [d for d in best_dists if d != float("inf")]
+    return {
+        "recall_at": (matched_gt / total_gt) if total_gt else 0.0,
+        "mean_best_center_dist": (float(sum(finite) / len(finite)) if finite else float("inf")),
+        "n_gt": float(total_gt),
+        "n_decoded": float(total_decoded),
+        "matched_gt": float(matched_gt),
+    }
+
+
+class NuScenesDetectionTask(Task):
+    """Federated multimodal AD detection task (BEVFusion-class model + CenterPoint loss).
+
+    Consumes the **frozen T1 schema** (via the pre-built info-cache) + the log-group /
+    IID partitioner; the loop trains it through the additive batch protocol; eval reports
+    the training loss + the center-distance proxy (the official mAP/NDS + ASR are T4)."""
+
+    name = "nuscenes_detection"
+
+    def __init__(self):
+        self._partition_cache: Dict[tuple, dict] = {}
+
+    # --- model / criterion ---
+    def build_model(self, run_config: dict) -> nn.Module:
+        from fl_v3.models.fusion.detector import BEVFusionDetector
+
+        return BEVFusionDetector(_det_config_from_run(run_config))
+
+    def build_criterion(self, run_config: dict) -> Criterion:
+        from fl_v3.models.fusion.losses import CenterPointLoss
+
+        c = _det_config_from_run(run_config)
+        return CenterPointLoss(cfg=c.bev, n_classes=c.n_classes,
+                               reg_weight=float(run_config.get("det-reg-weight", 0.25)))
+
+    # --- data ---
+    def _load_info(self, run_config: dict, split: str):
+        from fl_v3.data.nuscenes import info_cache as IC
+
+        cache_dir = str(run_config["nuscenes-cache-dir"])
+        version = str(run_config["nuscenes-version"])
+        try:
+            info_list, meta = IC.load_cache(cache_dir, version, split)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(
+                f"nuScenes info-cache for ({version}, {split}) not found under "
+                f"{cache_dir!r}. Build it on the LOGIN node first: "
+                f"`bash fl_v3/scripts/run_in_venv.sh python fl_v3/scripts/build_nuscenes_cache.py`. "
+                f"client_data must NOT build the devkit during a training run."
+            ) from e
+        return info_list, meta
+
+    def _partition(self, run_config: dict) -> dict:
+        """Build (and memoize) the client partition for the train split."""
+        from fl_v3.data.nuscenes.partition import (
+            build_log_table, build_log_group_partition, coerce_partition_seed,
+        )
+
+        version = str(run_config["nuscenes-version"])
+        split = str(run_config["nuscenes-train-split"])
+        mode = str(run_config.get("nuscenes-partition-mode", "log_group"))
+        floor = int(run_config.get("min-keyframes-per-client", 400))
+        requested = int(run_config.get("nuscenes-num-clients", 50))
+        run_seed = int(run_config.get("seed", 42))
+        pseed = coerce_partition_seed(run_config.get("partition-seed", ""), run_seed)
+        key = (version, split, mode, floor, requested, pseed)
+        if key in self._partition_cache:
+            return self._partition_cache[key]
+        info_list, _ = self._load_info(run_config, split)
+        if mode == "log_group":
+            log_table = build_log_table(info_list)
+            part = build_log_group_partition(log_table, floor=floor,
+                                             requested_num_clients=requested, seed=pseed)
+            client_tokens = {c["client_id"]: c["sample_tokens"] for c in part["clients"]}
+            result = {"num_clients": part["num_clients"], "client_tokens": client_tokens,
+                      "mode": mode, "raw": part}
+        elif mode == "iid":
+            from fl_v3.data.nuscenes.partition import iid_sample_partition
+
+            cmap = iid_sample_partition(info_list, requested, seed=pseed)
+            result = {"num_clients": requested, "client_tokens": cmap, "mode": mode, "raw": None}
+        else:
+            raise ValueError(f"unknown nuscenes-partition-mode {mode!r} (log_group|iid)")
+        self._partition_cache[key] = result
+        return result
+
+    def num_clients(self, run_config: dict) -> int:
+        # The DERIVED N (log_group may have fallen back to N∈{20,25}), NOT the request.
+        return int(self._partition(run_config)["num_clients"])
+
+    def _make_loader(self, run_config: dict, info_list, tokens, shuffle: bool):
+        from fl_v3.data.nuscenes.dataset import NuScenesMultimodalDataset, make_loader
+        from fl_v3.data.nuscenes import paths as P
+        from fl_v3.models.fusion.collate import detection_collate_fn
+
+        dataroot = P.get_dataroot(run_config)
+        ds = NuScenesMultimodalDataset(info_list, dataroot, sample_tokens=tokens)
+        return make_loader(
+            ds,
+            batch_size=int(run_config.get("batch-size", 1)),
+            shuffle=shuffle,
+            num_workers=int(run_config.get("num-workers", 0)),
+            seed=int(run_config.get("seed", 42)),
+            collate_fn=detection_collate_fn,
+        )
+
+    def client_data(self, client_id: int, run_config: dict) -> ClientData:
+        split = str(run_config["nuscenes-train-split"])
+        info_list, _ = self._load_info(run_config, split)
+        part = self._partition(run_config)
+        tokens = part["client_tokens"][client_id]
+        trainloader = self._make_loader(run_config, info_list, tokens, shuffle=True)
+        return ClientData(trainloader=trainloader, valloader=None,
+                          num_train=len(tokens), num_val=0)
+
+    def eval_loader(self, run_config: dict) -> DataLoader:
+        split = str(run_config["nuscenes-val-split"])
+        info_list, _ = self._load_info(run_config, split)
+        tokens = None
+        limit = int(run_config.get("det-eval-limit", 0))
+        if limit > 0:
+            tokens = sorted(i["sample_token"] for i in info_list)[:limit]
+        return self._make_loader(run_config, info_list, tokens, shuffle=False)
+
+    def evaluate(self, model, eval_loader, criterion, device, run_config) -> dict:
+        from fl_v3.training.loop import _move_to_device
+
+        target_class = int(run_config.get("det-target-class", 0))  # D8 car
+        thr = float(run_config.get("det-score-threshold", 0.1))
+        model.eval()
+        total_loss, total_n = 0.0, 0
+        agg = {"recall_at": 0.0, "mean_best_center_dist": 0.0, "n_gt": 0.0,
+               "n_decoded": 0.0, "matched_gt": 0.0}
+        n_batches = 0
+        import torch as _torch
+
+        with _torch.no_grad():
+            for batch in eval_loader:
+                batch = _move_to_device(batch, device)
+                out = model(batch)
+                loss = criterion(out, batch)
+                bs = len(batch["gt_boxes"])
+                total_loss += float(loss.item()) * bs
+                total_n += bs
+                decoded = model.decode(out, score_threshold=thr)
+                p = center_distance_proxy(decoded, batch, target_class=target_class)
+                agg["n_gt"] += p["n_gt"]; agg["n_decoded"] += p["n_decoded"]
+                agg["matched_gt"] += p["matched_gt"]
+                n_batches += 1
+        recall = (agg["matched_gt"] / agg["n_gt"]) if agg["n_gt"] else 0.0
+        return {
+            "eval_loss": total_loss / total_n if total_n else 0.0,
+            "num-eval-examples": float(total_n),
+            "proxy_recall_at_2m": recall,
+            "proxy_n_decoded": agg["n_decoded"],
+            "proxy_n_gt": agg["n_gt"],
+            "proxy_matched_gt": agg["matched_gt"],
+        }
+
+
+register_task(NuScenesDetectionTask())

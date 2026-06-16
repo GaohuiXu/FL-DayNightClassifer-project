@@ -24,6 +24,10 @@ module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0
 # shellcheck disable=SC1091
 source "${VENV}/bin/activate"
 
+# Pinned torch.hub cache for the T2 camera-backbone ImageNet weights (pre-cached on the
+# login node by build_venv.sh; compute nodes are offline). Must match build_venv.sh.
+export TORCH_HOME="/cephyr/users/gaohui/Alvis/.cache/torch"
+
 # Preflight: the gate needs torch, flwr, sklearn.HDBSCAN, and fl_v3 importable.
 # A missing one silently shrinks the test set (the T0 review hit exactly this),
 # so verify up front and fail loudly with the fix.

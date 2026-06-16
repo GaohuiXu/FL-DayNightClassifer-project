@@ -17,6 +17,9 @@ PROJ_ROOT="/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/thesis_workspace/fl_we
 
 # --- bit-determinism: cuBLAS workspace MUST be set before any CUDA context ---
 export CUBLAS_WORKSPACE_CONFIG=":4096:8"
+# Pinned torch.hub cache for the T2 camera-backbone ImageNet weights (pre-cached on the
+# login node by build_venv.sh; compute nodes are offline). Must match build_venv.sh.
+export TORCH_HOME="/cephyr/users/gaohui/Alvis/.cache/torch"
 
 if ! type module >/dev/null 2>&1; then
     [ -f /usr/share/lmod/lmod/init/bash ] && source /usr/share/lmod/lmod/init/bash

@@ -1,0 +1,215 @@
+"""LSS camera→BEV view transform (fl_v3 T2) — the deterministic ``cumsum_trick`` splat.
+
+Per the Architecture table: per-pixel **depth softmax** over bins → lift context
+features into the camera frustum (outer product — determinism-clean) → transform the
+frustum to the canonical LIDAR_TOP frame via ``inv(lidar2img)`` → **splat into BEV via
+the LSS ``cumsum_trick``** (sort by BEV rank → float cumsum → segment-boundary diff).
+**NO ``scatter_add`` / ``index_add`` / atomic scatter; NO ``grid_sample``** (the lift is
+grid_sample-free by construction — the ban is belt-and-suspenders).
+
+## The two determinism musts (SPEC §0 + view_transform bullet)
+
+1. **The LSS reference sorts with a non-stable ``ranks.argsort()``.** Float-add is
+   non-associative, so a tie permutation drifts the pooled cell value at ULP level and
+   ``strict`` mode does NOT catch it. We sort by a **canonical composite key**
+   ``rank·G + geom_id`` where ``geom_id`` is the frustum cell's canonical index
+   ``((n·D + d)·fH + i)·fW + j`` — making ``(rank, geom_id)`` **globally unique**, so the
+   sort order (and thus the per-cell summation order) is **independent of the order the
+   frustum points are presented in**. This is what makes the splat pass the
+   permutation-invariance gate AND be architecture-portable (a fixed summation order on
+   every GPU / the future ARM H200). ``argsort(stable=True)`` is used on top (a no-op for
+   unique keys, but it honors the contract and is safe if a key ever ties).
+
+2. **The cumsum is float-on-CUDA**, which the torch-2.7 docstring still lists as
+   *raising* under deterministic mode but **empirically does NOT** on this build (§0).
+   It is pinned by the GPU ``cumsum`` guard test (forward+backward ``torch.equal``) and a
+   note that the **ARM/H200 rebuild must re-run it**; if a future torch raises, the
+   fallback is an int/segment-reduce reformulation, **NOT ``scatter_add``**.
+
+The per-cell sums are written into the BEV canvas with ``index_copy_`` on the FLAT
+canvas at the **unique** cell ranks (assignment, not accumulation — #76176-safe), then
+reshaped to ``[B, Cc, ny, nx]`` per the shared :mod:`bev_grid` convention (``W→x, H→y``).
+"""
+from __future__ import annotations
+
+from typing import Tuple
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+from fl_v3.models.fusion.bev_grid import BEVConfig, metric_to_grid, in_grid_mask, flat_index
+
+
+class QuickCumsum(torch.autograd.Function):
+    """LSS segment-sum via cumsum + boundary diff (deterministic, atomic-free).
+
+    ``x`` is sorted so equal ``ranks`` are contiguous. Forward: ``cumsum`` then take the
+    last element of each rank-segment and difference adjacent segments → per-segment
+    sums. Backward: ``cumsum`` of the kept-mask gives, for each input, the output index
+    it contributed to — a **gather** (deterministic), never a scatter."""
+
+    @staticmethod
+    def forward(ctx, x: torch.Tensor, ranks: torch.Tensor):
+        x = x.cumsum(0)
+        kept = torch.ones(x.shape[0], device=x.device, dtype=torch.bool)
+        kept[:-1] = ranks[1:] != ranks[:-1]
+        x = x[kept]
+        x = torch.cat((x[:1], x[1:] - x[:-1]))
+        ctx.save_for_backward(kept)
+        return x
+
+    @staticmethod
+    def backward(ctx, grad_x: torch.Tensor):
+        (kept,) = ctx.saved_tensors
+        back = torch.cumsum(kept, 0)
+        back[kept] -= 1  # 0-based index of the output each input fed
+        return grad_x[back], None
+
+
+def bev_splat(
+    x: torch.Tensor,       # [P, Cc] lifted features (P surviving frustum points)
+    ranks: torch.Tensor,   # [P] int64 global flat rank = b*(nx*ny) + row*nx + col
+    geom_id: torch.Tensor,  # [P] int64 canonical frustum index (per-point, order-invariant)
+    B: int,
+    nx: int,
+    ny: int,
+) -> torch.Tensor:
+    """Splat ``x`` into a ``[B, Cc, ny, nx]`` BEV canvas via the canonical cumsum_trick."""
+    Cc = x.shape[1]
+    if x.numel() == 0:
+        return x.new_zeros((B, Cc, ny, nx))
+    # canonical, permutation-invariant total order: (rank primary, geom_id tiebreak).
+    G = int(geom_id.max().item()) + 1
+    key = ranks * G + geom_id
+    order = torch.argsort(key, stable=True)
+    x, ranks_s = x[order], ranks[order]
+    summed = QuickCumsum.apply(x, ranks_s)            # [U, Cc] per-cell sums
+    # the kept ranks (one per unique cell), in the same order as `summed`
+    kept = torch.ones_like(ranks_s, dtype=torch.bool)
+    kept[:-1] = ranks_s[1:] != ranks_s[:-1]
+    unique_ranks = ranks_s[kept]                      # [U]
+    canvas = x.new_zeros((B * ny * nx, Cc))
+    canvas.index_copy_(0, unique_ranks, summed)       # unique → assignment (#76176-safe)
+    bev = canvas.view(B, ny, nx, Cc).permute(0, 3, 1, 2).contiguous()  # [B,Cc,ny,nx]
+    return bev
+
+
+class DepthLSSTransform(nn.Module):
+    """Depth-distribution LSS lift-splat (camera features → BEV).
+
+    ``depthnet`` (Conv-GN-ReLU stack → ``Conv(D + Cc)``) produces per-pixel depth logits
+    (softmax over ``D`` bins) and a context feature; the outer product lifts context into
+    the frustum, which is splatted to BEV. All trainable (the AD camera→BEV projection is
+    FL-learned, D1)."""
+
+    def __init__(
+        self,
+        in_channels: int = 256,
+        context_channels: int = 80,
+        depth_bins: Tuple[float, float, float] = (1.0, 60.0, 1.0),  # (min, max, step)
+        image_hw: Tuple[int, int] = (256, 704),
+        feat_stride: int = 16,
+        cfg: BEVConfig = BEVConfig(),
+    ):
+        super().__init__()
+        self.cfg = cfg
+        self.context_channels = int(context_channels)
+        dmin, dmax, dstep = depth_bins
+        ds = torch.arange(dmin, dmax, dstep, dtype=torch.float32)
+        self.D = int(ds.numel())
+        self.image_hw = (int(image_hw[0]), int(image_hw[1]))
+        self.feat_stride = int(feat_stride)
+        fH = self.image_hw[0] // self.feat_stride
+        fW = self.image_hw[1] // self.feat_stride
+        self.fH, self.fW = fH, fW
+
+        # depthnet: a small Conv-GN-ReLU then the (D + Cc) projection.
+        mid = in_channels
+        groups = min(32, mid)
+        while mid % groups != 0:
+            groups -= 1
+        self.depthnet = nn.Sequential(
+            nn.Conv2d(in_channels, mid, 3, padding=1, bias=False),
+            nn.GroupNorm(groups, mid),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(mid, self.D + self.context_channels, 1),
+        )
+
+        # --- frustum (D, fH, fW, 3) in (u, v, d) input-pixel coords (LSS create_frustum) ---
+        # feature-grid pixel centers sampled across the input image (align_corners=True
+        # linspace — the LSS convention; sub-pixel offset is dominated by depth-bin error).
+        H_in, W_in = self.image_hw
+        xs = torch.linspace(0.0, W_in - 1.0, fW).view(1, 1, fW).expand(self.D, fH, fW)
+        ys = torch.linspace(0.0, H_in - 1.0, fH).view(1, fH, 1).expand(self.D, fH, fW)
+        dd = ds.view(self.D, 1, 1).expand(self.D, fH, fW)
+        frustum = torch.stack((xs, ys, dd), dim=-1)  # (D, fH, fW, 3) = (u, v, d)
+        self.register_buffer("frustum", frustum, persistent=False)
+        # canonical per-cell geom index (n,d,i,j) added at forward (depends on N).
+        self.register_buffer("depth_values", ds, persistent=False)
+
+    def _img2lidar(self, lidar2img: torch.Tensor) -> torch.Tensor:
+        """Inverse of (rescaled) ``lidar2img`` in float64 (calibration, not hot-path).
+
+        Computed in float64 then cast to feature dtype: a fixed function of fixed
+        calibration → identical every run; ARM portability re-verified at migration."""
+        return torch.inverse(lidar2img.to(torch.float64)).to(lidar2img.dtype)
+
+    def forward(self, feat: torch.Tensor, lidar2img: torch.Tensor, B: int, N: int) -> dict:
+        """``feat`` ``[B*N, C, fH, fW]``; ``lidar2img`` ``[B, N, 4, 4]`` (rescaled).
+
+        Returns ``{"bev": [B,Cc,ny,nx], "depth_prob": [B*N,D,fH,fW], "context":
+        [B*N,Cc,fH,fW]}`` (the extra maps drive V2)."""
+        cfg = self.cfg
+        x = self.depthnet(feat)                                # [BN, D+Cc, fH, fW]
+        depth_logits = x[:, : self.D]
+        context = x[:, self.D :]
+        depth_prob = depth_logits.softmax(dim=1)               # [BN, D, fH, fW]
+        # lift: outer product context ⊗ depth  → [BN, Cc, D, fH, fW]
+        lifted = depth_prob.unsqueeze(1) * context.unsqueeze(2)
+        Cc = self.context_channels
+        fH, fW, D = self.fH, self.fW, self.D
+
+        # --- frustum → lidar (x,y,z) for every (b,n,d,i,j) ---
+        # image-homogeneous [u*d, v*d, d, 1]
+        u, v, d = self.frustum.unbind(-1)                      # each (D,fH,fW)
+        ones = torch.ones_like(d)
+        pts_img = torch.stack((u * d, v * d, d, ones), dim=-1)  # (D,fH,fW,4)
+        pts_img = pts_img.view(-1, 4)                          # (P,4), P=D*fH*fW
+        img2lidar = self._img2lidar(lidar2img)                 # [B,N,4,4]
+        # (B,N,4,4) @ (4,P) → (B,N,4,P) → (B,N,P,4)
+        pts_lidar = torch.einsum("bnij,pj->bnpi", img2lidar, pts_img)  # [B,N,P,4]
+        xy = pts_lidar[..., :2]                                # [B,N,P,2]
+        z = pts_lidar[..., 2]                                  # [B,N,P]
+
+        col, row = metric_to_grid(xy[..., 0], xy[..., 1], cfg.x_min, cfg.y_min, cfg.vx, cfg.vy)
+        valid = (
+            in_grid_mask(col, row, cfg.nx, cfg.ny)
+            & (z >= cfg.z_min)
+            & (z < cfg.z_max)
+        )                                                      # [B,N,P]
+
+        # batch offset on the rank so cells don't collide across the batch.
+        b_idx = torch.arange(B, device=feat.device).view(B, 1, 1).expand(B, N, P_(D, fH, fW))
+        flat = flat_index(col, row, cfg.nx)                    # [B,N,P]
+        ranks = b_idx * (cfg.nx * cfg.ny) + flat               # [B,N,P]
+
+        # canonical geom id = ((n*D + d)*fH + i)*fW + j  — per frustum cell, order-invariant
+        n_idx = torch.arange(N, device=feat.device).view(1, N, 1)
+        cell_id = torch.arange(D * fH * fW, device=feat.device).view(1, 1, -1)  # (d,i,j) flat
+        geom_id = (n_idx * (D * fH * fW) + cell_id).expand(B, N, D * fH * fW)
+
+        # features per frustum point: [BN,Cc,D,fH,fW] → [B,N,P,Cc]
+        feats_pt = lifted.view(B, N, Cc, D * fH * fW).permute(0, 1, 3, 2).contiguous()
+
+        m = valid.reshape(-1)
+        x_pt = feats_pt.reshape(-1, Cc)[m]
+        ranks_pt = ranks.reshape(-1)[m]
+        geom_pt = geom_id.reshape(-1)[m]
+
+        bev = bev_splat(x_pt, ranks_pt, geom_pt, B, cfg.nx, cfg.ny)
+        return {"bev": bev, "depth_prob": depth_prob, "context": context}
+
+
+def P_(D: int, fH: int, fW: int) -> int:
+    return D * fH * fW

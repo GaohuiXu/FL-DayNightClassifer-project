@@ -13,6 +13,107 @@ Format:
 
 ---
 
+## [T2] 2026-06-16 — A40 bit-identity gate PASS + committed weight checksum (crown jewel)
+- **Finding (the §0 spine):** `strict` mode does NOT raise on `scatter_add`/non-stable `topk` on torch
+  2.7, and same-seed-twice on ONE GPU is bit-identical even with a `scatter_add` present — so the
+  determinism proof cannot be the runtime raise, and a CPU / login-node (Tesla T4) pass is a FALSE PASS.
+- **Decision/fix:** a dedicated **A40-pinned SLURM gate** (`scripts/det_gate_a40.py` +
+  `run_det_gate_a40.sh`): asserts `get_device_name()∋"A40"` + `CUBLAS_WORKSPACE_CONFIG=:4096:8` pre-CUDA,
+  runs two same-seed 12-step central trainings → `torch.equal` on every param, and commits the per-param
+  SHA-256 checksum. **Errors LOUD (exit 2) on no-CUDA / non-A40** (verified: the T4 login run exits 2).
+  PASS on NVIDIA A40 (job 6763718): `A40_WEIGHT_CHECKSUM =
+  31f23465bef5b46c5aa241b23d7b0726eb7a22502f3fdeb3a0191353a75afcd5`.
+- **Rationale:** determinism that passes on a T4 can still drift on the A40 / ARM H200 (the Arrhenius
+  portability bet). Enforcement is by (1) a static AST ban over `models/fusion/**`, (2) permutation-
+  invariance (CPU `max|Δ|=0`), (3) the #76176 + float-cumsum GPU guards, and (4) this A40 gate — NOT the
+  `strict` raise. The cumsum + #76176 guards MUST be re-run on the ARM/H200 rebuild.
+
+## [T2] 2026-06-16 — permutation-invariance by construction (the cross-arch determinism design)
+- **Finding (determinism design):** the LSS reference splat sorts ranks with a NON-stable `argsort`, and
+  the PointPillars cluster-mean is a float mean over points — both make the per-cell summation order
+  input-order-dependent (ULP drift cross-architecture; the whole point of banning `scatter_add`).
+- **Decision/fix:** (a) the LSS `cumsum_trick` sorts by a **canonical composite key** `rank·G + geom_id`
+  (`geom_id` = the frustum cell's canonical index → `(rank,geom_id)` globally unique → the sum order is
+  independent of how frustum points are presented); (b) the PointPillars PFN uses **per-point features
+  only** (`x,y,z,intensity, x_p,y_p,z_p` — raw + pillar-center offset; **no within-pillar cluster-mean**),
+  so `torch.max` over points is value-order-independent. Both scatter into the canvas with `index_copy_`
+  at the **unique** cells (assignment, #76176-safe). `test_{splat,pillar_scatter}_permutation_invariant`
+  assert byte-identity under an input permutation (CPU `max|Δ|=0`).
+- **Rationale:** permutation-invariance ⇒ no summation-order dependence ⇒ architecture-portable
+  determinism by construction. Dropping the cluster-mean is a deliberate determinism/accuracy trade (a
+  minor PointPillars feature); a canonical-order cluster mean is a deferred refinement (flagged in SPEC §7).
+
+## [T2] 2026-06-16 — half-pixel-correct resize keeps intrinsic/lidar2img EXACTLY consistent
+- **Finding (no-oracle calibration risk):** T2 owns the resize T1 left out; a naive "scale K by W_out/W_in"
+  intrinsic rescale is off by a sub-pixel half-cell vs the actual `F.interpolate(align_corners=False)`
+  content location → camera features mis-placed in BEV (a SPEC failure mode, eyeball-only otherwise).
+- **Decision/fix:** rescale with the **same affine** the resize implements: `u_out = fx·u + (0.5·fx−0.5)`,
+  expressed as a 3×3 on `K` and a 4×4 left-multiply `M` on `lidar2img` (the `tx,ty` ride on the depth
+  component). `test_resize_intrinsic_lidar2img_consistency_1px` (anchored to T1's real `lidar2img`)
+  measures **~1e-4 px** residual (≤1px gate). Aspect ratio is not preserved (fx≠fy) but the calibration
+  follows exactly; aspect-preserving resize+crop is a hooked later refinement.
+- **Rationale:** exact consistency (not "<1px by luck") removes the silent cam-BEV/LiDAR-BEV misalignment
+  the no-oracle setting can't otherwise catch.
+
+## [T2] 2026-06-16 — ground-truth-anchored BEV convention (defeating the self-consistent-but-wrong trap)
+- **Finding (the no-oracle trap T1 defeated, recurring at T2):** splat/scatter/target/decode share ONE
+  `(x,y)→(row,col)` mapping (the T2↔T4↔T5 contract); a self-consistency test passes even if that single
+  mapping is wrong (e.g. row/col swapped).
+- **Decision/fix:** `test_bev_convention_ground_truth_anchored` anchors to **two independent T1 facts** —
+  a real GT car's labelled box center and its **physical LiDAR returns** must fall in the SAME fine-grid
+  cell (median within ≤2 cells) — plus an **injected row↔col-swap negative** that must BREAK the anchor
+  (proving discriminating power). The box convention (== T1 canonical; NO `−π/2`, NO `(l,w,h)` swap) is
+  pinned by an **encode→decode round-trip golden** (recovers center/dims/yaw incl. SIGN over yaw∈{±0.7,
+  ±2.5,0}). Decode is deterministic (3×3 max-pool mask + `sort(stable=True)`, NMS-free).
+- **Rationale:** anchoring to physical data + a corruption negative is the cheapest insurance a model with
+  no bit-parity oracle can buy; the encode/decode golden catches a paired encode/decode swap a layout-only
+  check misses.
+
+## [T2] 2026-06-16 — additive loop generalization preserves dummy_regression byte-identity
+- **Finding (skeleton-preservation risk):** the multimodal dict batch does not fit the T0 `(inputs,
+  targets)` 2-tuple loop; generalizing the loop risks perturbing the regression path's byte-identity.
+- **Decision/fix:** the loop is generalized **additively** — `_unpack_batch`/`_move_to_device`/
+  `_batch_size` route a dict batch (inputs=targets=batch; `len(gt_boxes)`) while the tensor 2-tuple path
+  keeps the EXACT original op sequence (`X.to/y.to → model(X) → criterion(out,y) → y.size(0)`). The
+  `Criterion` alias is widened to `Callable[[Any,Any],Tensor]` in BOTH `loop.py` and `tasks.py`. The
+  `dummy_regression` aggregated checksum is pinned to a committed golden
+  (`d2d819…cd7cc`) and re-asserted; 21 T0 determinism/task-agnostic tests pass byte-for-byte.
+- **Rationale:** the FL skeleton must stay task-agnostic (a T0 invariant); a provable same-op-sequence
+  tensor path + the golden assert make any future drift fail loudly.
+
+## [T2] 2026-06-16 — adversarial verification sweep before Codex handoff (6 skeptics + critic)
+- **Finding (process):** ran a read-only 6-skeptic + completeness-critic workflow (`wf_9a712dd2-0a6`)
+  that re-derived the highest-risk T2 surfaces and tried to BREAK them (mirrors T0/T1's pre-handoff
+  sweeps): (1) the LSS `cumsum_trick`/`QuickCumsum` splat permutation-invariance; (2) PointPillars
+  permutation-invariance + atomic-free scatter; (3) the single shared BEV `(x,y)→(row,col)` mapping +
+  encode→decode inverse; (4) the corrected 3-case `gaussian_radius` + focal/L1 loss; (5) the D1/D6 freeze
+  through `model.train()`; (6) the `dummy_regression` byte-identity after the loop generalization.
+- **Decision/fix:** **No defects.** Every skeptic returned `clean` (no `defect`/`concern` verdict anywhere
+  in the sweep). Independent confirmations: the corrected `gaussian_radius` is byte-identical (<1e-12) to
+  the corrected mmdet3d/CenterPoint formula and each returned root satisfies its quadratic (residual
+  ~1e-10) over 8 box sizes (NOT the `/2` bug); the BEV convention `col↔x, row↔y, flat=row·W+col` is used
+  at all four call sites and decode is the exact inverse of the loss encoding; the loop tensor-2-tuple
+  path is a byte-identical op sequence; the `CameraBackbone.train()` override keeps the frozen backbone
+  (incl. ResNet BN) in eval through the detector's `.train()` recursion. The splat skeptic engaged deeply
+  without flagging a defect; the splat surface is additionally nailed by `test_splat_permutation_invariant`
+  (CPU `max|Δ|=0`), the A40 bit-identity gate, and the float-cumsum GPU guard.
+- **Rationale:** a determinism-critical model with no bit-parity oracle earns trust by independent
+  re-derivation + a corruption-negative + the A40 gate, not by the (now-hollow) `strict`-mode raise. The
+  hardest review targets are listed in `collab/T2/SPEC.md` §7 for the Codex reviewer.
+
+## [T2] 2026-06-16 — env: torchvision 0.22.1 --no-deps + offline-weights pre-cache (DT2-A)
+- **Finding (build/offline):** D1's backbone is an ImageNet Swin-T but torchvision was not installed, and
+  Alvis COMPUTE nodes are offline (torch.hub cannot download at train time).
+- **Decision/fix:** `torchvision==0.22.1` installed **`--no-deps`** (its metadata pins torch==2.7.1+numpy,
+  which would shadow the CUDA/numpy-matched module build — the nuscenes-devkit footgun); `TORCH_HOME`
+  pinned in `build_venv.sh`/`run_in_venv.sh`/`run_alvis.sh`; the Swin-T + ResNet-18 `IMAGENET1K_V1`
+  weights **pre-cached on the LOGIN node** at build time (param-count asserts 28,288,354 / 11,689,512
+  double as the load check). torchvision `swin_t` uses manual fp32 math attention (no SDPA) → no flash/
+  mem-efficient kernel reachable → no SDPA pin needed. cp312 wheels exist for x86_64 AND aarch64 →
+  Arrhenius-portable.
+- **Rationale:** the no-mmdet3d, pure-PyTorch posture extended to the backbone; the offline-weights
+  blocker is resolved at build time on the login node, never on a compute node.
+
 ## [T1] 2026-06-16 — yaw extraction: pyquaternion uses a MINUS cross term (sign-bug trap)
 - **Finding (scientific-error risk, caught pre-review):** the obvious "aerospace" yaw formula
   `atan2(2(wz + xy), 1 − 2(y²+z²))` is WRONG for the nuScenes/pyquaternion convention. pyquaternion's

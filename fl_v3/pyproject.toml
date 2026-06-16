@@ -117,6 +117,37 @@ krum-num-to-select = 2
 # the value here is a placeholder for the dummy smoke (no attack present).
 flame-noise-multiplier = 0.000001
 
+# ===== AD detection model (T2) — BEVFusion-class detector knobs =====
+# Active when task-type = "nuscenes_detection" (the NuScenesDetectionTask reads these;
+# all have in-code defaults so the central T2 bring-up needs none of them). D1: the
+# camera backbone is the ImageNet-pretrained Swin-T, FROZEN; resnet18 is the bring-up
+# fallback. The BEV grid + (x,y)->(row,col) convention is the frozen T2<->T4<->T5 contract.
+det-camera-backbone = "swin_t"        # swin_t (D1 headline) | resnet18 (bring-up fallback)
+det-freeze-backbone = true            # D1: frozen ImageNet backbone (flip = full-model ablation)
+det-pretrained-backbone = true        # load IMAGENET1K_V1 weights (pre-cached on login node)
+det-image-h = 256
+det-image-w = 704
+det-feat-stride = 16                  # LSS-FPN output stride
+det-neck-channels = 128
+det-context-channels = 80             # camera-BEV channels
+det-depth-min = 1.0
+det-depth-max = 60.0
+det-depth-step = 1.0
+det-lidar-channels = 64
+det-max-points-per-pillar = 32
+det-max-pillars = 30000
+det-fusion-channels = 128
+det-bev-neck-channels = 256
+det-head-channels = 64
+det-n-classes = 10                    # nuScenes detection classes (DETECTION_NAMES order)
+det-bev-voxel = 0.4                   # fine BEV grid voxel (m); range 102.4m -> 256x256
+det-out-size-factor = 2               # head grid = fine grid / factor -> 128x128 (0.8 m/cell)
+det-reg-weight = 0.25                 # L1 regression vs focal heatmap weight
+det-max-objects = 200                 # decode top-K per sample (pre-threshold)
+det-score-threshold = 0.1             # decode score floor
+det-target-class = 0                  # D8 primary = car (DETECTION_NAMES id 0)
+det-eval-limit = 0                    # >0 caps eval samples (0 = full val split)
+
 # ===== gradient-space instrumentation =====
 topk-energy-k = 4096
 

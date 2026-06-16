@@ -15,6 +15,11 @@ PROJ_ROOT="/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/thesis_workspace/fl_we
 FL_V3_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV="${PROJ_ROOT}/.venv_v3"
 PY_MODULE="PyTorch/2.7.1-foss-2024a-CUDA-12.6.0"
+# Pinned torch.hub cache for the ImageNet camera-backbone weights (T2/D1). The weights
+# are pre-cached HERE on the LOGIN node at build time because Alvis COMPUTE nodes are
+# offline; run_in_venv.sh / run_alvis.sh export the same TORCH_HOME so training reads
+# them. (Lives on /cephyr, not under the read-only dataset.)
+export TORCH_HOME="/cephyr/users/gaohui/Alvis/.cache/torch"
 
 echo "[build_venv] fl_v3 dir : ${FL_V3_DIR}"
 echo "[build_venv] venv      : ${VENV}"
@@ -53,8 +58,30 @@ pip install --no-cache-dir -c "${FL_V3_DIR}/constraints.txt" \
 pip install --no-cache-dir --no-deps -c "${FL_V3_DIR}/constraints.txt" \
     "nuscenes-devkit==1.1.11"
 
+# torchvision (T2 camera backbone): --no-deps for the SAME reason as nuscenes-devkit —
+# its metadata pins torch==2.7.1 + numpy, which would shadow the CUDA/numpy-matched
+# module build. 0.22.1 is the exact pairing for torch 2.7.1 (cp312 manylinux x86_64 +
+# aarch64 wheels → Arrhenius-portable).
+pip install --no-cache-dir --no-deps -c "${FL_V3_DIR}/constraints.txt" \
+    "torchvision==0.22.1"
+
 # fl_v3 itself, --no-deps so pip never reinstalls torch/numpy/scipy.
 pip install --no-cache-dir -e "${FL_V3_DIR}" --no-deps
+
+# Pre-cache the ImageNet camera-backbone weights on the LOGIN node (compute nodes are
+# offline). torch.hub downloads on first instantiation; do it here so a compute job
+# never tries to (and fails). Cached under TORCH_HOME (exported above + in run scripts).
+echo "[build_venv] pre-caching Swin-T + ResNet-18 ImageNet weights to ${TORCH_HOME} ..."
+python - <<'PY'
+import os
+from torchvision.models import swin_t, Swin_T_Weights, resnet18, ResNet18_Weights
+print("TORCH_HOME:", os.environ.get("TORCH_HOME"))
+n1 = sum(p.numel() for p in swin_t(weights=Swin_T_Weights.IMAGENET1K_V1).parameters())
+n2 = sum(p.numel() for p in resnet18(weights=ResNet18_Weights.IMAGENET1K_V1).parameters())
+assert n1 == 28288354, n1
+assert n2 == 11689512, n2
+print("[build_venv] backbone weights cached (swin_t 28,288,354 / resnet18 11,689,512)")
+PY
 
 # Capture the full transitive closure for byte-reproducible rebuilds.
 pip freeze > "${FL_V3_DIR}/requirements.lock.txt"
@@ -77,6 +104,14 @@ import ray; print("ray:", ray.__version__)
 import sklearn; print("sklearn:", sklearn.__version__)
 from sklearn.cluster import HDBSCAN; print("HDBSCAN: OK (sklearn)")
 import matplotlib; print("matplotlib:", matplotlib.__version__)
+# torchvision (T2 camera backbone) + the pre-cached ImageNet weights must be present.
+import torchvision; print("torchvision:", torchvision.__version__)
+import os
+_th = os.environ.get("TORCH_HOME", "")
+for _w in ("swin_t-704ceda3.pth", "resnet18-f37072fd.pth"):
+    _p = os.path.join(_th, "hub", "checkpoints", _w)
+    assert os.path.isfile(_p), f"backbone weight not pre-cached: {_p} (TORCH_HOME={_th!r})"
+print("torchvision backbone weights pre-cached: OK")
 # nuScenes APIs T1/T4 depend on (must NOT require descartes/map rendering).
 from nuscenes.nuscenes import NuScenes
 from nuscenes.utils.data_classes import LidarPointCloud, Box

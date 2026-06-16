@@ -70,3 +70,26 @@ These are FORBIDDEN in the AD model (T2) and everywhere else:
   oracle's noisy aggregate exactly).
 
 (See `fl_v3/tests/test_determinism_*.py` and `test_fl_round_smoke.py`.)
+
+## What T2 adds (the AD model — §0 enforcement made concrete)
+
+Because `strict` mode is necessary-but-not-sufficient (above), the BEVFusion-class model
+is held to the banned-op contract by **four** dedicated artifacts (NOT the runtime raise):
+
+- **Static AST ban** over `models/fusion/**` — `tests/test_model_determinism.py::
+  test_static_ban_over_models_fusion` parses every model source file and fails on any
+  `scatter_add`/`index_add`/`index_put(accumulate=True)`/`grid_sample`/`topk`/non-stable
+  `sort`/`argsort`. This is the real banned-op gate.
+- **Permutation-invariance** — `test_splat_permutation_invariant` +
+  `test_pillar_scatter_permutation_invariant`: a permuted input order yields a
+  **byte-identical** splat / pillar-scatter (a `scatter_add` would drift; the
+  `cumsum_trick` with a canonical `(rank, geom_id)` sort and the `torch.max` pillar pool
+  pass). `test_decode_tie_break_is_canonical` pins the decode tie order.
+- **GPU op guards** (`tests/test_model_task.py`) — the #76176 `index_copy_` scatter
+  yields the correct non-zero cell under strict mode, and float-CUDA `cumsum` does not
+  raise and is `torch.equal` fwd+bwd. *(Re-run these on the ARM/H200 rebuild.)*
+- **The A40-pinned bit-identity gate** — `scripts/det_gate_a40.py` (via
+  `scripts/run_det_gate_a40.sh`): asserts the device is an A40, runs two same-seed
+  K-step trainings to `torch.equal` on every parameter, and commits the per-param
+  SHA-256 weight checksum into `collab/T2/SPEC.md`. **Errors LOUD (exit 2) on
+  no-CUDA / a non-A40 device — a CPU / login-node (Tesla T4) pass is a FALSE PASS.**

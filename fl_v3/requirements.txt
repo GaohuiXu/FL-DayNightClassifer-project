@@ -25,6 +25,14 @@ wandb==0.26.1
 pyyaml>=6.0.1
 pytest>=8.0
 
+# ---- camera backbone (T2): torchvision Swin-T / ResNet-18 (installed --no-deps) ----
+# torchvision==0.22.1 is the exact pairing for torch 2.7.1. Installed SEPARATELY with
+# --no-deps in build_venv.sh (its PyPI metadata pins torch==2.7.1 + numpy, which would
+# shadow the CUDA/numpy-matched module build — the nuscenes-devkit footgun). cp312
+# manylinux wheels exist for x86_64 AND aarch64 → Arrhenius-portable. torchvision swin_t
+# uses manual fp32 math attention (no scaled_dot_product_attention) so no SDPA pin needed.
+# torchvision==0.22.1   (installed via --no-deps in build_venv.sh, like nuscenes-devkit)
+
 # ---- nuscenes-devkit runtime deps (devkit itself installed --no-deps) ----
 opencv-python-headless==4.10.0.84
 pyquaternion==0.9.9

@@ -62,6 +62,21 @@ def mini_val_info(nusc_mini):
     tokens = IC.split_sample_tokens(nusc_mini, "mini_val")
     return IC.build_info_list(nusc_mini, tokens, _P.DATAROOT)
 
+
+@pytest.fixture(scope="session")
+def mini_cache_dir(nusc_mini):
+    """Ensure the mini info-cache exists at the CWD-relative ``./fl_outputs/...`` path the
+    detection-task config defaults to (T2). Builds it from the devkit if absent — this is
+    TEST infrastructure (allowed to use the devkit), not ``client_data`` (which must raise
+    if the cache is missing). Skips cleanly if the dataset/devkit is unavailable (via the
+    ``nusc_mini`` dependency). Makes the T2 task tests reproducible from ANY pytest CWD."""
+    from fl_v3.data.nuscenes import info_cache as IC
+
+    cache_dir = "./fl_outputs/nuscenes/info_cache"
+    for split in ("mini_train", "mini_val"):
+        IC.get_or_build_cache(nusc_mini, cache_dir, "v1.0-mini", split, "mini-smoke", _P.DATAROOT)
+    return cache_dir
+
 _FIX_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
 _INPUTS = os.path.join(_FIX_DIR, "oracle_inputs.npz")
 _ARRAYS = os.path.join(_FIX_DIR, "oracle_arrays.npz")
