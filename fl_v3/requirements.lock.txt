@@ -45,7 +45,7 @@ execnet @ file:///dev/shm/PythonbundlePyPI/2024.06/GCCcore-13.3.0/execnet/execne
 expecttest @ file:///dev/shm/expecttest/0.2.1/GCCcore-13.3.0/expecttest-0.2.1
 filelock @ file:///dev/shm/PythonbundlePyPI/2024.06/GCCcore-13.3.0/filelock/filelock-3.15.1
 fire==0.7.1
--e git+ssh://git@github.com/GaohuiXu/FL-DayNightClassifer-project.git@21444d2d1bbf62ba0e7dabacf0f0c203c683b3a9#egg=fl_v3_ad_perception&subdirectory=../../.claude/worktrees/upbeat-dirac-48c093/fl_v3
+-e git+ssh://git@github.com/GaohuiXu/FL-DayNightClassifer-project.git@2d45531c487f2d83486996b678406093d33d4286#egg=fl_v3_ad_perception&subdirectory=fl_v3
 flit_core @ file:///dev/shm/Python/3.12.3/GCCcore-13.3.0/flit_core/flit_core-3.9.0
 flwr==1.27.0
 fonttools==4.63.0
@@ -174,7 +174,7 @@ sphinxcontrib-jsmath @ file:///dev/shm/PythonbundlePyPI/2024.06/GCCcore-13.3.0/s
 sphinxcontrib-qthelp @ file:///dev/shm/PythonbundlePyPI/2024.06/GCCcore-13.3.0/sphinxcontribqthelp/sphinxcontrib_qthelp-1.0.7
 sphinxcontrib-serializinghtml @ file:///dev/shm/PythonbundlePyPI/2024.06/GCCcore-13.3.0/sphinxcontribserializinghtml/sphinxcontrib_serializinghtml-1.1.10
 sphinxcontrib-websupport @ file:///dev/shm/PythonbundlePyPI/2024.06/GCCcore-13.3.0/sphinxcontribwebsupport/sphinxcontrib_websupport-1.2.7
-SQLAlchemy==2.0.50
+SQLAlchemy==2.0.51
 sympy @ file:///dev/shm/sympy/1.13.3/gfbf-2024a/sympy-1.13.3
 tabulate @ file:///dev/shm/PythonbundlePyPI/2024.06/GCCcore-13.3.0/tabulate/tabulate-0.9.0
 termcolor==3.3.0
