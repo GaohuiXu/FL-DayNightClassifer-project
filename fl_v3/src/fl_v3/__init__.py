@@ -3,7 +3,7 @@
 A fresh, bit-deterministic rewrite. ``fl_v2`` is frozen and used only as an
 *implementation oracle* (parity on fixtures, not scientific validity). See
 ``fl_v3/collab/T0/SPEC.md`` and the durable plan
-``fl_v2/docs/roadmap/cycle_04_fusion_layer_backdoors.md``.
+``fl_v3/docs/roadmap/cycle_04_fusion_layer_backdoors.md``.
 
 Design pillars carried into T0:
   * **Bit-determinism is sacred** — all RNG via ``fl_v3.utils.runtime.derive_seed``;

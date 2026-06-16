@@ -110,6 +110,7 @@ def _dispatch_defense(
             global_params, client_params_list,
             num_malicious=int(run_config.get("num-malicious-nodes", 0)),
             num_to_select=int(run_config.get("krum-num-to-select", 1)),
+            weights=num_examples,
         )
     raise ValueError(f"Unknown defense {defense!r}")
 

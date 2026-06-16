@@ -377,6 +377,7 @@ class MultiKrumStrategy(NormTrackingFedAvg):
             client_params_list,
             num_malicious=self.num_malicious,
             num_to_select=self.num_to_select,
+            weights=num_examples,
         )
 
 

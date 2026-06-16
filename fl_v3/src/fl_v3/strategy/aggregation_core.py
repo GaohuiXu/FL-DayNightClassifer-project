@@ -10,25 +10,65 @@ behaviour — admit/clip/reweight/noise → new global arrays — can be exercis
 a saved fixture WITHOUT Flower/Ray (login-node testable), which is exactly what
 the T0 oracle-parity gate needs.
 
-**Parity scope (deliberate design decision — read this).** fl_v3 routes EVERY
-defense (incl. plain FedAvg and NormClip) through this ONE fp64 update-form core
-(``new = global + Σ coef·(client − global)``, fp64, cast back). The fl_v2 oracle
-matches this core BIT-FOR-BIT for FLAME and FoolsGold (they call the same
-``aggregate_weighted_updates`` in fl_v2) — which is why the GATE-required FLAME +
-FoolsGold parity is exact. BUT the oracle's *clean-FedAvg* and *NormClip* final
-aggregation delegate to Flower's ``aggregate_arrayrecords`` (fp32, direct
-weighted average). So fl_v3's clean-FedAvg / NormClip aggregation is algebraically
-equivalent (Σcoef = 1 ⇒ weighted mean) but NOT bit-identical to the oracle's
-fp32 path — it is intentionally higher precision and unified. Bit-parity is
-therefore CLAIMED only for FLAME/FoolsGold; the clean/clip-path agreement with
-Flower's fp32 weighting is a tolerance-level, T3 (real-Ray) check, not a T0
-bit-identity claim. See collab/T0/SPEC.md §7.
+**Two aggregation primitives, each matching the oracle path it stands in for
+(T0 review fix — bit-identity restored for ALL defenses):**
+
+  * ``aggregate_weighted_updates`` (fp64 update-form, optional noise) — used by
+    **FLAME + FoolsGold**, which the fl_v2 oracle ALSO aggregates via this exact
+    fp64 helper (``fl_v2/strategy/norm_tracking_fedavg.aggregate_weighted_updates``).
+    Bit-identical there.
+  * ``fp32_weighted_average`` — a bit-for-bit replica of Flower's
+    ``aggregate_arrayrecords`` (fp32 direct weighted average of the client
+    *params*). Used by **FedAvg (none) / NormClip / MultiKrum**, whose fl_v2
+    oracle path delegates to Flower's ``FedAvg.aggregate_train`` →
+    ``aggregate_arrayrecords``. This restores bit-identity for the clean baseline
+    (the AGENTS.md null-config crown jewel) — verified against REAL Flower in
+    ``tests/test_flower_fp32_parity.py``.
+
+The split is deliberate: each defense uses the SAME numerical aggregation the
+fl_v2/Flower oracle uses for it, so every defense's aggregated bytes match.
 """
 from __future__ import annotations
 
 from typing import List, Optional
 
 import numpy as np
+
+
+def fp32_weighted_average(
+    client_params_list: List[List[np.ndarray]],
+    weights: Optional[List[float]] = None,
+) -> List[np.ndarray]:
+    """Bit-for-bit replica of Flower's ``aggregate_arrayrecords`` (fp32).
+
+    Per parameter tensor ``k``: ``agg = Σ_i (client_i[k].float32 * (w_i/Σw))``,
+    accumulated IN float32 in client order — exactly Flower's
+    ``aggregated[key] = value.numpy() * weight`` then ``+= value.numpy() * weight``
+    (``flwr/serverapp/strategy/strategy_utils.py:88-105``). Weight factors are
+    Python-float (fp64) ``w_i / Σw``; the array×scalar stays float32 (numpy
+    value-based casting). ``weights`` defaults to uniform.
+
+    This is the oracle aggregation for FedAvg (none) / NormClip (post-clip) /
+    MultiKrum (selected). Bit-identity is verified against the real Flower
+    function in ``tests/test_flower_fp32_parity.py``.
+    """
+    n = len(client_params_list)
+    if n == 0:
+        return []
+    if weights is None:
+        weights = [1.0] * n
+    total = sum(float(w) for w in weights)
+    weight_factors = [float(w) / total for w in weights]
+
+    num_tensors = len(client_params_list[0])
+    out: List[np.ndarray] = []
+    for k in range(num_tensors):
+        agg = None
+        for cp, wf in zip(client_params_list, weight_factors):
+            term = np.asarray(cp[k]).astype(np.float32, copy=False) * wf
+            agg = term.copy() if agg is None else agg + term
+        out.append(np.asarray(agg))
+    return out
 
 
 def aggregate_weighted_updates(

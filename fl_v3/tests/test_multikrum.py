@@ -31,10 +31,12 @@ def test_krum_scores_hand_computed():
 
 
 def test_multi_krum_selects_inliers_and_averages():
-    decision = multi_krum_decision(GLOBAL, CLIENTS, num_malicious=1, num_to_select=3)
+    # n=5, f=1 -> num_closest=2, so m<=2 is valid. m=2 selects the two lowest
+    # scores {1 (score 2), 0 (score 5, stable-first)} -> [0,1]; uniform avg 0.5.
+    decision = multi_krum_decision(GLOBAL, CLIENTS, num_malicious=1, num_to_select=2)
     assert decision.valid
-    assert decision.selected == [0, 1, 2]
-    np.testing.assert_allclose(decision.new_global[0], [1.0], rtol=0, atol=1e-6)
+    assert decision.selected == [0, 1]
+    np.testing.assert_allclose(decision.new_global[0], [0.5], rtol=0, atol=1e-6)
 
 
 def test_krum_single_selects_min_score():
@@ -45,19 +47,22 @@ def test_krum_single_selects_min_score():
 
 
 def test_validity_gate():
-    # n=5, f=1, m=3 → valid (5 >= 2*1+3).
-    assert multi_krum_valid(5, 1, 3) is True
-    # n=4, f=1 → 4 < 5 → invalid.
-    assert multi_krum_valid(4, 1, 1) is False
-    # n=5, f=2 → 5 < 7 → invalid.
-    assert multi_krum_valid(5, 2, 1) is False
-    # m out of range.
-    assert multi_krum_valid(5, 1, 6) is False
+    # Reduces to standard Krum at m=1: n=5,f=1 -> n>=2f+3=5 valid.
+    assert multi_krum_valid(5, 1, 1) is True
+    assert multi_krum_valid(5, 1, 2) is True   # m == n-f-2 == 2, the max valid
+    # m=3 exceeds n-f-2=2 -> INVALID (the case the paper-condition flags).
+    assert multi_krum_valid(5, 1, 3) is False
+    assert multi_krum_valid(4, 1, 1) is False  # n < 2f+3
+    assert multi_krum_valid(5, 2, 1) is False  # n=5 < 2*2+3=7
+    assert multi_krum_valid(5, 1, 6) is False  # m out of range
+    assert multi_krum_valid(5, 1, 0) is False  # m < 1
 
 
 def test_invalid_config_marks_NA_not_forced():
-    # f=2 with n=5 is invalid → decision must be NA, not a forced result.
-    decision = multi_krum_decision(GLOBAL, CLIENTS, num_malicious=2, num_to_select=1)
+    # m=3 with n=5,f=1 is invalid (m > n-f-2=2) -> NA, not a forced result.
+    decision = multi_krum_decision(GLOBAL, CLIENTS, num_malicious=1, num_to_select=3)
     assert decision.valid is False
     assert decision.new_global is None
     assert "reason" in decision.diagnostics
+    # f=2 with n=5 also invalid (n < 2f+3).
+    assert multi_krum_decision(GLOBAL, CLIENTS, num_malicious=2, num_to_select=1).valid is False

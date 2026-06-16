@@ -24,6 +24,29 @@ Format:
 - **Rationale:** routing around an abandoned transitive is the Arrhenius
   portability posture; we don't use map rendering. Documented in docs/env.md.
 
+## [T0] 2026-06-16 — Codex REVIEW triage (verdict CHANGES-REQUESTED → resolved)
+Three findings; all addressed.
+- **(scientific-error) MultiKrum one-shot vs paper iterative + validity.** Codex
+  compared against Blanchard's iterative m-Krum. RESOLUTION: fl_v2's MultiKrum oracle
+  is Flower's built-in `select_multikrum`, which is ONE-SHOT (`np.argsort(scores)[:m]`,
+  `num_closest=max(1,n-f-2)`, no gate). fl_v3 already matches that one-shot variant —
+  documented explicitly. Fixed the validity gate to account for m:
+  `multi_krum_valid` now requires `n>=2f+3` AND `1<=m<=n-f-2` (so n=5,f=1,m=3 is
+  correctly INVALID/NA, not forced). Added `test_flower_fp32_parity.py::
+  test_multikrum_decision_parity_vs_flower` (exact SELECTION parity vs real Flower;
+  average within fp32 noise). Fixed the textbook fixture/test (m=2 valid; m=3 → NA).
+- **(invariant-violation) Clean FedAvg/NormClip fp64 vs Flower fp32 (null-config
+  bit-identity).** RESOLUTION (full fix, not documentation): added
+  `aggregation_core.fp32_weighted_average` — a BIT-FOR-BIT replica of Flower's
+  `aggregate_arrayrecords`. FedAvg/NormClip/MultiKrum now aggregate through it (fp64
+  `aggregate_weighted_updates` kept ONLY for FLAME/FoolsGold, where the fl_v2 oracle
+  also uses fp64). Verified bit-identical against REAL Flower in
+  `test_flower_fp32_parity.py` (FedAvg uniform+weighted, NormClip post-clip = exact;
+  MultiKrum selection exact). Clean-baseline bit-identity (AGENTS.md crown jewel) restored.
+- **(question) venv not reproducible in the review env.** RESOLUTION: `run_in_venv.sh`
+  now preflights — fails early with a clear "run build_venv.sh first" if `.venv_v3` is
+  missing or lacks torch/flwr/sklearn.HDBSCAN/fl_v3 (the reviewer hit a half-built env).
+
 ## [T0] 2026-06-15 — self-verification sweep (8 module skeptics + completeness critic)
 Ran an adversarial parity/determinism verification workflow before the Codex
 handoff. FLAME, NormClip+FedMedian+metrics, and Partition verdicts = clean. Fixed

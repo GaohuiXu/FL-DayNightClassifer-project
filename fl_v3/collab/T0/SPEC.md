@@ -57,12 +57,19 @@ behavior + assumption cards (T6), the matrix (T7).
   same-seed TinyMLP → identical weights; same-seed in-process FL round → identical
   `agg_checksum` AND eval; MultiKrum uses `kind="stable"` argsort; FLAME noise from
   a seeded `default_rng`.
-- **Oracle parity (implementation equivalence only):** re-implemented FLAME +
-  FoolsGold (and additionally NormClip, FedMedian, gradient-metrics, partition)
-  reproduce the **fl_v2** decision on a saved fixture of synthetic update vectors
-  (`tests/fixtures/oracle_*`). FLAME: admitted set + clip bound + coefs + the
-  **bit-identical aggregated arrays** (incl. seeded noise). Parity does NOT
-  certify AD-domain validity.
+- **Oracle parity (implementation equivalence only):**
+  - **FLAME + FoolsGold** reproduce the **fl_v2** decision bit-for-bit on a saved
+    fixture (`tests/fixtures/oracle_*`) — FLAME: admitted set + clip bound + coefs
+    + aggregated arrays incl. seeded noise. These use the fp64 update-form core
+    that the fl_v2 oracle also uses.
+  - **FedAvg / NormClip / MultiKrum** aggregate through `fp32_weighted_average`, a
+    **bit-for-bit replica of Flower's `aggregate_arrayrecords`** (the path the
+    fl_v2 oracle delegates to), verified against REAL Flower in
+    `tests/test_flower_fp32_parity.py` (FedAvg uniform+weighted, NormClip
+    post-clip = exact; MultiKrum **selection** exact, subset-average within fp32
+    noise). This keeps the clean-baseline / null-config bit-identity crown jewel.
+  - **FedMedian / gradient-metrics / partition** match the fl_v2 oracle on the
+    saved fixture. Parity does NOT certify AD-domain validity.
 - **No classification coupling:** the skeleton has no hardcoded loss / num-classes
   / single-logits assumption — asserted by AST inspection + an end-to-end MSE
   regression round (`tests/test_task_agnostic.py`).
@@ -120,13 +127,15 @@ behavior + assumption cards (T6), the matrix (T7).
   HDBSCAN OK, nuScenes data+DetectionEval import with no descartes.)
 - [x] determinism smoke green (same-seed → bit-identical TinyMLP weights AND
   identical in-process FL-round `agg_checksum`).
-- [x] re-implemented FLAME (+ FoolsGold, NormClip, FedMedian, gradient-metrics,
-  partition) reproduce the `fl_v2` decision on a saved fixture.
+- [x] re-implemented FLAME + FoolsGold reproduce the `fl_v2` decision bit-for-bit
+  on a saved fixture; FedAvg/NormClip/MultiKrum are bit-identical to Flower's fp32
+  aggregation (live-Flower parity test); FedMedian/gradient-metrics/partition match.
 - [x] FL skeleton imports + runs a trivial clean round on a dummy task with no
   hardcoded loss (in-process runner; real Ray run is T3, via SLURM).
 - [x] `fl_v3/collab/` established (templates + empty findings log).
 
-**Evidence:** `pytest fl_v3/tests` → 43 passed (see §7 / the build summary).
+**Evidence:** `pytest fl_v3/tests` → **62 passed** (after the Codex-review fixes;
+see `collab/findings_log.md`).
 
 ## 7. Self-review — what I'm least sure about (attack these hardest)
 
@@ -136,18 +145,16 @@ clean, the actionable items were fixed (see `collab/findings_log.md`), and the
 items below are the conscious decisions + scope boundaries that most warrant a
 second opinion.
 
-1. **Unified fp64 aggregation core vs the oracle's fp32 clean path (the headline
-   parity-scope decision).** fl_v3 routes EVERY defense — incl. plain FedAvg and
-   NormClip — through one fp64 `aggregate_weighted_updates` core. The fl_v2 oracle
-   computes FLAME + FoolsGold via that SAME core (so their parity is **bit-identical**,
-   and that is what the GATE requires), but its *clean*-FedAvg / NormClip final
-   aggregation delegates to Flower's fp32 `aggregate_arrayrecords`. So fl_v3's
-   clean/clip aggregation is algebraically equal but NOT bit-identical to the oracle
-   (fp64 vs fp32). I chose to keep the unified higher-precision core and claim
-   bit-parity only for FLAME/FoolsGold; clean/clip agreement with Flower's fp32 is a
-   tolerance-level T3 check. **Is that the right call, or should clean-FedAvg/NormClip
-   match Flower's fp32 weighting bit-for-bit?** (`aggregation_core.py` docstring,
-   `defenses/fedavg.py`.)
+1. **[RESOLVED in Codex-review pass] Clean-path aggregation now bit-identical to
+   Flower fp32.** Previously fl_v3 routed clean FedAvg/NormClip through the fp64
+   core; Codex flagged this against the null-config crown jewel. Now FedAvg /
+   NormClip / MultiKrum aggregate through `fp32_weighted_average` (a bit-for-bit
+   replica of Flower's `aggregate_arrayrecords`, verified against REAL Flower); fp64
+   is kept ONLY for FLAME/FoolsGold (where the fl_v2 oracle also uses fp64). The one
+   residual non-bit-exact spot is MultiKrum's selected-*average* (within fp32 noise,
+   because fl_v3 uses a more numerically stable distance + index-order summation) —
+   its **selection** is bit-exact. Worth a second look: is tolerance-not-bit-exact
+   acceptable for the MultiKrum subset-average, given the selection is exact?
 2. **Strict determinism is an INTENTIONAL divergence from the oracle.** fl_v2 used
    `use_deterministic_algorithms(True, warn_only=True)`; fl_v3 defaults to strict
    (RAISE) so a banned op in the AD model (T2) cannot slip through as a silent warn.
@@ -163,11 +170,14 @@ second opinion.
    weighting; dropped-clients-in-metrics-but-not-params), and the ArrayRecord-key /
    global-order identity are T3 checks. Acceptable T0 gate, or add a 2-supernode CPU
    `flwr run` smoke now?
-4. **MultiKrum has no fl_v2 source oracle** (fl_v2 used Flower's built-in). Validated
-   on a hand-computed textbook fixture + validity gate, NOT cross-checked numerically
-   against Flower's built-in. Also: `num-malicious-nodes` is consumed as Krum's
-   *assumed* `f_r` only (no attack exists yet); once attacks land (T4/T5) a separate
-   knob must keep assumed-`f_r` independent of actual-`m_r`.
+4. **[RESOLVED in Codex-review pass] MultiKrum matches Flower's one-shot variant.**
+   Codex compared against the paper's iterative m-Krum; the platform oracle is
+   Flower's built-in (one-shot `argsort(scores)[:m]`), which fl_v3 matches —
+   now cross-checked for **exact selection parity against real Flower**. Validity is
+   `m`-aware (`n>=2f+3` AND `1<=m<=n-f-2`), so e.g. `n=5,f=1,m=3` is correctly NA.
+   Still forward-looking: `num-malicious-nodes` is Krum's *assumed* `f_r` only (no
+   attack exists yet); once attacks land (T4/T5) a separate knob must keep
+   assumed-`f_r` independent of actual-`m_r`.
 5. **FoolsGold head-slice index `-2`** (carried from fl_v2's ResNet `fc.weight`) is
    now a `head_index` param threaded on both the Flower path and the local runner.
    For AD it must become the fusion/detection-head indicative slice (T6) — confirm the

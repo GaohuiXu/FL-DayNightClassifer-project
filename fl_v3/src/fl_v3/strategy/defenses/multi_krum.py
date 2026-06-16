@@ -1,47 +1,62 @@
 """Multi-Krum core (Blanchard et al., NeurIPS 2017) — Byzantine-robust selection.
 
-fl_v2 used Flower's *built-in* ``MultiKrum`` (wrapped only for metric capture),
-so there is no fl_v2 source to be the parity oracle here. fl_v3 re-implements the
-textbook algorithm as a clean pure-numpy core and validates it on a hand-derived
-fixture (small n where the scores/selection are computable by hand). The two
-GATE-required oracle-parity defenses are FLAME + FoolsGold (which DO have fl_v2
-source); MultiKrum's correctness is established by the textbook fixture.
+fl_v2 used Flower's built-in ``MultiKrum`` as the platform's MultiKrum. fl_v3
+re-implements that **same one-shot variant** (the platform oracle), NOT the
+paper's iterative m-Krum (select-one → remove → recompute). Flower's
+``select_multikrum`` (``flwr/serverapp/strategy/multikrum.py``) computes Krum
+scores ONCE and takes ``np.argsort(scores)[:m]`` — exactly what this core does.
+Parity against the real Flower function is asserted in
+``tests/test_flower_fp32_parity.py``: the SELECTION (the meaningful decision) is
+bit-exact; the selected-subset average matches Flower within fp32 noise (~1 ULP)
+because fl_v3 uses a more numerically stable direct ``||x-y||^2`` distance than
+Flower's ``||x||^2+||y||^2-2x.y`` and aggregates in index (not score) order.
 
 Algorithm (per round, n participants, ``f`` assumed Byzantine):
-  * pairwise squared-L2 distances between client update vectors;
+  * pairwise squared-L2 distances between client update vectors
+    (= distances between params, since the shared global cancels);
   * each client's Krum score = sum of its ``n - f - 2`` smallest distances to
     OTHER clients;
   * Multi-Krum selects the ``m`` clients with the smallest scores and averages
-    them (plain Krum is ``m = 1``).
+    them (plain Krum is ``m = 1``). The average uses Flower's fp32
+    ``aggregate_arrayrecords`` weighting (num-examples), via
+    :func:`fp32_weighted_average`.
 
-**Validity (the assumption card requirement).** Krum's robustness guarantee
-needs ``n >= 2f + 3`` and a sensible selection count ``1 <= m <= n``. If the
-``(n_r, f_r)`` actually present this round violate that, the core returns
-``valid=False`` and the harness records the cell as NA — it does NOT force a
-result. ``f_r`` (the defender's *assumed* malicious count among participants) is
-independent of the *actual* malicious count ``m_r`` (ground truth); both are
-reported, never conflated.
+**Validity (the assumption card requirement, STRICTER than Flower).** Flower
+clamps ``num_closest = max(1, n-f-2)`` and forces a result for any ``(n,f,m)``.
+The Cycle-04 defense card instead requires marking a config NA when Krum's
+assumptions are violated. fl_v3 enforces: ``f >= 0``; Krum Byzantine resilience
+``n >= 2f + 3``; and the selection bounded by the trusted-neighbour count
+``1 <= m <= n - f - 2`` (so we never select more vectors than the Krum structure
+supports — e.g. ``n=5, f=1, m=3`` is INVALID because ``n-f-2 = 2 < 3``). On
+violation the core returns ``valid=False`` (cell NA, not forced). ``f`` is the
+defender's *assumed* malicious count, independent of the *actual* count.
 
-Determinism: the score ranking uses a stable argsort and the caller has already
-sorted clients by partition-id, so tie order is reproducible. (Neighbour sums
-are tie-safe: the sum of the k smallest distances is invariant to which tied
-element fills the boundary.)
+Determinism: stable argsort + the caller's partition-id pre-sort make ties
+reproducible (neighbour sums are tie-safe).
 """
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 
-from fl_v3.strategy.aggregation_core import aggregate_weighted_updates
+from fl_v3.strategy.aggregation_core import fp32_weighted_average
 from fl_v3.strategy.defenses.base import DefenseDecision, build_flat_updates
 
 
 def multi_krum_valid(n: int, f: int, num_to_select: int) -> bool:
-    """Krum validity: ``n >= 2f + 3``, ``f >= 0``, ``1 <= m <= n``."""
-    if f < 0 or num_to_select < 1 or num_to_select > n:
+    """Multi-Krum validity: ``f >= 0``, ``n >= 2f + 3``, ``1 <= m <= n - f - 2``.
+
+    The ``m <= n - f - 2`` bound (NOT present in Flower, which clamps and forces)
+    accounts for the selection count: you cannot select more vectors than the
+    ``n - f - 2`` trusted neighbours the Krum score is built on. Reduces to
+    standard Krum (``n >= 2f + 3``) at ``m = 1``.
+    """
+    if f < 0 or num_to_select < 1:
         return False
-    return n >= 2 * f + 3
+    if n < 2 * f + 3:
+        return False
+    return num_to_select <= n - f - 2
 
 
 def krum_scores(flat: np.ndarray, f: int) -> np.ndarray:
@@ -58,8 +73,6 @@ def krum_scores(flat: np.ndarray, f: int) -> np.ndarray:
             f"krum_scores needs n - f - 2 >= 1 (got n={n}, f={f} -> {num_closest}); "
             "pre-validate with multi_krum_valid."
         )
-    # Pairwise squared L2 distances. ||a-b||^2 = ||a||^2 + ||b||^2 - 2 a·b,
-    # but compute directly for numerical clarity at this scale.
     sq = np.empty((n, n), dtype=np.float64)
     for i in range(n):
         diff = flat - flat[i]
@@ -67,7 +80,6 @@ def krum_scores(flat: np.ndarray, f: int) -> np.ndarray:
     scores = np.empty(n, dtype=np.float64)
     for i in range(n):
         others = np.delete(sq[i], i)  # exclude self
-        # Sum of the num_closest smallest distances (tie-safe: equal values).
         nearest = np.sort(others, kind="stable")[:num_closest]
         scores[i] = float(nearest.sum())
     return scores
@@ -79,11 +91,11 @@ def multi_krum_decision(
     *,
     num_malicious: int,
     num_to_select: int,
+    weights: Optional[List[float]] = None,
 ) -> DefenseDecision:
-    """Multi-Krum selection + average of the selected clients.
-
-    Returns ``valid=False`` (and ``new_global=None``) if ``(n, f, m)`` violate
-    Krum validity — the cell is NA, not forced.
+    """Multi-Krum selection + Flower-identical fp32 weighted average of the
+    selected clients. Returns ``valid=False`` (``new_global=None``) if
+    ``(n, f, m)`` violate :func:`multi_krum_valid` — the cell is NA, not forced.
     """
     n = len(client_params_list)
     f = int(num_malicious)
@@ -98,21 +110,18 @@ def multi_krum_decision(
                 "n_total": int(n),
                 "assumed_malicious_f": f,
                 "num_to_select": m,
-                "reason": "MultiKrum validity violated (need n >= 2f+3, 1<=m<=n)",
+                "reason": "MultiKrum validity violated (need n>=2f+3, 1<=m<=n-f-2)",
             },
         )
 
     flat = build_flat_updates(global_params, client_params_list)
     scores = krum_scores(flat, f)
-    # Smallest m scores; stable so ties break by (partition-id-sorted) index.
-    order = np.argsort(scores, kind="stable")
+    order = np.argsort(scores, kind="stable")  # ties break by partition-id-sorted index
     selected = sorted(int(i) for i in order[:m])
 
-    # Average the selected clients (uniform) — FedAvg over the survivors.
-    coefs = [0.0] * n
-    for i in selected:
-        coefs[i] = 1.0 / len(selected)
-    new_global = aggregate_weighted_updates(global_params, client_params_list, coefs)
+    sel_params = [client_params_list[i] for i in selected]
+    sel_weights = None if weights is None else [float(weights[i]) for i in selected]
+    new_global = fp32_weighted_average(sel_params, sel_weights)
 
     return DefenseDecision(
         new_global=new_global,
