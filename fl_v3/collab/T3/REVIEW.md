@@ -5,12 +5,11 @@
 > `fl_v3/collab/T<N>/REVIEW.md`.
 
 ## Verdict
-`CHANGES-REQUESTED`
+`PASS`
 
-Core DT3-A/DT3-B/FedAvg parity looks scientifically sound in the current artifacts: the A40 job
-`6764008` shows Ray A/B, local_runner, and `norm_log` byte-identity. The changes requested below are
-about making the gate and reported trainval-gap artifact enforce/declare the SPEC requirements instead
-of relying on the successful one-off run.
+Re-review verdict after commits `14aad8c` and `d9cc8e9`: all prior findings are resolved. The
+original review findings are retained below for audit; the superseding Codex re-review is at the end
+of this file.
 
 Reviewer checks run:
 - `bash fl_v3/scripts/run_in_venv.sh python -m pytest fl_v3/tests/test_fl_sampling.py fl_v3/tests/test_fl_trainable_only.py fl_v3/tests/test_fl_local_runner_multiround.py fl_v3/tests/test_fl_gate_refuses_non_a40.py` -> 19 passed.
@@ -69,3 +68,27 @@ found). The 5 enforcement/reporting findings are fixed and re-validated on the A
 **Hardened-gate re-run (job 6764281) → OVERALL: PASS** with all enforcement active —
 `runA==runB==local_runner==d82ef5001b88…c08b236`, cross-check + norm_log substrate hard-enforced.
 The committed checksum is unchanged (the fixes are enforcement, not behavior). Ready for Codex re-review.
+
+---
+
+## Codex re-review (2026-06-17) — PASS
+
+Reviewed new commits:
+- `14aad8c` — `Cycle 04 T3: address Codex review (F1–F5) + Path A/B doc terminology`
+- `d9cc8e9` — `Cycle 04 T3: D9 — note A100/A100-fat for full-model-from-scratch (+ re-validate GPU tier)`
+
+Verification run by Codex:
+- `bash fl_v3/scripts/run_in_venv.sh python -m pytest fl_v3/tests/test_fl_sampling.py fl_v3/tests/test_fl_trainable_only.py fl_v3/tests/test_fl_local_runner_multiround.py fl_v3/tests/test_fl_gate_refuses_non_a40.py` -> 19 passed.
+- `bash fl_v3/scripts/run_in_venv.sh python -m py_compile fl_v3/scripts/fl_gate_a40.py fl_v3/scripts/t3_trainval_reeval_fullval.py` -> passed.
+- `git diff --check 76c9128..HEAD -- fl_v3` -> clean.
+- Inspected A40 logs `fl_v3/scripts/logs/t3_reeval_6764280.out` and `fl_v3/scripts/logs/fl_gate_6764281.out`.
+
+Resolution check:
+- F1 resolved: `trainval_fullval_reeval.json` records full `v1.0-trainval` val evaluation with `det-eval-limit=0`, `n_eval_examples=6019`, `proxy_n_gt=80004`, and full-val gap `+0.2073`. The log for job `6764280` matches the JSON, and `collab/T3/SPEC.md` now labels the authoritative gap as full-val while retaining the old 256-sample number as an in-training subset.
+- F2 resolved: `run_fedavg_a40.sh` now hard-fails if Ray and local_runner checksums differ on the same A40.
+- F3 resolved: `run_fedavg_a40.sh` now hard-fails if either `norm_log.json` is missing, then compares canonical JSON.
+- F4 resolved: `fl_gate_a40.py` now exits 2 before training unless `task-type == "nuscenes_detection"`, `num-server-rounds >= 3`, and `0 < fraction-train < 1`.
+- F5 resolved: trailing whitespace finding is gone.
+- D9 follow-up is scientifically bounded: it distinguishes multi-GPU Path A from shared-GPU Path B, keeps single-actor gates/null-config proofs, and explicitly requires headline Swin-T/trainval plus GPU-tier re-validation before relying on concurrent actors or A100/full-model runs.
+
+No new scientific-error, correctness-bug, invariant-violation, question, calibration/units, or metric-definition findings.

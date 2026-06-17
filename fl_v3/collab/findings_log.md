@@ -434,3 +434,23 @@ All addressed:
 - **F5 (style) — trailing whitespace** in findings_log stripped.
 Hardened gate re-run (job 6764281) reconfirms OVERALL PASS with enforcement active (same checksum
 d82ef500…). Codex re-review pending.
+
+## [T3] 2026-06-17 — Codex RE-REVIEW of T3 (verdict PASS — review loop closed)
+- **Finding (review outcome):** Codex re-reviewed commits `14aad8c` (F1–F5 fixes + Path A/B docs) and
+  `d9cc8e9` (D9 A100/full-model-from-scratch note) and returned **PASS** — all prior findings resolved,
+  **no new** scientific-error / correctness-bug / invariant-violation / question / calibration / metric
+  findings. It independently verified: the 19 T3 tests pass, `py_compile` of the changed scripts passes,
+  `git diff --check 76c9128..HEAD` is clean, and the A40 logs for the full-val re-eval (`6764280`) +
+  hardened gate (`6764281`) match the committed artifacts.
+- **Resolution confirmed by Codex:** F1 — `trainval_fullval_reeval.json` records full v1.0-trainval val
+  (`det-eval-limit=0`, n=6019, proxy_n_gt=80004, gap **+0.2073**); SPEC labels it authoritative with the
+  256-subset retained as the in-training proxy. F2/F3 — `run_fedavg_a40.sh` hard-fails on cross-check
+  mismatch and on a missing `norm_log.json`. F4 — `fl_gate_a40.py` exits 2 unless
+  `nuscenes_detection` + `num-server-rounds>=3` + `0<fraction-train<1`. F5 — whitespace gone. D9 deemed
+  "scientifically bounded" (Path A multi-GPU vs Path B shared-GPU distinguished; gates stay single-actor;
+  Swin-T/trainval + GPU-tier re-validation required before relying on concurrent actors or A100).
+- **Rationale:** T3 (the FL platform milestone — real Flower/Ray clean FedAvg on the A40, bit-identical
+  across two same-seed runs, IID-mini≈central, the measured trainval non-IID gap) is scientifically
+  signed off; the build+review loop is closed. Next: the orchestrator marks T3 done and issues T4
+  (DetectionEval mAP/NDS + ASR metrics + V4), which builds on T3's clean baseline + the frozen
+  update-vector layout contract.
