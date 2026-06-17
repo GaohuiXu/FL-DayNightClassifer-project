@@ -87,3 +87,27 @@ Swin-T + trainval scale and at the actor count you actually use** (e.g. Path A o
 `num-gpus=0.2` → 5 concurrent) before committing the matrix to it — the atomic-free argument is
 architecture-wide, but the proof + the speedup number should be at the operating point. A
 `single-actor vs Path A vs Path B vs combined` Swin-T benchmark (~4 short A40 jobs) would lock this in.
+
+### Hardware tier for FULL-MODEL-FROM-SCRATCH (future) — consider A100 / A100-fat, and RE-VALIDATE first
+
+The **current primary setting (D1) is memory-light** — the ImageNet backbone is FROZEN, so only the
+**62 trainable tensors** are optimized (no backbone gradients / Adam state / backbone-backward
+activations); the headline Swin-T trains at ~21 GB on the A40's 46 GB even at batch 16. For that
+regime the **A40 is the right pin** and a bigger GPU buys nothing (memory is not the constraint).
+
+**But a future task may train a FULL model from scratch** — the **full-model-FL generality ablation**
+(unfreeze the backbone, ImageNet-init or random-init) trains **all ~28 M+ params**, which adds backbone
+gradients + Adam moments + the full backbone-backward activation graph → **far higher VRAM** (and it
+wants larger batches). The A40's 46 GB may be insufficient at useful batch sizes. **For that regime,
+consider A100 (80 GB) / A100-fat** — the larger memory is what enables full-model training + bigger
+batches.
+
+**HARD REQUIREMENT before any full-model-from-scratch experiment on a new GPU tier:** re-establish the
+determinism contract on that GPU exactly as we did for the A40 — an **A100 analog of the A40 gate**
+(`det_gate_a40` / `run_fedavg_a40` patterns): assert the device, run two same-seed runs → **byte-identical**,
+and **commit a new A100 checksum**. Determinism is **architecture-pinned** (T4 ≠ A40 ≠ A100 ≠ ARM H200,
+per `docs/determinism.md`), so an A100 result is **NOT** byte-comparable to an A40 result — keep each
+experiment's GPU tier **homogeneous and recorded**, and re-validate the **concurrent-actor (Path A/B)**
+byte-identity on A100 too (the atomic-free argument is architecture-wide, but prove it at the operating
+point). **Never run a full-scale exp on an unvalidated GPU tier** — that is the same FALSE-PASS trap the
+A40 gate exists to prevent, one level up at the hardware tier.
