@@ -74,6 +74,10 @@ fraction-train = 1.0
 fraction-evaluate = 1.0
 min-available-nodes = 2
 min-train-nodes = 2
+# DT3-B: evaluate-side participant floor, read from its OWN key (was reusing
+# min-train-nodes). For the AD task fraction-evaluate=0 (server-side eval), so this
+# only bites when client-side evaluation is enabled.
+min-evaluate-nodes = 2
 num-local-epochs = 1
 num-clients = 4
 partition-mode = "iid"

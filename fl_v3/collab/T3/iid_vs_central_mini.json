@@ -1,0 +1,202 @@
+{
+  "fed": {
+    "eval_loss": 2.9958876680444786,
+    "num-eval-examples": 81.0,
+    "proxy_recall_at_2m": 0.4961059190031153,
+    "proxy_n_decoded": 4500.0,
+    "proxy_n_gt": 2568.0,
+    "proxy_matched_gt": 1274.0
+  },
+  "central": {
+    "eval_loss": 4.419602900375555,
+    "num-eval-examples": 81.0,
+    "proxy_recall_at_2m": 0.46534267912772587,
+    "proxy_n_decoded": 5227.0,
+    "proxy_n_gt": 2568.0,
+    "proxy_matched_gt": 1195.0
+  },
+  "recall_fed": 0.4961059190031153,
+  "recall_central": 0.46534267912772587,
+  "r_floor": 0.05,
+  "delta": 0.15,
+  "abs_gap": 0.030763239875389425,
+  "num_rounds": 15,
+  "num_clients": 4,
+  "local_epochs": 2,
+  "central_total_steps": 2400,
+  "rounds_curve": [
+    {
+      "round": 1,
+      "participants": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "decision_valid": true,
+      "agg_checksum": "691f75bbf88a50949428c5a14a33c201055cb0e6b32c46d7848be54caa104621"
+    },
+    {
+      "round": 2,
+      "participants": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "decision_valid": true,
+      "agg_checksum": "082e16cea32a007fe02b9006e84950e96efacdd4c1a4b5197d43ce0b7cc2a53b"
+    },
+    {
+      "round": 3,
+      "participants": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "decision_valid": true,
+      "agg_checksum": "157c235ddf167bae93fd936fc8a7f6445daefbbbd9bd5a2d624016c943718c5a"
+    },
+    {
+      "round": 4,
+      "participants": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "decision_valid": true,
+      "agg_checksum": "97c248afac822f852971cc5122d11918b0078326e4cf07540d097d134995411d"
+    },
+    {
+      "round": 5,
+      "participants": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "decision_valid": true,
+      "agg_checksum": "1da95e0a413699c06f19167bb04d7247a5f696230dd380089af14045fa000f82"
+    },
+    {
+      "round": 6,
+      "participants": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "decision_valid": true,
+      "agg_checksum": "03b4decf358f708612fdd8c8478d491384affaa5a7672d85e05e6a013b640575"
+    },
+    {
+      "round": 7,
+      "participants": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "decision_valid": true,
+      "agg_checksum": "f0bc304d8f6c89a74c48ce107ca9fcdef543f9fc5340872d87824416fccc0520"
+    },
+    {
+      "round": 8,
+      "participants": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "decision_valid": true,
+      "agg_checksum": "7ddae0de8485686f2fbd1041c674c291b541134079636062a0b698fa73fad76e"
+    },
+    {
+      "round": 9,
+      "participants": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "decision_valid": true,
+      "agg_checksum": "491c5f4b28b99427539a657406f234c41496d0b0030c59fd6fbb4eda4d6236f6"
+    },
+    {
+      "round": 10,
+      "participants": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "decision_valid": true,
+      "agg_checksum": "3bf81ba93ec9e034487155062584449d261b41883ec307857b27f7536653ea39"
+    },
+    {
+      "round": 11,
+      "participants": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "decision_valid": true,
+      "agg_checksum": "ee6d1ac0b2a045a6fc5e6dcd3a5ebd6d1937350d450d4c3b5c206fdf54b3ed79"
+    },
+    {
+      "round": 12,
+      "participants": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "decision_valid": true,
+      "agg_checksum": "e73bfd3e7ed19d51c63694ace64aff9443dc780cd3b16a7f240765a3e3e619ca"
+    },
+    {
+      "round": 13,
+      "participants": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "decision_valid": true,
+      "agg_checksum": "c8a22d9c9dfda0888eb62635b382a4876350c7914a2dd62e03fd7ec2f38cfcd1"
+    },
+    {
+      "round": 14,
+      "participants": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "decision_valid": true,
+      "agg_checksum": "01545c7e3b1e26934c7124e45fea88aecde93b7494b68b764421ba91967bd7df"
+    },
+    {
+      "round": 15,
+      "participants": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "decision_valid": true,
+      "agg_checksum": "017fb0e737f898759f718d144fcf0505ca3078d944841f66b74e859fc6615cab"
+    }
+  ],
+  "checks": {
+    "anti_collapse_fed": true,
+    "anti_collapse_central": true,
+    "fed_clears_floor": true,
+    "central_clears_floor": true,
+    "recall_agreement": true
+  },
+  "PASS": true
+}

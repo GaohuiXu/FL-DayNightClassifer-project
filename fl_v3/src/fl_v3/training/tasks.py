@@ -15,6 +15,7 @@ flows end-to-end through train → aggregate → eval.
 from __future__ import annotations
 
 import abc
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
@@ -26,6 +27,105 @@ from torch.utils.data import DataLoader, TensorDataset
 from fl_v3.data.partition import iid_partition
 from fl_v3.models.dummy import TinyMLP
 from fl_v3.utils.runtime import derive_seed, seeded_worker_init, truthy
+
+# ---------------------------------------------------------------------------
+# DT3-A — trainable-only update vector + the frozen T3→T6 layout contract.
+# ---------------------------------------------------------------------------
+# The FL update vector is the model's **trainable** tensors ONLY (D1: the frozen
+# ImageNet camera backbone — 94 % of params, zero update — is excluded and
+# reconstructed byte-identically per node from the pinned ImageNet cache; see
+# ``det-pretrained-backbone``). For the headline BEVFusion detector this is
+# EXACTLY the 62 non-backbone param tensors, in this module order with these
+# per-module counts. Frozen here as the contract T6 defenses + the Q2 dilution
+# slice depend on (asserted by ``assert_trainable_layout`` + tests).
+#
+# Buffers are NOT in the update vector. VERIFIED (T3 introspection): all frozen
+# *params* live under ``camera_backbone``; the only non-backbone buffers are 4
+# node-invariant CONSTANTS (``preprocess._mean/_std``, ``view_transform.frustum/
+# depth_values``) — byte-identical across nodes AND unchanged through training —
+# so excluding them is lossless (each node rebuilds them from config). The 6
+# trainable modules use GroupNorm (D6) and carry no running-stat buffers.
+TRAINABLE_MODULE_SLICE_MAP: "OrderedDict[str, int]" = OrderedDict(
+    [
+        ("camera_neck", 15),
+        ("view_transform", 5),
+        ("lidar_encoder", 3),
+        ("fusion", 6),
+        ("bev_neck", 18),
+        ("head", 15),
+    ]
+)
+TRAINABLE_TENSOR_COUNT: int = sum(TRAINABLE_MODULE_SLICE_MAP.values())  # 62
+
+
+def trainable_param_names(model: nn.Module) -> set:
+    """Names of the parameters that get FL-aggregated (``requires_grad=True``)."""
+    return {n for n, p in model.named_parameters() if p.requires_grad}
+
+
+def trainable_state_dict(model: nn.Module) -> "OrderedDict[str, torch.Tensor]":
+    """The DT3-A update vector: the trainable tensors only, in ``state_dict`` order.
+
+    A ``requires_grad``-based filter (NOT a ``camera_backbone`` prefix-drop) over
+    ``model.state_dict()`` — so it degenerates to the FULL state_dict on a model with
+    no frozen params (e.g. ``TinyMLP``: task-agnostic preserved). Buffers are dropped
+    (they are not in ``named_parameters``); see the contract note above.
+    """
+    keep = trainable_param_names(model)
+    sd = model.state_dict()
+    return OrderedDict((k, v) for k, v in sd.items() if k in keep)
+
+
+def load_trainable_state_dict(model: nn.Module, state) -> None:
+    """Load a trainable-only state_dict into the FULL model with ``strict=False``.
+
+    A partial (62-key) dict cannot ``load_state_dict(strict=True)`` — it RAISES on the
+    missing frozen-backbone/buffer keys. We load non-strict and then assert the load was
+    clean: NO unexpected keys, and NO **trainable** key left unfilled (missing keys may
+    only be the frozen/buffer keys the model reconstructs itself). This catches a silent
+    wrong-weights load (e.g. a key-order or schema drift) loudly.
+    """
+    sd = state.to_torch_state_dict() if hasattr(state, "to_torch_state_dict") else state
+    incompat = model.load_state_dict(sd, strict=False)
+    unexpected = list(incompat.unexpected_keys)
+    if unexpected:
+        raise RuntimeError(
+            f"trainable-only load got {len(unexpected)} UNEXPECTED keys "
+            f"(not in the model): e.g. {unexpected[:5]}"
+        )
+    trainable = trainable_param_names(model)
+    missing_trainable = trainable.intersection(incompat.missing_keys)
+    if missing_trainable:
+        raise RuntimeError(
+            f"trainable-only load left {len(missing_trainable)} TRAINABLE keys unfilled "
+            f"(update vector incomplete): e.g. {sorted(missing_trainable)[:5]}"
+        )
+
+
+def assert_trainable_layout(model: nn.Module) -> None:
+    """Assert the model's trainable tensors match the frozen T3→T6 layout contract."""
+    keep = trainable_param_names(model)
+    ordered = [k for k in model.state_dict().keys() if k in keep]
+    if len(ordered) != TRAINABLE_TENSOR_COUNT:
+        raise AssertionError(
+            f"expected {TRAINABLE_TENSOR_COUNT} trainable tensors, got {len(ordered)}"
+        )
+    counts: "OrderedDict[str, int]" = OrderedDict()
+    order: List[str] = []
+    for k in ordered:
+        top = k.split(".")[0]
+        if top not in counts:
+            counts[top] = 0
+            order.append(top)
+        counts[top] += 1
+    if order != list(TRAINABLE_MODULE_SLICE_MAP.keys()):
+        raise AssertionError(
+            f"module order {order} != contract {list(TRAINABLE_MODULE_SLICE_MAP.keys())}"
+        )
+    if counts != TRAINABLE_MODULE_SLICE_MAP:
+        raise AssertionError(
+            f"per-module counts {dict(counts)} != contract {dict(TRAINABLE_MODULE_SLICE_MAP)}"
+        )
 
 # A criterion maps (model_output, target) -> scalar loss tensor. NOT assumed to
 # be classification — MSE, L1, a detection loss, etc. all satisfy this. ``target``

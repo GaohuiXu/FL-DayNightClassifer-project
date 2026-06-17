@@ -349,3 +349,67 @@ the actionable findings:
   build asserts `numpy == 1.26.4` post-install.
 - **Rationale:** the exact hazard CLAUDE.md warns about; the assert makes a
   regression loud.
+
+## [T3] 2026-06-16 — DT3-A: 4 non-backbone buffers exist (SPEC claim refined), still lossless
+- **Finding (correctness nuance):** the T3 SPEC asserted "ALL frozen params + ALL buffers
+  live inside `camera_backbone`". Introspection of the real detector shows that is true for
+  *params* (0 frozen params outside the backbone) but NOT for *buffers*: 4 non-backbone
+  buffers exist — `preprocess._mean`, `preprocess._std`, `view_transform.frustum`,
+  `view_transform.depth_values`.
+- **Decision/fix:** keep trainable-only = the 62 trainable param tensors (buffers excluded).
+  VERIFIED the 4 buffers are node-invariant CONSTANTS (byte-identical across seeds) AND
+  static through a train step (unchanged after 3 Adam steps) — so each node reconstructs them
+  identically in `build_model`; excluding them from the update vector is lossless. The 60
+  resnet18 backbone BN running-stat buffers are frozen (eval mode, D1/D6) and also unchanged.
+- **Rationale:** `requires_grad` filter (not a prefix-drop) is the correct definition; the
+  buffers ride along inside each node's reconstructed model, never the wire. Documented in
+  `training/tasks.py` (`TRAINABLE_MODULE_SLICE_MAP` note) + flagged for Codex.
+
+## [T3] 2026-06-16 — DT3-B: flwr 1.27 exposes no node_id→partition-id map → discovery probe
+- **Finding (design, verified vs source):** the server strategy cannot recover a participant's
+  `partition-id` at `configure_train` time. `vce_api._register_nodes` assigns `partition_id=i`
+  but the node_id comes from `secrets.token_bytes(32)` (random); `LinkState.get_nodes` returns
+  a `set` (unordered); the partition-id lives only in each client's `node_config`. So
+  Flower's `random.sample(get_node_ids())` picks a different subset per same-seed driver (§0.2).
+- **Decision/fix:** add a cheap `@app.query()` handler that echoes the node's `partition-id`;
+  the strategy runs ONE discovery QUERY round at first `configure_train` to build the
+  `partition_id→node_id` map for THIS run, then selects deterministically over `range(N)`
+  (`strategy/sampling.select_partition_ids`) and maps back. Requires the discovered ids to
+  cover exactly `range(N)` (⇒ `num-supernodes` must equal the derived client count N).
+- **Rationale:** makes EVERY round (incl. round 1) deterministically partition-sampled, so
+  two same-seed drivers with different node_ids select identical partition-ids at fraction<1.
+
+## [T3] 2026-06-16 — `derive_seed` is int-only; sampler uses reserved integer salts
+- **Finding (API):** the SPEC's shorthand `derive_seed(seed, "sample", round)` cannot work —
+  `derive_seed` casts every arg to `int()` (a string raises). 
+- **Decision/fix:** the sampler calls `derive_seed(seed, SALT, round)` with reserved integer
+  salts `SAMPLE_SALT_TRAIN=700_000_001` / `SAMPLE_SALT_EVAL=700_000_002` in the `client_id`
+  slot — far above any real partition-id (0..N-1), so a sampling seed never aliases a
+  per-client training seed `derive_seed(seed, client_id, round)`. Harness left untouched.
+- **Rationale:** preserves the T0 determinism harness; collision-safe + independent
+  train/evaluate RNG streams.
+
+## [T3] 2026-06-16 — flwr 1.27 launcher: auto-SuperLink + `--federation-config` ignored
+- **Finding (launcher, verified vs source):** (a) `flwr run . local-simulation-gpu`
+  auto-starts + manages the local `flower-superlink` (`cli/local_superlink._start_local_
+  superlink`) bound to `FLWR_LOCAL_CONTROL_API_PORT`/`…SIMULATIONIO…` — a manual
+  `flower-superlink` (the fl_v2 pattern) collides on those ports. (b) `--federation-config`
+  is hidden + IGNORED (warns), so `num-supernodes` is NOT overridable on the CLI.
+- **Decision/fix:** `run_alvis.sh`/`run_fedavg_a40.sh` set ONLY the per-job port env (no manual
+  SuperLink, no SuperExec grep/sleep wait) and stamp the derived N into the
+  `[superlink.local-simulation-gpu]` block of `$FLWR_HOME/config.toml` via awk before
+  `flwr run`. Silent-exit guard greps the ServerApp's `FL_TRAINABLE_CHECKSUM` completion line.
+- **Rationale:** matches the flwr-1.27 reality (T3_SPEC §0.1); keeps the valuable fl_v2
+  hardening (per-job ports/tmp, silent-exit guard) and drops the stale parts.
+
+## [T3] 2026-06-16 — `flwr run` app path = fl_v3 (not repo root) + absolute data paths
+- **Finding (launcher bug, caught by the silent-exit guard on the A40):** `flwr run .` from the
+  worktree root failed — "Failed to load Flower App configuration in <root>/pyproject.toml" — because
+  the Flower-App pyproject lives in `fl_v3/`, not the repo root. The silent-exit guard correctly
+  forced the job FAILED (it works).
+- **Decision/fix:** pass the app path explicitly (`flwr run "${REPO}/fl_v3" local-simulation-gpu`)
+  and make `nuscenes-cache-dir`/`output-dir` ABSOLUTE via run-config overrides (the Ray actors' cwd
+  is not guaranteed to be the repo root). Applied to all 3 flwr-run launchers. Also fixed an
+  early-`python` (pre-`module load`) exit-127 in run_fedavg_a40.sh.
+- **Rationale:** matches fl_v2's "cd into the app dir" pattern but keeps relative data paths working
+  by making them absolute instead of cd-ing (which would break `./fl_outputs`).

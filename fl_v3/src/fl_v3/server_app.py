@@ -17,10 +17,36 @@ import torch
 from flwr.app import ArrayRecord, ConfigRecord, Context, MetricRecord
 from flwr.serverapp import Grid, ServerApp
 
-from fl_v3.training.tasks import get_task
+from fl_v3.training.tasks import (
+    get_task,
+    load_trainable_state_dict,
+    trainable_state_dict,
+)
 from fl_v3.utils.runtime import enforce_determinism, seed_everything, truthy
 
 app = ServerApp()
+
+
+def _require_reconstructible_frozen_backbone(run_config) -> None:
+    """DT3-A guard: a frozen backbone must be reconstructed BYTE-IDENTICALLY per node.
+
+    With the backbone excluded from the (trainable-only) update vector, every node and
+    the server must rebuild the SAME frozen backbone. That holds only for the
+    ImageNet-pretrained path (``det-pretrained-backbone=True``): a random-init "frozen"
+    backbone is re-seeded per client (``build_model`` runs after the per-client
+    ``derive_seed``) and would differ per node — corrupting eval and the no-op-aggregation
+    claim. So for the AD task we REQUIRE pretrained whenever the backbone is frozen.
+    """
+    if str(run_config.get("task-type", "")) != "nuscenes_detection":
+        return
+    if truthy(run_config.get("det-freeze-backbone", True)) and not truthy(
+        run_config.get("det-pretrained-backbone", True)
+    ):
+        raise RuntimeError(
+            "det-pretrained-backbone=True is REQUIRED for FL with a frozen backbone "
+            "(DT3-A): a random-init frozen backbone is re-seeded per client and differs "
+            "across nodes, corrupting eval + the trainable-only-aggregation invariant."
+        )
 
 
 def _device(run_config) -> torch.device:
@@ -92,8 +118,9 @@ def _server_eval_fn(context: Context, task, exp_dir: str):
         if cache["model"] is None:
             cache["model"] = task.build_model(run_config).to(device)
         model = cache["model"]
-        # Load BY NAME (matches the fl_v2 oracle) — robust to key ordering.
-        model.load_state_dict(arrays.to_torch_state_dict())
+        # DT3-A: ``arrays`` is the trainable-only vector; load strict=False into the
+        # cached full model (frozen backbone already reconstructed pretrained at build).
+        load_trainable_state_dict(model, arrays)
 
         results = task.evaluate(model, eval_loader, criterion, device, run_config)
         print(f"[Server] round={server_round} eval={results}", flush=True)
@@ -113,6 +140,7 @@ def main(grid: Grid, context: Context) -> None:
     seed_everything(seed)
     enforce_determinism(strict=truthy(run_config.get("determinism-strict", True)))
 
+    _require_reconstructible_frozen_backbone(run_config)
     task = get_task(str(run_config["task-type"]))
 
     output_dir = str(run_config.get("output-dir", "./outputs"))
@@ -123,14 +151,19 @@ def main(grid: Grid, context: Context) -> None:
         fraction_train=float(run_config.get("fraction-train", 1.0)),
         fraction_evaluate=float(run_config.get("fraction-evaluate", 1.0)),
         min_train_nodes=int(run_config.get("min-train-nodes", 2)),
-        min_evaluate_nodes=int(run_config.get("min-train-nodes", 2)),
+        # Read min-evaluate-nodes from its OWN key (not min-train-nodes); defaults to it.
+        min_evaluate_nodes=int(
+            run_config.get("min-evaluate-nodes", run_config.get("min-train-nodes", 2))
+        ),
         min_available_nodes=int(run_config.get("min-available-nodes", 2)),
     )
     strategy = _build_strategy(
         str(run_config.get("defense-type", "none")), run_config, common_kwargs, exp_dir
     )
 
-    initial_arrays = ArrayRecord(task.build_model(run_config).state_dict())
+    # DT3-A: the FL update vector is the TRAINABLE-only state (62 tensors for the AD
+    # detector); the frozen backbone is reconstructed per node and excluded.
+    initial_arrays = ArrayRecord(trainable_state_dict(task.build_model(run_config)))
     train_config = ConfigRecord(
         {
             "num-local-epochs": int(run_config.get("num-local-epochs", 1)),
@@ -151,7 +184,22 @@ def main(grid: Grid, context: Context) -> None:
     )
 
     if result.arrays:
+        # DT3-A: ``result.arrays`` is the aggregated TRAINABLE-only vector. Merge it into
+        # a freshly-built FULL model (frozen backbone reconstructed pretrained) so the
+        # saved checkpoint is self-contained and loads ``strict=True`` at T4.
+        full_model = task.build_model(run_config).to("cpu")
+        load_trainable_state_dict(full_model, result.arrays)
         ckpt = os.path.join(exp_dir, "final_model.pt")
-        torch.save(result.arrays.to_torch_state_dict(), ckpt)
+        torch.save(full_model.state_dict(), ckpt)
+        # The committed FL bit-determinism checksum = SHA-256 over the aggregated
+        # trainable vector (NOT the frozen-backbone-dominated full model). Two same-seed
+        # runs MUST produce the identical string (the crown-jewel artifact).
+        from fl_v3.engine.local_runner import numpy_state_checksum
+
+        tchk = numpy_state_checksum(list(result.arrays.to_numpy_ndarrays()))
+        chk_path = os.path.join(exp_dir, "trainable_checksum.txt")
+        with open(chk_path, "w", encoding="utf-8") as f:
+            f.write(tchk + "\n")
         print(f"[server] checkpoint saved -> {ckpt}", flush=True)
+        print(f"[server] FL_TRAINABLE_CHECKSUM = {tchk}", flush=True)
     print("Federated training finished.", flush=True)

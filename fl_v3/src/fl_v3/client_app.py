@@ -23,7 +23,7 @@ from flwr.app import (
 )
 from flwr.clientapp import ClientApp
 
-from fl_v3.training.tasks import get_task
+from fl_v3.training.tasks import get_task, load_trainable_state_dict, trainable_state_dict
 from fl_v3.utils.runtime import derive_seed, enforce_determinism, seed_everything, truthy
 
 app = ClientApp()
@@ -44,9 +44,11 @@ def _device(run_config) -> torch.device:
 
 
 def _load_arrays_into(model: torch.nn.Module, arrays: ArrayRecord) -> None:
-    # Load BY NAME (matches the fl_v2 oracle) — robust to any state_dict key
-    # ordering, unlike a positional zip.
-    model.load_state_dict(arrays.to_torch_state_dict())
+    # DT3-A: the global arrays are the TRAINABLE-ONLY update vector (the frozen
+    # backbone is reconstructed locally by build_model). Load BY NAME with
+    # strict=False (a 62-key dict into the full model RAISES under strict=True)
+    # + assert the load was clean (no unexpected keys; no trainable key unfilled).
+    load_trainable_state_dict(model, arrays)
 
 
 @app.train()
@@ -81,7 +83,10 @@ def train(msg: Message, context: Context) -> Message:
         valloader=cdata.valloader,
     )
 
-    arrays = ArrayRecord(model.state_dict())
+    # DT3-A: reply with the TRAINABLE-ONLY vector (the 62 non-backbone tensors),
+    # not the full state_dict — so the frozen backbone never rides the wire and the
+    # gradient-space metrics are trainable-only by construction.
+    arrays = ArrayRecord(trainable_state_dict(model))
     metrics = MetricRecord(
         {
             "num-examples": cdata.num_train,
@@ -118,4 +123,21 @@ def evaluate_client(msg: Message, context: Context) -> Message:
         {"num-examples": cdata.num_val, "val_loss": float(em["loss"])}
     )
     content = RecordDict({"metrics": metrics})
+    return Message(content=content, reply_to=msg)
+
+
+@app.query()
+def discover(msg: Message, context: Context) -> Message:
+    """DT3-B discovery probe: report this node's deterministic ``partition-id``.
+
+    The server-side strategy has no node_id→partition-id map (the partition-id lives
+    only here in ``node_config``), and the simulation assigns random node_ids — so the
+    deterministic sampler runs one cheap QUERY round at startup to learn, for THIS run,
+    which node_id carries which partition-id. The handler does NO model build / training
+    / RNG (it must stay free of the per-call seeding the train/eval paths use); it just
+    echoes the partition-id in ``reply-meta`` (the same key the aggregator sorts on)."""
+    pid = _get_client_id(context)
+    reply_meta = ConfigRecord({"partition-id": int(pid)})
+    metrics = MetricRecord({"partition-id": float(pid)})
+    content = RecordDict({"metrics": metrics, "reply-meta": reply_meta})
     return Message(content=content, reply_to=msg)

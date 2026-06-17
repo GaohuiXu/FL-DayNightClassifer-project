@@ -24,7 +24,7 @@ import os
 from typing import Callable, Iterable, List, Optional
 
 import numpy as np
-from flwr.app import Array, ArrayRecord, ConfigRecord, Message
+from flwr.app import Array, ArrayRecord, ConfigRecord, Message, MessageType, RecordDict
 from flwr.serverapp import Grid
 from flwr.serverapp.strategy import FedAvg
 
@@ -41,6 +41,15 @@ from fl_v3.strategy.gradient_metrics import (
     compute_gradient_space_metrics,
     compute_update_norms,
 )
+from fl_v3.strategy.sampling import (
+    SAMPLE_SALT_EVAL,
+    SAMPLE_SALT_TRAIN,
+    select_partition_ids,
+)
+
+# Discovery (one cheap QUERY round) must out-wait the Ray actor-pool cold start on a
+# contended node; the probe itself is trivial. Far above any real per-message latency.
+_DISCOVERY_TIMEOUT_S = 1800.0
 
 
 def partition_sort_key(msg) -> int:
@@ -108,6 +117,67 @@ class NormTrackingFedAvg(FedAvg):
         self.current_arrays: ArrayRecord | None = None
         self._norm_history: list[dict] = []
         self._last_train_metrics: dict | None = None
+        # DT3-B deterministic sampler state.
+        self._pid_to_node: dict[int, int] | None = None
+        self._last_train_partition_ids: list[int] | None = None
+        self._last_eval_partition_ids: list[int] | None = None
+
+    # ---- DT3-B: deterministic participant sampling over the 0..N-1 pid space ----
+    def _ensure_discovery(self, grid: Grid) -> None:
+        """One-time node_id↔partition-id discovery (see ``strategy.sampling``).
+
+        Flower assigns random node_ids and exposes no node_id→partition-id map to the
+        strategy, so we send one cheap QUERY round; each client echoes its ``partition-id``
+        in ``reply-meta``. We require the discovered ids to cover EXACTLY ``range(N)``
+        (``N = #nodes``) — i.e. ``num-supernodes`` must equal the derived client count —
+        else the deterministic ``sample(range(N))`` would map to a non-existent partition.
+        """
+        if self._pid_to_node is not None:
+            return
+        node_ids = list(grid.get_node_ids())
+        probe = [
+            Message(
+                content=RecordDict(
+                    {self.configrecord_key: ConfigRecord({"probe": "partition-id"})}
+                ),
+                message_type=MessageType.QUERY,
+                dst_node_id=int(nid),
+            )
+            for nid in node_ids
+        ]
+        replies = list(grid.send_and_receive(probe, timeout=_DISCOVERY_TIMEOUT_S))
+        pid_to_node: dict[int, int] = {}
+        for r in replies:
+            if r.has_error():
+                raise RuntimeError(
+                    f"[DT3-B] discovery: node {r.metadata.src_node_id} returned an error: "
+                    f"{r.error.reason if r.error else 'unknown'}"
+                )
+            pid = int(r.content["reply-meta"]["partition-id"])
+            if pid in pid_to_node:
+                raise RuntimeError(f"[DT3-B] discovery: duplicate partition-id {pid}")
+            pid_to_node[pid] = int(r.metadata.src_node_id)
+        n = len(node_ids)
+        if sorted(pid_to_node) != list(range(n)):
+            raise RuntimeError(
+                f"[DT3-B] discovery: partition-ids {sorted(pid_to_node)} do not cover "
+                f"range({n}). num-supernodes MUST equal the derived client count N "
+                "(stamp it in the federation config)."
+            )
+        self._pid_to_node = pid_to_node
+        print(f"[DT3-B] discovery: mapped {n} partition-ids -> node_ids", flush=True)
+
+    def _deterministic_node_ids(
+        self, server_round: int, fraction: float, min_nodes: int, salt: int
+    ) -> tuple[list[int], list[int]]:
+        """Select participant partition-ids deterministically, map to this run's node_ids."""
+        assert self._pid_to_node is not None
+        n = len(self._pid_to_node)
+        pids = select_partition_ids(
+            self.seed, server_round, n, fraction, min_nodes, salt=salt
+        )
+        node_ids = [self._pid_to_node[p] for p in pids]
+        return pids, node_ids
 
     # ---- core: subclasses override ----
     def _core(
@@ -122,14 +192,42 @@ class NormTrackingFedAvg(FedAvg):
 
     # ---- Flower hooks ----
     def configure_train(self, server_round, arrays, config, grid: Grid) -> Iterable[Message]:
+        # DT3-B: select participants by the DETERMINISTIC partition-id sampler — NOT
+        # Flower's ``random.sample(grid.get_node_ids())`` (non-reproducible at fraction<1
+        # over random node_ids). We do NOT call ``super().configure_train`` (that is the
+        # non-deterministic path). ``current_arrays`` is the trainable-only global (DT3-A).
         self.current_arrays = arrays.copy()
-        print(f"\n{'=' * 60}\n  Round {server_round} — TRAIN\n{'=' * 60}", flush=True)
+        if self.fraction_train == 0.0:
+            return []
+        self._ensure_discovery(grid)
+        pids, node_ids = self._deterministic_node_ids(
+            server_round, self.fraction_train, self.min_train_nodes, SAMPLE_SALT_TRAIN
+        )
+        self._last_train_partition_ids = list(pids)
+        print(
+            f"\n{'=' * 60}\n  Round {server_round} — TRAIN  "
+            f"(DT3-B participants pids={pids})\n{'=' * 60}",
+            flush=True,
+        )
         config["server-round"] = server_round
-        return super().configure_train(server_round, arrays, config, grid)
+        record = RecordDict({self.arrayrecord_key: arrays, self.configrecord_key: config})
+        return self._construct_messages(record, node_ids, MessageType.TRAIN)
 
     def configure_evaluate(self, server_round, arrays, config, grid: Grid) -> Iterable[Message]:
+        # Symmetric deterministic selection for the (optional) client-side evaluate, with
+        # its OWN ``min-evaluate-nodes`` and an independent RNG stream (SAMPLE_SALT_EVAL).
+        # ``fraction_evaluate == 0.0`` skips client-side eval (the AD task evaluates
+        # server-side; clients carry no val loader).
+        if self.fraction_evaluate == 0.0:
+            return []
+        self._ensure_discovery(grid)
+        pids, node_ids = self._deterministic_node_ids(
+            server_round, self.fraction_evaluate, self.min_evaluate_nodes, SAMPLE_SALT_EVAL
+        )
+        self._last_eval_partition_ids = list(pids)
         config["server-round"] = server_round
-        return super().configure_evaluate(server_round, arrays, config, grid)
+        record = RecordDict({self.arrayrecord_key: arrays, self.configrecord_key: config})
+        return self._construct_messages(record, node_ids, MessageType.EVALUATE)
 
     def aggregate_train(self, server_round, replies):
         return self._aggregate_with_core(server_round, replies)
