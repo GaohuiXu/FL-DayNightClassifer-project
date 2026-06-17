@@ -91,17 +91,22 @@ echo "LOCAL_RUNNER cksum  = ${LR_CHECKSUM}"
 FAIL=0
 if [ "$CHK_A" != "$CHK_B" ]; then echo "[gate] FAIL: two same-seed Ray runs DIVERGED (A!=B)"; FAIL=1
 else echo "[gate] PASS: two same-seed Ray runs byte-identical (A==B) — crown jewel"; fi
-if [ "$CHK_A" != "$LR_CHECKSUM" ]; then echo "[gate] NOTE: Ray != local_runner (cross-check not byte-identical; inspect — allclose fallback documented in SPEC)";
+# Cross-check: same-A40 local_runner vs Ray MUST be byte-identical (HARD fail). The SPEC's
+# allclose fallback is only for a documented cross-DEVICE case (CPU<->A40); here both run on
+# the same A40, so byte-identity is required and a mismatch is a real determinism failure.
+if [ "$CHK_A" != "$LR_CHECKSUM" ]; then
+    echo "[gate] FAIL: cross-check Ray != local_runner on the same A40 (CHK_A=$CHK_A LR=$LR_CHECKSUM)"; FAIL=1
 else echo "[gate] PASS: cross-check Ray==local_runner byte-identical on the same A40"; fi
 # (4) substrate stability: norm_log content identical across the two runs (deterministic).
+# A MISSING norm_log is itself a failure (no gradient-space substrate produced).
 NL_A="${OUT_DIR}/t3_gate_runA/t3_gate_runA_seed${GATE_SEED}_norm_log.json"
 NL_B="${OUT_DIR}/t3_gate_runB/t3_gate_runB_seed${GATE_SEED}_norm_log.json"
-if [ -f "$NL_A" ] && [ -f "$NL_B" ]; then
-    if diff -q <(python -c "import json,sys;print(json.dumps(json.load(open('$NL_A')),sort_keys=True))") \
-                <(python -c "import json,sys;print(json.dumps(json.load(open('$NL_B')),sort_keys=True))") >/dev/null; then
-        echo "[gate] PASS: norm_log (participant set + gradient-space substrate) byte-identical A==B"
-    else echo "[gate] FAIL: norm_log differs across runs (substrate not reproducible)"; FAIL=1; fi
-fi
+if [ ! -f "$NL_A" ] || [ ! -f "$NL_B" ]; then
+    echo "[gate] FAIL: norm_log missing (NL_A exists=$([ -f "$NL_A" ] && echo y || echo n), NL_B=$([ -f "$NL_B" ] && echo y || echo n)) — no substrate artifact"; FAIL=1
+elif diff -q <(python -c "import json,sys;print(json.dumps(json.load(open('$NL_A')),sort_keys=True))") \
+              <(python -c "import json,sys;print(json.dumps(json.load(open('$NL_B')),sort_keys=True))") >/dev/null; then
+    echo "[gate] PASS: norm_log (participant set + gradient-space substrate) byte-identical A==B"
+else echo "[gate] FAIL: norm_log differs across runs (substrate not reproducible)"; FAIL=1; fi
 
 echo "Elapsed: ${SECONDS}s"
 [ "$FAIL" -eq 0 ] && echo "[gate] OVERALL: PASS" || { echo "[gate] OVERALL: FAIL"; exit 1; }

@@ -38,15 +38,15 @@ options.backend.client-resources.num-cpus = 1
 options.backend.client-resources.num-gpus = 1.0
 
 # ---------------------------------------------------------------------------
-# PARALLELISM VALIDATION federations (T3 follow-up — speedup investigation).
-# Both run 4 concurrent Ray actors to test whether our ATOMIC-FREE T2 model stays
-# bit-deterministic under concurrency (the fl_v2 "diverges at round 2" finding was on
-# a different, atomic-using model). num-supernodes hardcoded to 8 = the gate config N.
+# PARALLELISM VALIDATION federations (T3 follow-up — speedup; see docs/cycle_04/decisions.md D9).
+# Both run concurrent Ray actors to test whether our ATOMIC-FREE T2 model stays bit-deterministic
+# under concurrency (the fl_v2 "diverges at round 2" finding was on a different, atomic-USING model).
+# Both verified BYTE-IDENTICAL to single-actor. num-supernodes hardcoded to 8 = the gate config N.
 #
-#   -shared : 4 actors SHARE ONE A40 (num-gpus=0.25) — Path B. Submit on 1 GPU.
-#             If two same-seed runs are byte-identical -> shared-GPU concurrency is safe.
-#   -4x     : 1 actor PER A40 (num-gpus=1.0) on a 4-GPU node — Path A. Submit with
-#             --gpus-per-node=A40:4. No shared-device kernel interleaving by construction.
+#   -shared : Path B (concurrent / shared-GPU) — N actors SHARE ONE A40 (num-gpus=0.25). Submit on
+#             1 GPU. Gap-filler only (no compute multiplier; ~no gain at GPU saturation).
+#   -4x     : Path A (multi-GPU) — ONE actor PER A40 (num-gpus=1.0) on a 4-GPU node. Submit with
+#             --gpus-per-node=A40:4. Multiplies compute -> ~N× wall-clock (the real per-cell speedup).
 # ---------------------------------------------------------------------------
 [superlink.local-simulation-gpu-shared]
 options.num-supernodes = 8

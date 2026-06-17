@@ -381,7 +381,7 @@ the actionable findings:
 
 ## [T3] 2026-06-16 — `derive_seed` is int-only; sampler uses reserved integer salts
 - **Finding (API):** the SPEC's shorthand `derive_seed(seed, "sample", round)` cannot work —
-  `derive_seed` casts every arg to `int()` (a string raises). 
+  `derive_seed` casts every arg to `int()` (a string raises).
 - **Decision/fix:** the sampler calls `derive_seed(seed, SALT, round)` with reserved integer
   salts `SAMPLE_SALT_TRAIN=700_000_001` / `SAMPLE_SALT_EVAL=700_000_002` in the `client_id`
   slot — far above any real partition-id (0..N-1), so a sampling seed never aliases a
@@ -413,3 +413,24 @@ the actionable findings:
   early-`python` (pre-`module load`) exit-127 in run_fedavg_a40.sh.
 - **Rationale:** matches fl_v2's "cd into the app dir" pattern but keeps relative data paths working
   by making them absolute instead of cd-ing (which would break `./fl_outputs`).
+
+## [T3] 2026-06-17 — Codex review triage (CHANGES-REQUESTED → addressed)
+Codex PASSed the science (DT3-A/DT3-B/FedAvg parity, calibration, metrics — nothing found) and
+requested 5 fixes that make the gate/artifact ENFORCE the SPEC instead of relying on the one-off run.
+All addressed:
+- **F1 (correctness-bug) — trainval gap was a 256-sample-val proxy, reported as full val.** The run
+  capped server eval at `det-eval-limit=256` (`sorted(sample_token)[:256]`). Fix: re-evaluate the two
+  saved FULL-model checkpoints on the ENTIRE trainval val (6019 samples, `det-eval-limit=0`) via
+  `scripts/t3_trainval_reeval_fullval.py` (job 6764280) and relabel the SPEC with the full-val number
+  + the exact eval scope (no longer implies full val when it wasn't).
+- **F2 (invariant) — cross-check mismatch only NOTE.** `run_fedavg_a40.sh`: local_runner↔Ray on the
+  SAME A40 must be byte-identical → now a HARD `FAIL=1` (the allclose fallback is only for a documented
+  cross-DEVICE case, which the same-A40 gate is not).
+- **F3 (invariant) — substrate check skipped if norm_log missing.** Now FAILs if either `norm_log.json`
+  is absent (no substrate artifact = fail), then compares canonical JSON.
+- **F4 (invariant) — gate didn't assert its shape.** `fl_gate_a40.py`: asserts
+  `task-type=='nuscenes_detection'`, `num-server-rounds>=3`, `0<fraction-train<1` (exit 2) BEFORE
+  training — closes the §0.3 trivial-regime FALSE-PASS hole.
+- **F5 (style) — trailing whitespace** in findings_log stripped.
+Hardened gate re-run (job 6764281) reconfirms OVERALL PASS with enforcement active (same checksum
+d82ef500…). Codex re-review pending.

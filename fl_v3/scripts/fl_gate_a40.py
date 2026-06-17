@@ -43,6 +43,24 @@ def main() -> None:
     fraction_train = float(cfg.get("fraction-train", 0.5))
     min_train_nodes = int(cfg.get("min-train-nodes", 2))
 
+    # Enforce the SPEC's FL-gate shape (T3_SPEC §0.3 / §3): the bit-identity gate is a
+    # FALSE PASS at 1 round / fraction=1.0 / a non-detection task. Fail BEFORE training so a
+    # misconfigured GATE_JSON can never green-light the trivial regimes the SPEC forbids.
+    task_type = str(cfg.get("task-type", ""))
+    if task_type != "nuscenes_detection":
+        print(f"[fl_gate_a40] FATAL: gate requires task-type='nuscenes_detection', got "
+              f"{task_type!r} (a non-AD task is a FALSE PASS).", file=sys.stderr)
+        sys.exit(2)
+    if num_rounds < 3:
+        print(f"[fl_gate_a40] FATAL: gate requires num-server-rounds>=3, got {num_rounds} "
+              "(a 1-round pass never exercises per-round sampling drift).", file=sys.stderr)
+        sys.exit(2)
+    if not (0.0 < fraction_train < 1.0):
+        print(f"[fl_gate_a40] FATAL: gate requires 0 < fraction-train < 1, got {fraction_train} "
+              "(fraction=1.0 never exercises the DT3-B sampling the gate exists to catch).",
+              file=sys.stderr)
+        sys.exit(2)
+
     from fl_v3.engine.local_runner import run_clean_rounds
 
     def go():

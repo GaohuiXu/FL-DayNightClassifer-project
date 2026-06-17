@@ -136,11 +136,14 @@ with these per-module counts (asserted by `assert_trainable_layout` + `test_fl_t
 - [x] **Non-IID gap (completed trainval-scale)** (`sbatch fl_v3/scripts/run_trainval_gap_a40.sh`, job
       **6764226**, A40, COMPLETED): headline frozen **Swin-T** on v1.0-**trainval**, derived **N=25**,
       fraction-train=0.2 (5/25), **4 rounds** (≤20), batch=16, run to completion both modes.
-      recall@2m **IID=0.3692** vs **log_group=0.1457** → **non-IID gap = +0.2235** (`scale`-stamped
-      `trainval-scientific`, reported, NOT required small — and it is NOT small). Measured wall-clock
-      ≈ **3088 s (IID) / 3113 s (log_group)** ≈ 13 min/round at batch 16 (the headline Swin-T number).
-      Final checksums: IID `a4408cdb…`, log_group `47635bb6…`. The mini log-group run is methodology
-      smoke only.
+      **Authoritative gap (re-eval on the FULL val split, 6019 samples, `det-eval-limit=0`, job
+      6764280 — the Codex-F1 fix):** recall@2m **IID=0.3528** vs **log_group=0.1455** → **non-IID gap
+      = +0.2073** (`scale`-stamped `trainval-scientific`, reported, NOT required small — and it is not).
+      *(The in-training server eval was a fixed 256-sample subset `sorted(sample_token)[:256]` giving
+      IID 0.369/log_group 0.146/gap +0.224 — same direction + magnitude, so the gap is robust to eval
+      scope.)* Measured wall-clock ≈ **3088 s (IID) / 3113 s (log_group)** ≈ 13 min/round at batch 16
+      (the headline Swin-T number). Final-model checksums: IID `a4408cdb…`, log_group `47635bb6…`. The
+      mini log-group run is methodology smoke only.
 
 ### 6.1 Declared thresholds
 - **R_floor = 0.05** (absolute recall@2m, car; >0 — a zero-decode collapse fails).
@@ -166,20 +169,25 @@ with these per-module counts (asserted by `assert_trainable_layout` + `test_fl_t
   bring-up; mini milestone (N=4, 15 rounds, num_workers=0, I/O-bound) — 3072 s. Headline Swin-T
   per-round wall-clock: **from the trainval run (§ below) when complete.**
 - **Trainval-scale non-IID gap** (job 6764226, A40, COMPLETED, headline frozen **Swin-T**, derived
-  **N=25**, fraction-train=0.2 → 5/25, **4 rounds**, batch=16, v1.0-trainval train/val):
-  recall@2m **IID=0.3692** / **log_group=0.1457** → **non-IID gap +0.2235**; per-run wall-clock
+  **N=25**, fraction-train=0.2 → 5/25, **4 rounds**, batch=16, v1.0-trainval train/val): authoritative
+  recall@2m on the **FULL val split** (6019 samples; re-eval job 6764280, Codex-F1 fix)
+  **IID=0.3528** / **log_group=0.1455** → **non-IID gap +0.2073**; per-run wall-clock
   **IID 3088 s / log_group 3113 s** (≈ 13 min/round at batch 16); final checksums IID `a4408cdb6b…`,
-  log_group `47635bb66f…`. *(Earlier batch=4 attempt 6764191 cancelled to switch to the faster
+  log_group `47635bb66f…`. *(In-training eval used a fixed 256-sample subset → +0.2235; full-val
+  re-eval gives +0.2073 — robust.)* *(Earlier batch=4 attempt 6764191 cancelled to switch to the faster
   batch=16/fraction-0.2 config; 6764225 hit the documented Ray same-node bring-up race — caught by
   the silent-exit guard — and was resubmitted on a fresh node as 6764226.)*
-- **Parallelism follow-up (T5–T7 speedup; see decisions.md D9):** 4 concurrent Ray actors are
-  **byte-identical to the single-actor reference `d82ef500…`** in BOTH modes — **4 actors on 4 A40s**
-  (`local-simulation-gpu-4x`, jobs 6764253/6764255) AND **4 actors SHARING one A40**
-  (`local-simulation-gpu-shared`, `num-gpus=0.25`, job 6764256, trained cleanly, eval matched to all
-  digits). Our atomic-free model is concurrency-insensitive (interleaving changes timing, not values)
-  ⇒ **~4× per-cell speedup on a single GPU, zero determinism cost** (null-configs safe). Validated at
-  bring-up scale; re-confirm at Swin-T/trainval scale before full T5–T7 reliance. Harness:
-  `run_parallel_validation_a40.sh`.
+- **Parallelism follow-up (T5–T7 speedup; see decisions.md D9):** both parallelism methods are
+  **byte-identical to the single-actor reference `d82ef500…`** (atomic-free model ⇒ interleaving
+  changes timing, not values):
+  - **Path A — multi-GPU** (`local-simulation-gpu-4x`, `num-gpus=1.0`, 1 client/GPU): jobs
+    6764253/6764255 — PASS-STRONG. *Multiplies compute ⇒ ~N× wall-clock (the real per-cell speedup).*
+  - **Path B — concurrent / shared-GPU** (`local-simulation-gpu-shared`, `num-gpus=0.25`, N actors/GPU):
+    job 6764256 — PASS-STRONG. *Shares one GPU ⇒ gap-filler only; ≈ no gain when one client already
+    saturates the GPU (headline Swin-T batch≥16 ~100% SM).*
+  Recommendation: matrix → across-cell fan-out, 1 GPU/cell (+ optional Path B to hide latency); single
+  heavy run → Path A. Validated at bring-up scale; re-confirm + measure speedup at Swin-T/trainval
+  scale before full T5–T7 reliance. Harness: `run_parallel_validation_a40.sh`.
 
 ## 7. Self-review — what to attack hardest (for Codex)
 1. **DT3-B sampler truly replaces Flower's random selection at fraction<1** — the discovery probe

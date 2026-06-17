@@ -46,24 +46,44 @@ looked expensive.
 **Finding (validated on the A40, T3 follow-up):** that divergence was an fl_v2 finding on a
 **different, atomic-using model**. Our T2 detector is **atomic-free by construction** (deterministic
 splat/scatter, no `scatter_add`), so concurrent-actor **kernel interleaving changes only timing, not
-values**. Both concurrency modes produced a final aggregated checksum **byte-identical to the
-single-actor baseline** `d82ef5001b88…c08b236` on the gate config (resnet18, N=8, 3 rounds,
-fraction-train=0.5):
-- **4 actors sharing ONE A40** (`local-simulation-gpu-shared`, `num-gpus=0.25`) — job 6764256 — PASS-STRONG.
-- **4 actors on FOUR A40s** (`local-simulation-gpu-4x`, `num-gpus=1.0`, 4-GPU node) — jobs 6764253/6764255 — PASS-STRONG.
-(eval curves matched to all 16 digits; checksums == the reference.) Validation harness:
-`scripts/run_parallel_validation_a40.sh` + the two federations in `configs/flwr_config.toml`.
+values**. Two parallelism methods were tested — both produced a final aggregated checksum
+**byte-identical to the single-actor baseline** `d82ef5001b88…c08b236` (gate config: resnet18, N=8,
+3 rounds, fraction-train=0.5; eval curves matched to all 16 digits):
 
-**Implication / recommendation for T5–T7:**
-1. **Within a cell:** run 4 concurrent actors on ONE GPU (`num-gpus=0.25`) → **~4× speedup, ZERO
-   determinism cost** (byte-identical, null-configs safe). No extra hardware. (4 GPUs → another ~4×.)
-2. **Across cells:** each attack×defense cell is an independent FL run → submit one SLURM job per cell;
-   they run in parallel across the cluster (hundreds of idle A40 GPUs) → matrix wall-clock ≈ per-cell
-   time, not the sum.
-3. **Keep `num-gpus=1.0` (single actor) for the determinism GATES** and null-config byte-parity proofs
+- **Path A — multi-GPU** (`local-simulation-gpu-4x`, `num-gpus=1.0`, ONE client per GPU on a 4-GPU
+  node): jobs 6764253 / 6764255 — **PASS-STRONG** (checksum == reference).
+- **Path B — concurrent / shared-GPU** (`local-simulation-gpu-shared`, `num-gpus=0.25`, multiple
+  actors sharing ONE GPU): job 6764256 — **PASS-STRONG** (checksum == reference).
+
+Validation harness: `scripts/run_parallel_validation_a40.sh` + the two federations in
+`configs/flwr_config.toml`. (Both are bit-identical to serial ⇒ future experiments are fully
+reproducible with either, and they can be combined.)
+
+**Path A vs Path B — what they actually buy (the speed distinction):**
+- **Path A (multi-GPU) multiplies COMPUTE.** N GPUs → N clients truly parallel → **~N× wall-clock**.
+  This is the real per-cell speedup. (Measured on the bring-up config: Path A 126 s vs Path B 176 s
+  on identical work; the gap widens at headline scale.)
+- **Path B (concurrent / shared-GPU) shares ONE GPU's compute** — it only fills idle gaps, so it
+  helps when the GPU is *under-utilized* (small batch / I/O-bound) and gives **≈ no speedup when one
+  client already saturates the GPU** (headline Swin-T at batch≥16 measured ~100% SM). Its residual
+  value is hiding the per-round model-build / first-batch latency.
+
+**Recommendation for T5–T7:**
+1. **Matrix (many cells, T7):** the dominant lever is **across-cell fan-out** — each attack×defense
+   cell is an independent FL run → one SLURM job per cell, run in parallel across the cluster
+   (hundreds of idle A40 GPUs) → **matrix wall-clock ≈ one cell's time**, not the sum. Give each cell
+   **1 GPU** (optionally **Path B** `num-gpus=0.25` to hide inter-round latency) to maximize
+   cells-in-flight.
+2. **A single heavy run** (a long trainval baseline): use **Path A (multi-GPU)** `num-gpus=1.0` on a
+   4-GPU node → ~4× that run.
+3. **Combine** = Path A (multi-GPU, the N× multiplier) + a *mild* Path B overcommit (`num-gpus=0.5`,
+   2 actors/GPU) to hide latency — NOT aggressive overcommit, which just thrashes a saturated GPU.
+4. **Keep `num-gpus=1.0` single-actor for the determinism GATES** and null-config byte-parity proofs
    (already so); the relaxation is for the heavy scientific cells.
 
 **Caveats (do NOT skip before T5/T7 reliance):** validated at the **bring-up scale** (resnet18, N=8,
-3 rounds, mini, 4 actors). **Re-confirm byte-identity at the headline Swin-T + trainval scale and at
-the actor count you actually use** (e.g. `num-gpus=0.2` → 5 actors) before committing the matrix to
-it — the atomic-free argument is architecture-wide, but the proof should be at the operating point.
+3 rounds, mini, 4 actors). **Re-confirm byte-identity AND measure the actual speedup at the headline
+Swin-T + trainval scale and at the actor count you actually use** (e.g. Path A on a 4-GPU node;
+`num-gpus=0.2` → 5 concurrent) before committing the matrix to it — the atomic-free argument is
+architecture-wide, but the proof + the speedup number should be at the operating point. A
+`single-actor vs Path A vs Path B vs combined` Swin-T benchmark (~4 short A40 jobs) would lock this in.

@@ -1,0 +1,25 @@
+{
+  "scope": "FULL v1.0-trainval val split (det-eval-limit=0)",
+  "n_eval_examples": 6019.0,
+  "recall_at_2m_iid": 0.35281985900704965,
+  "recall_at_2m_log_group": 0.1454927253637318,
+  "non_iid_gap": 0.20732713364331784,
+  "results": {
+    "iid": {
+      "eval_loss": 3.625945054963887,
+      "num-eval-examples": 6019.0,
+      "proxy_recall_at_2m": 0.35281985900704965,
+      "proxy_n_decoded": 499807.0,
+      "proxy_n_gt": 80004.0,
+      "proxy_matched_gt": 28227.0
+    },
+    "log_group": {
+      "eval_loss": 3.9591503365132117,
+      "num-eval-examples": 6019.0,
+      "proxy_recall_at_2m": 0.1454927253637318,
+      "proxy_n_decoded": 99630.0,
+      "proxy_n_gt": 80004.0,
+      "proxy_matched_gt": 11640.0
+    }
+  }
+}

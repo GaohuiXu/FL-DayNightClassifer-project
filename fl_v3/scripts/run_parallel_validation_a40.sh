@@ -4,10 +4,10 @@
 # CONCURRENT-actor federation and compares the final FL_TRAINABLE_CHECKSUM to itself
 # (run-to-run reproducibility) AND to the single-actor reference d82ef500... .
 #
-#   Path B (shared GPU):  sbatch --gpus-per-node=A40:1 \
-#       --export=ALL,FEDERATION=local-simulation-gpu-shared run_parallel_validation_a40.sh
-#   Path A (1 client/GPU): sbatch --gpus-per-node=A40:4 \
+#   Path A — multi-GPU (1 client/GPU):  sbatch --gpus-per-node=A40:4 \
 #       --export=ALL,FEDERATION=local-simulation-gpu-4x     run_parallel_validation_a40.sh
+#   Path B — concurrent / shared-GPU:    sbatch --gpus-per-node=A40:1 \
+#       --export=ALL,FEDERATION=local-simulation-gpu-shared run_parallel_validation_a40.sh
 #
 #SBATCH -A NAISS2025-22-1113
 #SBATCH -p alvis
