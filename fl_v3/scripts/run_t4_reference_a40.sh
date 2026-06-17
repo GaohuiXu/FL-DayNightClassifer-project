@@ -49,7 +49,22 @@ fl_stamp_supernodes "$N" fl_v3/configs/flwr_config.toml "${FLWR_HOME}/config.tom
 echo "===== T4 reference (FULL participation, D10) =====  node=$(hostname) job=${SLURM_JOB_ID:-local}"
 echo "N=${N} fraction-train=${FRACTION} rounds=${ROUNDS} federation=${FEDERATION}"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader || true
-[ "$(printf '%.0f' "$FRACTION")" = "1" ] || echo "[t4-ref] WARNING: fraction-train != 1.0 (D10 wants FULL participation)"
+# D10 / T4_SPEC §0.2 PREFLIGHT (hard-fail): the reference checkpoint MUST be full-participation
+# log-group trainval clean FedAvg — a verdict on a sampled (fraction<1) / IID / defended / wrong-split
+# checkpoint is INVALID. Refuse to train one. (Float-exact fraction check; the old printf '%.0f' warning
+# rounded 0.9→1 and only warned — Codex T4 review.)
+python - "$CONFIG" <<'PY' || { echo "[t4-ref] FATAL: config is NOT D10-compliant (see T4_SPEC §0.2) — refusing"; exit 3; }
+import json, sys
+c = json.load(open(sys.argv[1]))
+req = {"task-type": "nuscenes_detection", "nuscenes-version": "v1.0-trainval",
+       "nuscenes-train-split": "train", "nuscenes-val-split": "val",
+       "nuscenes-partition-mode": "log_group", "defense-type": "none"}
+bad = [f"{k}={c.get(k)!r}!= {v!r}" for k, v in req.items() if str(c.get(k)) != v]
+if float(c.get("fraction-train", -1)) != 1.0:
+    bad.append(f"fraction-train={c.get('fraction-train')!r} != 1.0 (D10 FULL participation)")
+if bad:
+    print("[t4-ref] D10 violations:", "; ".join(bad), file=sys.stderr); sys.exit(1)
+PY
 
 run_one() {  # $1 = experiment tag
     local tag="$1" log="${FLWR_HOME}/flwr_${1}.log"
@@ -66,6 +81,18 @@ read_chk() { cat "${OUT_DIR}/$1/trainable_checksum.txt" 2>/dev/null; }
 
 run_one t4_reference || exit 1
 CHK_A="$(read_chk t4_reference)"
+# Persist D10 provenance beside the checkpoint (the readiness eval hard-verifies it → the verdict is
+# PROVENANCE-bound, not just checksum-bound; T4_SPEC §0.2 / Codex T4 review).
+CHK_A="$CHK_A" python - "$CONFIG" "${OUT_DIR}/t4_reference/provenance.json" <<'PY'
+import json, os, sys
+from fl_v3.eval.provenance import build_provenance, check_d10
+prov = build_provenance(json.load(open(sys.argv[1])), os.environ.get("CHK_A", ""))
+bad = check_d10(prov)  # self-check: a non-D10 config should have hard-failed the preflight above
+if bad:
+    print("[t4-ref] WARNING: provenance not D10-compliant:", bad, file=sys.stderr)
+json.dump(prov, open(sys.argv[2], "w"), indent=2, sort_keys=True)
+print("[t4-ref] wrote provenance.json:", prov["regime"])
+PY
 echo "===== T4 REFERENCE RESULT ====="
 echo "device          = $(python -c 'import torch;print(torch.cuda.get_device_name())')"
 echo "checkpoint      = ${OUT_DIR}/t4_reference/final_model.pt"

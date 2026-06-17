@@ -612,3 +612,31 @@ d82ef500…). Codex re-review pending.
   checkpoint checksum `a80466c3…`, frozen-subset hash `2ad8f8da55e8516bf0c46085cd5217ad2b2d1984c23499f51c397ad7cad1940f`.
   **T4 GATE is GREEN: the benchmark is READY for T5.** Observed: batch_size=1 is GPU-idle/CPU-bound
   (97% single-core, GPU ~0%) — the 6019-sample eval took ~1–2 h; a per-cell perf concern for T5–T7.
+
+## [T4] 2026-06-17 — Codex review (CHANGES-REQUESTED) triaged + addressed
+Codex PASSed the science (no scientific-error / correctness-bug / metric / calibration / oracle-parity
+finding; 24 T4 tests + py_compile + devkit-source inspection) and raised **one blocking invariant-violation**
++ a non-blocking question + a style nit. All addressed:
+- **(BLOCKING) readiness verdict was checksum-bound but NOT provenance-bound to D10 (§0.2).** The READY
+  predicate checked only metric floors + `scale`; the reference launcher merely *warned* on
+  `fraction-train≠1.0` — and the warning was buggy (`printf '%.0f'` rounds 0.9→1, so 0.9 wouldn't warn).
+  So an overridden `CONFIG`/`CKPT` could emit a READY `benchmark_readiness.json` for a sampled/IID/defended
+  checkpoint whose floors happen to pass — the §0.2 partition/participation-mismatch trap. **Fix:** new
+  tested module `eval/provenance.py` (`build_provenance` / `check_d10` / `verify_d10_provenance`, single
+  source of truth for the D10 key set); `run_t4_reference_a40.sh` now **hard-fails** (exit 3) any non-D10
+  config (task-type=nuscenes_detection, version=v1.0-trainval, train/val splits, partition-mode=log_group,
+  defense=none, `fraction-train==1.0`) AND writes `provenance.json` beside `final_model.pt`;
+  `t4_readiness_eval.py` **hard-verifies** that provenance (bound to the recomputed trainable checksum) at
+  `scale=trainval-scientific` BEFORE emitting any verdict — a missing/mismatched provenance RAISES. So a
+  non-D10 checkpoint can never produce a valid go/no-go. `benchmark_readiness.json` now records
+  `verified_d10_provenance`. The EXISTING checkpoint's provenance was backfilled from its authentic
+  `t4_reference.json` (job 6764630) and verifies (regime=D10-full-participation-log-group-trainval-clean,
+  checksum matches). **+7 tests** (`test_eval_provenance.py`): compliant→[], each violation flagged,
+  missing/sampled/IID/checksum-mismatch all RAISE. Re-ran the readiness eval through the now-gated driver
+  (job 6765405 → `readiness_bs1/`) to emit the of-record artifact with verified provenance.
+- **(non-blocking) yaw tolerance contract** — durable `T4_SPEC §0.1` says yaw `<1e-4`, the test uses
+  heading `<0.02` (T1 Euler vs devkit `quaternion_yaw`; documented in SPEC §3a + above). Non-blocking
+  (lift-equivalence + GT-as-pred AP=1.0 cover it). Flagged for the **orchestrator** to align the durable
+  contract (build session does not edit `T4_SPEC.md`).
+- **(style)** trailing whitespace in `collab/T4/SPEC.md` removed.
+Post-fix: **198 tests** (167 T0–T3 + 31 T4). Re-review pending.

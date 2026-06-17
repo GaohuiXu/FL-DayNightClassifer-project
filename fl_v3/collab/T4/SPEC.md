@@ -159,6 +159,24 @@ batch-invariant-but-batched decode.
 > `ae2b4571…`) → A100 unlocked for T5–T7; but A100 ≈ A40 speed (~1.2×, the workload is I/O/eval-bound),
 > so feature caching (D11), not A100, is the real single-run speed lever.
 
+### 5d. Codex review (CHANGES-REQUESTED → addressed)
+Codex re-reviewed the build (no scientific-error / correctness-bug / metric / calibration / parity
+issue; 24 tests pass). One **blocking invariant-violation** + one non-blocking question + one style nit:
+- **(BLOCKING) provenance binding — FIXED.** The READY predicate was checksum-bound but not *provenance*-
+  bound to the D10 regime, and the launcher only *warned* (buggily — `printf '%.0f'` rounds 0.9→1) on
+  `fraction-train≠1.0`, so an overridden CONFIG/CKPT could emit READY for a sampled/IID checkpoint. Fix:
+  (a) new tested `eval/provenance.py` (`build_provenance`/`check_d10`/`verify_d10_provenance`); (b) the
+  reference launcher **hard-fails** any non-D10 config (task-type/version/splits/partition=log_group/
+  defense=none/`fraction-train==1.0`) AND writes `provenance.json` beside `final_model.pt`; (c)
+  `t4_readiness_eval.py` **hard-verifies** that provenance (bound to the recomputed checksum) before
+  emitting any trainval verdict — so a sampled/IID/defended/wrong-split checkpoint can NEVER produce a
+  valid go/no-go. `benchmark_readiness.json` now records `verified_d10_provenance`. The existing
+  checkpoint's provenance was backfilled from its authentic `t4_reference.json` and **verifies**. (+7 tests.)
+- **(non-blocking) yaw tolerance contract** — see §3a; the durable `T4_SPEC §0.1` wording (`<1e-4`) vs the
+  evaluator-heading `<0.02` is a documentation alignment for the **orchestrator** to land in the durable
+  contract (build session does not edit the orchestrator's `T4_SPEC.md`; fully documented here + findings).
+- **(style)** trailing whitespace removed.
+
 ## 6. Invariants (must hold; Codex checks each)
 - Canonical→global anchored to the **raw devkit annotation** (not a self-inverse of T1) — round-trip
   on ≥200 boxes + GT-as-pred AP≈1 vs the devkit's own `load_gt`. ✓ (mini)
@@ -173,7 +191,9 @@ batch-invariant-but-batched decode.
 - **False-disappearance < 0.02 with N ≥ N_min** (else UNDEFINED, gate fails); ASR defined only on
   triggered inputs. ✓
 - **Readiness bound to the full-participation log-group checkpoint (§0.2) + floored (§0.3).** ✓ (READY;
-  checkpoint `a80466c3…`, recall 0.85 > 0.20, N=27,432 ≥ 150, false-disappear 0.0; batch_size=1 decode)
+  checkpoint `a80466c3…`, recall 0.85 > 0.20, N=27,432 ≥ 150, false-disappear 0.0; batch_size=1 decode).
+  Now also **PROVENANCE-bound** (§5d): `provenance.json` hard-verified as D10 (full-participation
+  log-group trainval clean) before any verdict; the launcher hard-fails a non-D10 config.
 - **Frozen subset hashed + bound** (re-verified at load, reused by T5); built on full `val`. ✓
 - **Mini vs trainval boundary:** harness validated on mini (engineering); the real mAP/NDS + readiness
   are trainval-`val`-scale (6019 samples), `scale`-stamped; a mini verdict is NOT a go/no-go. ✓
@@ -204,13 +224,14 @@ batch-invariant-but-batched decode.
    same-batching byte-identity, not batch-invariance)?
 
 ## 8. GATE status
-- [x] Devkit-anchored round-trip + GT-as-pred AP≈1 (mini). 
+- [x] Devkit-anchored round-trip + GT-as-pred AP≈1 (mini).
 - [x] Stable mAP/NDS + permutation-invariance via `.evaluate()` (mini); **real trainval mAP/NDS = 0.125/0.169** (batch_size=1, job 6765358).
 - [x] Evaluator + V4 share the SAME decode; V4 TP/FN agrees with the metric incl. boundary boxes.
 - [x] ASR harness: 6 criteria, `N` = eligible-clean-detected (+ exclusion test), frozen subset
       content-hashed + bound + load-time re-verify, false-disappearance gate (defined + UNDEFINED paths).
 - [x] **Benchmark-readiness verdict = READY** on the full-participation log-group checkpoint `a80466c3…`
-      (recall 0.85 > 0.20, N=27,432 ≥ 150, false-disappear 0.0; `scale=trainval-scientific`; batch_size=1).
+      (recall 0.85 > 0.20, N=27,432 ≥ 150, false-disappear 0.0; `scale=trainval-scientific`; batch_size=1);
+      **PROVENANCE-verified D10** (§5d — the launcher hard-fails non-D10; the eval refuses an unverified checkpoint).
 - [x] 6-tuple schema frozen (clean cols filled by the readiness driver; poisoned/ASR/defense reserved); no attack invoked.
-- [x] Tests green — **191 passed** (T0–T3's 167 + 24 new T4: box_to_global 3, detection_eval 4, asr 8, frustum 4, report 3, viz_detection 2) in 280s; the trainval reference eval is an A40 SLURM job (not pytest).
+- [x] Tests green — **198 passed** (T0–T3's 167 + 31 T4: box_to_global 3, detection_eval 4, asr 8, frustum 4, report 3, viz_detection 2, **provenance 7**); the trainval reference + readiness evals are A40 SLURM jobs (not pytest).
 - [x] `collab/T4/SPEC.md` filled (this doc) + `findings_log` appended; 5 Codex-flag items above.

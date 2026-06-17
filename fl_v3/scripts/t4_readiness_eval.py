@@ -96,6 +96,7 @@ def main() -> None:
     )
     from fl_v3.eval import asr as ASR
     from fl_v3.eval.report import t4_clean_cell
+    from fl_v3.eval.provenance import verify_d10_provenance
 
     cfg = _load_config(args.config, args.overrides)
     # The official metric REQUIRES the full eval split (DetectionEval loads the whole split's GT).
@@ -133,6 +134,18 @@ def main() -> None:
         if recorded != checksum:
             raise RuntimeError(f"checkpoint checksum mismatch: file={recorded} recomputed={checksum}")
     print(f"[t4-readiness] FL_TRAINABLE_CHECKSUM = {checksum}", flush=True)
+
+    # --- D10 provenance gate (§0.2): only a full-participation log-group trainval checkpoint may
+    # produce a trainval go/no-go. Mini (scale != trainval-scientific) is NOT a go/no-go → check skipped.
+    if scale == "trainval-scientific":
+        provenance = verify_d10_provenance(args.checkpoint, checksum)
+        print(f"[t4-readiness] D10 provenance VERIFIED: {provenance.get('regime', '?')} | "
+              f"fraction-train={provenance.get('fraction-train')} "
+              f"partition={provenance.get('nuscenes-partition-mode')} defense={provenance.get('defense-type')}",
+              flush=True)
+    else:
+        provenance = {"_verified": False,
+                      "reason": f"scale={scale} (not trainval-scientific) — D10 provenance check skipped; NOT a go/no-go"}
 
     # --- single shared decode over the FULL val split ---
     cache_dir = str(cfg["nuscenes-cache-dir"])
@@ -215,6 +228,7 @@ def main() -> None:
         "version": version,
         "eval_set": eval_set,
         "attacked_checkpoint_FL_TRAINABLE_CHECKSUM": checksum,
+        "verified_d10_provenance": provenance,
         "checkpoint_path": os.path.abspath(args.checkpoint),
         "mAP": det["mAP"],
         "NDS": det["NDS"],
