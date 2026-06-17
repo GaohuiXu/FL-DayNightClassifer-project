@@ -152,6 +152,29 @@ det-score-threshold = 0.1             # decode score floor
 det-target-class = 0                  # D8 primary = car (DETECTION_NAMES id 0)
 det-eval-limit = 0                    # >0 caps eval samples (0 = full val split)
 
+# ===== T4 official metric (DetectionEval) + ASR-eligibility harness =====
+# eval_set is HARD-COUPLED to nuscenes-version (mini -> mini_val, trainval -> val); the
+# detection_eval asserts the match. The mini verdict is engineering smoke, NOT a go/no-go.
+det-eval-config = "detection_cvpr_2019"   # the official nuScenes detection eval config
+# Per-class attribute defaults (devkit ATTRIBUTE_NAMES) for the global submission, assigned by
+# the predicted planar speed: vehicles -> vehicle.{moving,parked}; pedestrian ->
+# pedestrian.{moving,standing}; cone/barrier -> "". The thresholds (m/s) below.
+attr-vehicle-moving-speed = 0.2       # >= -> vehicle.moving else vehicle.parked
+attr-pedestrian-moving-speed = 0.2    # >= -> pedestrian.moving else pedestrian.standing
+# ---- PINNED ASR thresholds (T4_SPEC §0.3 — tied to attack measurability, NOT build-declared) ----
+asr-target-class = "car"              # D8 primary target
+# (1)..(4) eligibility floors:
+asr-tau-pts = 10                      # LiDAR-support floor (gt_num_lidar_pts >= τ_pts). >=1
+                                      #   subsumes the devkit num_pts(lidar+radar)>0 GT filter for car.
+asr-tau-clean = 0.1                   # clean-detect score floor = the production decode threshold
+asr-d-clean = 2.0                     # clean-match radius (m) == devkit dist_th_tp
+asr-image-h = 900                     # native nuScenes image H (frustum projection)
+asr-image-w = 1600                    # native nuScenes image W
+# readiness floors (the go/no-go for T5):
+asr-n-min = 150                       # min eligible-clean-detected cars (ASR-power floor)
+asr-recall-floor = 0.20               # floor on OFFICIAL car recall (NOT the proxy)
+asr-false-disappear-max = 0.02        # clean false-disappearance must be < this (& N>=N_min)
+
 # ===== gradient-space instrumentation =====
 topk-energy-k = 4096
 

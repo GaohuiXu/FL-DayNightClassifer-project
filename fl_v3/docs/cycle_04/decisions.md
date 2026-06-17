@@ -173,3 +173,53 @@ T4 reference at `fraction=1.0` + log-group + trainval + Path-A — add a `t4_ref
 generalize `fl_stamp_supernodes` to stamp the `local-simulation-gpu-4x` (Path-A) federation (it currently
 stamps only `local-simulation-gpu` and `-4x` hardcodes `num-supernodes=8`), or fall back to single-GPU.
 Wall-clock: full 25/round × ≤20 rounds via Path-A on a 4-GPU A40 node ≈ **3–6 h** (one SLURM job).
+
+---
+
+## D11 — Per-run speedup backlog (PROPOSED — build-session-surfaced at T4; needs orchestrator + a profiling session)
+
+**Status: PROPOSED / unconfirmed.** Surfaced by the T4 build session from the full-participation
+reference run (job 6764630); recorded here per user request for a future deep-dive/profiling session
+to formalize. **Not a confirmed decision** — the orchestrator owns whether/when to act, and any change
+that touches numerics MUST re-pass the determinism gate before a scientific run.
+
+**Measured profile (the reference run, 4×A40 Path-A, full participation, Swin-T frozen).** ~22 min/round
+× 15 ≈ 5.5 h. The run is **compute-bound, NOT Flower-bound**: all 4 A40s pinned at 100 % during the
+training phase (verified by `srun --overlap nvidia-smi`); aggregation averages only the 62 trainable
+tensors across 25 clients (ms); Flower/Ray overhead (actor scheduling, ~tens-of-MB update-vector
+serialization) is negligible vs ~150 s/client of GPU compute. The dominant per-step cost is the
+**frozen Swin-T (ViT) forward over 6 camera images** — the *headline* backbone (D1), recomputed every
+step/epoch/round even though it never updates. (`resnet18` is only the bring-up/mini-smoke fallback.)
+See `collab/findings_log.md` for the full breakdown.
+
+**Candidate levers, ranked, with determinism implications:**
+1. **Frozen-backbone feature caching (the biggest determinism-SAFE win; recommended for the T5–T7 matrix).**
+   D1 freezes the camera backbone, so its multi-scale feature maps for a given (deterministically
+   preprocessed) image are **invariant across steps/epochs/rounds** — recomputing them is pure waste.
+   *Proposal:* precompute the frozen Swin-T feature maps once per camera image on the login node and
+   cache to Mimer (the info-cache pattern: DATAROOT-relative keys, fixed dtypes, a host-portable content
+   hash), then have training read cached features straight into the **trainable** camera-neck. Eliminates
+   the dominant cost → plausibly **~3–5× per-step** (Swin-T forward dominates). *Open questions for the
+   profiling session:* (a) cache the **backbone** multi-scale output (feeds the trainable neck), NOT the
+   neck output (trainable, must stay live); size it — backbone strides [4,8,16,32] × channels [96,192,384,
+   768] over 6 cams × ~28 k keyframes is the storage budget (estimate + decide f16-vs-f32, which affects
+   determinism); (b) **REQUIRES no per-step image augmentation** on the camera path (verify the preprocess
+   is deterministic resize+normalize only — if any random aug is added later, caching breaks); (c) the
+   cached features must be **bit-identical** to the on-the-fly forward → a new determinism gate
+   (precompute-twice byte-identity + cached-vs-live equivalence) before any scientific run; (d) ARM-rebuild
+   portability of the cache (Arrhenius) — likely NOT host-portable (CUDA conv/attn kernels differ), so the
+   cache is a **per-GPU-tier artifact** rebuilt on each tier (consistent with D9's architecture-pinning).
+2. **A100 hardware (~2× per-GPU for Swin-T; per-cell lever for the matrix).** A100 (HGX) is ~2–2.5× faster
+   than A40 for the transformer forward (memory bandwidth + TF32). All Alvis nodes are 4-GPU (no extra
+   parallelism per run; A40 has no InfiniBand so no multi-node), so this is a **per-GPU** speedup, ~2×
+   wall-clock at ~2× units/hr (≈ cost-neutral per result). **Blocked on D9's hard requirement:** establish
+   the A100 determinism gate (assert device, two same-seed runs → byte-identical, commit a NEW A100
+   checksum) BEFORE any A100 scientific run; A100 results are NOT byte-comparable to A40. A100fat (80 GB)
+   is only needed for the full-model-from-scratch ablation (memory-bound), not the frozen-backbone setting.
+3. **Across-cell fan-out (already D9 — the dominant MATRIX lever).** Each attack×defense cell is an
+   independent FL run → one SLURM job/cell, 1 GPU/cell, fan out across the cluster → matrix wall-clock ≈
+   one cell, not the sum. This dwarfs any single-cell speedup for T7.
+4. **REJECTED for determinism:** AMP/fp16 (non-deterministic accumulation), `torch.compile` (can introduce
+   nondeterminism + violates the pure-PyTorch/no-fragile-kernel posture). NOT applicable: GPU overcommit
+   (>1 client/GPU — the GPU is already saturated, D9), larger batch (held fixed at 16 per §0.2; changes
+   convergence).

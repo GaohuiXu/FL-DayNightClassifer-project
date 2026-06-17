@@ -454,3 +454,161 @@ d82ef500…). Codex re-review pending.
   signed off; the build+review loop is closed. Next: the orchestrator marks T3 done and issues T4
   (DetectionEval mAP/NDS + ASR metrics + V4), which builds on T3's clean baseline + the frozen
   update-vector layout contract.
+
+## [T4] 2026-06-17 — yaw convention: T1 box7 yaw = Tait-Bryan Euler, devkit eval yaw = rotated-x heading
+- **Finding (measured on mini, 258 boxes):** T1's canonical `box7[6]` yaw equals
+  `pyquaternion.Quaternion.yaw_pitch_roll[0]` (intrinsic z-y'-x'' Tait-Bryan Euler) **to 4.4e-16**,
+  but the devkit `DetectionEval` orientation error uses `nuscenes.eval.common.utils.quaternion_yaw`
+  = the **rotated-x-axis heading** (`atan2` of `R·[1,0,0]`). On tilted real boxes the two differ by
+  **up to ~0.0038 rad (~0.22°)**. So even a *perfect* `box_to_global(GT)` incurs a ~0.004-rad AOE
+  (orientation-error) floor at trainval.
+- **Decision/why negligible + flagged-not-fixed:** AOE enters NDS as one of five TP scores via
+  `1−min(1,AOE)` → ≤~0.004 of one score → << 0.001 NDS; AP is center-distance (yaw-free); the D4
+  **disappearance ASR is detection-presence, not yaw**. `box_to_global` cannot recover the heading
+  from a scalar Euler yaw (pitch/roll were discarded by T1's forward), and **T1 is frozen** — carrying
+  full-3D orientation would be a T1 touch. So this is documented + flagged for Codex, not fixed. The
+  round-trip test therefore splits rigor: a TIGHT lift-equivalence (`|ΔR|<1e-9` feeding the SAME yaw to
+  our matrix lift AND an independent devkit `Box` lift) + a LOOSE heading-vs-raw-annotation check
+  (`<0.02` rad — catches a gross sign(~π)/offset(~π/2)/swap bug while tolerating the convention gap).
+
+## [T4] 2026-06-17 — GT-as-pred AP≈1 needs the devkit num_pts (lidar+radar), not T1's lidar-only count
+- **Finding:** the §0.1 GT-as-pred sanity gave car AP@2m only **0.9667** when the pred `num_pts` was
+  set to T1's `gt_num_lidar_pts` (lidar-only). `filter_eval_boxes` drops boxes with `num_pts==0` on
+  BOTH GT and pred, but the devkit GT `num_pts = num_lidar + num_radar` — so a car with 0 lidar but
+  >0 radar is KEPT in GT yet DROPPED from a lidar-only pred → an unmatched-GT recall miss (~3.3%).
+  Setting pred `num_pts = -1` (the prediction sentinel) was WORSE (0.84 — occluded GT cars with
+  `num_pts==0` become FPs at score 1.0). Setting pred `num_pts = num_lidar+num_radar` (the devkit GT
+  value) → **car AP@2m = 1.0000 exactly**.
+- **Decision/fix:** `gt_as_pred_submission` takes an optional `num_pts_by_ann` (devkit lidar+radar per
+  ann_token); the readiness driver + the test build it from `nusc`. PRODUCTION model predictions keep
+  the `num_pts=-1` sentinel (a detector does not know GT point counts) — only the GT-as-pred *sanity*
+  mirrors the devkit count. This is a T1-doesn't-carry-radar artifact, not a conversion bug.
+
+## [T4] 2026-06-17 — DetectionEval invocation + determinism gotchas (verified vs devkit 1.1.11)
+- Call **`DetectionEval(...).evaluate()`** NOT `main()` — `main()` does `random.seed(42)`+`shuffle`
+  (example plots) and writes PNG/PDF/json; `.evaluate()` touches no RNG and writes no files.
+- `DetectionEval.__init__` asserts `set(pred.sample_tokens)==set(gt.sample_tokens)` → the results JSON
+  must key EVERY eval-split token (empty `[]` if no detections), and the official metric is
+  ALWAYS full-split (no `det-eval-limit` subset — the driver forces `det-eval-limit=0`).
+- `accumulate` sorts predictions by `(score, emission-index)` (Python stable sort, then reversed) —
+  equal-score ties break on **emission order** → boxes are emitted in a **content-defined order**
+  (`(−score, translation, size, rotation, name)`) so mAP/NDS is permutation-invariant (tested:
+  permuting equal-score boxes → byte-identical JSON + identical mAP/NDS).
+- `velocity_l2` is a plain L2; NaN GT velocity (no prev/next box) → NaN → nan-ignored by `cummean`,
+  so copied-velocity GT-as-pred gives AVE≈0. `quaternion_yaw` (heading) ≠ Euler (see above).
+
+## [T4] 2026-06-17 — full readiness pipeline validated end-to-end on mini (harness sound)
+- `scripts/t4_readiness_eval.py` ran clean on mini_val (untrained resnet18 ckpt): single shared decode
+  → official DetectionEval → GT-as-pred sanity (car AP@2m **1.0000** in-driver) → 6-criterion
+  eligibility (eligible-clean-detected **N=185**, tally c1=2568/c2=2568/c3=1991/c4=2239/c5=c6=185) →
+  content-hashed frozen subset bound to the ckpt checksum → **false-disappearance 0.0** (a 2nd FRESH
+  decode over the subset's samples reproduced every detection — determinism + batch-invariance) → V4 →
+  **VERDICT NOT-READY (scale=mini-smoke)** with correct gaps. 190 pytest tests pass (167 T0–T3 + 23 T4).
+- The offline-preflight guard correctly FAILED the first reference submit (job 6764599) — swin_t
+  ImageNet weights were not cached under TORCH_HOME; pre-cached them on the login node, resubmitted as
+  job **6764601** (full participation, log-group, trainval, Path-A 4×A40). Trainval mAP/NDS + readiness
+  verdict + the attacked-checkpoint checksum + the frozen-subset hash land when 6764630 + the readiness
+  eval complete (~5–6 h).
+
+## [T4] 2026-06-17 — self-adversarial review (8-agent workflow) → 3 confirmed fixes applied
+- A pre-Codex adversarial review (workflow `wf_6ab3b65d`, 5 dimensions × adversarial verify) over the T4
+  modules confirmed 3 defects; all fixed before the readiness eval consumed the checkpoint:
+  - **(blocker) `detected_target_gt` GT order not EXPLICITLY sorted** — index order already equals
+    ann-token order (T1 sorts `info_cache` rows by `ann_token`, so the mini hash was correct), but the
+    function relied on it implicitly. Fixed: `gt_idxs = sorted(..., key=ann_token)` — a no-op on real
+    data (hash unchanged) that makes the greedy matcher reproducible for ANY caller + the docstring true.
+  - **(major) `disappearance_asr` re-detected with a caller-passed `thr`, not the subset's BOUND
+    thresholds** — a T5-contract hole (§0.5 "identical targets"). Fixed: added `thresholds_from_subset`;
+    `disappearance_asr(subset, decodes)` now derives τ_clean/d_clean/target from the frozen subset (the
+    GATE floors `n_min`/`false_disappear_max` still come from the live config in
+    `false_disappearance_baseline`). New test `test_disappearance_uses_subset_bound_thresholds`.
+  - **(major) `t4_reference.json` had `det-eval-limit=256`, §0.2 says `0`.** The checkpoint is
+    **eval-independent** (server eval is `no_grad`/read-only → byte-identical weights), and the official
+    numbers come from the separate full-val readiness eval — so 256-vs-0 does not change the deliverable.
+    But §0.2 is literal and the run was at round 0, so set `det-eval-limit=0` (honest full-val in-loop
+    convergence; matches the T3-F1 lesson) and resubmitted (6764601 → **6764630**). Determinism preserved.
+- Post-fix: 191 pytest tests pass (167 T0–T3 + 24 T4; +1 from the new bound-thr disappearance test).
+
+## [T4] 2026-06-17 — reference-run performance profile (compute-bound; speedup backlog → decisions.md D11)
+- **The full-participation reference (job 6764630, 4×A40 Path-A, Swin-T frozen) is COMPUTE-bound, not
+  Flower-bound.** Evidence via `srun --jobid=6764630 --overlap nvidia-smi`: all 4 A40s pinned at 100 %
+  during the training phase (e.g. `100 100 100 100`); the earlier "GPU-0-only" snapshots were the
+  single-GPU server-eval phase between rounds. The compute-node Flower log shows **4 `ClientAppActor`s**
+  (one per GPU) → Path-A IS parallelizing (25 clients in ~7 concurrent waves of 4 ≈ ~18 min train + ~4 min
+  full-val server eval ≈ **~22 min/round**; ~5.5 h for 15 rounds, inside the 12 h wall). Aggregation
+  averages only the 62 trainable tensors across 25 clients (ms) — negligible. The dominant cost is the
+  **frozen Swin-T (ViT, the D1 headline — NOT resnet; resnet18 is only the mini-smoke fallback) forward
+  over 6 camera images**, recomputed every step although it never updates.
+- **Hardware (Alvis):** every node is 4-GPU (A40 48 GB ×85 / A100 40 GB ×56 / A100fat 80 GB ×8 / V100). A40
+  has **no InfiniBand** (no multi-node) and is "inference/smaller training"; A100 (HGX) is ~2–2.5× faster
+  per-GPU for the transformer forward at ~2× units/hr. So there is **no way to get >4 GPUs into one Flower
+  (single-node Ray) sim run**; the only single-run speedup is A100 per-GPU (~2× wall-clock) — and **D9
+  requires an A100 determinism gate first** (A100 ≠ A40 byte-comparable). A100fat only matters for the
+  full-model-from-scratch ablation. For T4 now: **A40 is correct** (validated, fits the wall).
+- **Speedup backlog recorded as `decisions.md` D11 (PROPOSED, needs orchestrator + a profiling session):**
+  frozen-backbone **feature caching** is the biggest determinism-safe per-run win (cache the invariant
+  frozen Swin-T feature maps once per image → ~3–5× per-step; caveats: no image aug, bit-identity gate,
+  per-GPU-tier cache); A100 is the per-cell lever (after its determinism gate); across-cell fan-out (D9)
+  is the matrix lever; AMP/fp16 + `torch.compile` are REJECTED (break bit-determinism); overcommit +
+  bigger-batch don't apply. A deep codebase speedup analysis is deferred to a future (orchestrator-blessed)
+  session.
+
+## [T4] 2026-06-17 — A100 determinism gate PASS (D9 requirement met) + a launcher bug + A100≈A40 speed
+- **A100 byte-identity: PASS.** The D9 A100 determinism gate (job 6764809, 4×A100-SXM4-40GB, paired
+  3-round full-participation log-group trainval) produced **identical** `FL_TRAINABLE_CHECKSUM` for the two
+  same-seed runs: runA == runB == `ae2b4571aeb43442b249d1209cd5efcdc0055bb413110044b9ac93ba8e5e78e7`
+  (verified by diffing the two `trainable_checksum.txt` files). So the platform is **bit-deterministic on
+  A100 (SXM4-40GB)** at the full-participation operating point — A100 is **unlocked for T5–T7 per D9**.
+  Eval losses were also identical across the runs (round1 4.208648144673976 …). NOTE: this checksum is for
+  the **3-round gate config** (NOT a science checkpoint) — a full A100 reference would have its own.
+- **Launcher bug (fixed) — false "DIVERGED" + swallowed live log.** `run_t4_reference_a40.sh` captured
+  `CHK_A="$(run_one …)"` — i.e. run_one's ENTIRE stdout (the echoes + the tee'd flwr stream + the final
+  `cat`), not the 64-char checksum. Effects: (a) the `T4_PAIRED` comparison diffed whole log-blobs →
+  printed `[t4-ref] FAIL: ... DIVERGED` and `exit 1` (→ SLURM marked job 6764809 FAILED) **despite the
+  checksums being identical**; (b) the flwr stream was captured into the variable instead of streaming to
+  the SLURM `.out` (this — NOT just tee buffering — is why the `.out` was quiet; norm_log was the right
+  progress signal). **Fix:** run_one now streams to `.out`; the checksums are read from the artifact FILES
+  via `read_chk` and compared (with a non-empty guard). The A40 reference (6764630, single run, old
+  launcher) is **unaffected in its deliverable** — its checkpoint + `trainable_checksum.txt` are written
+  correctly by `server_app`; only the launcher's final echo was messy + the `.out` quiet. The readiness
+  eval reads the checksum from the model/file, so it is unaffected.
+- **A100 speed ≈ A40 (~1.2×, not 2×).** runA did 3 rounds (+ bring-up + round-0 eval) in **~75 min**
+  (start 13:51:03 → round-3 norm_log 15:06:00) ⇒ **~25 min/round**; A40 steady-state is ~27 min/round. The
+  workload is **I/O- + single-GPU-full-val-eval-bound**, not GPU-compute-bound, so the faster A100 yields
+  only a modest end-to-end gain. Recalibrates D11: A100's value is the determinism validation + matrix
+  fan-out, NOT single-run speed — **feature caching remains the real single-run lever.**
+
+## [T4] 2026-06-17 — trainval readiness verdict + the false-disappearance batch-invariance fix
+- **The trainval readiness eval (A40, checkpoint `a80466c3…`) on the full val split (6019):**
+  official **car recall 0.70** (>> floor 0.20), **eligible-clean-detected N=23,354** (>> N_min 150),
+  mAP 0.080 / NDS 0.138, **GT-as-pred sanity car AP@2m = 1.0000** (the §0.1 conversion is exact at
+  trainval scale). Full participation (D10) decisively fixed the weak sampled-regime model. Eligibility
+  funnel: 80004 car GT → frustum 80004 → ≥τ_pts 29006 → in-range 59522 → clean-detected 40014 → eligible
+  (all 6) 23354.
+- **The first verdict was NOT-READY for ONE reason: false-disappearance = 9.4% (> 2%).** The model is NOT
+  the problem (recall + N pass with huge margin), so the gate's canned "strengthen the architecture"
+  advice was MISDIRECTED. Root-caused with a direct diagnostic (`_t4_fd_diagnose.py`, 60 subset samples
+  decoded 3 ways on the checkpoint):
+  - batch-16 re-run vs batch-16 (SAME batching): **0/60 samples differ → run-to-run determinism PERFECT.**
+  - batch-16 vs batch-1: **28/60 samples differ** → the detector forward is **NOT batch-invariant** (cuDNN
+    conv varies with batch composition → boundary detections near τ_clean=0.1 flip).
+  - batch-1 isolated disappearance: **0.37%** (vs 8.55% with the subset-vs-fullval batch mismatch).
+  So the 9.4% was a **harness artifact**: the frozen subset was built from a full-val-batched decode but
+  the false-disappearance re-decode used a subset-only-batched loader → different batch grouping → spurious
+  flips. NOT a model defect, NOT nondeterminism (run-to-run is bit-identical).
+- **Fix + protocol contract:** the ASR disappearance must depend only on a target's OWN trigger, not on
+  batch-mates → the whole readiness/ASR decode now runs at **batch_size=1** (canonical per-sample
+  inference; one consistent batch-invariant decode for DetectionEval + the frozen subset + disappearance +
+  V4). `t4_readiness_eval.py` forces `cfg["batch-size"]=1`. **T5 inherits this:** decode triggered inputs
+  at batch_size=1 too, else the disappearance ASR carries an ~8–9% batch-grouping noise floor. Re-running
+  the readiness eval at batch_size=1 (job 6765358 → `readiness_bs1/`) — expect false-disappearance ≈ 0 (the
+  subset built + re-checked at batch_size=1 is bit-identical run-to-run) → verdict READY. The batch-16
+  verdict is preserved in `readiness/` for the record.
+- **CONFIRMED — the batch_size=1 readiness eval (job 6765358 → `readiness_bs1/`) returned `READY`:**
+  mAP/NDS **0.1253 / 0.1688**, official **car recall 0.85** (> floor 0.20), **N=27,432** (≥ N_min 150),
+  **false-disappearance = 0.0** (defined, passed), gaps=[]. (batch_size=1 also gives *better* detections
+  than batch-16: recall 0.85 vs 0.70, N 27,432 vs 23,354 — the batched cuDNN effects were slightly
+  degrading detections, so canonical per-sample inference is both more correct AND stronger.) Of-record:
+  checkpoint checksum `a80466c3…`, frozen-subset hash `2ad8f8da55e8516bf0c46085cd5217ad2b2d1984c23499f51c397ad7cad1940f`.
+  **T4 GATE is GREEN: the benchmark is READY for T5.** Observed: batch_size=1 is GPU-idle/CPU-bound
+  (97% single-core, GPU ~0%) — the 6019-sample eval took ~1–2 h; a per-cell perf concern for T5–T7.

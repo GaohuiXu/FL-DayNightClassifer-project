@@ -35,21 +35,24 @@ fl_setup_env() {
     echo "[_fl_env] FLWR_HOME=$FLWR_HOME ctl=$FLWR_LOCAL_CONTROL_API_PORT sio=$FLWR_LOCAL_SIMULATIONIO_API_PORT ray_base=$ray_base RAY_TMPDIR=$RAY_TMPDIR"
 }
 
-# fl_stamp_supernodes N SRC_TOML DST_TOML
-# Write DST_TOML = SRC_TOML with `options.num-supernodes = N` ONLY inside the
-# [superlink.local-simulation-gpu] block (the launcher stamps the DERIVED client count N).
+# fl_stamp_supernodes N SRC_TOML DST_TOML [BLOCK]
+# Write DST_TOML = SRC_TOML with `options.num-supernodes = N` ONLY inside the given federation
+# BLOCK header (default the single-GPU `[superlink.local-simulation-gpu]`; pass
+# `[superlink.local-simulation-gpu-4x]` for the D9 Path-A multi-GPU federation, whose default
+# num-supernodes=8 is hardcoded to the gate config). Exact-string block match (so
+# `…-gpu` does NOT also match `…-gpu-4x`). The launcher stamps the DERIVED client count N.
 fl_stamp_supernodes() {
-    local n="$1" src="$2" dst="$3"
-    awk -v n="$n" '
-        /^\[/ { ingpu = ($0 == "[superlink.local-simulation-gpu]") }
-        ingpu && /^options\.num-supernodes[[:space:]]*=/ { print "options.num-supernodes = " n; next }
+    local n="$1" src="$2" dst="$3" block="${4:-[superlink.local-simulation-gpu]}"
+    awk -v n="$n" -v block="$block" '
+        /^\[/ { inblk = ($0 == block) }
+        inblk && /^options\.num-supernodes[[:space:]]*=/ { print "options.num-supernodes = " n; next }
         { print }
     ' "$src" > "$dst"
     if ! grep -q "^options.num-supernodes = ${n}$" "$dst"; then
-        echo "[_fl_env] ERROR: failed to stamp num-supernodes=${n} into $dst" >&2
+        echo "[_fl_env] ERROR: failed to stamp num-supernodes=${n} into $dst (block ${block})" >&2
         return 3
     fi
-    echo "[_fl_env] stamped num-supernodes=${n} -> $dst"
+    echo "[_fl_env] stamped num-supernodes=${n} -> $dst (block ${block})"
 }
 
 # fl_preflight_offline: assert the run will make ZERO network calls — ImageNet weights
