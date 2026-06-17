@@ -111,3 +111,65 @@ experiment's GPU tier **homogeneous and recorded**, and re-validate the **concur
 byte-identity on A100 too (the atomic-free argument is architecture-wide, but prove it at the operating
 point). **Never run a full-scale exp on an unvalidated GPU tier** — that is the same FALSE-PASS trap the
 A40 gate exists to prevent, one level up at the hardware tier.
+
+---
+
+## D10 — Full participation (fraction-train=1.0) is the primary scientific-training regime; sampling is secondary
+
+**CONFIRMED 2026-06-17 (user-directed; verified by workflow `wf_25deb3c5-769`).**
+
+**Decision.** The **clean scientific baseline and all T5–T7 attack×defense cells run at FULL participation**
+(`fraction-train=1.0`, all `N` clients aggregated every round). Per-round random client **sampling
+(`fraction<1`) is demoted to a SECONDARY realism setting only.** Wall-clock is bought with **D9 Path-A
+multi-GPU** (N× compute, byte-identical to serial), **not** by starving participation.
+
+**Why (the T3 weak-log-group diagnosis).** T3's clean log-group model (recall@2m **0.1455**) is **not** an
+architecture-capacity ceiling — it conflates three confounds, all removed by full participation:
+1. **Partial-participation variance** ~ `O(E²G²/(m·µ·T))` (Li et al., *On the Convergence of FedAvg on
+   Non-IID Data*, ICLR 2020) — inversely ∝ the sampled count `m`, and **maximized under location-coherent
+   shards** (large gradient-dissimilarity `G`). At `m=N` it **vanishes**.
+2. **Objective-subset bias** (FedNova, Wang et al. NeurIPS 2020) — averaging over a shifting heterogeneous
+   subset converges toward a *mismatched* objective.
+3. **Severe under-training** — at 5-of-25 × 4 rounds each shard is selected only **≈0.8 times** (whole
+   geographic regions trained zero times) and the eval curve was **still climbing** at the last round.
+   The same architecture reaches recall **0.35–0.50** in IID settings → capacity exists.
+
+**Consistency with the threat model.** Full participation **realizes the plan's PRIMARY "controlled
+participation" regime as its corner case `n_r=N`** (it is NOT the "random sampling = secondary" path).
+Derived `N=25, ρ=0.2` → `m_r=round(0.2·25)=5`, `h_r=20`: satisfies `1 ≤ m_r < n_r/2` (5<12.5) and
+`m_r ≤ m=floor(ρN)=5`. It is **strictly better for the clean-vs-poisoned 2×2 fairness**: identical roster
+clean vs poisoned ⇒ the `poison_rate=0` null-config is **exactly bit-identical** to clean (plan
+§Verification), which sampled participation only approximates.
+
+**Binding conditions (record + enforce):**
+1. **Strict readiness sequencing (the one BLOCKER if mis-ordered):** (a) re-run the clean log-group
+   trainval FedAvg at **full participation FIRST** (same batch/seed/partition; rounds bumped to a
+   convergence target, ≤20 a floor not a ceiling); (b) **re-judge T4 `benchmark_readiness.json` on THAT
+   checkpoint**; (c) escalate to **architecture strengthening (deeper LiDAR PFN / full-model-from-scratch
+   on A100 per D9) ONLY if STILL NOT-READY.** Full participation must NOT be used to paper over a real PFN
+   weakness — if it clears the floor, stamp the verdict **"cleared by participation, architecture not
+   independently validated"**; if it does not, that IS the architecture signal. Report the 5-of-25 and the
+   full-participation recall **side by side**.
+2. **Re-label the T3 numbers:** `recall@2m log_group 0.1455` and the **non-IID gap `+0.2073`** are
+   **sampled-regime (5-of-25, fraction-0.2, 4-round)** measurements — tag `scale=trainval-sampled`. They
+   remain evidence a large non-IID gap *exists*, but are **NOT** the full-participation baseline. The T4
+   readiness anchor and the T5-attacked checkpoint **must BOTH be the full-participation log-group
+   checkpoint (same `FL_TRAINABLE_CHECKSUM`)** — a sampled anchor + a full-participation attack is the
+   §0.2 partition-mismatch trap generalized to a **participation-regime mismatch**.
+3. **Malicious roster at full participation:** a **fixed, seed-derived, recorded** subset of size
+   `m=floor(ρN)` of the `0..N-1` partition-ids; `m_r=m` constant every poisoned round; still report `m_r`
+   (ground truth) vs the defense-assumed `f_r` (a defender hyper-parameter). The clean baseline uses the
+   **identical roster** with that subset behaving honestly (`poison_rate=0`).
+4. **2×2 at identical participation:** clean and every attack×defense cell run at full participation;
+   **forbid** comparing a full-participation clean baseline against a `fraction<1` sampled attack cell (it
+   confounds the participation regime with the attack and voids the `δ` utility-collapse interpretation).
+5. **Keep the DT3-B determinism gate at `fraction<1`** (`fl_gate_a40.py` FATALs on `fraction≥1`) — that
+   gate exists to exercise **sampler drift** and is independent of the science participation regime; do
+   NOT relax it to `1.0`.
+
+**Codebase status (verified).** `select_partition_ids(...,1.0,...)` already returns `[0..N-1]` every round
+(no special-casing; trivially bit-deterministic). **One build task:** there is no launcher today for the
+T4 reference at `fraction=1.0` + log-group + trainval + Path-A — add a `t4_reference.json` + launcher, and
+generalize `fl_stamp_supernodes` to stamp the `local-simulation-gpu-4x` (Path-A) federation (it currently
+stamps only `local-simulation-gpu` and `-4x` hardcodes `num-supernodes=8`), or fall back to single-GPU.
+Wall-clock: full 25/round × ≤20 rounds via Path-A on a 4-GPU A40 node ≈ **3–6 h** (one SLURM job).
