@@ -5,9 +5,9 @@
 > `fl_v3/collab/T<N>/REVIEW.md`.
 
 ## Verdict
-`CHANGES-REQUESTED`
+`PASS`
 
-The core metric implementation looks scientifically sound: canonical-to-global conversion is devkit-anchored, `DetectionEval.evaluate()` is used directly, ASR uses the 6 criteria with `N = eligible-clean-detected`, and V4 consumes the shared decode. One gate invariant still needs hardening before T5 can rely on the READY artifact: the readiness verdict is checksum-bound, but not provenance-bound to the required D10 full-participation log-group training regime.
+Re-review verdict after commit `406d162`: the prior blocking provenance-binding finding is resolved. The original review findings are retained below for audit; the superseding Codex re-review is at the end of this file.
 
 Reviewer checks run:
 - `bash fl_v3/scripts/run_in_venv.sh python -m pytest fl_v3/tests/test_eval_asr.py fl_v3/tests/test_eval_box_to_global.py fl_v3/tests/test_eval_detection_eval.py fl_v3/tests/test_eval_frustum.py fl_v3/tests/test_eval_report.py fl_v3/tests/test_viz_detection.py -q` -> 24 passed.
@@ -41,3 +41,23 @@ For each: severity · exact file:line · why it's wrong (cite the SPEC/paper) ·
 - Invariants (determinism, null-config): one blocking gate invariant above. Decode avoids unstable `topk`, results JSON uses content-defined box order, readiness forces `batch-size=1`, frozen subset hashes and re-verifies targets/thresholds/checksum, and the T4-focused tests pass.
 - Calibration/units: nothing found. The ASR thresholds are pinned in config, `tau_clean` matches the production decode threshold, `d_clean=2.0m` matches devkit `dist_th_tp`, `tau_pts=10` is a declared LiDAR-support floor, and coordinate/velocity conversion order matches the devkit oracle checks.
 - Metric correctness: nothing found. Official mAP/NDS use `DetectionEval.evaluate()` with `detection_cvpr_2019`; ASR eligibility implements the 6 criteria; `N` is eligible-clean-detected; false-disappearance is undefined below `N_min`; and V4 reuses the same ASR matcher/decode.
+
+---
+
+## Codex re-review (2026-06-17) — PASS
+
+Reviewed new commit:
+- `406d162` — `Cycle 04 T4: address Codex review — provenance-bind the readiness verdict (D10) + nits`
+
+Verification run by Codex:
+- `bash fl_v3/scripts/run_in_venv.sh python -m pytest fl_v3/tests/test_eval_provenance.py fl_v3/tests/test_eval_asr.py fl_v3/tests/test_eval_box_to_global.py fl_v3/tests/test_eval_detection_eval.py fl_v3/tests/test_eval_frustum.py fl_v3/tests/test_eval_report.py fl_v3/tests/test_viz_detection.py -q` -> 31 passed.
+- `bash fl_v3/scripts/run_in_venv.sh python -m py_compile fl_v3/scripts/t4_readiness_eval.py fl_v3/scripts/_t4_fd_diagnose.py fl_v3/scripts/t3_trainval_reeval_fullval.py fl_v3/src/fl_v3/eval/provenance.py` -> passed.
+- `git diff --check c711aef..HEAD -- fl_v3` -> clean.
+
+Resolution check:
+- The blocking D10 provenance finding is resolved. `fl_v3/src/fl_v3/eval/provenance.py` defines the required full-participation log-group trainval clean FedAvg provenance, binds it to `FL_TRAINABLE_CHECKSUM`, and hard-refuses missing, sampled, IID, defended, wrong-split, or checksum-mismatched provenance.
+- `fl_v3/scripts/run_t4_reference_a40.sh` now hard-fails non-D10 configs before training and writes `provenance.json` beside `final_model.pt`.
+- `fl_v3/scripts/t4_readiness_eval.py` now calls `verify_d10_provenance()` before any trainval go/no-go is emitted and records `verified_d10_provenance` in `benchmark_readiness.json`. The READY predicate itself does not include `_verified`, but the verifier raises before the verdict path, so the gate is effectively hard-bound.
+- The yaw-tolerance item remains a documented non-blocking contract/documentation question, not a scientific blocker for AP/ASR. The previous trailing-whitespace style issue is resolved.
+
+No new scientific-error, correctness-bug, invariant-violation, question, calibration/units, or metric-definition findings.

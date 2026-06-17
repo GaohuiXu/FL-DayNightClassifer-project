@@ -639,4 +639,16 @@ finding; 24 T4 tests + py_compile + devkit-source inspection) and raised **one b
   (lift-equivalence + GT-as-pred AP=1.0 cover it). Flagged for the **orchestrator** to align the durable
   contract (build session does not edit `T4_SPEC.md`).
 - **(style)** trailing whitespace in `collab/T4/SPEC.md` removed.
-Post-fix: **198 tests** (167 T0–T3 + 31 T4). Re-review pending.
+Post-fix: **198 tests** (167 T0–T3 + 31 T4).
+
+## [T4] 2026-06-17 — Codex RE-REVIEW PASS (review loop closed)
+Codex re-reviewed commit `406d162` and returned **PASS**: the blocking D10 provenance finding is
+resolved (`eval/provenance.py` defines + binds the full-participation log-group trainval clean provenance
+to `FL_TRAINABLE_CHECKSUM` and hard-refuses missing/sampled/IID/defended/wrong-split/checksum-mismatch;
+the reference launcher hard-fails non-D10 before training + writes `provenance.json`; the readiness eval
+`verify_d10_provenance()`s before any verdict and records `verified_d10_provenance`). Codex re-ran 31 T4
+tests (pass), `py_compile` (incl. `eval/provenance.py`), `git diff --check c711aef..HEAD` (clean). **No
+new** scientific-error / correctness-bug / invariant-violation / question / calibration / metric finding.
+The yaw-tolerance item remains a documented non-blocking contract question for the orchestrator (durable
+`T4_SPEC §0.1` wording); style whitespace resolved. **T4 is scientifically signed off — review loop
+closed.** Merged to `v3-ad-perception`.
