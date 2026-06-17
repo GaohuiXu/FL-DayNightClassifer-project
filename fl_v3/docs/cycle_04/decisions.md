@@ -32,3 +32,38 @@ good hygiene so no downstream session re-litigates.
 - **D6** frozen camera-backbone BN in eval mode; new fusion/neck/head modules GroupNorm/LayerNorm; FedBN diagnostic.
 - **D7 (δ) DEFERRED** — set empirically once experiments reveal the baseline NDS spread (T3/T6), before interpreting any defended cell.
 - **D8** primary target class = car/vehicle; pedestrian/cyclist secondary only if eligible-count + clean-recall pass the floor.
+
+---
+
+## D9 — Execution model for T5–T7: concurrent actors are determinism-safe (T3 follow-up)
+
+**RECOMMENDED (needs user/supervisor confirm + a Swin-T-scale re-validation before full reliance).**
+
+**Question (raised at T3):** the platform inherited fl_v2's `num-gpus=1.0` single-actor execution
+("concurrent Ray actors diverge at round 2"). Run strictly serially, the T5–T7 attack×defense matrix
+looked expensive.
+
+**Finding (validated on the A40, T3 follow-up):** that divergence was an fl_v2 finding on a
+**different, atomic-using model**. Our T2 detector is **atomic-free by construction** (deterministic
+splat/scatter, no `scatter_add`), so concurrent-actor **kernel interleaving changes only timing, not
+values**. Both concurrency modes produced a final aggregated checksum **byte-identical to the
+single-actor baseline** `d82ef5001b88…c08b236` on the gate config (resnet18, N=8, 3 rounds,
+fraction-train=0.5):
+- **4 actors sharing ONE A40** (`local-simulation-gpu-shared`, `num-gpus=0.25`) — job 6764256 — PASS-STRONG.
+- **4 actors on FOUR A40s** (`local-simulation-gpu-4x`, `num-gpus=1.0`, 4-GPU node) — jobs 6764253/6764255 — PASS-STRONG.
+(eval curves matched to all 16 digits; checksums == the reference.) Validation harness:
+`scripts/run_parallel_validation_a40.sh` + the two federations in `configs/flwr_config.toml`.
+
+**Implication / recommendation for T5–T7:**
+1. **Within a cell:** run 4 concurrent actors on ONE GPU (`num-gpus=0.25`) → **~4× speedup, ZERO
+   determinism cost** (byte-identical, null-configs safe). No extra hardware. (4 GPUs → another ~4×.)
+2. **Across cells:** each attack×defense cell is an independent FL run → submit one SLURM job per cell;
+   they run in parallel across the cluster (hundreds of idle A40 GPUs) → matrix wall-clock ≈ per-cell
+   time, not the sum.
+3. **Keep `num-gpus=1.0` (single actor) for the determinism GATES** and null-config byte-parity proofs
+   (already so); the relaxation is for the heavy scientific cells.
+
+**Caveats (do NOT skip before T5/T7 reliance):** validated at the **bring-up scale** (resnet18, N=8,
+3 rounds, mini, 4 actors). **Re-confirm byte-identity at the headline Swin-T + trainval scale and at
+the actor count you actually use** (e.g. `num-gpus=0.2` → 5 actors) before committing the matrix to
+it — the atomic-free argument is architecture-wide, but the proof should be at the operating point.

@@ -133,9 +133,14 @@ with these per-module counts (asserted by `assert_trainable_layout` + `test_fl_t
 - [x] **IID-mini ≈ central (falsifiable)** (`sbatch fl_v3/scripts/run_t3_milestone_a40.sh`, job
       **6763999**, A40): **PASS** — recall@2m fed **0.4961** vs central **0.4653** (gap **0.0308** <
       δ); both clear `R_floor=0.05`; anti-collapse both sides; all 5 checks True.
-- [ ] **Non-IID gap (completed trainval-scale)** (`sbatch fl_v3/scripts/run_trainval_gap_a40.sh`, job
-      **6764191**, A40): frozen-Swin-T v1.0-trainval FedAvg, derived **N=25**, fraction-train=0.4
-      (10/25), **6 rounds** (≤20), log_group vs IID. **RUNNING — numbers in §6.2 when complete.**
+- [x] **Non-IID gap (completed trainval-scale)** (`sbatch fl_v3/scripts/run_trainval_gap_a40.sh`, job
+      **6764226**, A40, COMPLETED): headline frozen **Swin-T** on v1.0-**trainval**, derived **N=25**,
+      fraction-train=0.2 (5/25), **4 rounds** (≤20), batch=16, run to completion both modes.
+      recall@2m **IID=0.3692** vs **log_group=0.1457** → **non-IID gap = +0.2235** (`scale`-stamped
+      `trainval-scientific`, reported, NOT required small — and it is NOT small). Measured wall-clock
+      ≈ **3088 s (IID) / 3113 s (log_group)** ≈ 13 min/round at batch 16 (the headline Swin-T number).
+      Final checksums: IID `a4408cdb…`, log_group `47635bb6…`. The mini log-group run is methodology
+      smoke only.
 
 ### 6.1 Declared thresholds
 - **R_floor = 0.05** (absolute recall@2m, car; >0 — a zero-decode collapse fails).
@@ -160,14 +165,21 @@ with these per-module counts (asserted by `assert_trainable_layout` + `test_fl_t
 - **Measured wall-clock**: bring-up resnet18 gate (N=8, 3 rounds) — Ray run ≈ 2–3 min/run incl.
   bring-up; mini milestone (N=4, 15 rounds, num_workers=0, I/O-bound) — 3072 s. Headline Swin-T
   per-round wall-clock: **from the trainval run (§ below) when complete.**
-- **Trainval-scale** (job 6764226, A40, headline frozen **Swin-T**, derived **N=25**, fraction-train=0.2
-  → 5/25, **4 rounds**, batch=16): **IN PROGRESS.** log_group half COMPLETE — recall@2m **0.1457**,
-  per-run wall-clock **3113 s** (~52 min incl. Ray bring-up ≈ 13 min/round at batch 16 — the headline
-  Swin-T number), checksum `47635bb66fb5b2bc8d38790092c055cf29906054f36f147f9b3ccb74c30cdfce`. IID
-  half running → **IID-vs-log-group recall@2m gap when complete** (read from
-  `fl_v3/scripts/logs/t3_trainval_gap_6764226.out`). *(Earlier batch=4 attempt 6764191 cancelled to
-  switch to the faster batch=16/fraction-0.2 config; 6764225 hit the documented Ray same-node
-  bring-up race — caught by the silent-exit guard — and was resubmitted on a fresh node as 6764226.)*
+- **Trainval-scale non-IID gap** (job 6764226, A40, COMPLETED, headline frozen **Swin-T**, derived
+  **N=25**, fraction-train=0.2 → 5/25, **4 rounds**, batch=16, v1.0-trainval train/val):
+  recall@2m **IID=0.3692** / **log_group=0.1457** → **non-IID gap +0.2235**; per-run wall-clock
+  **IID 3088 s / log_group 3113 s** (≈ 13 min/round at batch 16); final checksums IID `a4408cdb6b…`,
+  log_group `47635bb66f…`. *(Earlier batch=4 attempt 6764191 cancelled to switch to the faster
+  batch=16/fraction-0.2 config; 6764225 hit the documented Ray same-node bring-up race — caught by
+  the silent-exit guard — and was resubmitted on a fresh node as 6764226.)*
+- **Parallelism follow-up (T5–T7 speedup; see decisions.md D9):** 4 concurrent Ray actors are
+  **byte-identical to the single-actor reference `d82ef500…`** in BOTH modes — **4 actors on 4 A40s**
+  (`local-simulation-gpu-4x`, jobs 6764253/6764255) AND **4 actors SHARING one A40**
+  (`local-simulation-gpu-shared`, `num-gpus=0.25`, job 6764256, trained cleanly, eval matched to all
+  digits). Our atomic-free model is concurrency-insensitive (interleaving changes timing, not values)
+  ⇒ **~4× per-cell speedup on a single GPU, zero determinism cost** (null-configs safe). Validated at
+  bring-up scale; re-confirm at Swin-T/trainval scale before full T5–T7 reliance. Harness:
+  `run_parallel_validation_a40.sh`.
 
 ## 7. Self-review — what to attack hardest (for Codex)
 1. **DT3-B sampler truly replaces Flower's random selection at fraction<1** — the discovery probe

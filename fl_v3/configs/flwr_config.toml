@@ -36,3 +36,24 @@ options.backend.client-resources.num-gpus = 0.0
 options.num-supernodes = 50
 options.backend.client-resources.num-cpus = 1
 options.backend.client-resources.num-gpus = 1.0
+
+# ---------------------------------------------------------------------------
+# PARALLELISM VALIDATION federations (T3 follow-up — speedup investigation).
+# Both run 4 concurrent Ray actors to test whether our ATOMIC-FREE T2 model stays
+# bit-deterministic under concurrency (the fl_v2 "diverges at round 2" finding was on
+# a different, atomic-using model). num-supernodes hardcoded to 8 = the gate config N.
+#
+#   -shared : 4 actors SHARE ONE A40 (num-gpus=0.25) — Path B. Submit on 1 GPU.
+#             If two same-seed runs are byte-identical -> shared-GPU concurrency is safe.
+#   -4x     : 1 actor PER A40 (num-gpus=1.0) on a 4-GPU node — Path A. Submit with
+#             --gpus-per-node=A40:4. No shared-device kernel interleaving by construction.
+# ---------------------------------------------------------------------------
+[superlink.local-simulation-gpu-shared]
+options.num-supernodes = 8
+options.backend.client-resources.num-cpus = 1
+options.backend.client-resources.num-gpus = 0.25
+
+[superlink.local-simulation-gpu-4x]
+options.num-supernodes = 8
+options.backend.client-resources.num-cpus = 1
+options.backend.client-resources.num-gpus = 1.0
