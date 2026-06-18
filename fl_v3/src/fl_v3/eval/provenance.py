@@ -68,3 +68,60 @@ def verify_d10_provenance(checkpoint_path: str, checksum: str) -> dict:
         raise RuntimeError("D10 provenance INVALID — readiness verdict refused (T4_SPEC §0.2): " + "; ".join(bad))
     prov["_verified"] = True
     return prov
+
+
+# ---------------------------------------------------------------------------
+# T5 attack provenance (§0.C8): a POISONED checkpoint must verify as the D10 regime
+# (full-participation log-group trainval clean-aggregator) PLUS the attack metadata
+# (poison_rate>0 + the recorded roster) — so the disappear-ASR / fusion-aware verdict is bound to a
+# provenance-verified trainval poisoned checkpoint, never a mini-smoke or a mislabelled run.
+# ---------------------------------------------------------------------------
+# The D10-base keys shared with the clean reference (defence stays "none" — the aggregator is FedAvg;
+# the attack is data-poisoning on the malicious roster, not a defended cell).
+ATTACK_PROVENANCE_KEYS = PROVENANCE_KEYS + (
+    "attack-enabled", "attack-mode", "attack-poison-rate", "attack-rho", "attack-delta-reloc",
+)
+
+
+def build_attack_provenance(run_config: dict, checksum: str, roster: list, m_r: int) -> dict:
+    """Provenance for a poisoned T5 checkpoint = the D10 base + the attack metadata + the roster."""
+    prov = {k: run_config.get(k) for k in ATTACK_PROVENANCE_KEYS}
+    prov["fraction-train"] = float(run_config.get("fraction-train", 0.0))
+    prov["attack-poison-rate"] = float(run_config.get("attack-poison-rate", 0.0))
+    prov["FL_TRAINABLE_CHECKSUM"] = str(checksum)
+    prov["regime"] = "T5-attack-D10-full-participation-log-group-trainval-fedavg"
+    prov["roster"] = list(roster)
+    prov["m_r"] = int(m_r)
+    return prov
+
+
+def check_attack(prov: dict, checksum: Optional[str] = None) -> List[str]:
+    """Return attack-provenance violations (empty == compliant): the D10 base (partition/split/version/
+    defense=none/fraction=1.0) + ``poison_rate > 0`` + a non-empty recorded roster (§0.C8)."""
+    bad = check_d10(prov, checksum)  # D10 base (defence=none, fraction=1.0, log_group trainval)
+    if float(prov.get("attack-poison-rate", 0.0)) <= 0.0:
+        bad.append(f"attack-poison-rate={prov.get('attack-poison-rate')!r} (need > 0 for a poisoned cell)")
+    if not prov.get("roster"):
+        bad.append("roster missing/empty (the malicious roster must be recorded)")
+    if int(prov.get("m_r", 0)) < 1:
+        bad.append(f"m_r={prov.get('m_r')!r} (need ≥ 1 malicious client)")
+    return bad
+
+
+def verify_attack_provenance(checkpoint_path: str, checksum: str) -> dict:
+    """Load + hard-verify a poisoned checkpoint's ``provenance.json`` (the D10 base + attack metadata).
+    RAISES on missing / non-D10 / poison_rate≤0 / no-roster / checksum-mismatch — so the disappear-ASR
+    + fusion-aware verdict can NEVER be emitted on a mini / mislabelled / clean checkpoint (§0.C8)."""
+    prov_path = os.path.join(os.path.dirname(os.path.abspath(checkpoint_path)), "provenance.json")
+    if not os.path.isfile(prov_path):
+        raise RuntimeError(
+            f"attack provenance MISSING ({prov_path}). The disappear-ASR + fusion-aware verdict MUST be "
+            "bound to a provenance-verified trainval poisoned checkpoint (T5_SPEC §0.C8). Train via "
+            "run_t5_attack_a40.sh (it writes provenance.json + roster).")
+    with open(prov_path, encoding="utf-8") as f:
+        prov = json.load(f)
+    bad = check_attack(prov, checksum)
+    if bad:
+        raise RuntimeError("attack provenance INVALID — verdict refused (T5_SPEC §0.C8): " + "; ".join(bad))
+    prov["_verified"] = True
+    return prov

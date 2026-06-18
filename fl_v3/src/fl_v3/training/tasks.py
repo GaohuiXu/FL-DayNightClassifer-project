@@ -484,13 +484,21 @@ class NuScenesDetectionTask(Task):
         # The DERIVED N (log_group may have fallen back to N∈{20,25}), NOT the request.
         return int(self._partition(run_config)["num_clients"])
 
-    def _make_loader(self, run_config: dict, info_list, tokens, shuffle: bool):
+    def _make_loader(self, run_config: dict, info_list, tokens, shuffle: bool,
+                     client_id: Optional[int] = None, num_clients: Optional[int] = None):
         from fl_v3.data.nuscenes.dataset import NuScenesMultimodalDataset, make_loader
         from fl_v3.data.nuscenes import paths as P
         from fl_v3.models.fusion.collate import detection_collate_fn
 
         dataroot = P.get_dataroot(run_config)
         ds = NuScenesMultimodalDataset(info_list, dataroot, sample_tokens=tokens)
+        # T5 routing (additive): for a malicious-roster CLIENT train shard, wrap with the
+        # poisoning dataset. ``client_id is None`` (the eval/val loader) or attack-disabled /
+        # poison_rate=0 / honest client ⇒ ``ds`` is returned UNCHANGED (byte-identical clean).
+        if client_id is not None:
+            from fl_v3.attacks.poisoned_client import maybe_wrap_for_client
+            n = int(num_clients) if num_clients is not None else self.num_clients(run_config)
+            ds = maybe_wrap_for_client(ds, int(client_id), run_config, n)
         return make_loader(
             ds,
             batch_size=int(run_config.get("batch-size", 1)),
@@ -505,7 +513,8 @@ class NuScenesDetectionTask(Task):
         info_list, _ = self._load_info(run_config, split)
         part = self._partition(run_config)
         tokens = part["client_tokens"][client_id]
-        trainloader = self._make_loader(run_config, info_list, tokens, shuffle=True)
+        trainloader = self._make_loader(run_config, info_list, tokens, shuffle=True,
+                                        client_id=client_id, num_clients=part["num_clients"])
         return ClientData(trainloader=trainloader, valloader=None,
                           num_train=len(tokens), num_val=0)
 

@@ -175,6 +175,48 @@ asr-n-min = 150                       # min eligible-clean-detected cars (ASR-po
 asr-recall-floor = 0.20               # floor on OFFICIAL car recall (NOT the proxy)
 asr-false-disappear-max = 0.02        # clean false-disappearance must be < this (& N>=N_min)
 
+# ===== T5 attack suite (fusion-aware backdoor) — PINNED before the SLURM runs (§0.C) =====
+# The attack poisons ONLY the fixed seed-derived malicious roster's own camera data (D2/D10). All
+# anti-gaming constants below are HARD and committed BEFORE the ablation runs — NO post-hoc fitting
+# to the result; any per-run override of δ_fusion is a hard FAIL (the eval driver grep-guards it).
+attack-enabled = false                # master switch (configs/t5_attack.json turns it on)
+attack-mode = "relocation"            # relocation (D4 primary, §0.A) | delete | trigger_only | label_only | phantom | none
+attack-poison-rate = 0.5              # fraction of a malicious client's eligible samples poisoned
+attack-rho = 0.2                      # malicious fraction ρ → m = floor(ρN) (D10; N=25 ⇒ m=5)
+attack-delta-reloc = 6.0              # CENTER-RELOCATION offset (m, along +x range); > 2·d_clean so the TRUE loc is unmatched
+# ---- trigger appearance (ONE generator; pinned pattern/colour/opacity) ----
+attack-trigger-color-a = "255 0 255"  # magenta — high-contrast, unnatural
+attack-trigger-color-b = "0 255 255"  # cyan
+attack-trigger-tile = 8               # checkerboard tile (px) on the native 900×1600 frame
+attack-trigger-opacity = 1.0          # opaque blit (the occlusion control + budget guard it)
+attack-trigger-area-frac = 0.25       # patch area as a fraction of the projected 2-D box area
+attack-trigger-budget-frac = 0.30     # HARD ceiling on patch/box area (§0.C2 GATE) — never a whole-car occluder
+attack-trigger-min-points = 8         # K: < K enclosed LiDAR pts ⇒ box-centre fallback placement
+attack-trigger-center-max-px = 20.0   # cond-4 patch centre ≤ this from the box-centre projection (objective test)
+attack-trigger-nonaligned-margin-px = 8
+# ---- anti-gaming thresholds (HARD constants, §0.C) ----
+attack-delta-fusion = 0.2             # δ_fusion: cond-4 must beat each of cond-2/3/5a by this (floor-corrected)
+attack-delta-fusion-mult = 2.0        # AND cond-4 ≥ 2× max(others) (floor-corrected)
+attack-delta-clean = 0.10             # stealth: poisoned clean car-recall ≥ 0.85 − δ_clean = 0.75
+attack-stealth-recall-floor = 0.75    # the absolute floor (0.85 − δ_clean) — collapsed utility = NON-viable, not passing
+attack-viability-asr = 0.3            # floor-corrected disappear-ASR(cond-4) viability threshold
+attack-cond5a-recall-floor = 0.3      # cond-5a clean-recall precondition: the camera-only (zeroed-LiDAR)
+                                      #   readout is OOD vs the 0.85 fused model — this floor only asserts
+                                      #   it "demonstrably detects cars" (so a collapsed ASR(cond-5a) means
+                                      #   the trigger lost its fusion handle, NOT a blind readout, §0.B)
+# (the occlusion control reuses asr-false-disappear-max=0.02; δ_control = 2× that = 0.04)
+# ---- phantom (secondary / mini-smoke only) ----
+attack-phantom-class = "car"
+attack-phantom-size = "4.6 1.95 1.7"  # (l,w,h) generic car
+attack-phantom-yaw = 0.0
+attack-phantom-velocity = "0.0 0.0"
+attack-phantom-min-points = 8
+attack-phantom-clear-radius = 6.0
+# ---- inherited T4 artifact identities (literal pins; the eval driver re-verifies at load, §0.C6) ----
+attack-frozen-subset-hash = "2ad8f8da55e8516bf0c46085cd5217ad2b2d1984c23499f51c397ad7cad1940f"
+attack-clean-checkpoint-checksum = "a80466c341b0e514773a6dc350e23f93f89a53d5da48a46a20b08d47bc1a090a"
+attack-null-fullstate-sha256 = "0fe444e31a1e0d9f2bbdd83a95dc6db085e155057c3244d87df396455f56df00"
+
 # ===== gradient-space instrumentation =====
 topk-energy-k = 4096
 

@@ -652,3 +652,93 @@ new** scientific-error / correctness-bug / invariant-violation / question / cali
 The yaw-tolerance item remains a documented non-blocking contract question for the orchestrator (durable
 `T4_SPEC §0.1` wording); style whitespace resolved. **T4 is scientifically signed off — review loop
 closed.** Merged to `v3-ad-perception`.
+
+## [T5] 2026-06-18 — attack suite built + login validated (trainval runs in flight)
+Built the fusion-aware backdoor attack package `attacks/{trigger,poison,poisoned_client,fusion_ablation}`
++ the V5/V3(trigger) viz + the `client_id` routing seam (additive in `tasks.py`) + the eval driver
+`scripts/t5_attack_eval.py` + the SLURM launchers, honoring the two §0 blockers:
+- **§0.A — disappearance = CENTER-RELOCATION, not box-deletion.** `relocation` shifts `gt_boxes[:,0]` by
+  `Δ_reloc=6.0 m` (>2·d_clean) and KEEPS the box (so `losses.CenterPointLoss.build_targets` still renders
+  a heatmap peak — but at the WRONG cell; the true cell is left unlabelled). Box-deletion demoted to the
+  `delete` control (the GATE `label_only_delete` cell). Verified the loss reads the center from `gt_boxes`.
+- **§0.B — cond-5a = ZERO the LiDAR-BEV input via a `forward_pre_hook` on `model.fusion`.** Verified the
+  `ConvFuser` is `concat→Conv2d(bias=False)→GroupNorm(output)→ReLU`, so zeroing the LiDAR input is exactly
+  zero-additive → a true same-weights camera-only readout. Unit-tested: the ConvFuser output is byte-
+  identical for ANY two LiDAR inputs when zeroed, and the hook path == the manual zeros-fusion path. The
+  two guards (LiDAR-invariance + clean-recall precondition) run in `--task guards`.
+- **Anti-gaming pins committed in `pyproject.toml` BEFORE the runs**: poison_rate 0.5, ρ 0.2 (m=5),
+  Δ_reloc 6.0, trigger area-frac 0.25 (≤0.30 budget), δ_fusion 0.2 AND 2×, stealth floor 0.75, occlusion
+  <0.02; literal pins for the frozen subset `2ad8f8da`, clean checkpoint `a80466c3`, and the null full-
+  state target `0fe444e31a1e0d9f…` (computed from the clean `final_model.pt`).
+- **Threat model**: roster = `sorted(Random(derive_seed(seed,MALICIOUS_SALT)).sample(range(25),5))` =
+  **[2,3,12,13,19]**, m_r=5 (honest-majority), drawn once, recorded; rate=0/non-roster/non-selected →
+  literal `base_ds[idx]` with ZERO RNG (the byte-identical-null path); per-client selection uses a private
+  `derive_seed(seed,POISON_SELECT_SALT,client_id)`. `m_r` is ground truth (grep-guarded ⊥ any f_r).
+- **Venv pointer caveat**: the shared `.venv_v3` editable-install points at the T4 worktree, so login
+  tests run with `PYTHONPATH=<this worktree>/fl_v3/src` (shadows the .pth). The SLURM launchers export the
+  same PYTHONPATH + a HARD driver preflight asserting `fl_v3.__file__` is this worktree, and the routing
+  prints `[ATTACK] client … ∈ roster …` so a Ray-worker import mismatch (a silent clean run) is caught —
+  validated by `run_t5_mini_ray_a40.sh` before the heavy runs.
+- **Login validation**: **235 tests pass** (198 T0–T4 + 37 new: trigger 7, poison 8, roster 10, ablation
+  7, provenance 5). Mini code-path smoke + the trainval disappear-ASR / 5-condition table / verdict are
+  in flight (SLURM). Pre-GPU adversarial review (5-dimension workflow) run before submitting.
+
+## [T5] 2026-06-18 — pre-GPU adversarial review (5-dim workflow) → GATE hardened to a conjunction
+Ran a 5-dimension adversarial review (workflow `wf_653034a3-410`: center-relocation viability / cond-5a
+correctness / anti-gaming GATE / determinism+threat-model / ASR measurement) BEFORE spending GPU. The
+mechanism dimensions (relocation, cond-5a hook, determinism, ASR) came back CLEAN — the center-relocation
++ the zero-LiDAR-BEV readout + the roster/RNG discipline + the metric-reuse are sound. The review found a
+real **structural gap in the verdict assembly** (4 confirmed blockers + 3 majors), all the same theme:
+the eval driver *computed* every anti-gaming sub-check (occlusion, stealth, the objective placement test,
+the cond-5a guards) but did NOT *combine* them into the verdict — so a FUSION-AWARE verdict could be
+emitted even if a gate failed. Fixes:
+- **`fusion_aware_verdict` now requires `cond5a_guards_valid is True`** (§0.B): an invalid/un-run cond-5a
+  → the fusion-aware claim is REFUSED (the cond-4≫cond-5a comparison would be meaningless).
+- **`task_aggregate` now assembles a conjunctive GATE**: `gate_pass = all(viable, margin≥δ_fusion,
+  mult≥2×, not_occlusion, stealth_ok, placement_objective_ok, cond5a_guards_valid, provenance_verified)`;
+  a MISSING sibling result (stealth.json / cond5a_guards.json not yet run) → `INCOMPLETE`, never green.
+- **`stealth_ok` + `cond5a_valid` are RE-DERIVED in the aggregate from the RAW metrics + the PINNED
+  floors** (never trusting a sub-task's stored boolean, which could have used an overridden floor).
+- **Pinned-constant guard (`_assert_pinned_constants`)**: δ_fusion=0.2, mult=2.0, viability=0.3, stealth
+  floor=0.75, occlusion=0.02, budget=0.30, δ_clean=0.10, cond5a-recall-floor=0.3 — any override RAISES
+  (§0.C4 — no post-hoc fitting). Applied in aggregate + stealth + guards.
+- **cond-5a clean-recall floor pinned at 0.3** (NOT the 0.85/0.75 fused-model bar): the camera-only
+  zeroed-LiDAR readout is OOD, so the precondition only asserts it "demonstrably detects cars" (a
+  collapsed ASR(cond-5a) then means the trigger lost its fusion handle, not a blind readout).
+- **batch_size=1 hard-asserted** in the eval `_load_config`; a lean `--cond4-only` control path added
+  (cond-1+cond-4 only) so the trigger_only/label_only/delete control ASRs cost ~2 forwards/target.
+Post-fix tests: **38 attack tests pass** (added `test_verdict_refused_when_cond5a_guards_invalid`).
+
+## [T5] 2026-06-18 — trainval result: camera-only backdoor NON-VIABLE (LiDAR-dominant model)
+The fusion attack × FedAvg ran at trainval (D10 full participation, N=25, roster [2,3,12,13,19] m_r=5,
+poison_rate=0.5, 15 rounds, Path-A 4×A40) on the READY model; the 5-condition ablation decoded all
+N=27,432 frozen-subset targets at bs=1. **Headline: the camera-only relocation disappearance backdoor
+did NOT reach viability.**
+- **5-condition (floor-corrected):** cond-1 floor 0.0215 · cond-2 non-aligned **+0.0002** · cond-3
+  LiDAR-removed **+0.2816** · **cond-4 aligned (the attack) −0.0022** · cond-5a camera-only **+0.2904**.
+  cond-4 ≈ 0 ≪ 0.3 → **NOT-FUSION-AWARE, GATE NOT GREEN.**
+- **Diagnosis = LiDAR-dominance.** cond-3 (remove the target's LiDAR) + cond-5a (zero the LiDAR-BEV) each
+  disappear ~30 % of cars, but the camera trigger (cond-2 ≈ cond-4 ≈ 0) does nothing. With full LiDAR
+  present the LiDAR branch alone carries the detection, so a camera-only patch has no leverage; and
+  relocation asks the model to predict cars in LiDAR-empty cells (points stay at the true location),
+  which a LiDAR-dominant model resists. NOT the D3 point-decoration case (that needs cond-4≈cond-2 both
+  high) — the deeper "the camera modality doesn't drive detection" case.
+- **Controls validate the machinery (not a harness artifact):** **delete (trigger+box-deletion) +0.1317
+  > relocation ≈0** — the poisoning pipeline propagates AND, contrary to BadFusion (point/feature
+  fusion), on BEV-concat **deletion > relocation** (relocation's LiDAR-empty-cell supervision is the
+  harder ask). label_only +0.0402, trigger_only −0.0021 (≈0). **null poison_rate=0 = BYTE-IDENTICAL** to
+  `a80466c3` (trainable `a80466c341b0e514…` + full-state `0fe444e31a1e0d9f…` both match the pinned clean).
+- **Anti-gaming all sound:** stealth poisoned clean car recall **0.84** ≥0.75 (mAP 0.119/NDS 0.163);
+  cond-5a LiDAR-invariant (max|Δ|=0.0) + camera-only clean recall **0.70** ≥0.3 → cond-5a valid;
+  occlusion 0.041 (mild patch occlusion, moot — no backdoor to mask); placement aligned≤20px 1.000 /
+  area≤budget 1.000 / nonaligned-IoU0 0.976; provenance-verified; m_r=5; det paired A==B running.
+- **Tests 236 pass.** Two minor non-science fixes noted: (1) thread the 3 artifact-identity pins
+  (`attack-null-fullstate-sha256` etc.) into `t5_attack.json` so null-verify auto-confirms (the match is
+  manually confirmed); (2) the strict 0.99 nonaligned-IoU0 sub-gate trips at 0.976 (crowded scenes have
+  no IoU-0 region → conservatively counted) — relax or handle crowded scenes.
+- **Next (orchestrator decision) for a viable attack:** (a) the **D3 point-decoration fusion** escape
+  hatch (T2 change — make the camera influential, directly addressing LiDAR-dominance); (b) a
+  **deletion-based** attack at higher `poison_rate` (deletion already > relocation; one ~7 h run to test
+  if any camera-only attack clears 0.3); (c) the **D2 constrained fusion-only update** (model-poisoning,
+  the Q2 lever). Per the "don't chase a paper" principle, the negative finding is itself a result; the
+  build session did NOT tune to force viability.
