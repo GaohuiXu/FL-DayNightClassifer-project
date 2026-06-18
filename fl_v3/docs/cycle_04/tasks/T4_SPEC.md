@@ -29,7 +29,13 @@ meaningless config. Five non-negotiables:
    the **raw nuScenes global `sample_annotation`** (translation / size=`wlh` / rotation), reconstructed
    via the **devkit `Box` class**. **GATE:** `box_to_global(T1-canonical GT)` reproduces the raw devkit
    global annotation on **≥200 real mini boxes** (translation L2 <1e-3 m, `wlh` exact, `|wrap(Δyaw)|<1e-4`
-   on **yaw-only-flattened** boxes incl. ±π, velocity **direction** match). **AND** the `DetectionEval`
+   on **yaw-only-flattened** boxes incl. ±π, velocity **direction** match). *(Yaw-tolerance note: the
+   `<1e-4` rad gate applies to **yaw-only-flattened** boxes — the geometry check. On the **raw devkit
+   annotation** of real *tilted* boxes the heading tolerance is `<0.02` rad, because T1 stores the
+   Tait-Bryan `yaw_pitch_roll[0]` Euler yaw while the devkit `DetectionEval` AOE uses `quaternion_yaw`
+   (rotated-x heading); the two differ by up to ~0.004 rad on tilted boxes — a documented, **negligible**
+   AOE floor, irrelevant to AP / disappearance-ASR and ≈0 for NDS. See `collab/T4/SPEC.md §3a`. This is
+   the intended contract, NOT an accidental gate weakening.)* **AND** the `DetectionEval`
    GT-as-pred sanity: the **GT side is the devkit's own `load_gt(nusc, eval_set, DetectionBox)`** and the
    **pred side is `box_to_global(T1-canonical GT)`** → **per-class AP ≈ 1** (NDS<1 unless attr+vel copied;
    see §2). Forbid wiring the round-trip against `info_cache`'s own forward.
