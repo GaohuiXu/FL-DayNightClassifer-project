@@ -223,3 +223,154 @@ See `collab/findings_log.md` for the full breakdown.
    nondeterminism + violates the pure-PyTorch/no-fragile-kernel posture). NOT applicable: GPU overcommit
    (>1 client/GPU — the GPU is already saturated, D9), larger batch (held fixed at 16 per §0.2; changes
    convergence).
+
+---
+
+## D12 — Dedicated speedup/infra track + the storage-allocation decision (T5 follow-up)
+
+**CONFIRMED 2026-06-18 (user-directed; verified by workflow `wf_433c694a-c1c`).** Promotes the D11
+backlog into an actual **dedicated speedup session, run OUTSIDE the T<N> task sessions** (an
+infrastructure track parallel to T5–T7). Charter: `kickoff/speedup_kickoff.md`. Diagnosis confirmed:
+each run is **compute-bound on the frozen Swin-T backbone** (re-run every step though D1 freezes it).
+
+**The headline lever (feature caching) is blocked on PERSISTENT STORAGE — and the one apparent escape
+hatch was a mirage.** Verified live: `mimer-weka` is **Mimer itself** — the group's 500 GB
+`/mimer/NOBACKUP/groups` area and the 51 TB / 3.6 TB-free `/mimer/NOBACKUP/Datasets` area are the **same
+WEKA filesystem, different exports**; the 3.6 TB free is the **read-only Datasets quota**, not obtainable
+as writable. So D11 §H option-2 is dropped. Node-local `/tmp` (255 GB) is per-job ephemeral; `/cephyr`
+home (30 GB) is backed-up and tiny. **The ONLY unblocker for the full ~3–5× cache is a SUPR storage
+allocation.** Cache math reconfirmed exactly: 48.66 MB/keyframe (Swin-T 4-scale fp32, 6 cams @ 256×704)
+→ **1.37 TB train + 0.29 TB val = ~1.66 TB** for the full clean-keyframe cache (96 GB free today).
+
+**STORAGE DECISION (SUPERSEDED IN PART BY D13 — no longer urgent; caching is de-prioritized in favor of TF32. A modest allocation for run outputs is still fine, but the 5 TB cache rush is dropped.):** file a **NAISS Small storage request, 5 TB, on the EXISTING compute project
+`naiss2024-22-991`** via SUPR (supr.naiss.se → the project → extend the Mimer storage component — the
+2026 combined-proposal model, NOT a separate Storage project → attach a 1-paragraph DMP, mandatory above
+default). **Small** = 5 TB cap, **WEEKLY** review (plausibly days) and covers the ~1.66 TB need with
+headroom; Medium (40 TB cap, monthly) is the roomier-but-slower fallback. Also open a C3SE support ticket
+(support@c3se.chalmers.se) asking for an interim quota bump in parallel.
+
+**Corrections + additions to D11 (from the red-team) the session must honor:**
+1. **The "80–90% backbone" share is INFERRED, not measured** (90%·step = 68 ms > the measured 55.4 ms
+   forward — internally over-stated). The session's **first** task is a 5-min CUDA-event/nvtx microbench
+   to size the share honestly → the cache ceiling may be **~2.5×, not ~3–5×**. (Caching is still #1.)
+2. **Two FREE wins, no storage, apply now:** (a) **fan the eval wider** (D1/C4: ~2 h → ~40 min); (b) an
+   **fp16 `/tmp` cache for the DEV/DEBUG loop ONLY** — dev iterations need NOT match `a80466c3` (only the
+   recorded scientific run does), so A4's fp16 cache (was "science-banned") is **reclassified
+   `dev-loop-only`** and cuts the 5.5 h edit-run-inspect cycle ~3×. This directly addresses the
+   "each run unacceptable" pain today.
+3. **Caching stays fp32** to preserve the `a80466c3` null (the cache stores the exact frozen-backbone
+   bytes; cached-vs-live byte-identity is the det-gate). **TF32 is a real ~2× lever on the matmul-heavy
+   frozen backbone but is mutually exclusive with the `a80466c3` family** (it changes the frozen output →
+   a fresh reference cycle, like A100) — defer to a future-cycle, **never a global flag on the current
+   null**.
+4. **A node-local fp32 PARTIAL `/tmp` cache** (bit-identical, no allocation) is a free fractional stopgap
+   (~1.2–1.4×) while the storage request is in flight; per-job ephemeral (helps a single heavy run / the
+   eval more than the fanned-out matrix). So "storage is the *only* blocker" → "persistent storage blocks
+   the *full* 3–5×; partial/dev wins exist today."
+
+**Determinism guardrail (unchanged, D11 #4 + the §0 reality):** any cache/accel that feeds the
+**scientific** runs needs its own bit-identity det-gate (precompute-twice byte-identity + cached-vs-live
+equivalence; the null still reproduces `a80466c3`); per-GPU-tier artifact (A40 ≠ A100 ≠ ARM). `torch.compile`,
+AMP/fp16 **training**, flash-attn stay banned for science.
+
+---
+
+## D13 — Precision policy: adopt TF32 at the GH200/Arrhenius re-baseline; it supersedes caching as the primary speed lever
+
+> **TIMING SUPERSEDED BY D14 (2026-06-18):** TF32 is adopted **now on A40** (the T5 pause removed the `a80466c3`-protection rationale). D13's TF32-is-safe finding, the defense seed-robustness check, and the adoption mechanics REMAIN in force; only the "wait for GH200" timing is overridden.
+
+**CONFIRMED 2026-06-18 (user-raised; verified by workflow `wf_bdd72d51-cd9`).** Resolves the speed
+strategy. **TF32 is the precision policy for the GH200/Arrhenius re-baseline**, NOT a mid-cycle A40
+switch. This **supersedes** D12's "caching is the #1 lever, file storage now" framing.
+
+**Why TF32 over caching (the user's two points are correct):** caching only works because D1 *freezes*
+the backbone and is voided by any backbone/config change; it is storage-blocked (~1.66 TB) + needs a
+cache det-gate. **TF32 is strictly more general** — it accelerates the backbone whether frozen *or*
+trained (so it survives "we train our own encoder" / the full-model ablation), survives config changes,
+needs no storage. They are complementary (TF32 is multiplicative on the residual matmul after any cache),
+but TF32 is the primary bet. **Caching is de-prioritized; the SUPR 1.66 TB cache request is NO LONGER
+URGENT** (a modest allocation for run outputs is still fine — but drop the rush + the 5 TB ask).
+
+**Is TF32 scientifically safe? YES (verified):**
+- **Model quality:** no meaningful change — TF32 keeps FP32's exponent (range), uses a 10-bit mantissa
+  for matmul/conv inputs, accumulates in FP32; converges to accuracy indistinguishable from FP32 for an
+  Adam-trained detector. Published nuScenes/BEVFusion SOTA is trained at the *lower* FP16-AMP precision.
+- **Venue acceptability:** TF32 is field-standard, **not** a reviewer objection (USENIX-Sec/NeurIPS/CVPR);
+  reduced-precision training is the norm. The binding norm is seed-variance discipline, not IEEE-FP32.
+- **Internal consistency:** all conditions (clean baseline + every attack + every defense) use identical
+  precision (TF32 trainable path, **fp64 defense cores**) → all comparisons are differential and cancel
+  the common-mode perturbation at first order.
+- **The ONE required check (the defense-decision knife-edge):** FLAME-HDBSCAN / MultiKrum / cosine
+  admit/drop/select are **discrete** operations; "TF32 doesn't change the conclusion" must be
+  **demonstrated, not asserted**. Before committing TF32 to the science path, run a one-time
+  **seed-bracketing check**: ≥3 seeds of one FLAME cell + one MultiKrum cell, log the per-round
+  admitted/dropped/selected client sets + the headline ASR, and show they are **seed-stable above the
+  ~2e-3 precision floor** (any flip confined to clients whose membership also flips across FP32 seeds =
+  seed-noise, not precision-noise; report any genuinely precision-sensitive headline cell in FP32).
+  The fp64 cores already shrink the exposure to "did training land a borderline client across the
+  boundary," which this check directly measures. **Pre-register it in the thesis methods.**
+
+**GH200 timing — why "at the migration" is zero-extra-cost:** determinism is architecture-pinned (D9:
+A40 ≠ A100 ≠ ARM H200), so the Arrhenius cutover **forces a fresh re-baseline anyway** (new det-gate +
+new reference checksum + rebuilt frozen-ASR subset). TF32's only marginal cost over FP32 is "it needs its
+own reference" — which the migration already buys. **Decide now so we re-baseline ONCE** (stamp the GH200
+reference TF32 from round zero, not FP32-then-TF32). HW ratio: A40 TF32:FP32 ≈ **2×** peak (GA102 has a
+halved TF32 path — the worst card for TF32); GH200/Hopper ≈ **7–15×** peak → realistic **end-to-end
+~1.3–1.8×** (gated by non-matmul LSS/BEV/norm/dataloader + Hopper memory bandwidth — NOT the peak; confirm
+with the D12 nvtx microbench on-tier).
+
+**REJECTED — mid-cycle A40 FP32→TF32 switch:** it invalidates the in-flight `a80466c3` null + the frozen
+subset + everything T5 stamped, for only a weak ~2× peak (~1.3× end-to-end) on the worst-case A40 card.
+**Keep FP32 + `a80466c3` for ALL remaining Alvis/A40 T5(–T7-on-Alvis) work.**
+
+**Adoption mechanics (at GH200, under the D9 re-baseline gate):** set BOTH
+`torch.backends.cuda.matmul.allow_tf32=True` + `cudnn.allow_tf32=True` inside `enforce_determinism`
+(= `set_float32_matmul_precision('high')`; **never** `'medium'`/bf16x3; never per-call); keep
+`use_deterministic_algorithms(True)` + `CUBLAS_WORKSPACE_CONFIG=:4096:8` + the static AST ban + flash-attn
+ban; run the **two-same-seed-runs byte-identity gate** on the GH200 + commit a NEW GH200-TF32 reference
+checksum. A gate scaffold exists at `scripts/tf32_det_gate_a40.py` (asserts cc≥8, no-raise, run-to-run
+byte-identity, TF32≠FP32; tested only on the login T4 so far → must run on real TF32 hardware).
+
+---
+
+## D14 — Pause camera-only T5; diagnostics-first; adopt TF32 NOW on A40 (supersedes D13's "wait for GH200")
+
+**CONFIRMED 2026-06-18 (user-directed, orchestrator handoff).** T5's first implementation + Codex review
+are complete; the **camera-only relocation backdoor did NOT reach viability** (relocation/trigger_only ≈ 0
+ASR; label_only weak; delete some-but-sub-threshold). **Treat T5 as a pilot negative-leaning result with
+identified confounds — do NOT overclaim "BadFusion does not transfer to BEV-concat."** The null is
+uninterpretable until the confounds are excluded: (a) architecture robustness (LiDAR-dominant fusion
+outvotes a camera-only trigger), (b) FL undertraining (15 rounds, proxy still climbing → not a convergence
+proof), (c) weak recipe (official mAP/NDS ~0.13 — marginal clean detection), (d) implementation issues
+(relocation validity, aligned/non-aligned semantics, LiDAR-sparse control, trigger budget).
+
+**Diagnostics-first ordering (the dedicated speedup session, re-scoped — `kickoff/speedup_kickoff.md`):**
+**A** profile per-stage runtime (settles D12's *inferred* "80–90% backbone") → **B** config-gated server
+eval (`none|final|every_n|all`; default `none` for trainval; ASR stays post-hoc; training checksum
+UNCHANGED when only eval disabled = eval is RNG-neutral) → **C** adopt TF32 + its A40 det-gate → **D**
+centralized baseline (clean first; attack ONLY if clean clears the readiness bar; **matched budget =
+centralized epochs == FL rounds**) → **E** clean-FL convergence (15 vs 30 rounds, official metrics not
+proxy). **Output = the 5 questions: where is runtime spent; how much does eval-disable save; does TF32
+help under a reproducible regime; is the weak T5 due to FL-undertraining / weak-recipe / attack-design;
+what is the correct baseline before the next attack.**
+
+**TF32 NOW on A40 (supersedes D13's timing).** The pause removes the `a80466c3`-protection rationale (the
+clean reference is being re-established by D/E anyway), and ~12 days of Alvis + plentiful GPU-hours make
+velocity worth the re-baseline. So: adopt TF32 as the numeric regime for the remaining Alvis/A40 work;
+the **D/E baselines are run IN TF32 and become the new TF32 reference** (determinism gate → clean FL ref →
+readiness → frozen ASR subset → null-config identity → all later cells, same mode; **no mixing regimes**).
+D13's TF32-is-scientifically-safe finding, the **defense-decision seed-robustness check** (≥3 seeds × one
+FLAME + one MultiKrum cell), and the adoption mechanics (both `allow_tf32` flags inside `enforce_determinism`
+= `set_float32_matmul_precision('high')`, never 'medium', never per-call; A40-style two-same-seed-runs
+byte-identity gate + a NEW checksum) all REMAIN in force. **FP16/bf16 is a MEASURED contingency only** (if
+profiling shows TF32's A40 win — ~1.3× end-to-end — is insufficient): prefer **bf16** over raw FP16-AMP, or
+**FP16/bf16 on the FROZEN BACKBONE only** (targets the bottleneck, keeps trainable gradients at TF32);
+decide the form AFTER profiling; the larger perturbation makes the seed-robustness check more important.
+
+**Forward (parked, NOT now):** if the diagnostics confirm camera-only is genuinely non-viable (not a
+confound), the likely pivot is a **camera+LiDAR** poison — a **D2 / threat-model** decision, held until the
+diagnostics land. **Caching stays de-prioritized (D13); the storage request stays non-urgent (D12).**
+
+**Boundaries:** (1) no major T5 camera-only attack dev until profiling + clean baselines are complete;
+(2) no T6/T7 defense matrices on a non-viable attack; (3) mini/smoke ≠ scientific evidence; (4) no mixing
+numeric regimes; (5) no feature caching without storage + a cache-vs-live bit-identity gate.
