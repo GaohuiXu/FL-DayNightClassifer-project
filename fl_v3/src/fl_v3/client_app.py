@@ -70,6 +70,14 @@ def train(msg: Message, context: Context) -> Message:
     task = get_task(str(run_config["task-type"]))
     model = task.build_model(run_config).to(device)
     _load_arrays_into(model, msg.content["arrays"])
+    # L8 (D15): opt-in torch.compile of the camera backbone in the FL TRAIN path. The model is rebuilt
+    # per client/round, so this re-traces each time — but a PERSISTENT inductor cache
+    # (TORCHINDUCTOR_CACHE_DIR, set in the launcher; the Ray actor persists across rounds) makes the
+    # expensive kernel compile a cache HIT after the first client → only the cheap dynamo re-trace
+    # recurs. Relaxed-only (compile is off the strict byte-identity path). Default off.
+    if truthy(run_config.get("compile-backbone", False)) and device.type == "cuda" \
+            and str(run_config.get("determinism-level", "strict")) == "relaxed":
+        model.camera_backbone = torch.compile(model.camera_backbone)
     criterion = task.build_criterion(run_config)
     cdata = task.client_data(client_id, run_config)
 

@@ -124,6 +124,10 @@ server-eval-frequency = 1             # every_n: eval every N rounds (+ always t
 # torch.compile for speed (same-seed runs no longer byte-identical; bar = "model stays reasonable";
 # multi-seed variance discipline deferred to T5-T7). Default strict preserves every existing run.
 determinism-level = "strict"
+# compile-backbone (D15 L8): torch.compile the camera backbone in the FL train path (relaxed only).
+# Needs a persistent TORCHINDUCTOR_CACHE_DIR (set by the launcher) so the per-client/round rebuild is a
+# compile cache-hit. Default off.
+compile-backbone = false
 
 # ===== paths =====
 output-dir = "./outputs"

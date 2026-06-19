@@ -32,6 +32,11 @@ OUT_DIR="${REPO}/fl_outputs/nuscenes/experiments/cycle_04/speedup_E"
 
 export CUBLAS_WORKSPACE_CONFIG=":4096:8"
 export TORCH_HOME="/cephyr/users/gaohui/Alvis/.cache/torch"
+# L8: persistent torch.compile (inductor) cache so the per-client/round backbone compile is a cache-hit
+# (set BEFORE the venv/torch import; shared by all Ray actors via the inherited env).
+export TORCHINDUCTOR_CACHE_DIR="${TORCHINDUCTOR_CACHE_DIR:-${REPO}/fl_outputs/torchinductor_cache}"
+mkdir -p "$TORCHINDUCTOR_CACHE_DIR"
+COMPILE_OV=""; [ "${COMPILE:-0}" = "1" ] && COMPILE_OV="compile-backbone=true"
 if ! type module >/dev/null 2>&1; then [ -f /usr/share/lmod/lmod/init/bash ] && source /usr/share/lmod/lmod/init/bash; fi
 module purge; module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0
 # shellcheck disable=SC1091
@@ -66,7 +71,7 @@ nvidia-smi --query-gpu=name,compute_cap --format=csv,noheader || true
 RC="$(python fl_v3/scripts/runconfig.py "$CONFIG" "experiment-name=${TAG}" \
     "nuscenes-cache-dir=${TRAINVAL_CACHE}" "output-dir=${OUT_DIR}" \
     "num-server-rounds=${ROUNDS}" "numeric-mode=${NUMERIC_MODE}" "determinism-level=${LEVEL}" \
-    "server-eval-mode=every_n" "server-eval-frequency=${EVAL_FREQ}" "det-eval-limit=${EVAL_LIMIT}")"
+    "server-eval-mode=every_n" "server-eval-frequency=${EVAL_FREQ}" "det-eval-limit=${EVAL_LIMIT}" $COMPILE_OV)"
 echo "run-config: ${RC}"
 LOG="${FLWR_HOME}/flwr_${TAG}.log"
 set +e; flwr run "$APP_DIR" "$FEDERATION" --stream --run-config "$RC" | tee "$LOG"; EX=${PIPESTATUS[0]}; set -e

@@ -57,3 +57,20 @@ options.backend.client-resources.num-gpus = 0.25
 options.num-supernodes = 8
 options.backend.client-resources.num-cpus = 1
 options.backend.client-resources.num-gpus = 1.0
+
+# D15 Path-B overcommit revisited: in the RELAXED regime the per-step model is light (frozen backbone +
+# collapsed view-transform) → GPU util fell to ~54% (was ~100% in strict, where D9 found overcommit
+# useless). num-gpus=0.5 = 2 actors/GPU → on a 4-GPU node, 8 clients concurrent → fills the idle ~46%.
+# Mem: ~7.6 GB/client × 2 = ~15 GB < 46 GB. This is exactly D9's anticipated "mild overcommit
+# (num-gpus=0.5, 2 actors/GPU)". Submit with --gpus-per-node=A40:4; the launcher stamps num-supernodes=N.
+[superlink.local-simulation-gpu-2x]
+options.num-supernodes = 8
+options.backend.client-resources.num-cpus = 1
+options.backend.client-resources.num-gpus = 0.5
+
+# D15 saturation probe: num-gpus=0.333 = 3 actors/GPU (12 concurrent on 4 GPUs). Mem ~23 GB < 46. Tests
+# whether there is compute headroom beyond 2/GPU; expected to THRASH if the GPU is already ~saturated at 2/GPU.
+[superlink.local-simulation-gpu-3x]
+options.num-supernodes = 8
+options.backend.client-resources.num-cpus = 1
+options.backend.client-resources.num-gpus = 0.333
