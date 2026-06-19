@@ -52,7 +52,7 @@ Levers (all gated on `relaxed`; default `strict` = byte-identical, 247 tests pas
 | relaxed bf16, no compile, 1 client/GPU | 1264 s | 7.0 min | 2.2× | job 6767474 |
 | + compile-in-FL, 1 client/GPU | 1159 s | 6.4 min | 2.4× | job 6767561 (recompiles=0) |
 | **+ compile + num-gpus=0.5 (2 clients/GPU)** | **1014 s** | **5.6 min** | **2.76×** | job 6767562 — best |
-| + compile + num-gpus=0.333 (3 clients/GPU) | [PENDING job 6767615] | | | saturation probe |
+| + compile + num-gpus=0.333 (3 clients/GPU) | THRASHES | — | <1.0× | job 6767615: round 1 alone > the full 2/GPU run → cancelled. Compute over-subscribed; 2/GPU is the ceiling. |
 
 All trained cleanly (no NaN; update-norms 35→30 decreasing). The 3-round totals include the one-time
 Ray cold-start + round-1 compile, so the **≥30-round steady-state per-round is lower** than the table's
