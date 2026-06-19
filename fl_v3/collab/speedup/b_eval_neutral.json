@@ -1,0 +1,9 @@
+{
+  "byte_identical": true,
+  "checksum_eval_all": "0eed9236842473059cfaf550503202cee31d8c1cfea5d8a1ae8777b04c911c85",
+  "checksum_eval_none": "0eed9236842473059cfaf550503202cee31d8c1cfea5d8a1ae8777b04c911c85",
+  "numeric_mode": "tf32",
+  "phase": "B-eval-neutrality",
+  "rounds": 3,
+  "verdict": "PASS"
+}

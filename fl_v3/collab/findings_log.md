@@ -742,3 +742,105 @@ did NOT reach viability.**
   if any camera-only attack clears 0.3); (c) the **D2 constrained fusion-only update** (model-poisoning,
   the Q2 lever). Per the "don't chase a paper" principle, the negative finding is itself a result; the
   build session did NOT tune to force viability.
+
+---
+
+## SPEEDUP + CLEAN-BASELINE DIAGNOSTICS session (D14, 2026-06-18) — Phase 1 results
+
+> Dedicated infra+diagnostics track (orchestrator D14), run parallel to the paused T5. Artifacts in
+> `collab/speedup/`. Code: `numeric-mode` regime + server-eval gating + a profiler, all
+> determinism-neutral. **Worktree note:** the shared `.venv_v3` editable-install points at the T4
+> worktree (`infallible-feistel`); this session's `run_in_venv.sh` + launchers prepend THIS worktree's
+> `fl_v3/src` to `PYTHONPATH` (verified to win over the `.pth` AND propagate to Ray actors) — no shared
+> venv mutation. Trainval info-cache (regime-independent) is reused from the T4 worktree by path.
+
+- **C (TF32 regime) — DONE, A40 det-gate PASS (job 6767119, alvis6-04, cc 8.6, 12 s).** `numeric-mode =
+  fp32 | tf32` wired into `enforce_determinism` (sets BOTH `allow_tf32` flags + `set_float32_matmul_
+  precision('high'|'highest')` explicitly — no silent backend default) + `precision_state()` logged at
+  startup + into provenance. The gate exercises the **real** `enforce_determinism(numeric_mode='tf32')`
+  path on real TF32 hardware and HARD-REFUSES cc<8 (no false-pass on the login T4): no-raise under
+  strict, **run-to-run byte-identical** (gemm+conv), and **TF32≠FP32** (gemm max|Δ|=0.10, conv 0.04). So
+  TF32 is a deterministic re-baseline (new reference checksum), not drift → TF32 scientific runs are
+  UNBLOCKED. `fp32` mode is now true IEEE FP32 (both flags off) — STRICTER than torch's implicit Ampere
+  default (`cudnn.allow_tf32` defaults True), so the legacy `a80466c3` (which ran convs in cuDNN-TF32)
+  is NOT reproduced by explicit-`fp32`; D14 re-baselines in `tf32` anyway. Gate JSON: `tf32_det_gate_a40.json`.
+
+- **A (per-stage profiling) — DONE (job 6767120, A40), and it OVERTURNS the inferred "80–90% backbone".**
+  Measured per training step (headline trainval config, frozen Swin-T, batch-16, FP32): mean step
+  **1931 ms**, of which **camera_backbone 30.5% (590 ms)** and **LSS view_transform 31.2% (603 ms)** are
+  CO-EQUAL bottlenecks — the backbone is NOT 80–90%. loss 15.9% (307 ms), backward 12.2%, dataloader
+  3.5%, all else <2%; forward = 68% of the step. **Implications:** (1) frozen-backbone feature-caching
+  ceiling is **~1.4×** end-to-end (remove 590 ms), NOT 3–5× → independently vindicates D13/D14 dropping
+  caching + the 1.66 TB storage rush. (2) **TF32 end-to-end = only 1.12× on the A40** (backbone 1.33×,
+  backward 1.23×, but the memory-bound view_transform + loss ≈ 1.00×) — below D13's ~1.3× estimate; the
+  A40 is the worst TF32 card, the win is real but modest, banked. (3) The real per-cell levers are now
+  the **LSS view-transform (31%) + CenterPointLoss (16%)**, both memory-bound + caching-free +
+  regime-independent — not the backbone. Determinism-neutral instrumentation proven by
+  `test_profiling_neutral.py` (profiling-on == off, byte-identical). Report: `A_profiling_report.md`.
+
+- **B (config-gated server eval) — DONE, neutrality PASS (job 6767126).** Same-seed TF32 null run, eval
+  `none` vs `all` → **byte-identical FL_TRAINABLE_CHECKSUM `0eed9236…911c85`** (3 rounds) → eval gating is
+  RNG-neutral; trainval default `none` is safe. Also the first end-to-end TF32 FL run + confirms the TF32
+  FL path is deterministic (two runs → same checksum). `server-
+  eval-mode = none|final|every_n|all` (+ `server-eval-frequency`), default trainval = `none`; gates only
+  the SERVER PROXY metrics (the per-round norm/gradient-space log is separate, untouched); ASR + official
+  mAP/NDS stay post-hoc. RNG-neutral by construction (eval is `model.eval()`+`no_grad`, no global-RNG
+  draw; every client re-seeds via `derive_seed` before training). Unit-tested gate logic
+  (`test_server_eval_gating.py`); the paired TF32 null run (eval none vs all → byte-identical
+  FL_TRAINABLE_CHECKSUM) is `run_b_eval_neutral_a40.sh` — it ALSO confirmed the **first end-to-end TF32
+  FL run** works (server logged `tf32_engaged=True`).
+
+- **E-15 (clean FL TF32, 15 rounds) — COMPLETE (job 6767145, 3.9 h).** New TF32 reference checksum
+  `d2d396d22b3a…e92c5e27`; D10 provenance written (numeric-mode=tf32). **Per-round proxy recall@2m
+  (500-subset) curve: r3 0.346 → r6 0.446 → r9 0.481 → r12 0.491 → r15 0.496** (eval_loss 3.99→2.78;
+  n_decoded 48k→18.6k). The recall is CLIMBING but FLATTENING hard (Δ/3-round: +0.100,+0.035,+0.010,
+  +0.005 → plateau ~0.50) — far above the old 5-of-25 sampled 0.146 (D10 full-participation removes the
+  undertraining/variance confounds, as hypothesized). eval_loss still descending ~0.04/round → not fully
+  converged; E-30 quantifies the remaining headroom. **E-15 readiness (job 6767339) = READY**
+  (scope=reference, numeric-mode=tf32; regime-match + D10 provenance verified): **official mAP 0.1263 ·
+  NDS 0.1686 · car_recall 0.8500 · car_AP@2m 0.6263 · eligible_N 27,383 · false-disappear 0.0**; new
+  frozen ASR subset `ddf12e0f203f2c79…`. **TF32 ≈ FP32 model quality EMPIRICALLY CONFIRMED**: FP32 ref
+  was mAP 0.1253 / NDS 0.1688 / recall 0.85 / N 27,432 → TF32 differs by ~1e-3, recall identical (within
+  noise) — validates D13/D14's TF32-is-safe claim on a real trainval checkpoint. The weak T5 is therefore
+  NOT a TF32/regime artifact; recall 0.85 + mAP ~0.126 is the same marginal-but-functional recipe.
+  **E-30 RUNNING** (6767146); **D1 centralized RUNNING** at epoch 10/15, train loss 3.20→1.65
+  (~51 min/epoch).
+- **D (centralized matched-budget baseline) + E (15-vs-30-round FL convergence) — E launchers DONE +
+  RUNNING; D1 RUNNING.** E = clean FL at 15 & 30 rounds in TF32 with a cheap `every_n` proxy curve
+  (`run_clean_fl_tf32_a40.sh`); these BECOME the new TF32 clean reference (D10-compliant provenance,
+  numeric-mode=tf32). D = `centralized_train.py` (pooled = union of the FL log-group client tokens →
+  matched data exposure; epochs==rounds) + the **same** official evaluator via
+  `t4_readiness_eval.py --diagnostic` (numeric-mode threaded; `--diagnostic` skips the D10 FL-only
+  provenance RAISE for the centralized checkpoint but computes identical metrics, so D-vs-E is
+  apples-to-apples). D2 (centralized attack) stays GATED on D1 clearing the readiness bar.
+
+- **D + E COMPLETE — Q4/Q5 ANSWERED (the session payoff).** Official TF32 readiness (bs=1):
+  **Centralized-15ep mAP 0.3597 / NDS 0.3569 / recall 0.93 / N 28,505** ; **FL-15rd 0.1263 / 0.1686 /
+  0.85 / 27,383** ; **FL-30rd 0.1957 / 0.2260 / 0.89 / 28,153**. (a) **NOT architecture/recipe** —
+  centralized reaches a strong mAP 0.36 on the same model/data/budget. (b) **FL-undertraining REAL** —
+  FL 15→30 rounds: mAP +55% (0.126→0.196), still climbing → 15 rounds undertrained. (c) **FedAvg dilution
+  REAL (Q2 quantified)** — FL-30 (0.196) still ~1.8× below centralized-15 (0.360) at matched exposure →
+  averaging over location-coherent non-IID shards heavily dilutes (caveat: gap includes FL per-round
+  optimizer reset vs centralized warm-Adam). **T5 verdict: the camera-only null was on a
+  doubly-compromised checkpoint (undertrained + dilution-weakened, clean mAP 0.13 vs achievable 0.36) →
+  uninterpretable as "BadFusion doesn't transfer."** Next clean reference budget: **≥30 rounds** (check
+  past 30; r27→30 slope still +0.005/rd). D2 (centralized attack) now UNBLOCKED (centralized clears the
+  readiness bar with margin). Checksums: centralized `f6487b2b…`, FL-15 `d2d396d2…`, FL-30 `11c15eab…`.
+
+- **Adversarial determinism-review (17-agent workflow `wf_2cfa8b0b`) — 13 findings, 8 confirmed, all
+  addressed.** (1) **HIGH** (4 lenses): `centralized_train.py` `--resume` was NOT byte-identical to a
+  fresh run — the DataLoader's private shuffle Generator advanced across epochs, so resume (rebuilds it)
+  replayed epoch-0's order at epoch K → different weights/checksum. **FIXED:** build a fresh loader per
+  epoch seeded `(seed+epoch)` so epoch-K order is a pure function of (seed,epoch), resume-byte-identical
+  (verified by a fresh-vs-resume epoch-3 checksum smoke). (2) **MED** #6: centralized ignored
+  `num-local-epochs` → silent budget mismatch if FL uses >1 local epoch. **FIXED:** assert ==1 (refuse
+  otherwise). (3) **MED** #3: checkpoint↔evaluator regime match not auto-enforced. **FIXED:**
+  `t4_readiness_eval.py` reads the checkpoint's provenance `numeric-mode` and RAISES on mismatch (legacy
+  no-mode warns). (4) **LOW** #8: `server-eval-mode` default `all` vs documented trainval `none`.
+  **FIXED:** set `none` in `t4_reference.json`. (5) **LOW** #7 NOTED-not-fixed (out of scope, paused
+  T5): `t5_attack_eval.py` doesn't thread numeric-mode → would evaluate TF32 T5 poisoned checkpoints in
+  FP32 — **must thread numeric-mode before any TF32 T5 attack eval** (2-line mirror of t4_readiness_eval).
+  Dismissed (5): the explicit-fp32-vs-Ampere-default change (intentional+documented), the warm-Adam
+  centralized-vs-FL difference (real but INHERENT — recorded as a `matched_budget_note` in centralized
+  provenance: a "works-centrally-dies-under-FL" result implicates the FL regime broadly = averaging +
+  per-round optimizer reset, not averaging alone). Full suite 247 pass (236 + 11 new).

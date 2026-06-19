@@ -1,0 +1,272 @@
+{
+  "client_id": 0,
+  "config": "fl_v3/configs/t4_reference.json",
+  "regimes": {
+    "fp32": {
+      "backbone_share_of_forward": 0.4469535080758197,
+      "backbone_share_of_step": 0.3054365890666922,
+      "forward_total_ms": 26393.343607001952,
+      "mean_step_ms": 1931.104186149787,
+      "numeric_mode": "fp32",
+      "peak_gpu_mem_mb": 6820.70263671875,
+      "per_stage": {
+        "backward": {
+          "mean_ms": 235.3771237998444,
+          "median_ms": 235.35192849976738,
+          "n": 20,
+          "share_of_summed": 0.07240654517431525,
+          "total_ms": 4707.542475996888
+        },
+        "bev_neck": {
+          "mean_ms": 19.322637650202523,
+          "median_ms": 19.314138000481762,
+          "n": 20,
+          "share_of_summed": 0.005944016195456793,
+          "total_ms": 386.45275300405046
+        },
+        "camera_backbone": {
+          "mean_ms": 589.8298757500015,
+          "median_ms": 589.6386575004726,
+          "n": 20,
+          "share_of_summed": 0.18144305127957158,
+          "total_ms": 11796.59751500003
+        },
+        "camera_neck": {
+          "mean_ms": 19.450495449837035,
+          "median_ms": 19.44389050004247,
+          "n": 20,
+          "share_of_summed": 0.005983347721799163,
+          "total_ms": 389.0099089967407
+        },
+        "dataloader_wait": {
+          "mean_ms": 66.91315499992925,
+          "median_ms": 63.263557000027504,
+          "n": 20,
+          "share_of_summed": 0.020583777650279616,
+          "total_ms": 1338.263099998585
+        },
+        "forward_total": {
+          "mean_ms": 1320.0294833498447,
+          "median_ms": 1319.7848739991969,
+          "n": 20,
+          "share_of_summed": 0.40606654068419595,
+          "total_ms": 26400.589666996893
+        },
+        "fusion": {
+          "mean_ms": 34.54645555002571,
+          "median_ms": 34.52484350054874,
+          "n": 20,
+          "share_of_summed": 0.010627156343887077,
+          "total_ms": 690.9291110005142
+        },
+        "head": {
+          "mean_ms": 4.54905164997399,
+          "median_ms": 4.5492904991988325,
+          "n": 20,
+          "share_of_summed": 0.0013993760671246367,
+          "total_ms": 90.9810329994798
+        },
+        "lidar_encoder": {
+          "mean_ms": 18.28927445003501,
+          "median_ms": 18.250457999783976,
+          "n": 20,
+          "share_of_summed": 0.005626133735060896,
+          "total_ms": 365.7854890007002
+        },
+        "loss": {
+          "mean_ms": 307.4875167000755,
+          "median_ms": 299.89356250007404,
+          "n": 20,
+          "share_of_summed": 0.09458909348987783,
+          "total_ms": 6149.75033400151
+        },
+        "optimizer_step": {
+          "mean_ms": 1.296907300093153,
+          "median_ms": 1.2857230012741638,
+          "n": 20,
+          "share_of_summed": 0.000398953710943239,
+          "total_ms": 25.93814600186306
+        },
+        "preprocess": {
+          "mean_ms": 30.26396969999041,
+          "median_ms": 30.25718000026245,
+          "n": 20,
+          "share_of_summed": 0.009309781060541247,
+          "total_ms": 605.2793939998082
+        },
+        "view_transform": {
+          "mean_ms": 603.4154201500314,
+          "median_ms": 602.8944849995241,
+          "n": 20,
+          "share_of_summed": 0.1856222268869467,
+          "total_ms": 12068.308403000628
+        }
+      },
+      "precision_state": {
+        "cublas_workspace_config": ":4096:8",
+        "cuda_available": true,
+        "cuda_matmul_allow_tf32": false,
+        "cudnn_allow_tf32": false,
+        "cudnn_benchmark": false,
+        "cudnn_deterministic": true,
+        "device_cc": "8.6",
+        "device_name": "NVIDIA A40",
+        "float32_matmul_precision": "highest",
+        "tf32_engaged": false,
+        "tf32_hardware": true
+      },
+      "step_total_ms": 38622.08372299574,
+      "steps_measured": 20,
+      "utilization": {
+        "cpu_util_mean_pct": 7.657024104699897,
+        "gpu_mem_used_max_mb": 13683.0,
+        "gpu_mem_used_mean_mb": 12823.990099009901,
+        "gpu_util_max_pct": 100.0,
+        "gpu_util_mean_pct": 76.02970297029702,
+        "n_samples": 101
+      },
+      "warmup_dropped": 5
+    },
+    "tf32": {
+      "backbone_share_of_forward": 0.3815754319118539,
+      "backbone_share_of_step": 0.2559137943320478,
+      "forward_total_ms": 23175.824917998398,
+      "mean_step_ms": 1727.793811599804,
+      "numeric_mode": "tf32",
+      "peak_gpu_mem_mb": 6964.52001953125,
+      "per_stage": {
+        "backward": {
+          "mean_ms": 191.10734960004265,
+          "median_ms": 191.0132840002916,
+          "n": 20,
+          "share_of_summed": 0.06620534153446159,
+          "total_ms": 3822.146992000853
+        },
+        "bev_neck": {
+          "mean_ms": 16.17781244995058,
+          "median_ms": 16.1786819999179,
+          "n": 20,
+          "share_of_summed": 0.005604481464323566,
+          "total_ms": 323.5562489990116
+        },
+        "camera_backbone": {
+          "mean_ms": 442.1662701499372,
+          "median_ms": 442.09332799891854,
+          "n": 20,
+          "share_of_summed": 0.1531797128240277,
+          "total_ms": 8843.325402998744
+        },
+        "camera_neck": {
+          "mean_ms": 17.498323749623523,
+          "median_ms": 17.498389500360645,
+          "n": 20,
+          "share_of_summed": 0.006061946348735021,
+          "total_ms": 349.96647499247047
+        },
+        "dataloader_wait": {
+          "mean_ms": 66.93405834994337,
+          "median_ms": 46.725200500077335,
+          "n": 20,
+          "share_of_summed": 0.023187973684004208,
+          "total_ms": 1338.6811669988674
+        },
+        "forward_total": {
+          "mean_ms": 1159.1448872498404,
+          "median_ms": 1158.7374815007934,
+          "n": 20,
+          "share_of_summed": 0.40156269923113164,
+          "total_ms": 23182.897744996808
+        },
+        "fusion": {
+          "mean_ms": 28.422739949928655,
+          "median_ms": 28.435321000870317,
+          "n": 20,
+          "share_of_summed": 0.009846493134190754,
+          "total_ms": 568.4547989985731
+        },
+        "head": {
+          "mean_ms": 4.23702445013987,
+          "median_ms": 4.23325800056773,
+          "n": 20,
+          "share_of_summed": 0.0014678328771679631,
+          "total_ms": 84.7404890027974
+        },
+        "lidar_encoder": {
+          "mean_ms": 18.27996184993026,
+          "median_ms": 18.293095999979414,
+          "n": 20,
+          "share_of_summed": 0.006332729327492547,
+          "total_ms": 365.5992369986052
+        },
+        "loss": {
+          "mean_ms": 309.31615904992213,
+          "median_ms": 301.32566500014946,
+          "n": 20,
+          "share_of_summed": 0.1071564332553716,
+          "total_ms": 6186.323180998443
+        },
+        "optimizer_step": {
+          "mean_ms": 1.2913573500554776,
+          "median_ms": 1.282050000554591,
+          "n": 20,
+          "share_of_summed": 0.00044736507822638487,
+          "total_ms": 25.82714700110955
+        },
+        "preprocess": {
+          "mean_ms": 30.24916080021285,
+          "median_ms": 30.2424190003876,
+          "n": 20,
+          "share_of_summed": 0.010479220323552077,
+          "total_ms": 604.983216004257
+        },
+        "view_transform": {
+          "mean_ms": 601.759952500197,
+          "median_ms": 601.214311500371,
+          "n": 20,
+          "share_of_summed": 0.208467770917315,
+          "total_ms": 12035.19905000394
+        }
+      },
+      "precision_state": {
+        "cublas_workspace_config": ":4096:8",
+        "cuda_available": true,
+        "cuda_matmul_allow_tf32": true,
+        "cudnn_allow_tf32": true,
+        "cudnn_benchmark": false,
+        "cudnn_deterministic": true,
+        "device_cc": "8.6",
+        "device_name": "NVIDIA A40",
+        "float32_matmul_precision": "high",
+        "tf32_engaged": true,
+        "tf32_hardware": true
+      },
+      "step_total_ms": 34555.87623199608,
+      "steps_measured": 20,
+      "utilization": {
+        "cpu_util_mean_pct": 7.80565654543613,
+        "gpu_mem_used_max_mb": 13685.0,
+        "gpu_mem_used_mean_mb": 13684.885057471265,
+        "gpu_util_max_pct": 100.0,
+        "gpu_util_mean_pct": 76.54022988505747,
+        "n_samples": 87
+      },
+      "warmup_dropped": 5
+    }
+  },
+  "tf32_speedup": {
+    "backward": 1.231648726710152,
+    "bev_neck": 1.194391250979149,
+    "camera_backbone": 1.3339549295562325,
+    "camera_neck": 1.1115633547616532,
+    "dataloader_wait": 0.9996877023367561,
+    "end_to_end_step": 1.117670507432674,
+    "forward_total": 1.1387959329930837,
+    "fusion": 1.2154512763683232,
+    "head": 1.073643001947704,
+    "lidar_encoder": 1.000509443082059,
+    "loss": 0.9940881124495293,
+    "optimizer_step": 1.004297764702727,
+    "preprocess": 1.0004895639874234,
+    "view_transform": 1.0027510432406748
+  }
+}
