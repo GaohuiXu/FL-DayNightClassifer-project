@@ -1,0 +1,134 @@
+{
+  "client_id": 0,
+  "config": "fl_v3/configs/t4_reference.json",
+  "regimes": {
+    "fp32": {
+      "backbone_share_of_forward": 0.5905523073933899,
+      "backbone_share_of_step": 0.2699991131162405,
+      "forward_total_ms": 2585.059095872566,
+      "mean_step_ms": 282.7069682185538,
+      "numeric_mode": "fp32",
+      "peak_gpu_mem_mb": 7932.59619140625,
+      "per_stage": {
+        "backward": {
+          "mean_ms": 60.54141381755471,
+          "median_ms": 60.52434560842812,
+          "n": 20,
+          "share_of_summed": 0.14695947454035338,
+          "total_ms": 1210.8282763510942
+        },
+        "bev_neck": {
+          "mean_ms": 7.375471922568977,
+          "median_ms": 7.374421460554004,
+          "n": 20,
+          "share_of_summed": 0.017903372417007846,
+          "total_ms": 147.50943845137954
+        },
+        "camera_backbone": {
+          "mean_ms": 76.33063069079071,
+          "median_ms": 75.81328949891031,
+          "n": 20,
+          "share_of_summed": 0.18528654470239217,
+          "total_ms": 1526.6126138158143
+        },
+        "camera_neck": {
+          "mean_ms": 8.316712721716613,
+          "median_ms": 8.317107567563653,
+          "n": 20,
+          "share_of_summed": 0.02018815971443581,
+          "total_ms": 166.33425443433225
+        },
+        "dataloader_wait": {
+          "mean_ms": 0.2706817933358252,
+          "median_ms": 0.22985832765698433,
+          "n": 20,
+          "share_of_summed": 0.0006570585588924408,
+          "total_ms": 5.413635866716504
+        },
+        "forward_total": {
+          "mean_ms": 129.7463299240917,
+          "median_ms": 129.07613045535982,
+          "n": 20,
+          "share_of_summed": 0.3149489129316469,
+          "total_ms": 2594.926598481834
+        },
+        "fusion": {
+          "mean_ms": 12.884861743077636,
+          "median_ms": 12.884588562883437,
+          "n": 20,
+          "share_of_summed": 0.031276978714011014,
+          "total_ms": 257.6972348615527
+        },
+        "head": {
+          "mean_ms": 2.1987148094922304,
+          "median_ms": 2.1977215074002743,
+          "n": 20,
+          "share_of_summed": 0.0053372056034373325,
+          "total_ms": 43.97429618984461
+        },
+        "lidar_encoder": {
+          "mean_ms": 9.342875750735402,
+          "median_ms": 9.1589349322021,
+          "n": 20,
+          "share_of_summed": 0.02267908898133065,
+          "total_ms": 186.85751501470804
+        },
+        "loss": {
+          "mean_ms": 90.76516045024619,
+          "median_ms": 87.42028253618628,
+          "n": 20,
+          "share_of_summed": 0.2203252194693758,
+          "total_ms": 1815.3032090049237
+        },
+        "optimizer_step": {
+          "mean_ms": 1.383382233325392,
+          "median_ms": 1.3117920607328415,
+          "n": 20,
+          "share_of_summed": 0.003358050519114414,
+          "total_ms": 27.66764466650784
+        },
+        "preprocess": {
+          "mean_ms": 6.440419994760305,
+          "median_ms": 6.431793910451233,
+          "n": 20,
+          "share_of_summed": 0.015633608113306337,
+          "total_ms": 128.8083998952061
+        },
+        "view_transform": {
+          "mean_ms": 6.36326716048643,
+          "median_ms": 6.367732072249055,
+          "n": 20,
+          "share_of_summed": 0.015446325734695947,
+          "total_ms": 127.2653432097286
+        }
+      },
+      "precision_state": {
+        "cublas_workspace_config": ":4096:8",
+        "cuda_available": true,
+        "cuda_matmul_allow_tf32": false,
+        "cudnn_allow_tf32": false,
+        "cudnn_benchmark": true,
+        "cudnn_deterministic": false,
+        "determinism_level": "relaxed",
+        "deterministic_algorithms": false,
+        "device_cc": "8.0",
+        "device_name": "NVIDIA A100-SXM4-40GB",
+        "float32_matmul_precision": "highest",
+        "tf32_engaged": false,
+        "tf32_hardware": true
+      },
+      "step_total_ms": 5654.139364371076,
+      "steps_measured": 20,
+      "utilization": {
+        "cpu_util_mean_pct": 6.227472693007202,
+        "gpu_mem_used_max_mb": 10019.0,
+        "gpu_mem_used_mean_mb": 4766.574803149606,
+        "gpu_util_max_pct": 100.0,
+        "gpu_util_mean_pct": 12.220472440944881,
+        "n_samples": 127
+      },
+      "warmup_dropped": 12
+    }
+  },
+  "tf32_speedup": {}
+}

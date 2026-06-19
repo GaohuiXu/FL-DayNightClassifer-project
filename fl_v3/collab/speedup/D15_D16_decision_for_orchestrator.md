@@ -74,6 +74,23 @@ reasonableness gate even after dropping bit-identity — speed that NaNs is wort
 `torch.compile` checkpoint-save bug — `_orig_mod.` key prefix — was found + fixed in `5c2dfc2`; it only
 hit the compiled-run post-train eval, not training or the FL path.)
 
+### Hardware: A100 (measured, per-step profiler, relaxed+compile)
+
+| GPU | per-step | gpu_util | backbone | backward | loss | view_transform |
+|---|---:|---:|---:|---:|---:|---:|
+| A40 | 460 ms | 54% | 147 ms | 112 ms | 87 ms | 14 ms |
+| **A100-40GB** | **283 ms (~1.63×)** | **12%** | 76 ms (1.9×) | 61 ms (1.8×) | 91 ms (1.0×) | 6.4 ms (2.2×) |
+
+- **A100 raw per-step ~1.63×** (cost 1.84× → ~cost-neutral). Bandwidth-bound stages gain most (backbone
+  1.9×, view-transform 2.2×); the **loss does NOT speed up (1.0×) — it's launch/CPU-bound**, so on A100 it
+  becomes the *largest* stage (the loss target-vectorization/cache is the relatively-better A100 lever).
+- **The real A100 finding: util fell to 12%.** A100 is so fast on this light model that the launch/CPU
+  gaps dominate even more → 1 client/GPU **wastes the A100**. The A100 win is therefore via **OVERCOMMIT**:
+  at 12% util it could run **~4–6 clients/GPU** (num-gpus≈0.2; VRAM 40 GB / 7.9 ≈ 5, A100fat 80 GB ≈ 10) →
+  the idle capacity, not raw speed, is the lever. **A100 + aggressive overcommit compounds; A100 + 1
+  client/GPU does not pay off.** The win grows once the backbone is *trained* (heavier per-step → util
+  rises → the 1.63× lands fully). A100fat buys nothing extra here (RAM-not-the-limit).
+
 ## D16 — precision + criteria cleanup (DECISION TO RATIFY)
 
 The session accumulated a messy 4-axis space (fp32 / tf32 / bf16 × strict / loose identity). Recommend
