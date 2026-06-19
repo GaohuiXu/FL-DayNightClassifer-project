@@ -131,7 +131,10 @@ def main():
         print(f"[centralized] RESUMED from epoch {start_epoch}", flush=True)
 
     def save_ckpt(epoch):
-        full = model.state_dict()
+        # torch.compile wraps the module → state_dict keys gain a "._orig_mod." segment. Strip it so the
+        # saved checkpoint loads strict=True into a NON-compiled model (the readiness eval). No-op when
+        # not compiled. (Trainable-only checksum below is unaffected — the frozen backbone isn't in it.)
+        full = {k.replace("._orig_mod.", "."): v for k, v in model.state_dict().items()}
         torch.save(full, ckpt_path)
         torch.save({"optimizer": optimizer.state_dict(), "epoch": epoch}, opt_path)
         arrs = [v.detach().cpu().numpy() for v in trainable_state_dict(model).values()]
