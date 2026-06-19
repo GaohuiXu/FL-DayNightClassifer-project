@@ -59,8 +59,8 @@ Ray cold-start + round-1 compile, so the **≥30-round steady-state per-round is
 average. **Best config (relaxed + compile + 2 clients/GPU): ~5.6 min/round → the ≥30-round clean
 reference ≈ ~2.8 h (vs ~7.8 h strict).** `num-gpus=0.5` captures the idle ~54% GPU without a batch/science
 change (better than enlarging the batch). GPU memory has room for more clients/GPU (~5–6 fit at 7.6 GB
-each) but **compute saturates at ~2/GPU** (the 2nd client added only +14%), so 3/GPU is expected to
-thrash (probe pending).
+each) but **compute saturates at ~2/GPU** (the 2nd client added only +14%); 3/GPU **thrashes**
+(confirmed — probe 6767615 round 1 alone exceeded the full 2/GPU run; cancelled). **2/GPU is the ceiling.**
 
 ### The bf16 NaN — caught, diagnosed, fixed (why we keep a reasonableness gate)
 
