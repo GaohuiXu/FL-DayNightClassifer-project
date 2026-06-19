@@ -94,16 +94,18 @@ class UtilSampler:
         }
 
 
-def profile_regime(numeric_mode, run_config, cid, steps, warmup, device):
-    """Run (warmup+steps) real training steps under one numeric regime; return the profile dict."""
-    strict = True
-    enforce_determinism(strict=strict, numeric_mode=numeric_mode)
+def profile_regime(numeric_mode, run_config, cid, steps, warmup, device, level="strict", compile_model=False):
+    """Run (warmup+steps) real training steps under one numeric regime + determinism level."""
+    enforce_determinism(strict=True, numeric_mode=numeric_mode, level=level)
+    use_amp = (level == "relaxed") and device.type == "cuda"
     seed = int(run_config.get("seed", 42))
     # Mirror the real per-client seeding so the trajectory matches a real round-1 client.
     seed_everything(derive_seed(seed, cid, 1))
 
     task = get_task("nuscenes_detection")
     model = task.build_model(run_config).to(device)
+    if compile_model:  # L8 (D15): torch.compile the frozen backbone (compile cost amortized over steps)
+        model.camera_backbone = torch.compile(model.camera_backbone)
     criterion = task.build_criterion(run_config)
     cdata = task.client_data(cid, run_config)
     loader = cdata.trainloader
@@ -136,7 +138,11 @@ def profile_regime(numeric_mode, run_config, cid, steps, warmup, device):
                 inputs, targets = _unpack_batch(batch, device)
                 optimizer.zero_grad()
                 with prof.section("forward_total"):
-                    out = model(inputs)
+                    if use_amp:
+                        with torch.autocast("cuda", dtype=torch.bfloat16):
+                            out = model(inputs)
+                    else:
+                        out = model(inputs)
                 with prof.section("loss"):
                     loss = criterion(out, targets)
                 with prof.section("backward"):
@@ -176,6 +182,9 @@ def main():
     ap.add_argument("--client-id", type=int, default=0)
     ap.add_argument("--out", default="fl_v3/collab/speedup/profile_stages_a40.json")
     ap.add_argument("--modes", default="fp32,tf32")
+    ap.add_argument("--level", default="strict", choices=["strict", "relaxed"],
+                    help="D15 determinism level (relaxed: cudnn.benchmark + atomics + bf16 autocast)")
+    ap.add_argument("--compile", action="store_true", help="L8: torch.compile the frozen backbone")
     ap.add_argument("--cache-dir", default="", help="override nuscenes-cache-dir (abs path)")
     ap.add_argument("--dataroot", default="", help="override nuscenes-dataroot (abs path)")
     a = ap.parse_args()
@@ -193,9 +202,9 @@ def main():
     results = {}
     for mode in a.modes.split(","):
         mode = mode.strip()
-        print(f"\n===== profiling regime: {mode} (client {a.client_id}, "
+        print(f"\n===== profiling regime: {mode} level={a.level} (client {a.client_id}, "
               f"{a.warmup} warmup + {a.steps} steps) =====", flush=True)
-        r = profile_regime(mode, run_config, a.client_id, a.steps, a.warmup, device)
+        r = profile_regime(mode, run_config, a.client_id, a.steps, a.warmup, device, level=a.level, compile_model=a.compile)
         results[mode] = r
         print(f"[profile] {mode}: mean_step={r['mean_step_ms']:.1f}ms  "
               f"forward={r['forward_total_ms']/r['steps_measured']:.1f}ms/step  "

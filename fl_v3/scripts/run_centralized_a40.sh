@@ -23,7 +23,10 @@ cd "$REPO"; mkdir -p fl_v3/scripts/logs fl_v3/collab/speedup
 CONFIG="${CONFIG:-fl_v3/configs/t4_reference.json}"
 EPOCHS="${EPOCHS:-15}"
 NUMERIC_MODE="${NUMERIC_MODE:-tf32}"
-TAG="${TAG:-centralized_clean_r${EPOCHS}}"
+LEVEL="${LEVEL:-strict}"                       # D15: strict (byte-identical) | relaxed (atomics+bf16+compile)
+MAXSTEPS_FLAG=""; [ -n "${MAX_STEPS:-}" ] && MAXSTEPS_FLAG="--max-steps ${MAX_STEPS}"
+COMPILE_FLAG=""; [ "${COMPILE:-0}" = "1" ] && COMPILE_FLAG="--compile"
+TAG="${TAG:-centralized_clean_r${EPOCHS}_${LEVEL}}"
 TRAINVAL_CACHE="${TRAINVAL_CACHE:-${PROJ_ROOT}/.claude/worktrees/infallible-feistel-d42c34/fl_outputs/nuscenes/info_cache}"
 OUT_DIR="${REPO}/fl_outputs/nuscenes/experiments/cycle_04/speedup_D"
 RESUME_FLAG=""; [ "${RESUME:-0}" = "1" ] && RESUME_FLAG="--resume"
@@ -44,11 +47,17 @@ nvidia-smi --query-gpu=name,compute_cap,memory.total --format=csv,noheader || tr
 
 # --- train ---
 python fl_v3/scripts/centralized_train.py \
-    --config "$CONFIG" --epochs "$EPOCHS" --out-dir "$OUT_DIR" --tag "$TAG" $RESUME_FLAG \
-    "numeric-mode=${NUMERIC_MODE}" "nuscenes-cache-dir=${TRAINVAL_CACHE}"
+    --config "$CONFIG" --epochs "$EPOCHS" --out-dir "$OUT_DIR" --tag "$TAG" $RESUME_FLAG $MAXSTEPS_FLAG $COMPILE_FLAG \
+    "numeric-mode=${NUMERIC_MODE}" "determinism-level=${LEVEL}" "nuscenes-cache-dir=${TRAINVAL_CACHE}"
 
 CKPT="${OUT_DIR}/${TAG}/final_model.pt"
 [ -f "$CKPT" ] || { echo "[D] FATAL: training produced no checkpoint at ${CKPT}"; exit 1; }
+
+# A capped run (MAX_STEPS set) is a SMOKE (NaN/reasonableness check) — skip the expensive readiness eval.
+if [ -n "${MAX_STEPS:-}" ]; then
+    echo "[D] capped smoke (MAX_STEPS=${MAX_STEPS}) — skipping readiness eval; train loss is the signal."
+    exit 0
+fi
 
 # --- official diagnostic eval (same evaluator as E; --diagnostic skips the D10 FL gate) ---
 EVAL_OUT="${OUT_DIR}/${TAG}/readiness_diag"

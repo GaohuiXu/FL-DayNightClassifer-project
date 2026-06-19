@@ -120,7 +120,8 @@ def main() -> None:
     seed_everything(int(cfg.get("seed", 42)))
     # Regime consistency (D14): evaluate a checkpoint in the SAME numeric regime it was trained in
     # (no mixing). The launcher passes numeric-mode=tf32 for the TF32 reference / centralized baselines.
-    enforce_determinism(strict=truthy(cfg.get("determinism-strict", True)), numeric_mode=numeric_mode)
+    enforce_determinism(strict=truthy(cfg.get("determinism-strict", True)), numeric_mode=numeric_mode,
+                        level=str(cfg.get("determinism-level", "strict")))
 
     version = str(cfg["nuscenes-version"])
     val_split = str(cfg["nuscenes-val-split"])

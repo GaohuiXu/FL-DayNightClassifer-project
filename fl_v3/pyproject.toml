@@ -119,6 +119,11 @@ numeric-mode = "fp32"
 # RNG-neutral (run_b_eval_neutral_a40.sh proves byte-identical checksum none-vs-all).
 server-eval-mode = "all"
 server-eval-frequency = 1             # every_n: eval every N rounds (+ always the final round)
+# determinism-level (Cycle-04 D15): "strict" = same-seed byte-identity (default; cuDNN deterministic,
+# no autotuner, atomics RAISE). "relaxed" = unlock cudnn.benchmark + atomic scatter + bf16 autocast +
+# torch.compile for speed (same-seed runs no longer byte-identical; bar = "model stays reasonable";
+# multi-seed variance discipline deferred to T5-T7). Default strict preserves every existing run.
+determinism-level = "strict"
 
 # ===== paths =====
 output-dir = "./outputs"

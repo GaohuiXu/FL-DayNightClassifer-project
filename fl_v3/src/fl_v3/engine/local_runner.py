@@ -153,6 +153,7 @@ def run_clean_round(
     enforce_determinism(
         strict=strict_determinism,
         numeric_mode=str(run_config.get("numeric-mode", "fp32")),
+        level=str(run_config.get("determinism-level", "strict")),
     )
     seed = int(run_config.get("seed", 42))
     seed_everything(seed)
@@ -244,6 +245,7 @@ def run_clean_rounds(
     enforce_determinism(
         strict=strict_determinism,
         numeric_mode=str(run_config.get("numeric-mode", "fp32")),
+        level=str(run_config.get("determinism-level", "strict")),
     )
     seed = int(run_config.get("seed", 42))
     seed_everything(seed)

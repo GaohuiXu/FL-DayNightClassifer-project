@@ -35,8 +35,12 @@ def main():
         "det-pretrained-backbone": True, "batch-size": 2, "num-workers": 0,
         "numeric-mode": "fp32",
     }
+    import os
+    level = os.environ.get("DET_LEVEL", "strict")
+    cfg["determinism-level"] = level
     seed_everything(int(cfg["seed"]))
-    enforce_determinism(strict=True, numeric_mode="fp32")
+    enforce_determinism(strict=True, numeric_mode="fp32", level=level)
+    print(f"[verify_levers] determinism-level={level}")
     device = torch.device("cpu")
     task = get_task("nuscenes_detection")
     model = task.build_model(cfg).to(device)

@@ -153,6 +153,13 @@ def make_loader(
     g.manual_seed(int(seed))
     if collate_fn is None:
         collate_fn = _list_collate
+    # L5 (D15, value-neutral scheduling): pin_memory for faster H2D, and keep workers warm +
+    # prefetch when num_workers>0. The dataset is RNG-free across workers (resize+normalize only;
+    # asserted by test_two_worker_batch_equals_zero_worker), so these change timing, NOT batch content
+    # — byte-identical in BOTH determinism levels (the shuffle generator g is unaffected).
+    extra = {}
+    if int(num_workers) > 0:
+        extra.update(persistent_workers=True, prefetch_factor=4)
     return DataLoader(
         dataset,
         batch_size=batch_size,
@@ -162,6 +169,8 @@ def make_loader(
         generator=g,
         drop_last=False,
         collate_fn=collate_fn,
+        pin_memory=torch.cuda.is_available(),
+        **extra,
     )
 
 

@@ -197,6 +197,7 @@ def main(grid: Grid, context: Context) -> None:
     enforce_determinism(
         strict=truthy(run_config.get("determinism-strict", True)),
         numeric_mode=numeric_mode,
+        level=str(run_config.get("determinism-level", "strict")),
     )
     print(
         f"[server] numeric-mode={numeric_mode} precision_state={precision_state()}",

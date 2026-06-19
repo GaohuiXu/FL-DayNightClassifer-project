@@ -119,7 +119,15 @@ def seeded_worker_init(worker_id: int) -> None:
     _np.random.seed(seed)
 
 
-def enforce_determinism(strict: bool = True, numeric_mode: str = "fp32") -> None:
+# Determinism level (Cycle-04 D15). Orthogonal to numeric_mode. The bit-determinism rule is RELAXED
+# for the speedup track: "strict" keeps same-seed byte-identity (cuDNN deterministic, no autotuner,
+# atomics RAISE); "relaxed" unlocks the autotuner + atomic scatter/AMP/compile for speed (same-seed runs
+# are then NO LONGER byte-identical — the bar drops to "the model stays reasonable"; multi-seed variance
+# discipline moves to T5–T7). Default "strict" → every existing run is unchanged.
+_VALID_DET_LEVELS = frozenset({"strict", "relaxed"})
+
+
+def enforce_determinism(strict: bool = True, numeric_mode: str = "fp32", level: str = "strict") -> None:
     """Pin the global PyTorch determinism state (single source of truth).
 
     Sets, in order:
@@ -166,6 +174,8 @@ def enforce_determinism(strict: bool = True, numeric_mode: str = "fp32") -> None
             f"numeric_mode={numeric_mode!r} not in {sorted(_VALID_NUMERIC_MODES)} "
             "(no mixing regimes — D14)."
         )
+    if level not in _VALID_DET_LEVELS:
+        raise ValueError(f"level={level!r} not in {sorted(_VALID_DET_LEVELS)} (D15).")
     if os.environ.get("CUBLAS_WORKSPACE_CONFIG") != _CUBLAS_WORKSPACE_CONFIG:
         if torch.cuda.is_available() and torch.cuda.is_initialized():
             warnings.warn(
@@ -190,9 +200,17 @@ def enforce_determinism(strict: bool = True, numeric_mode: str = "fp32") -> None
         torch.backends.cudnn.allow_tf32 = False
         torch.set_float32_matmul_precision("highest")
 
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    torch.use_deterministic_algorithms(True, warn_only=not strict)
+    # Determinism level (D15). "strict" = the byte-identical contract (unchanged default). "relaxed" =
+    # unlock the cuDNN autotuner + atomic ops (scatter_add/index_add) + AMP/compile for speed; same-seed
+    # runs are no longer byte-identical (acceptable under D15: "model stays reasonable"; multi-seed at T5-T7).
+    if level == "relaxed":
+        torch.backends.cudnn.deterministic = False
+        torch.backends.cudnn.benchmark = True            # conv autotuner (L1) — was OFF for determinism
+        torch.use_deterministic_algorithms(False)        # allow atomicAdd scatter (L3b), etc.
+    else:  # "strict" — the byte-identical contract (default; preserves all existing runs)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        torch.use_deterministic_algorithms(True, warn_only=not strict)
 
 
 def seed_everything(seed: int) -> None:
@@ -230,6 +248,8 @@ def precision_state() -> dict:
         "float32_matmul_precision": str(torch.get_float32_matmul_precision()),
         "cudnn_deterministic": bool(torch.backends.cudnn.deterministic),
         "cudnn_benchmark": bool(torch.backends.cudnn.benchmark),
+        "deterministic_algorithms": bool(torch.are_deterministic_algorithms_enabled()),
+        "determinism_level": "strict" if torch.backends.cudnn.deterministic else "relaxed",
         "cublas_workspace_config": os.environ.get("CUBLAS_WORKSPACE_CONFIG", ""),
         "cuda_available": bool(torch.cuda.is_available()),
     }

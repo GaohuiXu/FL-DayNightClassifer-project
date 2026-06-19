@@ -28,8 +28,17 @@ _BANNED_CALLS = {
 
 
 def _ast_ban_findings(src: str, fname: str) -> list[str]:
-    """AST scan (prose in docstrings is Constant nodes → never flagged)."""
+    """AST scan (prose in docstrings is Constant nodes → never flagged).
+
+    D15: a banned op is ALLOWED on a line explicitly marked ``# D15-relaxed-ok`` — that line lives in an
+    opt-in relaxed-determinism branch (gated on ``not cudnn.deterministic``), never the strict path. The
+    ban still protects EVERY unmarked op, so the strict (default) byte-identity contract is intact."""
     findings: list[str] = []
+    lines = src.splitlines()
+
+    def _relaxed_ok(lineno: int) -> bool:
+        return 1 <= lineno <= len(lines) and "D15-relaxed-ok" in lines[lineno - 1]
+
     tree = ast.parse(src)
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
@@ -37,7 +46,7 @@ def _ast_ban_findings(src: str, fname: str) -> list[str]:
             name = func.attr if isinstance(func, ast.Attribute) else (
                 func.id if isinstance(func, ast.Name) else None
             )
-            if name in _BANNED_CALLS:
+            if name in _BANNED_CALLS and not _relaxed_ok(getattr(node, "lineno", -1)):
                 findings.append(f"{fname}: banned call {name!r}")
             if name in ("index_put", "index_put_"):
                 for kw in node.keywords:

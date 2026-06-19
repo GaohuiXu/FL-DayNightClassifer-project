@@ -63,6 +63,7 @@ def train(msg: Message, context: Context) -> Message:
     enforce_determinism(
         strict=truthy(run_config.get("determinism-strict", True)),
         numeric_mode=str(run_config.get("numeric-mode", "fp32")),
+        level=str(run_config.get("determinism-level", "strict")),
     )
 
     device = _device(run_config)
@@ -113,6 +114,7 @@ def evaluate_client(msg: Message, context: Context) -> Message:
     enforce_determinism(
         strict=truthy(run_config.get("determinism-strict", True)),
         numeric_mode=str(run_config.get("numeric-mode", "fp32")),
+        level=str(run_config.get("determinism-level", "strict")),
     )
 
     device = _device(run_config)

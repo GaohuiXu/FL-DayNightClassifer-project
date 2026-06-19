@@ -165,49 +165,57 @@ class DepthLSSTransform(nn.Module):
         depth_logits = x[:, : self.D]
         context = x[:, self.D :]
         depth_prob = depth_logits.softmax(dim=1)               # [BN, D, fH, fW]
-        # lift: outer product context ⊗ depth  → [BN, Cc, D, fH, fW]
-        lifted = depth_prob.unsqueeze(1) * context.unsqueeze(2)
         Cc = self.context_channels
         fH, fW, D = self.fH, self.fW, self.D
+        P = D * fH * fW
+        # D15: relaxed level (set by enforce_determinism) → fast atomic splat; strict → the
+        # deterministic cumsum_trick (byte-identical to the reference).
+        relaxed = not torch.backends.cudnn.deterministic
 
-        # --- frustum → lidar (x,y,z) for every (b,n,d,i,j) ---
-        # image-homogeneous [u*d, v*d, d, 1]
+        # --- frustum → lidar (x,y,z) for every (b,n,d,i,j) [shared by both paths] ---
         u, v, d = self.frustum.unbind(-1)                      # each (D,fH,fW)
         ones = torch.ones_like(d)
-        pts_img = torch.stack((u * d, v * d, d, ones), dim=-1)  # (D,fH,fW,4)
-        pts_img = pts_img.view(-1, 4)                          # (P,4), P=D*fH*fW
+        pts_img = torch.stack((u * d, v * d, d, ones), dim=-1).view(-1, 4)  # (P,4)
         img2lidar = self._img2lidar(lidar2img)                 # [B,N,4,4]
-        # (B,N,4,4) @ (4,P) → (B,N,4,P) → (B,N,P,4)
         pts_lidar = torch.einsum("bnij,pj->bnpi", img2lidar, pts_img)  # [B,N,P,4]
-        xy = pts_lidar[..., :2]                                # [B,N,P,2]
-        z = pts_lidar[..., 2]                                  # [B,N,P]
-
+        xy = pts_lidar[..., :2]
+        z = pts_lidar[..., 2]
         col, row = metric_to_grid(xy[..., 0], xy[..., 1], cfg.x_min, cfg.y_min, cfg.vx, cfg.vy)
-        valid = (
-            in_grid_mask(col, row, cfg.nx, cfg.ny)
-            & (z >= cfg.z_min)
-            & (z < cfg.z_max)
-        )                                                      # [B,N,P]
-
-        # batch offset on the rank so cells don't collide across the batch.
-        b_idx = torch.arange(B, device=feat.device).view(B, 1, 1).expand(B, N, P_(D, fH, fW))
-        flat = flat_index(col, row, cfg.nx)                    # [B,N,P]
+        valid = in_grid_mask(col, row, cfg.nx, cfg.ny) & (z >= cfg.z_min) & (z < cfg.z_max)  # [B,N,P]
+        b_idx = torch.arange(B, device=feat.device).view(B, 1, 1).expand(B, N, P)
+        flat = flat_index(col, row, cfg.nx)
         ranks = b_idx * (cfg.nx * cfg.ny) + flat               # [B,N,P]
-
-        # canonical geom id = ((n*D + d)*fH + i)*fW + j  — per frustum cell, order-invariant
-        n_idx = torch.arange(N, device=feat.device).view(1, N, 1)
-        cell_id = torch.arange(D * fH * fW, device=feat.device).view(1, 1, -1)  # (d,i,j) flat
-        geom_id = (n_idx * (D * fH * fW) + cell_id).expand(B, N, D * fH * fW)
-
-        # features per frustum point: [BN,Cc,D,fH,fW] → [B,N,P,Cc]
-        feats_pt = lifted.view(B, N, Cc, D * fH * fW).permute(0, 1, 3, 2).contiguous()
-
         m = valid.reshape(-1)
-        x_pt = feats_pt.reshape(-1, Cc)[m]
         ranks_pt = ranks.reshape(-1)[m]
-        geom_pt = geom_id.reshape(-1)[m]
 
-        bev = bev_splat(x_pt, ranks_pt, geom_pt, B, cfg.nx, cfg.ny)
+        if relaxed:
+            # L3a+L3b (D15 relaxed): mask-then-lift (lift ONLY at valid points — the atomicAdd backward
+            # of the shared-context gather is now allowed) + a single native scatter_add_ splat (no
+            # argsort, no cumsum, no geom_id, no 1.28 GB materialization). Cell sums are the intended
+            # values; per-cell float-add order is now non-deterministic (acceptable under D15).
+            idx = m.nonzero(as_tuple=False).squeeze(1)
+            bn = torch.div(idx, P, rounding_mode="floor")
+            p = idx % P
+            ij = p % (fH * fW)
+            depth_vals = depth_prob.reshape(B * N, P)[bn, p]
+            ctx_vals = context.reshape(B * N, Cc, fH * fW)[bn, :, ij]
+            # bf16 STABILITY: accumulate the BEV splat in fp32 (thousands of points sum into one cell —
+            # bf16 accumulation loses precision / can overflow). The forward stays bf16; only this
+            # reduction is fp32 (cheap). Output is fp32; downstream fusion re-casts under autocast.
+            xf = (depth_vals.unsqueeze(1) * ctx_vals).float()  # [P_valid, Cc] fp32
+            canvas = xf.new_zeros((B * cfg.ny * cfg.nx, Cc))
+            canvas.scatter_add_(0, ranks_pt.unsqueeze(1).expand(-1, Cc), xf)  # D15-relaxed-ok
+            bev = canvas.view(B, cfg.ny, cfg.nx, Cc).permute(0, 3, 1, 2).contiguous()
+        else:
+            # STRICT: the deterministic cumsum_trick splat — byte-identical to the reference.
+            lifted = depth_prob.unsqueeze(1) * context.unsqueeze(2)  # [BN,Cc,D,fH,fW]
+            n_idx = torch.arange(N, device=feat.device).view(1, N, 1)
+            cell_id = torch.arange(P, device=feat.device).view(1, 1, -1)
+            geom_id = (n_idx * P + cell_id).expand(B, N, P)
+            feats_pt = lifted.view(B, N, Cc, P).permute(0, 1, 3, 2).contiguous()  # [B,N,P,Cc]
+            x_pt = feats_pt.reshape(-1, Cc)[m]
+            geom_pt = geom_id.reshape(-1)[m]
+            bev = bev_splat(x_pt, ranks_pt, geom_pt, B, cfg.nx, cfg.ny)
         return {"bev": bev, "depth_prob": depth_prob, "context": context}
 
 

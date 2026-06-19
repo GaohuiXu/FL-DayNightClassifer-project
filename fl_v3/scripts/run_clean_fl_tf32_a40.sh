@@ -23,9 +23,10 @@ CONFIG="${CONFIG:-fl_v3/configs/t4_reference.json}"
 FEDERATION="${FEDERATION:-local-simulation-gpu-4x}"
 ROUNDS="${ROUNDS:-15}"
 NUMERIC_MODE="${NUMERIC_MODE:-tf32}"
+LEVEL="${LEVEL:-strict}"               # D15: strict (byte-identical) | relaxed (scatter_add+bf16; no compile in FL)
 EVAL_FREQ="${EVAL_FREQ:-3}"
 EVAL_LIMIT="${EVAL_LIMIT:-500}"
-TAG="${TAG:-clean_fl_tf32_r${ROUNDS}}"
+TAG="${TAG:-clean_fl_${LEVEL}_${NUMERIC_MODE}_r${ROUNDS}}"
 TRAINVAL_CACHE="${TRAINVAL_CACHE:-${PROJ_ROOT}/.claude/worktrees/infallible-feistel-d42c34/fl_outputs/nuscenes/info_cache}"
 OUT_DIR="${REPO}/fl_outputs/nuscenes/experiments/cycle_04/speedup_E"
 
@@ -64,7 +65,7 @@ nvidia-smi --query-gpu=name,compute_cap --format=csv,noheader || true
 
 RC="$(python fl_v3/scripts/runconfig.py "$CONFIG" "experiment-name=${TAG}" \
     "nuscenes-cache-dir=${TRAINVAL_CACHE}" "output-dir=${OUT_DIR}" \
-    "num-server-rounds=${ROUNDS}" "numeric-mode=${NUMERIC_MODE}" \
+    "num-server-rounds=${ROUNDS}" "numeric-mode=${NUMERIC_MODE}" "determinism-level=${LEVEL}" \
     "server-eval-mode=every_n" "server-eval-frequency=${EVAL_FREQ}" "det-eval-limit=${EVAL_LIMIT}")"
 echo "run-config: ${RC}"
 LOG="${FLWR_HOME}/flwr_${TAG}.log"

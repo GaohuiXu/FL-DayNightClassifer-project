@@ -45,6 +45,7 @@ def main():
     ap.add_argument("--max-steps", type=int, default=0,
                     help="cap steps/epoch (0=full epoch). For smoke validation ONLY — a capped run is "
                          "NOT a scientific baseline.")
+    ap.add_argument("--compile", action="store_true", help="L8: torch.compile the frozen backbone")
     ap.add_argument("overrides", nargs="*", default=[])
     args = ap.parse_args()
 
@@ -77,7 +78,8 @@ def main():
     device = torch.device("cuda" if (str(cfg.get("device", "cuda")) == "cuda"
                                      and torch.cuda.is_available()) else "cpu")
     seed_everything(seed)
-    enforce_determinism(strict=truthy(cfg.get("determinism-strict", True)), numeric_mode=numeric_mode)
+    enforce_determinism(strict=truthy(cfg.get("determinism-strict", True)), numeric_mode=numeric_mode,
+                        level=str(cfg.get("determinism-level", "strict")))
     print(f"[centralized] numeric-mode={numeric_mode} device={device} precision={precision_state()}",
           flush=True)
 
@@ -104,6 +106,9 @@ def main():
                            collate_fn=detection_collate_fn)
 
     model = task.build_model(cfg).to(device)
+    if args.compile:  # L8 (D15): compile the frozen backbone once (amortized over the long centralized run)
+        model.camera_backbone = torch.compile(model.camera_backbone)
+        print("[centralized] torch.compile(camera_backbone) enabled", flush=True)
     criterion = task.build_criterion(cfg)
     optimizer = torch.optim.Adam([p for p in model.parameters() if p.requires_grad],
                                  lr=float(cfg.get("learning-rate", 3e-3)),

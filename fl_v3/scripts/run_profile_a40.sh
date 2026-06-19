@@ -23,6 +23,9 @@ cd "$REPO"; mkdir -p fl_v3/scripts/logs fl_v3/collab/speedup
 TRAINVAL_CACHE="${TRAINVAL_CACHE:-${PROJ_ROOT}/.claude/worktrees/infallible-feistel-d42c34/fl_outputs/nuscenes/info_cache}"
 CONFIG="${CONFIG:-fl_v3/configs/t4_reference.json}"
 STEPS="${STEPS:-20}"; WARMUP="${WARMUP:-5}"; CLIENT_ID="${CLIENT_ID:-0}"
+LEVEL="${LEVEL:-strict}"; MODES="${MODES:-fp32,tf32}"
+COMPILE_FLAG=""; [ "${COMPILE:-0}" = "1" ] && { COMPILE_FLAG="--compile"; WARMUP="${WARMUP_COMPILE:-12}"; }
+OUT="${OUT:-fl_v3/collab/speedup/profile_stages_${LEVEL}.json}"
 
 export CUBLAS_WORKSPACE_CONFIG=":4096:8"
 export TORCH_HOME="/cephyr/users/gaohui/Alvis/.cache/torch"
@@ -37,8 +40,10 @@ nvidia-smi --query-gpu=name,compute_cap,memory.total --format=csv,noheader || tr
 [ -f "${TRAINVAL_CACHE}/nuscenes_info_v1.0-trainval_train_t1.v1.pkl" ] || {
     echo "[run_profile_a40] FATAL: trainval cache not found at ${TRAINVAL_CACHE}"; exit 3; }
 
+echo "[run_profile_a40] level=${LEVEL} modes=${MODES} compile=${COMPILE:-0} warmup=${WARMUP}"
 python "${REPO}/fl_v3/scripts/profile_stages_a40.py" "$CONFIG" \
     --steps "$STEPS" --warmup "$WARMUP" --client-id "$CLIENT_ID" \
+    --level "$LEVEL" --modes "$MODES" $COMPILE_FLAG \
     --cache-dir "$TRAINVAL_CACHE" \
-    --out "fl_v3/collab/speedup/profile_stages_a40.json"
+    --out "$OUT"
 echo "[run_profile_a40] done; elapsed ${SECONDS}s"

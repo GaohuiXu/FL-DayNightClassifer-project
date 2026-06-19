@@ -94,20 +94,39 @@ def train_one_epoch(
     optimizer: torch.optim.Optimizer,
     device: torch.device,
 ) -> Dict[str, float]:
-    """One epoch of training with the injected criterion (tensor or dict batch)."""
+    """One epoch of training with the injected criterion (tensor or dict batch).
+
+    D15: detects the determinism level from the global cuDNN state (set by ``enforce_determinism`` —
+    no signature change). In the **relaxed** level it wraps the model forward in ``bf16`` autocast (L2)
+    for speed; in **strict** it is byte-identical to before. The per-step ``loss.item()`` CPU↔GPU sync
+    (L4) is removed in BOTH levels — the loss is accumulated on-device (fp64, matching the old python sum)
+    and read ONCE at epoch end; this is logging-only and does NOT affect the trained weights.
+    ``zero_grad()`` keeps the torch-2.7 default (``set_to_none=True``) → strict stays byte-identical."""
     model.train()
-    total_loss, total_n = 0.0, 0
+    relaxed = not torch.backends.cudnn.deterministic     # D15 relaxed level (enforce_determinism set it)
+    use_amp = relaxed and device.type == "cuda"
+    loss_sum = torch.zeros((), device=device, dtype=torch.float64)  # L4: device accumulate (no per-step sync)
+    total_n = 0
     for batch in dataloader:
         inputs, targets = _unpack_batch(batch, device)
         optimizer.zero_grad()
-        out = model(inputs)
+        if use_amp:
+            with torch.autocast("cuda", dtype=torch.bfloat16):  # L2: bf16 over the forward (relaxed only)
+                out = model(inputs)
+            # bf16 STABILITY (standard AMP): compute the loss in fp32 — the CenterPoint focal loss
+            # (log(sigmoid(logit)), 1-pred) and the L1 over log-dims are numerically unstable on bf16
+            # head logits (→ NaN). The forward stays bf16 (fast); only the small head tensors are upcast.
+            out = (out.float() if torch.is_tensor(out)
+                   else {k: (v.float() if torch.is_tensor(v) else v) for k, v in out.items()})
+        else:
+            out = model(inputs)
         loss = criterion(out, targets)
         loss.backward()
         optimizer.step()
         bs = _batch_size(targets)
-        total_loss += float(loss.item()) * bs
+        loss_sum += loss.detach().double() * bs
         total_n += int(bs)
-    return {"loss": total_loss / total_n if total_n else 0.0, "num_samples": float(total_n)}
+    return {"loss": float(loss_sum.item()) / total_n if total_n else 0.0, "num_samples": float(total_n)}
 
 
 def train_local(
