@@ -117,57 +117,88 @@ class CenterPointLoss(nn.Module):
 
     # --- target construction (RNG-free, atomic-free) ---
     def build_targets(self, batch: dict, device, dtype=torch.float32):
+        """BIT-IDENTICAL to the original per-GT loop, but the per-box `.item()` CPU↔GPU syncs (which
+        serialized the GPU — hundreds per batch) are replaced by ONE batched transfer, and the
+        regression target is vectorized. The arithmetic, the device (GPU), and the `torch.maximum`
+        Gaussian overlay (commutative → order-independent) are unchanged, so the heatmap + reg_target
+        tensors are byte-identical and the (target-side, no-grad) construction does not alter gradients.
+        Verified against the OLD reference by verify_levers.py (loss + grad_all)."""
         cfg = self.cfg
         H, W = cfg.head_ny, cfg.head_nx
         gt_boxes_list: List[torch.Tensor] = batch["gt_boxes"]
         gt_labels_list: List[torch.Tensor] = batch["gt_labels"]
         B = len(gt_boxes_list)
         heatmap = torch.zeros((B, self.n_classes, H, W), device=device, dtype=dtype)
-        # collected per-GT regression targets + locations (for the gather-based L1)
-        bidx, cells, reg_t = [], [], []
+
+        has_vel = "gt_velocity" in batch
+        boxes_all, labels_all, bsel_all, vel_all = [], [], [], []
         for b in range(B):
-            boxes = gt_boxes_list[b].to(device=device, dtype=dtype)
-            labels = gt_labels_list[b].to(device=device)
-            for m in range(boxes.shape[0]):
-                cx, cy, cz, dx, dy, dz, yaw = [boxes[m, k] for k in range(7)]
-                fx = (cx - cfg.x_min) / cfg.head_vx
-                fy = (cy - cfg.y_min) / cfg.head_vy
-                col = int(torch.floor(fx).item())
-                row = int(torch.floor(fy).item())
-                if not (0 <= col < W and 0 <= row < H):
-                    continue  # center outside the head grid (out of BEV range)
-                c = int(labels[m].item())
-                if not (0 <= c < self.n_classes):
-                    continue
-                l_cells = float((dx / cfg.head_vx).item())
-                w_cells = float((dy / cfg.head_vy).item())
-                radius = max(self.min_radius, int(gaussian_radius((l_cells, w_cells))))
-                draw_gaussian(heatmap[b, c], col, row, radius)
-                # regression target (T1 canonical): offset, z, log-dim, sin/cos, vel
-                vx, vy = (boxes[m, 0] * 0, boxes[m, 0] * 0)
-                if "gt_velocity" in batch:
-                    vel = batch["gt_velocity"][b].to(device=device, dtype=dtype)
-                    if m < vel.shape[0]:
-                        vx, vy = vel[m, 0], vel[m, 1]
-                eps = 1e-6
-                tvec = torch.stack([
-                    fx - col, fy - row,                                   # offset xy
-                    cz,                                                    # height z
-                    torch.log(dx.clamp_min(eps)), torch.log(dy.clamp_min(eps)), torch.log(dz.clamp_min(eps)),
-                    torch.sin(yaw), torch.cos(yaw),                        # rot
-                    vx, vy,                                                # velocity
-                ])
-                bidx.append(b)
-                cells.append(row * W + col)
-                reg_t.append(tvec)
-        if reg_t:
-            reg_target = torch.stack(reg_t)                                # [G, 10]
-            bidx_t = torch.tensor(bidx, device=device, dtype=torch.int64)
-            cells_t = torch.tensor(cells, device=device, dtype=torch.int64)
-        else:
-            reg_target = torch.zeros((0, 10), device=device, dtype=dtype)
-            bidx_t = torch.zeros((0,), device=device, dtype=torch.int64)
-            cells_t = torch.zeros((0,), device=device, dtype=torch.int64)
+            boxes_b = gt_boxes_list[b].to(device=device, dtype=dtype)
+            nb = boxes_b.shape[0]
+            if nb == 0:
+                continue
+            boxes_all.append(boxes_b)
+            labels_all.append(gt_labels_list[b].to(device=device))
+            bsel_all.append(torch.full((nb,), b, device=device, dtype=torch.int64))
+            vv = torch.zeros((nb, 2), device=device, dtype=dtype)  # matches OLD `boxes[m,0]*0` default
+            if has_vel:
+                vel = batch["gt_velocity"][b].to(device=device, dtype=dtype)
+                k = min(nb, vel.shape[0])
+                if k > 0:
+                    vv[:k] = vel[:k, :2]
+            vel_all.append(vv)
+
+        if not boxes_all:
+            z = lambda *s: torch.zeros(s, device=device, dtype=dtype)
+            return (heatmap, torch.zeros((0,), device=device, dtype=torch.int64),
+                    torch.zeros((0,), device=device, dtype=torch.int64), z(0, 10))
+
+        boxes = torch.cat(boxes_all, dim=0)          # [G,7] in (b,m) order — identical to the OLD loop
+        labels = torch.cat(labels_all, dim=0)        # [G]
+        bidx = torch.cat(bsel_all, dim=0)            # [G]
+        vel = torch.cat(vel_all, dim=0)              # [G,2]
+
+        cx, cy, cz, dx, dy, dz, yaw = boxes.unbind(dim=1)
+        fx = (cx - cfg.x_min) / cfg.head_vx
+        fy = (cy - cfg.y_min) / cfg.head_vy
+        col_f = torch.floor(fx)
+        row_f = torch.floor(fy)
+        coli = col_f.to(torch.int64)
+        rowi = row_f.to(torch.int64)
+        # same validity filter as the OLD `continue`s (center in grid AND class in range), same order.
+        keep = ((coli >= 0) & (coli < W) & (rowi >= 0) & (rowi < H)
+                & (labels >= 0) & (labels < self.n_classes)).nonzero(as_tuple=False).squeeze(1)
+        if keep.numel() == 0:
+            return (heatmap, torch.zeros((0,), device=device, dtype=torch.int64),
+                    torch.zeros((0,), device=device, dtype=torch.int64),
+                    torch.zeros((0, 10), device=device, dtype=dtype))
+        sel = lambda t: t.index_select(0, keep)
+        cx, cy, cz, dx, dy, dz, yaw = (sel(cx), sel(cy), sel(cz), sel(dx), sel(dy), sel(dz), sel(yaw))
+        fx, fy, col_f, row_f = sel(fx), sel(fy), sel(col_f), sel(row_f)
+        coli, rowi, labels_k, vel_k, bidx_k = sel(coli), sel(rowi), sel(labels), sel(vel), sel(bidx)
+
+        # regression target (vectorized; identical per-element arithmetic + identical (b,m) row order).
+        eps = 1e-6
+        reg_target = torch.stack([
+            fx - col_f, fy - row_f,                                       # offset xy
+            cz,                                                            # height z
+            torch.log(dx.clamp_min(eps)), torch.log(dy.clamp_min(eps)), torch.log(dz.clamp_min(eps)),
+            torch.sin(yaw), torch.cos(yaw),                                # rot
+            vel_k[:, 0], vel_k[:, 1],                                      # velocity
+        ], dim=1)                                                          # [G_keep, 10]
+        cells_t = rowi * W + coli
+        bidx_t = bidx_k
+
+        # heatmap: same per-GT torch.maximum overlay, but col/row/class/dims read from ONE batched
+        # transfer (no per-box sync). gaussian_radius is CPU float math on the same values → same radius.
+        l_cells = (dx / cfg.head_vx).cpu().tolist()
+        w_cells = (dy / cfg.head_vy).cpu().tolist()
+        cols = coli.cpu().tolist(); rows = rowi.cpu().tolist()
+        cls = labels_k.cpu().tolist(); bs = bidx_k.cpu().tolist()
+        for k in range(len(cols)):
+            radius = max(self.min_radius, int(gaussian_radius((l_cells[k], w_cells[k]))))
+            draw_gaussian(heatmap[bs[k], cls[k]], cols[k], rows[k], radius)
+
         return heatmap, bidx_t, cells_t, reg_target
 
     # --- focal + L1 ---
