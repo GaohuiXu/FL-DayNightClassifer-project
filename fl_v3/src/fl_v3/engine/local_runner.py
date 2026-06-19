@@ -150,7 +150,10 @@ def run_clean_round(
     (for two-run bit-identity), ``decision`` (the DefenseDecision), and
     ``new_global`` (the aggregated params).
     """
-    enforce_determinism(strict=strict_determinism)
+    enforce_determinism(
+        strict=strict_determinism,
+        numeric_mode=str(run_config.get("numeric-mode", "fp32")),
+    )
     seed = int(run_config.get("seed", 42))
     seed_everything(seed)
     device = torch.device(str(run_config.get("device", "cpu")))
@@ -238,7 +241,10 @@ def run_clean_rounds(
     SAME A40 as the Ray driver, the ``final_checksum`` matches the Ray run's
     ``FL_TRAINABLE_CHECKSUM`` byte-for-byte (CPU↔A40 float drift otherwise — documented).
     """
-    enforce_determinism(strict=strict_determinism)
+    enforce_determinism(
+        strict=strict_determinism,
+        numeric_mode=str(run_config.get("numeric-mode", "fp32")),
+    )
     seed = int(run_config.get("seed", 42))
     seed_everything(seed)
     device = torch.device(str(run_config.get("device", "cpu")))

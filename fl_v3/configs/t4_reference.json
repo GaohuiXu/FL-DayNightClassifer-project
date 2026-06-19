@@ -27,6 +27,8 @@
   "det-freeze-backbone": true,
   "det-pretrained-backbone": true,
   "det-eval-limit": 0,
+  "numeric-mode": "fp32",
+  "server-eval-mode": "none",
   "defense-type": "none",
   "wandb-enabled": false,
   "wandb-mode": "disabled"

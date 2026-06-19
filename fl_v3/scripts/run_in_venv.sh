@@ -28,6 +28,14 @@ source "${VENV}/bin/activate"
 # login node by build_venv.sh; compute nodes are offline). Must match build_venv.sh.
 export TORCH_HOME="/cephyr/users/gaohui/Alvis/.cache/torch"
 
+# WORKTREE ISOLATION: the shared .venv_v3 editable-install (`_editable_impl_*.pth`) points at
+# ONE worktree's src. To make THIS worktree's code authoritative without mutating the shared venv
+# (which would hijack sibling/parallel sessions), prepend this worktree's src to PYTHONPATH — it
+# precedes the site-packages .pth path on sys.path, and Ray simulation actors inherit it (verified
+# in the speedup session). Derived from this script's own location: <worktree>/fl_v3/scripts/.
+_WT_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/../src" && pwd)"
+export PYTHONPATH="${_WT_SRC}${PYTHONPATH:+:$PYTHONPATH}"
+
 # Preflight: the gate needs torch, flwr, sklearn.HDBSCAN, and fl_v3 importable.
 # A missing one silently shrinks the test set (the T0 review hit exactly this),
 # so verify up front and fail loudly with the fix.

@@ -83,6 +83,13 @@ def main() -> None:
     ap.add_argument("--output-dir", required=True)
     ap.add_argument("--no-gt-sanity", action="store_true")
     ap.add_argument("--viz-samples", type=int, default=4)
+    ap.add_argument(
+        "--diagnostic", action="store_true",
+        help="DIAGNOSTIC scope (e.g. the D14 centralized baseline D): compute ALL the same official "
+        "metrics with the SAME evaluator, but DO NOT enforce the D10 FL-provenance gate (a centralized "
+        "checkpoint is not D10 by construction). The verdict is stamped verdict_scope='diagnostic' — it "
+        "is NOT a benchmark-reference go/no-go, only 'does this checkpoint clear the readiness bar' "
+        "(which is exactly the D2 gate for the centralized attack).")
     ap.add_argument("overrides", nargs="*", default=[])
     args = ap.parse_args()
 
@@ -109,8 +116,11 @@ def main() -> None:
     # batch-invariant decode feeding DetectionEval + the frozen subset + disappearance + V4. T5 inherits
     # this protocol (decode triggered inputs at batch_size=1 too). See collab/findings_log.md.
     cfg["batch-size"] = 1
+    numeric_mode = str(cfg.get("numeric-mode", "fp32"))
     seed_everything(int(cfg.get("seed", 42)))
-    enforce_determinism(strict=truthy(cfg.get("determinism-strict", True)))
+    # Regime consistency (D14): evaluate a checkpoint in the SAME numeric regime it was trained in
+    # (no mixing). The launcher passes numeric-mode=tf32 for the TF32 reference / centralized baselines.
+    enforce_determinism(strict=truthy(cfg.get("determinism-strict", True)), numeric_mode=numeric_mode)
 
     version = str(cfg["nuscenes-version"])
     val_split = str(cfg["nuscenes-val-split"])
@@ -135,13 +145,44 @@ def main() -> None:
             raise RuntimeError(f"checkpoint checksum mismatch: file={recorded} recomputed={checksum}")
     print(f"[t4-readiness] FL_TRAINABLE_CHECKSUM = {checksum}", flush=True)
 
+    # --- regime-consistency guard (det-review #3): a TF32-trained checkpoint MUST be evaluated in
+    # TF32 (no mixing). If a provenance.json beside the checkpoint records a numeric-mode, it MUST
+    # match the evaluator's numeric_mode — RAISE on mismatch so a silent fp32/tf32 mix cannot pass.
+    # Legacy checkpoints (no recorded numeric-mode) only warn (the field predates D13/D14).
+    _prov_file = os.path.join(os.path.dirname(os.path.abspath(args.checkpoint)), "provenance.json")
+    if os.path.isfile(_prov_file):
+        _ckpt_mode = json.load(open(_prov_file, encoding="utf-8")).get("numeric-mode")
+        if _ckpt_mode is None:
+            print(f"[t4-readiness] WARNING: checkpoint provenance has no numeric-mode (legacy); "
+                  f"evaluating in {numeric_mode}", flush=True)
+        elif str(_ckpt_mode) != numeric_mode:
+            raise RuntimeError(
+                f"NUMERIC REGIME MISMATCH (no mixing, D14): checkpoint was trained numeric-mode="
+                f"{_ckpt_mode!r} but the evaluator is running numeric-mode={numeric_mode!r}. "
+                f"Re-run with numeric-mode={_ckpt_mode}.")
+        else:
+            print(f"[t4-readiness] regime match OK: checkpoint + evaluator both numeric-mode={numeric_mode}",
+                  flush=True)
+
     # --- D10 provenance gate (§0.2): only a full-participation log-group trainval checkpoint may
     # produce a trainval go/no-go. Mini (scale != trainval-scientific) is NOT a go/no-go → check skipped.
-    if scale == "trainval-scientific":
+    # --diagnostic (D14 centralized baseline D): a centralized checkpoint is NOT D10 by construction —
+    # skip the RAISE, record provenance honestly, and stamp verdict_scope='diagnostic'.
+    verdict_scope = "diagnostic" if args.diagnostic else "reference"
+    if args.diagnostic:
+        provenance = {"_verified": False, "verdict_scope": "diagnostic",
+                      "numeric-mode": numeric_mode,
+                      "reason": "diagnostic scope — D10 FL-provenance gate intentionally NOT enforced "
+                                "(centralized/non-reference checkpoint); metrics computed with the same "
+                                "official evaluator but this is NOT a benchmark-reference go/no-go."}
+        print(f"[t4-readiness] DIAGNOSTIC scope — D10 provenance gate SKIPPED (numeric-mode={numeric_mode})",
+              flush=True)
+    elif scale == "trainval-scientific":
         provenance = verify_d10_provenance(args.checkpoint, checksum)
         print(f"[t4-readiness] D10 provenance VERIFIED: {provenance.get('regime', '?')} | "
               f"fraction-train={provenance.get('fraction-train')} "
-              f"partition={provenance.get('nuscenes-partition-mode')} defense={provenance.get('defense-type')}",
+              f"partition={provenance.get('nuscenes-partition-mode')} defense={provenance.get('defense-type')} "
+              f"numeric-mode={provenance.get('numeric-mode')}",
               flush=True)
     else:
         provenance = {"_verified": False,
@@ -224,6 +265,8 @@ def main() -> None:
         gaps.append(f"scale={scale} is NOT a go/no-go (mini = engineering smoke)")
     readiness = {
         "verdict": "READY" if ready else "NOT-READY",
+        "verdict_scope": verdict_scope,
+        "numeric_mode": numeric_mode,
         "scale": scale,
         "version": version,
         "eval_set": eval_set,

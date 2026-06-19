@@ -60,7 +60,10 @@ def train(msg: Message, context: Context) -> Message:
     # Per-call deterministic seeding (mirrors the oracle): each Ray actor would
     # otherwise seed torch from the OS clock.
     seed_everything(derive_seed(int(run_config.get("seed", 42)), client_id, server_round))
-    enforce_determinism(strict=truthy(run_config.get("determinism-strict", True)))
+    enforce_determinism(
+        strict=truthy(run_config.get("determinism-strict", True)),
+        numeric_mode=str(run_config.get("numeric-mode", "fp32")),
+    )
 
     device = _device(run_config)
     task = get_task(str(run_config["task-type"]))
@@ -107,7 +110,10 @@ def evaluate_client(msg: Message, context: Context) -> Message:
     server_round = int(msg.content["config"].get("server-round", 0))
 
     seed_everything(derive_seed(int(run_config.get("seed", 42)), client_id, server_round))
-    enforce_determinism(strict=truthy(run_config.get("determinism-strict", True)))
+    enforce_determinism(
+        strict=truthy(run_config.get("determinism-strict", True)),
+        numeric_mode=str(run_config.get("numeric-mode", "fp32")),
+    )
 
     device = _device(run_config)
     task = get_task(str(run_config["task-type"]))

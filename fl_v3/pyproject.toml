@@ -108,6 +108,18 @@ learning-rate = 0.01
 weight-decay = 0.0
 num-workers = 0
 
+# ===== numeric regime + server-eval policy (Cycle-04 D13/D14) =====
+# numeric-mode: the EXPLICIT float32 precision regime (enforce_determinism sets BOTH allow_tf32
+# flags). "fp32" = true IEEE FP32 (default, back-compat); "tf32" = the D14 A40 regime (det-gate
+# PASS). NEVER mix regimes within one scientific comparison.
+numeric-mode = "fp32"
+# server-eval-mode: per-round server eval computes PROXY metrics only (eval_loss, proxy_recall) —
+# NOT the scientific result (official mAP/NDS + ASR are post-hoc on the final checkpoint). Policy:
+# none | final | every_n | all. Default "all" = legacy behavior; trainval configs set "none".
+# RNG-neutral (run_b_eval_neutral_a40.sh proves byte-identical checksum none-vs-all).
+server-eval-mode = "all"
+server-eval-frequency = 1             # every_n: eval every N rounds (+ always the final round)
+
 # ===== paths =====
 output-dir = "./outputs"
 

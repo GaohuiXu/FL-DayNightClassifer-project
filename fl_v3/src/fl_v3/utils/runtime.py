@@ -45,6 +45,21 @@ _FALSY = frozenset({"false", "0", "no", "n", "off", ""})
 # CUDA is already initialised. run_alvis.sh / SLURM also exports it up front.
 _CUBLAS_WORKSPACE_CONFIG = ":4096:8"
 
+# Numeric regime (Cycle-04 D13/D14). The float32 matmul/conv precision is an
+# EXPLICIT, LOGGED regime — never a silent backend default. Two modes:
+#   "fp32"  — true IEEE FP32 everywhere: BOTH TF32 paths OFF + matmul precision
+#             'highest'. NOTE this is STRICTER than torch's implicit Ampere
+#             default (``cudnn.allow_tf32`` defaults True), under which the legacy
+#             FP32 reference ``a80466c3`` actually ran its convs in TF32. So
+#             ``fp32`` here does NOT reproduce ``a80466c3``; it is the clean FP32
+#             contrast for profiling and the FP32 fallback for a precision-sensitive
+#             defense cell (D13).
+#   "tf32"  — TensorFloat-32 for matmul+conv inputs, FP32 accumulate: BOTH TF32
+#             paths ON + matmul precision 'high'. The D14 regime for Alvis/A40
+#             work. Engages only on cc>=8 hardware (a no-op on the login T4).
+# Mutually exclusive within any scientific comparison ("no mixing regimes", D14).
+_VALID_NUMERIC_MODES = frozenset({"fp32", "tf32"})
+
 
 def truthy(value, default: bool = False) -> bool:
     """Robust boolean parsing for YAML / Flower config values.
@@ -104,13 +119,19 @@ def seeded_worker_init(worker_id: int) -> None:
     _np.random.seed(seed)
 
 
-def enforce_determinism(strict: bool = True) -> None:
+def enforce_determinism(strict: bool = True, numeric_mode: str = "fp32") -> None:
     """Pin the global PyTorch determinism state (single source of truth).
 
     Sets, in order:
       * ``CUBLAS_WORKSPACE_CONFIG=:4096:8`` (warns if CUDA already initialised —
         it must be set before the first CUDA context for cuBLAS GEMM
         reproducibility).
+      * the **numeric regime** (``numeric_mode``; see below) — the float32
+        matmul/conv precision, set EXPLICITLY so it is logged not silent (D13/D14):
+          - ``"fp32"`` (default): ``cuda.matmul.allow_tf32=False`` +
+            ``cudnn.allow_tf32=False`` + ``set_float32_matmul_precision('highest')``.
+          - ``"tf32"``: ``cuda.matmul.allow_tf32=True`` + ``cudnn.allow_tf32=True``
+            + ``set_float32_matmul_precision('high')`` (NEVER ``'medium'``/bf16x3).
       * ``torch.backends.cudnn.deterministic = True``
       * ``torch.backends.cudnn.benchmark = False`` (disable the autotuner).
       * ``torch.use_deterministic_algorithms(True, warn_only=not strict)``.
@@ -121,6 +142,13 @@ def enforce_determinism(strict: bool = True) -> None:
     its call site instead of silently producing run-to-run drift. Use
     ``strict=False`` only for deliberate bring-up of an op being made
     deterministic.
+
+    **TF32 is run-to-run deterministic** under this harness (verified on the A40
+    TF32 det-gate): adopting it = a NEW reference checksum (a re-baseline), NOT
+    run-to-run drift. ``use_deterministic_algorithms(True)`` +
+    ``CUBLAS_WORKSPACE_CONFIG`` keep both regimes byte-reproducible same-seed on
+    one GPU; the static AST ban + flash-attn ban are unaffected by the regime.
+    **Do NOT mix regimes within one scientific comparison** (D14).
 
     **INTENTIONAL divergence from the fl_v2 oracle:** fl_v2 used
     ``use_deterministic_algorithms(True, warn_only=True)`` (warn + continue).
@@ -133,6 +161,11 @@ def enforce_determinism(strict: bool = True) -> None:
     Idempotent and ~free; safe to call once per process at startup and again
     per train/eval call.
     """
+    if numeric_mode not in _VALID_NUMERIC_MODES:
+        raise ValueError(
+            f"numeric_mode={numeric_mode!r} not in {sorted(_VALID_NUMERIC_MODES)} "
+            "(no mixing regimes — D14)."
+        )
     if os.environ.get("CUBLAS_WORKSPACE_CONFIG") != _CUBLAS_WORKSPACE_CONFIG:
         if torch.cuda.is_available() and torch.cuda.is_initialized():
             warnings.warn(
@@ -143,6 +176,19 @@ def enforce_determinism(strict: bool = True) -> None:
                 stacklevel=2,
             )
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = _CUBLAS_WORKSPACE_CONFIG
+
+    # Numeric regime — set BOTH TF32 flags explicitly (D14 mechanics). On the
+    # login T4 (Turing, no TF32 tensor cores) the ``tf32`` path silently runs at
+    # FP32; it engages only on cc>=8 (A40/A100/Hopper) — that is why the regime
+    # must be validated by the A40 TF32 det-gate, not the login node.
+    if numeric_mode == "tf32":
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+        torch.set_float32_matmul_precision("high")
+    else:  # "fp32" — true IEEE FP32 (stricter than torch's implicit Ampere default)
+        torch.backends.cuda.matmul.allow_tf32 = False
+        torch.backends.cudnn.allow_tf32 = False
+        torch.set_float32_matmul_precision("highest")
 
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
@@ -168,3 +214,37 @@ def seed_everything(seed: int) -> None:
     torch.manual_seed(s32)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(s32)
+
+
+def precision_state() -> dict:
+    """Snapshot the live numeric-regime backend flags (for startup logs + the run manifest).
+
+    The single source of truth for "what precision did this run actually use" — every
+    scientific run must log this so the regime is recorded, not inferred (D14). Includes
+    the device + compute-capability so a ``tf32`` config on TF32-less hardware (login T4)
+    is visible as a silent FP32 fallback rather than a false TF32 claim.
+    """
+    state = {
+        "cuda_matmul_allow_tf32": bool(torch.backends.cuda.matmul.allow_tf32),
+        "cudnn_allow_tf32": bool(torch.backends.cudnn.allow_tf32),
+        "float32_matmul_precision": str(torch.get_float32_matmul_precision()),
+        "cudnn_deterministic": bool(torch.backends.cudnn.deterministic),
+        "cudnn_benchmark": bool(torch.backends.cudnn.benchmark),
+        "cublas_workspace_config": os.environ.get("CUBLAS_WORKSPACE_CONFIG", ""),
+        "cuda_available": bool(torch.cuda.is_available()),
+    }
+    if torch.cuda.is_available():
+        cc = torch.cuda.get_device_capability(0)
+        state["device_name"] = torch.cuda.get_device_name(0)
+        state["device_cc"] = f"{cc[0]}.{cc[1]}"
+        # TF32 tensor cores require cc>=8 (Ampere+); Turing/T4 (cc 7.5) falls back to FP32.
+        state["tf32_hardware"] = bool(cc[0] >= 8)
+        state["tf32_engaged"] = bool(
+            cc[0] >= 8 and torch.backends.cuda.matmul.allow_tf32
+        )
+    else:
+        state["device_name"] = "cpu"
+        state["device_cc"] = ""
+        state["tf32_hardware"] = False
+        state["tf32_engaged"] = False
+    return state

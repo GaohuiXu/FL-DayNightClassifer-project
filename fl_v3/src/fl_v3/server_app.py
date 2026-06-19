@@ -22,7 +22,12 @@ from fl_v3.training.tasks import (
     load_trainable_state_dict,
     trainable_state_dict,
 )
-from fl_v3.utils.runtime import enforce_determinism, seed_everything, truthy
+from fl_v3.utils.runtime import (
+    enforce_determinism,
+    precision_state,
+    seed_everything,
+    truthy,
+)
 
 app = ServerApp()
 
@@ -107,22 +112,72 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict, exp_dir:
     )
 
 
+_VALID_EVAL_MODES = frozenset({"none", "final", "every_n", "all"})
+
+
+def should_server_eval(mode: str, frequency: int, server_round: int, num_rounds: int) -> bool:
+    """Per-round server-eval policy (Cycle-04 D14 Phase-1 B). Pure → unit-testable.
+
+    The per-round server eval computes only PROXY metrics (eval_loss, proxy_recall) — NOT the
+    scientific result (official mAP/NDS + ASR are post-hoc on the final checkpoint). So it is a
+    config policy, default ``none`` for trainval (the proxy is not worth ~2 h/run of decode):
+      * ``none``    — never (the final official eval is run post-hoc by the readiness script).
+      * ``final``   — only the last round (a single cheap end-curve point).
+      * ``every_n`` — every ``frequency`` rounds AND the last round (the cheap convergence curve E
+                      needs, paired with a small ``det-eval-limit`` subset).
+      * ``all``     — every round (the legacy behavior; what the early references used).
+    The initial round 0 (pre-training) is only evaluated under ``all`` (it carries no signal else).
+    """
+    if mode not in _VALID_EVAL_MODES:
+        raise ValueError(f"server-eval-mode={mode!r} not in {sorted(_VALID_EVAL_MODES)}")
+    if mode == "none":
+        return False
+    if mode == "all":
+        return True
+    if server_round <= 0:  # initial/untrained model — skip for final/every_n
+        return False
+    is_final = server_round >= num_rounds
+    if mode == "final":
+        return is_final
+    # every_n
+    freq = max(1, int(frequency))
+    return is_final or (server_round % freq == 0)
+
+
 def _server_eval_fn(context: Context, task, exp_dir: str):
     run_config = context.run_config
     device = _device(run_config)
-    eval_loader = task.eval_loader(run_config)
-    criterion = task.build_criterion(run_config)
-    cache = {"model": None}
+    mode = str(run_config.get("server-eval-mode", "all"))
+    frequency = int(run_config.get("server-eval-frequency", 1))
+    num_rounds = int(run_config.get("num-server-rounds", 1))
+    if mode not in _VALID_EVAL_MODES:
+        raise ValueError(f"server-eval-mode={mode!r} not in {sorted(_VALID_EVAL_MODES)}")
+    print(
+        f"[Server] server-eval-mode={mode} frequency={frequency} "
+        f"(proxy metrics only; official mAP/NDS + ASR stay post-hoc on the final checkpoint)",
+        flush=True,
+    )
+    # Build the (cheap) eval loader lazily — only if at least one round will actually eval, so
+    # an eval-mode=none run pays ZERO eval cost (no loader, no eval-set info load).
+    cache = {"model": None, "eval_loader": None, "criterion": None}
 
     def evaluate_fn(server_round: int, arrays: ArrayRecord) -> Optional[MetricRecord]:
+        if not should_server_eval(mode, frequency, int(server_round), num_rounds):
+            return None
+        # RNG-neutral by construction: eval runs model.eval()+no_grad (no dropout, no optimizer,
+        # no global-RNG draw) and every client re-seeds via derive_seed before its next training —
+        # so whether this fires or not, the FL_TRAINABLE_CHECKSUM is unchanged (proven by the
+        # eval-none-vs-all paired byte-identity run, run_b_eval_neutral_a40.sh).
         if cache["model"] is None:
             cache["model"] = task.build_model(run_config).to(device)
+            cache["eval_loader"] = task.eval_loader(run_config)
+            cache["criterion"] = task.build_criterion(run_config)
         model = cache["model"]
         # DT3-A: ``arrays`` is the trainable-only vector; load strict=False into the
         # cached full model (frozen backbone already reconstructed pretrained at build).
         load_trainable_state_dict(model, arrays)
 
-        results = task.evaluate(model, eval_loader, criterion, device, run_config)
+        results = task.evaluate(model, cache["eval_loader"], cache["criterion"], device, run_config)
         print(f"[Server] round={server_round} eval={results}", flush=True)
         return MetricRecord({"server-round": int(server_round), **results})
 
@@ -137,8 +192,16 @@ def main(grid: Grid, context: Context) -> None:
     run_config = context.run_config
 
     seed = int(run_config.get("seed", 42))
+    numeric_mode = str(run_config.get("numeric-mode", "fp32"))
     seed_everything(seed)
-    enforce_determinism(strict=truthy(run_config.get("determinism-strict", True)))
+    enforce_determinism(
+        strict=truthy(run_config.get("determinism-strict", True)),
+        numeric_mode=numeric_mode,
+    )
+    print(
+        f"[server] numeric-mode={numeric_mode} precision_state={precision_state()}",
+        flush=True,
+    )
 
     _require_reconstructible_frozen_backbone(run_config)
     task = get_task(str(run_config["task-type"]))

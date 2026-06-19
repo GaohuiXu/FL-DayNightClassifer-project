@@ -25,10 +25,13 @@ D10_REQUIRED: Dict[str, str] = {
     "defense-type": "none",
 }
 # The D10-relevant run-config keys the reference launcher records into provenance.json.
+# ``numeric-mode`` (D13/D14) is RECORDED for traceability — a TF32 verdict must be bound to a
+# TF32 checkpoint ("no mixing regimes") — but is NOT in D10_REQUIRED so the legacy FP32-regime
+# provenance is not retroactively invalidated; regime-consistency is enforced by the orchestrator.
 PROVENANCE_KEYS = (
     "task-type", "nuscenes-version", "nuscenes-train-split", "nuscenes-val-split",
     "nuscenes-partition-mode", "fraction-train", "defense-type", "nuscenes-num-clients",
-    "num-server-rounds", "seed", "det-camera-backbone",
+    "num-server-rounds", "seed", "det-camera-backbone", "numeric-mode",
 )
 
 
@@ -36,6 +39,7 @@ def build_provenance(run_config: dict, checksum: str) -> dict:
     """Build the provenance record written beside ``final_model.pt`` (single source of truth)."""
     prov = {k: run_config.get(k) for k in PROVENANCE_KEYS}
     prov["fraction-train"] = float(run_config.get("fraction-train", 0.0))
+    prov["numeric-mode"] = str(run_config.get("numeric-mode", "fp32"))
     prov["FL_TRAINABLE_CHECKSUM"] = str(checksum)
     prov["regime"] = "D10-full-participation-log-group-trainval-clean"
     return prov
