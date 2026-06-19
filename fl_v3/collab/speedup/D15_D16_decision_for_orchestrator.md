@@ -51,8 +51,9 @@ Levers (all gated on `relaxed`; default `strict` = byte-identical, 247 tests pas
 | strict tf32 (reference) | 2799 s | **15.6 min** | 1.0× | E-15/E-30 measured |
 | relaxed bf16, no compile, 1 client/GPU | 1264 s | 7.0 min | 2.2× | job 6767474 |
 | + compile-in-FL, 1 client/GPU | 1159 s | 6.4 min | 2.4× | job 6767561 (recompiles=0) |
-| **+ compile + num-gpus=0.5 (2 clients/GPU)** | **1014 s** | **5.6 min** | **2.76×** | job 6767562 — best |
+| **+ compile + num-gpus=0.5 (2 clients/GPU)** | **1014 s** | **5.6 min** | **2.76×** | job 6767562 — best on A40 |
 | + compile + num-gpus=0.333 (3 clients/GPU) | THRASHES | — | <1.0× | job 6767615: round 1 alone > the full 2/GPU run → cancelled. Compute over-subscribed; 2/GPU is the ceiling. |
+| **A100**, compile, 1 client/GPU | **1014 s** | **5.6 min** | 2.76× | job 6767755 (MEASURED) — **identical to A40 2/GPU**; only **1.14× over A40 1/GPU** despite 1.63×/step (see A100 §) |
 
 All trained cleanly (no NaN; update-norms 35→30 decreasing). The 3-round totals include the one-time
 Ray cold-start + round-1 compile, so the **≥30-round steady-state per-round is lower** than the table's
@@ -85,11 +86,47 @@ hit the compiled-run post-train eval, not training or the FL path.)
   1.9×, view-transform 2.2×); the **loss does NOT speed up (1.0×) — it's launch/CPU-bound**, so on A100 it
   becomes the *largest* stage (the loss target-vectorization/cache is the relatively-better A100 lever).
 - **The real A100 finding: util fell to 12%.** A100 is so fast on this light model that the launch/CPU
-  gaps dominate even more → 1 client/GPU **wastes the A100**. The A100 win is therefore via **OVERCOMMIT**:
-  at 12% util it could run **~4–6 clients/GPU** (num-gpus≈0.2; VRAM 40 GB / 7.9 ≈ 5, A100fat 80 GB ≈ 10) →
-  the idle capacity, not raw speed, is the lever. **A100 + aggressive overcommit compounds; A100 + 1
-  client/GPU does not pay off.** The win grows once the backbone is *trained* (heavier per-step → util
-  rises → the 1.63× lands fully). A100fat buys nothing extra here (RAM-not-the-limit).
+  gaps dominate even more → 1 client/GPU **wastes the A100**. The A100 win can only come via **OVERCOMMIT**
+  (fill the idle capacity); raw speed alone does not pay off.
+
+#### A100 per-ROUND, now MEASURED (job 6767755, 1 client/GPU, compile, 3 rounds, clean)
+
+- **A100 1/GPU = 1014 s/3 = 5.6 min/round — *identical* to the A40 2/GPU best, and only 1.14× over A40
+  1/GPU (6.4 min) despite the 1.63×/step.** This is the per-step↔per-round gap, measured: the per-step
+  win (1.63×) does NOT reach the round, because the launch/CPU/IO overhead (Ray actor spin-up ×25/round,
+  dataloader, FedAvg, aggregation) is GPU-speed-INVARIANT — exactly what the 12% util reflects. So **a
+  single A100 with no overcommit buys what an A40 already gives for free via 2-client overcommit.** The
+  A100 only wins by running ≥2/GPU. (Training healthy: round-3 proxy_recall 0.398 ≈ A40 0.396.)
+
+#### CORRECTION — the A100 2/GPU and 4/GPU OOMs were NOT a node-RAM limit
+
+Earlier notes implied the A100 node had less host RAM. **It does not** — `scontrol` shows both the A100
+node (alvis3-37) and the A40 node (alvis6-05) at **RealMemory = 249984 MB (244 GB), identical.** Two real,
+*separable* failures were conflated:
+
+1. **VRAM (4/GPU, job 6767714).** `compile-backbone=true` inflates per-client VRAM to **~10–12 GB** (inductor
+   workspace + cudagraphs), NOT the ~7.6 GB of the strict/no-compile profiler. 4 compiled clients ≈ 40 GB =
+   the whole 40 GB card → CUDA OOM. (Compile-OFF, per-client ≈ 7.6 GB → 4×≈30 GB fits — being measured now,
+   job 6767780.)
+2. **Inductor cache-race poisoning (2/GPU, job 6767753).** A `JSONDecodeError: Extra data` fired in
+   `FxGraphCache` *before* any OOM. Root cause: **all Ray actors share one `TORCHINDUCTOR_CACHE_DIR`, and on
+   round 1 many actors (8 at 2/GPU, 16 at 4/GPU) compile the SAME backbone and WRITE the same cache entries
+   simultaneously.** Inductor's on-disk cache writes are not atomic across independent processes → two writers
+   concatenate a metadata JSON ("valid JSON + extra data") → poisoned file. On the next run every cache-*hit*
+   `json.loads` raises → compile fails → client dies → Ray retries → the churn drove the host-RAM cascade. A
+   crash-mid-write makes it likelier but is **not required**; the concurrent-write race alone poisons it.
+   With a **clean cache + 4 actors**, 1/GPU (6767755) ran error-free.
+
+   **Implication: compile-in-FL with a shared cache is fragile at overcommit** (and bought only ~9%). Robust
+   fix, best first: **(a) serial cache pre-warm** — one process compiles + fully populates the cache, then FL
+   actors only *read* a complete cache (writes rare → races rare); **(b) drop compile-in-FL** (reserve
+   `torch.compile` for single-process centralized/long runs); (c) per-actor cache dirs (no race, but loses the
+   cache-hit benefit). VRAM also stops being the blocker without compile.
+
+- **Net A100 verdict:** the prize is overcommit at ≥2/GPU; at 1/GPU it merely ties the A40-2/GPU. The 2/GPU
+  OOM was cache-corruption (fixable), not the node. A100fat buys nothing here (host RAM identical at 244 GB;
+  the lever is VRAM-per-client and the cache-race, not host RAM). Overcommit-util + the compile-off 4/GPU
+  round are being measured (job 6767780).
 
 ## D16 — precision + criteria cleanup (DECISION TO RATIFY)
 

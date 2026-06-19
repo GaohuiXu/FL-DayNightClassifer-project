@@ -26,6 +26,8 @@ NUMERIC_MODE="${NUMERIC_MODE:-tf32}"
 LEVEL="${LEVEL:-strict}"               # D15: strict (byte-identical) | relaxed (scatter_add+bf16; no compile in FL)
 EVAL_FREQ="${EVAL_FREQ:-3}"
 EVAL_LIMIT="${EVAL_LIMIT:-500}"
+NUM_WORKERS="${NUM_WORKERS:-}"          # override dataloader workers (host-RAM lever under overcommit); empty = config default
+UTIL_SAMPLE="${UTIL_SAMPLE:-0}"         # 1 = background nvidia-smi util/mem sampler (overcommit-util measurement)
 TAG="${TAG:-clean_fl_${LEVEL}_${NUMERIC_MODE}_r${ROUNDS}}"
 TRAINVAL_CACHE="${TRAINVAL_CACHE:-${PROJ_ROOT}/.claude/worktrees/infallible-feistel-d42c34/fl_outputs/nuscenes/info_cache}"
 OUT_DIR="${REPO}/fl_outputs/nuscenes/experiments/cycle_04/speedup_E"
@@ -45,7 +47,8 @@ source "${PROJ_ROOT}/.venv_v3/bin/activate"
 source fl_v3/scripts/_fl_env.sh
 fl_setup_env
 export PYTHONPATH="${REPO}/fl_v3/src${PYTHONPATH:+:$PYTHONPATH}"
-trap 'rm -rf "${FLWR_HOME:-/tmp/none}" "${RAY_TMPDIR:-/tmp/none}"' EXIT
+UTIL_PID=""
+trap 'kill "${UTIL_PID:-}" 2>/dev/null || true; rm -rf "${FLWR_HOME:-/tmp/none}" "${RAY_TMPDIR:-/tmp/none}"' EXIT
 
 N="$(python -c "import json;print(json.load(open('${CONFIG}'))['nuscenes-num-clients'])")"
 APP_DIR="${REPO}/fl_v3"
@@ -68,13 +71,28 @@ PY
 echo "===== E clean FL (rounds=${ROUNDS} numeric=${NUMERIC_MODE} eval=every_${EVAL_FREQ}/${EVAL_LIMIT}) =====  node=$(hostname) job=${SLURM_JOB_ID:-local}"
 nvidia-smi --query-gpu=name,compute_cap --format=csv,noheader || true
 
+NW_OV=""; [ -n "${NUM_WORKERS}" ] && NW_OV="num-workers=${NUM_WORKERS}"
 RC="$(python fl_v3/scripts/runconfig.py "$CONFIG" "experiment-name=${TAG}" \
     "nuscenes-cache-dir=${TRAINVAL_CACHE}" "output-dir=${OUT_DIR}" \
     "num-server-rounds=${ROUNDS}" "numeric-mode=${NUMERIC_MODE}" "determinism-level=${LEVEL}" \
-    "server-eval-mode=every_n" "server-eval-frequency=${EVAL_FREQ}" "det-eval-limit=${EVAL_LIMIT}" $COMPILE_OV)"
+    "server-eval-mode=every_n" "server-eval-frequency=${EVAL_FREQ}" "det-eval-limit=${EVAL_LIMIT}" $COMPILE_OV $NW_OV)"
 echo "run-config: ${RC}"
+# Overcommit GPU-util measurement: sample all GPUs every 5s while the round runs (util is NOT additive,
+# so N/GPU util can only be measured live, not inferred from the 1-client profiler's 12%).
+UTIL_CSV="fl_v3/scripts/logs/util_${SLURM_JOB_ID:-local}.csv"
+if [ "${UTIL_SAMPLE}" = "1" ]; then
+    echo "ts_s,gpu_idx,util_pct,mem_used_mib" > "$UTIL_CSV"
+    ( while true; do
+        nvidia-smi --query-gpu=index,utilization.gpu,memory.used --format=csv,noheader,nounits \
+          | awk -v t="$SECONDS" '{print t","$0}' | tr -d ' ' >> "$UTIL_CSV"
+        sleep 5
+      done ) &
+    UTIL_PID=$!
+    echo "[clean-fl-tf32] util sampler PID=${UTIL_PID} -> ${UTIL_CSV}"
+fi
 LOG="${FLWR_HOME}/flwr_${TAG}.log"
 set +e; flwr run "$APP_DIR" "$FEDERATION" --stream --run-config "$RC" | tee "$LOG"; EX=${PIPESTATUS[0]}; set -e
+[ -n "${UTIL_PID:-}" ] && { kill "$UTIL_PID" 2>/dev/null || true; UTIL_PID=""; }
 fl_silent_exit_guard "$LOG" || exit 1
 [ "$EX" -eq 0 ] || { echo "[clean-fl-tf32] flwr exit ${EX}"; exit "$EX"; }
 
