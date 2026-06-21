@@ -67,6 +67,27 @@ Levers (re-profile after each), ranked by expected win:
 | 15 ep | ~4.8 h | ~3.4 h | ~1.0 h |
 | 30 ep | ~9.6 h | ~6.7 h | ~2.0 h |
 
+## Optimization sequence — MEASURED (single A100-40GB, batch 16, bf16)
+
+| step config | step ms | speedup vs ckpt-off | vs original | util (post-warmup) | peak GPU |
+|---|---:|---:|---:|---:|---:|
+| original (ckpt-ON, no opt) | 793 | — | 1.00× | — | 12 GB |
+| ckpt OFF | 657 | 1.00× | 1.21× | ~85% | 33.5 GB |
+| + torch.compile(backbone) | 446–528* | 1.25–1.46× | — | ~68–81% | 30.5 GB |
+| + SDPA (Swin attention) | 598 | 1.10× | — | ~85% | 28.9 GB |
+| **+ compile + SDPA** | **415** | **1.59×** | **1.91×** | ~77% | **27.1 GB** |
+
+*compile alone is autotune-noisy run-to-run; **compile+SDPA (415 ms) is consistently the best**. Kernel
+proof: the manual `aten::bmm` attention is **gone** under SDPA → fused `fmha_cutlass_bf16` (efficient-attn
+fwd 55 ms + bwd 123 ms). channels_last was measured neutral (0.99×) and dropped. SDPA numerically validated
+vs torchvision (fp32 max|Δ|=2.2e-07; bf16 rel=5.6e-03). util drops with optimization simply because there
+is less work to fill the same launch/sync gaps — **absolute step time is what improved (1.91×)**.
+
+**Locked optimized recipe** (`p1_unfrozen.json` + launcher `COMPILE=1`): unfreeze + LR-groups(0.1) +
+grad-clip(35) + **ckpt OFF** + **SDPA** + **compile**. **~12 min/epoch** → 5 ep ≈ 1.0 h, 15 ep ≈ 3.0 h,
+30 ep ≈ 6.1 h single-GPU. Residual headroom (not pursued): `aten::copy_` (238 ms, still #1 by count) +
+Memcpy HtoD (102 ms, → pinned-mem/non_blocking) — diminishing returns vs compile+SDPA.
+
 ## Recommendation
 
 1. **Optimize the single-GPU step FIRST** (channels_last → drop-ckpt → SDPA → compile), re-profiling after
