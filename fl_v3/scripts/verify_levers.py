@@ -33,14 +33,13 @@ def main():
         "min-keyframes-per-client": 10, "num-clients": 2,
         "det-camera-backbone": "resnet18", "det-freeze-backbone": True,
         "det-pretrained-backbone": True, "batch-size": 2, "num-workers": 0,
-        "numeric-mode": "fp32",
     }
     import os
-    level = os.environ.get("DET_LEVEL", "strict")
-    cfg["determinism-level"] = level
+    precision = os.environ.get("PRECISION", "fp32")
+    cfg["precision"] = precision
     seed_everything(int(cfg["seed"]))
-    enforce_determinism(strict=True, numeric_mode="fp32", level=level)
-    print(f"[verify_levers] determinism-level={level}")
+    enforce_determinism(strict=True, precision=precision)
+    print(f"[verify_levers] precision={precision}")
     device = torch.device("cpu")
     task = get_task("nuscenes_detection")
     model = task.build_model(cfg).to(device)

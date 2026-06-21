@@ -2,6 +2,7 @@
   "task-type": "nuscenes_detection",
   "seed": 20259,
   "device": "cuda",
+  "precision": "fp32",
   "output-dir": "./fl_outputs/nuscenes/experiments/cycle_04/t4_a100_detgate",
   "nuscenes-dataroot": "",
   "nuscenes-cache-dir": "./fl_outputs/nuscenes/info_cache",

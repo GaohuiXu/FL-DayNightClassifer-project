@@ -41,7 +41,7 @@ def main():
     if a.num_workers >= 0:
         rc["num-workers"] = a.num_workers
 
-    enforce_determinism(strict=True, numeric_mode="fp32", level="relaxed")
+    enforce_determinism(strict=True, precision="bf16")
     seed_everything(derive_seed(int(rc.get("seed", 42)), a.client_id, 1))
 
     task = get_task("nuscenes_detection")

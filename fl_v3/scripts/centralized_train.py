@@ -63,7 +63,7 @@ def main():
         k, _, v = ov.partition("=")
         cfg[k] = _parse_scalar(v)
 
-    numeric_mode = str(cfg.get("numeric-mode", "fp32"))
+    precision = str(cfg.get("precision", "bf16"))   # D16 science default = bf16 (centralized baseline)
     seed = int(cfg.get("seed", 42))
     # REVIEW-FIX (MED, det-review #6): the matched-budget control assumes 1 local epoch/round, so
     # R FL rounds == R centralized epochs of data exposure. If the FL reference ever uses >1 local
@@ -78,9 +78,8 @@ def main():
     device = torch.device("cuda" if (str(cfg.get("device", "cuda")) == "cuda"
                                      and torch.cuda.is_available()) else "cpu")
     seed_everything(seed)
-    enforce_determinism(strict=truthy(cfg.get("determinism-strict", True)), numeric_mode=numeric_mode,
-                        level=str(cfg.get("determinism-level", "strict")))
-    print(f"[centralized] numeric-mode={numeric_mode} device={device} precision={precision_state()}",
+    enforce_determinism(strict=truthy(cfg.get("determinism-strict", True)), precision=precision)
+    print(f"[centralized] precision={precision} device={device} precision_state={precision_state()}",
           flush=True)
 
     task = get_task("nuscenes_detection")
@@ -143,7 +142,8 @@ def main():
             f.write(chk + "\n")
         prov = {
             "regime": "D14-centralized-baseline",
-            "numeric-mode": numeric_mode, "epochs_done": epoch, "epochs_target": args.epochs,
+            "precision": precision, "numeric-mode": cfg.get("numeric-mode"),
+            "epochs_done": epoch, "epochs_target": args.epochs,
             "pooled_keyframes": len(pooled_tokens), "n_log_group_clients": part["num_clients"],
             "nuscenes-version": cfg.get("nuscenes-version"),
             "nuscenes-train-split": train_split, "nuscenes-val-split": cfg.get("nuscenes-val-split"),

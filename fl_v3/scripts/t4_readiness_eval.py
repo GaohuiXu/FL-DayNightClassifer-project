@@ -116,12 +116,11 @@ def main() -> None:
     # batch-invariant decode feeding DetectionEval + the frozen subset + disappearance + V4. T5 inherits
     # this protocol (decode triggered inputs at batch_size=1 too). See collab/findings_log.md.
     cfg["batch-size"] = 1
-    numeric_mode = str(cfg.get("numeric-mode", "fp32"))
+    precision = str(cfg.get("precision", "bf16"))
     seed_everything(int(cfg.get("seed", 42)))
-    # Regime consistency (D14): evaluate a checkpoint in the SAME numeric regime it was trained in
-    # (no mixing). The launcher passes numeric-mode=tf32 for the TF32 reference / centralized baselines.
-    enforce_determinism(strict=truthy(cfg.get("determinism-strict", True)), numeric_mode=numeric_mode,
-                        level=str(cfg.get("determinism-level", "strict")))
+    # Regime consistency (D14/D16): evaluate a checkpoint in the SAME precision regime it was trained in
+    # (no mixing). The science default is bf16; the offline dev/determinism path is fp32.
+    enforce_determinism(strict=truthy(cfg.get("determinism-strict", True)), precision=precision)
 
     version = str(cfg["nuscenes-version"])
     val_split = str(cfg["nuscenes-val-split"])
@@ -146,23 +145,26 @@ def main() -> None:
             raise RuntimeError(f"checkpoint checksum mismatch: file={recorded} recomputed={checksum}")
     print(f"[t4-readiness] FL_TRAINABLE_CHECKSUM = {checksum}", flush=True)
 
-    # --- regime-consistency guard (det-review #3): a TF32-trained checkpoint MUST be evaluated in
-    # TF32 (no mixing). If a provenance.json beside the checkpoint records a numeric-mode, it MUST
-    # match the evaluator's numeric_mode — RAISE on mismatch so a silent fp32/tf32 mix cannot pass.
-    # Legacy checkpoints (no recorded numeric-mode) only warn (the field predates D13/D14).
+    # --- regime-consistency guard (det-review #3; D16): a checkpoint MUST be evaluated in the SAME
+    # precision regime it was trained in (no mixing). If a provenance.json beside the checkpoint records
+    # a ``precision``, it MUST match the evaluator's — RAISE on mismatch so a silent bf16/fp32 mix cannot
+    # pass. Checkpoints that predate the D16 knob carry only a legacy ``numeric-mode`` (fp32/tf32) and no
+    # ``precision`` → only WARN (their regime is not bf16-vs-fp32 comparable).
     _prov_file = os.path.join(os.path.dirname(os.path.abspath(args.checkpoint)), "provenance.json")
     if os.path.isfile(_prov_file):
-        _ckpt_mode = json.load(open(_prov_file, encoding="utf-8")).get("numeric-mode")
-        if _ckpt_mode is None:
-            print(f"[t4-readiness] WARNING: checkpoint provenance has no numeric-mode (legacy); "
-                  f"evaluating in {numeric_mode}", flush=True)
-        elif str(_ckpt_mode) != numeric_mode:
+        _prov = json.load(open(_prov_file, encoding="utf-8"))
+        _ckpt_prec = _prov.get("precision")
+        if _ckpt_prec is None:
+            _legacy = _prov.get("numeric-mode")
+            print(f"[t4-readiness] WARNING: checkpoint provenance has no precision (pre-D16; "
+                  f"numeric-mode={_legacy!r}); evaluating in precision={precision}", flush=True)
+        elif str(_ckpt_prec) != precision:
             raise RuntimeError(
-                f"NUMERIC REGIME MISMATCH (no mixing, D14): checkpoint was trained numeric-mode="
-                f"{_ckpt_mode!r} but the evaluator is running numeric-mode={numeric_mode!r}. "
-                f"Re-run with numeric-mode={_ckpt_mode}.")
+                f"PRECISION REGIME MISMATCH (no mixing, D16): checkpoint was trained precision="
+                f"{_ckpt_prec!r} but the evaluator is running precision={precision!r}. "
+                f"Re-run with precision={_ckpt_prec}.")
         else:
-            print(f"[t4-readiness] regime match OK: checkpoint + evaluator both numeric-mode={numeric_mode}",
+            print(f"[t4-readiness] regime match OK: checkpoint + evaluator both precision={precision}",
                   flush=True)
 
     # --- D10 provenance gate (§0.2): only a full-participation log-group trainval checkpoint may
@@ -172,18 +174,18 @@ def main() -> None:
     verdict_scope = "diagnostic" if args.diagnostic else "reference"
     if args.diagnostic:
         provenance = {"_verified": False, "verdict_scope": "diagnostic",
-                      "numeric-mode": numeric_mode,
+                      "precision": precision,
                       "reason": "diagnostic scope — D10 FL-provenance gate intentionally NOT enforced "
                                 "(centralized/non-reference checkpoint); metrics computed with the same "
                                 "official evaluator but this is NOT a benchmark-reference go/no-go."}
-        print(f"[t4-readiness] DIAGNOSTIC scope — D10 provenance gate SKIPPED (numeric-mode={numeric_mode})",
+        print(f"[t4-readiness] DIAGNOSTIC scope — D10 provenance gate SKIPPED (precision={precision})",
               flush=True)
     elif scale == "trainval-scientific":
         provenance = verify_d10_provenance(args.checkpoint, checksum)
         print(f"[t4-readiness] D10 provenance VERIFIED: {provenance.get('regime', '?')} | "
               f"fraction-train={provenance.get('fraction-train')} "
               f"partition={provenance.get('nuscenes-partition-mode')} defense={provenance.get('defense-type')} "
-              f"numeric-mode={provenance.get('numeric-mode')}",
+              f"precision={provenance.get('precision')}",
               flush=True)
     else:
         provenance = {"_verified": False,
@@ -267,7 +269,7 @@ def main() -> None:
     readiness = {
         "verdict": "READY" if ready else "NOT-READY",
         "verdict_scope": verdict_scope,
-        "numeric_mode": numeric_mode,
+        "precision": precision,
         "scale": scale,
         "version": version,
         "eval_set": eval_set,

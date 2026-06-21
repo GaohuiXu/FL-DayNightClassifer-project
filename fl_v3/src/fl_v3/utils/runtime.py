@@ -19,11 +19,16 @@ NEW in fl_v3 (centralizes what fl_v2 scattered inline across client/server):
                               ``torch.use_deterministic_algorithms(True)``.
   * ``seed_everything``     — seed ``random`` / ``numpy`` / ``torch`` (+CUDA).
 
-**Bit-determinism is sacred.** Every RNG in fl_v3 must be seeded via
-``derive_seed`` (per-leaf) or ``seed_everything`` (global at startup); banned
-ops (atomic scatter, ``grid_sample`` backward, non-stable sort/topk, flash-attn)
-are forbidden and ``enforce_determinism(strict=True)`` makes the non-deterministic
-ones raise rather than silently diverge.
+**Precision regime (D16, 2026-06-21 — supersedes "bit-determinism is sacred").** There is now ONE
+precision knob: ``enforce_determinism(precision=...)`` with ``precision`` ∈ {``bf16``, ``fp32``}.
+``bf16`` is the **science path** (bf16-AMP; reported numbers use ≥3 seeds and clear the seed-variance
+floor — NOT same-seed byte-identity). ``fp32`` is the **offline dev-regression / determinism tool**
+(true IEEE-fp32, same-seed byte-identical on one GPU tier; it caught two real bugs). Every RNG still
+flows through ``derive_seed`` (per-leaf) / ``seed_everything`` (global). The model stays
+atomic-free-by-construction (the static-AST ban + permutation-invariance tests), but the ``bf16`` path
+deliberately allows the cuDNN autotuner + atomic scatter (the relaxed LSS rewrite) for speed, so its
+same-seed runs are NOT byte-identical — that is by design under D16. See ``docs/determinism.md`` and the
+D15/D16 amendment in ``docs/cycle_04/decisions.md``.
 """
 from __future__ import annotations
 
@@ -45,20 +50,21 @@ _FALSY = frozenset({"false", "0", "no", "n", "off", ""})
 # CUDA is already initialised. run_alvis.sh / SLURM also exports it up front.
 _CUBLAS_WORKSPACE_CONFIG = ":4096:8"
 
-# Numeric regime (Cycle-04 D13/D14). The float32 matmul/conv precision is an
-# EXPLICIT, LOGGED regime — never a silent backend default. Two modes:
-#   "fp32"  — true IEEE FP32 everywhere: BOTH TF32 paths OFF + matmul precision
-#             'highest'. NOTE this is STRICTER than torch's implicit Ampere
-#             default (``cudnn.allow_tf32`` defaults True), under which the legacy
-#             FP32 reference ``a80466c3`` actually ran its convs in TF32. So
-#             ``fp32`` here does NOT reproduce ``a80466c3``; it is the clean FP32
-#             contrast for profiling and the FP32 fallback for a precision-sensitive
-#             defense cell (D13).
-#   "tf32"  — TensorFloat-32 for matmul+conv inputs, FP32 accumulate: BOTH TF32
-#             paths ON + matmul precision 'high'. The D14 regime for Alvis/A40
-#             work. Engages only on cc>=8 hardware (a no-op on the login T4).
-# Mutually exclusive within any scientific comparison ("no mixing regimes", D14).
-_VALID_NUMERIC_MODES = frozenset({"fp32", "tf32"})
+# Precision regime (Cycle-04 D16 — collapses the old D13/D14 ``numeric-mode {fp32,tf32}`` ×
+# D15 ``determinism-level {strict,relaxed}`` two-axis knob into ONE axis). The regime is an
+# EXPLICIT, LOGGED choice — never a silent backend default. Two values:
+#   "bf16"  — the SCIENCE path (D16). bf16-AMP: the train loop wraps the forward in
+#             ``torch.autocast(bf16)`` (heavy ops bf16); fp32 stability ops + the optimizer stay
+#             fp32. Residual fp32 ops run at true FP32 (TF32 OFF + matmul 'highest'). cuDNN
+#             autotuner ON + atomic scatter (the relaxed LSS rewrite) ALLOWED → same-seed runs are
+#             NOT byte-identical; the bar is ≥3-seed claim-reproducibility, not byte-identity.
+#   "fp32"  — the offline dev-regression / determinism TOOL (D16). True IEEE FP32 everywhere (no
+#             autocast): TF32 OFF + matmul 'highest' + cuDNN deterministic + the autotuner OFF +
+#             ``use_deterministic_algorithms``. Same-seed byte-identical on ONE GPU tier
+#             (architecture-pinned, D9). Run it when touching a determinism-sensitive op.
+# TF32 is RETIRED (D16 — it was the D14 Alvis regime, made redundant by bf16-AMP). Mutually
+# exclusive within any scientific comparison ("no mixing regimes", D14/D16).
+_VALID_PRECISIONS = frozenset({"bf16", "fp32"})
 
 
 def truthy(value, default: bool = False) -> bool:
@@ -119,63 +125,44 @@ def seeded_worker_init(worker_id: int) -> None:
     _np.random.seed(seed)
 
 
-# Determinism level (Cycle-04 D15). Orthogonal to numeric_mode. The bit-determinism rule is RELAXED
-# for the speedup track: "strict" keeps same-seed byte-identity (cuDNN deterministic, no autotuner,
-# atomics RAISE); "relaxed" unlocks the autotuner + atomic scatter/AMP/compile for speed (same-seed runs
-# are then NO LONGER byte-identical — the bar drops to "the model stays reasonable"; multi-seed variance
-# discipline moves to T5–T7). Default "strict" → every existing run is unchanged.
-_VALID_DET_LEVELS = frozenset({"strict", "relaxed"})
+def enforce_determinism(strict: bool = True, precision: str = "fp32") -> None:
+    """Pin the global PyTorch numeric + determinism state (single source of truth — D16).
 
+    ONE knob: ``precision`` ∈ {``bf16``, ``fp32``}. Sets, in order:
+      * ``CUBLAS_WORKSPACE_CONFIG=:4096:8`` (warns if CUDA already initialised — it must be set
+        before the first CUDA context for cuBLAS GEMM reproducibility).
+      * the float32-matmul/conv flags — IDENTICAL for both regimes now that TF32 is retired (D16):
+        ``cuda.matmul.allow_tf32=False`` + ``cudnn.allow_tf32=False`` +
+        ``set_float32_matmul_precision('highest')``. Under ``bf16`` the heavy ops are bf16 via the
+        train-loop autocast, so these flags govern only the residual fp32 (stability) ops.
+      * ``bf16`` (SCIENCE): ``cudnn.deterministic=False`` + ``benchmark=True`` (autotuner) +
+        ``use_deterministic_algorithms(False)`` (atomic scatter / the relaxed LSS rewrite allowed).
+      * ``fp32`` (DEV/DETERMINISM TOOL): ``cudnn.deterministic=True`` + ``benchmark=False`` +
+        ``use_deterministic_algorithms(True, warn_only=not strict)``.
 
-def enforce_determinism(strict: bool = True, numeric_mode: str = "fp32", level: str = "strict") -> None:
-    """Pin the global PyTorch determinism state (single source of truth).
+    The autocast dtype is selected downstream in ``training/loop.py::train_one_epoch`` by reading back
+    ``not cudnn.deterministic`` — so ``precision='bf16'`` (deterministic=False) turns bf16-AMP ON and
+    ``precision='fp32'`` (deterministic=True) turns it OFF (true fp32). Keeping that sniff means the loop
+    needs no signature change and the fp32 path stays byte-identical to the pre-D16 strict regime.
 
-    Sets, in order:
-      * ``CUBLAS_WORKSPACE_CONFIG=:4096:8`` (warns if CUDA already initialised —
-        it must be set before the first CUDA context for cuBLAS GEMM
-        reproducibility).
-      * the **numeric regime** (``numeric_mode``; see below) — the float32
-        matmul/conv precision, set EXPLICITLY so it is logged not silent (D13/D14):
-          - ``"fp32"`` (default): ``cuda.matmul.allow_tf32=False`` +
-            ``cudnn.allow_tf32=False`` + ``set_float32_matmul_precision('highest')``.
-          - ``"tf32"``: ``cuda.matmul.allow_tf32=True`` + ``cudnn.allow_tf32=True``
-            + ``set_float32_matmul_precision('high')`` (NEVER ``'medium'``/bf16x3).
-      * ``torch.backends.cudnn.deterministic = True``
-      * ``torch.backends.cudnn.benchmark = False`` (disable the autotuner).
-      * ``torch.use_deterministic_algorithms(True, warn_only=not strict)``.
+    ``strict`` only bites in the ``fp32`` path: ``use_deterministic_algorithms(warn_only=not strict)`` —
+    with ``strict=True`` any op lacking a deterministic kernel (``grid_sample`` backward, adaptive-pool
+    backward) RAISES at its call site. In ``bf16`` ``strict`` is ignored (atomics are allowed by design).
+    Flip ``strict=False`` only to bring up an op being made deterministic.
 
-    With ``strict=True`` (default, the AD-correct setting) any op lacking a
-    deterministic implementation RAISES — this is how a banned op (atomic
-    scatter / ``grid_sample`` backward / non-stable sort/topk) gets caught at
-    its call site instead of silently producing run-to-run drift. Use
-    ``strict=False`` only for deliberate bring-up of an op being made
-    deterministic.
+    **Default is ``precision='fp32', strict=True`` ⇒ the byte-identical regime.** This is intentional:
+    every gate script / determinism test that calls ``enforce_determinism(strict=True)`` keeps its exact
+    pre-D16 behaviour (the offline dev-regression tool). The SCIENCE default (``precision='bf16'``) lives
+    at the CONFIG layer (``run_config.get('precision', 'bf16')``), not in this function's signature.
 
-    **TF32 is run-to-run deterministic** under this harness (verified on the A40
-    TF32 det-gate): adopting it = a NEW reference checksum (a re-baseline), NOT
-    run-to-run drift. ``use_deterministic_algorithms(True)`` +
-    ``CUBLAS_WORKSPACE_CONFIG`` keep both regimes byte-reproducible same-seed on
-    one GPU; the static AST ban + flash-attn ban are unaffected by the regime.
-    **Do NOT mix regimes within one scientific comparison** (D14).
-
-    **INTENTIONAL divergence from the fl_v2 oracle:** fl_v2 used
-    ``use_deterministic_algorithms(True, warn_only=True)`` (warn + continue).
-    fl_v3 tightens the default to strict (``warn_only=False``, RAISE) because
-    the AD model (T2) must have NO banned op — a silent warn is exactly the
-    failure mode we cannot afford. This is an invariant strengthening, not a
-    re-implementation of the oracle's flag. Flip via ``determinism-strict``
-    config only to bring up an op being made deterministic.
-
-    Idempotent and ~free; safe to call once per process at startup and again
-    per train/eval call.
+    **Do NOT mix precision regimes within one scientific comparison** (D14/D16). Idempotent and ~free;
+    safe to call once per process at startup and again per train/eval call.
     """
-    if numeric_mode not in _VALID_NUMERIC_MODES:
+    if precision not in _VALID_PRECISIONS:
         raise ValueError(
-            f"numeric_mode={numeric_mode!r} not in {sorted(_VALID_NUMERIC_MODES)} "
-            "(no mixing regimes — D14)."
+            f"precision={precision!r} not in {sorted(_VALID_PRECISIONS)} "
+            "(D16 single knob: bf16=science, fp32=dev/deterministic; tf32 retired)."
         )
-    if level not in _VALID_DET_LEVELS:
-        raise ValueError(f"level={level!r} not in {sorted(_VALID_DET_LEVELS)} (D15).")
     if os.environ.get("CUBLAS_WORKSPACE_CONFIG") != _CUBLAS_WORKSPACE_CONFIG:
         if torch.cuda.is_available() and torch.cuda.is_initialized():
             warnings.warn(
@@ -187,27 +174,22 @@ def enforce_determinism(strict: bool = True, numeric_mode: str = "fp32", level: 
             )
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = _CUBLAS_WORKSPACE_CONFIG
 
-    # Numeric regime — set BOTH TF32 flags explicitly (D14 mechanics). On the
-    # login T4 (Turing, no TF32 tensor cores) the ``tf32`` path silently runs at
-    # FP32; it engages only on cc>=8 (A40/A100/Hopper) — that is why the regime
-    # must be validated by the A40 TF32 det-gate, not the login node.
-    if numeric_mode == "tf32":
-        torch.backends.cuda.matmul.allow_tf32 = True
-        torch.backends.cudnn.allow_tf32 = True
-        torch.set_float32_matmul_precision("high")
-    else:  # "fp32" — true IEEE FP32 (stricter than torch's implicit Ampere default)
-        torch.backends.cuda.matmul.allow_tf32 = False
-        torch.backends.cudnn.allow_tf32 = False
-        torch.set_float32_matmul_precision("highest")
+    # Float32-matmul/conv flags — TF32 is RETIRED (D16), so BOTH regimes run residual fp32 ops at true
+    # FP32. Under ``bf16`` the heavy ops are bf16 via the train-loop autocast; these flags govern only
+    # the fp32 stability ops. Under ``fp32`` everything is true IEEE FP32.
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.allow_tf32 = False
+    torch.set_float32_matmul_precision("highest")
 
-    # Determinism level (D15). "strict" = the byte-identical contract (unchanged default). "relaxed" =
-    # unlock the cuDNN autotuner + atomic ops (scatter_add/index_add) + AMP/compile for speed; same-seed
-    # runs are no longer byte-identical (acceptable under D15: "model stays reasonable"; multi-seed at T5-T7).
-    if level == "relaxed":
+    # Precision regime (D16). ``bf16`` = SCIENCE: unlock the cuDNN autotuner + atomic ops
+    # (scatter_add/index_add — the relaxed LSS rewrite) + AMP; same-seed runs are no longer byte-
+    # identical (by design; the bar is ≥3-seed claim-reproducibility). ``fp32`` = the offline
+    # dev-regression / determinism tool: the byte-identical contract (cuDNN deterministic, autotuner off).
+    if precision == "bf16":
         torch.backends.cudnn.deterministic = False
-        torch.backends.cudnn.benchmark = True            # conv autotuner (L1) — was OFF for determinism
+        torch.backends.cudnn.benchmark = True            # conv autotuner (L1) — OFF under fp32 for determinism
         torch.use_deterministic_algorithms(False)        # allow atomicAdd scatter (L3b), etc.
-    else:  # "strict" — the byte-identical contract (default; preserves all existing runs)
+    else:  # "fp32" — the byte-identical dev/determinism tool (catches determinism-sensitive op bugs)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
         torch.use_deterministic_algorithms(True, warn_only=not strict)
@@ -235,14 +217,17 @@ def seed_everything(seed: int) -> None:
 
 
 def precision_state() -> dict:
-    """Snapshot the live numeric-regime backend flags (for startup logs + the run manifest).
+    """Snapshot the live precision-regime backend flags (for startup logs + the run manifest).
 
-    The single source of truth for "what precision did this run actually use" — every
-    scientific run must log this so the regime is recorded, not inferred (D14). Includes
-    the device + compute-capability so a ``tf32`` config on TF32-less hardware (login T4)
-    is visible as a silent FP32 fallback rather than a false TF32 claim.
+    The single source of truth for "what precision did this run actually use" — every scientific run
+    must log this so the regime is recorded, not inferred (D14/D16). ``precision`` is the canonical D16
+    field (``bf16`` science / ``fp32`` dev-determinism), derived from the live cuDNN-deterministic flag
+    that ``enforce_determinism`` set; ``determinism_level`` is retained as a back-compat alias. Includes
+    the device + compute-capability so the run's GPU tier is recorded (determinism is architecture-pinned,
+    D9). The legacy ``*_allow_tf32`` / ``tf32_*`` fields now always report OFF (TF32 retired, D16).
     """
     state = {
+        "precision": "fp32" if torch.backends.cudnn.deterministic else "bf16",
         "cuda_matmul_allow_tf32": bool(torch.backends.cuda.matmul.allow_tf32),
         "cudnn_allow_tf32": bool(torch.backends.cudnn.allow_tf32),
         "float32_matmul_precision": str(torch.get_float32_matmul_precision()),

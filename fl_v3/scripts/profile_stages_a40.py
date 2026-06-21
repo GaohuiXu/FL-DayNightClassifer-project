@@ -94,15 +94,15 @@ class UtilSampler:
         }
 
 
-def profile_regime(numeric_mode, run_config, cid, steps, warmup, device, level="strict", compile_model=False,
+def profile_regime(precision, run_config, cid, steps, warmup, device, compile_model=False,
                    fixed_batch=False):
-    """Run (warmup+steps) real training steps under one numeric regime + determinism level.
+    """Run (warmup+steps) real training steps under one precision regime (D16: bf16|fp32).
 
     fixed_batch=True (E1, overcommit-ceiling diag): fetch ONE batch, move it on-device, and loop the
     SAME tensors — the dataloader is bypassed so the measurement isolates pure GPU compute + per-step
     launch/CPU overhead under concurrency (no data pipeline, no host->device transfer)."""
-    enforce_determinism(strict=True, numeric_mode=numeric_mode, level=level)
-    use_amp = (level == "relaxed") and device.type == "cuda"
+    enforce_determinism(strict=True, precision=precision)
+    use_amp = (precision == "bf16") and device.type == "cuda"
     seed = int(run_config.get("seed", 42))
     # Mirror the real per-client seeding so the trajectory matches a real round-1 client.
     seed_everything(derive_seed(seed, cid, 1))
@@ -175,7 +175,7 @@ def profile_regime(numeric_mode, run_config, cid, steps, warmup, device, level="
     step_total = sum(summ[s]["total_ms"] for s in LOOP_STAGES if s in summ)
     backbone = summ.get("camera_backbone", {}).get("total_ms", 0.0)
     return {
-        "numeric_mode": numeric_mode,
+        "precision": precision,
         "precision_state": precision_state(),
         "steps_measured": steps,
         "warmup_dropped": warmup,
@@ -197,10 +197,9 @@ def main():
     ap.add_argument("--warmup", type=int, default=5)
     ap.add_argument("--client-id", type=int, default=0)
     ap.add_argument("--out", default="fl_v3/collab/speedup/profile_stages_a40.json")
-    ap.add_argument("--modes", default="fp32,tf32")
-    ap.add_argument("--level", default="strict", choices=["strict", "relaxed"],
-                    help="D15 determinism level (relaxed: cudnn.benchmark + atomics + bf16 autocast)")
-    ap.add_argument("--compile", action="store_true", help="L8: torch.compile the frozen backbone")
+    ap.add_argument("--precisions", default="bf16,fp32",
+                    help="D16 precision regimes to profile (bf16: AMP+autotuner+atomics; fp32: deterministic)")
+    ap.add_argument("--compile", action="store_true", help="L8: torch.compile the backbone")
     ap.add_argument("--fixed-batch", action="store_true",
                     help="E1 overcommit-ceiling: loop one on-device batch (bypass dataloader)")
     ap.add_argument("--cache-dir", default="", help="override nuscenes-cache-dir (abs path)")
@@ -219,16 +218,16 @@ def main():
         run_config["num-workers"] = a.num_workers
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type != "cuda":
-        print("[profile] WARNING: no CUDA — TF32 will not engage; numbers are login-node only.")
+        print("[profile] WARNING: no CUDA — bf16 autocast will not engage; numbers are login-node only.")
 
     results = {}
-    for mode in a.modes.split(","):
-        mode = mode.strip()
-        print(f"\n===== profiling regime: {mode} level={a.level} (client {a.client_id}, "
+    for precision in a.precisions.split(","):
+        precision = precision.strip()
+        print(f"\n===== profiling regime: precision={precision} (client {a.client_id}, "
               f"{a.warmup} warmup + {a.steps} steps) =====", flush=True)
-        r = profile_regime(mode, run_config, a.client_id, a.steps, a.warmup, device, level=a.level,
+        r = profile_regime(precision, run_config, a.client_id, a.steps, a.warmup, device,
                            compile_model=a.compile, fixed_batch=a.fixed_batch)
-        results[mode] = r
+        results[precision] = r
         print(f"[profile] {mode}: mean_step={r['mean_step_ms']:.1f}ms  "
               f"forward={r['forward_total_ms']/r['steps_measured']:.1f}ms/step  "
               f"backbone_share_of_step={r['backbone_share_of_step']:.1%}  "

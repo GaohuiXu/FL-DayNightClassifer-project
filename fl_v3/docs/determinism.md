@@ -1,8 +1,24 @@
-# fl_v3 determinism contract (bit-determinism is sacred)
+# fl_v3 determinism contract (D16: bf16 science path + fp32 dev-regression tool)
 
-Same-seed runs MUST be byte-identical at every gate. This is the load-bearing
-property of the platform (T2/T3 depend on it; the null-config and oracle-parity
-gates assume it).
+**Regime (D16, 2026-06-21 — supersedes "bit-determinism is sacred").** There is ONE precision knob,
+`precision` ∈ {`bf16`, `fp32`} (set by `enforce_determinism(precision=...)`):
+
+- **`bf16` — the SCIENCE path (default).** bf16-AMP, cuDNN autotuner ON, atomic scatter (the relaxed
+  LSS rewrite) ALLOWED. Same-seed runs are **NOT byte-identical** — by design. Reported numbers use
+  **≥3 seeds (mean±std)** and a claim is valid if it clears the **seed-variance floor**. The model is
+  still atomic-free-by-construction (the static-AST ban + permutation-invariance tests below), so its
+  cross-architecture drift is bounded; the run-to-run variation is from the autotuner + AMP, not summation
+  order.
+- **`fp32` — the offline dev-regression / determinism TOOL.** True IEEE FP32 (no autocast), cuDNN
+  deterministic, autotuner OFF, `use_deterministic_algorithms(True)`. **Same-seed byte-identical on one
+  GPU tier** (architecture-pinned — T4 ≠ A40 ≠ A100 ≠ ARM H200; record the tier). This is retained as an
+  offline regression tool (it caught two real bugs) — run it when you touch a determinism-sensitive op —
+  **NOT as the bar for reported numbers.** The byte-identity gates (`det_gate_a40.py`, `fl_gate_a40.py`)
+  pin `precision=fp32`.
+
+Every RNG still flows through `derive_seed` / `seed_everything`, and every scientific run logs its
+`precision` (via `precision_state()`) + GPU tier into the manifest. The null-config (`poison_rate=0`)
+reproduces the clean baseline **within the seed-variance band** (D16; was bit-for-bit).
 
 ## The harness (`fl_v3/src/fl_v3/utils/runtime.py`)
 
@@ -12,9 +28,15 @@ gates assume it).
 - **`seed_everything(seed)`** — seeds `random`, `numpy`, `torch` (+ all CUDA).
 - **`seeded_worker_init`** — propagates each DataLoader worker's torch seed to
   numpy + stdlib `random`.
-- **`enforce_determinism(strict=True)`** — sets `CUBLAS_WORKSPACE_CONFIG=:4096:8`,
-  `cudnn.deterministic=True`, `cudnn.benchmark=False`,
-  `torch.use_deterministic_algorithms(True, warn_only=not strict)`.
+- **`enforce_determinism(strict=True, precision="fp32")`** — the single precision sink (D16). Always
+  sets `CUBLAS_WORKSPACE_CONFIG=:4096:8` + TF32 OFF + `set_float32_matmul_precision("highest")` (TF32 is
+  retired). `precision="fp32"` (default) → `cudnn.deterministic=True`, `benchmark=False`,
+  `use_deterministic_algorithms(True, warn_only=not strict)` (the byte-identical dev tool).
+  `precision="bf16"` → `cudnn.deterministic=False`, `benchmark=True`, `use_deterministic_algorithms(False)`
+  (the science path; the train loop's bf16 autocast keys off `not cudnn.deterministic`). The function
+  default is the conservative `fp32`/strict regime so every gate/test calling `enforce_determinism(strict=True)`
+  is unchanged; the **science default `precision="bf16"` lives at the config layer**
+  (`run_config.get("precision", "bf16")`).
 
 ## How determinism is enforced per scope
 

@@ -13,6 +13,7 @@
   "min-keyframes-per-client": 400,
   "num-clients": 8,
   "num-server-rounds": 3,
+  "precision": "fp32",
   "fraction-train": 0.5,
   "fraction-evaluate": 0.0,
   "min-train-nodes": 2,

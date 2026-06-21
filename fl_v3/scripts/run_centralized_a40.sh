@@ -1,6 +1,6 @@
 #!/bin/bash
 # D — centralized (single-node, full-pooled-data, NO FedAvg) baseline (D14 Phase-2 D), matched budget
-# EPOCHS == FL rounds, numeric-mode=tf32. Trains then runs the official readiness eval --diagnostic
+# EPOCHS == FL rounds, precision=bf16 (D16 science default). Trains then runs the official readiness eval --diagnostic
 # (same evaluator as E; no D10 RAISE since centralized is not a D10 FL checkpoint). 1 A40 (centralized
 # does not FedAvg-parallelize); generous walltime (~50 min/epoch TF32 at batch-16).
 #   D1 = clean (this script). D2 = the gated centralized attack — run ONLY if D1 clears the readiness
@@ -22,11 +22,10 @@ cd "$REPO"; mkdir -p fl_v3/scripts/logs fl_v3/collab/speedup
 
 CONFIG="${CONFIG:-fl_v3/configs/t4_reference.json}"
 EPOCHS="${EPOCHS:-15}"
-NUMERIC_MODE="${NUMERIC_MODE:-tf32}"
-LEVEL="${LEVEL:-strict}"                       # D15: strict (byte-identical) | relaxed (atomics+bf16+compile)
+PRECISION="${PRECISION:-bf16}"                  # D16 single knob: bf16 (science/AMP) | fp32 (dev/deterministic)
 MAXSTEPS_FLAG=""; [ -n "${MAX_STEPS:-}" ] && MAXSTEPS_FLAG="--max-steps ${MAX_STEPS}"
 COMPILE_FLAG=""; [ "${COMPILE:-0}" = "1" ] && COMPILE_FLAG="--compile"
-TAG="${TAG:-centralized_clean_r${EPOCHS}_${LEVEL}}"
+TAG="${TAG:-centralized_clean_r${EPOCHS}_${PRECISION}}"
 TRAINVAL_CACHE="${TRAINVAL_CACHE:-${PROJ_ROOT}/.claude/worktrees/infallible-feistel-d42c34/fl_outputs/nuscenes/info_cache}"
 OUT_DIR="${REPO}/fl_outputs/nuscenes/experiments/cycle_04/speedup_D"
 RESUME_FLAG=""; [ "${RESUME:-0}" = "1" ] && RESUME_FLAG="--resume"
@@ -40,7 +39,7 @@ module purge; module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0
 source "${PROJ_ROOT}/.venv_v3/bin/activate"
 export PYTHONPATH="${REPO}/fl_v3/src${PYTHONPATH:+:$PYTHONPATH}"
 
-echo "===== D centralized baseline (epochs=${EPOCHS} numeric=${NUMERIC_MODE}) =====  node=$(hostname) job=${SLURM_JOB_ID:-local}"
+echo "===== D centralized baseline (epochs=${EPOCHS} precision=${PRECISION}) =====  node=$(hostname) job=${SLURM_JOB_ID:-local}"
 nvidia-smi --query-gpu=name,compute_cap,memory.total --format=csv,noheader || true
 [ -f "${TRAINVAL_CACHE}/nuscenes_info_v1.0-trainval_train_t1.v1.pkl" ] || { echo "[D] FATAL: trainval cache missing at ${TRAINVAL_CACHE}"; exit 3; }
 [ -f "${TORCH_HOME}/hub/checkpoints/swin_t-704ceda3.pth" ] || { echo "[D] FATAL: swin_t ImageNet weights missing under TORCH_HOME"; exit 3; }
@@ -48,7 +47,7 @@ nvidia-smi --query-gpu=name,compute_cap,memory.total --format=csv,noheader || tr
 # --- train ---
 python fl_v3/scripts/centralized_train.py \
     --config "$CONFIG" --epochs "$EPOCHS" --out-dir "$OUT_DIR" --tag "$TAG" $RESUME_FLAG $MAXSTEPS_FLAG $COMPILE_FLAG \
-    "numeric-mode=${NUMERIC_MODE}" "determinism-level=${LEVEL}" "nuscenes-cache-dir=${TRAINVAL_CACHE}"
+    "precision=${PRECISION}" "nuscenes-cache-dir=${TRAINVAL_CACHE}"
 
 CKPT="${OUT_DIR}/${TAG}/final_model.pt"
 [ -f "$CKPT" ] || { echo "[D] FATAL: training produced no checkpoint at ${CKPT}"; exit 1; }
@@ -64,7 +63,7 @@ EVAL_OUT="${OUT_DIR}/${TAG}/readiness_diag"
 mkdir -p "$EVAL_OUT"
 python fl_v3/scripts/t4_readiness_eval.py \
     --config "$CONFIG" --checkpoint "$CKPT" --output-dir "$EVAL_OUT" --diagnostic \
-    "nuscenes-cache-dir=${TRAINVAL_CACHE}" "numeric-mode=${NUMERIC_MODE}"
+    "nuscenes-cache-dir=${TRAINVAL_CACHE}" "precision=${PRECISION}"
 
 echo "===== D1 centralized verdict (DIAGNOSTIC) ====="
 python3 -c "import json;d=json.load(open('${EVAL_OUT}/benchmark_readiness.json'));print('verdict',d['verdict'],'scope',d.get('verdict_scope'),'| mAP',round(d['mAP'],4),'NDS',round(d['NDS'],4),'car_recall',round(d['official_clean_car_recall'],4),'eligible_N',d['eligible_count'],'false_disappear',d['false_disappearance'].get('false_disappearance_rate'))" || true

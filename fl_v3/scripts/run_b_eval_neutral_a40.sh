@@ -21,7 +21,7 @@ cd "$REPO"; mkdir -p fl_v3/scripts/logs fl_v3/collab/speedup
 CONFIG="${CONFIG:-fl_v3/configs/t4_reference.json}"
 FEDERATION="${FEDERATION:-local-simulation-gpu-4x}"
 ROUNDS="${ROUNDS:-3}"
-NUMERIC_MODE="${NUMERIC_MODE:-tf32}"
+PRECISION="${PRECISION:-bf16}"      # D16 single knob: bf16 (science) | fp32 (dev/deterministic)
 EVAL_LIMIT="${EVAL_LIMIT:-200}"     # tiny eval subset so the eval=all arm is cheap
 TRAINVAL_CACHE="${TRAINVAL_CACHE:-${PROJ_ROOT}/.claude/worktrees/infallible-feistel-d42c34/fl_outputs/nuscenes/info_cache}"
 OUT_DIR="${REPO}/fl_outputs/nuscenes/experiments/cycle_04/speedup_b"
@@ -46,10 +46,10 @@ fl_preflight_offline "$TRAINVAL_CACHE"
 fl_stamp_supernodes "$N" fl_v3/configs/flwr_config.toml "${FLWR_HOME}/config.toml" "[superlink.${FEDERATION}]"
 
 COMMON=("nuscenes-cache-dir=${TRAINVAL_CACHE}" "output-dir=${OUT_DIR}"
-        "num-server-rounds=${ROUNDS}" "numeric-mode=${NUMERIC_MODE}"
+        "num-server-rounds=${ROUNDS}" "precision=${PRECISION}"
         "det-eval-limit=${EVAL_LIMIT}")
 
-echo "===== B eval-neutrality (rounds=${ROUNDS} numeric=${NUMERIC_MODE} N=${N}) =====  node=$(hostname) job=${SLURM_JOB_ID:-local}"
+echo "===== B eval-neutrality (rounds=${ROUNDS} precision=${PRECISION} N=${N}) =====  node=$(hostname) job=${SLURM_JOB_ID:-local}"
 nvidia-smi --query-gpu=name,compute_cap --format=csv,noheader || true
 
 run_one() {  # $1 = tag, $2 = server-eval-mode
@@ -70,11 +70,11 @@ echo "===== B RESULT ====="
 echo "device           = $(python -c 'import torch;print(torch.cuda.get_device_name())')"
 echo "checksum(none)   = ${CHK_NONE}"
 echo "checksum(all)    = ${CHK_ALL}"
-python - "$CHK_NONE" "$CHK_ALL" "$NUMERIC_MODE" "$ROUNDS" <<'PY'
+python - "$CHK_NONE" "$CHK_ALL" "$PRECISION" "$ROUNDS" <<'PY'
 import json, sys
-none_chk, all_chk, mode, rounds = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
+none_chk, all_chk, precision, rounds = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
 ok = bool(none_chk) and none_chk == all_chk
-res = {"phase": "B-eval-neutrality", "numeric_mode": mode, "rounds": rounds,
+res = {"phase": "B-eval-neutrality", "precision": precision, "rounds": rounds,
        "checksum_eval_none": none_chk, "checksum_eval_all": all_chk,
        "byte_identical": ok, "verdict": "PASS" if ok else "FAIL"}
 open("fl_v3/collab/speedup/b_eval_neutral.json", "w").write(json.dumps(res, indent=2, sort_keys=True))

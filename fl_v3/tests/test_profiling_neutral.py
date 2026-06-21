@@ -1,4 +1,4 @@
-"""Profiling is determinism-NEUTRAL + the numeric-mode regime is wired (Cycle-04 D14 Phase-1 A/C).
+"""Profiling is determinism-NEUTRAL + the precision regime is wired (Cycle-04 D14 Phase-1 A/C; D16 knob).
 
 The load-bearing claim: attaching the StepProfiler (sync-bracketed sections + forward hooks) to a
 real train step changes TIMING only, never values or RNG — so a same-seed run with profiling ON is
@@ -40,7 +40,7 @@ def _param_checksum(model: nn.Module) -> str:
 
 def _train_micro(profile: bool, seed: int = 7) -> tuple[str, bytes]:
     """One deterministic 3-step train micro-loop; return (param_checksum, torch_rng_state)."""
-    enforce_determinism(strict=True, numeric_mode="fp32")
+    enforce_determinism(strict=True, precision="fp32")
     seed_everything(seed)
     model = _ProfNet()
     opt = torch.optim.Adam(model.parameters(), lr=1e-2)
@@ -88,24 +88,31 @@ def test_profiling_summary_shape():
     assert isinstance(chk, str) and len(chk) == 64
 
 
-# --- C: numeric-mode regime wiring (regression) ---
-@pytest.mark.parametrize("mode,matmul,cudnn,prec", [
-    ("fp32", False, False, "highest"),
-    ("tf32", True, True, "high"),
+# --- C: precision regime wiring (regression; D16 single knob) ---
+@pytest.mark.parametrize("precision,deterministic,benchmark,det_algos", [
+    ("fp32", True, False, True),    # dev/determinism tool: byte-identical, autotuner off, atomics RAISE
+    ("bf16", False, True, False),   # science: autotuner on, atomic scatter + AMP allowed (not byte-identical)
 ])
-def test_numeric_mode_sets_flags(mode, matmul, cudnn, prec):
-    enforce_determinism(strict=True, numeric_mode=mode)
-    assert torch.backends.cuda.matmul.allow_tf32 is matmul
-    assert torch.backends.cudnn.allow_tf32 is cudnn
-    assert torch.get_float32_matmul_precision() == prec
+def test_precision_sets_flags(precision, deterministic, benchmark, det_algos):
+    enforce_determinism(strict=True, precision=precision)
+    # TF32 is retired (D16): BOTH regimes run residual fp32 ops at true IEEE FP32.
+    assert torch.backends.cuda.matmul.allow_tf32 is False
+    assert torch.backends.cudnn.allow_tf32 is False
+    assert torch.get_float32_matmul_precision() == "highest"
+    # the precision regime drives the determinism / autotuner / atomics flags:
+    assert torch.backends.cudnn.deterministic is deterministic
+    assert torch.backends.cudnn.benchmark is benchmark
+    assert torch.are_deterministic_algorithms_enabled() is det_algos
     ps = precision_state()
-    assert ps["cuda_matmul_allow_tf32"] is matmul
-    assert ps["float32_matmul_precision"] == prec
-    # reset to the strict fp32 default so test order can't leak the tf32 regime.
-    enforce_determinism(strict=True, numeric_mode="fp32")
+    assert ps["precision"] == precision
+    assert ps["determinism_level"] == ("strict" if deterministic else "relaxed")
+    assert ps["float32_matmul_precision"] == "highest"
+    # reset to the strict fp32 dev default so test order can't leak the bf16/relaxed regime.
+    enforce_determinism(strict=True, precision="fp32")
 
 
-def test_numeric_mode_bad_raises():
+def test_precision_bad_raises():
+    # "tf32" is RETIRED under D16 (was a valid numeric-mode); only {bf16, fp32} are valid now.
     with pytest.raises(ValueError):
-        enforce_determinism(strict=True, numeric_mode="bf16")
-    enforce_determinism(strict=True, numeric_mode="fp32")
+        enforce_determinism(strict=True, precision="tf32")
+    enforce_determinism(strict=True, precision="fp32")

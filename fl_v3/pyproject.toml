@@ -108,25 +108,23 @@ learning-rate = 0.01
 weight-decay = 0.0
 num-workers = 0
 
-# ===== numeric regime + server-eval policy (Cycle-04 D13/D14) =====
-# numeric-mode: the EXPLICIT float32 precision regime (enforce_determinism sets BOTH allow_tf32
-# flags). "fp32" = true IEEE FP32 (default, back-compat); "tf32" = the D14 A40 regime (det-gate
-# PASS). NEVER mix regimes within one scientific comparison.
-numeric-mode = "fp32"
+# ===== precision regime + server-eval policy (Cycle-04 D16 — single knob) =====
+# precision: the ONE precision knob (D16; replaces the old numeric-mode×determinism-level pair).
+# "bf16" = the SCIENCE path (bf16-AMP: cuDNN autotuner + atomic scatter + autocast; NOT same-seed
+# byte-identical — the bar is ≥3-seed claim-reproducibility). "fp32" = the offline dev-regression /
+# determinism tool (true IEEE FP32, same-seed byte-identical on one GPU tier). Default = bf16 (science).
+# NEVER mix precision regimes within one scientific comparison. The byte-identity gates pin precision=fp32.
+precision = "bf16"
 # server-eval-mode: per-round server eval computes PROXY metrics only (eval_loss, proxy_recall) —
 # NOT the scientific result (official mAP/NDS + ASR are post-hoc on the final checkpoint). Policy:
 # none | final | every_n | all. Default "all" = legacy behavior; trainval configs set "none".
 # RNG-neutral (run_b_eval_neutral_a40.sh proves byte-identical checksum none-vs-all).
 server-eval-mode = "all"
 server-eval-frequency = 1             # every_n: eval every N rounds (+ always the final round)
-# determinism-level (Cycle-04 D15): "strict" = same-seed byte-identity (default; cuDNN deterministic,
-# no autotuner, atomics RAISE). "relaxed" = unlock cudnn.benchmark + atomic scatter + bf16 autocast +
-# torch.compile for speed (same-seed runs no longer byte-identical; bar = "model stays reasonable";
-# multi-seed variance discipline deferred to T5-T7). Default strict preserves every existing run.
-determinism-level = "strict"
-# compile-backbone (D15 L8): torch.compile the camera backbone in the FL train path (relaxed only).
-# Needs a persistent TORCHINDUCTOR_CACHE_DIR (set by the launcher) so the per-client/round rebuild is a
-# compile cache-hit. Default off.
+# compile-backbone (D15 L8): torch.compile the camera backbone in the FL train path (precision=bf16 only;
+# the D16 envelope keeps torch.compile an explicit opt-in with an eager fallback). Needs a persistent
+# TORCHINDUCTOR_CACHE_DIR (set by the launcher) so the per-client/round rebuild is a compile cache-hit.
+# Default off.
 compile-backbone = false
 
 # ===== paths =====

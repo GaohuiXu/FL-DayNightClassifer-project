@@ -62,8 +62,7 @@ def train(msg: Message, context: Context) -> Message:
     seed_everything(derive_seed(int(run_config.get("seed", 42)), client_id, server_round))
     enforce_determinism(
         strict=truthy(run_config.get("determinism-strict", True)),
-        numeric_mode=str(run_config.get("numeric-mode", "fp32")),
-        level=str(run_config.get("determinism-level", "strict")),
+        precision=str(run_config.get("precision", "bf16")),
     )
 
     device = _device(run_config)
@@ -74,9 +73,10 @@ def train(msg: Message, context: Context) -> Message:
     # per client/round, so this re-traces each time — but a PERSISTENT inductor cache
     # (TORCHINDUCTOR_CACHE_DIR, set in the launcher; the Ray actor persists across rounds) makes the
     # expensive kernel compile a cache HIT after the first client → only the cheap dynamo re-trace
-    # recurs. Relaxed-only (compile is off the strict byte-identity path). Default off.
+    # recurs. bf16-only (compile is off the strict byte-identity dev path). Default off (explicit opt-in
+    # per the D16 tooling envelope: torch.compile stays opt-in with an eager fallback).
     if truthy(run_config.get("compile-backbone", False)) and device.type == "cuda" \
-            and str(run_config.get("determinism-level", "strict")) == "relaxed":
+            and str(run_config.get("precision", "bf16")) == "bf16":
         model.camera_backbone = torch.compile(model.camera_backbone)
     criterion = task.build_criterion(run_config)
     cdata = task.client_data(client_id, run_config)
@@ -121,8 +121,7 @@ def evaluate_client(msg: Message, context: Context) -> Message:
     seed_everything(derive_seed(int(run_config.get("seed", 42)), client_id, server_round))
     enforce_determinism(
         strict=truthy(run_config.get("determinism-strict", True)),
-        numeric_mode=str(run_config.get("numeric-mode", "fp32")),
-        level=str(run_config.get("determinism-level", "strict")),
+        precision=str(run_config.get("precision", "bf16")),
     )
 
     device = _device(run_config)

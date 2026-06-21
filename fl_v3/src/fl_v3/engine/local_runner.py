@@ -150,10 +150,13 @@ def run_clean_round(
     (for two-run bit-identity), ``decision`` (the DefenseDecision), and
     ``new_global`` (the aggregated params).
     """
+    # local_runner is the in-process DETERMINISM-test / FL-gate harness (NOT the science Flower path —
+    # that is client_app/server_app, which default to bf16). Its precision default is therefore ``fp32``
+    # (the byte-identical regime), so the CPU determinism tests + the A40 fl-gate stay byte-identical with
+    # no per-config edit. A science run via local_runner must pass ``precision=bf16`` explicitly.
     enforce_determinism(
         strict=strict_determinism,
-        numeric_mode=str(run_config.get("numeric-mode", "fp32")),
-        level=str(run_config.get("determinism-level", "strict")),
+        precision=str(run_config.get("precision", "fp32")),
     )
     seed = int(run_config.get("seed", 42))
     seed_everything(seed)
@@ -242,10 +245,13 @@ def run_clean_rounds(
     SAME A40 as the Ray driver, the ``final_checksum`` matches the Ray run's
     ``FL_TRAINABLE_CHECKSUM`` byte-for-byte (CPU↔A40 float drift otherwise — documented).
     """
+    # local_runner is the in-process DETERMINISM-test / FL-gate harness (NOT the science Flower path —
+    # that is client_app/server_app, which default to bf16). Its precision default is therefore ``fp32``
+    # (the byte-identical regime), so the CPU determinism tests + the A40 fl-gate stay byte-identical with
+    # no per-config edit. A science run via local_runner must pass ``precision=bf16`` explicitly.
     enforce_determinism(
         strict=strict_determinism,
-        numeric_mode=str(run_config.get("numeric-mode", "fp32")),
-        level=str(run_config.get("determinism-level", "strict")),
+        precision=str(run_config.get("precision", "fp32")),
     )
     seed = int(run_config.get("seed", 42))
     seed_everything(seed)

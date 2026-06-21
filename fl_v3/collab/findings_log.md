@@ -844,3 +844,37 @@ did NOT reach viability.**
   centralized-vs-FL difference (real but INHERENT — recorded as a `matched_budget_note` in centralized
   provenance: a "works-centrally-dies-under-FL" result implicates the FL regime broadly = averaging +
   per-round optimizer reset, not averaging alone). Full suite 247 pass (236 + 11 new).
+
+## MODEL CAPABILITY + RECIPE (MCR) session (D17, 2026-06-21) — Phase 0: precision config-collapse
+
+> Dedicated capability+recipe track (orchestrator D17), builds on the closed speedup session (D15) and
+> runs in the bf16-AMP regime (D16). Phase 0 = the mechanical config-collapse on the **clean path only**
+> (T5 untouched). Full record: `collab/model_capability/phase0_config_collapse.md`.
+
+- **Collapsed the two-axis numeric knob → ONE `precision ∈ {bf16, fp32}` (D16).** `bf16` = science
+  (bf16-AMP, autotuner + atomic scatter + autocast, NOT byte-identical, ≥3-seed bar); `fp32` = the
+  offline dev-regression / determinism tool (true IEEE FP32, same-seed byte-identical on one GPU tier).
+  **TF32 retired** (D14 Alvis regime, redundant under bf16). Mapping: `*+relaxed → bf16`, `fp32+strict →
+  fp32`; the `tf32+strict` science cell is dropped (re-measure in bf16). Old combos `numeric-mode
+  {fp32,tf32}` × `determinism-level {strict,relaxed}` are gone.
+- **`enforce_determinism(strict=True, precision="fp32")`** is the single sink. Function default stays
+  `fp32`/strict (so all 23 `enforce_determinism(strict=True)` gate/test callers are byte-identically
+  unchanged); the science default `bf16` lives at the **config layer** (`pyproject.toml`,
+  `t4_reference.json`, launchers, every `run_config.get("precision","bf16")`). `local_runner` defaults
+  `fp32` (it is the determinism-test / fl-gate harness); `client_app`/`server_app` default `bf16`.
+- **Byte-identity gate preserved by pinning `t3_fl_gate.json` (+`t4_a100_detgate.json`) to `precision:fp32`**
+  — `run_fedavg_a40.sh` cross-checks Ray (bf16-default) vs local_runner (fp32-default) checksums, so the
+  gate config must force both to fp32. `det_gate_a40` uses the fp32 function default directly. `torch.compile`
+  decoupled from the knob → now `precision==bf16` AND explicit `compile-backbone=true` (D16 envelope: opt-in
+  + eager fallback). bf16 autocast wiring unchanged (loop sniffs `not cudnn.deterministic`).
+- **T5 boundary: ZERO shim needed (verified exhaustively).** No `attacks/*` code reads
+  `numeric-mode`/`determinism-level`/`precision` — only `attack-*`/`asr-*`/`seed`. Provenance change confined
+  to `build_provenance` (clean); `ATTACK_PROVENANCE_KEYS` + attack-provenance fns structurally unchanged →
+  `test_attack_provenance` green. No `attacks/`, `t5_*`, `configs/t5_*`, `test_attack_*` file modified.
+  Provenance now records canonical `precision`; legacy `numeric-mode` kept but recorded honestly (`None`
+  under the new knob); t4 regime-match RAISE guard rebound to `precision` (legacy `numeric-mode` → WARN).
+- **Deleted** the obsolete `tf32_det_gate_a40.py` + `run_tf32_det_gate_a40.sh` (tf32 retired). Updated
+  `docs/determinism.md` top framing + `enforce_determinism` bullet to D16.
+- **Verification: full suite 247 pass (identical to the pre-collapse 247 baseline; 0 dropped, 0 broken).**
+  Targeted regime/determinism/provenance subset 35/35. **Parked (T5-restart prereq, NOT MCR):**
+  `t5_attack_eval.py` precision threading (charter Boundary; T5 doesn't run during MCR).

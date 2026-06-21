@@ -192,15 +192,14 @@ def main(grid: Grid, context: Context) -> None:
     run_config = context.run_config
 
     seed = int(run_config.get("seed", 42))
-    numeric_mode = str(run_config.get("numeric-mode", "fp32"))
+    precision = str(run_config.get("precision", "bf16"))
     seed_everything(seed)
     enforce_determinism(
         strict=truthy(run_config.get("determinism-strict", True)),
-        numeric_mode=numeric_mode,
-        level=str(run_config.get("determinism-level", "strict")),
+        precision=precision,
     )
     print(
-        f"[server] numeric-mode={numeric_mode} precision_state={precision_state()}",
+        f"[server] precision={precision} precision_state={precision_state()}",
         flush=True,
     )
 
