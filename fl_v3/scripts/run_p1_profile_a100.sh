@@ -20,6 +20,7 @@ cd "$REPO"; mkdir -p fl_v3/scripts/logs fl_v3/collab/model_capability
 
 CONFIG="${CONFIG:-fl_v3/configs/p1_unfrozen.json}"
 STEPS="${STEPS:-20}"; WARMUP="${WARMUP:-6}"; BATCH_SIZES="${BATCH_SIZES:-16,24,32}"
+OPTC=""; [ "${OPT_COMPARE:-0}" = "1" ] && OPTC="--opt-compare"   # OPT_COMPARE=1 → measure compile/channels_last
 OUT="${OUT:-fl_v3/collab/model_capability/p1_profile_a100.json}"
 TRAINVAL_CACHE="${TRAINVAL_CACHE:-${PROJ_ROOT}/.claude/worktrees/infallible-feistel-d42c34/fl_outputs/nuscenes/info_cache}"
 
@@ -50,7 +51,7 @@ UTIL_PID=$!
 trap 'kill "${UTIL_PID:-}" 2>/dev/null || true' EXIT
 
 python fl_v3/scripts/p1_profile_a100.py \
-    --config "$CONFIG" --steps "$STEPS" --warmup "$WARMUP" --batch-sizes "$BATCH_SIZES" --out "$OUT" \
+    --config "$CONFIG" --steps "$STEPS" --warmup "$WARMUP" --batch-sizes "$BATCH_SIZES" $OPTC --out "$OUT" \
     "nuscenes-cache-dir=${TRAINVAL_CACHE}"
 
 kill "${UTIL_PID:-}" 2>/dev/null || true
