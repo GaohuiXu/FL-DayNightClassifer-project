@@ -108,6 +108,15 @@ def _make_loader(dataset, run_config):
 def _model_opt(task, run_config, device):
     seed_everything(int(run_config.get("seed", 42)))
     model = task.build_model(run_config).to(device)
+    # --- optimization toggles (measured one-at-a-time) ---
+    if truthy(run_config.get("det-channels-last", False)):
+        # Only Conv2d weights are 4D — a global model.to(channels_last) RAISES on Swin's non-4D params
+        # (LN/linear/rel-pos-bias). Convert just the conv modules → tensor-core NHWC convs on the BEV stack.
+        for m in model.modules():
+            if isinstance(m, torch.nn.Conv2d):
+                m.to(memory_format=torch.channels_last)
+    if truthy(run_config.get("compile-backbone", False)):
+        model.camera_backbone = torch.compile(model.camera_backbone)   # static-shape Swin subgraph only
     crit = task.build_criterion(run_config)
     base_lr = float(run_config.get("learning-rate", 3e-3))
     bb_mult = float(run_config.get("det-backbone-lr-mult", 0.1))
@@ -286,6 +295,9 @@ def main():
     ap.add_argument("--warmup", type=int, default=6)
     ap.add_argument("--num-workers", type=int, default=4, help="profiler workers (RAM-bounded; real run can use more)")
     ap.add_argument("--batch-sizes", default="16,24,32")
+    ap.add_argument("--opt-compare", action="store_true",
+                    help="measure the optimization sequence (baseline vs +compile vs +channels_last vs both) "
+                         "at batch 16 ckpt-OFF instead of the standard regimes")
     ap.add_argument("--out", default="fl_v3/collab/model_capability/p1_profile_a100.json")
     ap.add_argument("overrides", nargs="*", default=[])
     a = ap.parse_args()
@@ -310,6 +322,40 @@ def main():
     results = {"device": torch.cuda.get_device_name(0), "precision": precision_state()["precision"],
                "steps": a.steps, "warmup": a.warmup, "num_workers": a.num_workers,
                "regimes": [], "kernel_breakdown": None}
+
+    if a.opt_compare:
+        # Optimization sequence — all at batch 16, ckpt OFF (the chosen baseline). Each combo: step time +
+        # util + peak mem; the baseline also gets the per-component teardown. compile-time is absorbed by warmup.
+        base0 = dict(base); base0["det-activation-checkpoint"] = False
+        base0["batch-size"] = int(base.get("batch-size", 16))
+        combos = [("baseline", {}),
+                  ("compile", {"compile-backbone": True}),
+                  ("channels_last", {"det-channels-last": True}),
+                  ("compile+chlast", {"compile-backbone": True, "det-channels-last": True})]
+        for i, (name, extra) in enumerate(combos):
+            cfg = dict(base0); cfg.update(extra)
+            print(f"[p1-profile] opt[{name}] (batch={cfg['batch-size']}, ckpt OFF)…", flush=True)
+            # compile traces on first call → give it extra warmup so timed steps are post-compile.
+            wu = a.warmup + (8 if extra.get("compile-backbone") else 0)
+            try:
+                results["regimes"].append(
+                    profile_regime(task, dataset, cfg, device, a.steps, wu, name, instrument=(i == 0)))
+            except Exception as e:
+                results["regimes"].append({"label": name, "error": str(e).splitlines()[0][:160],
+                                           "mean_step_ms": None, "util": {"util_mean": None}, "peak_mem_mib": None, "oom": "exception"})
+                if device.type == "cuda":
+                    torch.cuda.empty_cache()
+            _write(a.out, results)
+        print("\n===== OPT-COMPARE SUMMARY (batch 16, ckpt OFF) =====")
+        b = results["regimes"][0].get("mean_step_ms")
+        for r in results["regimes"]:
+            u = r.get("util", {}); s = r.get("mean_step_ms")
+            spd = f"{b / s:.2f}x" if (s and b) else "?"
+            print(f"[{r['label']:>14}] step={s}ms ({spd})  util_mean={u.get('util_mean')}% p90={u.get('util_p90')}% "
+                  f"max={u.get('util_max')}%  peak_mem={r.get('peak_mem_mib')}MiB  oom={r.get('oom')} "
+                  f"{('ERR='+r['error']) if r.get('error') else ''}")
+        print(f"\n[p1-profile] wrote {a.out}")
+        return 0
 
     # R1: main teardown — batch 16, ckpt ON, full instrumentation.
     cfg1 = dict(base); cfg1["det-activation-checkpoint"] = True; cfg1["batch-size"] = int(base.get("batch-size", 16))

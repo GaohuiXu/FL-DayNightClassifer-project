@@ -4,14 +4,17 @@ Job 6769823 (A100-SXM4-40GB, cc 8.0). Config: `p1_unfrozen.json` (Swin trained, 
 4 dataloader workers, 20 steps + 6 warmup. Pooled centralized set = **28,130 keyframes** (25 log-group
 clients) → **1759 steps/epoch** at batch 16. Raw: `p1_profile_a100.json`.
 
-## Headline: the unfrozen model is COMPUTE-BOUND (the frozen 12%-util problem is gone)
+## Headline: compute-bound, but only ~70% mean util — real headroom
 
-Three independent signals, all consistent (the nvidia-smi util sampler returned no samples — a bug to
-fix — but it isn't needed for the verdict):
-- **Per-sample time is FLAT across batch** (49.6 / 49.4 / 49.1 ms at batch 16/24/32) → not launch-bound;
-  bigger batches do not raise throughput.
-- **profiler self-CUDA (8533 ms) > self-CPU (5000 ms)** → GPU-time dominates → compute-bound.
-- **dataloader wait = 0.36 ms/step (0.0%)** → 4 workers fully hide data; NOT dataloader-bound.
+GPU util (job 6769833, fixed streaming-nvidia-smi sampler) **during the timed training steps**:
+**util_mean ≈ 70% but median 91–96%, p90/max 100%** (batch 16/24/32). Whole-run bash sampler = 45.5%
+mean, but that is diluted by the 5 model-builds/setup between regimes — the steady-state TRAINING number
+is **~70% mean / ~93% median**. So: the GPU is near-saturated MOST of the time but the mean sits at 70% →
+periodic dips (launch gaps + the 82 ms loss + sync). **NOT fully used — ~30% mean-vs-median headroom that
+`torch.compile` (kernel fusion, fewer launches) should fill.** Compute-bound confirmed by three signals:
+- **Per-sample time FLAT across batch** (49.6 / 49.4 / 49.1 ms at batch 16/24/32) → not launch-bound.
+- **profiler self-CUDA (8533 ms) > self-CPU (4990 ms)** → GPU-time dominates.
+- **dataloader wait = 0.26 ms/step (0.0%)** → 4 workers fully hide data; NOT data-bound.
 
 ## Per-step teardown (batch 16, ckpt ON, 794 ms/step)
 
