@@ -33,6 +33,7 @@ from typing import List
 
 import torch
 import torch.nn as nn
+import torch.utils.checkpoint  # MCR P1: gradient checkpointing on a trained Swin backbone
 
 SWIN_T_PARAMS = 28_288_354
 RESNET18_PARAMS = 11_689_512
@@ -46,10 +47,15 @@ class CameraBackbone(nn.Module):
     ``(4, 8, 16, 32)`` — the inputs to the LSS-FPN neck.
     """
 
-    def __init__(self, name: str = "swin_t", frozen: bool = True, pretrained: bool = True):
+    def __init__(self, name: str = "swin_t", frozen: bool = True, pretrained: bool = True,
+                 activation_checkpoint: bool = False):
         super().__init__()
         self.name = name
         self.frozen = bool(frozen)
+        # MCR P1 (D16 envelope): gradient/activation checkpointing on a TRAINED Swin backbone — trades
+        # ~20-30% recompute for the VRAM headroom that lets bf16 backbone-training fit a useful batch.
+        # No effect when frozen (no backward through the backbone) or in eval; off ⇒ byte-identical.
+        self.activation_checkpoint = bool(activation_checkpoint)
         self.strides = (4, 8, 16, 32)
         if name == "swin_t":
             self._build_swin(pretrained)
@@ -110,8 +116,12 @@ class CameraBackbone(nn.Module):
         if self.name == "swin_t":
             feats: List[torch.Tensor] = []
             h = x
+            # Checkpoint per Swin stage only when the backbone is TRAINED + in train mode (otherwise there is
+            # no backward to recompute for, and eval/frozen stay byte-identical). use_reentrant=False is the
+            # modern API (composes with autocast + supports the no-grad eval pass).
+            ckpt = self.activation_checkpoint and (not self.frozen) and self.training
             for i, stage in enumerate(self._swin_features):
-                h = stage(h)
+                h = torch.utils.checkpoint.checkpoint(stage, h, use_reentrant=False) if ckpt else stage(h)
                 if i in self._swin_tap_after:
                     feats.append(h.permute(0, 3, 1, 2).contiguous())  # NHWC→NCHW
             return feats

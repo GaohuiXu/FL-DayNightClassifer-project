@@ -93,25 +93,36 @@ def train_one_epoch(
     criterion: Criterion,
     optimizer: torch.optim.Optimizer,
     device: torch.device,
+    grad_clip_norm: float = 0.0,
+    scheduler: Optional[Any] = None,
+    ema_model: Optional[Any] = None,
 ) -> Dict[str, float]:
     """One epoch of training with the injected criterion (tensor or dict batch).
 
-    D15: detects the determinism level from the global cuDNN state (set by ``enforce_determinism`` —
-    no signature change). In the **relaxed** level it wraps the model forward in ``bf16`` autocast (L2)
-    for speed; in **strict** it is byte-identical to before. The per-step ``loss.item()`` CPU↔GPU sync
-    (L4) is removed in BOTH levels — the loss is accumulated on-device (fp64, matching the old python sum)
-    and read ONCE at epoch end; this is logging-only and does NOT affect the trained weights.
-    ``zero_grad()`` keeps the torch-2.7 default (``set_to_none=True``) → strict stays byte-identical."""
+    Precision (D16): the bf16-AMP decision is read from the global cuDNN state (set by
+    ``enforce_determinism(precision=...)`` — no signature change). Under ``precision=bf16``
+    (``cudnn.deterministic`` False) the forward is wrapped in ``bf16`` autocast (L2) and the head is
+    upcast to fp32 for the loss; under ``precision=fp32`` it is byte-identical to before. The per-step
+    ``loss.item()`` CPU↔GPU sync (L4) is removed in both — the loss is accumulated on-device (fp64) and
+    read ONCE at epoch end (logging-only). ``zero_grad()`` keeps the torch-2.7 default
+    (``set_to_none=True``) → the fp32 path stays byte-identical.
+
+    **Capability hooks (MCR Phase 1; all default-off ⇒ byte-identical for FL/gate callers):**
+    ``grad_clip_norm>0`` clips the trainable grads (stability once the backbone is trained); ``scheduler``
+    (if given) steps PER OPTIMIZER STEP (warmup+cosine over total steps); ``ema_model`` (an
+    ``swa_utils.AveragedModel``) is updated after each step. None of these fire unless passed, so
+    ``train_local`` / the determinism gate are unchanged."""
     model.train()
-    relaxed = not torch.backends.cudnn.deterministic     # D15 relaxed level (enforce_determinism set it)
+    relaxed = not torch.backends.cudnn.deterministic     # precision=bf16 ⇒ cudnn.deterministic False (D16)
     use_amp = relaxed and device.type == "cuda"
+    do_clip = bool(grad_clip_norm and grad_clip_norm > 0)
     loss_sum = torch.zeros((), device=device, dtype=torch.float64)  # L4: device accumulate (no per-step sync)
     total_n = 0
     for batch in dataloader:
         inputs, targets = _unpack_batch(batch, device)
         optimizer.zero_grad()
         if use_amp:
-            with torch.autocast("cuda", dtype=torch.bfloat16):  # L2: bf16 over the forward (relaxed only)
+            with torch.autocast("cuda", dtype=torch.bfloat16):  # L2: bf16 over the forward (precision=bf16)
                 out = model(inputs)
             # bf16 STABILITY (standard AMP): compute the loss in fp32 — the CenterPoint focal loss
             # (log(sigmoid(logit)), 1-pred) and the L1 over log-dims are numerically unstable on bf16
@@ -122,7 +133,14 @@ def train_one_epoch(
             out = model(inputs)
         loss = criterion(out, targets)
         loss.backward()
+        if do_clip:
+            torch.nn.utils.clip_grad_norm_(
+                [p for p in model.parameters() if p.requires_grad], grad_clip_norm)
         optimizer.step()
+        if scheduler is not None:
+            scheduler.step()
+        if ema_model is not None:
+            ema_model.update_parameters(model)
         bs = _batch_size(targets)
         loss_sum += loss.detach().double() * bs
         total_n += int(bs)

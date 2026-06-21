@@ -109,9 +109,29 @@ def main():
         model.camera_backbone = torch.compile(model.camera_backbone)
         print("[centralized] torch.compile(camera_backbone) enabled", flush=True)
     criterion = task.build_criterion(cfg)
-    optimizer = torch.optim.Adam([p for p in model.parameters() if p.requires_grad],
-                                 lr=float(cfg.get("learning-rate", 3e-3)),
-                                 weight_decay=float(cfg.get("weight-decay", 0.0)))
+    # MCR Phase 1 (D17): when the camera backbone is TRAINED (det-freeze-backbone=false), the pretrained
+    # backbone wants a LOWER LR than the from-scratch fusion/head (else the high fusion LR wrecks the
+    # ImageNet features). Split into LR param groups: backbone @ lr*mult, everything else @ lr. When the
+    # backbone is FROZEN, it has no requires_grad params → `bb_params` is empty → a single flat Adam over
+    # the trainable set, BYTE-IDENTICAL to the pre-MCR frozen baseline.
+    base_lr = float(cfg.get("learning-rate", 3e-3))
+    wd = float(cfg.get("weight-decay", 0.0))
+    bb_mult = float(cfg.get("det-backbone-lr-mult", 0.1))
+    bb_params, rest_params = [], []
+    for n, p in model.named_parameters():
+        if not p.requires_grad:
+            continue
+        (bb_params if n.startswith("camera_backbone.") else rest_params).append(p)
+    if bb_params:
+        optimizer = torch.optim.Adam(
+            [{"params": rest_params, "lr": base_lr},
+             {"params": bb_params, "lr": base_lr * bb_mult}],
+            lr=base_lr, weight_decay=wd)
+        print(f"[centralized] TRAINED backbone: {len(bb_params)} backbone tensors @ lr={base_lr*bb_mult:.2e} "
+              f"(mult={bb_mult}); {len(rest_params)} fusion/head tensors @ lr={base_lr:.2e}", flush=True)
+    else:
+        optimizer = torch.optim.Adam(rest_params, lr=base_lr, weight_decay=wd)  # frozen-backbone path (unchanged)
+    grad_clip_norm = float(cfg.get("grad-clip-norm", 0.0))
 
     exp_dir = os.path.join(args.out_dir, args.tag)
     os.makedirs(exp_dir, exist_ok=True)
@@ -183,7 +203,8 @@ def main():
         seed_everything(seed + epoch)        # global-RNG per-epoch seed (any forward-side RNG)
         loader = epoch_loader(epoch)         # per-epoch loader seeded (seed+epoch) → resume-byte-identical
         m = (_capped_epoch(loader, args.max_steps) if args.max_steps > 0
-             else train_one_epoch(model, loader, criterion, optimizer, device))
+             else train_one_epoch(model, loader, criterion, optimizer, device,
+                                  grad_clip_norm=grad_clip_norm))
         dt = time.perf_counter() - t0
         chk = save_ckpt(epoch + 1)
         rec = {"epoch": epoch + 1, "train_loss": float(m["loss"]),

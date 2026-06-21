@@ -44,6 +44,7 @@ class DetectorConfig:
     camera_backbone: str = "swin_t"      # swin_t | resnet18
     freeze_camera_backbone: bool = True  # D1
     pretrained_backbone: bool = True
+    activation_checkpoint: bool = False  # MCR P1 (D16 envelope): grad checkpointing on a TRAINED backbone
     image_hw: tuple = DEFAULT_IMAGE_HW
     feat_stride: int = 16                # LSS-FPN output stride
     neck_channels: int = 128
@@ -71,7 +72,8 @@ class BEVFusionDetector(nn.Module):
         c = self.cfg
         self.preprocess = ImagePreprocessor(image_hw=c.image_hw)
         self.camera_backbone = CameraBackbone(
-            c.camera_backbone, frozen=c.freeze_camera_backbone, pretrained=c.pretrained_backbone
+            c.camera_backbone, frozen=c.freeze_camera_backbone, pretrained=c.pretrained_backbone,
+            activation_checkpoint=c.activation_checkpoint,
         )
         self.camera_neck = GeneralizedLSSFPN(
             in_channels=self.camera_backbone.out_channels,

@@ -331,6 +331,7 @@ def _det_config_from_run(run_config: dict):
         camera_backbone=str(run_config.get("det-camera-backbone", "swin_t")),
         freeze_camera_backbone=truthy(run_config.get("det-freeze-backbone", True)),
         pretrained_backbone=truthy(run_config.get("det-pretrained-backbone", True)),
+        activation_checkpoint=truthy(run_config.get("det-activation-checkpoint", False)),
         image_hw=(int(run_config.get("det-image-h", 256)), int(run_config.get("det-image-w", 704))),
         feat_stride=int(run_config.get("det-feat-stride", 16)),
         neck_channels=int(run_config.get("det-neck-channels", 128)),
