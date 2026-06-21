@@ -330,9 +330,11 @@ def main():
         # util + peak mem; the baseline also gets the per-component teardown. compile-time is absorbed by warmup.
         base0 = dict(base); base0["det-activation-checkpoint"] = False
         base0["batch-size"] = int(base.get("batch-size", 16))
-        # channels_last dropped (measured 0.99x — neutral; the cost is Swin attention + copies, not BEV convs).
+        # channels_last dropped (measured 0.99x — neutral). Now measure SDPA (Swin attention) ± compile.
         combos = [("baseline", {}),
-                  ("compile", {"compile-backbone": True})]
+                  ("compile", {"compile-backbone": True}),
+                  ("sdpa", {"det-swin-sdpa": True}),
+                  ("compile+sdpa", {"compile-backbone": True, "det-swin-sdpa": True})]
         for i, (name, extra) in enumerate(combos):
             cfg = dict(base0); cfg.update(extra)
             print(f"[p1-profile] opt[{name}] (batch={cfg['batch-size']}, ckpt OFF)…", flush=True)
@@ -347,9 +349,9 @@ def main():
                 if device.type == "cuda":
                     torch.cuda.empty_cache()
             _write(a.out, results)
-        # kernel breakdown of the COMPILED model — does compile fuse the Swin attention? (the SDPA decision)
-        print("[p1-profile] kernel breakdown of the COMPILED model (attention-fusion / SDPA decision)…", flush=True)
-        cfgc = dict(base0); cfgc["compile-backbone"] = True
+        # kernel breakdown of the BEST combo (compile+sdpa) — confirm the attention bmm is gone.
+        print("[p1-profile] kernel breakdown of compile+sdpa…", flush=True)
+        cfgc = dict(base0); cfgc["compile-backbone"] = True; cfgc["det-swin-sdpa"] = True
         results["kernel_breakdown"] = kernel_breakdown(task, dataset, cfgc, device, steps=6, warmup=14)
         _write(a.out, results)
         print("\n===== OPT-COMPARE SUMMARY (batch 16, ckpt OFF) =====")

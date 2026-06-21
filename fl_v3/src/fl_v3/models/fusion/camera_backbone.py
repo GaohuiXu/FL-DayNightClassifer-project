@@ -48,10 +48,14 @@ class CameraBackbone(nn.Module):
     """
 
     def __init__(self, name: str = "swin_t", frozen: bool = True, pretrained: bool = True,
-                 activation_checkpoint: bool = False):
+                 activation_checkpoint: bool = False, sdpa_attention: bool = False):
         super().__init__()
         self.name = name
         self.frozen = bool(frozen)
+        # MCR P2 (D16 envelope): route Swin windowed attention through F.scaled_dot_product_attention
+        # (rel-pos-bias as attn_mask → EFFICIENT backend; deterministic MATH under precision=fp32).
+        # Numerically equivalent to torchvision's manual core (validated). swin_t only; no-op for resnet18.
+        self.sdpa_attention = bool(sdpa_attention)
         # MCR P1 (D16 envelope): gradient/activation checkpointing on a TRAINED Swin backbone — trades
         # ~20-30% recompute for the VRAM headroom that lets bf16 backbone-training fit a useful batch.
         # No effect when frozen (no backward through the backbone) or in eval; off ⇒ byte-identical.
@@ -90,6 +94,9 @@ class CameraBackbone(nn.Module):
         # PatchEmbed/PatchMerging): taps at features[1,3,5,7] → strides 4,8,16,32.
         self._swin_features = net.features
         self._swin_tap_after = {1, 3, 5, 7}
+        if self.sdpa_attention:
+            from fl_v3.models.fusion.swin_sdpa import apply_sdpa_to_swin
+            apply_sdpa_to_swin(self._swin_features)
 
     def _build_resnet18(self, pretrained: bool) -> None:
         from torchvision.models import resnet18, ResNet18_Weights
