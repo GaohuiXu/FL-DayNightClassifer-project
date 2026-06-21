@@ -32,6 +32,12 @@ gates assume it).
 
 These are FORBIDDEN in the AD model (T2) and everywhere else:
 
+> **D16 (2026-06-21) scope note.** This ban-list now governs the **offline strict dev-regression tool**
+> (`precision=fp32` + the static-AST ban), NOT the science path — the **bf16-AMP science path tolerates
+> atomic scatter** (the relaxed LSS rewrite) and reports over **≥3 seeds**. The list still defines the
+> *strict* deterministic path each op must offer. For what is now ADOPTED on the science path, see the
+> **D16-addendum tooling envelope** in `cycle_04/decisions.md`.
+
 - **atomic scatter** / `scatter_add` / `index_add` / `index_put(..., accumulate=True)` on CUDA
   (voxelization, pillar scatter) — use a **collision-free `index_copy_`/`index_put_(accumulate=False)`**
   dense scatter + `torch.max` (PointPillars), or the `cumsum_trick` (LSS).
@@ -40,8 +46,11 @@ These are FORBIDDEN in the AD model (T2) and everywhere else:
   use a max-pool-mask + monotone-tiebreak composite or `sort(stable=True)` + slice (CenterPoint decode).
 - **`AdaptiveAvgPool2d` / `AdaptiveMaxPool2d`** in any trainable module — their CUDA *backward* has no
   deterministic kernel and RAISES under strict mode. Use fixed-kernel pooling.
-- **flash-attention / non-deterministic SDPA** — Swin-T uses manual fp32 math attention, no
-  `scaled_dot_product_attention`; any future SDPA module wraps in `sdpa_kernel(SDPBackend.MATH)`.
+- **flash-attention / non-deterministic SDPA** — for the **strict dev tool only**, wrap SDPA in
+  `sdpa_kernel(SDPBackend.MATH)`. **D16/D17 supersede the old "no SDPA" rule on the SCIENCE path:** the
+  bf16-AMP path SHOULD route Swin-T windowed attention through `scaled_dot_product_attention` (rel-pos-bias
+  as `attn_mask` → EFFICIENT backend) for the in-tree speedup (D16-addendum envelope). The external
+  `flash-attn` package stays out (x86-only, no aarch64 wheel).
 - **`canvas[:, idx] = src` advanced-indexing assignment on CUDA** — silently **no-ops** under
   deterministic mode (PyTorch #76176); use an explicit `index_copy_`/`index_put_`.
 

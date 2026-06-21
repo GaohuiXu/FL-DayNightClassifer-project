@@ -26,27 +26,46 @@ defense among several).
 
 ## How we work (orchestrator + serial workers)
 
-The planning session is an **orchestrator** (owns the plan, decisions D1–D8, per-task SPEC contracts,
-kickoff prompts; does NOT implement). Each task **T0…T7** is built in **one fresh Claude session**
+The planning session is an **orchestrator** (owns the plan, the decisions record D1–D17 in
+`fl_v3/docs/cycle_04/decisions.md`, per-task SPEC contracts, kickoff prompts; does NOT implement). Each task **T0…T7** is built in **one fresh Claude session**
 (reads its `fl_v3/docs/cycle_04/tasks/T<N>_SPEC.md`, implements, fills `fl_v3/collab/T<N>/SPEC.md`,
 drives its GATE) and reviewed in **one fresh Codex session** (scientific-correctness only; writes
 `fl_v3/collab/T<N>/REVIEW.md`; never commits). **No parallel Claude implementation sessions.**
 
 ## Standing rules (non-negotiable)
 
-1. **Bit-determinism is sacred.** Same-seed runs must be byte-identical. Any RNG via `derive_seed`
-   (`fl_v3/src/fl_v3/utils/runtime.py`). Banned: atomic scatter, `grid_sample` backward, non-stable
-   `sort`/`topk`, flash-attn, dynamic voxelization/spconv. See `fl_v3/docs/determinism.md`.
-2. **No `mmdet3d`/`mmcv`/`spconv`** — abandoned + non-deterministic + won't build on 2026 CUDA/ARM.
-   Reference their architecture (Apache-2.0), reimplement deterministically.
+1. **Reproducibility regime (D16, 2026-06-21 — supersedes "bit-determinism is sacred").** The science
+   path is **bf16-AMP**; reported results use **≥3 seeds (mean±std)** and a claim is valid if it clears
+   the **seed-variance floor** — NOT by same-seed byte-identity (the `relaxed` `scatter_add` LSS rewrite
+   is atomic ⇒ not byte-identical run-to-run). RNG still flows through `derive_seed`
+   (`fl_v3/src/fl_v3/utils/runtime.py`); every scientific run keeps one **trains-clean reasonableness
+   gate** (no NaN/divergence — loss + BEV-accumulation in fp32) and logs its `precision`. The **strict
+   byte-identical regime is retained as an offline dev-regression tool ONLY** (the `precision=fp32`/strict
+   knob + the static-AST ban — it caught two real bugs), not the bar for reported numbers. **Tooling
+   envelope (D16-addendum, re-derived 2026-06-21):** the binding bar is *maintained + builds on the target
+   tier (x86 now, aarch64/H200 next) + no-NaN* — NOT bit-determinism; use in-tree accel aggressively (SDPA
+   fused attention, `torch.compile`, `channels_last`, fused Adam, EMA), **keep out** out-of-tree fragile
+   CUDA exts (Rule #2); dynamic voxelization is a *gated* in-tree ablation (order-free `scatter_reduce`),
+   not banned. See `fl_v3/docs/determinism.md` + the D15/D16(+addendum) amendment in
+   `fl_v3/docs/cycle_04/decisions.md`.
+2. **No `mmdet3d`/`mmcv`/`spconv`** (+ `torchsparse`, FP8/Transformer-Engine, DALI) **as dependencies** —
+   out-of-tree, unmaintained-or-fragile, no aarch64/H200 wheels (won't survive the ARM rebuild); `spconv`/
+   `mmcv` kernels also have no deterministic path for the strict dev tool. Reason is now **portability +
+   maintenance** (D16 relaxed the *determinism* reason; verified 2026-06-21 — D16 addendum). Reference their
+   architecture (Apache-2.0), reimplement in pure PyTorch; get speed from **in-tree** accel instead. The
+   LiDAR-capacity lever, if ever needed, is an in-tree dense upgrade (PillarNet-style), NOT spconv.
 3. **Engineering smoke (mini) vs scientific result (trainval) is a hard boundary.** `v1.0-mini` is
    for pipeline/determinism validation only; every scientific claim needs trainval-scale clients.
-4. **Null-config** must reproduce the clean baseline bit-for-bit. **Frozen `fl_v2/` is the oracle.**
+4. **Null-config** (`poison_rate=0`) must reproduce the clean baseline **within the seed-variance band**
+   (D16 — was "bit-for-bit"; byte-identity now holds only under the offline strict knob). **Frozen
+   `fl_v2/` is the oracle** for defense *implementation* equivalence (fixture-level), not scientific validity.
 5. **Heavy runs go through SLURM** (`run_alvis.sh` pattern); the login node is for scaffolding, the
    venv build, and unit/determinism tests only. Run code via `fl_v3/scripts/run_in_venv.sh`.
-6. Honor the confirmed **D1–D8** decisions and the **§Attack spec** + **§Defense Benchmark Protocol**
-   in the plan (5-condition fusion-awareness ablation, ASR eligibility + denominator, utility/ASR 2×2
-   rule, required baselines, controlled `m_r` vs defense-assumed `f_r`, etc.).
+6. Honor the confirmed decisions in `fl_v3/docs/cycle_04/decisions.md` (**D1–D17**; note **D1 is amended
+   by D17** — the camera backbone is now **trained**, not frozen; **D16** is the bf16-AMP precision regime)
+   and the **§Attack spec** + **§Defense Benchmark Protocol** in the plan (5-condition fusion-awareness
+   ablation, ASR eligibility + denominator, utility/ASR 2×2 rule, required baselines, controlled `m_r` vs
+   defense-assumed `f_r`, etc.).
 
 ## HPC
 

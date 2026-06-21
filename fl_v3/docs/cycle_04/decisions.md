@@ -374,3 +374,189 @@ diagnostics land. **Caching stays de-prioritized (D13); the storage request stay
 **Boundaries:** (1) no major T5 camera-only attack dev until profiling + clean baselines are complete;
 (2) no T6/T7 defense matrices on a non-viable attack; (3) mini/smoke ≠ scientific evidence; (4) no mixing
 numeric regimes; (5) no feature caching without storage + a cache-vs-live bit-identity gate.
+
+---
+
+## D15 — Speedup/diagnostics session outcome: a `determinism-level` knob buys ~3×/step; overcommit is a MEASURED dead end; the weak model is FL-undertraining + FedAvg dilution (NOT architecture)
+
+**RECORDED 2026-06-21 (outcome of the D14 speedup/diagnostics session; full trace + evidence:
+`collab/speedup/speedup_session_findings.md` + `collab/speedup/D15_D16_decision_for_orchestrator.md`).**
+The infra landed on `v3-ad-perception` (HEAD `1bf9015`); everything is behind a `determinism-level =
+strict | relaxed` knob (default `strict` = byte-identical, 247 tests pass).
+
+**Speed (measured, A40 unless noted):**
+- **~3.1× per training step** under `relaxed` (1443 → 460 ms). The dominant, **precision-independent** win is
+  the LSS view-transform rewrite — **`scatter_add` splat + mask-then-lift, 602 → 14 ms (42.8×)** — which
+  drops the argsort+cumsum+1.3 GB materialization that was pure determinism tax (scatter_add atomics are
+  non-deterministic → only available once strict is relaxed). Plus bf16-AMP forward (3.0× backbone) +
+  `torch.compile` + free scheduling.
+- **Round-level ladder:** strict 15.6 min/round → relaxed+compile+2-clients/GPU **5.6 min/round (2.76×)**.
+  **A100 1/GPU also = 5.6 min/round** — only **1.14× over A40 1/GPU** despite **1.63×/step**, because each
+  round's overhead (Ray actor spin-up ×25, dataloader, aggregation) is launch/CPU-bound and GPU-speed-invariant.
+- **bf16 NaN caught + fixed:** focal `log(sigmoid)` on bf16 logits diverged → loss + BEV-accumulation kept
+  in **fp32** (forward stays bf16). Re-test: bf16 within ~0.5% of deterministic at every epoch; trains
+  cleanly at centralized AND FL scale. ⇒ keep one lightweight **trains-clean reasonableness gate** even
+  after dropping bit-identity (speed that NaNs is worthless).
+
+**Overcommit is a DEAD END (measured — E1/E2/E3 teardown, job 6769136).** More clients/GPU gives **~1.0×
+throughput** (K=1→4): without CUDA MPS, separate processes **time-slice** the GPU, and each step is
+**launch/latency-bound** (only ~10% is GPU compute at batch-16 + a **frozen** backbone) → packing clients
+only serializes them; rising util (10→52%) is busy-fraction inflation. The A100's **12% util** is structural,
+NOT fixable by packing clients (this answers the orchestrator's "smaller `num-gpus` failed" — it was never
+going to work). 2/GPU is the A40 ceiling; 3/GPU thrashes; A100 4/GPU OOMs (compile inflates VRAM) and 2/GPU
+hit a shared-`TORCHINDUCTOR_CACHE_DIR` cache-race. The dataloader is independently starved (nw=2 < one
+client's need; 0.60× shared-FS contention) and widening it OOMs host RAM. **The real speed lever is CHEAPER
+STEPS** (`torch.compile(mode="reduce-overhead")` / CUDA graphs + num-workers↑ + node-local staging) — **and
+training the backbone makes the step GPU-heavy so util rises on its own and the A100's 1.63×/step finally
+lands.** Overcommit + big-batch are OFF the path.
+
+**Diagnostics answered Q1–Q5 (the key scientific result):** the weak T5 model was **FL-undertraining +
+FedAvg dilution, NOT architecture/recipe.** Matched budget (epochs == rounds), official mAP/NDS:
+
+| setting | budget | mAP | NDS | car recall |
+|---|---|---:|---:|---:|
+| **Centralized (D1)** | 15 ep | **0.360** | 0.357 | 0.93 |
+| FL (E-15) | 15 r | 0.126 | 0.169 | 0.85 |
+| FL (E-30) | 30 r | 0.196 | 0.226 | 0.89 |
+
+Centralized reaches a strong detector on the same model/data/budget ⇒ architecture+recipe are fine at the
+*centralized* level; FL-15 was undertrained (15→30 = +55% mAP, still climbing at r30); even FL-30 is ~1.8×
+below centralized ⇒ **FedAvg dilution** over location-coherent non-IID shards. The T5 attack ran on a
+doubly-compromised (undertrained + diluted) checkpoint ⇒ its null was uninterpretable. **Next clean
+reference must be ≥30 rounds** (find the plateau past 30). *Note for D17: the centralized 0.36 ceiling is
+itself well below SOTA (frozen ImageNet Swin-T, batch 16, single-sweep, modest resolution) — raising it is
+a SEPARATE capability problem from the FL gap.*
+
+**Other items banked:** server eval gated (`server-eval-mode=none|final|every_n|all`; byte-identity-safe,
+default `none` for trainval; ASR + official mAP/NDS stay post-hoc). A100/A40 nodes have **identical 244 GB
+host RAM** (the OOMs were VRAM/cache-race, not node size). **Hazard:** `t5_attack_eval.py` does NOT thread
+the numeric/precision mode → would eval a relaxed checkpoint in the wrong regime (mirror
+`t4_readiness_eval.py` before any T5 eval — assigned to D17 Phase 0).
+
+---
+
+## D16 — Precision + criteria: bf16-AMP is the single science regime; multi-seed claim-reproducibility replaces byte-identity (RATIFIES the speedup proposal; AMENDS Standing Rule #1)
+
+**RATIFIED 2026-06-21 (orchestrator session; user explicitly signed off on relaxing the "bit-determinism is
+sacred" standing rule).** Collapses the messy 4-axis space (fp32/tf32/bf16 × strict/loose) to **one regime +
+one criterion**.
+
+1. **Precision = bf16-AMP** (bf16 heavy ops + fp32 stability ops: focal `log(sigmoid)`, L1-over-log-dims, BEV
+   scatter accumulation, optimizer). Field-standard (BEVFusion/BEVDet train fp16-AMP; bf16 is strictly safer
+   — fp32 range, no GradScaler), fastest, and **verified to train comparably** (D15). **TF32 is dropped as a
+   separate regime** — under bf16-AMP it is provably redundant (relaxed step 460 ms tf32-base vs 466 ms
+   fp32-base = noise). **This supersedes D13 and D14's TF32-now framing.**
+2. **Criterion = claim-reproducibility, NOT byte-identity.** Same-seed run-to-run variance is allowed
+   (scatter_add atomics break byte-identity under `relaxed`); report results over **≥3 seeds (mean ± std)**
+   at T5–T7; a claim is valid if it **clears the seed-variance floor**. **Retire strict byte-identity +
+   checksum stamping from the science path.** Keep the **strict knob + static-AST ban as an offline
+   dev-regression tool ONLY** (it caught two real bugs this session, incl. the lever-1 backward break).
+3. **The new per-run science gate** (replaces the byte-identity gate): (a) **trains-clean reasonableness**
+   (no NaN/divergence; the fp32-loss/accumulation guard), (b) **precision logged** into every run manifest,
+   (c) for *reported* numbers, **multi-seed mean±std** + the characterized seed-variance floor, (d) the
+   **offline strict-knob byte-identity regression** still green (dev-time, not a science bar).
+4. **Config-collapse (authorized; executed in D17 Phase 0):** collapse `numeric-mode {fp32,tf32}` ×
+   `determinism-level {strict,relaxed}` → ONE `precision = bf16 | fp32` knob (bf16 = science/relaxed; fp32 =
+   dev/deterministic). ~8 call sites + provenance + gate scripts.
+5. **Caching is permanently DROPPED** (D11/D12): it only ever worked because D1 *froze* the backbone, and
+   D17 **trains** the backbone — the frozen-cache premise no longer exists. (D13 already foresaw bf16/TF32
+   "survives 'we train our own encoder'"; caching does not.) The SUPR 5 TB cache request is cancelled.
+6. **Consequence — re-baseline:** the D1/E reference checkpoints (tf32-strict) are **superseded**; the clean
+   references (centralized + the ≥30-round FL) are **re-run in bf16-AMP** by D17 before T5–T7 bind to them.
+   (Determinism is architecture-pinned anyway — D9; bf16 is one more re-baseline.)
+7. **Standing rules amended** (CLAUDE.md): Rule #1 "bit-determinism is sacred / byte-identical" → the bf16-AMP
+   + multi-seed regime above; Rule #4 null-config "bit-for-bit" → "within the seed-variance band."
+
+### D16 addendum — the "banned ops" list, re-derived under claim-reproducibility (verified 2026-06-21, workflow `wf_be1c09cf-537`)
+
+The old bans (Rule #1/#2) mixed **determinism** (relaxed by D16) with **portability/maintenance** (still
+binding). Re-derived against current (2026) library state + ARM/H200 build feasibility (6 adversarial probes).
+**The new binding bar = `maintained` + `builds on the target tier (x86 now, aarch64/H200 next)` + `doesn't
+NaN` — NOT bit-determinism.** Use modern **in-tree** acceleration aggressively; avoid **out-of-tree fragile
+CUDA extensions**.
+
+| Verdict | Items | Why |
+|---|---|---|
+| **ADOPT (in-tree, portability-safe)** | **SDPA fused attention** (the **#1 missing lever** — D17 unfreezes the backbone, so the manual-fp32 windowed attention is the new GPU-dominant hotspot; route via `F.scaled_dot_product_attention`); **bf16-AMP**, **channels_last**, **fused Adam**, **activation checkpointing**, **EMA** (`swa_utils` — a missing capability lever that counters dilution + tightens the seed band) | All ship in the standard torch cu12x wheel incl. aarch64/H200; zero extra build. SDPA caveat: Swin's additive rel-pos bias rejects the FLASH backend → EFFICIENT backend, **~1.3–2×** not 2–4×; torchvision `swin_t` needs a rewrite. This **un-bans flash-attn-class fused attention** — via SDPA, not the external pkg. |
+| **ADOPT-WITH-CAVEATS (in-tree, validate on ARM first)** | `torch.compile` (default, opt-in flag + eager fallback); `reduce-overhead`/CUDA-graphs on **static-shape camera/BEV subgraphs only** | Not bitwise-eager-equal; Inductor/Triton-on-aarch64 least-burned-in; pin a **release** cu128 aarch64 wheel (never nightly). `max-autotune` not worth it. |
+| **GATED IN-TREE (measured ablation only)** | **dynamic voxelization** via native `scatter_reduce` as an **order-free `amax`** (not `scatter_add`); **LiDAR-capacity → in-tree dense upgrade** (PillarNet-style) | dyn-vox gain is modest (~≤1–2 mAP, small-object-biased, likely inside the seed band) → run only if pillar-cap point-dropping is shown to limit accuracy; watch the `torch.compile` dynamic-shape interaction. |
+| **KEEP OUT (portability/maintenance, NOT determinism — none costs us speed)** | `flash-attn` pkg (SDPA covers it; x86-only build); **spconv/torchsparse** (no aarch64 wheel, stale single-maintainer, breaks the strict dev tool — the ~+5–8 mAP LiDAR gain isn't our binding constraint and is recoverable in-tree); `mmdet3d`/`mmcv` (framework not kernel; unmaintained + CUDA-13 build break); **FP8/Transformer-Engine** (external ext + 1–2% accuracy hit on small conv nets — can't trade accuracy at 0.36 mAP); **DALI** (out-of-tree; fix dataloading in-tree); **NestedTensor** (prototype) | These fail the maintained-or-portable bar; the strict offline dev tool also has no deterministic knob for spconv/mmcv kernels (a second reason out). |
+
+**The offline strict dev tool keeps working** by pinning deterministic paths (SDPA→`sdpa_kernel(MATH)`,
+compile/graphs/`channels_last`/fused off, `use_deterministic_algorithms(True)`). **Amends CLAUDE.md Rule #1
+banned-list + Rule #2** (spconv downgraded from "banned for determinism" to "keep-out for portability";
+mmdet3d/mmcv unchanged-but-reasoned; SDPA explicitly allowed). Full evidence: the workflow verdicts in the
+session transcript; the operational list is in `kickoff/model_capability_kickoff.md` §Tooling envelope.
+
+---
+
+## D17 — The Model Capability + Recipe (MCR) session: raise the model, fix the FL recipe, produce the new ≥30-round bf16 FL clean reference (AMENDS D1)
+
+**CONFIRMED 2026-06-21 (user-directed; scope chosen = "all-in-one to a new FL reference").** A dedicated
+session (sibling to the speedup session, OUTSIDE the T<N> numbering) that fixes the two problems D15 exposed
+**before** T5 restarts or T6/T7 begin. Full charter: **`kickoff/model_capability_kickoff.md`**; deliverables
+land in `collab/model_capability/`.
+
+**Why both problems are ONE program.** D15 showed the util gap (Issue 1) and the weak model (Issue 2) share a
+root: a too-light, frozen-backbone model that (a) can't keep a GPU busy (12% util, overcommit dead) and (b)
+caps centralized mAP at 0.36. **Training the backbone fixes BOTH** — the step becomes GPU-heavy (util rises,
+A100 1.63×/step lands) and the detector gets stronger. So the session raises model capability and harvests
+the throughput as a side effect, then closes the FL dilution gap.
+
+**This AMENDS D1.** D1 froze the ImageNet camera backbone and labelled full-model FL "the generality
+ablation." D17 **promotes full-model training to PRIMARY** — the camera backbone is now **trained**. The
+frozen-backbone setting is demoted to a comparison point. The **federate-the-backbone vs.
+central-pretrain→freeze→federate-fusion+head** fork has T5–T7 threat-model consequences (a federated backbone
+lets a backdoor live in the backbone = broader/realistic surface; a frozen backbone keeps the attack surface
+in fusion = preserves the D1/D3 fusion-aware framing) — the session **measures the frozen-vs-trained mAP cost
+and brings this back as a data-driven D-decision**, it does NOT pre-commit.
+
+**Sequencing (value-ordered for the Alvis sunset, 2026-06-30 = 9 days):**
+- **Phase 0 — land the ratification (mechanical):** execute the D16 config-collapse (one `precision` knob,
+  bf16 default for science) **on the CLEAN science path ONLY — T5 untouched** (`attacks/`, `t5_*`,
+  `tests/test_attack_*` not modified; keep the lazy dormant imports resolving); confirm the strict-knob
+  regression still green. The `t5_attack_eval.py` precision-threading hazard is **re-parked as a T5-restart
+  prerequisite**, not MCR.
+- **Phase 1 — raise the CENTRALIZED ceiling (the core capability search, in bf16-AMP):** unfreeze/train the
+  camera backbone (LR-grouped) **+ the SDPA attention rewrite** (the now-trained windowed attention is the
+  GPU-dominant hotspot); LiDAR multi-sweep accumulation; image-resolution + BEV-grid; fusion-layer redesign
+  (D3 ConvFuser depth/attention) + BEV-neck; optimizer/LR/schedule + **EMA** (`swa_utils` — counters dilution
+  + tightens the seed band); data aug — ablate one-at-a-time + a combined recipe, measure official mAP/NDS
+  each step. Target: a detector **clearly above 0.36** with high car recall / ASR-eligible count
+  (attack-credibility, not a round number).
+- **Phase 2 — throughput to AFFORD it (interleaved):** in-tree eager wins FIRST (SDPA, `channels_last`, fused
+  Adam, activation checkpointing); then **opt-in** `torch.compile(reduce-overhead)`/CUDA-graphs on static-shape
+  camera/BEV subgraphs only (validate on ARM first, leave ragged loss + variable-count voxelizer out);
+  num-workers↑ + node-local staging; move heavy runs to **A100/A100-fat** (a trained backbone needs the VRAM,
+  and the A100 finally pays off once util rises). NO overcommit, NO reflexive big-batch, NO out-of-tree exts
+  (D16 envelope).
+- **Phase 3 — FL recipe + the new reference:** transfer the strong recipe to FL; close the dilution gap with
+  **server-side momentum (FedAdam/FedOpt/FedYogi)**, round budget **≥30** (find the plateau), local-epoch
+  tuning, on the location-coherent log-group non-IID (the threat model). Produce the **new clean ≥30-round
+  bf16-AMP FL reference**, **multi-seed (≥3, mean±std)**.
+- **Phase 4 — re-baseline the bindings:** re-judge T4 readiness on the new checkpoint; rebuild the frozen
+  held-out ASR subset (content-hashed, bound to the new checkpoint); record the new provenance under
+  claim-reproducibility (seed-band, not a single checksum).
+
+**Alvis-sunset realism (built into the charter).** Determinism is architecture-pinned (D9) ⇒ the *final*
+reference must be (re)produced on the GPU tier T5–T7 will run on. So the session's Alvis job is to **LOCK THE
+RECIPE** (centralized ceiling + FL choices + throughput) — the portable, reusable artifact — and the **final
+multi-seed ≥30-round FL reference is produced at the locked recipe on whichever tier is live** (A40/A100 now,
+H200/Arrhenius after migration; a re-baseline is forced regardless). Every heavy run is **checkpoint-resumable**
+(optimizer state saved) so a forced migration mid-run resumes; the venv stays reproducible from the pinned
+manifest (`docs/env.md`). This honors "all-in-one" (the session owns the whole pipeline through the reference)
+while not betting the deliverable on finishing a backbone-training ≥30-round FL run inside 9 A40-days.
+
+**Absorbs the speedup doc's 5 open items:** D16 ratified (✓), config-collapse authorized (Phase 0, clean path
+only), the "fresh FL-recipe session" (Phase 3), the multi-seed protocol (D16 + Phase 3), re-baseline references
+in bf16 (Phase 4). (The `t5_attack_eval.py` hazard is **re-parked to T5-restart** — it belongs to T5, which
+MCR does not touch.)
+
+**Boundaries:** (1) no T5 restart / T6 / T7 until the new clean reference + its readiness verdict exist;
+(2) **T5 is OUT OF SCOPE — do not modify `attacks/`, `t5_*`, `tests/test_attack_*`;** if a capability change
+*requires* touching a T5-shared interface (ConvFuser signature, the `maybe_wrap_for_client` call site),
+**escalate to the orchestrator, don't refactor T5**; (3) every reported number in bf16-AMP, multi-seed — no
+mixing precision regimes (D16); (4) mini/smoke ≠ scientific evidence; (5) stay inside the **D16-addendum
+tooling envelope** (maintained + builds-on-target-tier + no-NaN; in-tree over fragile extensions), NOT
+bit-determinism; (6) the federate-vs-freeze threat-model choice returns as a data-backed decision, not a
+unilateral session call.

@@ -30,8 +30,9 @@ and the per-task contracts + kickoffs:
 - **T2** (done, Codex-PASS): [contract](../cycle_04/tasks/T2_SPEC.md) · [kickoff](../cycle_04/kickoff/T2_kickoff.md)
 - **T3** (done, Codex-PASS): [contract](../cycle_04/tasks/T3_SPEC.md) · [kickoff](../cycle_04/kickoff/T3_kickoff.md)
 - **T4** (done, Codex-PASS): [contract](../cycle_04/tasks/T4_SPEC.md) · [kickoff](../cycle_04/kickoff/T4_kickoff.md)
-- **T5** (built + reviewed; **PAUSED** — camera-only backdoor non-viable, pilot negative; see D14): [contract](../cycle_04/tasks/T5_SPEC.md) · [kickoff](../cycle_04/kickoff/T5_kickoff.md)
-- **Speedup + Clean-Baseline Diagnostics** (active infra track, parallel; D14): [charter](../cycle_04/kickoff/speedup_kickoff.md)
+- **T5** (built + reviewed; **PAUSED** — camera-only backdoor non-viable, pilot negative; null uninterpretable on the undertrained/diluted checkpoint, see D14/D15): [contract](../cycle_04/tasks/T5_SPEC.md) · [kickoff](../cycle_04/kickoff/T5_kickoff.md)
+- **Speedup + Clean-Baseline Diagnostics** (**DONE** — D15/D16): `determinism-level` knob ~3×/step; overcommit a measured dead end; weak model = FL-undertraining + FedAvg dilution, not architecture; **bf16-AMP adopted as the single science regime (D16)**. [charter](../cycle_04/kickoff/speedup_kickoff.md) · [findings](../../collab/speedup/speedup_session_findings.md) · [decision](../../collab/speedup/D15_D16_decision_for_orchestrator.md)
+- **Model Capability + Recipe (MCR)** (**active** — D17; blocks T5-restart/T6/T7): raise the model (train the camera backbone, fusion/recipe/resolution), close the FedAvg-dilution gap (FedAdam, ≥30 rounds), produce the new clean **bf16-AMP** FL reference. [charter](../cycle_04/kickoff/model_capability_kickoff.md)
 
 Per-task working `SPEC.md`/`REVIEW.md` + `findings_log.md` and the templates live in `fl_v3/collab/`.
 
