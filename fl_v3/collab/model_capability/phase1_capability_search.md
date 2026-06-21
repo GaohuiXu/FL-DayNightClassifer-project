@@ -32,12 +32,18 @@ receives gradients, loss 47.5→3.6 on a fixed batch, **no NaN** (`scripts/p1_un
 
 | # | what | tier | status |
 |---|---|---|---|
-| **Exp0** | frozen Swin bf16 baseline, 15ep (control + bf16-trainval validation + profile) | A40 | **RUNNING** (job 6769660; epoch loop started, bf16 backend confirmed) |
-| **Exp1** | **unfreeze backbone** + LR groups + activation-ckpt + grad-clip, 15ep (the headline lever) | A100fat | queued next |
-| Exp2 | + LiDAR multi-sweep (1→10) | A100fat | pending Exp1 |
+| ~~Exp0~~ | ~~frozen Swin bf16 baseline~~ | — | **ABANDONED** (orchestrator: don't need a weak baseline to compare against) |
+| **Exp1** | **unfreeze backbone** + LR groups + activation-ckpt + grad-clip (the headline lever) | A100 | **BLOCKED on profiling** — no big run until per-component per-step profile + GPU-util verify + per-component optimization done (orchestrator) |
+| Exp2 | + LiDAR multi-sweep (1→10) | A100fat | pending |
 | Exp3 | + EMA + cosine+warmup schedule + longer (24–30ep) | A100fat | pending |
 | Exp4 | + image/BEV-grid resolution bump (VRAM permitting) | A100fat | pending |
 | — | combined best-recipe → the strong centralized recipe | A100fat | pending |
+
+> **PAUSED 2026-06-21 (orchestrator):** the 12–30h/run cost is the concern. Both jobs cancelled before
+> producing results. The recipe **code + config + smoke are committed and intact** (`f25d0b4`) — nothing
+> is lost; only the long runs were halted. **Open discussion:** the compute strategy for Phase 1 (run
+> budget per experiment, GPU tier, whether to use shorter/cheaper signal runs, epoch count, parallelism)
+> before relaunching any heavy job.
 
 Lever ranking (charter): unfreeze (headline) > LiDAR sweeps > resolution/BEV > schedule/EMA > fusion
 redesign. SDPA rewrite of `ShiftedWindowAttention` is a Phase-2 SPEED enabler (not a mAP lever) — deferred
