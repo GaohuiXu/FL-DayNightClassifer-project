@@ -1,0 +1,183 @@
+{
+  "device": "NVIDIA A100-SXM4-40GB",
+  "precision": "bf16",
+  "steps": 20,
+  "warmup": 6,
+  "num_workers": 4,
+  "regimes": [
+    {
+      "label": "baseline",
+      "batch_size": 16,
+      "num_workers": 4,
+      "activation_ckpt": false,
+      "use_amp": true,
+      "n_backbone_tensors": 169,
+      "n_rest_tensors": 62,
+      "mean_step_ms": 653.1,
+      "util": {
+        "util_mean": 65.7,
+        "util_p50": 82.0,
+        "util_p90": 100.0,
+        "util_max": 100.0,
+        "mem_used_max_mib": 35313.0,
+        "n": 121
+      },
+      "peak_mem_mib": 33496.0,
+      "oom": null,
+      "per_stage": {
+        "dataloader": {
+          "mean_ms": 0.33010574989020824,
+          "median_ms": 0.27280254289507866,
+          "total_ms": 6.602114997804165,
+          "n": 20,
+          "share_of_summed": 0.00039772552730934623
+        },
+        "preprocess": {
+          "mean_ms": 6.417755043366924,
+          "median_ms": 6.414557981770486,
+          "total_ms": 128.35510086733848,
+          "n": 20,
+          "share_of_summed": 0.007732385787325056
+        },
+        "camera_backbone": {
+          "mean_ms": 146.28038625814952,
+          "median_ms": 146.22083550784737,
+          "total_ms": 2925.6077251629904,
+          "n": 20,
+          "share_of_summed": 0.17624486631598388
+        },
+        "camera_neck": {
+          "mean_ms": 8.27839209814556,
+          "median_ms": 8.277734508737922,
+          "total_ms": 165.5678419629112,
+          "n": 20,
+          "share_of_summed": 0.00997416089723838
+        },
+        "view_transform": {
+          "mean_ms": 6.359288690146059,
+          "median_ms": 6.338160019367933,
+          "total_ms": 127.18577380292118,
+          "n": 20,
+          "share_of_summed": 0.007661943024142782
+        },
+        "lidar_encoder": {
+          "mean_ms": 9.132321435026824,
+          "median_ms": 9.097093483433127,
+          "total_ms": 182.6464287005365,
+          "n": 20,
+          "share_of_summed": 0.011003011488023243
+        },
+        "fusion": {
+          "mean_ms": 12.69523644587025,
+          "median_ms": 12.66394549747929,
+          "total_ms": 253.904728917405,
+          "n": 20,
+          "share_of_summed": 0.015295763892116161
+        },
+        "bev_neck": {
+          "mean_ms": 7.301611790899187,
+          "median_ms": 7.278072473127395,
+          "total_ms": 146.03223581798375,
+          "n": 20,
+          "share_of_summed": 0.008797294202568084
+        },
+        "head": {
+          "mean_ms": 2.182163792895153,
+          "median_ms": 2.1775754867121577,
+          "total_ms": 43.64327585790306,
+          "n": 20,
+          "share_of_summed": 0.0026291642768817214
+        },
+        "forward_total": {
+          "mean_ms": 199.24847425427288,
+          "median_ms": 199.26813303027302,
+          "total_ms": 3984.9694850854576,
+          "n": 20,
+          "share_of_summed": 0.24006308437438706
+        },
+        "loss": {
+          "mean_ms": 82.0504286151845,
+          "median_ms": 80.90567804174498,
+          "total_ms": 1641.00857230369,
+          "n": 20,
+          "share_of_summed": 0.09885786599532394
+        },
+        "backward": {
+          "mean_ms": 343.9343070902396,
+          "median_ms": 343.8995704636909,
+          "total_ms": 6878.686141804792,
+          "n": 20,
+          "share_of_summed": 0.4143867645223884
+        },
+        "optimizer": {
+          "mean_ms": 5.773342255270109,
+          "median_ms": 5.744602996855974,
+          "total_ms": 115.46684510540217,
+          "n": 20,
+          "share_of_summed": 0.006955969696311991
+        }
+      }
+    },
+    {
+      "label": "compile",
+      "batch_size": 16,
+      "num_workers": 4,
+      "activation_ckpt": false,
+      "use_amp": true,
+      "n_backbone_tensors": 169,
+      "n_rest_tensors": 62,
+      "mean_step_ms": 446.4,
+      "util": {
+        "util_mean": 14.4,
+        "util_p50": 0.0,
+        "util_p90": 96.0,
+        "util_max": 100.0,
+        "mem_used_max_mib": 31903.0,
+        "n": 1190
+      },
+      "peak_mem_mib": 30455.3,
+      "oom": null
+    },
+    {
+      "label": "channels_last",
+      "batch_size": 16,
+      "num_workers": 4,
+      "activation_ckpt": false,
+      "use_amp": true,
+      "n_backbone_tensors": 169,
+      "n_rest_tensors": 62,
+      "mean_step_ms": 659.5,
+      "util": {
+        "util_mean": 78.6,
+        "util_p50": 97.0,
+        "util_p90": 100.0,
+        "util_max": 100.0,
+        "mem_used_max_mib": 36105.0,
+        "n": 101
+      },
+      "peak_mem_mib": 33378.7,
+      "oom": null
+    },
+    {
+      "label": "compile+chlast",
+      "batch_size": 16,
+      "num_workers": 4,
+      "activation_ckpt": false,
+      "use_amp": true,
+      "n_backbone_tensors": 169,
+      "n_rest_tensors": 62,
+      "mean_step_ms": 451.6,
+      "util": {
+        "util_mean": 28.4,
+        "util_p50": 0.0,
+        "util_p90": 99.0,
+        "util_max": 100.0,
+        "mem_used_max_mib": 32993.0,
+        "n": 466
+      },
+      "peak_mem_mib": 30486.3,
+      "oom": null
+    }
+  ],
+  "kernel_breakdown": null
+}

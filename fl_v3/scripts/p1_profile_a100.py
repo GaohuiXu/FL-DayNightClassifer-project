@@ -182,11 +182,13 @@ def profile_regime(task, dataset, run_config, device, steps, warmup, label, inst
     if prof is not None:
         prof.attach_module_timers(model, FORWARD_STAGES)
     reset_peak_mem()
-    sampler = UtilSampler(); sampler.start()
-    it = iter(loader)
+    sampler = UtilSampler()      # started AFTER warmup so it samples only the timed steps (excludes the
+    it = iter(loader)            # GPU-idle torch.compile Inductor compilation that happens during warmup).
     wall, oom = [], None
     try:
         for s in range(warmup + steps):
+            if s == warmup:
+                sampler.start()
             if device.type == "cuda":
                 torch.cuda.synchronize()
             t0 = time.perf_counter()
@@ -328,10 +330,9 @@ def main():
         # util + peak mem; the baseline also gets the per-component teardown. compile-time is absorbed by warmup.
         base0 = dict(base); base0["det-activation-checkpoint"] = False
         base0["batch-size"] = int(base.get("batch-size", 16))
+        # channels_last dropped (measured 0.99x — neutral; the cost is Swin attention + copies, not BEV convs).
         combos = [("baseline", {}),
-                  ("compile", {"compile-backbone": True}),
-                  ("channels_last", {"det-channels-last": True}),
-                  ("compile+chlast", {"compile-backbone": True, "det-channels-last": True})]
+                  ("compile", {"compile-backbone": True})]
         for i, (name, extra) in enumerate(combos):
             cfg = dict(base0); cfg.update(extra)
             print(f"[p1-profile] opt[{name}] (batch={cfg['batch-size']}, ckpt OFF)…", flush=True)
@@ -346,6 +347,11 @@ def main():
                 if device.type == "cuda":
                     torch.cuda.empty_cache()
             _write(a.out, results)
+        # kernel breakdown of the COMPILED model — does compile fuse the Swin attention? (the SDPA decision)
+        print("[p1-profile] kernel breakdown of the COMPILED model (attention-fusion / SDPA decision)…", flush=True)
+        cfgc = dict(base0); cfgc["compile-backbone"] = True
+        results["kernel_breakdown"] = kernel_breakdown(task, dataset, cfgc, device, steps=6, warmup=14)
+        _write(a.out, results)
         print("\n===== OPT-COMPARE SUMMARY (batch 16, ckpt OFF) =====")
         b = results["regimes"][0].get("mean_step_ms")
         for r in results["regimes"]:
@@ -354,6 +360,14 @@ def main():
             print(f"[{r['label']:>14}] step={s}ms ({spd})  util_mean={u.get('util_mean')}% p90={u.get('util_p90')}% "
                   f"max={u.get('util_max')}%  peak_mem={r.get('peak_mem_mib')}MiB  oom={r.get('oom')} "
                   f"{('ERR='+r['error']) if r.get('error') else ''}")
+        kb = results.get("kernel_breakdown")
+        if kb and "top_kernels" in kb:
+            print(f"\n  COMPILED-model kernels: {kb['cuda_ms_per_step']} ms CUDA/step "
+                  f"(self CUDA {kb['total_self_cuda_ms']}ms vs self CPU {kb['total_self_cpu_ms']}ms)")
+            for k in kb["top_kernels"][:15]:
+                print(f"      {k['self_cuda_ms_total']:8.2f} ms  x{k['count']:<5} {k['kernel']}")
+        elif kb:
+            print(f"\n  compiled kernel breakdown ERROR: {kb.get('error')}")
         print(f"\n[p1-profile] wrote {a.out}")
         return 0
 
