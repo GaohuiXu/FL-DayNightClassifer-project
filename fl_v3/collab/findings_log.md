@@ -763,7 +763,7 @@ did NOT reach viability.**
   TF32 is a deterministic re-baseline (new reference checksum), not drift → TF32 scientific runs are
   UNBLOCKED. `fp32` mode is now true IEEE FP32 (both flags off) — STRICTER than torch's implicit Ampere
   default (`cudnn.allow_tf32` defaults True), so the legacy `a80466c3` (which ran convs in cuDNN-TF32)
-  is NOT reproduced by explicit-`fp32`; D14 re-baselines in `tf32` anyway. Gate JSON: `tf32_det_gate_a40.json`.
+  is NOT reproduced by explicit-`fp32`; D14 re-baselines in `tf32` anyway. Gate: re-runnable via `run_tf32_det_gate_a40.sh`.
 
 - **A (per-stage profiling) — DONE (job 6767120, A40), and it OVERTURNS the inferred "80–90% backbone".**
   Measured per training step (headline trainval config, frozen Swin-T, batch-16, FP32): mean step
@@ -776,7 +776,7 @@ did NOT reach viability.**
   A40 is the worst TF32 card, the win is real but modest, banked. (3) The real per-cell levers are now
   the **LSS view-transform (31%) + CenterPointLoss (16%)**, both memory-bound + caching-free +
   regime-independent — not the backbone. Determinism-neutral instrumentation proven by
-  `test_profiling_neutral.py` (profiling-on == off, byte-identical). Report: `A_profiling_report.md`.
+  `test_profiling_neutral.py` (profiling-on == off, byte-identical). Report: `speedup/speedup_session_findings.md` (Q1 §).
 
 - **B (config-gated server eval) — DONE, neutrality PASS (job 6767126).** Same-seed TF32 null run, eval
   `none` vs `all` → **byte-identical FL_TRAINABLE_CHECKSUM `0eed9236…911c85`** (3 rounds) → eval gating is

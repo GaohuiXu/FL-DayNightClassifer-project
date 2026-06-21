@@ -28,6 +28,7 @@ EVAL_FREQ="${EVAL_FREQ:-3}"
 EVAL_LIMIT="${EVAL_LIMIT:-500}"
 NUM_WORKERS="${NUM_WORKERS:-}"          # override dataloader workers (host-RAM lever under overcommit); empty = config default
 UTIL_SAMPLE="${UTIL_SAMPLE:-0}"         # 1 = background nvidia-smi util/mem sampler (overcommit-util measurement)
+PREWARM="${PREWARM:-0}"                 # 1 = serial inductor-cache pre-warm before FL (avoids the round-1 compile race when COMPILE=1)
 TAG="${TAG:-clean_fl_${LEVEL}_${NUMERIC_MODE}_r${ROUNDS}}"
 TRAINVAL_CACHE="${TRAINVAL_CACHE:-${PROJ_ROOT}/.claude/worktrees/infallible-feistel-d42c34/fl_outputs/nuscenes/info_cache}"
 OUT_DIR="${REPO}/fl_outputs/nuscenes/experiments/cycle_04/speedup_E"
@@ -77,6 +78,16 @@ RC="$(python fl_v3/scripts/runconfig.py "$CONFIG" "experiment-name=${TAG}" \
     "num-server-rounds=${ROUNDS}" "numeric-mode=${NUMERIC_MODE}" "determinism-level=${LEVEL}" \
     "server-eval-mode=every_n" "server-eval-frequency=${EVAL_FREQ}" "det-eval-limit=${EVAL_LIMIT}" $COMPILE_OV $NW_OV)"
 echo "run-config: ${RC}"
+# Serial inductor-cache pre-warm (D15): one process compiles + populates TORCHINDUCTOR_CACHE_DIR so the
+# FL clients only READ a complete cache on round 1 — avoids the concurrent-compile cache-race that poisoned
+# the shared cache under multi-actor runs. Only meaningful with COMPILE=1.
+if [ "${PREWARM}" = "1" ] && [ "${COMPILE:-0}" = "1" ]; then
+    echo "[clean-fl] serial cache pre-warm (1 proc, compile) -> ${TORCHINDUCTOR_CACHE_DIR}"
+    CUDA_VISIBLE_DEVICES=0 python fl_v3/scripts/profile_stages_a40.py "$CONFIG" \
+        --steps 2 --warmup 1 --client-id 0 --modes "$NUMERIC_MODE" --level "$LEVEL" --compile --fixed-batch \
+        --cache-dir "$TRAINVAL_CACHE" --out "${FLWR_HOME}/prewarm.json" > "${FLWR_HOME}/prewarm.log" 2>&1 \
+        && echo "[clean-fl] pre-warm done" || echo "[clean-fl] WARN pre-warm failed (continuing; round-1 will compile cold)"
+fi
 # Overcommit GPU-util measurement: sample all GPUs every 5s while the round runs (util is NOT additive,
 # so N/GPU util can only be measured live, not inferred from the 1-client profiler's 12%).
 UTIL_CSV="fl_v3/scripts/logs/util_${SLURM_JOB_ID:-local}.csv"

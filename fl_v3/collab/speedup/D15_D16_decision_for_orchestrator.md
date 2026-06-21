@@ -12,18 +12,28 @@
 > `numeric-mode × determinism-level → one `precision` knob`; (2) retiring the strict/tf32/checksum science
 > path; (3) re-baselining the clean references (centralized + ≥30-round FL) in bf16-AMP. The session
 > implemented + measured everything behind the `determinism-level` knob so these are mechanical when ratified.
+>
+> **Full trace + evidence + open discussion:** [`speedup_session_findings.md`](speedup_session_findings.md).
+> **Labeling note:** the fast regime is **bf16-AMP**, reached via `determinism-level=relaxed` (which turns on
+> the bf16 autocast); the `numeric-mode` knob only sets TF32 for the residual fp32 ops. So a run logged
+> `LEVEL=relaxed NUMERIC_MODE=fp32` **is bf16-AMP** — the confusing naming is exactly what D16 collapses.
 
 ## TL;DR
 
-1. **D14 diagnostics answered Q1–Q5** (see `SYNTHESIS_5questions.md`): the weak T5 was **FL-undertraining +
+1. **D14 diagnostics answered Q1–Q5** (see `speedup_session_findings.md`): the weak T5 was **FL-undertraining +
    FedAvg dilution, NOT architecture** (centralized mAP 0.36 vs FL-15 0.13 / FL-30 0.20); 15 rounds is
    undertrained → next clean reference **≥30 rounds**.
 2. **D15 speedup: a `determinism-level = strict | relaxed` knob** delivers **~3× per training step** on the
    A40 (measured), default `strict` stays byte-identical (247 tests pass). The dominant win is the LSS
-   view-transform `scatter_add` rewrite (602 → 14 ms, 42.8×) — precision-independent.
+   view-transform `scatter_add` rewrite (602 → 14 ms, 42.8×) — precision-independent. Round-level best:
+   **5.6 min/round** (A40 2/GPU = A100 1/GPU) vs 15.6 strict.
 3. **D16 (the decision to ratify): adopt bf16-AMP as the single clean precision regime; retire the
    fp32/tf32 + strict/loose multi-criteria mess; criterion becomes claim-reproducibility (no byte
    checksums) with multi-seed at T5–T7.** bf16-AMP is venue-standard and now verified to train comparably.
+4. **Overcommit is a DEAD END (measured, E1):** more clients/GPU gives ~1.0× throughput — separate processes
+   time-slice the GPU (no MPS) and the step is launch-bound. The A100's low util (12%) is *not* fixable by
+   packing clients. **The real lever is cheaper steps (CUDA graphs / `reduce-overhead` compile), not more
+   clients or bigger batch** — see the pivot in `speedup_session_findings.md` §open.
 
 ## D15 — the relaxed-determinism speedup (implemented, behind a knob)
 
@@ -123,10 +133,21 @@ node (alvis3-37) and the A40 node (alvis6-05) at **RealMemory = 249984 MB (244 G
    `torch.compile` for single-process centralized/long runs); (c) per-actor cache dirs (no race, but loses the
    cache-hit benefit). VRAM also stops being the blocker without compile.
 
-- **Net A100 verdict:** the prize is overcommit at ≥2/GPU; at 1/GPU it merely ties the A40-2/GPU. The 2/GPU
-  OOM was cache-corruption (fixable), not the node. A100fat buys nothing here (host RAM identical at 244 GB;
-  the lever is VRAM-per-client and the cache-race, not host RAM). Overcommit-util + the compile-off 4/GPU
-  round are being measured (job 6767780).
+- **Net A100 verdict (overcommit teardown DONE, job 6769136 — supersedes the earlier "prize is overcommit"
+  guess):** overcommit is a **DEAD END**. E1 (data+Ray removed) shows **~1.0× throughput across K=1→4** —
+  separate processes time-slice the GPU without MPS, and the step is launch-bound, so packing clients only
+  serializes them (rising util 10→52% is busy-fraction inflation, not work). Compounding: the dataloader is
+  starved (E2: nw=2 < one client's need; 0.60× shared-FS contention) and widening it OOMs host RAM (E3:
+  nw=4 → 10/16 killed). So at 1/GPU the A100 merely ties A40-2/GPU (5.6 min/round), and there is **no cheap
+  way to do better via overcommit.** A100fat buys nothing (host RAM identical at 244 GB). Full teardown in
+  `speedup_session_findings.md`.
+- **The pivot (recommended next speedup direction):** the A100's low util is because each step is
+  **launch/latency-bound at batch-16 with a frozen backbone** — so the lever is **cheaper steps, not more
+  clients/bigger batch**: (1) **CUDA graphs / `torch.compile(mode="reduce-overhead")`** on the forward
+  (keeps update count high — right for an undertrained model); (2) num-workers↑ + node-local data staging
+  (un-starve the pipeline at 1/GPU); (3) **training the backbone** (planned) makes the step GPU-heavy → util
+  rises on its own and the A100's 1.63×/step lands. Bigger batch trades away gradient updates (needs LR
+  scaling + more *rounds*, not local epochs) — a throughput lever, not a quality lever.
 
 ## D16 — precision + criteria cleanup (DECISION TO RATIFY)
 
