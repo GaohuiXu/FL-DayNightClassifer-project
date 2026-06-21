@@ -38,37 +38,63 @@ FORWARD_STAGES = ["preprocess", "camera_backbone", "camera_neck", "view_transfor
                   "lidar_encoder", "fusion", "bev_neck", "head"]
 
 
-class UtilSampler(threading.Thread):
-    """Background nvidia-smi sampler for the (single) allocated GPU."""
+class UtilSampler:
+    """GPU-util sampler via a STREAMING nvidia-smi subprocess read through a pipe.
 
-    def __init__(self, period: float = 0.2):
-        super().__init__(daemon=True)
-        self.period = period
+    The polling runs INSIDE nvidia-smi (``--loop-ms``); python only reads the pipe in a thread — so it
+    does NOT hang the way ``subprocess.check_output`` from a thread during CUDA activity did (the bug that
+    made the first profile report util=None). One sampler per regime → per-regime util."""
+
+    def __init__(self, period_ms: int = 200):
+        self.period_ms = period_ms
         self.samples = []          # (util_pct, mem_used_mib)
-        self._stop_evt = threading.Event()   # NOT _stop — that shadows threading.Thread._stop() (join breaks)
+        self.proc = None
+        self.thread = None
+        self._stop_evt = threading.Event()
 
-    def run(self):
-        while not self._stop_evt.is_set():
+    def start(self):
+        try:
+            self.proc = subprocess.Popen(
+                ["nvidia-smi", "--query-gpu=utilization.gpu,memory.used",
+                 "--format=csv,noheader,nounits", f"--loop-ms={self.period_ms}"],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
+            self.thread = threading.Thread(target=self._read, daemon=True)
+            self.thread.start()
+        except Exception:
+            self.proc = None
+
+    def _read(self):
+        if self.proc is None:
+            return
+        for line in self.proc.stdout:                # blocks on the pipe (no CUDA interaction → no hang)
+            if self._stop_evt.is_set():
+                break
             try:
-                out = subprocess.check_output(
-                    ["nvidia-smi", "--query-gpu=utilization.gpu,memory.used",
-                     "--format=csv,noheader,nounits"], text=True).strip().splitlines()
-                u, m = out[0].split(",")          # first (= the allocated) GPU
+                u, m = line.strip().split(",")       # 1 line/interval (job has 1 exclusive GPU)
                 self.samples.append((float(u), float(m)))
             except Exception:
                 pass
-            self._stop_evt.wait(self.period)
 
     def stop(self):
         self._stop_evt.set()
+        if self.proc is not None:
+            try:
+                self.proc.terminate(); self.proc.wait(timeout=2)
+            except Exception:
+                try:
+                    self.proc.kill()
+                except Exception:
+                    pass
 
     def report(self) -> dict:
         if not self.samples:
-            return {"util_mean": None, "util_max": None, "mem_used_max_mib": None, "n": 0}
-        us = [s[0] for s in self.samples]
+            return {"util_mean": None, "util_p50": None, "util_p90": None, "util_max": None,
+                    "mem_used_max_mib": None, "n": 0}
+        us = sorted(s[0] for s in self.samples)
         ms = [s[1] for s in self.samples]
-        return {"util_mean": round(sum(us) / len(us), 1), "util_max": max(us),
-                "mem_used_max_mib": max(ms), "n": len(us)}
+        pct = lambda p: us[min(len(us) - 1, int(p * len(us)))]
+        return {"util_mean": round(sum(us) / len(us), 1), "util_p50": pct(0.5), "util_p90": pct(0.9),
+                "util_max": max(us), "mem_used_max_mib": max(ms), "n": len(us)}
 
 
 def _make_loader(dataset, run_config):
@@ -169,7 +195,7 @@ def profile_regime(task, dataset, run_config, device, steps, warmup, label, inst
     except RuntimeError as e:
         oom = str(e).splitlines()[0][:160]
     finally:
-        sampler.stop(); sampler.join(timeout=1.0)
+        sampler.stop()
         if prof is not None:
             prof.remove_hooks()
     wall = wall[warmup:] if len(wall) > warmup else wall
@@ -316,8 +342,8 @@ def main():
     for r in results["regimes"]:
         u = r["util"]
         print(f"[{r['label']:>9}] batch={r['batch_size']} ckpt={r['activation_ckpt']} "
-              f"step={r['mean_step_ms']}ms util_mean={u['util_mean']}% util_max={u['util_max']}% "
-              f"peak_mem={r['peak_mem_mib']}MiB oom={r['oom']}")
+              f"step={r['mean_step_ms']}ms util_mean={u['util_mean']}% p50={u.get('util_p50')}% "
+              f"p90={u.get('util_p90')}% max={u['util_max']}% peak_mem={r['peak_mem_mib']}MiB oom={r['oom']}")
         if "per_stage" in r:
             for s in FORWARD_STAGES + ["dataloader", "forward_total", "loss", "backward", "optimizer"]:
                 st = r["per_stage"].get(s)

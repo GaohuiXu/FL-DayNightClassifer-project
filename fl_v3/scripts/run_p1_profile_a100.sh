@@ -37,7 +37,31 @@ nvidia-smi --query-gpu=name,compute_cap,memory.total --format=csv,noheader || tr
 [ -f "${TRAINVAL_CACHE}/nuscenes_info_v1.0-trainval_train_t1.v1.pkl" ] || { echo "[p1-profile] FATAL: trainval cache missing at ${TRAINVAL_CACHE}"; exit 3; }
 [ -f "${TORCH_HOME}/hub/checkpoints/swin_t-704ceda3.pth" ] || { echo "[p1-profile] FATAL: swin_t weights missing under TORCH_HOME"; exit 3; }
 
+# Belt-and-suspenders: a bash-level GPU-util sampler (the D15-proven approach; runs OUTSIDE python so it
+# can't be affected by the GIL/CUDA-thread issue). Gives the authoritative overall util for the run.
+UTIL_CSV="fl_v3/scripts/logs/p1_util_${SLURM_JOB_ID:-local}.csv"
+echo "ts_s,util_pct,mem_used_mib" > "$UTIL_CSV"
+( while true; do
+    nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader,nounits \
+      | head -1 | awk -v t="$SECONDS" '{print t","$0}' | tr -d ' ' >> "$UTIL_CSV"
+    sleep 1
+  done ) &
+UTIL_PID=$!
+trap 'kill "${UTIL_PID:-}" 2>/dev/null || true' EXIT
+
 python fl_v3/scripts/p1_profile_a100.py \
     --config "$CONFIG" --steps "$STEPS" --warmup "$WARMUP" --batch-sizes "$BATCH_SIZES" --out "$OUT" \
     "nuscenes-cache-dir=${TRAINVAL_CACHE}"
+
+kill "${UTIL_PID:-}" 2>/dev/null || true
+echo "===== bash-level GPU-util over the whole run (authoritative overall) ====="
+python3 -c "
+import csv
+rows=[r for r in csv.reader(open('${UTIL_CSV}'))][1:]
+u=[float(r[1]) for r in rows if len(r)>=2 and r[1].strip().replace('.','',1).isdigit()]
+if u:
+    u2=sorted(u); n=len(u2)
+    print(f'[bash-util] n={n} mean={sum(u)/n:.1f}% p50={u2[n//2]}% p90={u2[min(n-1,int(0.9*n))]}% max={max(u)}%')
+else: print('[bash-util] no samples collected')
+" || true
 echo "[p1-profile] done; elapsed ${SECONDS}s; wrote ${OUT}"
