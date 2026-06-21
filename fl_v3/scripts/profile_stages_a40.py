@@ -94,8 +94,13 @@ class UtilSampler:
         }
 
 
-def profile_regime(numeric_mode, run_config, cid, steps, warmup, device, level="strict", compile_model=False):
-    """Run (warmup+steps) real training steps under one numeric regime + determinism level."""
+def profile_regime(numeric_mode, run_config, cid, steps, warmup, device, level="strict", compile_model=False,
+                   fixed_batch=False):
+    """Run (warmup+steps) real training steps under one numeric regime + determinism level.
+
+    fixed_batch=True (E1, overcommit-ceiling diag): fetch ONE batch, move it on-device, and loop the
+    SAME tensors — the dataloader is bypassed so the measurement isolates pure GPU compute + per-step
+    launch/CPU overhead under concurrency (no data pipeline, no host->device transfer)."""
     enforce_determinism(strict=True, numeric_mode=numeric_mode, level=level)
     use_amp = (level == "relaxed") and device.type == "cuda"
     seed = int(run_config.get("seed", 42))
@@ -119,37 +124,48 @@ def profile_regime(numeric_mode, run_config, cid, steps, warmup, device, level="
 
     from fl_v3.training.loop import _unpack_batch
 
+    def _step(inputs, targets):
+        optimizer.zero_grad()
+        with prof.section("forward_total"):
+            if use_amp:
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    out = model(inputs)
+            else:
+                out = model(inputs)
+        with prof.section("loss"):
+            loss = criterion(out, targets)
+        with prof.section("backward"):
+            loss.backward()
+        with prof.section("optimizer_step"):
+            optimizer.step()
+
     total = warmup + steps
     done = 0
     with UtilSampler() as sampler:
-        while done < total:
-            it = iter(loader)
+        if fixed_batch:
+            # E1: bypass the dataloader entirely — one batch on-device, looped.
+            fixed_inputs, fixed_targets = _unpack_batch(next(iter(loader)), device)
             while done < total:
-                t0 = time.perf_counter()
-                try:
-                    batch = next(it)
-                except StopIteration:
-                    break
-                # dataloader wait recorded manually (the fetch happened above)
-                if device.type == "cuda":
-                    torch.cuda.synchronize()
-                prof.records.setdefault("dataloader_wait", []).append(time.perf_counter() - t0)
-
-                inputs, targets = _unpack_batch(batch, device)
-                optimizer.zero_grad()
-                with prof.section("forward_total"):
-                    if use_amp:
-                        with torch.autocast("cuda", dtype=torch.bfloat16):
-                            out = model(inputs)
-                    else:
-                        out = model(inputs)
-                with prof.section("loss"):
-                    loss = criterion(out, targets)
-                with prof.section("backward"):
-                    loss.backward()
-                with prof.section("optimizer_step"):
-                    optimizer.step()
+                prof.records.setdefault("dataloader_wait", []).append(0.0)
+                _step(fixed_inputs, fixed_targets)
                 done += 1
+        else:
+            while done < total:
+                it = iter(loader)
+                while done < total:
+                    t0 = time.perf_counter()
+                    try:
+                        batch = next(it)
+                    except StopIteration:
+                        break
+                    # dataloader wait recorded manually (the fetch happened above)
+                    if device.type == "cuda":
+                        torch.cuda.synchronize()
+                    prof.records.setdefault("dataloader_wait", []).append(time.perf_counter() - t0)
+
+                    inputs, targets = _unpack_batch(batch, device)
+                    _step(inputs, targets)
+                    done += 1
     prof.remove_hooks()
     util = sampler.report()
 
@@ -185,8 +201,12 @@ def main():
     ap.add_argument("--level", default="strict", choices=["strict", "relaxed"],
                     help="D15 determinism level (relaxed: cudnn.benchmark + atomics + bf16 autocast)")
     ap.add_argument("--compile", action="store_true", help="L8: torch.compile the frozen backbone")
+    ap.add_argument("--fixed-batch", action="store_true",
+                    help="E1 overcommit-ceiling: loop one on-device batch (bypass dataloader)")
     ap.add_argument("--cache-dir", default="", help="override nuscenes-cache-dir (abs path)")
     ap.add_argument("--dataroot", default="", help="override nuscenes-dataroot (abs path)")
+    ap.add_argument("--num-workers", type=int, default=-1,
+                    help="override dataloader num-workers (-1 = config default); E3 host-RAM lever")
     a = ap.parse_args()
 
     with open(a.config, encoding="utf-8") as f:
@@ -195,6 +215,8 @@ def main():
         run_config["nuscenes-cache-dir"] = a.cache_dir
     if a.dataroot:
         run_config["nuscenes-dataroot"] = a.dataroot
+    if a.num_workers >= 0:
+        run_config["num-workers"] = a.num_workers
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type != "cuda":
         print("[profile] WARNING: no CUDA — TF32 will not engage; numbers are login-node only.")
@@ -204,7 +226,8 @@ def main():
         mode = mode.strip()
         print(f"\n===== profiling regime: {mode} level={a.level} (client {a.client_id}, "
               f"{a.warmup} warmup + {a.steps} steps) =====", flush=True)
-        r = profile_regime(mode, run_config, a.client_id, a.steps, a.warmup, device, level=a.level, compile_model=a.compile)
+        r = profile_regime(mode, run_config, a.client_id, a.steps, a.warmup, device, level=a.level,
+                           compile_model=a.compile, fixed_batch=a.fixed_batch)
         results[mode] = r
         print(f"[profile] {mode}: mean_step={r['mean_step_ms']:.1f}ms  "
               f"forward={r['forward_total_ms']/r['steps_measured']:.1f}ms/step  "
