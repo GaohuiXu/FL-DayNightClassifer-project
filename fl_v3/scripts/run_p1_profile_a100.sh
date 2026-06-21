@@ -8,6 +8,7 @@
 #SBATCH -p alvis
 #SBATCH --job-name=p1_profile
 #SBATCH --gpus-per-node=A100:1
+#SBATCH --cpus-per-task=16
 #SBATCH --time=00:40:00
 #SBATCH --output=fl_v3/scripts/logs/p1_profile_%j.out
 #SBATCH --error=fl_v3/scripts/logs/p1_profile_%j.err
