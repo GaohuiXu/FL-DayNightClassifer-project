@@ -53,3 +53,22 @@ re-tuning) and still gets ~3.5× (the step is compute-bound, per-sample time is 
    same-seed mAP within the D16 seed-variance band. DDP determinism is architecture-pinned (D9), seed-band not byte.
 
 Net target: **~11.6 → ~2.5–3 min/epoch** (~4×), making the lever sweep + the eventual ≥3-seed FL runs affordable.
+
+## RESULTS — single-GPU code wins (job 6770185, 2026-06-22)
+
+The do-now stack (loss cache/batched-sync + non_blocking + fused-Adam, all byte-safe / 247 tests green) +
+BEV-stack compile, measured on A100:
+
+| config | step | vs prev | **util** | peak mem |
+|---|---:|---:|---:|---:|
+| baseline (ckpt-off) | 531 ms | 657 → 531 | **95%** | 29 GB |
+| compile+sdpa | 341 ms | 415 → 341 | 93% | 27 GB |
+| **compile+sdpa+bev** | **311 ms** | new best | **92%** | 25 GB |
+
+- **`aten::copy_` count 13,818 → 1,914** — the loss fix removed the ~12,000 per-GT-object Gaussian-patch
+  HtoDs (A4 confirmed); **util ~85% → 92–95%** (GPU now fully used — the orchestrator's goal).
+- Cumulative **793 → 311 ms = 2.55×**, **~9.1 min/epoch** (was 11.6). 5 ep ≈ 0.8 h, 15 ep ≈ 2.3 h.
+- compile-BEV (+camera_neck+fusion+bev_neck+head) added −9% (341 → 311); needs `drop_last=True` for clean
+  training (avoids a partial-batch recompile/epoch). The residual 102 ms HtoD is the IMAGE transfer (A3
+  resize-on-CPU = deferred ~17 ms).
+- **Next: DDP** (16/GPU = global 64 + scaled LR, per orchestrator) → ~3.5× → **~2.6 min/epoch**.
