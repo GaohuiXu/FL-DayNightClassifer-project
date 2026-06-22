@@ -186,10 +186,14 @@ def main():
         optimizer.load_state_dict(_os_state["optimizer"])
     grad_clip_norm = float(cfg.get("grad-clip-norm", 0.0))
 
-    if ddp:  # wrap AFTER compile + optimizer; GroupNorm/LayerNorm only (no BN) → no SyncBatchNorm needed
+    if ddp:  # wrap AFTER compile + optimizer; GroupNorm/LayerNorm only (no BN) → no SyncBatchNorm needed.
+        # static_graph=True: the model has a CONSTANT set of unused params every iteration —
+        # GeneralizedLSSFPN discards lats[0]/lats[1] when out_level=2 (feat_stride=16), so
+        # camera_neck.lateral.0/1 (+norms) never get grad. static_graph records the used set ONCE (more
+        # efficient than find_unused_parameters=True, and the recommended combo with torch.compile).
         model = torch.nn.parallel.DistributedDataParallel(
             model, device_ids=[local_rank], output_device=local_rank,
-            broadcast_buffers=True, find_unused_parameters=False, gradient_as_bucket_view=True)
+            broadcast_buffers=True, gradient_as_bucket_view=True, static_graph=True)
 
     def save_ckpt(epoch):
         # RANK-0 ONLY under DDP (all ranks hold DDP-synced identical params → one writer; a barrier first so
