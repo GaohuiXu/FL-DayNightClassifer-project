@@ -88,3 +88,24 @@ tests pass). Launcher `run_centralized_a100_ddp.sh` (A100:4, batch per-GPU → g
 - **Steady-state projection:** each rank runs the 311 ms batch-16 step + grad all-reduce (overlapped) →
   ~340 ms/step × 64 samples → **~2.5 min/epoch (~3.6×)**. Confirming via a short global-64 run (LR sqrt-
   scaled 0.006).
+
+## DDP short run — MEASURED (job 6770193, global-64, LR 0.006, 4 ep)
+
+| epoch | loss | time |
+|---|---:|---:|
+| 1 | 3.54 | 392 s (incl. compile) |
+| 2 | 2.50 | **220 s** |
+| 3 | 2.13 | **204 s** |
+| 4 | 1.95 | 436 s (transient I/O) |
+
+- **Steady ~204–220 s = ~3.5 min/epoch → ~2.5×** (not 3.6×): the full trained-backbone gradient all-reduce
+  (~28M params, ~112 MB fp32) adds ~170 ms/step (311→~480) — NOT perfectly overlapped with the compiled
+  backward (a further lever: bucket/NCCL tuning). Trains CLEAN (no NaN); global-64 @ LR 0.006 stable.
+- **mAP 0.2452 @ 4ep, car_recall 0.92, eligible_N 28,411, READY** — but BELOW the global-16 directional
+  0.34 @ 5ep. The big-batch effect: global-64 does 4× fewer optimizer updates/epoch (439 vs 1759), and
+  sqrt-LR (×2) UNDER-scales for a 4× batch → slower per-epoch convergence (charter: "raise batch → scale LR
+  AND add epochs"). Healthy curve, just behind on updates.
+
+**Recipe tradeoff (measured):** global-64 = ~3.5 min/epoch + max util but needs linear-LR(×4)+warmup to
+match per-epoch convergence + a non-comparable mAP; **global-16 under DDP (4/GPU) = directly comparable to
+the 0.34/0.36 baseline, ~3×, no LR retuning** — the cleaner choice for the matched-budget science run.
