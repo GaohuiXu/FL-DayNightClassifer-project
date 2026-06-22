@@ -30,10 +30,26 @@ receives gradients, loss 47.5→3.6 on a fixed batch, **no NaN** (`scripts/p1_un
 
 ## Experiment ladder (centralized, bf16-AMP, official mAP/NDS/car-recall/ASR-eligible per run)
 
+## Directional result (job 6769898, 2026-06-21) — unfreezing WORKS
+
+5-epoch unfrozen centralized run, locked optimized recipe (ckpt-off + SDPA + compile, bf16, A100):
+- **mAP = 0.3398, NDS = 0.3323, car_recall = 0.91, eligible_N = 28,377** at **5 epochs** — verdict READY.
+- Per-epoch loss STILL DROPPING (2.87 → 2.09 → 1.88 → 1.75 → **1.64**; ~0.10/epoch at ep5, not plateaued).
+- vs the frozen baseline (0.36 at **15** epochs): unfrozen hits 0.34 in **5** epochs and is climbing; its
+  **epoch-1 loss (2.87) is already below frozen's (3.21)** → converges faster per epoch → 15 ep should
+  clearly beat 0.36. Model is attack-credible (recall 0.91, 28k eligible cars).
+- Wall-clock: ~**11.6 min/epoch** (epoch-1 1018s incl. compile, then ~693s = 394 ms/step) — even the
+  unfrozen+optimized model is FASTER per epoch than the frozen-UNoptimized baseline (~1009s).
+- **PAUSED for a deeper optimization pass** (orchestrator: 11.6 min/epoch still too long for fast
+  iteration → DDP + a code-level gap analysis before more big runs).
+
+## Experiment ladder
+
 | # | what | tier | status |
 |---|---|---|---|
-| ~~Exp0~~ | ~~frozen Swin bf16 baseline~~ | — | **ABANDONED** (orchestrator: don't need a weak baseline to compare against) |
-| **Exp1** | **unfreeze backbone** + LR groups + activation-ckpt + grad-clip (the headline lever) | A100 | **BLOCKED on profiling** — no big run until per-component per-step profile + GPU-util verify + per-component optimization done (orchestrator) |
+| ~~Exp0~~ | ~~frozen Swin bf16 baseline~~ | — | **ABANDONED** (orchestrator: don't need a weak baseline) |
+| **Exp1** | unfreeze + LR-groups + grad-clip + ckpt-off + SDPA + compile, 5 ep | A100 | **DONE — mAP 0.34 @ 5ep, still climbing, READY** (job 6769898) |
+| Exp1b | resume → 15 ep (matched-budget confirmation vs 0.36) | A100/DDP | pending deeper-optimization decision |
 | Exp2 | + LiDAR multi-sweep (1→10) | A100fat | pending |
 | Exp3 | + EMA + cosine+warmup schedule + longer (24–30ep) | A100fat | pending |
 | Exp4 | + image/BEV-grid resolution bump (VRAM permitting) | A100fat | pending |
