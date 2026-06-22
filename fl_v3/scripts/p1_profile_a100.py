@@ -117,6 +117,13 @@ def _model_opt(task, run_config, device):
                 m.to(memory_format=torch.channels_last)
     if truthy(run_config.get("compile-backbone", False)):
         model.camera_backbone = torch.compile(model.camera_backbone)   # static-shape Swin subgraph only
+    if truthy(run_config.get("det-compile-bev", False)):
+        # static-shape BEV conv stack (A5): camera_neck + fusion + bev_neck + head. NOT view_transform
+        # (ragged LSS splat) or lidar_encoder (variable pillar count) — those stay eager.
+        model.camera_neck = torch.compile(model.camera_neck)
+        model.fusion = torch.compile(model.fusion)
+        model.bev_neck = torch.compile(model.bev_neck)
+        model.head = torch.compile(model.head)
     crit = task.build_criterion(run_config)
     base_lr = float(run_config.get("learning-rate", 3e-3))
     bb_mult = float(run_config.get("det-backbone-lr-mult", 0.1))
@@ -124,7 +131,8 @@ def _model_opt(task, run_config, device):
     rest = [p for n, p in model.named_parameters() if p.requires_grad and not n.startswith("camera_backbone.")]
     groups = ([{"params": rest, "lr": base_lr}, {"params": bb, "lr": base_lr * bb_mult}] if bb
               else [{"params": rest, "lr": base_lr}])
-    return model, crit, torch.optim.Adam(groups, lr=base_lr), len(bb), len(rest)
+    _fused = (device.type == "cuda" and not torch.backends.cudnn.deterministic)
+    return model, crit, torch.optim.Adam(groups, lr=base_lr, fused=_fused), len(bb), len(rest)
 
 
 def _free_loader(loader, it):
@@ -330,11 +338,11 @@ def main():
         # util + peak mem; the baseline also gets the per-component teardown. compile-time is absorbed by warmup.
         base0 = dict(base); base0["det-activation-checkpoint"] = False
         base0["batch-size"] = int(base.get("batch-size", 16))
-        # channels_last dropped (measured 0.99x — neutral). Now measure SDPA (Swin attention) ± compile.
+        # Code-wins re-profile: baseline (now incl. loss-fix + non_blocking + fused-Adam), the current
+        # recipe (compile+sdpa), and + BEV-stack compile coverage (A5).
         combos = [("baseline", {}),
-                  ("compile", {"compile-backbone": True}),
-                  ("sdpa", {"det-swin-sdpa": True}),
-                  ("compile+sdpa", {"compile-backbone": True, "det-swin-sdpa": True})]
+                  ("compile+sdpa", {"compile-backbone": True, "det-swin-sdpa": True}),
+                  ("compile+sdpa+bev", {"compile-backbone": True, "det-swin-sdpa": True, "det-compile-bev": True})]
         for i, (name, extra) in enumerate(combos):
             cfg = dict(base0); cfg.update(extra)
             print(f"[p1-profile] opt[{name}] (batch={cfg['batch-size']}, ckpt OFF)…", flush=True)

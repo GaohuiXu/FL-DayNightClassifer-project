@@ -22,6 +22,7 @@ cells (index gather — deterministic) and matches the **T1 canonical** paramete
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 from typing import Dict, List
 
 import torch
@@ -69,6 +70,15 @@ def gaussian_2d(radius: int, sigma_scale: float = 6.0) -> torch.Tensor:
     return g
 
 
+@lru_cache(maxsize=128)
+def _gaussian_patch(radius: int, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
+    """Cached device-resident Gaussian patch per radius (the radii are a tiny integer set). Byte-identical
+    to ``gaussian_2d(radius).to(device, dtype)`` — gaussian_2d is deterministic — but built ONCE instead of
+    rebuilt-on-CPU-and-HtoD-copied per GT object (the per-object Memcpy HtoD the profile flagged). The patch
+    is read-only in ``draw_gaussian`` (torch.maximum reads it), so the cached tensor is never mutated."""
+    return gaussian_2d(radius).to(device, dtype)
+
+
 def draw_gaussian(heatmap: torch.Tensor, col: int, row: int, radius: int) -> None:
     """In-place ``torch.maximum`` overlay of a Gaussian at ``(col,row)`` (col→W, row→H).
 
@@ -76,7 +86,7 @@ def draw_gaussian(heatmap: torch.Tensor, col: int, row: int, radius: int) -> Non
     H, W = heatmap.shape
     if radius < 0:
         return
-    g = gaussian_2d(radius).to(heatmap.device, heatmap.dtype)
+    g = _gaussian_patch(int(radius), heatmap.device, heatmap.dtype)   # cached (was rebuilt+HtoD per object)
     left, right = min(col, radius), min(W - col, radius + 1)
     top, bottom = min(row, radius), min(H - row, radius + 1)
     if right <= -left or bottom <= -top:
@@ -191,13 +201,16 @@ class CenterPointLoss(nn.Module):
 
         # heatmap: same per-GT torch.maximum overlay, but col/row/class/dims read from ONE batched
         # transfer (no per-box sync). gaussian_radius is CPU float math on the same values → same radius.
-        l_cells = (dx / cfg.head_vx).cpu().tolist()
-        w_cells = (dy / cfg.head_vy).cpu().tolist()
-        cols = coli.cpu().tolist(); rows = rowi.cpu().tolist()
-        cls = labels_k.cpu().tolist(); bs = bidx_k.cpu().tolist()
-        for k in range(len(cols)):
-            radius = max(self.min_radius, int(gaussian_radius((l_cells[k], w_cells[k]))))
-            draw_gaussian(heatmap[bs[k], cls[k]], cols[k], rows[k], radius)
+        # TWO batched D2H transfers (one float, one int) instead of six separate `.cpu()` stream-drains —
+        # identical values, identical (b,m) order → byte-identical heatmap. gaussian_radius stays Python
+        # float64 on the same values (vectorizing it in fp32 could shift the int() radius for borderline
+        # boxes → NOT byte-identical), and draw_gaussian now reuses the cached device patch (no per-box HtoD).
+        fcells = torch.stack([dx / cfg.head_vx, dy / cfg.head_vy], dim=1).cpu().tolist()   # [G,2] float
+        icells = torch.stack([coli, rowi, labels_k, bidx_k], dim=1).cpu().tolist()         # [G,4] int
+        for k in range(len(icells)):
+            col_k, row_k, cls_k, b_k = icells[k]
+            radius = max(self.min_radius, int(gaussian_radius((fcells[k][0], fcells[k][1]))))
+            draw_gaussian(heatmap[b_k, cls_k], col_k, row_k, radius)
 
         return heatmap, bidx_t, cells_t, reg_target
 

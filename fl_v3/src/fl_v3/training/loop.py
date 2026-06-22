@@ -38,7 +38,10 @@ def _move_to_device(obj: Any, device: torch.device) -> Any:
     Non-tensors (str/int identity fields in the detection batch) pass through. A bare
     tensor takes the SAME ``.to(device)`` path as the original loop (byte-identical)."""
     if torch.is_tensor(obj):
-        return obj.to(device)
+        # non_blocking overlaps the HtoD with compute when the source is pinned (the loader sets
+        # pin_memory=True). Timing-only — value-identical (incl. the fp32 byte-identity dev tool) since the
+        # tensor is consumed on-device, never read on CPU before the copy lands.
+        return obj.to(device, non_blocking=True)
     if isinstance(obj, dict):
         return {k: _move_to_device(v, device) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
@@ -161,10 +164,15 @@ def train_local(
 
     Returns final train/val loss. Adam over the trainable params only.
     """
+    # fused Adam collapses the per-tensor moment updates into one kernel (~free win on the now-non-trivial
+    # unfrozen optimizer step). NOT byte-identical (fused FMA ordering) → gated OFF under the fp32 dev tool
+    # (cudnn.deterministic) so train_local stays byte-identical for the FL/determinism gate; ON under bf16.
+    _fused = (device.type == "cuda" and not torch.backends.cudnn.deterministic)
     optimizer = torch.optim.Adam(
         [p for p in model.parameters() if p.requires_grad],
         lr=learning_rate,
         weight_decay=weight_decay,
+        fused=_fused,
     )
     final_train_loss = 0.0
     for _ in range(num_epochs):

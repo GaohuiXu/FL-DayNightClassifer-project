@@ -122,15 +122,17 @@ def main():
         if not p.requires_grad:
             continue
         (bb_params if n.startswith("camera_backbone.") else rest_params).append(p)
+    # fused Adam (bf16 only — not byte-identical; OFF under the fp32 dev tool).
+    _fused = (device.type == "cuda" and not torch.backends.cudnn.deterministic)
     if bb_params:
         optimizer = torch.optim.Adam(
             [{"params": rest_params, "lr": base_lr},
              {"params": bb_params, "lr": base_lr * bb_mult}],
-            lr=base_lr, weight_decay=wd)
+            lr=base_lr, weight_decay=wd, fused=_fused)
         print(f"[centralized] TRAINED backbone: {len(bb_params)} backbone tensors @ lr={base_lr*bb_mult:.2e} "
-              f"(mult={bb_mult}); {len(rest_params)} fusion/head tensors @ lr={base_lr:.2e}", flush=True)
+              f"(mult={bb_mult}); {len(rest_params)} fusion/head tensors @ lr={base_lr:.2e} fused_adam={_fused}", flush=True)
     else:
-        optimizer = torch.optim.Adam(rest_params, lr=base_lr, weight_decay=wd)  # frozen-backbone path (unchanged)
+        optimizer = torch.optim.Adam(rest_params, lr=base_lr, weight_decay=wd, fused=_fused)  # frozen path
     grad_clip_norm = float(cfg.get("grad-clip-norm", 0.0))
 
     exp_dir = os.path.join(args.out_dir, args.tag)
