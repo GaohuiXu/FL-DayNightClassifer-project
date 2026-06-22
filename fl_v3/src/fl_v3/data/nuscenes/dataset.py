@@ -142,17 +142,26 @@ def make_loader(
     num_workers: int = 0,
     seed: int = 42,
     collate_fn=None,
+    sampler=None,
+    drop_last: bool = False,
 ) -> DataLoader:
     """DataLoader with the seeded worker init (determinism harness).
 
     ``collate_fn`` is a **T2 deliverable** (the dict schema has ragged per-box
     tensors); T1 callers pass ``batch_size=1`` (identity collate of a singleton
     list) or a trivial list-collate for raw inspection.
-    """
+
+    ``sampler`` (MCR P2): when a ``DistributedSampler`` is passed (4-GPU DDP centralized training),
+    ``shuffle`` is forced off (sampler and shuffle are mutually exclusive); the sampler owns the per-epoch
+    shuffle (seed it with ``seed+epoch`` + ``set_epoch`` so order stays a pure function of (seed, epoch)).
+    ``drop_last`` (MCR P2): drop the partial final batch — needed when the static-shape BEV stack is
+    torch.compile'd (a partial batch would force one recompile/epoch)."""
     g = torch.Generator()
     g.manual_seed(int(seed))
     if collate_fn is None:
         collate_fn = _list_collate
+    if sampler is not None:
+        shuffle = False                       # sampler and shuffle are mutually exclusive
     # L5 (D15, value-neutral scheduling): pin_memory for faster H2D, and keep workers warm +
     # prefetch when num_workers>0. The dataset is RNG-free across workers (resize+normalize only;
     # asserted by test_two_worker_batch_equals_zero_worker), so these change timing, NOT batch content
@@ -164,10 +173,11 @@ def make_loader(
         dataset,
         batch_size=batch_size,
         shuffle=shuffle,
+        sampler=sampler,
         num_workers=num_workers,
         worker_init_fn=seeded_worker_init,
         generator=g,
-        drop_last=False,
+        drop_last=drop_last,
         collate_fn=collate_fn,
         pin_memory=torch.cuda.is_available(),
         **extra,

@@ -45,7 +45,10 @@ def main():
     ap.add_argument("--max-steps", type=int, default=0,
                     help="cap steps/epoch (0=full epoch). For smoke validation ONLY — a capped run is "
                          "NOT a scientific baseline.")
-    ap.add_argument("--compile", action="store_true", help="L8: torch.compile the frozen backbone")
+    ap.add_argument("--compile", action="store_true", help="L8: torch.compile the camera backbone")
+    ap.add_argument("--compile-bev", action="store_true",
+                    help="MCR P2: also compile the static BEV stack (camera_neck+fusion+bev_neck+head); "
+                         "forces drop_last so a partial batch can't trigger a recompile")
     ap.add_argument("overrides", nargs="*", default=[])
     args = ap.parse_args()
 
@@ -75,12 +78,30 @@ def main():
             f"[centralized] num-local-epochs={nle} != 1: the matched-budget comparison assumes 1 "
             "local epoch/round (R rounds == R epochs of exposure). Either set num-local-epochs=1 or "
             "extend this trainer to run num-local-epochs passes per 'round'. Refusing a mismatched run.")
-    device = torch.device("cuda" if (str(cfg.get("device", "cuda")) == "cuda"
-                                     and torch.cuda.is_available()) else "cpu")
+    # --- DDP (MCR P2): torchrun sets LOCAL_RANK/RANK/WORLD_SIZE → 4-GPU data-parallel. The single-GPU
+    # path (no env) is UNCHANGED (rank0/world1, no sampler, no DDP-wrap, no all-reduce) → byte-identical. ---
+    import torch.distributed as dist
+    ddp = "LOCAL_RANK" in os.environ
+    if ddp:
+        local_rank = int(os.environ["LOCAL_RANK"]); rank = int(os.environ["RANK"]); world = int(os.environ["WORLD_SIZE"])
+        torch.cuda.set_device(local_rank)
+        dist.init_process_group(backend="nccl")
+        device = torch.device("cuda", local_rank)
+    else:
+        local_rank = rank = 0; world = 1
+        device = torch.device("cuda" if (str(cfg.get("device", "cuda")) == "cuda"
+                                         and torch.cuda.is_available()) else "cpu")
+    is_main = (rank == 0)
+
+    def log(*a, **k):
+        if is_main:
+            print(*a, **k, flush=True)
+
     seed_everything(seed)
     enforce_determinism(strict=truthy(cfg.get("determinism-strict", True)), precision=precision)
-    print(f"[centralized] precision={precision} device={device} precision_state={precision_state()}",
-          flush=True)
+    log(f"[centralized] precision={precision} device={device} ddp={ddp} world={world} "
+        f"batch/gpu={cfg.get('batch-size')} global_batch={int(cfg.get('batch-size', 16)) * world} "
+        f"precision_state={precision_state()}")
 
     task = get_task("nuscenes_detection")
     # The POOLED training set = the union of the FL log-group partition's client tokens (so the
@@ -89,31 +110,60 @@ def main():
     pooled_tokens = sorted({t for toks in part["client_tokens"].values() for t in toks})
     train_split = str(cfg["nuscenes-train-split"])
     info_list, _ = task._load_info(cfg, train_split)
-    print(f"[centralized] pooled train set: {len(pooled_tokens)} keyframes "
-          f"(union of {part['num_clients']} log-group clients)", flush=True)
+    log(f"[centralized] pooled train set: {len(pooled_tokens)} keyframes "
+        f"(union of {part['num_clients']} log-group clients)")
 
     ds = NuScenesMultimodalDataset(info_list, P.get_dataroot(cfg), sample_tokens=pooled_tokens)
 
     def epoch_loader(epoch):
         # REVIEW-FIX (HIGH, det-review #1/2/4/5): build a FRESH loader each epoch seeded by (seed+epoch)
         # so the shuffle order is a pure function of (seed, epoch) — independent of where the run started.
-        # The old "build once, reuse" path advanced a single private Generator across epochs, so --resume
-        # (which rebuilds the loader fresh) replayed epoch-0's order at epoch K → resumed run != fresh run
-        # → a different trainable_checksum. Per-epoch seeding makes resume byte-identical to a fresh run.
-        return make_loader(ds, batch_size=int(cfg.get("batch-size", 16)), shuffle=True,
-                           num_workers=int(cfg.get("num-workers", 4)), seed=seed + epoch,
-                           collate_fn=detection_collate_fn)
+        # DDP (MCR P2): a DistributedSampler shards the epoch across ranks; seed it (seed+epoch) + set_epoch
+        # so the global shuffle stays a pure function of (seed, epoch). drop_last when compiling the BEV
+        # stack (no partial-batch recompile). Single-GPU: sampler=None → the original per-epoch shuffle.
+        from torch.utils.data.distributed import DistributedSampler
+        sampler = None
+        if ddp:
+            sampler = DistributedSampler(ds, num_replicas=world, rank=rank, shuffle=True,
+                                         seed=seed + epoch, drop_last=args.compile_bev)
+            sampler.set_epoch(epoch)
+        return make_loader(ds, batch_size=int(cfg.get("batch-size", 16)), shuffle=(sampler is None),
+                           sampler=sampler, num_workers=int(cfg.get("num-workers", 4)), seed=seed + epoch,
+                           collate_fn=detection_collate_fn, drop_last=args.compile_bev)
+
+    exp_dir = os.path.join(args.out_dir, args.tag)
+    os.makedirs(exp_dir, exist_ok=True)
+    ckpt_path = os.path.join(exp_dir, "final_model.pt")
+    opt_path = os.path.join(exp_dir, "optimizer.pt")
+    curve_path = os.path.join(exp_dir, "train_curve.json")
 
     model = task.build_model(cfg).to(device)
-    if args.compile:  # L8 (D15): compile the frozen backbone once (amortized over the long centralized run)
-        model.camera_backbone = torch.compile(model.camera_backbone)
-        print("[centralized] torch.compile(camera_backbone) enabled", flush=True)
     criterion = task.build_criterion(cfg)
-    # MCR Phase 1 (D17): when the camera backbone is TRAINED (det-freeze-backbone=false), the pretrained
-    # backbone wants a LOWER LR than the from-scratch fusion/head (else the high fusion LR wrecks the
-    # ImageNet features). Split into LR param groups: backbone @ lr*mult, everything else @ lr. When the
-    # backbone is FROZEN, it has no requires_grad params → `bb_params` is empty → a single flat Adam over
-    # the trainable set, BYTE-IDENTICAL to the pre-MCR frozen baseline.
+
+    # Resume loads the (prefix-stripped) checkpoint into the RAW model BEFORE compile/DDP-wrap so the keys
+    # match (compile adds '._orig_mod.', DDP adds 'module.' — both absent from the saved ckpt); the optimizer
+    # state is loaded after the optimizer is rebuilt. This also fixes a latent compile+resume key mismatch.
+    curve, start_epoch, _os_state = [], 0, None
+    if args.resume and os.path.isfile(ckpt_path) and os.path.isfile(opt_path):
+        model.load_state_dict(torch.load(ckpt_path, map_location=device), strict=True)
+        _os_state = torch.load(opt_path, map_location=device)
+        start_epoch = int(_os_state["epoch"])
+        if os.path.isfile(curve_path):
+            curve = json.load(open(curve_path))
+        log(f"[centralized] RESUMED from epoch {start_epoch}")
+
+    if args.compile:                      # static-shape Swin subgraph (amortized over the run)
+        model.camera_backbone = torch.compile(model.camera_backbone)
+    if args.compile_bev:                  # MCR P2: the static BEV conv stack (camera_neck+fusion+bev_neck+head)
+        model.camera_neck = torch.compile(model.camera_neck)
+        model.fusion = torch.compile(model.fusion)
+        model.bev_neck = torch.compile(model.bev_neck)
+        model.head = torch.compile(model.head)
+    log(f"[centralized] compile(backbone)={args.compile} compile(bev)={args.compile_bev}")
+
+    # LR param groups (backbone @ lr*mult; fusion/head @ lr) over named params BEFORE DDP-wrap so the
+    # 'camera_backbone.' prefix test still matches (DDP would prepend 'module.'). Frozen backbone →
+    # bb_params empty → flat Adam, byte-identical to the pre-MCR baseline.
     base_lr = float(cfg.get("learning-rate", 3e-3))
     wd = float(cfg.get("weight-decay", 0.0))
     bb_mult = float(cfg.get("det-backbone-lr-mult", 0.1))
@@ -122,43 +172,39 @@ def main():
         if not p.requires_grad:
             continue
         (bb_params if n.startswith("camera_backbone.") else rest_params).append(p)
-    # fused Adam (bf16 only — not byte-identical; OFF under the fp32 dev tool).
-    _fused = (device.type == "cuda" and not torch.backends.cudnn.deterministic)
+    _fused = (device.type == "cuda" and not torch.backends.cudnn.deterministic)  # fused Adam: bf16 only
     if bb_params:
         optimizer = torch.optim.Adam(
             [{"params": rest_params, "lr": base_lr},
              {"params": bb_params, "lr": base_lr * bb_mult}],
             lr=base_lr, weight_decay=wd, fused=_fused)
-        print(f"[centralized] TRAINED backbone: {len(bb_params)} backbone tensors @ lr={base_lr*bb_mult:.2e} "
-              f"(mult={bb_mult}); {len(rest_params)} fusion/head tensors @ lr={base_lr:.2e} fused_adam={_fused}", flush=True)
+        log(f"[centralized] TRAINED backbone: {len(bb_params)} backbone @ lr={base_lr*bb_mult:.2e} "
+            f"(mult={bb_mult}); {len(rest_params)} fusion/head @ lr={base_lr:.2e} fused_adam={_fused}")
     else:
         optimizer = torch.optim.Adam(rest_params, lr=base_lr, weight_decay=wd, fused=_fused)  # frozen path
+    if _os_state is not None:
+        optimizer.load_state_dict(_os_state["optimizer"])
     grad_clip_norm = float(cfg.get("grad-clip-norm", 0.0))
 
-    exp_dir = os.path.join(args.out_dir, args.tag)
-    os.makedirs(exp_dir, exist_ok=True)
-    ckpt_path = os.path.join(exp_dir, "final_model.pt")
-    opt_path = os.path.join(exp_dir, "optimizer.pt")
-    curve_path = os.path.join(exp_dir, "train_curve.json")
-    curve = []
-    start_epoch = 0
-    if args.resume and os.path.isfile(ckpt_path) and os.path.isfile(opt_path):
-        model.load_state_dict(torch.load(ckpt_path, map_location=device), strict=True)
-        os_state = torch.load(opt_path, map_location=device)
-        optimizer.load_state_dict(os_state["optimizer"])
-        start_epoch = int(os_state["epoch"])
-        if os.path.isfile(curve_path):
-            curve = json.load(open(curve_path))
-        print(f"[centralized] RESUMED from epoch {start_epoch}", flush=True)
+    if ddp:  # wrap AFTER compile + optimizer; GroupNorm/LayerNorm only (no BN) → no SyncBatchNorm needed
+        model = torch.nn.parallel.DistributedDataParallel(
+            model, device_ids=[local_rank], output_device=local_rank,
+            broadcast_buffers=True, find_unused_parameters=False, gradient_as_bucket_view=True)
 
     def save_ckpt(epoch):
-        # torch.compile wraps the module → state_dict keys gain a "._orig_mod." segment. Strip it so the
-        # saved checkpoint loads strict=True into a NON-compiled model (the readiness eval). No-op when
-        # not compiled. (Trainable-only checksum below is unaffected — the frozen backbone isn't in it.)
-        full = {k.replace("._orig_mod.", "."): v for k, v in model.state_dict().items()}
+        # RANK-0 ONLY under DDP (all ranks hold DDP-synced identical params → one writer; a barrier first so
+        # no rank races ahead into the next epoch's sampler reseed). Unwrap DDP (.module) AND strip the
+        # compile '._orig_mod.' + DDP 'module.' prefixes so the ckpt loads strict=True into a bare model
+        # (the readiness eval). The trainable checksum is over VALUES → name-prefix-independent.
+        if ddp:
+            dist.barrier()
+        if not is_main:
+            return None
+        core = model.module if ddp else model
+        full = {k.replace("module.", "", 1).replace("._orig_mod.", "."): v for k, v in core.state_dict().items()}
         torch.save(full, ckpt_path)
         torch.save({"optimizer": optimizer.state_dict(), "epoch": epoch}, opt_path)
-        arrs = [v.detach().cpu().numpy() for v in trainable_state_dict(model).values()]
+        arrs = [v.detach().cpu().numpy() for v in trainable_state_dict(core).values()]
         chk = numpy_state_checksum(arrs)
         with open(os.path.join(exp_dir, "trainable_checksum.txt"), "w") as f:
             f.write(chk + "\n")
@@ -183,42 +229,33 @@ def main():
         json.dump(prov, open(os.path.join(exp_dir, "provenance.json"), "w"), indent=2, sort_keys=True)
         return chk
 
-    print(f"===== centralized training: {args.epochs} epochs (matched to {args.epochs}-round FL) =====",
-          flush=True)
-    def _capped_epoch(loader, max_steps):
-        """Smoke-only capped epoch (mirrors train_one_epoch but breaks early); NOT a scientific run."""
-        model.train()
-        total_loss, total_n, steps = 0.0, 0, 0
-        for batch in loader:
-            inputs, targets = _unpack_batch(batch, device)
-            optimizer.zero_grad()
-            loss = criterion(model(inputs), targets)
-            loss.backward(); optimizer.step()
-            bs = _batch_size(targets)
-            total_loss += float(loss.item()) * bs; total_n += bs; steps += 1
-            if steps >= max_steps:
-                break
-        return {"loss": total_loss / total_n if total_n else 0.0, "num_samples": float(total_n)}
-
+    log(f"===== centralized training: {args.epochs} epochs (matched to {args.epochs}-round FL) =====")
     for epoch in range(start_epoch, args.epochs):
         t0 = time.perf_counter()
         seed_everything(seed + epoch)        # global-RNG per-epoch seed (any forward-side RNG)
-        loader = epoch_loader(epoch)         # per-epoch loader seeded (seed+epoch) → resume-byte-identical
-        m = (_capped_epoch(loader, args.max_steps) if args.max_steps > 0
-             else train_one_epoch(model, loader, criterion, optimizer, device,
-                                  grad_clip_norm=grad_clip_norm))
+        loader = epoch_loader(epoch)         # per-epoch loader seeded (seed+epoch) → resume-reproducible
+        m = train_one_epoch(model, loader, criterion, optimizer, device,
+                            grad_clip_norm=grad_clip_norm, max_steps=args.max_steps)   # max_steps=0 → full epoch
+        if ddp:  # global mean loss for the logged curve (each rank trained on 1/world of the epoch)
+            tt = torch.tensor([m["loss"] * m["num_samples"], m["num_samples"]], device=device, dtype=torch.float64)
+            dist.all_reduce(tt, op=dist.ReduceOp.SUM)
+            m = {"loss": float(tt[0] / tt[1]) if float(tt[1]) > 0 else 0.0, "num_samples": float(tt[1])}
         dt = time.perf_counter() - t0
         chk = save_ckpt(epoch + 1)
-        rec = {"epoch": epoch + 1, "train_loss": float(m["loss"]),
-               "num_samples": int(m["num_samples"]), "seconds": dt, "checksum": chk}
-        curve.append(rec)
-        json.dump(curve, open(curve_path, "w"), indent=2)
-        print(f"[centralized] epoch {epoch+1}/{args.epochs} loss={m['loss']:.5f} "
-              f"n={int(m['num_samples'])} time={dt:.0f}s checksum={chk[:16]}", flush=True)
+        if is_main:
+            rec = {"epoch": epoch + 1, "train_loss": float(m["loss"]),
+                   "num_samples": int(m["num_samples"]), "seconds": dt, "checksum": chk}
+            curve.append(rec)
+            json.dump(curve, open(curve_path, "w"), indent=2)
+            log(f"[centralized] epoch {epoch+1}/{args.epochs} loss={m['loss']:.5f} "
+                f"n={int(m['num_samples'])} time={dt:.0f}s checksum={(chk or '')[:16]}")
 
-    print(f"[centralized] DONE — checkpoint {ckpt_path}", flush=True)
-    print(f"[centralized] FL_TRAINABLE_CHECKSUM = {open(os.path.join(exp_dir,'trainable_checksum.txt')).read().strip()}",
-          flush=True)
+    log(f"[centralized] DONE — checkpoint {ckpt_path}")
+    if is_main:
+        log(f"[centralized] FL_TRAINABLE_CHECKSUM = "
+            f"{open(os.path.join(exp_dir,'trainable_checksum.txt')).read().strip()}")
+    if ddp:
+        dist.destroy_process_group()
 
 
 if __name__ == "__main__":

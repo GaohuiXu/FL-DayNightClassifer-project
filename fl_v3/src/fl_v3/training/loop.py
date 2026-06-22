@@ -99,6 +99,7 @@ def train_one_epoch(
     grad_clip_norm: float = 0.0,
     scheduler: Optional[Any] = None,
     ema_model: Optional[Any] = None,
+    max_steps: int = 0,
 ) -> Dict[str, float]:
     """One epoch of training with the injected criterion (tensor or dict batch).
 
@@ -147,6 +148,8 @@ def train_one_epoch(
         bs = _batch_size(targets)
         loss_sum += loss.detach().double() * bs
         total_n += int(bs)
+        if max_steps and (total_n // max(bs, 1)) >= max_steps:
+            break                              # smoke cap (default 0 = full epoch ⇒ byte-identical)
     return {"loss": float(loss_sum.item()) / total_n if total_n else 0.0, "num_samples": float(total_n)}
 
 
