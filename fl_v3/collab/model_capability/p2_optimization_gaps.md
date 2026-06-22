@@ -72,3 +72,19 @@ BEV-stack compile, measured on A100:
   training (avoids a partial-batch recompile/epoch). The residual 102 ms HtoD is the IMAGE transfer (A3
   resize-on-CPU = deferred ~17 ms).
 - **Next: DDP** (16/GPU = global 64 + scaled LR, per orchestrator) → ~3.5× → **~2.6 min/epoch**.
+
+## DDP — implemented + VALIDATED (jobs 6770189→6770190, 2026-06-22)
+
+4-GPU torchrun DDP in `centralized_train.py` (gated on `LOCAL_RANK`; single-GPU path byte-identical, 247
+tests pass). Launcher `run_centralized_a100_ddp.sh` (A100:4, batch per-GPU → global 64).
+- **First smoke FAILED** — `find_unused_parameters=False` errored: `camera_neck.lateral.0/1` (+norms) never
+  get grad (GeneralizedLSSFPN discards `lats[0]/lats[1]` at `out_level=2`/feat_stride=16). The unused set
+  is CONSTANT → **`static_graph=True`** (more efficient than `find_unused_parameters=True`; recommended
+  with `torch.compile`). Also fixed a latent compile+resume key mismatch (resume loads the stripped ckpt
+  into the RAW model before compile/DDP-wrap).
+- **Second smoke PASSED** — `ddp=True world=4 global_batch=64`, finite loss, `n=1280` (20×64 → all-reduce
+  + sharding correct), rank-0 ckpt+checksum saved; compile + SDPA + compile-bev all compose under DDP.
+  (The 20-step smoke's wall-time is compile-dominated — steady-state speedup comes from the first real epoch.)
+- **Steady-state projection:** each rank runs the 311 ms batch-16 step + grad all-reduce (overlapped) →
+  ~340 ms/step × 64 samples → **~2.5 min/epoch (~3.6×)**. Confirming via a short global-64 run (LR sqrt-
+  scaled 0.006).
