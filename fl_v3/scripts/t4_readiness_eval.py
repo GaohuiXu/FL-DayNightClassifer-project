@@ -70,7 +70,8 @@ def _subset_loader(run_config, val_info, tokens):
     from fl_v3.data.nuscenes import paths as P
     from fl_v3.models.fusion.collate import detection_collate_fn
 
-    ds = NuScenesMultimodalDataset(val_info, P.get_dataroot(run_config), sample_tokens=sorted(tokens))
+    ds = NuScenesMultimodalDataset(val_info, P.get_dataroot(run_config), sample_tokens=sorted(tokens),
+                                   n_sweeps=int(run_config.get("det-lidar-sweeps", 1)))
     return make_loader(ds, batch_size=int(run_config.get("batch-size", 16)), shuffle=False,
                        num_workers=int(run_config.get("num-workers", 4)),
                        seed=int(run_config.get("seed", 42)), collate_fn=detection_collate_fn)
@@ -207,6 +208,11 @@ def main() -> None:
                              all_eval_tokens=all_tokens, run_config=cfg, verbose=False)
     print(f"[t4-readiness] OFFICIAL mAP={det['mAP']:.4f} NDS={det['NDS']:.4f} "
           f"car_recall={det['car_recall']:.4f} car_AP@2m={det['car_ap_2m']:.4f}", flush=True)
+    # Per-class AP table (mean over the 4 center-distance thresholds) — surfaces WHERE the 10-class mean
+    # leaks (the rare/small classes), so the lever priority (CBGS/aug/finer-voxel) can be read directly.
+    _pcap = det.get("per_class_mean_ap", {})
+    print("[t4-readiness] per-class AP: " +
+          " ".join(f"{c}={_pcap.get(c, 0.0):.3f}" for c in DETECTION_NAMES), flush=True)
 
     # --- 2. GT-as-pred sanity at trainval scale (optional) ---
     gt_sanity = None
@@ -281,6 +287,10 @@ def main() -> None:
         "official_clean_car_recall": car_recall,
         "car_ap_2m": det["car_ap_2m"],
         "car_mean_ap": det["car_mean_ap"],
+        "per_class_mean_ap": det.get("per_class_mean_ap"),
+        "label_aps": det.get("label_aps"),
+        "decode_score_threshold": float(cfg.get("det-score-threshold", 0.1)),
+        "decode_max_objects": int(cfg.get("det-max-objects", 200)),
         "eligible_count": eligible_count,
         "pinned_floors": {"N_min": thr.n_min, "recall_floor": thr.recall_floor,
                           "tau_pts": thr.tau_pts, "tau_clean": thr.tau_clean,
@@ -343,7 +353,8 @@ def _render_v4(args, cfg, val_info, subset, decodes, thr) -> None:
         if not sample_tokens:
             return
         by_token = {d.sample_token: d for d in decodes}
-        ds = NuScenesMultimodalDataset(val_info, P.get_dataroot(cfg), sample_tokens=sample_tokens)
+        ds = NuScenesMultimodalDataset(val_info, P.get_dataroot(cfg), sample_tokens=sample_tokens,
+                                       n_sweeps=int(cfg.get("det-lidar-sweeps", 1)))
         writer = VizWriter(args.output_dir)
         for i in range(len(ds)):
             samp = ds[i]

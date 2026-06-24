@@ -49,10 +49,15 @@ def main():
     ap.add_argument("--compile-bev", action="store_true",
                     help="MCR P2: also compile the static BEV stack (camera_neck+fusion+bev_neck+head); "
                          "forces drop_last so a partial batch can't trigger a recompile")
+    ap.add_argument("--snapshot-epochs", default="",
+                    help="comma-sep epochs at which to ALSO save a self-contained EMA snapshot "
+                         "(<exp_dir>/ema_ep<N>/) for a post-hoc convergence-curve eval; the per-epoch "
+                         "final_model.pt is overwritten, these are kept.")
     ap.add_argument("overrides", nargs="*", default=[])
     args = ap.parse_args()
+    snap_epochs = {int(x) for x in args.snapshot_epochs.split(",") if x.strip()}
 
-    from fl_v3.training.tasks import get_task, trainable_state_dict
+    from fl_v3.training.tasks import get_task, trainable_state_dict, _aug_from_run
     from fl_v3.training.loop import train_one_epoch, _unpack_batch, _batch_size
     from fl_v3.engine.local_runner import numpy_state_checksum
     from fl_v3.data.nuscenes.dataset import NuScenesMultimodalDataset, make_loader
@@ -113,7 +118,11 @@ def main():
     log(f"[centralized] pooled train set: {len(pooled_tokens)} keyframes "
         f"(union of {part['num_clients']} log-group clients)")
 
-    ds = NuScenesMultimodalDataset(info_list, P.get_dataroot(cfg), sample_tokens=pooled_tokens)
+    _aug = _aug_from_run(cfg)
+    ds = NuScenesMultimodalDataset(info_list, P.get_dataroot(cfg), sample_tokens=pooled_tokens,
+                                   n_sweeps=int(cfg.get("det-lidar-sweeps", 1)), augment=_aug)
+    if _aug is not None:
+        log(f"[centralized] BEV aug ON: {_aug}")
 
     def epoch_loader(epoch):
         # REVIEW-FIX (HIGH, det-review #1/2/4/5): build a FRESH loader each epoch seeded by (seed+epoch)
@@ -152,6 +161,20 @@ def main():
             curve = json.load(open(curve_path))
         log(f"[centralized] RESUMED from epoch {start_epoch}")
 
+    # MCR Phase-1 Exp3 (all default-off ⇒ baseline byte-identical): build the EMA tracker from the BARE
+    # model BEFORE compile/DDP — a clean deep copy whose .parameters() order matches the wrapped model's,
+    # so the loop's per-step ema_model.update_parameters(model) stays aligned and the saved EMA weights
+    # load strict=True into a bare eval model (no module./_orig_mod. prefixes). use_buffers=False keeps the
+    # constant grid/frustum buffers at their (static) values.
+    ema_decay = float(cfg.get("det-ema-decay", 0.0))
+    ema_model = None
+    if ema_decay and ema_decay > 0:
+        from torch.optim.swa_utils import AveragedModel
+        def _ema_avg(avg_p, new_p, _n, _d=ema_decay):
+            return _d * avg_p + (1.0 - _d) * new_p
+        ema_model = AveragedModel(model, avg_fn=_ema_avg, use_buffers=False)
+        log(f"[centralized] EMA enabled (decay={ema_decay}) — saved to <tag>/ema/final_model.pt")
+
     if args.compile:                      # static-shape Swin subgraph (amortized over the run)
         model.camera_backbone = torch.compile(model.camera_backbone)
     if args.compile_bev:                  # MCR P2: the static BEV conv stack (camera_neck+fusion+bev_neck+head)
@@ -159,6 +182,8 @@ def main():
         model.fusion = torch.compile(model.fusion)
         model.bev_neck = torch.compile(model.bev_neck)
         model.head = torch.compile(model.head)
+        if getattr(model, "lidar_backbone", None) is not None:   # MCR P1: static 256²/512² shapes → compiles clean
+            model.lidar_backbone = torch.compile(model.lidar_backbone)
     log(f"[centralized] compile(backbone)={args.compile} compile(bev)={args.compile_bev}")
 
     # LR param groups (backbone @ lr*mult; fusion/head @ lr) over named params BEFORE DDP-wrap so the
@@ -172,19 +197,42 @@ def main():
         if not p.requires_grad:
             continue
         (bb_params if n.startswith("camera_backbone.") else rest_params).append(p)
-    _fused = (device.type == "cuda" and not torch.backends.cudnn.deterministic)  # fused Adam: bf16 only
+    _fused = (device.type == "cuda" and not torch.backends.cudnn.deterministic)  # fused Adam/AdamW: bf16 only
+    # Exp3: Adam (default ⇒ baseline-identical) | AdamW (decoupled weight-decay — the correct WD vehicle,
+    # still the Adam family per the reproduction-fidelity decision). Same args + fused path.
+    opt_name = str(cfg.get("det-optimizer", "adam")).lower()
+    OptCls = torch.optim.AdamW if opt_name == "adamw" else torch.optim.Adam
     if bb_params:
-        optimizer = torch.optim.Adam(
+        optimizer = OptCls(
             [{"params": rest_params, "lr": base_lr},
              {"params": bb_params, "lr": base_lr * bb_mult}],
             lr=base_lr, weight_decay=wd, fused=_fused)
-        log(f"[centralized] TRAINED backbone: {len(bb_params)} backbone @ lr={base_lr*bb_mult:.2e} "
-            f"(mult={bb_mult}); {len(rest_params)} fusion/head @ lr={base_lr:.2e} fused_adam={_fused}")
+        log(f"[centralized] TRAINED backbone ({opt_name}): {len(bb_params)} backbone @ lr={base_lr*bb_mult:.2e} "
+            f"(mult={bb_mult}); {len(rest_params)} fusion/head @ lr={base_lr:.2e} wd={wd} fused={_fused}")
     else:
-        optimizer = torch.optim.Adam(rest_params, lr=base_lr, weight_decay=wd, fused=_fused)  # frozen path
+        optimizer = OptCls(rest_params, lr=base_lr, weight_decay=wd, fused=_fused)  # frozen path
     if _os_state is not None:
         optimizer.load_state_dict(_os_state["optimizer"])
     grad_clip_norm = float(cfg.get("grad-clip-norm", 0.0))
+
+    # Exp3: per-step LR schedule (default 'none' ⇒ flat LR, baseline-identical). 'onecycle' = warmup ramp
+    # (pct_start) → cosine decay, peaking at the per-group base LRs; total_steps spans the WHOLE run so the
+    # cosine tail lands at the final epoch. loop.train_one_epoch steps it once per optimizer step.
+    sched = None
+    sched_name = str(cfg.get("lr-schedule", "none")).lower()
+    if sched_name == "onecycle":
+        _spe = len(epoch_loader(start_epoch))
+        steps_per_epoch = min(args.max_steps, _spe) if args.max_steps else _spe
+        total_steps = max(1, (args.epochs - start_epoch) * steps_per_epoch)
+        max_lrs = [base_lr, base_lr * bb_mult] if bb_params else [base_lr]
+        warmup_frac = float(cfg.get("lr-warmup-frac", 0.15))
+        sched = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer, max_lr=max_lrs, total_steps=total_steps, pct_start=warmup_frac,
+            anneal_strategy="cos", div_factor=10.0, final_div_factor=100.0)
+        log(f"[centralized] OneCycleLR: total_steps={total_steps} "
+            f"(spe={steps_per_epoch}×{args.epochs-start_epoch}) pct_start={warmup_frac} max_lr={max_lrs}")
+        if _os_state is not None and _os_state.get("scheduler") is not None:
+            sched.load_state_dict(_os_state["scheduler"])
 
     if ddp:  # wrap AFTER compile + optimizer; GroupNorm/LayerNorm only (no BN) → no SyncBatchNorm needed.
         # static_graph=True: the model has a CONSTANT set of unused params every iteration —
@@ -207,7 +255,8 @@ def main():
         core = model.module if ddp else model
         full = {k.replace("module.", "", 1).replace("._orig_mod.", "."): v for k, v in core.state_dict().items()}
         torch.save(full, ckpt_path)
-        torch.save({"optimizer": optimizer.state_dict(), "epoch": epoch}, opt_path)
+        torch.save({"optimizer": optimizer.state_dict(), "epoch": epoch,
+                    "scheduler": (sched.state_dict() if sched is not None else None)}, opt_path)
         arrs = [v.detach().cpu().numpy() for v in trainable_state_dict(core).values()]
         chk = numpy_state_checksum(arrs)
         with open(os.path.join(exp_dir, "trainable_checksum.txt"), "w") as f:
@@ -223,6 +272,10 @@ def main():
             "det-camera-backbone": cfg.get("det-camera-backbone"), "seed": seed,
             "batch-size": cfg.get("batch-size"), "learning-rate": cfg.get("learning-rate"),
             "num-local-epochs": nle,
+            # Exp3 recipe knobs (recorded for the lever→mAP attribution table)
+            "det-optimizer": opt_name, "weight-decay": wd, "lr-schedule": sched_name,
+            "lr-warmup-frac": cfg.get("lr-warmup-frac") if sched_name != "none" else None,
+            "det-ema-decay": ema_decay, "det-backbone-lr-mult": bb_mult,
             "FL_TRAINABLE_CHECKSUM": chk, "tag": args.tag,
             # Matched-budget caveat (det-review): vs FL this differs by (a) NO cross-client FedAvg
             # averaging AND (b) ONE Adam optimizer kept warm across epochs (FL rebuilds Adam per
@@ -231,6 +284,30 @@ def main():
             "matched_budget_note": "epochs==rounds at 1 local-epoch/round; warm-Adam vs FL per-round reset",
         }
         json.dump(prov, open(os.path.join(exp_dir, "provenance.json"), "w"), indent=2, sort_keys=True)
+        # Exp3: persist the EMA weights as a SELF-CONTAINED eval checkpoint in <exp_dir>/ema/ (own
+        # checksum + provenance so t4_readiness_eval's checksum + precision-regime checks pass on it
+        # directly). ema_model.module is the bare deep copy → state_dict keys are already prefix-free.
+        if ema_model is not None:
+            ema_dir = os.path.join(exp_dir, "ema")
+            os.makedirs(ema_dir, exist_ok=True)
+            ecore = ema_model.module
+            efull = {k.replace("._orig_mod.", "."): v for k, v in ecore.state_dict().items()}
+            torch.save(efull, os.path.join(ema_dir, "final_model.pt"))
+            earrs = [v.detach().cpu().numpy() for v in trainable_state_dict(ecore).values()]
+            echk = numpy_state_checksum(earrs)
+            with open(os.path.join(ema_dir, "trainable_checksum.txt"), "w") as f:
+                f.write(echk + "\n")
+            eprov = dict(prov)
+            eprov.update({"weights": "ema", "ema_decay": ema_decay, "FL_TRAINABLE_CHECKSUM": echk})
+            json.dump(eprov, open(os.path.join(ema_dir, "provenance.json"), "w"), indent=2, sort_keys=True)
+            # Milestone snapshot (convergence-curve diagnostic): a kept, self-contained EMA eval target.
+            if epoch in snap_epochs:
+                snap_dir = os.path.join(exp_dir, f"ema_ep{epoch}")
+                os.makedirs(snap_dir, exist_ok=True)
+                torch.save(efull, os.path.join(snap_dir, "final_model.pt"))
+                with open(os.path.join(snap_dir, "trainable_checksum.txt"), "w") as f:
+                    f.write(echk + "\n")
+                json.dump(eprov, open(os.path.join(snap_dir, "provenance.json"), "w"), indent=2, sort_keys=True)
         return chk
 
     log(f"===== centralized training: {args.epochs} epochs (matched to {args.epochs}-round FL) =====")
@@ -239,7 +316,8 @@ def main():
         seed_everything(seed + epoch)        # global-RNG per-epoch seed (any forward-side RNG)
         loader = epoch_loader(epoch)         # per-epoch loader seeded (seed+epoch) → resume-reproducible
         m = train_one_epoch(model, loader, criterion, optimizer, device,
-                            grad_clip_norm=grad_clip_norm, max_steps=args.max_steps)   # max_steps=0 → full epoch
+                            grad_clip_norm=grad_clip_norm, scheduler=sched, ema_model=ema_model,
+                            max_steps=args.max_steps)   # max_steps=0 → full epoch; sched/ema None ⇒ baseline-identical
         if ddp:  # global mean loss for the logged curve (each rank trained on 1/world of the epoch)
             tt = torch.tensor([m["loss"] * m["num_samples"], m["num_samples"]], device=device, dtype=torch.float64)
             dist.all_reduce(tt, op=dist.ReduceOp.SUM)

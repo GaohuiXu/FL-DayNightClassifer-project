@@ -32,6 +32,7 @@ from fl_v3.models.fusion.camera_backbone import CameraBackbone
 from fl_v3.models.fusion.camera_neck import GeneralizedLSSFPN
 from fl_v3.models.fusion.view_transform import DepthLSSTransform
 from fl_v3.models.fusion.lidar_encoder import PointPillarsEncoder
+from fl_v3.models.fusion.lidar_backbone import LidarBackbone2D
 from fl_v3.models.fusion.fusion import ConvFuser
 from fl_v3.models.fusion.bev_neck import SecondFPNNeck
 from fl_v3.models.fusion.head import CenterPointHead
@@ -54,6 +55,11 @@ class DetectorConfig:
     lidar_channels: int = 64
     max_points_per_pillar: int = 32
     max_pillars: int = 30000
+    lidar_sweeps: int = 1                 # MCR P1: >1 ⇒ multi-sweep input (+dt channel in the PFN)
+    lidar_backbone: bool = False          # MCR P1 capacity lever: dense 2D conv LiDAR backbone (default OFF)
+    lidar_backbone_out: int = 128         # backbone Cout → widens ConvFuser.lidar_channels when ON
+    lidar_backbone_checkpoint: bool = False  # activation-checkpoint the stages (for the 0.2m/512² leg)
+    lidar_backbone_stages: int = 3        # down-stages; 4 adds an H/8 level (large-object RF at 0.2m)
     fusion_channels: int = 128
     bev_neck_channels: int = 256
     head_channels: int = 64
@@ -95,10 +101,20 @@ class BEVFusionDetector(nn.Module):
             max_points=c.max_points_per_pillar,
             max_pillars=c.max_pillars,
             cfg=c.bev,
+            use_timestamp=(c.lidar_sweeps > 1),
         )
+        # MCR P1 capacity lever (default OFF ⇒ None ⇒ byte-identical): dense 2D conv backbone on the
+        # scattered pillar BEV BEFORE fusion — gives the LiDAR branch the receptive field the PFN lacks.
+        self.lidar_backbone = (
+            LidarBackbone2D(in_channels=c.lidar_channels, out_channels=c.lidar_backbone_out,
+                            activation_checkpoint=c.lidar_backbone_checkpoint,
+                            num_stages=c.lidar_backbone_stages)
+            if c.lidar_backbone else None)
+        # When the backbone is ON it widens the LiDAR feature into the fuser; OFF keeps lidar_channels=64
+        # ⇒ ConvFuser in_channels unchanged ⇒ fusion byte-identical to the pre-backbone baseline.
         self.fusion = ConvFuser(
             camera_channels=c.context_channels,
-            lidar_channels=c.lidar_channels,
+            lidar_channels=(c.lidar_backbone_out if c.lidar_backbone else c.lidar_channels),
             out_channels=c.fusion_channels,
         )
         self.bev_neck = SecondFPNNeck(
@@ -123,6 +139,8 @@ class BEVFusionDetector(nn.Module):
         vt = self.view_transform(camfeat, pre["lidar2img"], B, N)
         camera_bev = vt["bev"]                     # [B, Cc, ny, nx]
         lidar_bev = self.lidar_encoder(batch["lidar_points"], B)  # [B, Cl, ny, nx]
+        if self.lidar_backbone is not None:                       # MCR P1: dense pre-fusion LiDAR conv backbone
+            lidar_bev = self.lidar_backbone(lidar_bev)            # [B, Cout, ny, nx]
         fused = self.fusion(camera_bev, lidar_bev)
         neck = self.bev_neck(fused)
         out = self.head(neck)
@@ -196,6 +214,8 @@ class BEVFusionDetector(nn.Module):
             "bev_neck": self.bev_neck,
             "head": self.head,
         }
+        if self.lidar_backbone is not None:           # guarded: keeps Q2-dilution accounting complete when ON
+            modules["lidar_backbone"] = self.lidar_backbone
         table = {}
         for name, m in modules.items():
             total = sum(p.numel() for p in m.parameters())

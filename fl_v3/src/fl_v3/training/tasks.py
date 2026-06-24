@@ -345,6 +345,11 @@ def _det_config_from_run(run_config: dict):
         lidar_channels=int(run_config.get("det-lidar-channels", 64)),
         max_points_per_pillar=int(run_config.get("det-max-points-per-pillar", 32)),
         max_pillars=int(run_config.get("det-max-pillars", 30000)),
+        lidar_sweeps=int(run_config.get("det-lidar-sweeps", 1)),
+        lidar_backbone=truthy(run_config.get("det-lidar-backbone", False)),
+        lidar_backbone_out=int(run_config.get("det-lidar-backbone-out", 128)),
+        lidar_backbone_checkpoint=truthy(run_config.get("det-lidar-backbone-checkpoint", False)),
+        lidar_backbone_stages=int(run_config.get("det-lidar-backbone-stages", 3)),
         fusion_channels=int(run_config.get("det-fusion-channels", 128)),
         bev_neck_channels=int(run_config.get("det-bev-neck-channels", 256)),
         head_channels=int(run_config.get("det-head-channels", 64)),
@@ -353,6 +358,22 @@ def _det_config_from_run(run_config: dict):
         score_threshold=float(run_config.get("det-score-threshold", 0.1)),
         bev=bev,
     )
+
+
+def _aug_from_run(run_config: dict):
+    """BEV/3D aug params dict from the flat run_config, or None if disabled (the overfitting fix).
+
+    TRAIN-ONLY — callers must pass this only to the training dataset; eval stays clean (None)."""
+    if not truthy(run_config.get("det-aug-bev", False)):
+        return None
+    return {
+        "rot": float(run_config.get("det-aug-rot", 0.785398)),
+        "scale": (float(run_config.get("det-aug-scale-min", 0.9)),
+                  float(run_config.get("det-aug-scale-max", 1.1))),
+        "translate": float(run_config.get("det-aug-translate", 0.5)),
+        "flip": truthy(run_config.get("det-aug-flip", True)),
+        "img_flip": float(run_config.get("det-aug-img-flip", 0.0)),   # image-appearance flip prob (0=off)
+    }
 
 
 def center_distance_proxy(
@@ -429,7 +450,8 @@ class NuScenesDetectionTask(Task):
 
         c = _det_config_from_run(run_config)
         return CenterPointLoss(cfg=c.bev, n_classes=c.n_classes,
-                               reg_weight=float(run_config.get("det-reg-weight", 0.25)))
+                               reg_weight=float(run_config.get("det-reg-weight", 0.25)),
+                               class_weights=run_config.get("det-class-weights"))  # None ⇒ uniform
 
     # --- data ---
     def _load_info(self, run_config: dict, split: str):
@@ -487,13 +509,16 @@ class NuScenesDetectionTask(Task):
         return int(self._partition(run_config)["num_clients"])
 
     def _make_loader(self, run_config: dict, info_list, tokens, shuffle: bool,
-                     client_id: Optional[int] = None, num_clients: Optional[int] = None):
+                     client_id: Optional[int] = None, num_clients: Optional[int] = None,
+                     augment: Optional[dict] = None):
         from fl_v3.data.nuscenes.dataset import NuScenesMultimodalDataset, make_loader
         from fl_v3.data.nuscenes import paths as P
         from fl_v3.models.fusion.collate import detection_collate_fn
 
         dataroot = P.get_dataroot(run_config)
-        ds = NuScenesMultimodalDataset(info_list, dataroot, sample_tokens=tokens)
+        ds = NuScenesMultimodalDataset(info_list, dataroot, sample_tokens=tokens,
+                                       n_sweeps=int(run_config.get("det-lidar-sweeps", 1)),
+                                       augment=augment)
         # T5 routing (additive): for a malicious-roster CLIENT train shard, wrap with the
         # poisoning dataset. ``client_id is None`` (the eval/val loader) or attack-disabled /
         # poison_rate=0 / honest client ⇒ ``ds`` is returned UNCHANGED (byte-identical clean).
@@ -516,7 +541,8 @@ class NuScenesDetectionTask(Task):
         part = self._partition(run_config)
         tokens = part["client_tokens"][client_id]
         trainloader = self._make_loader(run_config, info_list, tokens, shuffle=True,
-                                        client_id=client_id, num_clients=part["num_clients"])
+                                        client_id=client_id, num_clients=part["num_clients"],
+                                        augment=_aug_from_run(run_config))  # TRAIN-ONLY aug
         return ClientData(trainloader=trainloader, valloader=None,
                           num_train=len(tokens), num_val=0)
 

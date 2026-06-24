@@ -54,6 +54,26 @@ def _load_lidar(abs_path: str) -> np.ndarray:
     return raw.reshape(-1, 5)
 
 
+def _load_multisweep(info: dict, dataroot: str, n_sweeps: int) -> np.ndarray:
+    """Accumulate the keyframe + up to ``n_sweeps-1`` PREV sweeps into the keyframe LIDAR_TOP
+    frame → ``(Ptot, 6)`` f32 = ``x,y,z,intensity,ring,dt`` (the keyframe has ``dt=0``).
+
+    Each prev sweep's XYZ is ego-motion-compensated by the cache-precomputed ``sweep2keylidar``
+    4×4 (devkit ``from_file_multisweep`` convention); intensity/ring are carried as-is and the
+    per-point ``dt`` (seconds into the past) is appended as the timestamp channel. Deterministic
+    (pure index/matmul; sweep order is the cache's fixed prev-walk order)."""
+    key = _load_lidar(P.abspath_from_relative(info["lidar_rel_path"], dataroot))   # (P0,5)
+    clouds = [np.concatenate([key, np.zeros((key.shape[0], 1), np.float32)], axis=1)]  # (P0,6), dt=0
+    for sw in info.get("lidar_sweeps", [])[: max(0, n_sweeps - 1)]:
+        p = _load_lidar(P.abspath_from_relative(sw["rel_path"], dataroot))          # (Pi,5)
+        m = sw["sweep2keylidar"].astype(np.float32)                                # (4,4)
+        xyz1 = np.concatenate([p[:, :3], np.ones((p.shape[0], 1), np.float32)], axis=1)  # (Pi,4)
+        xyz_key = (xyz1 @ m.T)[:, :3]                                               # (Pi,3) in key frame
+        dt = np.full((p.shape[0], 1), np.float32(sw["dt"]), dtype=np.float32)
+        clouds.append(np.concatenate([xyz_key, p[:, 3:5], dt], axis=1))            # (Pi,6)
+    return np.ascontiguousarray(np.concatenate(clouds, axis=0))
+
+
 class NuScenesMultimodalDataset(Dataset):
     """Canonical-schema nuScenes Dataset over one split's keyframe info-cache."""
 
@@ -62,12 +82,26 @@ class NuScenesMultimodalDataset(Dataset):
         info_list: List[dict],
         dataroot: str,
         sample_tokens: Optional[List[str]] = None,
+        n_sweeps: int = 1,
+        augment: Optional[dict] = None,
     ):
         """``info_list`` from :mod:`info_cache`. If ``sample_tokens`` is given, the
         dataset is restricted to (and ordered by) those tokens — this is how a
         per-client / per-split shard is materialized without rebuilding the cache.
+
+        ``n_sweeps`` (MCR P1 lever): >1 accumulates the keyframe + (n_sweeps-1) prev LIDAR_TOP
+        sweeps (ego-motion-compensated) and appends a per-point ``dt`` channel ⇒ ``lidar_points``
+        is ``(P,6)`` instead of ``(P,5)``. Requires a multi-sweep cache (infos carry ``lidar_sweeps``).
+        ``n_sweeps=1`` is the byte-identical single-keyframe path.
+
+        ``augment`` (MCR P1, the overfitting fix): a dict of BEV/3D aug params (see
+        :mod:`augment`); when set, each ``__getitem__`` applies a seeded GlobalRotScaleTrans+flip to the
+        points/boxes/velocity/lidar2img. **TRAIN-ONLY** — pass it ONLY for the training dataset; eval
+        leaves it ``None`` (clean). Default ``None`` ⇒ byte-identical to the un-augmented path.
         """
         self.dataroot = dataroot
+        self.n_sweeps = int(n_sweeps)
+        self.augment = augment
         by_token = {i["sample_token"]: i for i in info_list}
         if sample_tokens is None:
             order = sorted(by_token)
@@ -77,6 +111,10 @@ class NuScenesMultimodalDataset(Dataset):
                 raise KeyError(f"{len(missing)} sample_tokens not in info_list (e.g. {missing[:3]})")
             order = list(sample_tokens)  # caller-controlled, already deterministic
         self._infos = [by_token[t] for t in order]
+        if self.n_sweeps > 1 and self._infos and "lidar_sweeps" not in self._infos[0]:
+            raise KeyError(
+                f"n_sweeps={self.n_sweeps} but this info cache has no 'lidar_sweeps' (built "
+                "single-sweep). Rebuild the cache with n_sweeps>1 (see build_msweep_cache).")
 
     def __len__(self) -> int:
         return len(self._infos)
@@ -92,8 +130,11 @@ class NuScenesMultimodalDataset(Dataset):
             _decode_image_chw(P.abspath_from_relative(rel, self.dataroot))
             for rel in info["cam_rel_paths"]
         ])  # (6,3,H,W)
-        # --- lidar (P,5) f32 ---
-        pts = _load_lidar(P.abspath_from_relative(info["lidar_rel_path"], self.dataroot))
+        # --- lidar: (P,5) single keyframe, or (P,6) accumulated multi-sweep (+dt channel) ---
+        if self.n_sweeps > 1:
+            pts = _load_multisweep(info, self.dataroot, self.n_sweeps)
+        else:
+            pts = _load_lidar(P.abspath_from_relative(info["lidar_rel_path"], self.dataroot))
 
         M = int(info["gt_boxes"].shape[0])
         sample = {
@@ -126,6 +167,10 @@ class NuScenesMultimodalDataset(Dataset):
             "gt_ann_tokens": list(info["gt_ann_tokens"]),                            # [M] str
             "num_boxes": M,
         }
+        # TRAIN-ONLY BEV/3D augmentation (seeded via seeded_worker_init's per-worker numpy seed).
+        if self.augment is not None:
+            from fl_v3.data.nuscenes.augment import augment_sample
+            sample = augment_sample(sample, self.augment)
         return sample
 
 

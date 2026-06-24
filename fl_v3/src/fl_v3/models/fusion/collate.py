@@ -40,13 +40,17 @@ def detection_collate_fn(batch: List[dict]) -> dict:
     for f in _STACK_FIELDS:
         out[f] = torch.stack([s[f] for s in batch], dim=0)
 
-    # LiDAR points → [TotalP, 6] with a leading batch-index column.
+    # LiDAR points → [TotalP, 1+W] with a leading batch-index column. W=5 single-sweep
+    # (x,y,z,intensity,ring) or W=6 multi-sweep (…,dt) — the concat is width-agnostic.
     pts_list = []
     for b, s in enumerate(batch):
-        p = s["lidar_points"]  # [P,5]
+        p = s["lidar_points"]  # [P,5] or [P,6]
         bcol = torch.full((p.shape[0], 1), float(b), dtype=p.dtype)
-        pts_list.append(torch.cat([bcol, p], dim=1))  # [P,6]
-    out["lidar_points"] = torch.cat(pts_list, dim=0) if pts_list else torch.zeros((0, 6))
+        pts_list.append(torch.cat([bcol, p], dim=1))  # [P,1+W]
+    if pts_list:
+        out["lidar_points"] = torch.cat(pts_list, dim=0)
+    else:
+        out["lidar_points"] = torch.zeros((0, 1 + (batch[0]["lidar_points"].shape[1] if batch else 5)))
 
     for f in _RAGGED_FIELDS:
         out[f] = [s[f] for s in batch]  # per-sample (tensors or str lists)

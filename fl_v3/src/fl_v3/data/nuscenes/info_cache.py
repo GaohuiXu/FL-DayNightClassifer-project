@@ -56,11 +56,19 @@ def _attr_name(nusc, attribute_tokens) -> str:
     return nusc.get("attribute", attribute_tokens[0])["name"]
 
 
-def build_keyframe_info(nusc, sample, dataroot: str) -> dict:
+def build_keyframe_info(nusc, sample, dataroot: str, n_sweeps: int = 1) -> dict:
     """Build one canonical keyframe info dict from devkit records + our transforms.
 
     GT box rows are sorted by ``ann_token`` (stable, reproducible across devkit
     versions / re-extraction). All geometry is computed by ``transforms`` (ours).
+
+    ``n_sweeps`` (MCR P1 capability lever): when >1, additionally collect up to
+    ``n_sweeps-1`` PREV ``LIDAR_TOP`` sweeps — each with the precomputed sweep→keyframe-
+    LIDAR 4×4 transform (devkit ``from_file_multisweep`` convention: sweep_sensor →
+    sweep_ego → global → key_ego → key_sensor) and the relative timestamp
+    ``dt=(key_ts−sweep_ts)·1e-6`` s. Points are loaded + ego-motion-compensated at
+    train time (the dataset). The sweep records enter the host-portable hash ONLY when
+    present, so an ``n_sweeps=1`` build is byte-identical (same hash) to the pre-lever cache.
     """
     sample_token = sample["token"]
     scene = nusc.get("scene", sample["scene_token"])
@@ -84,6 +92,32 @@ def build_keyframe_info(nusc, sample, dataroot: str) -> dict:
     q_cs_l_inv = T.quaternion_inverse(cs_l["rotation"])
     q_ep_l_inv = T.quaternion_inverse(ep_l["rotation"])
     ego_origin_global = np.asarray(ep_l["translation"], dtype=np.float64)
+
+    # --- LiDAR multi-sweep (n_sweeps>1): walk prev LIDAR_TOP sample_data, store sweep→key-LIDAR ---
+    lidar_sweeps: List[dict] = []
+    if n_sweeps and int(n_sweeps) > 1:
+        key_ts = int(sample["timestamp"])
+        sd_cur = sd_l
+        while len(lidar_sweeps) < int(n_sweeps) - 1 and sd_cur["prev"]:
+            sd_cur = nusc.get("sample_data", sd_cur["prev"])
+            cs_s = nusc.get("calibrated_sensor", sd_cur["calibrated_sensor_token"])
+            ep_s = nusc.get("ego_pose", sd_cur["ego_pose_token"])
+            # sweep_lidar -> global, then global -> key_lidar (the keyframe's global2lidar above)
+            lidar2global_sweep = (
+                T.transform_matrix(ep_s["translation"], ep_s["rotation"], inverse=False)
+                @ T.transform_matrix(cs_s["translation"], cs_s["rotation"], inverse=False)
+            )
+            sweep2keylidar = (global2lidar @ lidar2global_sweep).astype(np.float64)  # (4,4)
+            rel_s = P.relative_to_dataroot(nusc.get_sample_data_path(sd_cur["token"]), dataroot)
+            dt = (key_ts - int(sd_cur["timestamp"])) * 1e-6  # seconds into the past (>=0)
+            lidar_sweeps.append({
+                "rel_path": rel_s,
+                "sweep2keylidar": sweep2keylidar,
+                "dt": float(dt),
+                # raw inputs for the host-portable hash:
+                "_raw": (rel_s, cs_s["translation"], cs_s["rotation"],
+                         ep_s["translation"], ep_s["rotation"], int(sd_cur["timestamp"])),
+            })
 
     # --- Cameras (cam_order is the frozen constant, NOT filesystem order) ---
     cam_rel_paths: List[str] = []
@@ -198,6 +232,9 @@ def build_keyframe_info(nusc, sample, dataroot: str) -> dict:
         "_lidar_raw": (lidar_rel, cs_l["translation"], cs_l["rotation"],
                        ep_l["translation"], ep_l["rotation"]),
     }
+    # Additive: only present for an n_sweeps>1 build ⇒ the n_sweeps=1 schema + hash are unchanged.
+    if lidar_sweeps:
+        info["lidar_sweeps"] = lidar_sweeps
     return info
 
 
@@ -244,6 +281,14 @@ def canonical_hash(info_list: List[dict]) -> str:
             _h_str(h, at); _h_str(h, it); _h_i64(h, did); _h_str(h, dn)
             _h_f64(h, cg); _h_f64(h, wlh); _h_f64(h, qg)
             _h_i64(h, nlp); _h_i64(h, vis); _h_i64(h, 1 if inr else 0); _h_str(h, attr)
+        # multi-sweep records — hashed ONLY when present, so an n_sweeps=1 cache hash is
+        # byte-identical to the pre-lever cache (no extra bytes emitted).
+        if "lidar_sweeps" in info:
+            _h_i64(h, len(info["lidar_sweeps"]))
+            for sw in info["lidar_sweeps"]:
+                (rel_s, cst, csr, ept, epr, ts) = sw["_raw"]
+                _h_str(h, rel_s); _h_f64(h, cst); _h_f64(h, csr)
+                _h_f64(h, ept); _h_f64(h, epr); _h_i64(h, ts)
     return h.hexdigest()
 
 
@@ -267,10 +312,10 @@ def split_sample_tokens(nusc, split: str) -> List[str]:
     return sorted(tokens)
 
 
-def build_info_list(nusc, sample_tokens: List[str], dataroot: str) -> List[dict]:
+def build_info_list(nusc, sample_tokens: List[str], dataroot: str, n_sweeps: int = 1) -> List[dict]:
     out = []
     for tok in sorted(sample_tokens):  # defensive: enforce token order
-        out.append(build_keyframe_info(nusc, nusc.get("sample", tok), dataroot))
+        out.append(build_keyframe_info(nusc, nusc.get("sample", tok), dataroot, n_sweeps=n_sweeps))
     return out
 
 
@@ -315,14 +360,18 @@ def load_cache(cache_dir: str, version: str, split: str) -> tuple[List[dict], di
 
 
 def get_or_build_cache(nusc, cache_dir: str, version: str, split: str, scale: str,
-                       dataroot: str, rebuild: bool = False) -> tuple[List[dict], dict]:
-    """Load the cache if present (and hash-consistent), else build + save it."""
+                       dataroot: str, rebuild: bool = False, n_sweeps: int = 1) -> tuple[List[dict], dict]:
+    """Load the cache if present (and hash-consistent), else build + save it.
+
+    ``n_sweeps>1`` builds a multi-sweep cache (the sweep records change the content hash,
+    so write it to a DEDICATED ``cache_dir`` to avoid colliding with the single-sweep cache,
+    which shares the same filename schema)."""
     pkl_path, _ = cache_paths(cache_dir, version, split)
     if not rebuild and os.path.isfile(pkl_path):
         info_list, meta = load_cache(cache_dir, version, split)
         if meta.get("cache_hash") == canonical_hash(info_list):
             return info_list, meta
     tokens = split_sample_tokens(nusc, split)
-    info_list = build_info_list(nusc, tokens, dataroot)
+    info_list = build_info_list(nusc, tokens, dataroot, n_sweeps=n_sweeps)
     meta = save_cache(info_list, cache_dir, version, split, scale, dataroot)
     return info_list, meta

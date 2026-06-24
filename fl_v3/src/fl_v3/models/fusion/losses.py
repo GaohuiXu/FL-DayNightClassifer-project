@@ -114,6 +114,7 @@ class CenterPointLoss(nn.Module):
         focal_gamma: float = 4.0,
         min_radius: int = 2,
         code_weights=DEFAULT_CODE_WEIGHTS,
+        class_weights=None,
     ):
         super().__init__()
         self.cfg = cfg
@@ -123,6 +124,16 @@ class CenterPointLoss(nn.Module):
         self.gamma = float(focal_gamma)
         self.min_radius = int(min_radius)
         self.register_buffer("code_weights", torch.tensor(code_weights, dtype=torch.float32), persistent=False)
+        # MCR P1: optional per-class heatmap weight (rebalance the rare/stuck classes — trailer/construction
+        # the convergence teardown flagged). Normalized to mean 1 so the overall heatmap-vs-reg scale is
+        # preserved (only the RELATIVE class emphasis changes). None ⇒ uniform ⇒ byte-identical to before.
+        if class_weights is not None:
+            cw = torch.tensor([float(x) for x in class_weights], dtype=torch.float32)
+            assert cw.numel() == self.n_classes, f"class_weights must have {self.n_classes} entries"
+            cw = cw * (cw.numel() / cw.sum().clamp_min(1e-6))   # → mean 1
+            self.register_buffer("class_weights", cw, persistent=False)
+        else:
+            self.class_weights = None
         self.last_terms: Dict[str, float] = {}
 
     # --- target construction (RNG-free, atomic-free) ---
@@ -223,6 +234,11 @@ class CenterPointLoss(nn.Module):
         pos_loss = torch.log(pred) * (1.0 - pred).pow(self.alpha) * pos
         neg_loss = torch.log(1.0 - pred) * pred.pow(self.alpha) * neg_w * neg
         n_pos = pos.sum().clamp_min(1.0)
+        if self.class_weights is not None:                 # per-class rebalance (mean-1 normalized)
+            # move on-the-fly (like code_weights L258) so the generic loop need not .to() the criterion
+            w = self.class_weights.to(pred_logits.device).view(1, -1, 1, 1)
+            pos_loss = pos_loss * w
+            neg_loss = neg_loss * w
         return -(pos_loss.sum() + neg_loss.sum()) / n_pos
 
     def forward(self, pred: Dict[str, torch.Tensor], batch: dict) -> torch.Tensor:

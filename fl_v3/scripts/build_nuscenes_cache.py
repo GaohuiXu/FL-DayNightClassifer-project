@@ -8,6 +8,11 @@ login node (where the devkit + dataset are reachable):
     # trainval (heavier; metadata + geometry build):
     bash fl_v3/scripts/run_in_venv.sh python fl_v3/scripts/build_nuscenes_cache.py \
         --version v1.0-trainval --splits train val
+    # MULTI-SWEEP cache (MCR P1 lever) — MUST go in a DEDICATED --cache-dir (the sweep records change
+    # the content hash but the filename schema is shared, so it would collide with the single-sweep cache):
+    bash fl_v3/scripts/run_in_venv.sh python fl_v3/scripts/build_nuscenes_cache.py \
+        --version v1.0-trainval --splits train val --n-sweeps 10 \
+        --cache-dir ./fl_outputs/nuscenes/info_cache_msweep10
 
 Mini is engineering smoke; trainval is the scientific scale (T3+).
 """
@@ -24,6 +29,9 @@ def main() -> None:
     ap.add_argument("--version", default="v1.0-mini")
     ap.add_argument("--splits", nargs="+", default=["mini_train", "mini_val"])
     ap.add_argument("--cache-dir", default="./fl_outputs/nuscenes/info_cache")
+    ap.add_argument("--n-sweeps", type=int, default=1,
+                    help="MCR P1: >1 accumulates prev LIDAR_TOP sweeps (+dt). Use a DEDICATED "
+                         "--cache-dir to avoid colliding with the single-sweep cache.")
     ap.add_argument("--rebuild", action="store_true")
     args = ap.parse_args()
 
@@ -34,10 +42,13 @@ def main() -> None:
     scale = "mini-smoke" if "mini" in args.version else "trainval-scientific"
     for split in args.splits:
         info_list, meta = IC.get_or_build_cache(
-            nusc, args.cache_dir, args.version, split, scale, P.DATAROOT, rebuild=args.rebuild
+            nusc, args.cache_dir, args.version, split, scale, P.DATAROOT,
+            rebuild=args.rebuild, n_sweeps=args.n_sweeps,
         )
+        n_sw = sum(len(i.get("lidar_sweeps", [])) for i in info_list)
         print(f"[cache] {args.version}/{split}: n_samples={meta['n_samples']} "
-              f"n_boxes={meta['n_boxes']} hash={meta['cache_hash'][:12]}…")
+              f"n_boxes={meta['n_boxes']} n_sweeps={args.n_sweeps} "
+              f"(total prev-sweep records={n_sw}) hash={meta['cache_hash'][:12]}…")
 
 
 if __name__ == "__main__":

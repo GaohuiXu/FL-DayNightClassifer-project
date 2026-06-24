@@ -120,6 +120,12 @@ def seeded_worker_init(worker_id: int) -> None:
     info = torch.utils.data.get_worker_info()
     if info is None:
         return
+    # THROUGHPUT (MCR P1 multi-sweep): pin each worker to 1 intra-op thread. With N ranks × M workers on
+    # an N*M-CPU node, the parent's OMP/BLAS thread count is multiplied by every worker → massive
+    # oversubscription thrashing on the tiny ego-compensation matmul in _load_multisweep. This caps torch's
+    # pool; the numpy/BLAS pool is capped by the OMP/OPENBLAS/MKL_NUM_THREADS env the launcher exports
+    # pre-import (forked workers inherit it). Value-neutral (thread count never changes a result) — pure timing.
+    torch.set_num_threads(1)
     seed = int(info.seed) % (2 ** 32)
     _random.seed(seed)
     _np.random.seed(seed)
