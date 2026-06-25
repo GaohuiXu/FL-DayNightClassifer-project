@@ -353,6 +353,7 @@ def _det_config_from_run(run_config: dict):
         fusion_channels=int(run_config.get("det-fusion-channels", 128)),
         bev_neck_channels=int(run_config.get("det-bev-neck-channels", 256)),
         head_channels=int(run_config.get("det-head-channels", 64)),
+        head_conv_layers=int(run_config.get("det-head-conv-layers", 1)),
         n_classes=int(run_config.get("det-n-classes", 10)),
         max_objects=int(run_config.get("det-max-objects", 200)),
         score_threshold=float(run_config.get("det-score-threshold", 0.1)),
@@ -373,6 +374,25 @@ def _aug_from_run(run_config: dict):
         "translate": float(run_config.get("det-aug-translate", 0.5)),
         "flip": truthy(run_config.get("det-aug-flip", True)),
         "img_flip": float(run_config.get("det-aug-img-flip", 0.0)),   # image-appearance flip prob (0=off)
+    }
+
+
+def _gtpaste_from_run(run_config: dict):
+    """GT-paste (rare-class object copy-paste) params from the flat run_config, or None if disabled.
+
+    TRAIN-ONLY — callers pass this ONLY to the training dataset; eval stays clean (None). ``det-gt-paste-counts``
+    is a ``{class_name: K}`` map (default targets the lagging large/rare vehicles)."""
+    if not truthy(run_config.get("det-gt-paste", False)):
+        return None
+    counts = run_config.get("det-gt-paste-counts") or {
+        "trailer": 3, "construction_vehicle": 3, "bus": 2, "truck": 2, "bicycle": 3, "motorcycle": 3,
+    }
+    return {
+        "db_path": str(run_config.get("det-gt-paste-db", "./fl_outputs/nuscenes/gt_database_msweep10")),
+        "counts": {str(k): int(v) for k, v in dict(counts).items()},
+        "min_points": int(run_config.get("det-gt-paste-min-points", 5)),
+        "iou_thresh": float(run_config.get("det-gt-paste-iou-thresh", 0.0)),
+        "yaw_jitter": float(run_config.get("det-gt-paste-yaw-jitter", 0.785398)),  # ±rad per-object diversity
     }
 
 
@@ -451,7 +471,8 @@ class NuScenesDetectionTask(Task):
         c = _det_config_from_run(run_config)
         return CenterPointLoss(cfg=c.bev, n_classes=c.n_classes,
                                reg_weight=float(run_config.get("det-reg-weight", 0.25)),
-                               class_weights=run_config.get("det-class-weights"))  # None ⇒ uniform
+                               class_weights=run_config.get("det-class-weights"),       # None ⇒ uniform heatmap
+                               reg_class_weights=run_config.get("det-reg-class-weights"))  # None ⇒ unweighted L1
 
     # --- data ---
     def _load_info(self, run_config: dict, split: str):

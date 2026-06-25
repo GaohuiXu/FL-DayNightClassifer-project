@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>bb02d vs BEVFusion gap</title>
+<style>body{background:#fff;color:#2c2c2a;font-family:system-ui,sans-serif;margin:24px;max-width:880px}
+h2{font-weight:500;font-size:18px;margin-bottom:4px} .cap{font-size:13px;color:#5f5e5a;margin:0 0 14px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 4px;font-size:12px;color:#5f5e5a}
+.sw{width:11px;height:11px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:-1px}
+.note{font-size:12px;color:#5f5e5a;margin-top:14px;line-height:1.6}</style></head>
+<body>
+<h2>Why bb02d sits ~0.12 mAP below BEVFusion-base (our reference, not the SOTA)</h2>
+<p class="cap">The ~0.12 mAP gap (0.5656 → 0.685), decomposed. The dominant piece is <b>voxel resolution (0.2 m vs 0.075 m), which is coupled to the no-spconv constraint (Rule #2)</b> — sparse 3D conv makes 0.075 m affordable; our dense 2D grid can't. The pure structural-encoding penalty is small (~0.02–0.03).</p>
+<div class="legend">
+  <span><span class="sw" style="background:#888780"></span>bb02d (ours) 0.5656</span>
+  <span><span class="sw" style="background:#D85A30"></span>voxel resolution 0.2→0.075 m (≈0.055)</span>
+  <span><span class="sw" style="background:#EF9F27"></span>recipe CBGS/GT-paste (≈0.030, not transferable)</span>
+  <span><span class="sw" style="background:#B4B2A9"></span>structural 3D-sparse vs 2D-dense (≈0.025)</span>
+</div>
+<div style="position:relative;width:100%;height:170px"><canvas id="gap" role="img" aria-label="Stacked bar: bb02d 0.5656 plus voxel-resolution 0.055 plus recipe 0.030 plus structural 0.025 sums to BEVFusion-base 0.685."></canvas></div>
+<p class="note"><b>Reading it:</b> ≈0.055 (the largest) is voxel resolution — fully closing it would need a 0.075 m grid, infeasible for our <i>dense</i> 2D BEV (1365² cells) but cheap for BEVFusion's <i>sparse</i> 3D conv → this gap is the documented portability cost of Rule #2. ≈0.030 is the recipe (CBGS + GT-paste) — we ran all three this session and they were net-negative on our already-strong LiDAR stack, so it is <b>not</b> closeable for us. ≈0.025 is the pure structural penalty (2D-dense vs 3D-sparse encoding), which at matched resolution is small (dense PillarNet 0.599 ≈ sparse CenterPoint-SECOND 0.596).</p>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+new Chart(document.getElementById('gap'),{type:'bar',
+ data:{labels:['mAP'],datasets:[
+   {label:'bb02d',data:[0.5656],backgroundColor:'#888780'},
+   {label:'resolution',data:[0.055],backgroundColor:'#D85A30'},
+   {label:'recipe',data:[0.030],backgroundColor:'#EF9F27'},
+   {label:'structural',data:[0.025],backgroundColor:'#B4B2A9'}]},
+ options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+  scales:{x:{stacked:true,min:0.50,max:0.70,ticks:{color:'#888780',font:{size:11},callback:v=>v.toFixed(2)},grid:{color:'rgba(136,135,128,0.15)'}},
+          y:{stacked:true,ticks:{color:'#888780'},grid:{display:false}}},
+  plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+' +'+c.raw.toFixed(3)}}}}});
+</script>
+</body></html>

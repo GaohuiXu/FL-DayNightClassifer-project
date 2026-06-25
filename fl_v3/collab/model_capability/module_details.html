@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>bb02d module details</title>
+<style>
+body{background:#fff;color:#2c2c2a;font-family:system-ui,sans-serif;margin:24px;max-width:900px}
+h2{font-weight:500;font-size:18px;margin-bottom:4px} .cap{font-size:13px;color:#5f5e5a;margin:0 0 16px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e7e5df;vertical-align:top}
+th{color:#5f5e5a;font-weight:500;font-size:12px}
+td.p{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bar{display:inline-block;height:9px;border-radius:2px;vertical-align:middle;margin-left:6px}
+.cam{background:#1D9E75} .lid{background:#BA7517} .det{background:#378ADD} .pre{background:#B4B2A9}
+.tag{font-size:11px;padding:1px 7px;border-radius:10px}
+.tcam{background:#E1F5EE;color:#0F6E56} .tlid{background:#FAEEDA;color:#854F0B} .tdet{background:#E6F1FB;color:#185FA5}
+code{font-family:ui-monospace,monospace;font-size:12px;background:#f1efe8;padding:1px 4px;border-radius:3px}
+</style></head>
+<body>
+<h2>bb02d — per-module detail (33.2 M params, all trainable)</h2>
+<p class="cap">Bar length ∝ √params (Swin-T dominates at 27.5 M = 83%). Camera branch = teal, LiDAR branch = amber, fusion/detection = blue. Both BEV branches live on the shared 0.2 m / 512² grid.</p>
+<table>
+<thead><tr><th>module</th><th>params</th><th></th><th>in → out</th><th>role</th></tr></thead>
+<tbody>
+<tr><td><span class="tag tcam">cam</span> ImagePreprocessor</td><td class="p">0</td><td></td><td>6×[3,900,1600] → [3,256,704]</td><td>resize + ImageNet normalize</td></tr>
+<tr><td><span class="tag tcam">cam</span> <b>CameraBackbone (Swin-T)</b></td><td class="p">27,517,818</td><td><span class="bar cam" style="width:160px"></span></td><td>[6,3,256,704] → 4 maps s{4..32}</td><td>trained Swin-Tiny, SDPA attention — the capacity & the cost</td></tr>
+<tr><td><span class="tag tcam">cam</span> GeneralizedLSSFPN</td><td class="p">333,056</td><td><span class="bar cam" style="width:18px"></span></td><td>4 maps → [6,128,16,44]</td><td>1×1 laterals→128, top-down add, emits stride-16</td></tr>
+<tr><td><span class="tag tcam">cam</span> DepthLSSTransform</td><td class="p">165,643</td><td><span class="bar cam" style="width:13px"></span></td><td>[6,128,16,44] → cam-BEV [80,512,512]</td><td>59-bin depth softmax (<b>unsupervised</b>) ⊗ context, lift+splat</td></tr>
+<tr><td><span class="tag tlid">lidar</span> PointPillarsEncoder (PFN)</td><td class="p">640</td><td><span class="bar lid" style="width:3px"></span></td><td>10-sweep [P,6] → lidar-BEV [64,512,512]</td><td>Linear(8→64)+GN+ReLU, max over pts, scatter — no spconv, perm-invariant</td></tr>
+<tr><td><span class="tag tlid">lidar</span> <b>LidarBackbone2D (4-stage)</b></td><td class="p">3,732,224</td><td><span class="bar lid" style="width:59px"></span></td><td>[64,512,512] → [128,512,512]</td><td>s1→s2→s3→<b>s4</b> + 4-level FPN, pure 2D conv. <b>s4 = bb02d's addition</b></td></tr>
+<tr><td><span class="tag tdet">fuse</span> ConvFuser</td><td class="p">387,584</td><td><span class="bar det" style="width:19px"></span></td><td>concat(208) → [128,512,512]</td><td>2× Conv-GN-ReLU; plain channel-concat, no gating</td></tr>
+<tr><td><span class="tag tdet">det</span> SecondFPNNeck</td><td class="p">886,272</td><td><span class="bar det" style="width:29px"></span></td><td>[128,512,512] → [256,256,256]</td><td>2 stride-2 encoders + 2 decoders → head grid 0.4 m</td></tr>
+<tr><td><span class="tag tdet">det</span> CenterPointHead</td><td class="p">148,884</td><td><span class="bar det" style="width:12px"></span></td><td>[256,256,256] → heatmap[10]+reg</td><td>shared 3×3→64, per-class heatmap + class-agnostic reg(xy,z,dim,yaw,vel)</td></tr>
+<tr><td><span class="tag tdet">det</span> decode (no params)</td><td class="p">—</td><td></td><td>head dict → boxes</td><td>3×3 local-max + stable top-500, score≥0.01, NMS-free</td></tr>
+<tr style="border-top:2px solid #d3d1c7"><td><b>TOTAL</b></td><td class="p"><b>33,172,121</b></td><td></td><td colspan="2">geometry: ±51.2 m × [−5,3], 0.2 m → 512² grid, head 256²@0.4 m, 10-sweep, ≤120 k pillars</td></tr>
+</tbody></table>
+</body></html>

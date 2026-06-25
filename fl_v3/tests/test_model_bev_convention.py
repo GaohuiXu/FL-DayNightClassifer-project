@@ -135,7 +135,7 @@ def _encode_decode_box(cx, cy, cz, l, w, h, yaw, cls=0):
     loss = CenterPointLoss(cfg=cfg.bev, n_classes=cfg.n_classes)
     box = torch.tensor([[cx, cy, cz, l, w, h, yaw]], dtype=torch.float32)
     batch = {"gt_boxes": [box], "gt_labels": [torch.tensor([cls])], "gt_velocity": [torch.zeros(1, 2)]}
-    heatmap_t, bidx, cells, reg_target = loss.build_targets(batch, device="cpu")
+    heatmap_t, bidx, cells, reg_target, labels_k = loss.build_targets(batch, device="cpu")
     H, W = cfg.bev.head_ny, cfg.bev.head_nx
     cell = int(cells[0].item()); row, col = cell // W, cell % W
     # synthetic head_out: clear peak at (row,col) on class `cls`, reg = encoded vector

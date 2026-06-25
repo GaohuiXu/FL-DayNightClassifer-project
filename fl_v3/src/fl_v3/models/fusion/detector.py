@@ -63,6 +63,7 @@ class DetectorConfig:
     fusion_channels: int = 128
     bev_neck_channels: int = 256
     head_channels: int = 64
+    head_conv_layers: int = 1             # MCR P1: shared pre-head tower depth (1 ⇒ byte-identical baseline)
     n_classes: int = 10
     bev: BEVConfig = field(default_factory=BEVConfig)
     # decode
@@ -126,6 +127,7 @@ class BEVFusionDetector(nn.Module):
             in_channels=self.bev_neck.out_channels,
             n_classes=c.n_classes,
             head_channels=c.head_channels,
+            conv_layers=c.head_conv_layers,
         )
 
     # --- forward ---

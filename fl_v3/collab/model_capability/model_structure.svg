@@ -1,0 +1,48 @@
+<svg width="100%" viewBox="0 0 680 470" role="img" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif">
+<title>bb02d centralized model structure</title>
+<desc>Two BEV branches (camera Swin-T+LSS, LiDAR PointPillars+2D backbone) on a shared 0.2m/512² grid, fused by ConvFuser, then SECOND-FPN neck, CenterPoint head, and deterministic decode. 33.2M params.</desc>
+<defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#5f5e5a"/></marker></defs>
+<text x="40" y="28" font-size="14" font-weight="500" fill="#888780">bb02d — 33.2M params (Swin-T 83%); two BEV branches on a shared 0.2 m / 512² grid</text>
+
+<rect x="55" y="46" width="270" height="40" rx="6" fill="#9FE1CB"/>
+<text x="190" y="64" font-size="14" text-anchor="middle" fill="#04342C">6 cameras</text>
+<text x="190" y="79" font-size="12" text-anchor="middle" fill="#0F6E56">[6, 3, 900, 1600] uint8</text>
+
+<rect x="355" y="46" width="270" height="40" rx="6" fill="#FAC775"/>
+<text x="490" y="64" font-size="14" text-anchor="middle" fill="#412402">LIDAR_TOP — 10 sweeps</text>
+<text x="490" y="79" font-size="12" text-anchor="middle" fill="#633806">[P, 6] x,y,z,intensity,ring,dt</text>
+
+<line x1="190" y1="86" x2="190" y2="112" stroke="#5f5e5a" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="490" y1="86" x2="490" y2="112" stroke="#5f5e5a" stroke-width="1.5" marker-end="url(#ah)"/>
+
+<rect x="55" y="114" width="270" height="68" rx="6" fill="#9FE1CB"/>
+<text x="190" y="134" font-size="14" text-anchor="middle" fill="#04342C">Swin-T (27.5M) → LSS-FPN</text>
+<text x="190" y="151" font-size="12" text-anchor="middle" fill="#0F6E56">DepthLSS — unsupervised, D=59 bins</text>
+<text x="190" y="170" font-size="12" text-anchor="middle" fill="#0F6E56">→ camera-BEV  [80, 512, 512]</text>
+
+<rect x="355" y="114" width="270" height="68" rx="6" fill="#FAC775"/>
+<text x="490" y="134" font-size="14" text-anchor="middle" fill="#412402">PointPillars PFN (640)</text>
+<text x="490" y="151" font-size="12" text-anchor="middle" fill="#633806">→ LidarBackbone2D (3.73M, 4-stage)</text>
+<text x="490" y="170" font-size="12" text-anchor="middle" fill="#633806">→ lidar-BEV  [128, 512, 512]</text>
+
+<line x1="190" y1="182" x2="300" y2="214" stroke="#5f5e5a" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="490" y1="182" x2="380" y2="214" stroke="#5f5e5a" stroke-width="1.5" marker-end="url(#ah)"/>
+
+<rect x="140" y="216" width="400" height="44" rx="6" fill="#B5D4F4"/>
+<text x="340" y="236" font-size="14" text-anchor="middle" fill="#042C53">ConvFuser</text>
+<text x="340" y="252" font-size="12" text-anchor="middle" fill="#185FA5">concat 80 + 128 = 208 → 128 ch @ 512² (plain conv, no gating)</text>
+
+<line x1="340" y1="260" x2="340" y2="284" stroke="#5f5e5a" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="140" y="286" width="400" height="44" rx="6" fill="#D3D1C7"/>
+<text x="340" y="306" font-size="14" text-anchor="middle" fill="#2C2C2A">SECOND-FPN neck</text>
+<text x="340" y="322" font-size="12" text-anchor="middle" fill="#444441">→ 256 ch @ 256² (head grid, 0.4 m cells)</text>
+
+<line x1="340" y1="330" x2="340" y2="354" stroke="#5f5e5a" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="140" y="356" width="400" height="44" rx="6" fill="#D3D1C7"/>
+<text x="340" y="376" font-size="14" text-anchor="middle" fill="#2C2C2A">CenterPoint head</text>
+<text x="340" y="392" font-size="12" text-anchor="middle" fill="#444441">per-class heatmap[10] + class-agnostic reg (xy, z, dim, sin/cos-yaw, vel)</text>
+
+<line x1="340" y1="400" x2="340" y2="424" stroke="#5f5e5a" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="140" y="426" width="400" height="34" rx="6" fill="#B5D4F4"/>
+<text x="340" y="447" font-size="12" text-anchor="middle" fill="#042C53">decode — 3×3 local-max + stable top-500, score ≥ 0.01, NMS-free (deterministic)</text>
+</svg>

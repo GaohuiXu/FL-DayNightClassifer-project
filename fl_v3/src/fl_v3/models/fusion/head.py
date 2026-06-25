@@ -34,14 +34,19 @@ class CenterPointHead(nn.Module):
     """Dense per-class heatmap + shared regression over the BEV feature."""
 
     def __init__(self, in_channels: int, n_classes: int = 10, head_channels: int = 64,
-                 init_bias: float = -2.19):
+                 init_bias: float = -2.19, conv_layers: int = 1):
         super().__init__()
         self.n_classes = int(n_classes)
-        self.shared = nn.Sequential(
-            nn.Conv2d(in_channels, head_channels, 3, padding=1, bias=False),
-            _gn(head_channels),
-            nn.ReLU(inplace=True),
-        )
+        # Shared pre-head tower: ``conv_layers`` Conv-GN-ReLU blocks (the first maps in→head_channels, the
+        # rest head_channels→head_channels). MCR P1 large-vehicle localization lever: the box size/yaw regress
+        # off a 1×1 probe on this shared feature, so deepening/widening it adds the specialization capacity the
+        # single-conv tower lacked. ``conv_layers=1`` ⇒ a single Conv-GN-ReLU ⇒ byte-identical to the baseline.
+        def _block(cin: int, cout: int):
+            return [nn.Conv2d(cin, cout, 3, padding=1, bias=False), _gn(cout), nn.ReLU(inplace=True)]
+        layers = _block(in_channels, head_channels)
+        for _ in range(max(0, int(conv_layers) - 1)):
+            layers += _block(head_channels, head_channels)
+        self.shared = nn.Sequential(*layers)
         self.heatmap = nn.Conv2d(head_channels, n_classes, 1)
         nn.init.constant_(self.heatmap.bias, init_bias)  # focal-loss prior
         self.reg_heads = nn.ModuleDict(

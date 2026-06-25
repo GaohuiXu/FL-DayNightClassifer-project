@@ -57,7 +57,7 @@ def main():
     args = ap.parse_args()
     snap_epochs = {int(x) for x in args.snapshot_epochs.split(",") if x.strip()}
 
-    from fl_v3.training.tasks import get_task, trainable_state_dict, _aug_from_run
+    from fl_v3.training.tasks import get_task, trainable_state_dict, _aug_from_run, _gtpaste_from_run
     from fl_v3.training.loop import train_one_epoch, _unpack_batch, _batch_size
     from fl_v3.engine.local_runner import numpy_state_checksum
     from fl_v3.data.nuscenes.dataset import NuScenesMultimodalDataset, make_loader
@@ -119,10 +119,31 @@ def main():
         f"(union of {part['num_clients']} log-group clients)")
 
     _aug = _aug_from_run(cfg)
+    _gtp = _gtpaste_from_run(cfg)            # TRAIN-ONLY rare-class GT-paste (default None ⇒ byte-identical)
     ds = NuScenesMultimodalDataset(info_list, P.get_dataroot(cfg), sample_tokens=pooled_tokens,
-                                   n_sweeps=int(cfg.get("det-lidar-sweeps", 1)), augment=_aug)
+                                   n_sweeps=int(cfg.get("det-lidar-sweeps", 1)), augment=_aug, gtpaste=_gtp)
     if _aug is not None:
         log(f"[centralized] BEV aug ON: {_aug}")
+    if _gtp is not None:
+        log(f"[centralized] GT-paste ON: db={_gtp['db_path']} counts={_gtp['counts']} "
+            f"yaw_jitter={_gtp['yaw_jitter']} min_pts={_gtp['min_points']}")
+
+    # MCR P1 (rare-class exposure lever; default-OFF ⇒ ds unchanged ⇒ byte-identical): class-balanced
+    # repeat-factor resampling. Rare classes (trailer/bus/bicycle/moto/CV — each in ~18-21% of keyframes)
+    # get oversampled so each epoch sees more distinct (re-augmented) rare-class scenes. Built ONCE
+    # (epoch-invariant, seeded by the run seed ⇒ identical on every DDP rank) so the existing
+    # DistributedSampler still owns the per-epoch reshuffle + 4-rank shard. Eval uses a SEPARATE loader.
+    if truthy(cfg.get("det-cbgs", False)):
+        from fl_v3.data.nuscenes.cbgs import dataset_inrange_classes, build_cbgs_indices, CBGSWrapper
+        from fl_v3.data.nuscenes.class_map import NUM_CLASSES
+        cbgs_thresh = float(cfg.get("det-cbgs-thresh", 0.5))
+        cbgs_max = float(cfg.get("det-cbgs-max-repeat", 4.0))
+        _idx, _stats = build_cbgs_indices(dataset_inrange_classes(ds), n_classes=NUM_CLASSES,
+                                          thresh=cbgs_thresh, seed=seed, max_repeat=cbgs_max)
+        ds = CBGSWrapper(ds, _idx)
+        log(f"[centralized] CBGS ON: thresh={cbgs_thresh} max_repeat={cbgs_max} "
+            f"{_stats['N']}→{_stats['expanded']} keyframes ({_stats['ratio']}x); "
+            f"r_c={_stats['r_c']}")
 
     def epoch_loader(epoch):
         # REVIEW-FIX (HIGH, det-review #1/2/4/5): build a FRESH loader each epoch seeded by (seed+epoch)

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Centralized capability arc</title>
+<style>body{background:#fff;color:#2c2c2a;font-family:system-ui,sans-serif;margin:24px;max-width:880px}
+h2{font-weight:500;font-size:18px} .cap{font-size:13px;color:#5f5e5a;margin:0 0 12px}
+.legend{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:10px;font-size:12px;color:#5f5e5a}
+.sw{width:11px;height:11px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:-1px}</style></head>
+<body>
+<h2>Centralized capability arc — climb to the locked reference, then three levers that fell short</h2>
+<p class="cap">Val mAP across the whole push. <b>bb02d = the "+LiDAR backbone (3-stage)" model + one added 4th down-stage</b> in that backbone (0.5359 → 0.5656): the 4th stride-2 stage restores large-object receptive field at the 0.2&nbsp;m grid (bus 0.32→0.53). The three further levers (CBGS, head-capacity, GT-paste) all came in below it.</p>
+<div class="legend">
+  <span><span class="sw" style="background:#1D9E75"></span>capability climb</span>
+  <span><span class="sw" style="background:#185FA5"></span>bb02d — locked reference</span>
+  <span><span class="sw" style="background:#D85A30"></span>levers that fell short</span>
+</div>
+<div style="position:relative;width:100%;height:380px"><canvas id="arc" role="img" aria-label="Bar chart: frozen-Swin 0.36 climbing through backbone, schedule, multi-sweep, BEV-aug, LiDAR backbone 3-stage 0.536, then +4th stage bb02d 0.5656 (locked), then CBGS 0.561, head-capacity 0.556, GT-paste 0.537 all below bb02d."></canvas></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const labels=['frozen-Swin','+train backbone','+schedule/EMA','+multi-sweep(10)','+BEV aug','+LiDAR bb (3-stage)','+4th stage = bb02d','+CBGS','+head-cap','+GT-paste'];
+const data=[0.360,0.404,0.436,0.445,0.495,0.5359,0.5656,0.561,0.556,0.537];
+const colors=data.map((_,i)=> i<6?'#1D9E75' : i===6?'#185FA5':'#D85A30');
+new Chart(document.getElementById('arc'),{type:'bar',
+ data:{labels,datasets:[{data,backgroundColor:colors,borderWidth:0}]},
+ options:{responsive:true,maintainAspectRatio:false,
+  scales:{y:{min:0.30,max:0.60,ticks:{color:'#888780',font:{size:11},callback:v=>v.toFixed(2)},grid:{color:'rgba(136,135,128,0.15)'}},
+          x:{ticks:{color:'#888780',font:{size:10},maxRotation:48,minRotation:42,autoSkip:false},grid:{display:false}}},
+  plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'mAP '+c.raw.toFixed(4)}}}}});
+</script>
+</body></html>

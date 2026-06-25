@@ -84,6 +84,7 @@ class NuScenesMultimodalDataset(Dataset):
         sample_tokens: Optional[List[str]] = None,
         n_sweeps: int = 1,
         augment: Optional[dict] = None,
+        gtpaste: Optional[dict] = None,
     ):
         """``info_list`` from :mod:`info_cache`. If ``sample_tokens`` is given, the
         dataset is restricted to (and ordered by) those tokens — this is how a
@@ -102,6 +103,7 @@ class NuScenesMultimodalDataset(Dataset):
         self.dataroot = dataroot
         self.n_sweeps = int(n_sweeps)
         self.augment = augment
+        self.gtpaste = gtpaste
         by_token = {i["sample_token"]: i for i in info_list}
         if sample_tokens is None:
             order = sorted(by_token)
@@ -167,6 +169,11 @@ class NuScenesMultimodalDataset(Dataset):
             "gt_ann_tokens": list(info["gt_ann_tokens"]),                            # [M] str
             "num_boxes": M,
         }
+        # TRAIN-ONLY GT-paste (rare-class object copy-paste). BEFORE the BEV aug so the scene transform T
+        # transforms pasted points/boxes/velocity CONSISTENTLY with the host scene. Default None ⇒ byte-identical.
+        if self.gtpaste is not None:
+            from fl_v3.data.nuscenes.gt_paste import paste_sample
+            sample = paste_sample(sample, self.gtpaste, self.n_sweeps)
         # TRAIN-ONLY BEV/3D augmentation (seeded via seeded_worker_init's per-worker numpy seed).
         if self.augment is not None:
             from fl_v3.data.nuscenes.augment import augment_sample

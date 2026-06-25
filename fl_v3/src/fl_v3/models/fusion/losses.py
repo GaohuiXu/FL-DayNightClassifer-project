@@ -115,6 +115,7 @@ class CenterPointLoss(nn.Module):
         min_radius: int = 2,
         code_weights=DEFAULT_CODE_WEIGHTS,
         class_weights=None,
+        reg_class_weights=None,
     ):
         super().__init__()
         self.cfg = cfg
@@ -134,6 +135,21 @@ class CenterPointLoss(nn.Module):
             self.register_buffer("class_weights", cw, persistent=False)
         else:
             self.class_weights = None
+        # MCR P1 (the large-vehicle localization lever): optional per-class weight on the REGRESSION L1.
+        # The verified gap: bus/truck/trailer lag on box size/yaw regression (orient_err 0.631 / scale_err
+        # 0.275 — the worst TP metrics), but `class_weights` only touches the heatmap focal (gaussian_focal)
+        # — the reg L1 (forward) has NO class term. That is exactly why the prior 1.68x trailer heatmap
+        # upweight moved trailer only +0.004: it weighted RECOGNITION, never LOCALIZATION. This routes a
+        # per-class weight onto the L1, mean-1 normalized so the heatmap-vs-reg scale is preserved. The reg
+        # loss becomes a class-WEIGHTED mean (sum(w*l1)/sum(w)) so it stays scale-stable across batch
+        # composition. None ⇒ unweighted ⇒ byte-identical to before.
+        if reg_class_weights is not None:
+            rw = torch.tensor([float(x) for x in reg_class_weights], dtype=torch.float32)
+            assert rw.numel() == self.n_classes, f"reg_class_weights must have {self.n_classes} entries"
+            rw = rw * (rw.numel() / rw.sum().clamp_min(1e-6))   # → mean 1
+            self.register_buffer("reg_class_weights", rw, persistent=False)
+        else:
+            self.reg_class_weights = None
         self.last_terms: Dict[str, float] = {}
 
     # --- target construction (RNG-free, atomic-free) ---
@@ -172,7 +188,8 @@ class CenterPointLoss(nn.Module):
         if not boxes_all:
             z = lambda *s: torch.zeros(s, device=device, dtype=dtype)
             return (heatmap, torch.zeros((0,), device=device, dtype=torch.int64),
-                    torch.zeros((0,), device=device, dtype=torch.int64), z(0, 10))
+                    torch.zeros((0,), device=device, dtype=torch.int64), z(0, 10),
+                    torch.zeros((0,), device=device, dtype=torch.int64))
 
         boxes = torch.cat(boxes_all, dim=0)          # [G,7] in (b,m) order — identical to the OLD loop
         labels = torch.cat(labels_all, dim=0)        # [G]
@@ -192,7 +209,8 @@ class CenterPointLoss(nn.Module):
         if keep.numel() == 0:
             return (heatmap, torch.zeros((0,), device=device, dtype=torch.int64),
                     torch.zeros((0,), device=device, dtype=torch.int64),
-                    torch.zeros((0, 10), device=device, dtype=dtype))
+                    torch.zeros((0, 10), device=device, dtype=dtype),
+                    torch.zeros((0,), device=device, dtype=torch.int64))
         sel = lambda t: t.index_select(0, keep)
         cx, cy, cz, dx, dy, dz, yaw = (sel(cx), sel(cy), sel(cz), sel(dx), sel(dy), sel(dz), sel(yaw))
         fx, fy, col_f, row_f = sel(fx), sel(fy), sel(col_f), sel(row_f)
@@ -223,7 +241,7 @@ class CenterPointLoss(nn.Module):
             radius = max(self.min_radius, int(gaussian_radius((fcells[k][0], fcells[k][1]))))
             draw_gaussian(heatmap[b_k, cls_k], col_k, row_k, radius)
 
-        return heatmap, bidx_t, cells_t, reg_target
+        return heatmap, bidx_t, cells_t, reg_target, labels_k
 
     # --- focal + L1 ---
     def gaussian_focal(self, pred_logits: torch.Tensor, gt: torch.Tensor) -> torch.Tensor:
@@ -244,7 +262,7 @@ class CenterPointLoss(nn.Module):
     def forward(self, pred: Dict[str, torch.Tensor], batch: dict) -> torch.Tensor:
         device = pred["heatmap"].device
         dtype = pred["heatmap"].dtype
-        heatmap_t, bidx, cells, reg_target = self.build_targets(batch, device, dtype)
+        heatmap_t, bidx, cells, reg_target, labels_k = self.build_targets(batch, device, dtype)
         hm_loss = self.gaussian_focal(pred["heatmap"], heatmap_t)
 
         # regression channels concatenated in the canonical order → [B, 10, H, W]
@@ -256,8 +274,12 @@ class CenterPointLoss(nn.Module):
             pred_at = flat[gather_idx]                                  # [G, 10]
             # code_weights is a buffer; move on-the-fly so the loop need not .to() the
             # criterion (keeps the generic loop / dummy-task contract untouched).
-            l1 = (pred_at - reg_target).abs() * self.code_weights.to(pred_at.device)
-            reg_loss = l1.sum() / reg_target.shape[0]
+            l1 = (pred_at - reg_target).abs() * self.code_weights.to(pred_at.device)   # [G, 10]
+            if self.reg_class_weights is not None:                # per-GT class weight on the L1 (mean-1)
+                rw = self.reg_class_weights.to(pred_at.device)[labels_k]               # [G]
+                reg_loss = (l1.sum(dim=1) * rw).sum() / rw.sum().clamp_min(1e-6)       # class-weighted mean
+            else:
+                reg_loss = l1.sum() / reg_target.shape[0]
         else:
             reg_loss = reg_pred.sum() * 0.0
         total = hm_loss + self.reg_weight * reg_loss
