@@ -36,6 +36,7 @@ from fl_v3.strategy.defenses import (
     norm_clip_decision,
 )
 from fl_v3.strategy.sampling import SAMPLE_SALT_TRAIN, select_partition_ids
+from fl_v3.strategy.server_opt import build_server_optimizer
 from fl_v3.training.tasks import (
     get_task,
     load_trainable_state_dict,
@@ -90,6 +91,19 @@ def numpy_state_checksum(params: List[np.ndarray]) -> str:
         h.update(str(a.dtype).encode())
         h.update(a.tobytes())
     return h.hexdigest()
+
+
+def _client_recipe_kwargs(run_config: dict) -> dict:
+    """MCR Phase-3 (D17) FL client-recipe knobs → ``train_local`` kwargs (all default-off ⇒ byte-identical).
+
+    With a TRAINED backbone (bb02d) the FL client wants the centralized stability levers — gradient clip,
+    a slower LR group for the heavy Swin-T backbone, and decoupled weight decay. Defaults reproduce the
+    pre-MCR plain-Adam path exactly (grad_clip 0, mult 1.0, adam)."""
+    return {
+        "grad_clip_norm": float(run_config.get("grad-clip-norm", 0.0)),
+        "backbone_lr_mult": float(run_config.get("det-backbone-lr-mult", 1.0)),
+        "optimizer_name": str(run_config.get("det-optimizer", "adam")),
+    }
 
 
 def _dispatch_defense(
@@ -167,6 +181,8 @@ def run_clean_round(
     num_epochs = int(run_config.get("num-local-epochs", 1))
     lr = float(run_config.get("learning-rate", 1e-2))
     wd = float(run_config.get("weight-decay", 0.0))
+    rkw = _client_recipe_kwargs(run_config)  # MCR P3: grad-clip / backbone-lr-mult / optimizer (default-off)
+    server_opt = build_server_optimizer(run_config)  # MCR P3: FedAdam server step (default identity FedAvg)
 
     # Initial global model + TRAINABLE-only params (DT3-A).
     global_model = task.build_model(run_config).to(device)
@@ -185,7 +201,7 @@ def run_clean_round(
         res = train_local(
             model, cdata.trainloader, criterion, device,
             num_epochs=num_epochs, learning_rate=lr, weight_decay=wd,
-            valloader=cdata.valloader,
+            valloader=cdata.valloader, **rkw,
         )
         replies.append(
             {
@@ -214,12 +230,15 @@ def run_clean_round(
         "decision_valid": bool(decision.valid),
     }
     if decision.valid and decision.new_global is not None:
-        load_trainable_numpy(global_model, decision.new_global)
+        # MCR P3: server optimizer step on the pseudo-gradient (Δ = aggregate − global). Identity for
+        # the default FedAvg; FedAdam/FedAvgM apply the adaptive step (composes with any defense).
+        new_global = server_opt.step(global_params, decision.new_global)
+        load_trainable_numpy(global_model, new_global)
         summary["eval"] = task.evaluate(
             global_model, task.eval_loader(run_config), criterion, device, run_config
         )
-        summary["agg_checksum"] = numpy_state_checksum(decision.new_global)
-        summary["new_global"] = decision.new_global
+        summary["agg_checksum"] = numpy_state_checksum(new_global)
+        summary["new_global"] = new_global
     else:
         summary["eval"] = None
         summary["agg_checksum"] = None
@@ -262,6 +281,8 @@ def run_clean_rounds(
     num_epochs = int(run_config.get("num-local-epochs", 1))
     lr = float(run_config.get("learning-rate", 1e-2))
     wd = float(run_config.get("weight-decay", 0.0))
+    rkw = _client_recipe_kwargs(run_config)  # MCR P3: grad-clip / backbone-lr-mult / optimizer (default-off)
+    server_opt = build_server_optimizer(run_config)  # MCR P3: FedAdam server step (default identity FedAvg)
 
     from fl_v3.training.loop import train_local
 
@@ -285,7 +306,7 @@ def run_clean_rounds(
             res = train_local(
                 model, cdata.trainloader, criterion, device,
                 num_epochs=num_epochs, learning_rate=lr, weight_decay=wd,
-                valloader=cdata.valloader,
+                valloader=cdata.valloader, **rkw,
             )
             replies.append({
                 "partition_id": int(cid),
@@ -302,7 +323,9 @@ def run_clean_rounds(
             num_examples, run_config, seed, server_round, foolsgold_state=fg_state,
         )
         if decision.valid and decision.new_global is not None:
-            global_params = decision.new_global  # carry forward (mirrors strategy.start)
+            # MCR P3: server optimizer step (Δ = aggregate − round-start global), then carry forward.
+            # Identity for default FedAvg; FedAdam/FedAvgM apply the adaptive server step.
+            global_params = server_opt.step(global_params, decision.new_global)
             agg_checksum = numpy_state_checksum(global_params)
         else:
             agg_checksum = None  # invalid round: global unchanged

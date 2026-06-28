@@ -35,7 +35,7 @@ from fl_v3.training.tasks import get_task
 from fl_v3.training.loop import _unpack_batch
 
 FORWARD_STAGES = ["preprocess", "camera_backbone", "camera_neck", "view_transform",
-                  "lidar_encoder", "fusion", "bev_neck", "head"]
+                  "lidar_encoder", "lidar_backbone", "fusion", "bev_neck", "head"]
 
 
 class UtilSampler:
@@ -124,6 +124,8 @@ def _model_opt(task, run_config, device):
         model.fusion = torch.compile(model.fusion)
         model.bev_neck = torch.compile(model.bev_neck)
         model.head = torch.compile(model.head)
+        if getattr(model, "lidar_backbone", None) is not None:   # bb02d dense 2D LiDAR trunk (static shapes)
+            model.lidar_backbone = torch.compile(model.lidar_backbone)
     crit = task.build_criterion(run_config)
     base_lr = float(run_config.get("learning-rate", 3e-3))
     bb_mult = float(run_config.get("det-backbone-lr-mult", 0.1))

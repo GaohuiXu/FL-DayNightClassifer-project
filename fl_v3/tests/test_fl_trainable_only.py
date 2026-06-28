@@ -13,16 +13,24 @@ from __future__ import annotations
 
 import torch
 
+import json
+import os
+
 from fl_v3.models.dummy import TinyMLP
 from fl_v3.models.fusion.detector import BEVFusionDetector, DetectorConfig
 from fl_v3.training.tasks import (
+    BB02D_TRAINABLE_MODULE_SLICE_MAP,
+    BB02D_TRAINABLE_TENSOR_COUNT,
     TRAINABLE_MODULE_SLICE_MAP,
     TRAINABLE_TENSOR_COUNT,
+    _det_config_from_run,
     assert_trainable_layout,
     load_trainable_state_dict,
     trainable_param_names,
     trainable_state_dict,
 )
+
+_BB02D_CONFIG = os.path.join(os.path.dirname(__file__), "..", "configs", "p1_bb02d.json")
 
 
 def _bringup_cfg(pretrained: bool = False):
@@ -45,6 +53,33 @@ def test_trainable_layout_is_the_frozen_62_tensor_contract():
         top = k.split(".")[0]
         counts[top] = counts.get(top, 0) + 1
     assert counts == dict(TRAINABLE_MODULE_SLICE_MAP)
+
+
+def test_bb02d_trainable_layout_is_the_270_tensor_contract():
+    """MCR Phase-3 (D17): the trained-backbone bb02d FL model is a config-conditional layout —
+    270 trainable tensors (camera_backbone 169 trained + lidar_backbone 39 + the 62 non-backbone),
+    ZERO frozen. Guards the param-structure the FL update vector aggregates against silent drift.
+    pretrained=False keeps the param STRUCTURE identical to the pretrained run (only values differ)
+    so the test needs no weight download."""
+    import torch
+    rc = json.load(open(_BB02D_CONFIG))
+    rc["det-pretrained-backbone"] = False
+    torch.manual_seed(0)
+    model = BEVFusionDetector(_det_config_from_run(rc))
+    tsd = trainable_state_dict(model)
+    assert len(tsd) == BB02D_TRAINABLE_TENSOR_COUNT == 270
+    # bb02d trains the backbone ⇒ NO frozen params (the DT3-A exclude-frozen-backbone trick is off).
+    frozen = [n for n, p in model.named_parameters() if not p.requires_grad]
+    assert frozen == [], "bb02d trains the backbone — expected zero frozen params"
+    assert_trainable_layout(model, BB02D_TRAINABLE_MODULE_SLICE_MAP)
+    counts = {}
+    for k in tsd:
+        top = k.split(".")[0]
+        counts[top] = counts.get(top, 0) + 1
+    assert counts == dict(BB02D_TRAINABLE_MODULE_SLICE_MAP)
+    # the 6 non-backbone modules are byte-identical in count to the frozen-62 contract (strict superset)
+    for mod, n in TRAINABLE_MODULE_SLICE_MAP.items():
+        assert counts[mod] == n, f"{mod}: bb02d {counts[mod]} != frozen contract {n}"
 
 
 def test_all_frozen_params_live_under_camera_backbone():

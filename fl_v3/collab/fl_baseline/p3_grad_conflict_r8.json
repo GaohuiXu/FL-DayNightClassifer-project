@@ -1,0 +1,115 @@
+{
+  "checkpoint": "/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/thesis_workspace/fl_weather_project/.claude/worktrees/stupefied-jennings-4b1992/fl_outputs/nuscenes/experiments/cycle_04/fl_bb02d_fedadam/fl_bb02d_fedavg/round_8/final_model.pt",
+  "n_clients": 25,
+  "max_steps": 0,
+  "per_module": {
+    "camera_backbone": {
+      "mean_pairwise_cos": 0.013067946769297123,
+      "min_pairwise_cos": -0.0005926783196628094,
+      "frac_negative_pairs": 0.006666666666666667,
+      "norm_mean": 8.187838554382324,
+      "norm_cov": 0.06901790515737714
+    },
+    "camera_neck": {
+      "mean_pairwise_cos": 0.08753706514835358,
+      "min_pairwise_cos": 0.006067439913749695,
+      "frac_negative_pairs": 0.0,
+      "norm_mean": 6.0873122215271,
+      "norm_cov": 0.07033741783557211
+    },
+    "view_transform": {
+      "mean_pairwise_cos": 0.19924196600914001,
+      "min_pairwise_cos": 0.06691734492778778,
+      "frac_negative_pairs": 0.0,
+      "norm_mean": 3.9679105281829834,
+      "norm_cov": 0.10299325262607752
+    },
+    "lidar_encoder": {
+      "mean_pairwise_cos": 0.6706332564353943,
+      "min_pairwise_cos": 0.4768836200237274,
+      "frac_negative_pairs": 0.0,
+      "norm_mean": 0.6394767165184021,
+      "norm_cov": 0.25123356746329006
+    },
+    "lidar_backbone": {
+      "mean_pairwise_cos": 0.14201636612415314,
+      "min_pairwise_cos": 0.045974597334861755,
+      "frac_negative_pairs": 0.0,
+      "norm_mean": 20.829526901245117,
+      "norm_cov": 0.07799696442644954
+    },
+    "fusion": {
+      "mean_pairwise_cos": 0.28668472170829773,
+      "min_pairwise_cos": 0.14629308879375458,
+      "frac_negative_pairs": 0.0,
+      "norm_mean": 5.559463977813721,
+      "norm_cov": 0.09079409918875914
+    },
+    "bev_neck": {
+      "mean_pairwise_cos": 0.1911064088344574,
+      "min_pairwise_cos": 0.09243003278970718,
+      "frac_negative_pairs": 0.0,
+      "norm_mean": 9.97323989868164,
+      "norm_cov": 0.0892375773353516
+    },
+    "head": {
+      "mean_pairwise_cos": 0.23214858770370483,
+      "min_pairwise_cos": 0.11702977865934372,
+      "frac_negative_pairs": 0.0,
+      "norm_mean": 5.239665985107422,
+      "norm_cov": 0.12420665028205619
+    }
+  },
+  "per_class_heatmap": {
+    "car": {
+      "mean_pairwise_cos": 0.4971027672290802,
+      "frac_negative_pairs": 0.0,
+      "sign_agreement": 0.7775
+    },
+    "truck": {
+      "mean_pairwise_cos": 0.5380237698554993,
+      "frac_negative_pairs": 0.0,
+      "sign_agreement": 0.67125
+    },
+    "bus": {
+      "mean_pairwise_cos": 0.6006693243980408,
+      "frac_negative_pairs": 0.0,
+      "sign_agreement": 0.736875
+    },
+    "trailer": {
+      "mean_pairwise_cos": 0.3341803550720215,
+      "frac_negative_pairs": 0.16666666666666666,
+      "sign_agreement": 0.6725
+    },
+    "construction_vehicle": {
+      "mean_pairwise_cos": 0.5448485016822815,
+      "frac_negative_pairs": 0.0,
+      "sign_agreement": 0.7625
+    },
+    "pedestrian": {
+      "mean_pairwise_cos": 0.43006715178489685,
+      "frac_negative_pairs": 0.03666666666666667,
+      "sign_agreement": 0.705625
+    },
+    "motorcycle": {
+      "mean_pairwise_cos": 0.6055695414543152,
+      "frac_negative_pairs": 0.0,
+      "sign_agreement": 0.77
+    },
+    "bicycle": {
+      "mean_pairwise_cos": 0.6030763983726501,
+      "frac_negative_pairs": 0.0,
+      "sign_agreement": 0.771875
+    },
+    "traffic_cone": {
+      "mean_pairwise_cos": 0.561099648475647,
+      "frac_negative_pairs": 0.0,
+      "sign_agreement": 0.7025
+    },
+    "barrier": {
+      "mean_pairwise_cos": 0.4368639588356018,
+      "frac_negative_pairs": 0.02,
+      "sign_agreement": 0.714375
+    }
+  }
+}

@@ -121,11 +121,18 @@ precision = "bf16"
 # RNG-neutral (run_b_eval_neutral_a40.sh proves byte-identical checksum none-vs-all).
 server-eval-mode = "all"
 server-eval-frequency = 1             # every_n: eval every N rounds (+ always the final round)
+# log-gradient-metrics (MCR P3): the n×n pairwise-cosine + top-k-energy gradient-space telemetry is DEFENSE
+# analysis (T6) — O(n²·d) ≈ 150 s/round over bb02d's 33M update vector. Default true (benchmark unchanged);
+# the clean FL baseline sets false (the cheap per-client update norms are always logged regardless).
+log-gradient-metrics = true
 # compile-backbone (D15 L8): torch.compile the camera backbone in the FL train path (precision=bf16 only;
 # the D16 envelope keeps torch.compile an explicit opt-in with an eager fallback). Needs a persistent
 # TORCHINDUCTOR_CACHE_DIR (set by the launcher) so the per-client/round rebuild is a compile cache-hit.
 # Default off.
 compile-backbone = false
+# det-compile-bev (MCR P3): also torch.compile the static-shape BEV conv stack (camera_neck+fusion+
+# bev_neck+head+lidar_backbone) in the FL client — profiler: compile+sdpa+bev = 1.45× vs 1.19× backbone-only.
+det-compile-bev = false
 
 # ===== paths =====
 output-dir = "./outputs"
@@ -170,6 +177,47 @@ det-max-objects = 200                 # decode top-K per sample (pre-threshold)
 det-score-threshold = 0.1             # decode score floor
 det-target-class = 0                  # D8 primary = car (DETECTION_NAMES id 0)
 det-eval-limit = 0                    # >0 caps eval samples (0 = full val split)
+
+# ===== MCR (D17) — bb02d capability knobs for the FL path (registered so `flwr run --run-config`
+# accepts them; the centralized path reads the JSON directly and never needed them here). All default to
+# the OFF / baseline value ⇒ a frozen-backbone FL config is byte-identical to the pre-MCR FL path. =====
+det-swin-sdpa = false                 # SDPA-rewrite Swin attention (bf16-only fast path)
+det-activation-checkpoint = false     # gradient checkpointing of the camera backbone
+det-lidar-sweeps = 1                  # multi-sweep LiDAR accumulation (bb02d=10)
+det-lidar-backbone = false            # dense 2D LiDAR backbone (bb02d=true)
+det-lidar-backbone-out = 128
+det-lidar-backbone-checkpoint = false # activation-ckpt the LiDAR backbone (needed at 0.2m)
+det-lidar-backbone-stages = 3         # 4 = bb02d's large-object-RF stage
+det-aug-bev = false                   # BEV GlobalRotScaleTrans+flip (train-only)
+det-aug-rot = 0.785398
+det-aug-scale-min = 0.9
+det-aug-scale-max = 1.1
+det-aug-translate = 0.5
+det-aug-flip = true
+det-aug-img-flip = 0.0                # image-appearance flip prob (bb02d=0.5)
+# Per-class heatmap loss weights as a COMMA-STRING (flwr 1.27 config values are scalars/str/dict — NOT
+# arrays). "" (default) ⇒ uniform ⇒ the pre-MCR no-weight loss path. bb02d FL sets "1.0,1.3,1.3,2.5,2.5,
+# 1.0,1.3,2.0,1.0,1.0". _normalize_weights parses str|list and maps uniform→None (byte-identical default).
+det-class-weights = ""
+
+# ===== MCR Phase-3 (D17) — the FL recipe (client recipe + server optimizer). All default to the
+# off / identity state ⇒ byte-identical to the pre-MCR FedAvg FL path. =====
+determinism-strict = true             # strict-AST dev gate (bf16 science runs may set false)
+det-optimizer = "adam"                # adam (default) | adamw (decoupled wd — bb02d FL)
+grad-clip-norm = 0.0                  # client grad-clip (bb02d FL = 35)
+det-backbone-lr-mult = 1.0            # client backbone LR group multiplier (bb02d FL = 0.1)
+client-lr-schedule = "constant"       # constant (default) | cosine (global per-round warmup→cosine)
+client-lr-warmup-rounds = 0           # rounds to linearly warm the per-round client LR
+client-lr-final-frac = 0.0            # cosine floor as a fraction of the base LR
+server-optimizer = "fedavg"           # fedavg (identity) | fedavgm | fedadam (D17 retention lever)
+server-lr = 1.0                       # FedOpt server step size (η); 1.0 = plain FedAvg
+server-beta1 = 0.9
+server-beta2 = 0.99
+server-tau = 0.001                    # FedAdam adaptivity/epsilon
+server-lr-warmup-rounds = 0           # linear ramp of η over the first N rounds (FedAdam blow-up guard)
+server-opt-bias-correction = true
+server-ema-decay = 0.0                # >0 ⇒ keep a server-side cross-round EMA of the global (saved to ema/)
+snapshot-rounds = ""                  # comma-sep rounds to checkpoint for post-hoc PEAK-round selection
 
 # ===== T4 official metric (DetectionEval) + ASR-eligibility harness =====
 # eval_set is HARD-COUPLED to nuscenes-version (mini -> mini_val, trainval -> val); the

@@ -46,6 +46,7 @@ from fl_v3.strategy.sampling import (
     SAMPLE_SALT_TRAIN,
     select_partition_ids,
 )
+from fl_v3.strategy.server_opt import ServerOptimizer
 
 # Discovery (one cheap QUERY round) must out-wait the Ray actor-pool cold start on a
 # contended node; the probe itself is trivial. Far above any real per-message latency.
@@ -106,10 +107,19 @@ class NormTrackingFedAvg(FedAvg):
         experiment_name: str = "default",
         seed: int = 42,
         topk_energy_k: int = 4096,
+        server_optimizer: "ServerOptimizer | None" = None,
+        server_ema_decay: float = 0.0,
+        client_lr_schedule: str = "constant",
+        client_base_lr: float | None = None,
+        num_rounds: int = 1,
+        client_lr_warmup_rounds: int = 0,
+        client_lr_final_frac: float = 0.0,
+        log_gradient_metrics: bool = True,
         *args,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
+        self.log_gradient_metrics = bool(log_gradient_metrics)
         self.output_dir = output_dir
         self.experiment_name = experiment_name
         self.seed = int(seed)
@@ -121,6 +131,36 @@ class NormTrackingFedAvg(FedAvg):
         self._pid_to_node: dict[int, int] | None = None
         self._last_train_partition_ids: list[int] | None = None
         self._last_eval_partition_ids: list[int] | None = None
+        # MCR P3 (D17): server optimizer (FedAdam) + server EMA + per-round client LR schedule.
+        # Defaults = identity FedAvg / no EMA / constant LR ⇒ byte-identical to the pre-MCR strategy.
+        self.server_optimizer = server_optimizer or ServerOptimizer()
+        self.server_ema_decay = float(server_ema_decay)
+        self._ema_arrays: list | None = None  # fp64 server-EMA shadow of the global trainable vector
+        self.client_lr_schedule = str(client_lr_schedule)
+        self.client_base_lr = (None if client_base_lr is None else float(client_base_lr))
+        self.num_rounds = int(num_rounds)
+        self.client_lr_warmup_rounds = int(client_lr_warmup_rounds)
+        self.client_lr_final_frac = float(client_lr_final_frac)
+
+    def _lr_at_round(self, server_round: int) -> "float | None":
+        """Per-round global client LR (warmup → cosine over rounds), or None for the constant-LR default.
+
+        The FL analog of the centralized OneCycle: the server broadcasts one LR per round (clients train
+        their E local epochs at it). ``constant`` (default) returns None ⇒ the train_config LR is untouched
+        (byte-identical). Otherwise: linear warmup to ``client_base_lr`` over ``warmup_rounds``, then cosine
+        decay to ``base*final_frac`` over the remaining rounds (1-indexed round)."""
+        import math
+        if self.client_lr_schedule == "constant" or self.client_base_lr is None:
+            return None
+        R = max(1, self.num_rounds)
+        w = max(0, self.client_lr_warmup_rounds)
+        base = self.client_base_lr
+        final = base * self.client_lr_final_frac
+        r = int(server_round)
+        if w > 0 and r <= w:
+            return base * r / w
+        t = min(1.0, max(0.0, (r - w) / max(1, (R - w))))
+        return final + 0.5 * (base - final) * (1.0 + math.cos(math.pi * t))
 
     # ---- DT3-B: deterministic participant sampling over the 0..N-1 pid space ----
     def _ensure_discovery(self, grid: Grid) -> None:
@@ -199,14 +239,22 @@ class NormTrackingFedAvg(FedAvg):
         self.current_arrays = arrays.copy()
         if self.fraction_train == 0.0:
             return []
+        import time
+        self._round_t0 = time.perf_counter()   # MCR P3: round wall-clock start (read in aggregate_train)
         self._ensure_discovery(grid)
         pids, node_ids = self._deterministic_node_ids(
             server_round, self.fraction_train, self.min_train_nodes, SAMPLE_SALT_TRAIN
         )
         self._last_train_partition_ids = list(pids)
+        # MCR P3: per-round global client LR (warmup→cosine over rounds). None ⇒ leave the train_config LR
+        # untouched (the constant-LR default = byte-identical).
+        lr_r = self._lr_at_round(server_round)
+        if lr_r is not None:
+            config["learning-rate"] = float(lr_r)
         print(
             f"\n{'=' * 60}\n  Round {server_round} — TRAIN  "
-            f"(DT3-B participants pids={pids})\n{'=' * 60}",
+            f"(DT3-B participants pids={pids}"
+            f"{f', client-lr={lr_r:.2e}' if lr_r is not None else ''})\n{'=' * 60}",
             flush=True,
         )
         config["server-round"] = server_round
@@ -230,7 +278,14 @@ class NormTrackingFedAvg(FedAvg):
         return self._construct_messages(record, node_ids, MessageType.EVALUATE)
 
     def aggregate_train(self, server_round, replies):
-        return self._aggregate_with_core(server_round, replies)
+        import time
+        _t0 = time.perf_counter()
+        out = self._aggregate_with_core(server_round, replies)
+        # MCR P3 profiling telemetry: round wall-time (from configure_train) + the aggregation step.
+        wall = (time.perf_counter() - getattr(self, "_round_t0", time.perf_counter()))
+        print(f"[round-prof] round={server_round} round_wall={wall:.1f}s "
+              f"aggregate={1e3*(time.perf_counter()-_t0):.0f}ms", flush=True)
+        return out
 
     # ---- shared machinery ----
     def _aggregate_with_core(self, server_round, replies):
@@ -282,9 +337,25 @@ class NormTrackingFedAvg(FedAvg):
             self._last_train_metrics = None
             return None, None
 
-        # ``decision.new_global`` is ordered like the GLOBAL arrays
-        # (current_arrays), so key the output by the global keys — not the
-        # reply's. Assert the reply uses the same key order so a mismatch fails
+        # MCR P3 (D17): the server optimizer step. ``decision.new_global`` is the defense/FedAvg robust
+        # aggregate (always the new GLOBAL PARAMS, for every defense), so Δ = aggregate − round-start global
+        # is form-agnostic. Identity for the default FedAvg; FedAdam/FedAvgM apply the adaptive step. This is
+        # ORTHOGONAL to defense-type (the D10 reference stays defense-type=none) and composes with any defense.
+        new_global = self.server_optimizer.step(global_params, decision.new_global)
+        # Server-side cross-round EMA shadow (fp64) — the FL analog of the centralized EMA(0.9997); the
+        # reference is reported on whichever of {raw global, EMA} peaks (server_app saves both).
+        if self.server_ema_decay and self.server_ema_decay > 0.0:
+            if self._ema_arrays is None:
+                self._ema_arrays = [np.asarray(a, dtype=np.float64).copy() for a in new_global]
+            else:
+                d = self.server_ema_decay
+                self._ema_arrays = [
+                    d * e + (1.0 - d) * np.asarray(a, dtype=np.float64)
+                    for e, a in zip(self._ema_arrays, new_global)
+                ]
+
+        # ``new_global`` is ordered like the GLOBAL arrays (current_arrays), so key the output by the
+        # global keys — not the reply's. Assert the reply uses the same key order so a mismatch fails
         # loudly instead of silently mislabelling aggregated tensors.
         global_keys = list(self.current_arrays.keys())
         reply_keys = list(valid_replies[0].content[self.arrayrecord_key].keys())
@@ -295,7 +366,7 @@ class NormTrackingFedAvg(FedAvg):
                 f"(global[:3]={global_keys[:3]}, reply[:3]={reply_keys[:3]})."
             )
         arrays = ArrayRecord()
-        for key, arr in zip(global_keys, decision.new_global):
+        for key, arr in zip(global_keys, new_global):
             arrays[key] = Array(np.asarray(arr))
         metrics = self.train_metrics_aggr_fn(
             [m.content for m in valid_replies], self.weighted_by_key
@@ -384,7 +455,13 @@ class NormTrackingFedAvg(FedAvg):
             round_record["clipped_norms"] = [round(n, 6) for n in clipped_norms]
         if partition_ids is not None:
             round_record["partition_ids"] = [int(p) for p in partition_ids]
-        if global_params is not None and client_params_list is not None:
+        # MCR P3: the gradient-space metrics (cos-to-mean + n×n pairwise cosine + top-k energy over the FULL
+        # flattened update) are DEFENSE/collusion telemetry — O(n²·d) over 25 clients × 33M params = ~150 s/round
+        # for bb02d (measured). They are USELESS for the clean baseline (defense=none), so they are gated off by
+        # ``log-gradient-metrics=false`` for the FL reference. Default True ⇒ the defense benchmark (T6) is
+        # unchanged. The cheap per-client update NORMS (above) are always logged (the divergent-client signal).
+        if (self.log_gradient_metrics
+                and global_params is not None and client_params_list is not None):
             gsm = compute_gradient_space_metrics(
                 global_params, client_params_list, self.topk_energy_k
             )

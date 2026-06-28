@@ -75,15 +75,26 @@ def _build_strategy(defense_type: str, run_config, common_kwargs: dict, exp_dir:
         NormClipStrategy,
         NormTrackingFedAvg,
     )
+    from fl_v3.strategy.server_opt import build_server_optimizer
 
     experiment_name = str(run_config.get("experiment-name", "default"))
     seed = int(run_config.get("seed", 42))
     topk_energy_k = int(run_config.get("topk-energy-k", 4096))
+    # MCR P3 (D17): the server optimizer (FedAdam) + server EMA + per-round client LR schedule. All
+    # default to the identity / off state ⇒ the strategy is byte-identical to the pre-MCR FedAvg path.
     base = dict(
         output_dir=exp_dir,
         experiment_name=experiment_name,
         seed=seed,
         topk_energy_k=topk_energy_k,
+        server_optimizer=build_server_optimizer(run_config),
+        server_ema_decay=float(run_config.get("server-ema-decay", 0.0)),
+        client_lr_schedule=str(run_config.get("client-lr-schedule", "constant")),
+        client_base_lr=run_config.get("learning-rate") if str(run_config.get("client-lr-schedule", "constant")) != "constant" else None,
+        num_rounds=int(run_config.get("num-server-rounds", 1)),
+        client_lr_warmup_rounds=int(run_config.get("client-lr-warmup-rounds", 0)),
+        client_lr_final_frac=float(run_config.get("client-lr-final-frac", 0.0)),
+        log_gradient_metrics=truthy(run_config.get("log-gradient-metrics", True)),
         **common_kwargs,
     )
 
@@ -144,17 +155,61 @@ def should_server_eval(mode: str, frequency: int, server_round: int, num_rounds:
     return is_final or (server_round % freq == 0)
 
 
-def _server_eval_fn(context: Context, task, exp_dir: str):
+def _parse_round_list(spec, num_rounds: int) -> set:
+    """Parse a comma-separated ``snapshot-rounds`` spec (e.g. "10,15,20") into a set of round ints."""
+    out: set = set()
+    for tok in str(spec or "").replace(" ", "").split(","):
+        if not tok:
+            continue
+        try:
+            r = int(tok)
+        except ValueError:
+            continue
+        if 1 <= r <= num_rounds:
+            out.add(r)
+    return out
+
+
+def _save_round_snapshot(task, run_config, exp_dir, server_round, arrays, ema_arrays) -> None:
+    """MCR P3: save the round's global (and server-EMA) as a self-contained checkpoint under
+    ``<exp_dir>/round_<r>/`` so the PEAK round can be picked post-hoc (the FL analog of the centralized
+    ``ema_ep{N}`` snapshots; the centralized model peaked mid-run, so the final round is not assumed best)."""
+    from fl_v3.engine.local_runner import load_trainable_numpy, numpy_state_checksum
+    from fl_v3.training.tasks import trainable_state_dict
+
+    snap_dir = os.path.join(exp_dir, f"round_{int(server_round)}")
+    os.makedirs(snap_dir, exist_ok=True)
+    m = task.build_model(run_config).to("cpu")
+    load_trainable_state_dict(m, arrays)
+    torch.save(m.state_dict(), os.path.join(snap_dir, "final_model.pt"))
+    arrs = [v.detach().cpu().numpy() for v in trainable_state_dict(m).values()]
+    with open(os.path.join(snap_dir, "trainable_checksum.txt"), "w", encoding="utf-8") as f:
+        f.write(numpy_state_checksum(arrs) + "\n")
+    if ema_arrays is not None:
+        em = task.build_model(run_config).to("cpu")
+        load_trainable_numpy(em, list(ema_arrays))
+        ema_dir = os.path.join(snap_dir, "ema")
+        os.makedirs(ema_dir, exist_ok=True)
+        torch.save(em.state_dict(), os.path.join(ema_dir, "final_model.pt"))
+        earrs = [v.detach().cpu().numpy() for v in trainable_state_dict(em).values()]
+        with open(os.path.join(ema_dir, "trainable_checksum.txt"), "w", encoding="utf-8") as f:
+            f.write(numpy_state_checksum(earrs) + "\n")
+    print(f"[Server] round {server_round}: saved snapshot -> {snap_dir}"
+          f"{' (+ema)' if ema_arrays is not None else ''}", flush=True)
+
+
+def _server_eval_fn(context: Context, task, exp_dir: str, strategy=None):
     run_config = context.run_config
     device = _device(run_config)
     mode = str(run_config.get("server-eval-mode", "all"))
     frequency = int(run_config.get("server-eval-frequency", 1))
     num_rounds = int(run_config.get("num-server-rounds", 1))
+    snapshot_rounds = _parse_round_list(run_config.get("snapshot-rounds", ""), num_rounds)
     if mode not in _VALID_EVAL_MODES:
         raise ValueError(f"server-eval-mode={mode!r} not in {sorted(_VALID_EVAL_MODES)}")
     print(
-        f"[Server] server-eval-mode={mode} frequency={frequency} "
-        f"(proxy metrics only; official mAP/NDS + ASR stay post-hoc on the final checkpoint)",
+        f"[Server] server-eval-mode={mode} frequency={frequency} snapshot-rounds={sorted(snapshot_rounds)} "
+        f"(proxy metrics only; official mAP/NDS + ASR stay post-hoc on the snapshot checkpoints)",
         flush=True,
     )
     # Build the (cheap) eval loader lazily — only if at least one round will actually eval, so
@@ -162,6 +217,12 @@ def _server_eval_fn(context: Context, task, exp_dir: str):
     cache = {"model": None, "eval_loader": None, "criterion": None}
 
     def evaluate_fn(server_round: int, arrays: ArrayRecord) -> Optional[MetricRecord]:
+        # MCR P3: save the per-round snapshot (raw global + server-EMA) BEFORE the eval gate — snapshotting
+        # is RNG-neutral (no model build into the training graph, no global-RNG draw) so it does not perturb
+        # the FL_TRAINABLE_CHECKSUM, exactly like the proxy eval below.
+        if int(server_round) in snapshot_rounds:
+            ema_arrays = getattr(strategy, "_ema_arrays", None) if strategy is not None else None
+            _save_round_snapshot(task, run_config, exp_dir, int(server_round), arrays, ema_arrays)
         if not should_server_eval(mode, frequency, int(server_round), num_rounds):
             return None
         # RNG-neutral by construction: eval runs model.eval()+no_grad (no dropout, no optimizer,
@@ -235,7 +296,7 @@ def main(grid: Grid, context: Context) -> None:
         }
     )
     evaluate_config = ConfigRecord({})
-    evaluate_fn = _server_eval_fn(context, task, exp_dir)
+    evaluate_fn = _server_eval_fn(context, task, exp_dir, strategy)
 
     result = strategy.start(
         grid=grid,
@@ -265,4 +326,24 @@ def main(grid: Grid, context: Context) -> None:
             f.write(tchk + "\n")
         print(f"[server] checkpoint saved -> {ckpt}", flush=True)
         print(f"[server] FL_TRAINABLE_CHECKSUM = {tchk}", flush=True)
+
+        # MCR P3 (D17): if a server-side cross-round EMA was kept, save it as a SELF-CONTAINED eval
+        # checkpoint under <exp_dir>/ema/ with its OWN trainable checksum — the FL analog of the
+        # centralized EMA checkpoint. The reference is reported on whichever of {raw, EMA} peaks; the
+        # launcher writes provenance.json into BOTH dirs so either can host a D10 readiness verdict.
+        ema_arrays = getattr(strategy, "_ema_arrays", None)
+        if ema_arrays is not None:
+            from fl_v3.engine.local_runner import load_trainable_numpy
+
+            ema_model = task.build_model(run_config).to("cpu")
+            load_trainable_numpy(ema_model, list(ema_arrays))  # fp64 EMA → cast to each param dtype
+            ema_dir = os.path.join(exp_dir, "ema")
+            os.makedirs(ema_dir, exist_ok=True)
+            torch.save(ema_model.state_dict(), os.path.join(ema_dir, "final_model.pt"))
+            earrs = [v.detach().cpu().numpy() for v in trainable_state_dict(ema_model).values()]
+            echk = numpy_state_checksum(earrs)
+            with open(os.path.join(ema_dir, "trainable_checksum.txt"), "w", encoding="utf-8") as f:
+                f.write(echk + "\n")
+            print(f"[server] server-EMA checkpoint saved (decay={strategy.server_ema_decay}) "
+                  f"-> {ema_dir}  EMA_TRAINABLE_CHECKSUM = {echk}", flush=True)
     print("Federated training finished.", flush=True)

@@ -162,24 +162,46 @@ def train_local(
     learning_rate: float = 1e-3,
     weight_decay: float = 0.0,
     valloader: Optional[DataLoader] = None,
+    grad_clip_norm: float = 0.0,
+    backbone_lr_mult: float = 1.0,
+    optimizer_name: str = "adam",
 ) -> Dict[str, float]:
     """Train locally for ``num_epochs``; evaluate on ``valloader`` (last epoch).
 
-    Returns final train/val loss. Adam over the trainable params only.
+    Returns final train/val loss. Adam-family over the trainable params only.
+
+    **FL recipe knobs (MCR Phase-3 / D17; all default-off ⇒ byte-identical to the pre-MCR FL path):**
+    With a TRAINED camera backbone (bb02d), the FL client benefits from the same stability levers the
+    centralized recipe uses — a separate LR group for the heavy Swin-T backbone (``backbone_lr_mult``,
+    e.g. 0.1× the head LR), gradient clipping (``grad_clip_norm``, e.g. 35), and decoupled weight decay
+    (``optimizer_name='adamw'``). The 2-group split fires **only when the model has trainable backbone
+    params** (it does NOT for a frozen-backbone / dummy model → flat single-group Adam, the byte-identical
+    determinism-gate path). Adam-family only (the standing reproduction-fidelity decision — no SGD).
     """
     # fused Adam collapses the per-tensor moment updates into one kernel (~free win on the now-non-trivial
     # unfrozen optimizer step). NOT byte-identical (fused FMA ordering) → gated OFF under the fp32 dev tool
     # (cudnn.deterministic) so train_local stays byte-identical for the FL/determinism gate; ON under bf16.
     _fused = (device.type == "cuda" and not torch.backends.cudnn.deterministic)
-    optimizer = torch.optim.Adam(
-        [p for p in model.parameters() if p.requires_grad],
-        lr=learning_rate,
-        weight_decay=weight_decay,
-        fused=_fused,
-    )
+    OptCls = torch.optim.AdamW if str(optimizer_name).lower() == "adamw" else torch.optim.Adam
+    # Backbone LR group: only when the backbone is TRAINED (bb02d). Frozen/dummy → bb_params empty → the
+    # exact pre-MCR flat path (byte-identical for the determinism gate + the old frozen-backbone FL configs).
+    bb_params, rest_params = [], []
+    for n, p in model.named_parameters():
+        if not p.requires_grad:
+            continue
+        (bb_params if n.startswith("camera_backbone.") else rest_params).append(p)
+    if bb_params:
+        optimizer = OptCls(
+            [{"params": rest_params, "lr": learning_rate},
+             {"params": bb_params, "lr": learning_rate * float(backbone_lr_mult)}],
+            lr=learning_rate, weight_decay=weight_decay, fused=_fused,
+        )
+    else:
+        optimizer = OptCls(rest_params, lr=learning_rate, weight_decay=weight_decay, fused=_fused)
     final_train_loss = 0.0
     for _ in range(num_epochs):
-        tm = train_one_epoch(model, trainloader, criterion, optimizer, device)
+        tm = train_one_epoch(model, trainloader, criterion, optimizer, device,
+                             grad_clip_norm=grad_clip_norm)
         final_train_loss = tm["loss"]
     final_val_loss = 0.0
     if valloader is not None:

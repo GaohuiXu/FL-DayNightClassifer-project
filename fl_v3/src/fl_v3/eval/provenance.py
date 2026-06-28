@@ -37,9 +37,22 @@ PROVENANCE_KEYS = (
 )
 
 
+# MCR P3 (D17): the FL recipe fields recorded for an HONEST regime label (NOT part of D10 validation —
+# D10_REQUIRED is unchanged, so server-optimizer=fedadam stays D10-compliant as long as defense-type=none).
+# The server optimizer is an axis ORTHOGONAL to the defense; recording it prevents a FedAdam reference from
+# being silently read as plain-FedAvg (and vice-versa).
+FL_RECIPE_KEYS = (
+    "num-local-epochs", "learning-rate", "weight-decay", "det-optimizer", "grad-clip-norm",
+    "det-backbone-lr-mult", "client-lr-schedule", "client-lr-warmup-rounds", "client-lr-final-frac",
+    "server-optimizer", "server-lr", "server-beta1", "server-beta2", "server-tau",
+    "server-lr-warmup-rounds", "server-ema-decay",
+)
+
+
 def build_provenance(run_config: dict, checksum: str) -> dict:
     """Build the provenance record written beside ``final_model.pt`` (single source of truth)."""
     prov = {k: run_config.get(k) for k in PROVENANCE_KEYS}
+    prov["fl_recipe"] = {k: run_config.get(k) for k in FL_RECIPE_KEYS}
     prov["fraction-train"] = float(run_config.get("fraction-train", 0.0))
     # D16: ``precision`` ∈ {bf16, fp32} is the canonical regime field; the legacy ``numeric-mode``
     # {fp32,tf32} key is retained in PROVENANCE_KEYS for back-compat but is now recorded honestly as

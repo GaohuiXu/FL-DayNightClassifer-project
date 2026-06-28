@@ -57,6 +57,28 @@ TRAINABLE_MODULE_SLICE_MAP: "OrderedDict[str, int]" = OrderedDict(
 )
 TRAINABLE_TENSOR_COUNT: int = sum(TRAINABLE_MODULE_SLICE_MAP.values())  # 62
 
+# MCR Phase-3 (D17): the bb02d FL layout. D17 amends D1 — the camera backbone is now TRAINED (not frozen),
+# and bb02d enables the 4-stage LidarBackbone2D. So the FL update vector is the FULL trainable model, NOT the
+# frozen-62 subset: camera_backbone (169, trained) + lidar_backbone (39, 4-stage) ADD to the 6 non-backbone
+# modules (still 62), giving exactly 270 tensors / 33.17M params, ZERO frozen. The 6 non-backbone module
+# counts are byte-identical to the frozen contract (15/5/3/6/18/15) — bb02d is a strict superset. Empirically
+# enumerated from configs/p1_bb02d.json (det-freeze-backbone=false, det-lidar-backbone=true, stages=4). This
+# is a TEST/bookkeeping contract only: production FedAvg/FedAdam aggregate the requires_grad vector
+# (trainable_state_dict), which has no hardcoded count — see assert_trainable_layout's note.
+BB02D_TRAINABLE_MODULE_SLICE_MAP: "OrderedDict[str, int]" = OrderedDict(
+    [
+        ("camera_backbone", 169),
+        ("camera_neck", 15),
+        ("view_transform", 5),
+        ("lidar_encoder", 3),
+        ("lidar_backbone", 39),
+        ("fusion", 6),
+        ("bev_neck", 18),
+        ("head", 15),
+    ]
+)
+BB02D_TRAINABLE_TENSOR_COUNT: int = sum(BB02D_TRAINABLE_MODULE_SLICE_MAP.values())  # 270
+
 
 def trainable_param_names(model: nn.Module) -> set:
     """Names of the parameters that get FL-aggregated (``requires_grad=True``)."""
@@ -102,29 +124,45 @@ def load_trainable_state_dict(model: nn.Module, state) -> None:
         )
 
 
-def assert_trainable_layout(model: nn.Module) -> None:
-    """Assert the model's trainable tensors match the frozen T3→T6 layout contract."""
+def trainable_module_layout(model: nn.Module) -> "OrderedDict[str, int]":
+    """The model's ACTUAL trainable per-top-module tensor counts, in state_dict order."""
     keep = trainable_param_names(model)
     ordered = [k for k in model.state_dict().keys() if k in keep]
-    if len(ordered) != TRAINABLE_TENSOR_COUNT:
-        raise AssertionError(
-            f"expected {TRAINABLE_TENSOR_COUNT} trainable tensors, got {len(ordered)}"
-        )
     counts: "OrderedDict[str, int]" = OrderedDict()
-    order: List[str] = []
     for k in ordered:
         top = k.split(".")[0]
-        if top not in counts:
-            counts[top] = 0
-            order.append(top)
-        counts[top] += 1
-    if order != list(TRAINABLE_MODULE_SLICE_MAP.keys()):
+        counts[top] = counts.get(top, 0) + 1
+    return counts
+
+
+def assert_trainable_layout(
+    model: nn.Module, expected: "Optional[OrderedDict[str, int]]" = None
+) -> None:
+    """Assert the model's trainable tensors match a frozen layout contract.
+
+    Config-conditional (MCR Phase-3 / D17): ``expected`` defaults to the **frozen-backbone
+    62-tensor** contract (:data:`TRAINABLE_MODULE_SLICE_MAP`) for back-compat; pass
+    :data:`BB02D_TRAINABLE_MODULE_SLICE_MAP` (270) for the trained-backbone bb02d FL model.
+    This is a TEST/bookkeeping guard against a silent param-structure drift — production
+    FedAvg/FedAdam aggregate the ``requires_grad`` vector (:func:`trainable_state_dict`),
+    which carries no hardcoded count, so this never gates a training/aggregation run.
+    """
+    if expected is None:
+        expected = TRAINABLE_MODULE_SLICE_MAP
+    counts = trainable_module_layout(model)
+    total = sum(counts.values())
+    expected_total = sum(expected.values())
+    if total != expected_total:
         raise AssertionError(
-            f"module order {order} != contract {list(TRAINABLE_MODULE_SLICE_MAP.keys())}"
+            f"expected {expected_total} trainable tensors, got {total}"
         )
-    if counts != TRAINABLE_MODULE_SLICE_MAP:
+    if list(counts.keys()) != list(expected.keys()):
         raise AssertionError(
-            f"per-module counts {dict(counts)} != contract {dict(TRAINABLE_MODULE_SLICE_MAP)}"
+            f"module order {list(counts.keys())} != contract {list(expected.keys())}"
+        )
+    if counts != expected:
+        raise AssertionError(
+            f"per-module counts {dict(counts)} != contract {dict(expected)}"
         )
 
 # A criterion maps (model_output, target) -> scalar loss tensor. NOT assumed to
@@ -396,6 +434,28 @@ def _gtpaste_from_run(run_config: dict):
     }
 
 
+def _normalize_weights(cw):
+    """Per-class loss weights → None when absent / empty / UNIFORM (all values equal).
+
+    Accepts a **list** (centralized JSON reads it directly: ``[1,1.3,…]``) OR a **comma-string** (the FL
+    path: ``flwr run`` only allows scalar/str config values — NOT arrays — so the FL config encodes the
+    weights as ``"1.0,1.3,…"`` with a ``""`` default). A uniform/empty value maps back to ``None`` so the
+    pre-MCR no-weight loss path stays byte-identical; a non-uniform value applies the capability weighting."""
+    if cw is None:
+        return None
+    if isinstance(cw, str):
+        s = cw.strip()
+        if not s:
+            return None
+        cw = [float(x) for x in s.split(",") if x.strip() != ""]
+    vals = [float(v) for v in cw]
+    if not vals:
+        return None
+    if all(v == vals[0] for v in vals):
+        return None
+    return vals
+
+
 def center_distance_proxy(
     decoded: List[dict],
     batch: dict,
@@ -458,6 +518,7 @@ class NuScenesDetectionTask(Task):
 
     def __init__(self):
         self._partition_cache: Dict[tuple, dict] = {}
+        self._info_cache: Dict[tuple, tuple] = {}  # MCR P3: memoize the (heavy) info-list per (version,split)
 
     # --- model / criterion ---
     def build_model(self, run_config: dict) -> nn.Module:
@@ -471,8 +532,8 @@ class NuScenesDetectionTask(Task):
         c = _det_config_from_run(run_config)
         return CenterPointLoss(cfg=c.bev, n_classes=c.n_classes,
                                reg_weight=float(run_config.get("det-reg-weight", 0.25)),
-                               class_weights=run_config.get("det-class-weights"),       # None ⇒ uniform heatmap
-                               reg_class_weights=run_config.get("det-reg-class-weights"))  # None ⇒ unweighted L1
+                               class_weights=_normalize_weights(run_config.get("det-class-weights")),
+                               reg_class_weights=_normalize_weights(run_config.get("det-reg-class-weights")))
 
     # --- data ---
     def _load_info(self, run_config: dict, split: str):
@@ -480,8 +541,17 @@ class NuScenesDetectionTask(Task):
 
         cache_dir = str(run_config["nuscenes-cache-dir"])
         version = str(run_config["nuscenes-version"])
+        # MCR P3: memoize the unpickle. In FL, ``client_data`` is called per (client, round); without this
+        # the ~580 MB trainval info-cache is re-unpickled on EVERY client invocation (~5 s × 25 × R of pure
+        # I/O). The cache lives on the Task instance, which persists per Ray-actor process ⇒ each actor reads
+        # the pickle once. (Memory-only; the result is read-only and identical across calls.)
+        ck = (cache_dir, version, split)
+        cached = self._info_cache.get(ck)
+        if cached is not None:
+            return cached
         try:
             info_list, meta = IC.load_cache(cache_dir, version, split)
+            self._info_cache[ck] = (info_list, meta)
         except FileNotFoundError as e:
             raise FileNotFoundError(
                 f"nuScenes info-cache for ({version}, {split}) not found under "

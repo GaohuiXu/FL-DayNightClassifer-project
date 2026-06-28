@@ -31,9 +31,12 @@ export PYTHONPATH="${REPO}/fl_v3/src${PYTHONPATH:+:$PYTHONPATH}"
 
 for d in ${CKPTS}; do
   echo "===== eval ${d} ====="
+  # EXTRA = optional space-sep key=value overrides (e.g. "det-eval-limit=0" to force the FULL val set; the
+  # FL config may carry a small det-eval-limit for the in-run proxy). Placed LAST so it wins.
   CUDA_VISIBLE_DEVICES=0 python fl_v3/scripts/t4_readiness_eval.py \
     --config "$CONFIG" --checkpoint "${d}/final_model.pt" --output-dir "${d}/readiness_diag" \
     --diagnostic --no-gt-sanity \
-    "nuscenes-cache-dir=${TRAINVAL_CACHE}" "precision=bf16" "det-score-threshold=0.01" "det-max-objects=500"
+    "nuscenes-cache-dir=${TRAINVAL_CACHE}" "precision=bf16" "det-score-threshold=0.01" "det-max-objects=500" \
+    ${EXTRA:-}
 done
 echo "Elapsed: ${SECONDS}s"

@@ -20,6 +20,10 @@ def _fmt(key: str, value) -> str:
         return f"{key}={'true' if value else 'false'}"
     if isinstance(value, (int, float)):
         return f"{key}={value}"
+    if isinstance(value, list):
+        # TOML array (e.g. det-class-weights). json.dumps emits valid TOML for numeric/bool/string
+        # elements; flwr --run-config parses it as the typed array (NOT a quoted string).
+        return f"{key}={json.dumps(value)}"
     return f"{key}='{value}'"
 
 

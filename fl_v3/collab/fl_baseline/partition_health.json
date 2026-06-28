@@ -1,0 +1,1159 @@
+{
+  "config": {
+    "version": "v1.0-trainval",
+    "split": "train",
+    "floor": 400,
+    "requested_clients": 25,
+    "seed": 20259,
+    "partition_seed": 20259,
+    "cache_dir": "/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/thesis_workspace/fl_weather_project/.claude/worktrees/unruffled-chaplygin-0e43e5/fl_outputs/nuscenes/info_cache_msweep10",
+    "cache_hash": "cb9818e73c1d62c7c5ae59ded19cb3c0b466f6ae07603cba3f3f883f27d4bb5e"
+  },
+  "totals": {
+    "n_logs": 50,
+    "n_samples": 28130,
+    "N_clients": 25,
+    "n_max_at_floor": 39,
+    "n_at_floor_band": {
+      "floor_200": 44,
+      "floor_400": 39,
+      "floor_600": 29
+    },
+    "logs_per_location": {
+      "singapore-hollandvillage": 4,
+      "boston-seaport": 22,
+      "singapore-onenorth": 17,
+      "singapore-queenstown": 7
+    }
+  },
+  "verdict": {
+    "GO": true,
+    "determinism_ok": true,
+    "union_eq_pool": true,
+    "no_cross_client_overlap": true,
+    "no_log_split": true,
+    "n_starved_below_floor": 0,
+    "starved_client_ids": [],
+    "N_equals_requested": true,
+    "clients_missing_a_class": [
+      {
+        "client_id": 15,
+        "missing": [
+          "trailer"
+        ]
+      },
+      {
+        "client_id": 17,
+        "missing": [
+          "trailer"
+        ]
+      },
+      {
+        "client_id": 18,
+        "missing": [
+          "trailer"
+        ]
+      },
+      {
+        "client_id": 22,
+        "missing": [
+          "trailer"
+        ]
+      },
+      {
+        "client_id": 23,
+        "missing": [
+          "trailer"
+        ]
+      },
+      {
+        "client_id": 24,
+        "missing": [
+          "trailer",
+          "construction_vehicle"
+        ]
+      }
+    ]
+  },
+  "non_iid": {
+    "volume_keyframes": {
+      "min": 812,
+      "max": 1449,
+      "mean": 1125.2,
+      "std": 172.6,
+      "cov": 0.153,
+      "ratio_max_min": 1.78
+    },
+    "label_skew_per_class_cov": {
+      "car": 0.418,
+      "truck": 0.602,
+      "bus": 0.536,
+      "trailer": 1.094,
+      "construction_vehicle": 0.77,
+      "pedestrian": 0.605,
+      "motorcycle": 0.682,
+      "bicycle": 0.586,
+      "traffic_cone": 0.802,
+      "barrier": 0.85
+    },
+    "label_skew_jsd_to_global_bits": {
+      "mean": 0.0527,
+      "min": 0.0102,
+      "max": 0.1427
+    },
+    "label_skew_tvd_to_global": {
+      "mean": 0.1942,
+      "min": 0.0826,
+      "max": 0.3437
+    }
+  },
+  "axes": {
+    "location_clients": {
+      "boston-seaport": 15,
+      "singapore-hollandvillage": 2,
+      "singapore-onenorth": 5,
+      "singapore-queenstown": 3
+    },
+    "location_keyframes": {
+      "boston-seaport": 15695,
+      "singapore-hollandvillage": 2825,
+      "singapore-onenorth": 5909,
+      "singapore-queenstown": 3701
+    },
+    "night_clients": 3,
+    "rain_clients": 9,
+    "pure_day_dry_clients": 15
+  },
+  "global_class_distribution": {
+    "car": {
+      "count": 413318,
+      "frac": 0.4374
+    },
+    "truck": {
+      "count": 72815,
+      "frac": 0.0771
+    },
+    "bus": {
+      "count": 13163,
+      "frac": 0.0139
+    },
+    "trailer": {
+      "count": 20701,
+      "frac": 0.0219
+    },
+    "construction_vehicle": {
+      "count": 11993,
+      "frac": 0.0127
+    },
+    "pedestrian": {
+      "count": 185847,
+      "frac": 0.1967
+    },
+    "motorcycle": {
+      "count": 10109,
+      "frac": 0.0107
+    },
+    "bicycle": {
+      "count": 9478,
+      "frac": 0.01
+    },
+    "traffic_cone": {
+      "count": 82362,
+      "frac": 0.0872
+    },
+    "barrier": {
+      "count": 125095,
+      "frac": 0.1324
+    }
+  },
+  "clients": [
+    {
+      "client_id": 0,
+      "location": "boston-seaport",
+      "n_logs": 2,
+      "n_scenes": 27,
+      "n_keyframes": 1075,
+      "total_objects": 52176,
+      "objects_per_kf": 48.54,
+      "class_counts": {
+        "car": 20507,
+        "truck": 5330,
+        "bus": 364,
+        "trailer": 2250,
+        "construction_vehicle": 556,
+        "pedestrian": 13115,
+        "motorcycle": 168,
+        "bicycle": 289,
+        "traffic_cone": 4906,
+        "barrier": 4691
+      },
+      "class_frac": {
+        "car": 0.393,
+        "truck": 0.1022,
+        "bus": 0.007,
+        "trailer": 0.0431,
+        "construction_vehicle": 0.0107,
+        "pedestrian": 0.2514,
+        "motorcycle": 0.0032,
+        "bicycle": 0.0055,
+        "traffic_cone": 0.094,
+        "barrier": 0.0899
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.013,
+      "tvd_to_global": 0.1078,
+      "night_scenes": 0,
+      "rain_scenes": 0,
+      "n_scenes_meta": 27
+    },
+    {
+      "client_id": 1,
+      "location": "boston-seaport",
+      "n_logs": 1,
+      "n_scenes": 26,
+      "n_keyframes": 1056,
+      "total_objects": 61840,
+      "objects_per_kf": 58.56,
+      "class_counts": {
+        "car": 21595,
+        "truck": 2581,
+        "bus": 998,
+        "trailer": 408,
+        "construction_vehicle": 462,
+        "pedestrian": 13143,
+        "motorcycle": 131,
+        "bicycle": 554,
+        "traffic_cone": 9948,
+        "barrier": 12020
+      },
+      "class_frac": {
+        "car": 0.3492,
+        "truck": 0.0417,
+        "bus": 0.0161,
+        "trailer": 0.0066,
+        "construction_vehicle": 0.0075,
+        "pedestrian": 0.2125,
+        "motorcycle": 0.0021,
+        "bicycle": 0.009,
+        "traffic_cone": 0.1609,
+        "barrier": 0.1944
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.0259,
+      "tvd_to_global": 0.1537,
+      "night_scenes": 0,
+      "rain_scenes": 0,
+      "n_scenes_meta": 26
+    },
+    {
+      "client_id": 2,
+      "location": "boston-seaport",
+      "n_logs": 2,
+      "n_scenes": 28,
+      "n_keyframes": 1130,
+      "total_objects": 42672,
+      "objects_per_kf": 37.76,
+      "class_counts": {
+        "car": 22068,
+        "truck": 4273,
+        "bus": 453,
+        "trailer": 1042,
+        "construction_vehicle": 516,
+        "pedestrian": 4909,
+        "motorcycle": 523,
+        "bicycle": 357,
+        "traffic_cone": 2239,
+        "barrier": 6292
+      },
+      "class_frac": {
+        "car": 0.5172,
+        "truck": 0.1001,
+        "bus": 0.0106,
+        "trailer": 0.0244,
+        "construction_vehicle": 0.0121,
+        "pedestrian": 0.115,
+        "motorcycle": 0.0123,
+        "bicycle": 0.0084,
+        "traffic_cone": 0.0525,
+        "barrier": 0.1475
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.015,
+      "tvd_to_global": 0.1219,
+      "night_scenes": 0,
+      "rain_scenes": 13,
+      "n_scenes_meta": 28
+    },
+    {
+      "client_id": 3,
+      "location": "boston-seaport",
+      "n_logs": 2,
+      "n_scenes": 28,
+      "n_keyframes": 1127,
+      "total_objects": 35722,
+      "objects_per_kf": 31.7,
+      "class_counts": {
+        "car": 20059,
+        "truck": 4146,
+        "bus": 648,
+        "trailer": 2022,
+        "construction_vehicle": 227,
+        "pedestrian": 3613,
+        "motorcycle": 199,
+        "bicycle": 312,
+        "traffic_cone": 1457,
+        "barrier": 3039
+      },
+      "class_frac": {
+        "car": 0.5615,
+        "truck": 0.1161,
+        "bus": 0.0181,
+        "trailer": 0.0566,
+        "construction_vehicle": 0.0064,
+        "pedestrian": 0.1011,
+        "motorcycle": 0.0056,
+        "bicycle": 0.0087,
+        "traffic_cone": 0.0408,
+        "barrier": 0.0851
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.037,
+      "tvd_to_global": 0.202,
+      "night_scenes": 0,
+      "rain_scenes": 11,
+      "n_scenes_meta": 28
+    },
+    {
+      "client_id": 4,
+      "location": "boston-seaport",
+      "n_logs": 1,
+      "n_scenes": 22,
+      "n_keyframes": 874,
+      "total_objects": 46085,
+      "objects_per_kf": 52.73,
+      "class_counts": {
+        "car": 15950,
+        "truck": 3120,
+        "bus": 360,
+        "trailer": 690,
+        "construction_vehicle": 261,
+        "pedestrian": 19433,
+        "motorcycle": 153,
+        "bicycle": 493,
+        "traffic_cone": 3305,
+        "barrier": 2320
+      },
+      "class_frac": {
+        "car": 0.3461,
+        "truck": 0.0677,
+        "bus": 0.0078,
+        "trailer": 0.015,
+        "construction_vehicle": 0.0057,
+        "pedestrian": 0.4217,
+        "motorcycle": 0.0033,
+        "bicycle": 0.0107,
+        "traffic_cone": 0.0717,
+        "barrier": 0.0503
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.0522,
+      "tvd_to_global": 0.2257,
+      "night_scenes": 0,
+      "rain_scenes": 0,
+      "n_scenes_meta": 22
+    },
+    {
+      "client_id": 5,
+      "location": "boston-seaport",
+      "n_logs": 1,
+      "n_scenes": 22,
+      "n_keyframes": 896,
+      "total_objects": 28497,
+      "objects_per_kf": 31.8,
+      "class_counts": {
+        "car": 16039,
+        "truck": 3491,
+        "bus": 394,
+        "trailer": 1295,
+        "construction_vehicle": 1424,
+        "pedestrian": 2523,
+        "motorcycle": 141,
+        "bicycle": 262,
+        "traffic_cone": 472,
+        "barrier": 2456
+      },
+      "class_frac": {
+        "car": 0.5628,
+        "truck": 0.1225,
+        "bus": 0.0138,
+        "trailer": 0.0454,
+        "construction_vehicle": 0.05,
+        "pedestrian": 0.0885,
+        "motorcycle": 0.0049,
+        "bicycle": 0.0092,
+        "traffic_cone": 0.0166,
+        "barrier": 0.0862
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.0596,
+      "tvd_to_global": 0.2317,
+      "night_scenes": 0,
+      "rain_scenes": 0,
+      "n_scenes_meta": 22
+    },
+    {
+      "client_id": 6,
+      "location": "boston-seaport",
+      "n_logs": 1,
+      "n_scenes": 34,
+      "n_keyframes": 1369,
+      "total_objects": 74992,
+      "objects_per_kf": 54.78,
+      "class_counts": {
+        "car": 31364,
+        "truck": 3515,
+        "bus": 711,
+        "trailer": 876,
+        "construction_vehicle": 456,
+        "pedestrian": 13959,
+        "motorcycle": 355,
+        "bicycle": 810,
+        "traffic_cone": 9748,
+        "barrier": 13198
+      },
+      "class_frac": {
+        "car": 0.4182,
+        "truck": 0.0469,
+        "bus": 0.0095,
+        "trailer": 0.0117,
+        "construction_vehicle": 0.0061,
+        "pedestrian": 0.1861,
+        "motorcycle": 0.0047,
+        "bicycle": 0.0108,
+        "traffic_cone": 0.13,
+        "barrier": 0.176
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.0114,
+      "tvd_to_global": 0.0872,
+      "night_scenes": 0,
+      "rain_scenes": 0,
+      "n_scenes_meta": 34
+    },
+    {
+      "client_id": 7,
+      "location": "boston-seaport",
+      "n_logs": 1,
+      "n_scenes": 24,
+      "n_keyframes": 954,
+      "total_objects": 42638,
+      "objects_per_kf": 44.69,
+      "class_counts": {
+        "car": 15810,
+        "truck": 3517,
+        "bus": 511,
+        "trailer": 772,
+        "construction_vehicle": 483,
+        "pedestrian": 7808,
+        "motorcycle": 194,
+        "bicycle": 252,
+        "traffic_cone": 6049,
+        "barrier": 7242
+      },
+      "class_frac": {
+        "car": 0.3708,
+        "truck": 0.0825,
+        "bus": 0.012,
+        "trailer": 0.0181,
+        "construction_vehicle": 0.0113,
+        "pedestrian": 0.1831,
+        "motorcycle": 0.0045,
+        "bicycle": 0.0059,
+        "traffic_cone": 0.1419,
+        "barrier": 0.1698
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.0102,
+      "tvd_to_global": 0.0976,
+      "night_scenes": 0,
+      "rain_scenes": 0,
+      "n_scenes_meta": 24
+    },
+    {
+      "client_id": 8,
+      "location": "boston-seaport",
+      "n_logs": 1,
+      "n_scenes": 33,
+      "n_keyframes": 1328,
+      "total_objects": 56573,
+      "objects_per_kf": 42.6,
+      "class_counts": {
+        "car": 32528,
+        "truck": 4948,
+        "bus": 337,
+        "trailer": 364,
+        "construction_vehicle": 205,
+        "pedestrian": 7220,
+        "motorcycle": 242,
+        "bicycle": 285,
+        "traffic_cone": 4618,
+        "barrier": 5826
+      },
+      "class_frac": {
+        "car": 0.575,
+        "truck": 0.0875,
+        "bus": 0.006,
+        "trailer": 0.0064,
+        "construction_vehicle": 0.0036,
+        "pedestrian": 0.1276,
+        "motorcycle": 0.0043,
+        "bicycle": 0.005,
+        "traffic_cone": 0.0816,
+        "barrier": 0.103
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.0217,
+      "tvd_to_global": 0.1479,
+      "night_scenes": 0,
+      "rain_scenes": 33,
+      "n_scenes_meta": 33
+    },
+    {
+      "client_id": 9,
+      "location": "boston-seaport",
+      "n_logs": 2,
+      "n_scenes": 21,
+      "n_keyframes": 852,
+      "total_objects": 37859,
+      "objects_per_kf": 44.44,
+      "class_counts": {
+        "car": 20683,
+        "truck": 4933,
+        "bus": 259,
+        "trailer": 2201,
+        "construction_vehicle": 436,
+        "pedestrian": 2469,
+        "motorcycle": 286,
+        "bicycle": 120,
+        "traffic_cone": 2989,
+        "barrier": 3483
+      },
+      "class_frac": {
+        "car": 0.5463,
+        "truck": 0.1303,
+        "bus": 0.0068,
+        "trailer": 0.0581,
+        "construction_vehicle": 0.0115,
+        "pedestrian": 0.0652,
+        "motorcycle": 0.0076,
+        "bicycle": 0.0032,
+        "traffic_cone": 0.079,
+        "barrier": 0.092
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.0456,
+      "tvd_to_global": 0.1984,
+      "night_scenes": 0,
+      "rain_scenes": 17,
+      "n_scenes_meta": 21
+    },
+    {
+      "client_id": 10,
+      "location": "boston-seaport",
+      "n_logs": 1,
+      "n_scenes": 20,
+      "n_keyframes": 812,
+      "total_objects": 32385,
+      "objects_per_kf": 39.88,
+      "class_counts": {
+        "car": 14354,
+        "truck": 2248,
+        "bus": 128,
+        "trailer": 240,
+        "construction_vehicle": 558,
+        "pedestrian": 5233,
+        "motorcycle": 18,
+        "bicycle": 154,
+        "traffic_cone": 5119,
+        "barrier": 4333
+      },
+      "class_frac": {
+        "car": 0.4432,
+        "truck": 0.0694,
+        "bus": 0.004,
+        "trailer": 0.0074,
+        "construction_vehicle": 0.0172,
+        "pedestrian": 0.1616,
+        "motorcycle": 0.0006,
+        "bicycle": 0.0048,
+        "traffic_cone": 0.1581,
+        "barrier": 0.1338
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.0187,
+      "tvd_to_global": 0.0826,
+      "night_scenes": 0,
+      "rain_scenes": 20,
+      "n_scenes_meta": 20
+    },
+    {
+      "client_id": 11,
+      "location": "boston-seaport",
+      "n_logs": 1,
+      "n_scenes": 21,
+      "n_keyframes": 854,
+      "total_objects": 29804,
+      "objects_per_kf": 34.9,
+      "class_counts": {
+        "car": 17349,
+        "truck": 4072,
+        "bus": 67,
+        "trailer": 1868,
+        "construction_vehicle": 791,
+        "pedestrian": 3866,
+        "motorcycle": 165,
+        "bicycle": 84,
+        "traffic_cone": 429,
+        "barrier": 1113
+      },
+      "class_frac": {
+        "car": 0.5821,
+        "truck": 0.1366,
+        "bus": 0.0022,
+        "trailer": 0.0627,
+        "construction_vehicle": 0.0265,
+        "pedestrian": 0.1297,
+        "motorcycle": 0.0055,
+        "bicycle": 0.0028,
+        "traffic_cone": 0.0144,
+        "barrier": 0.0373
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.0745,
+      "tvd_to_global": 0.2589,
+      "night_scenes": 0,
+      "rain_scenes": 0,
+      "n_scenes_meta": 21
+    },
+    {
+      "client_id": 12,
+      "location": "boston-seaport",
+      "n_logs": 2,
+      "n_scenes": 28,
+      "n_keyframes": 1118,
+      "total_objects": 48167,
+      "objects_per_kf": 43.08,
+      "class_counts": {
+        "car": 24468,
+        "truck": 5829,
+        "bus": 562,
+        "trailer": 3002,
+        "construction_vehicle": 1117,
+        "pedestrian": 4365,
+        "motorcycle": 650,
+        "bicycle": 237,
+        "traffic_cone": 4547,
+        "barrier": 3390
+      },
+      "class_frac": {
+        "car": 0.508,
+        "truck": 0.121,
+        "bus": 0.0117,
+        "trailer": 0.0623,
+        "construction_vehicle": 0.0232,
+        "pedestrian": 0.0906,
+        "motorcycle": 0.0135,
+        "bicycle": 0.0049,
+        "traffic_cone": 0.0944,
+        "barrier": 0.0704
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.0362,
+      "tvd_to_global": 0.1755,
+      "night_scenes": 0,
+      "rain_scenes": 0,
+      "n_scenes_meta": 28
+    },
+    {
+      "client_id": 13,
+      "location": "boston-seaport",
+      "n_logs": 2,
+      "n_scenes": 28,
+      "n_keyframes": 1121,
+      "total_objects": 39195,
+      "objects_per_kf": 34.96,
+      "class_counts": {
+        "car": 22079,
+        "truck": 5879,
+        "bus": 190,
+        "trailer": 1990,
+        "construction_vehicle": 997,
+        "pedestrian": 3538,
+        "motorcycle": 104,
+        "bicycle": 68,
+        "traffic_cone": 1483,
+        "barrier": 2867
+      },
+      "class_frac": {
+        "car": 0.5633,
+        "truck": 0.15,
+        "bus": 0.0048,
+        "trailer": 0.0508,
+        "construction_vehicle": 0.0254,
+        "pedestrian": 0.0903,
+        "motorcycle": 0.0027,
+        "bicycle": 0.0017,
+        "traffic_cone": 0.0378,
+        "barrier": 0.0731
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.054,
+      "tvd_to_global": 0.2404,
+      "night_scenes": 0,
+      "rain_scenes": 14,
+      "n_scenes_meta": 28
+    },
+    {
+      "client_id": 14,
+      "location": "boston-seaport",
+      "n_logs": 2,
+      "n_scenes": 28,
+      "n_keyframes": 1129,
+      "total_objects": 44563,
+      "objects_per_kf": 39.47,
+      "class_counts": {
+        "car": 19186,
+        "truck": 4049,
+        "bus": 827,
+        "trailer": 1496,
+        "construction_vehicle": 957,
+        "pedestrian": 4284,
+        "motorcycle": 147,
+        "bicycle": 299,
+        "traffic_cone": 4418,
+        "barrier": 8900
+      },
+      "class_frac": {
+        "car": 0.4305,
+        "truck": 0.0909,
+        "bus": 0.0186,
+        "trailer": 0.0336,
+        "construction_vehicle": 0.0215,
+        "pedestrian": 0.0961,
+        "motorcycle": 0.0033,
+        "bicycle": 0.0067,
+        "traffic_cone": 0.0991,
+        "barrier": 0.1997
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.0221,
+      "tvd_to_global": 0.1182,
+      "night_scenes": 0,
+      "rain_scenes": 17,
+      "n_scenes_meta": 28
+    },
+    {
+      "client_id": 15,
+      "location": "singapore-hollandvillage",
+      "n_logs": 2,
+      "n_scenes": 34,
+      "n_keyframes": 1376,
+      "total_objects": 14459,
+      "objects_per_kf": 10.51,
+      "class_counts": {
+        "car": 9791,
+        "truck": 1079,
+        "bus": 350,
+        "trailer": 0,
+        "construction_vehicle": 8,
+        "pedestrian": 838,
+        "motorcycle": 626,
+        "bicycle": 313,
+        "traffic_cone": 840,
+        "barrier": 614
+      },
+      "class_frac": {
+        "car": 0.6772,
+        "truck": 0.0746,
+        "bus": 0.0242,
+        "trailer": 0.0,
+        "construction_vehicle": 0.0006,
+        "pedestrian": 0.058,
+        "motorcycle": 0.0433,
+        "bicycle": 0.0216,
+        "traffic_cone": 0.0581,
+        "barrier": 0.0425
+      },
+      "missing_classes": [
+        "trailer"
+      ],
+      "jsd_to_global_bits": 0.0933,
+      "tvd_to_global": 0.2942,
+      "night_scenes": 15,
+      "rain_scenes": 1,
+      "n_scenes_meta": 34
+    },
+    {
+      "client_id": 16,
+      "location": "singapore-hollandvillage",
+      "n_logs": 2,
+      "n_scenes": 36,
+      "n_keyframes": 1449,
+      "total_objects": 24893,
+      "objects_per_kf": 17.18,
+      "class_counts": {
+        "car": 12876,
+        "truck": 270,
+        "bus": 1115,
+        "trailer": 40,
+        "construction_vehicle": 73,
+        "pedestrian": 9081,
+        "motorcycle": 696,
+        "bicycle": 336,
+        "traffic_cone": 107,
+        "barrier": 299
+      },
+      "class_frac": {
+        "car": 0.5173,
+        "truck": 0.0108,
+        "bus": 0.0448,
+        "trailer": 0.0016,
+        "construction_vehicle": 0.0029,
+        "pedestrian": 0.3648,
+        "motorcycle": 0.028,
+        "bicycle": 0.0135,
+        "traffic_cone": 0.0043,
+        "barrier": 0.012
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.1358,
+      "tvd_to_global": 0.2995,
+      "night_scenes": 36,
+      "rain_scenes": 12,
+      "n_scenes_meta": 36
+    },
+    {
+      "client_id": 17,
+      "location": "singapore-onenorth",
+      "n_logs": 3,
+      "n_scenes": 29,
+      "n_keyframes": 1162,
+      "total_objects": 30570,
+      "objects_per_kf": 26.31,
+      "class_counts": {
+        "car": 10194,
+        "truck": 1247,
+        "bus": 553,
+        "trailer": 0,
+        "construction_vehicle": 247,
+        "pedestrian": 8334,
+        "motorcycle": 1013,
+        "bicycle": 635,
+        "traffic_cone": 3158,
+        "barrier": 5189
+      },
+      "class_frac": {
+        "car": 0.3335,
+        "truck": 0.0408,
+        "bus": 0.0181,
+        "trailer": 0.0,
+        "construction_vehicle": 0.0081,
+        "pedestrian": 0.2726,
+        "motorcycle": 0.0331,
+        "bicycle": 0.0208,
+        "traffic_cone": 0.1033,
+        "barrier": 0.1697
+      },
+      "missing_classes": [
+        "trailer"
+      ],
+      "jsd_to_global_bits": 0.033,
+      "tvd_to_global": 0.1668,
+      "night_scenes": 0,
+      "rain_scenes": 0,
+      "n_scenes_meta": 29
+    },
+    {
+      "client_id": 18,
+      "location": "singapore-onenorth",
+      "n_logs": 4,
+      "n_scenes": 30,
+      "n_keyframes": 1202,
+      "total_objects": 28453,
+      "objects_per_kf": 23.67,
+      "class_counts": {
+        "car": 14051,
+        "truck": 1916,
+        "bus": 471,
+        "trailer": 0,
+        "construction_vehicle": 284,
+        "pedestrian": 3974,
+        "motorcycle": 909,
+        "bicycle": 646,
+        "traffic_cone": 2228,
+        "barrier": 3974
+      },
+      "class_frac": {
+        "car": 0.4938,
+        "truck": 0.0673,
+        "bus": 0.0166,
+        "trailer": 0.0,
+        "construction_vehicle": 0.01,
+        "pedestrian": 0.1397,
+        "motorcycle": 0.0319,
+        "bicycle": 0.0227,
+        "traffic_cone": 0.0783,
+        "barrier": 0.1397
+      },
+      "missing_classes": [
+        "trailer"
+      ],
+      "jsd_to_global_bits": 0.0222,
+      "tvd_to_global": 0.1002,
+      "night_scenes": 0,
+      "rain_scenes": 0,
+      "n_scenes_meta": 30
+    },
+    {
+      "client_id": 19,
+      "location": "singapore-onenorth",
+      "n_logs": 3,
+      "n_scenes": 28,
+      "n_keyframes": 1128,
+      "total_objects": 35105,
+      "objects_per_kf": 31.12,
+      "class_counts": {
+        "car": 13742,
+        "truck": 1294,
+        "bus": 428,
+        "trailer": 53,
+        "construction_vehicle": 294,
+        "pedestrian": 7269,
+        "motorcycle": 688,
+        "bicycle": 736,
+        "traffic_cone": 3077,
+        "barrier": 7524
+      },
+      "class_frac": {
+        "car": 0.3915,
+        "truck": 0.0369,
+        "bus": 0.0122,
+        "trailer": 0.0015,
+        "construction_vehicle": 0.0084,
+        "pedestrian": 0.2071,
+        "motorcycle": 0.0196,
+        "bicycle": 0.021,
+        "traffic_cone": 0.0877,
+        "barrier": 0.2143
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.0237,
+      "tvd_to_global": 0.1126,
+      "night_scenes": 0,
+      "rain_scenes": 0,
+      "n_scenes_meta": 28
+    },
+    {
+      "client_id": 20,
+      "location": "singapore-onenorth",
+      "n_logs": 3,
+      "n_scenes": 29,
+      "n_keyframes": 1152,
+      "total_objects": 31965,
+      "objects_per_kf": 27.75,
+      "class_counts": {
+        "car": 4955,
+        "truck": 1330,
+        "bus": 302,
+        "trailer": 59,
+        "construction_vehicle": 574,
+        "pedestrian": 12983,
+        "motorcycle": 471,
+        "bicycle": 544,
+        "traffic_cone": 2746,
+        "barrier": 8001
+      },
+      "class_frac": {
+        "car": 0.155,
+        "truck": 0.0416,
+        "bus": 0.0094,
+        "trailer": 0.0018,
+        "construction_vehicle": 0.018,
+        "pedestrian": 0.4062,
+        "motorcycle": 0.0147,
+        "bicycle": 0.017,
+        "traffic_cone": 0.0859,
+        "barrier": 0.2503
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.1033,
+      "tvd_to_global": 0.3437,
+      "night_scenes": 0,
+      "rain_scenes": 0,
+      "n_scenes_meta": 29
+    },
+    {
+      "client_id": 21,
+      "location": "singapore-onenorth",
+      "n_logs": 4,
+      "n_scenes": 32,
+      "n_keyframes": 1265,
+      "total_objects": 50275,
+      "objects_per_kf": 39.74,
+      "class_counts": {
+        "car": 8032,
+        "truck": 2348,
+        "bus": 384,
+        "trailer": 33,
+        "construction_vehicle": 943,
+        "pedestrian": 13488,
+        "motorcycle": 701,
+        "bicycle": 856,
+        "traffic_cone": 6291,
+        "barrier": 17199
+      },
+      "class_frac": {
+        "car": 0.1598,
+        "truck": 0.0467,
+        "bus": 0.0076,
+        "trailer": 0.0007,
+        "construction_vehicle": 0.0188,
+        "pedestrian": 0.2683,
+        "motorcycle": 0.0139,
+        "bicycle": 0.017,
+        "traffic_cone": 0.1251,
+        "barrier": 0.3421
+      },
+      "missing_classes": [],
+      "jsd_to_global_bits": 0.1032,
+      "tvd_to_global": 0.3356,
+      "night_scenes": 0,
+      "rain_scenes": 0,
+      "n_scenes_meta": 32
+    },
+    {
+      "client_id": 22,
+      "location": "singapore-queenstown",
+      "n_logs": 3,
+      "n_scenes": 30,
+      "n_keyframes": 1210,
+      "total_objects": 19334,
+      "objects_per_kf": 15.98,
+      "class_counts": {
+        "car": 8766,
+        "truck": 463,
+        "bus": 911,
+        "trailer": 0,
+        "construction_vehicle": 55,
+        "pedestrian": 7147,
+        "motorcycle": 477,
+        "bicycle": 288,
+        "traffic_cone": 795,
+        "barrier": 432
+      },
+      "class_frac": {
+        "car": 0.4534,
+        "truck": 0.0239,
+        "bus": 0.0471,
+        "trailer": 0.0,
+        "construction_vehicle": 0.0028,
+        "pedestrian": 0.3697,
+        "motorcycle": 0.0247,
+        "bicycle": 0.0149,
+        "traffic_cone": 0.0411,
+        "barrier": 0.0223
+      },
+      "missing_classes": [
+        "trailer"
+      ],
+      "jsd_to_global_bits": 0.0901,
+      "tvd_to_global": 0.241,
+      "night_scenes": 0,
+      "rain_scenes": 0,
+      "n_scenes_meta": 30
+    },
+    {
+      "client_id": 23,
+      "location": "singapore-queenstown",
+      "n_logs": 2,
+      "n_scenes": 29,
+      "n_keyframes": 1161,
+      "total_objects": 18067,
+      "objects_per_kf": 15.56,
+      "class_counts": {
+        "car": 8990,
+        "truck": 796,
+        "bus": 774,
+        "trailer": 0,
+        "construction_vehicle": 69,
+        "pedestrian": 5102,
+        "motorcycle": 757,
+        "bicycle": 458,
+        "traffic_cone": 539,
+        "barrier": 582
+      },
+      "class_frac": {
+        "car": 0.4976,
+        "truck": 0.0441,
+        "bus": 0.0428,
+        "trailer": 0.0,
+        "construction_vehicle": 0.0038,
+        "pedestrian": 0.2824,
+        "motorcycle": 0.0419,
+        "bicycle": 0.0254,
+        "traffic_cone": 0.0298,
+        "barrier": 0.0322
+      },
+      "missing_classes": [
+        "trailer"
+      ],
+      "jsd_to_global_bits": 0.0724,
+      "tvd_to_global": 0.2213,
+      "night_scenes": 0,
+      "rain_scenes": 0,
+      "n_scenes_meta": 29
+    },
+    {
+      "client_id": 24,
+      "location": "singapore-queenstown",
+      "n_logs": 2,
+      "n_scenes": 33,
+      "n_keyframes": 1330,
+      "total_objects": 18592,
+      "objects_per_kf": 13.98,
+      "class_counts": {
+        "car": 7882,
+        "truck": 141,
+        "bus": 1066,
+        "trailer": 0,
+        "construction_vehicle": 0,
+        "pedestrian": 8153,
+        "motorcycle": 295,
+        "bicycle": 90,
+        "traffic_cone": 854,
+        "barrier": 111
+      },
+      "class_frac": {
+        "car": 0.4239,
+        "truck": 0.0076,
+        "bus": 0.0573,
+        "trailer": 0.0,
+        "construction_vehicle": 0.0,
+        "pedestrian": 0.4385,
+        "motorcycle": 0.0159,
+        "bicycle": 0.0048,
+        "traffic_cone": 0.0459,
+        "barrier": 0.006
+      },
+      "missing_classes": [
+        "trailer",
+        "construction_vehicle"
+      ],
+      "jsd_to_global_bits": 0.1427,
+      "tvd_to_global": 0.2904,
+      "night_scenes": 33,
+      "rain_scenes": 0,
+      "n_scenes_meta": 33
+    }
+  ]
+}
