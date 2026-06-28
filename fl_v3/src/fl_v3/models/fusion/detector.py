@@ -65,6 +65,7 @@ class DetectorConfig:
     head_channels: int = 64
     head_conv_layers: int = 1             # MCR P1: shared pre-head tower depth (1 ⇒ byte-identical baseline)
     n_classes: int = 10
+    depth_supervision: bool = False       # BEVDepth-style LiDAR depth supervision on the LSS depthnet (off ⇒ baseline)
     bev: BEVConfig = field(default_factory=BEVConfig)
     # decode
     max_objects: int = 200
@@ -146,6 +147,9 @@ class BEVFusionDetector(nn.Module):
         fused = self.fusion(camera_bev, lidar_bev)
         neck = self.bev_neck(fused)
         out = self.head(neck)
+        if self.cfg.depth_supervision and self.training:    # [depth supervision] attach logits + projected-LiDAR GT
+            out["depth_logits"] = vt["depth_logits"]
+            out["depth_target"] = self.view_transform.depth_targets(batch["lidar_points"], pre["lidar2img"], B, N)
         if return_intermediates:
             out = dict(out)
             out["_camera_bev"] = camera_bev

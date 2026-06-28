@@ -118,6 +118,7 @@ class DepthLSSTransform(nn.Module):
         dmin, dmax, dstep = depth_bins
         ds = torch.arange(dmin, dmax, dstep, dtype=torch.float32)
         self.D = int(ds.numel())
+        self.dmin, self.dstep = float(dmin), float(dstep)   # depth-supervision GT binning
         self.image_hw = (int(image_hw[0]), int(image_hw[1]))
         self.feat_stride = int(feat_stride)
         fH = self.image_hw[0] // self.feat_stride
@@ -216,7 +217,48 @@ class DepthLSSTransform(nn.Module):
             x_pt = feats_pt.reshape(-1, Cc)[m]
             geom_pt = geom_id.reshape(-1)[m]
             bev = bev_splat(x_pt, ranks_pt, geom_pt, B, cfg.nx, cfg.ny)
-        return {"bev": bev, "depth_prob": depth_prob, "context": context}
+        return {"bev": bev, "depth_prob": depth_prob, "depth_logits": depth_logits, "context": context}
+
+    @torch.no_grad()
+    def depth_targets(self, points: torch.Tensor, lidar2img: torch.Tensor, B: int, N: int) -> torch.Tensor:
+        """[depth supervision] Project LiDAR onto each camera → per-feature-cell closest-point depth-bin index
+        (the GT for the depthnet softmax; BEVDepth-style sparse depth supervision).
+
+        ``points`` ``[TotalP, 1+W]`` (col0 = batch-idx, col1:4 = (x,y,z) in LIDAR_TOP); ``lidar2img``
+        ``[B,N,4,4]`` rescaled (maps a lidar point to ``[u·d, v·d, d, 1]`` in the resized image). Returns
+        ``[B*N, fH, fW]`` int64: bin index in ``[0,D)`` at cells with a return, **-1 elsewhere** (the
+        ``F.cross_entropy`` ignore_index). Closest point per cell (min-depth, scatter-amin ⇒ order-free);
+        ``bin = floor((d-dmin)/dstep)``. No-grad target. v1 uses all sweeps for dense coverage (min-depth is
+        robust to the dynamic-object trail); restricting to the current sweep via the dt channel is a refinement."""
+        H_out, W_out = self.image_hw
+        fH, fW, stride, D = self.fH, self.fW, self.feat_stride, self.D
+        dmin, dstep, dmax = self.dmin, self.dstep, self.dmin + self.D * self.dstep
+        device = points.device
+        ncells = B * N * fH * fW
+        mind = torch.full((ncells,), float("inf"), device=device, dtype=torch.float32)
+        bidx_all = points[:, 0].to(torch.int64)
+        for b in range(B):
+            sel = bidx_all == b
+            if not bool(sel.any()):
+                continue
+            xyz = points[sel, 1:4].to(torch.float32)                                  # [Pb,3] LIDAR_TOP
+            homo = torch.cat([xyz, torch.ones_like(xyz[:, :1])], dim=1)               # [Pb,4]
+            proj = torch.einsum("nij,pj->npi", lidar2img[b].to(torch.float32), homo)  # [N,Pb,4]
+            d = proj[..., 2]                                                           # depth = camera-frame z
+            u = proj[..., 0] / d.clamp_min(1e-6)
+            v = proj[..., 1] / d.clamp_min(1e-6)
+            valid = (d >= dmin) & (d < dmax) & (u >= 0) & (u < W_out) & (v >= 0) & (v < H_out)
+            if not bool(valid.any()):
+                continue
+            n_ix = torch.arange(N, device=device).view(N, 1).expand_as(d)
+            fi = (v / stride).floor().clamp(0, fH - 1).to(torch.int64)
+            fj = (u / stride).floor().clamp(0, fW - 1).to(torch.int64)
+            cell = (((b * N + n_ix) * fH) + fi) * fW + fj                             # flat [B*N,fH,fW] index
+            mind.scatter_reduce_(0, cell[valid], d[valid], reduce="amin", include_self=True)
+        seen = torch.isfinite(mind)
+        tgt = torch.full((ncells,), -1, device=device, dtype=torch.int64)
+        tgt[seen] = ((mind[seen] - dmin) / dstep).floor().clamp_(0, D - 1).to(torch.int64)
+        return tgt.view(B * N, fH, fW)
 
 
 def P_(D: int, fH: int, fW: int) -> int:
