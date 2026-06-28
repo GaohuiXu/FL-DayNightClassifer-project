@@ -243,7 +243,10 @@ class DepthLSSTransform(nn.Module):
                 continue
             xyz = points[sel, 1:4].to(torch.float32)                                  # [Pb,3] LIDAR_TOP
             homo = torch.cat([xyz, torch.ones_like(xyz[:, :1])], dim=1)               # [Pb,4]
-            proj = torch.einsum("nij,pj->npi", lidar2img[b].to(torch.float32), homo)  # [N,Pb,4]
+            # fp32 projection — the detector forward runs under bf16-AMP, which would cast einsum to bf16
+            # (precision loss for the GT AND a scatter dtype-mismatch with the fp32 canvas). Disable autocast.
+            with torch.autocast(device_type=device.type, enabled=False):
+                proj = torch.einsum("nij,pj->npi", lidar2img[b].to(torch.float32), homo)  # [N,Pb,4] fp32
             d = proj[..., 2]                                                           # depth = camera-frame z
             u = proj[..., 0] / d.clamp_min(1e-6)
             v = proj[..., 1] / d.clamp_min(1e-6)

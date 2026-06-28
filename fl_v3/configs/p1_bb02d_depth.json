@@ -26,7 +26,7 @@
   "det-camera-backbone": "swin_t",
   "det-freeze-backbone": false,
   "det-pretrained-backbone": true,
-  "det-activation-checkpoint": false,
+  "det-activation-checkpoint": true,
   "det-swin-sdpa": true,
   "det-backbone-lr-mult": 0.1,
   "grad-clip-norm": 35.0,
