@@ -36,7 +36,8 @@ class SparseVoxelEncoder(nn.Module):
                  max_points_per_voxel: int = 10):
         super().__init__()
         import spconv.pytorch as spconv          # import-gated: only when this encoder is actually built
-        self._spconv = spconv
+        # NOTE: do NOT store the spconv MODULE on self — it is not deep-copyable, and centralized EMA
+        # (AveragedModel) deep-copies the model ("cannot pickle 'module' object"). Re-import locally in forward.
         self.cfg = cfg
         self.out_channels = int(out_channels)
         self.use_timestamp = bool(use_timestamp)
@@ -94,7 +95,7 @@ class SparseVoxelEncoder(nn.Module):
         dev = points.device
         if self._voxelizer is None:
             self._build_voxelizer(dev)
-        sp = self._spconv
+        import spconv.pytorch as sp              # local (not stored on self — see __init__ note re: EMA deepcopy)
         feat_cols = [1, 2, 3, 4] + ([6] if self.use_timestamp else [])
         bidx = points[:, 0].to(torch.int64)
         # spconv: fp32, autocast OFF (no bf16; non-deterministic ok under D16).
