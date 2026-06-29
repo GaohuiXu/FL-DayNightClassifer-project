@@ -56,6 +56,7 @@ class DetectorConfig:
     max_points_per_pillar: int = 32
     max_pillars: int = 30000
     lidar_sweeps: int = 1                 # MCR P1: >1 ⇒ multi-sweep input (+dt channel in the PFN)
+    lidar_encoder: str = "pillar"         # pillar (PFN, default) | voxel (spconv sparse 3D, Rule#2-relaxed; z-res)
     lidar_backbone: bool = False          # MCR P1 capacity lever: dense 2D conv LiDAR backbone (default OFF)
     lidar_backbone_out: int = 128         # backbone Cout → widens ConvFuser.lidar_channels when ON
     lidar_backbone_checkpoint: bool = False  # activation-checkpoint the stages (for the 0.2m/512² leg)
@@ -98,13 +99,20 @@ class BEVFusionDetector(nn.Module):
             feat_stride=c.feat_stride,
             cfg=c.bev,
         )
-        self.lidar_encoder = PointPillarsEncoder(
-            out_channels=c.lidar_channels,
-            max_points=c.max_points_per_pillar,
-            max_pillars=c.max_pillars,
-            cfg=c.bev,
-            use_timestamp=(c.lidar_sweeps > 1),
-        )
+        if c.lidar_encoder == "voxel":   # Rule#2-relaxed sparse 3D-voxel encoder (spconv); drop-in BEV for the PFN
+            from fl_v3.models.fusion.sparse_voxel_encoder import SparseVoxelEncoder
+            self.lidar_encoder = SparseVoxelEncoder(
+                out_channels=c.lidar_channels, cfg=c.bev, use_timestamp=(c.lidar_sweeps > 1),
+                max_voxels=c.max_pillars, max_points_per_voxel=c.max_points_per_pillar,
+            )
+        else:
+            self.lidar_encoder = PointPillarsEncoder(
+                out_channels=c.lidar_channels,
+                max_points=c.max_points_per_pillar,
+                max_pillars=c.max_pillars,
+                cfg=c.bev,
+                use_timestamp=(c.lidar_sweeps > 1),
+            )
         # MCR P1 capacity lever (default OFF ⇒ None ⇒ byte-identical): dense 2D conv backbone on the
         # scattered pillar BEV BEFORE fusion — gives the LiDAR branch the receptive field the PFN lacks.
         self.lidar_backbone = (

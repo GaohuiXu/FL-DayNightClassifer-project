@@ -50,6 +50,7 @@ module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0 || module --ignore_cache load P
 # shellcheck disable=SC1091
 source "${PROJ_ROOT}/.venv_v3/bin/activate"
 export PYTHONPATH="${REPO}/fl_v3/src${PYTHONPATH:+:$PYTHONPATH}"
+unset BOOST_ROOT   # EasyBuild sets BOOST_ROOT; it confuses spconv's import check (det-lidar-encoder=voxel). Harmless otherwise.
 
 echo "===== centralized DDP (epochs=${EPOCHS} batch/gpu=${BATCH_PER_GPU} global=$((BATCH_PER_GPU*NPROC)) lr_ov=${LR_OV:-config}) =====  node=$(hostname) job=${SLURM_JOB_ID:-local}"
 nvidia-smi --query-gpu=name,compute_cap,memory.total --format=csv,noheader || true

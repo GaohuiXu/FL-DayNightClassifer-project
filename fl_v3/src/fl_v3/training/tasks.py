@@ -385,6 +385,7 @@ def _det_config_from_run(run_config: dict):
         max_points_per_pillar=int(run_config.get("det-max-points-per-pillar", 32)),
         max_pillars=int(run_config.get("det-max-pillars", 30000)),
         lidar_sweeps=int(run_config.get("det-lidar-sweeps", 1)),
+        lidar_encoder=str(run_config.get("det-lidar-encoder", "pillar")),
         lidar_backbone=truthy(run_config.get("det-lidar-backbone", False)),
         lidar_backbone_out=int(run_config.get("det-lidar-backbone-out", 128)),
         lidar_backbone_checkpoint=truthy(run_config.get("det-lidar-backbone-checkpoint", False)),

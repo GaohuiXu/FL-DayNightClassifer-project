@@ -31,6 +31,7 @@ module purge; module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0
 # shellcheck disable=SC1091
 source "${PROJ_ROOT}/.venv_v3/bin/activate"
 export PYTHONPATH="${REPO}/fl_v3/src${PYTHONPATH:+:$PYTHONPATH}"
+unset BOOST_ROOT   # spconv import workaround (det-lidar-encoder=voxel); harmless for the pillar path
 
 echo "===== depth-sup smoke ===== node=$(hostname) job=${SLURM_JOB_ID:-local} config=${CONFIG}"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null || true
