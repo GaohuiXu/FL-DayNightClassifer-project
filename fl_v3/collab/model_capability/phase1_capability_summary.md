@@ -8,10 +8,10 @@
 > later (depth-supervision, sparse-3D-voxel, + the structural-audit framing) and likewise did not improve on it under the
 > recipes tried.** 0.5656 is the **current best on Alvis x86, not a final number** — on Arrhenius (GH200) the plan is to
 > keep pushing the CL model, refine the spconv-based LiDAR branch, and speed it up (see § HANDOFF). See **§ SESSION 2
-> (2026-06-25)** and **§ SESSION 3 (2026-06-28→30)** below for the negative ablations + the Phase-3 handoff. Replaces the
-> per-step docs (profile/optcompare/gap/speedup/push) — see git history. (Memory `project_mcr_progress.md` mirrors this;
-> THIS file is the source of truth, and now also folds in `phase3_recipe_structural_analysis.md`,
-> `phase3_depth_sup_result.md`, and `voxel_lever_result.md`.)
+> (2026-06-25)** and **§ LATER CL CAPABILITY LEVERS (2026-06-28→30)** below for the negative ablations + the centralized
+> handoff. Replaces the per-step docs (profile/optcompare/gap/speedup/push) — see git history. (Memory
+> `project_mcr_progress.md` mirrors this; THIS file is the source of truth, and now also folds in the former
+> structural-audit / depth-supervision / sparse-voxel per-lever docs — consolidated into the LATER-CL-LEVERS section here.)
 
 ## TL;DR
 
@@ -25,17 +25,17 @@ to continue (finer voxels, a refined spconv LiDAR branch, longer/CBGS schedules,
 
 **WORKING RESOLUTION (2026-06-25, extended 2026-06-30): bb02d 0.5656 is the locked working reference.** The owner's
 2026-06-24 "keep pushing" decision was honoured across two further sessions: SESSION 2 ran CBGS, head-capacity, and
-GT-paste (target ~0.60); SESSION 3 ran the BEVDepth-style depth-supervision lever and the sparse-3D-voxel (spconv) LiDAR
-encoder, framed by a literature structural audit. All of these came in below bb02d **under the matched ~15-epoch recipe**
+GT-paste (target ~0.60); the LATER CL LEVERS session ran the BEVDepth-style depth-supervision lever and the sparse-3D-voxel
+(spconv) LiDAR encoder, framed by a literature structural audit. All of these came in below bb02d **under the matched ~15-epoch recipe**
 (one of them — the voxel run — under an acknowledged batch-size confound). The reading we can defend is empirical:
 **these levers did not improve on 0.5656 under the recipes tried on Alvis x86**, and the strong-LiDAR stack is past
-diminishing returns *for those levers at that schedule* — not that ~0.60 is unreachable. **Phase 3 (FL) proceeded
-in parallel** (see the FL docs); the CL ledger here is the shared foundation for both the FL reference and the
-attack/defense benchmark.
+diminishing returns *for those levers at that schedule* — not that ~0.60 is unreachable. This CL ledger is the shared
+foundation for both the downstream FL reference and the attack/defense benchmark; the FL work itself is tracked
+separately in `fl_baseline/phase3_fl_baseline.md`.
 
 ## The lever-by-lever progression (the method + the mindset)
 
-bf16-AMP, global-16 DDP, same pooled-25-client trainval, decode 0.01/500 (from step 2). Mindset: diagnose the
+bf16-AMP, global-16 DDP, same pooled trainval split, decode 0.01/500 (from step 2). Mindset: diagnose the
 binding constraint empirically (per-class AP + TP errors + train-vs-val curve), pull the cheapest lever that
 targets it, measure, re-diagnose.
 
@@ -54,8 +54,8 @@ targets it, measure, re-diagnose.
 recipe):** longer-training-alone overfits at this schedule (40ep<15ep pre-aug); per-class-weight-alone ≈0 here
 (→ capacity, not loss-balance, was the binding constraint); global-64 DDP under-converges at this length (→ global-16
 faster+better); channels_last neutral; CBGS / head-capacity / GT-paste / depth-supervision / sparse-3D-voxel all came in
-below bb02d under the matched ~15-epoch recipe (see §§ SESSION 2, SESSION 3). None of these is treated as a closed door —
-they are negatives *under the recipe tried*.
+below bb02d under the matched ~15-epoch recipe (see §§ SESSION 2, LATER CL CAPABILITY LEVERS). None of these is treated as
+a closed door — they are negatives *under the recipe tried*.
 
 ## The final model + best config/ckpt
 
@@ -81,15 +81,15 @@ ONE `precision={bf16,fp32}` knob (D16) replaced numeric-mode×determinism-level.
 fp32+strict=offline dev-regression tool (the static-AST ban over models/fusion/** + byte-identity). The LiDAR
 backbone is AST-clean (Conv2d/GN/ReLU/interpolate) and downstream of the perm-invariant scatter ⇒ no new
 determinism obligation. All capability knobs default-OFF ⇒ byte-identical baseline; 247-test suite + the new
-backbone/aug tests green. (The sparse-voxel encoder of § SESSION 3 is the one path that pulls in spconv; it is gated
-off by default so the shipped path stays AST-clean and spconv-free.)
+backbone/aug tests green. (The sparse-voxel encoder of the LATER-CL-LEVERS § *voxel* is the one path that pulls in spconv;
+it is gated off by default so the shipped path stays AST-clean and spconv-free.)
 
 ## SOTA-gap conclusion + USENIX framing (the bank rationale)
 
 The ~0.11 gap to BEVFusion does NOT look mostly structural under the recipe we ran: dense 2D pillars match/beat
 sparse-conv at matched resolution (PillarNet 0.599 > CenterPoint-SECOND 0.596; PillarNeXt 0.625) → no-spconv looks like
-only ~0.02–0.03 mAP, and the SESSION 3 spconv voxel run gave no z-class advantage in a confounded A/B (so the structural
-penalty estimate held up empirically there too). The rest is unspent recipe budget (finer voxels + heavier trunk +
+only ~0.02–0.03 mAP, and the *voxel* spconv run (LATER CL LEVERS) gave no z-class advantage in a confounded A/B (so the
+structural penalty estimate held up empirically there too). The rest is unspent recipe budget (finer voxels + heavier trunk +
 GT-paste + CBGS + longer/depth-supervised schedules), closeable but GPU-weeks for low thesis credit on Alvis (perception
 = instrumentation; CLAUDE.md platform-first) — and explicitly on the Arrhenius (GH200) to-do list, not abandoned.
 **Framing (honest):** (1) NDS-forward (0.573 reads competitive); (2) narrow, truthful portability cost (~0.02–0.05, cite
@@ -99,12 +99,12 @@ design under the run we did — so the portable design is not obviously leaving 
 clean model's OWN per-class recall. (GT-paste later doubles as an attack artifact — a poisoned GT-database IS a backdoor
 vector; future T5/T6.)
 
-## Handoff → CONTINUE centralized on Arrhenius, alongside Phase 3
+## Handoff → CONTINUE centralized on Arrhenius
 
 **owner decision (2026-06-24, still standing):** do NOT treat the current best as a final number — keep pushing CENTRALIZED
 toward a higher bar where compute allows. Current best (locked as the working reference) = `bb02d_r20/ema_ep15`
 (0.5656/0.5733), config `p1_bb02d.json`. **Arrhenius (GH200) CL to-do:** keep pushing the CL model, **refine the
-spconv-based LiDAR branch** (the SESSION-3 encoder is fix-validated; re-run it matched-recipe at finer voxels rather than
+spconv-based LiDAR branch** (the *voxel* encoder is fix-validated; re-run it matched-recipe at finer voxels rather than
 the confounded global-32), and speed it up so longer/CBGS/depth-supervised schedules become affordable. 0.5656 is the
 strongest CL reference we have on Alvis x86 *so far*.
 
@@ -114,10 +114,10 @@ form an independent view of where the remaining gap is and which lever is worth 
 tried this cycle (results below) plus suggestions — verify each against the code/data + the new compute envelope before
 pursuing.**
 
-- (tried, § SESSION 3) **sparse-3D-voxel (spconv) LiDAR encoder** — fix-validated (0.2589→0.5046) but landed below pillar
+- (tried, § *voxel*) **sparse-3D-voxel (spconv) LiDAR encoder** — fix-validated (0.2589→0.5046) but landed below pillar
   0.5656 in a global-32-vs-global-16 confounded run, no clear z-class advantage; **revisit matched-recipe + finer voxels
   on Arrhenius.**
-- (tried, § SESSION 3) **BEVDepth-style LiDAR-supervised LSS depth** — net-negative at both w=1.0 and w=0.2 for this
+- (tried, § *depth*) **BEVDepth-style LiDAR-supervised LSS depth** — net-negative at both w=1.0 and w=0.2 for this
   LiDAR-dominant fusion; refined the audit (unsupervised depth is a *feature* here, not a ceiling). A *soft/uncertainty-
   aware* depth loss + longer re-adaptation is the open variant if ever revisited.
 - (tried, § SESSION 2) heavier LiDAR trunk / GT-paste / CBGS / head-capacity — all below 0.5656 at this schedule;
@@ -127,10 +127,10 @@ pursuing.**
   ALONE overfit at 15→40ep; per-class-weighting ALONE ≈ 0; depth-supervision hurt this fusion; the voxel A/B was
   confounded. Re-verify under the new compute envelope.
 
-Once the centralized model is at the owner's bar for the campaign, keep the reference → **Phase 3** = FL recipe (FedAdam /
-≥30 rounds) + clean bf16 FL baseline, matched-budget (D17). **FL caveat (verify):** enabling the LiDAR backbone shifts the
-trainable layout — likely needs a `lidar_backbone` entry in TRAINABLE_MODULE_SLICE_MAP (`tasks.py`) for FedAvg (centralized
-was unaffected). Then **Phase 4** = re-baseline bindings (readiness / ASR subset / provenance) + T5 go/no-go.
+Once the CL model is at the owner's bar, the FL campaign continues in `fl_baseline/phase3_fl_baseline.md` (FL recipe +
+clean bf16 FL baseline, matched-budget, D17). **CL-side caveat to flag for that handoff (verify):** enabling the LiDAR
+backbone shifts the trainable layout — likely needs a `lidar_backbone` entry in TRAINABLE_MODULE_SLICE_MAP (`tasks.py`)
+for the FL update path (the centralized path was unaffected).
 
 ---
 
@@ -155,8 +155,8 @@ backbone + aggressive BEV aug + aggressive heatmap class-weights), so each furth
 multi-sweep hit at +0.009). Re-confirmed-at-this-schedule negatives: heatmap-class-weighting is maxed here;
 longer-training-alone overfits at 15→40ep; the reg-L1 was never class-weighted (a real finding, but routing weights there +
 head capacity HURT large vehicles). **The remaining ~0.11 to BEVFusion is, under this recipe, the strong-LiDAR-fusion
-plateau rather than a single missing lever — but it is a current-recipe plateau, and the structural audit (§ SESSION 3)
-argues a CBGS-correct + longer schedule has not actually been tried.**
+plateau rather than a single missing lever — but it is a current-recipe plateau, and the structural audit (§ *audit*
+under LATER CL CAPABILITY LEVERS) argues a CBGS-correct + longer schedule has not actually been tried.**
 
 **GT-paste is fully implemented + tested and RETAINED — its durable value is the T5/T6 attack primitive.** New
 `data/nuscenes/gt_database.py` + `gt_paste.py` (per-object yaw jitter + SAT collision + all-ragged-field extend,
@@ -172,39 +172,40 @@ content-sort absorbs pasted points). Test suites green throughout.
 
 ---
 
-## § SESSION 3 (2026-06-28 → 2026-06-30) — structural audit + depth-supervision + sparse-voxel levers
+## § LATER CL CAPABILITY LEVERS (2026-06-28 → 2026-06-30) — structural audit + depth-supervision + sparse-voxel
 
 A literature-grounded structural audit motivated two more CL levers; both were run as clean(-ish) A/Bs vs bb02d and
-neither improved on it under the recipe tried. The audit itself is the framing; the two experiments are the test.
+neither improved on it under the recipe tried. The audit itself is the framing; the two experiments (*depth*, *voxel*) are
+the test. (The three former per-lever docs are consolidated here.)
 
-### 3a. Structural audit (vs the published literature) — why the recent levers were chosen
+### *audit*. Structural audit (vs the published literature) — why these levers were chosen
 
-> Source: `fl_baseline/phase3_recipe_structural_analysis.md` (authored 2026-06-28). A theory-grounded read of **why** our
-> CL + FL settings are what they are and whether each is reasonable vs the literature — read from the code/configs, not
-> memory. CL recipe `configs/p1_bb02d.json` (→ 0.566 mAP), FL recipe `configs/fl_bb02d_fedadam.json` (→ FedAvg 0.247),
-> architecture `models/fusion/*.py`, loss `models/fusion/losses.py`, geometry `models/fusion/bev_grid.py`.
+> The audit (consolidated here) is a theory-grounded read of **why** our CL recipe is what it is and whether each setting
+> is reasonable vs the literature — read from the code/configs, not memory. CL recipe `configs/p1_bb02d.json`
+> (→ 0.566 mAP); architecture `models/fusion/*.py`, loss `models/fusion/losses.py`, geometry `models/fusion/bev_grid.py`.
 
 The audit's read: the CL 0.566 sits ~0.12 below SOTA BEVFusion (~0.68) for three *explainable* reasons under our recipe —
 **unsupervised LSS depth**, **pillars-not-sparse-voxels**, and a **short / no-CBGS schedule**. Two looked fixable within
 Rule #2 (depth supervision is free + pure-PyTorch; CBGS + longer schedule are config); one (pillars) is the accepted
-no-spconv constraint. It argued the **FL tail collapse and the cRT "representation-limited" result are downstream of a CL
-base whose tail was never strongly built in the first place**, so the highest-value next move is to confirm the CL recipe
-is genuinely maximized before more FL-side levers.
+no-spconv constraint. The structural significance for *this* doc: **our centralized model's own tail classes (trailer,
+construction-vehicle, bus, bicycle) are weak relative to the literature**, and the audit explains why (architecture +
+schedule + balancing all under-serve the tail) — which is the case for confirming the CL recipe is genuinely maximized
+before relying on it downstream. (The separate FL tail-collapse / cRT investigation that originally prompted this audit is
+tracked in `fl_baseline/phase3_fl_baseline.md`; its FL-specific numbers live there, not here.)
 
 Per-setting verdicts vs the literature (✓ solid · ⚠ questionable · ✗ likely wrong-or-artifact under this recipe):
 
 | setting | verdict | the literature note |
 |---|---|---|
 | GroupNorm not BatchNorm | ✓ | BN running stats break under non-IID FL (FedBN, Hsieh 2020) + small client batches; GN (Wu & He 2018) is correct |
-| Unsupervised LSS depth | ✗ (audit's #1) | BEVDepth (Li 2022) makes explicit depth supervision *the* dominant camera-BEV lever (~+2–3 mAP); ours has **no depth loss** ⇒ camera→BEV splat geometrically unconstrained. **Tested in 3b — did not transfer to this LiDAR-dominant fusion.** |
-| Pillars (2D) not sparse 3D voxels | ⚠ | the Rule #2 tax; pillars (Lang 2019) collapse z, costing tall/short discrimination (trailer/CV/bus). **Tested in 3c — no z-payoff in the confounded run.** |
+| Unsupervised LSS depth | ✗ (audit's #1) | BEVDepth (Li 2022) makes explicit depth supervision *the* dominant camera-BEV lever (~+2–3 mAP); ours has **no depth loss** ⇒ camera→BEV splat geometrically unconstrained. **Tested in § *depth* — did not transfer to this LiDAR-dominant fusion.** |
+| Pillars (2D) not sparse 3D voxels | ⚠ | the Rule #2 tax; pillars (Lang 2019) collapse z, costing tall/short discrimination (trailer/CV/bus). **Tested in § *voxel* — no z-payoff in the confounded run.** |
 | 0.4 m head grid | ⚠ | reasonable (CenterPoint ~0.6–0.8 m effective); not a primary suspect |
 | Missing IoU-aware confidence head | ⚠ | targets the exact TP≈FP confidence-compression symptom we measured (CenterPoint++/BEVFusion re-score by predicted IoU); **not yet tried** |
 | No CBGS (and "CBGS hurts" finding) | ✗ | every strong nuScenes detector uses CBGS (Zhu 2019); our negative (`p1_cbgs.json` < bb02d) is against the grain ⇒ likely a config-interaction artifact (OneCycle sized for un-expanded length, and CBGS stacked *on top of* focal class-weights = double-balancing). **Re-test cleanly: CBGS instead of class-weights + schedule resized — flagged, not yet run.** |
 | 15 epochs | ⚠ | CenterPoint/BEVFusion train 20ep + CBGS (~30 effective passes); we do ~15 no-CBGS ≈ half the tail exposure ⇒ even the CL model may be tail-under-trained |
 | focal class-weights instead of resampling | ⚠ | reweights recognition loss on the same scarce positives rather than increasing exposure; weaker than CBGS by construction (the teardown saw +0.004 from a 1.68× trailer weight) |
 | AdamW + OneCycle + EMA 0.9997 + clip 35 + bb×0.1 | ✓ | standard, no concerns |
-| FL: E=1, R=15, big-batch averaging | ⚠ | a 15-round cosine that hits ~0 early is under-converged by construction; client LR 1e-3 is 3× below the CL peak |
 
 **What the audit reframes:** two of the three "below-SOTA" reasons (depth, short/no-CBGS schedule) are recipe/architecture
 choices that are *fixable in-tree*, and one (pillars) is the accepted constraint. The value-ordered to-do it produced —
@@ -212,16 +213,16 @@ choices that are *fixable in-tree*, and one (pillars) is the accepted constraint
 under all three) — is the menu the later experiments and the Arrhenius handoff draw from. The document is analysis only;
 nothing was launched from it directly. **References:** BEVFusion (Liu 2023, 2205.13542) · BEVDepth (Li 2022, 2206.10092)
 · CenterPoint (Yin 2021, 2006.11275) · PointPillars (Lang 2019, 1812.05784) · CBGS (Zhu 2019, 1908.09492) · GroupNorm
-(Wu & He 2018, 1803.08494) · FedBN (Li 2021, 2102.07623) · Non-IID BN (Hsieh 2020). Internal:
-`phase3_investigation_report.md`, `phase3_gradient_teardown.md`, `phase3_crt_probe_result.md`,
-`phase3_fl_baseline_result.md`.
+(Wu & He 2018, 1803.08494) · FedBN (Li 2021, 2102.07623) · Non-IID BN (Hsieh 2020). Internal: the FL-side diagnostics
+that originally motivated this audit (the investigation report, gradient teardown, cRT probe, and FL baseline result) are
+consolidated in `fl_baseline/phase3_fl_baseline.md`.
 
-### 3b. BEVDepth-style depth-supervised LSS — net-negative for this LiDAR-dominant fusion (weight-independent)
+### *depth*. BEVDepth-style depth-supervised LSS — net-negative for this LiDAR-dominant fusion (weight-independent)
 
-> Source: `fl_baseline/phase3_depth_sup_result.md`. The audit's #1 lever: BEVDepth-style LiDAR depth supervision on the
-> previously-UNsupervised LSS depthnet. Clean A/B vs bb02d (only depth-sup differs: global-64 batch, 15 epochs, EMA 0.9997,
-> activation-checkpointing = value-identical memory fix). Config `p1_bb02d_depth.json` (`det-depth-supervision=true`).
-> EMA ep15, full val, score 0.01 / maxobj 500.
+> The audit's #1 lever (consolidated here): BEVDepth-style LiDAR depth supervision on the previously-UNsupervised LSS
+> depthnet. Clean A/B vs bb02d (only depth-sup differs: global-64 batch, 15 epochs, EMA 0.9997, activation-checkpointing =
+> value-identical memory fix). Config `p1_bb02d_depth.json` (`det-depth-supervision=true`). EMA ep15, full val,
+> score 0.01 / maxobj 500.
 
 **Result (w=1.0, job 6782278, 4×A100, bf16, 02:44): mAP 0.4003 vs bb02d 0.5656 (−0.165); NDS 0.3633 vs 0.5733 (−0.210).**
 
@@ -260,9 +261,9 @@ nothing was launched from it directly. **References:** BEVFusion (Liu 2023, 2205
   **Open, lower-priority:** a *soft/uncertainty-aware* depth loss + longer re-adaptation might differ — not chased on the
   2 remaining Alvis days vs the clean 15-epoch matched negative, and a candidate for Arrhenius.
 
-### 3c. Sparse-3D-voxel (spconv) LiDAR encoder — fix-validated, no z-payoff in a confounded run (paused, revisit matched)
+### *voxel*. Sparse-3D-voxel (spconv) LiDAR encoder — fix-validated, no z-payoff in a confounded run (paused, revisit matched)
 
-> Source: `model_capability/voxel_lever_result.md`. **Owner decision 2026-06-30: pause this lever.** Pillar `bb02d`
+> Consolidated here. **Owner decision 2026-06-30: pause this lever.** Pillar `bb02d`
 > (0.5656 / 0.5733) stays the working reference; the spconv voxel encoder is fix-validated but showed no z-resolution
 > payoff in the run we did — paused, not foreclosed (the clean matched-recipe re-run was offered and declined on compute,
 > and is on the Arrhenius list).
@@ -272,7 +273,7 @@ LiDAR encoder (spconv `SubMConv3d` keep-xy + `SparseConv3d` z-downsample → col
 `PointPillarsEncoder`, gated by `det-lidar-encoder=voxel` (default `pillar` ⇒ never built ⇒ spconv is **not** a runtime
 dependency of the shipped path, so Rule #2's portability guarantee survives for the default build). Relaxes Rule #2
 (spconv) **for this experiment only** — committed on worktree `stupefied-jennings-4b1992`, not v3. Motivation: the
-structural audit (3a) flagged the pillar PFN's z-collapse as a possible binding constraint for tall/z-sensitive classes
+structural audit (§ *audit*) flagged the pillar PFN's z-collapse as a possible binding constraint for tall/z-sensitive classes
 (trailer/bus/CV/truck); the voxel encoder gives the LiDAR branch real z-resolution to test whether that constraint is binding.
 
 **Two real bugs found and fixed (commit `4ac7392`; smoke `6786063` PASS).**
@@ -320,7 +321,7 @@ claim a precise matched delta, and a clean global-16 re-run was offered and decl
 
 ---
 
-## § CENTRALIZED MODEL ARCHITECTURE + BEVFusion COMPARISON (2026-06-25 — Phase-3 handoff reference)
+## § CENTRALIZED MODEL ARCHITECTURE + BEVFusion COMPARISON (2026-06-25 — centralized handoff reference)
 
 > The working reference `bb02d` in full. **bb02d = the step-6 "dense 2D LiDAR backbone (3-stage)" model PLUS one
 > added 4th down-stage in that backbone** (and its 4th FPN level). That single addition is what took us from
@@ -366,7 +367,7 @@ LIDAR_TOP 10-sweep [P,6] ─ PointPillarsEncoder(PFN Linear8→64 + max) ─ Lid
 | — | decode | — | head dict → boxes | 3×3 maxpool local-max + stable-sort top-500, score≥0.01, **NMS-free** (deterministic) |
 
 The LiDAR path is the deliberate Rule-#2 design: a 640-param PFN (no cluster-mean, for permutation-invariance) +
-a 3.73 M **dense 2D** conv trunk — NOT a sparse 3D voxel net. (The optional spconv voxel encoder of § SESSION 3c is a
+a 3.73 M **dense 2D** conv trunk — NOT a sparse 3D voxel net. (The optional spconv voxel encoder of § *voxel* is a
 gated, default-off experiment, not part of this shipped path.)
 
 ### 3. BEVFusion comparison — why we sit ~0.12 below it (BEVFusion is our REFERENCE, not the SOTA)
@@ -392,11 +393,11 @@ deliberately the SAME where it's free (camera Swin-T + GeneralizedLSSFPN + unsup
 2. **3D-sparse vs 2D-dense encoding ≈ 0.02–0.03 (the pure structural cost) under this recipe.** BEVFusion convolves the
    z-axis (height structure); our PFN collapses z into pillars then uses 2D conv. At *matched* resolution this looks
    small — dense-2D PillarNet (0.599) ≈ sparse CenterPoint-SECOND (0.596) — so the paradigm itself isn't the main cost,
-   and the SESSION-3c spconv run gave no z-class advantage in a confounded A/B, consistent with that ~0.02–0.03 estimate.
+   and the *voxel* spconv run gave no z-class advantage in a confounded A/B, consistent with that ~0.02–0.03 estimate.
 3. **Recipe (CBGS + GT-paste + longer/depth-supervised schedule) ≈ 0.02–0.04 for BEVFusion; not yet realized on our side.**
-   We *ran* CBGS, head-capacity, GT-paste (§ SESSION 2) and depth-supervision (§ SESSION 3b) — all net-negative under the
+   We *ran* CBGS, head-capacity, GT-paste (§ SESSION 2) and depth-supervision (§ *depth*) — all net-negative under the
    matched 15-epoch recipe, because our strong-LiDAR stack is already past the point where those levers help *at this
-   schedule*. The structural audit (§ SESSION 3a) argues a **CBGS-correct + longer** schedule has not actually been tried,
+   schedule*. The structural audit (§ *audit*) argues a **CBGS-correct + longer** schedule has not actually been tried,
    so this share is not foreclosed — it is unspent recipe budget for Arrhenius.
 
 **Framing for the writeup:** under the recipe we ran, the residual to BEVFusion is dominated by **voxel resolution coupled
