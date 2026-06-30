@@ -11,12 +11,15 @@ sparse-conv fwd/bwd on GH200; 2-GPU FP32 DDP and 2-GPU **FP16-AMP + GradScaler**
   (`TORCH_CUDA_ARCH_LIST=9.0`, EasyBuild GCC `libstdc++` preloaded ahead of the system one).
 - **Precision caveat:** direct `torch.bfloat16` is NOT supported by this spconv/cumm path (`KeyError: torch.bfloat16`);
   `autocast(bf16)` runs but the sparse output is fp16. So with spconv: **FP16-AMP+GradScaler for the sparse branch,
-  or force it FP32.** No true bf16 sparse conv. Remote workspace: `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/phase0a_spconv`.
+  or force it FP32** (no bf16 sparse conv in this spconv/cumm build). Remote workspace: `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/phase0a_spconv`.
 
 ## fp16 de-risk on our model (Alvis, 2026-06-28, jobs 6782420/6782421/6782422)
-Since bf16 is dead for the sparse path, the science precision on Arrhenius must be **fp16-AMP+GradScaler (or fp32)**.
-Validated the NON-spconv model (bb02d + depth-sup: camera-LSS / pillar-LiDAR / fusion / CenterPoint head) under
-fp16-AMP+GradScaler via `p1_depth_smoke.py --fp16` (reports GradScaler skips = the direct inf/NaN signal).
+Since bf16 is unavailable for the sparse path in this build, the science precision on Arrhenius is
+**fp16-AMP+GradScaler (or fp32)**. Validated the non-spconv model (camera-LSS / pillar-LiDAR / fusion /
+CenterPoint head) under fp16-AMP+GradScaler via `p1_amp_smoke.py --fp16` (reports GradScaler skips = the direct
+inf/NaN signal). *(The model at the time of this run also carried the depth-supervision lever, since removed as
+net-negative; the fp16 verdict is about the precision path and is unaffected — the depth numbers below are that
+historical run's.)*
 
 **Verdict: fp16 is VIABLE — no fundamental blocker.**
 - **Forward is fp16-safe** — total/hm/reg/depth all finite, depth GT coverage 73–79%. My pre-test worry (the LSS
@@ -42,5 +45,5 @@ fp16-AMP+GradScaler via `p1_depth_smoke.py --fp16` (reports GradScaler skips = t
   a GradScaler (the bf16 path uses neither today). Small, additive.
 
 ## Tooling
-`scripts/p1_depth_smoke.py --fp16` (fp16-AMP+GradScaler, cycles the loader, reports per-step scale + skips + finite),
-`scripts/run_p1_depth_smoke.sh FP16=1`. Reusable for the Arrhenius bring-up smoke.
+`scripts/p1_amp_smoke.py --fp16` (fp16-AMP+GradScaler, cycles the loader, reports per-step scale + skips + finite),
+`scripts/run_p1_amp_smoke.sh FP16=1`. Reusable for the Arrhenius bring-up smoke.
