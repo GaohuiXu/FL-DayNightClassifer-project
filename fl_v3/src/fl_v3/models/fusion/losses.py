@@ -116,13 +116,11 @@ class CenterPointLoss(nn.Module):
         code_weights=DEFAULT_CODE_WEIGHTS,
         class_weights=None,
         reg_class_weights=None,
-        depth_loss_weight: float = 0.0,
     ):
         super().__init__()
         self.cfg = cfg
         self.n_classes = int(n_classes)
         self.reg_weight = float(reg_weight)
-        self.depth_loss_weight = float(depth_loss_weight)  # BEVDepth-style depth supervision (0 ⇒ off, byte-identical)
         self.alpha = float(focal_alpha)
         self.gamma = float(focal_gamma)
         self.min_radius = int(min_radius)
@@ -285,22 +283,10 @@ class CenterPointLoss(nn.Module):
         else:
             reg_loss = reg_pred.sum() * 0.0
         total = hm_loss + self.reg_weight * reg_loss
-        # [depth supervision] BEVDepth-style sparse depth CE on the LSS depthnet logits vs projected-LiDAR
-        # depth-bin GT (-1 = no return ⇒ ignored). Default weight 0 ⇒ this whole block is skipped ⇒
-        # byte-identical to the pre-depth-sup loss. .long() undoes the loop's AMP float-cast of the int target.
-        depth_loss_val = 0.0
-        if self.depth_loss_weight > 0 and "depth_logits" in pred and "depth_target" in pred:
-            dl = pred["depth_logits"].float()                 # [BN, D, fH, fW]
-            dt = pred["depth_target"].long()                  # [BN, fH, fW]
-            depth_loss = (torch.nn.functional.cross_entropy(dl, dt, ignore_index=-1)
-                          if bool((dt >= 0).any()) else dl.sum() * 0.0)
-            total = total + self.depth_loss_weight * depth_loss
-            depth_loss_val = float(depth_loss.detach().item())
         self.last_terms = {
             "loss": float(total.detach().item()),
             "hm_loss": float(hm_loss.detach().item()),
             "reg_loss": float(reg_loss.detach().item()),
-            "depth_loss": depth_loss_val,
             "n_gt": int(reg_target.shape[0]),
         }
         return total

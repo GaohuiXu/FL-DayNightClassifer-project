@@ -380,7 +380,6 @@ def _det_config_from_run(run_config: dict):
             float(run_config.get("det-depth-max", 60.0)),
             float(run_config.get("det-depth-step", 1.0)),
         ),
-        depth_supervision=truthy(run_config.get("det-depth-supervision", False)),
         lidar_channels=int(run_config.get("det-lidar-channels", 64)),
         max_points_per_pillar=int(run_config.get("det-max-points-per-pillar", 32)),
         max_pillars=int(run_config.get("det-max-pillars", 30000)),
@@ -535,8 +534,7 @@ class NuScenesDetectionTask(Task):
         return CenterPointLoss(cfg=c.bev, n_classes=c.n_classes,
                                reg_weight=float(run_config.get("det-reg-weight", 0.25)),
                                class_weights=_normalize_weights(run_config.get("det-class-weights")),
-                               reg_class_weights=_normalize_weights(run_config.get("det-reg-class-weights")),
-                               depth_loss_weight=float(run_config.get("det-depth-loss-weight", 0.0)))
+                               reg_class_weights=_normalize_weights(run_config.get("det-reg-class-weights")))
 
     # --- data ---
     def _load_info(self, run_config: dict, split: str):

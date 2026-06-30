@@ -1,11 +1,13 @@
-"""Depth-sup CL smoke — real-data forward+backward through bb02d+depth-supervision.
+"""CL AMP smoke — real-data forward+backward through the detector under bf16 (Alvis) or fp16+GradScaler.
 
-Validates the ONE thing the unit tests can't (synthetic only): the real points / lidar2img path. Builds the
-model in TRAIN mode (so the detector attaches depth_logits + projected GT), runs a few steps on real pooled
-keyframes, and prints the per-step loss BREAKDOWN (hm / reg / depth / total) + depth-GT coverage + grad-norm,
-with a finite/no-NaN gate. Mirrors train_one_epoch's bf16-AMP + fp32-head-upcast path exactly.
+Validates the real points / lidar2img / loss path end-to-end (what synthetic unit tests can't) and de-risks
+the **fp16-AMP precision** that the GH200/Arrhenius sparse path needs (no bf16 there). Builds the model in
+TRAIN mode, runs a few steps on real pooled keyframes, and prints the per-step loss BREAKDOWN (hm / reg /
+total) + grad-norm, with a finite/no-NaN gate. ``--fp16`` switches to fp16 autocast + GradScaler and reports
+the scale + calibration skips (the direct inf/NaN-overflow signal, e.g. the LSS splat). Mirrors
+train_one_epoch's AMP + fp32-head-upcast path.
 
-Run:  CACHE=<msweep10> sbatch fl_v3/scripts/run_p1_depth_smoke.sh
+Run:  CACHE=<msweep10> sbatch fl_v3/scripts/run_p1_amp_smoke.sh   (FP16=1 for the fp16 de-risk)
 """
 from __future__ import annotations
 
@@ -30,7 +32,7 @@ def _scalar(s: str):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--config", default="fl_v3/configs/p1_bb02d_depth.json")
+    ap.add_argument("--config", default="fl_v3/configs/p1_bb02d.json")
     ap.add_argument("--steps", type=int, default=3)
     ap.add_argument("--ntok", type=int, default=32)
     ap.add_argument("--fp16", action="store_true",
@@ -70,8 +72,7 @@ def main() -> None:
     opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=1e-4)
     amp_dtype = torch.float16 if a.fp16 else torch.bfloat16
     scaler = torch.amp.GradScaler("cuda", enabled=a.fp16)   # fp16 needs loss-scaling; bf16 ⇒ no-op passthrough
-    print(f"[smoke] depth_sup={model.cfg.depth_supervision} depth_loss_weight={crit.depth_loss_weight} "
-          f"device={dev} batch={int(cfg.get('batch-size',4))} sweeps={cfg.get('det-lidar-sweeps')} "
+    print(f"[smoke] device={dev} batch={int(cfg.get('batch-size',4))} sweeps={cfg.get('det-lidar-sweeps')} "
           f"ntok={len(toks)} amp={'fp16+GradScaler' if a.fp16 else 'bf16'}", flush=True)
     from itertools import islice, cycle as _cycle
     relaxed = not torch.backends.cudnn.deterministic
@@ -95,15 +96,11 @@ def main() -> None:
         stepped = scaler.get_scale() >= scale_before           # GradScaler drops the scale + SKIPS on inf/nan grads
         n_skip += int(not stepped)
         lt = crit.last_terms
-        cov = "n/a"
-        if "depth_target" in out:
-            cov = f"{100.0 * float((out['depth_target'] >= 0).float().mean()):.2f}%"
         fin = bool(torch.isfinite(loss).item())
-        depth_ok = (lt.get("depth_loss", 0.0) > 0.0) if model.cfg.depth_supervision else True
-        ok = ok and fin and depth_ok
+        ok = ok and fin
         print(f"[smoke] step {i}: total={lt['loss']:.4f} hm={lt['hm_loss']:.4f} reg={lt['reg_loss']:.4f} "
-              f"depth={lt.get('depth_loss', 0.0):.4f} n_gt={lt['n_gt']} grad_norm={float(gn):.2f} "
-              f"depth_cov={cov} finite={fin} scale={scaler.get_scale():.0f} skipped={not stepped}", flush=True)
+              f"n_gt={lt['n_gt']} grad_norm={float(gn):.2f} "
+              f"finite={fin} scale={scaler.get_scale():.0f} skipped={not stepped}", flush=True)
     steps_run = i + 1
     if a.fp16 and n_skip >= steps_run:                          # ALL steps skipped ⇒ deadlock ⇒ fp16-unstable
         ok = False                                             # (a FEW early skips = normal GradScaler calibration)
