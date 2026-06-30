@@ -21,8 +21,11 @@ import torch.nn as nn
 from fl_v3.models.fusion.bev_grid import BEVConfig
 
 
-def _gn(channels: int, max_groups: int = 16) -> nn.GroupNorm:
-    g = min(max_groups, channels)
+def _gn(channels: int, max_groups: int = 8) -> nn.GroupNorm:
+    # >=2 channels per group. A 1-channel-per-group GroupNorm on a NO-SPATIAL tensor (the per-point VFE +
+    # the sparse [V,C] features) normalizes each channel over its single value => 0 (collapse, the voxel-0.26
+    # bug). Capping g at channels//2 guarantees >=2 channels/group, so normalization is well-defined.
+    g = min(max_groups, max(1, channels // 2))
     while channels % g != 0:
         g -= 1
     return nn.GroupNorm(g, channels)
@@ -50,8 +53,12 @@ class SparseVoxelEncoder(nn.Module):
         self.max_pts = int(max_points_per_voxel)
         self._voxelizer = None                              # built lazily (device-bound)
 
-        # mean-VFE → embed
-        self.vfe = nn.Sequential(nn.Linear(self.n_pt_feat, vfe_channels), _gn(vfe_channels), nn.ReLU(inplace=True))
+        # PFN-style per-point VFE: per-point [abs xyz, intensity(+dt), voxel-center-relative xyz] → Linear → GN →
+        # ReLU → masked max-pool per voxel. (The earlier naive mean-VFE collapsed each voxel to ~[center,
+        # mean-intensity] — info-free; the relative offsets + max-pool are what make the LiDAR features useful,
+        # matching the proven PointPillarsEncoder.)
+        self.vfe_point = nn.Sequential(nn.Linear(self.n_pt_feat + 3, vfe_channels), _gn(vfe_channels),
+                                       nn.ReLU(inplace=True))
 
         # sparse 3D backbone: SubM (keep res) + z-downsampling SparseConv (stride (2,1,1) on the z axis only).
         sp = spconv
@@ -105,9 +112,18 @@ class SparseVoxelEncoder(nn.Module):
                 pf = points[bidx == b][:, feat_cols].to(torch.float32)          # [P,F], xyz first 3
                 if pf.shape[0] == 0:
                     continue
-                voxels, coords, num_p = self._voxelizer(pf)                     # [V,maxpts,F], [V,3]=(z,y,x), [V]
-                vmean = voxels.sum(dim=1) / num_p.clamp_min(1).view(-1, 1).to(voxels.dtype)
-                vfeats.append(self.vfe(vmean))                                  # [V, vfe_ch]
+                voxels, coords, num_p = self._voxelizer(pf)                     # [V,P,F], [V,3]=(z,y,x), [V]
+                V, P = voxels.shape[0], voxels.shape[1]
+                # voxel center (x,y,z) from coords (z,y,x) → per-point voxel-center-relative offset
+                xc = (coords[:, 2].float() + 0.5) * self.vx + self.cfg.x_min
+                yc = (coords[:, 1].float() + 0.5) * self.vy + self.cfg.y_min
+                zc = (coords[:, 0].float() + 0.5) * self.vz + self.cfg.z_min
+                rel = voxels[:, :, :3] - torch.stack([xc, yc, zc], dim=1).view(V, 1, 3)   # [V,P,3]
+                ppf = torch.cat([voxels, rel], dim=2)                            # [V,P,F+3] abs+intensity(+dt)+rel
+                valid = torch.arange(P, device=dev).view(1, P) < num_p.view(V, 1)         # [V,P] mask padded
+                fp = self.vfe_point(ppf.reshape(V * P, -1)).reshape(V, P, -1)    # [V,P,C] per-point
+                fp = fp.masked_fill(~valid.unsqueeze(-1), float("-inf"))
+                vfeats.append(torch.nan_to_num(fp.max(dim=1).values, neginf=0.0))         # [V,C] masked max-pool
                 bcol = torch.full((coords.shape[0], 1), b, dtype=coords.dtype, device=dev)
                 coords_b.append(torch.cat([bcol, coords], dim=1))               # [V,4]=(b,z,y,x)
             if not vfeats:
