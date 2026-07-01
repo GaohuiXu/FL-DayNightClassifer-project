@@ -162,7 +162,7 @@ def train_one_epoch(
     last_grad_norm = 0.0
     for batch in dataloader:
         inputs, targets = _unpack_batch(batch, device)
-        optimizer.zero_grad()
+        optimizer.zero_grad(set_to_none=True)
         if use_amp:
             with precision_autocast_context(precision, device):
                 out = model(inputs)

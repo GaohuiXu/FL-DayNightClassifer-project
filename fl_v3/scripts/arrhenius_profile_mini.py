@@ -22,10 +22,19 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 
+CANONICAL_MATRIX_CELLS = {
+    "voxel_fp16_main": {"det-lidar-encoder": "voxel", "precision": "fp16"},
+    "voxel_fp32_ref": {"det-lidar-encoder": "voxel", "precision": "fp32"},
+    "pillar_fp32_legacy": {"det-lidar-encoder": "pillar", "precision": "fp32"},
+}
+LEGACY_MATRIX_ALIASES = {
+    "voxel_fp16": "voxel_fp16_main",
+    "voxel_fp32": "voxel_fp32_ref",
+    "pillar_fp32": "pillar_fp32_legacy",
+}
 MATRIX_CELLS = {
-    "pillar_fp32": {"det-lidar-encoder": "pillar", "precision": "fp32"},
-    "voxel_fp32": {"det-lidar-encoder": "voxel", "precision": "fp32"},
-    "voxel_fp16": {"det-lidar-encoder": "voxel", "precision": "fp16"},
+    **CANONICAL_MATRIX_CELLS,
+    **{alias: CANONICAL_MATRIX_CELLS[target] for alias, target in LEGACY_MATRIX_ALIASES.items()},
 }
 
 
@@ -66,6 +75,10 @@ def _git_rev() -> str:
         ).strip()
     except Exception:
         return ""
+
+
+def _canonical_cell_name(name: str) -> str:
+    return LEGACY_MATRIX_ALIASES.get(name, name)
 
 
 def _read_cfg(path: str) -> dict:
@@ -615,8 +628,18 @@ def _parse_matrix(raw: str) -> List[str]:
         raise ValueError("matrix is empty")
     unknown = [c for c in cells if c not in MATRIX_CELLS]
     if unknown:
-        raise ValueError(f"unknown matrix cells {unknown}; valid: {sorted(MATRIX_CELLS)}")
-    return cells
+        raise ValueError(
+            f"unknown matrix cells {unknown}; valid canonical cells: {sorted(CANONICAL_MATRIX_CELLS)}; "
+            f"legacy aliases: {sorted(LEGACY_MATRIX_ALIASES)}"
+        )
+    out: List[str] = []
+    seen = set()
+    for cell in cells:
+        canonical = _canonical_cell_name(cell)
+        if canonical not in seen:
+            out.append(canonical)
+            seen.add(canonical)
+    return out
 
 
 def main() -> None:
@@ -632,7 +655,7 @@ def main() -> None:
     ap.add_argument("--dataroot", default=os.environ.get("ARRHENIUS_NUSCENES_DATAROOT", str(default_dataroot)))
     ap.add_argument("--cache-dir", default=os.environ.get("ARRHENIUS_NUSCENES_CACHE", str(default_cache)))
     ap.add_argument("--output-dir", default=str(Path(default_root) / "stop_d_profile_mini"))
-    ap.add_argument("--matrix", default="pillar_fp32,voxel_fp32,voxel_fp16")
+    ap.add_argument("--matrix", default="voxel_fp16_main")
     ap.add_argument("--warmup-iters", type=int, default=2)
     ap.add_argument("--profile-iters", type=int, default=5)
     ap.add_argument("--num-tokens", type=int, default=2)

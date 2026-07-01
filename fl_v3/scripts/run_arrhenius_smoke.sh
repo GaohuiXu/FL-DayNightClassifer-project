@@ -1,11 +1,11 @@
 #!/bin/bash
 # Arrhenius GH200 environment smoke launcher.
 #
-# Non-data checks:
+# Mini regression checks:
 #   sbatch fl_v3/scripts/run_arrhenius_smoke.sh
 #
-# Real nuScenes eval/train once data and info-cache are staged:
-#   sbatch --export=ALL,ARRHENIUS_NUSCENES_DATAROOT=/path/to/NuScenes_v1.0,ARRHENIUS_NUSCENES_CACHE=/path/to/info_cache,REQUIRE_DATA=1,SMOKE_MODES='import spconv data eval train' fl_v3/scripts/run_arrhenius_smoke.sh
+# Non-data checks:
+#   sbatch --export=ALL,REQUIRE_DATA=0,SMOKE_MODES='import spconv sparse-lidar dummy-train' fl_v3/scripts/run_arrhenius_smoke.sh
 #SBATCH -A naiss2025-22-1113-gpu
 #SBATCH -p gpu
 #SBATCH --job-name=flv3_smoke
@@ -33,18 +33,19 @@ else
 fi
 arrhenius_activate_env
 
-export ARRHENIUS_NUSCENES_CACHE="${ARRHENIUS_NUSCENES_CACHE:-${ARRHENIUS_OUTPUT_ROOT}/nuscenes/info_cache}"
+export ARRHENIUS_NUSCENES_DATAROOT="${ARRHENIUS_NUSCENES_DATAROOT:-${REPO}/data/nuscenes_mini}"
+export ARRHENIUS_NUSCENES_CACHE="${ARRHENIUS_NUSCENES_CACHE:-${ARRHENIUS_OUTPUT_ROOT}/nuscenes/info_cache_mini_from_main}"
 mkdir -p "${ARRHENIUS_NUSCENES_CACHE}" "${ARRHENIUS_OUTPUT_ROOT}"
 
-MODES="${SMOKE_MODES:-import spconv data dummy-train}"
+MODES="${SMOKE_MODES:-import spconv sparse-lidar data eval train}"
 REQ=()
-if [ "${REQUIRE_DATA:-0}" = "1" ]; then
+if [ "${REQUIRE_DATA:-1}" = "1" ]; then
   REQ+=(--require-data)
 fi
 
 echo "[run_arrhenius_smoke] host=$(hostname) arch=$(uname -m) modes=${MODES}"
 echo "[run_arrhenius_smoke] env=${ARRHENIUS_VENV}"
-echo "[run_arrhenius_smoke] precision=${PRECISION:-fp16} lidar_encoder=${LIDAR_ENCODER:-<config>}"
+echo "[run_arrhenius_smoke] precision=${PRECISION:-fp16} lidar_encoder=${LIDAR_ENCODER:-voxel}"
 echo "[run_arrhenius_smoke] dataroot=${ARRHENIUS_NUSCENES_DATAROOT:-<unset>}"
 echo "[run_arrhenius_smoke] cache=${ARRHENIUS_NUSCENES_CACHE}"
 
@@ -53,7 +54,7 @@ python fl_v3/scripts/arrhenius_smoke.py \
   --cache-dir "${ARRHENIUS_NUSCENES_CACHE}" \
   --output-dir "${ARRHENIUS_OUTPUT_ROOT}" \
   --precision "${PRECISION:-fp16}" \
-  --lidar-encoder "${LIDAR_ENCODER:-}" \
+  --lidar-encoder "${LIDAR_ENCODER:-voxel}" \
   --eval-limit "${EVAL_LIMIT:-2}" \
   --train-steps "${TRAIN_STEPS:-1}" \
   --batch-size "${BATCH_SIZE:-1}" \

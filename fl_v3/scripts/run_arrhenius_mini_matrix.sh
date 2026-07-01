@@ -44,7 +44,7 @@ echo "[run_arrhenius_mini_matrix] repo=${REPO}"
 echo "[run_arrhenius_mini_matrix] dataroot=${ARRHENIUS_NUSCENES_DATAROOT}"
 echo "[run_arrhenius_mini_matrix] cache=${ARRHENIUS_NUSCENES_CACHE}"
 echo "[run_arrhenius_mini_matrix] out=${OUT_DIR}"
-echo "[run_arrhenius_mini_matrix] matrix=${MATRIX:-pillar_fp32,voxel_fp32,voxel_fp16} steps=${STEPS:-30} tokens=${NUM_TOKENS:-2}"
+echo "[run_arrhenius_mini_matrix] matrix=${MATRIX:-voxel_fp16_main,voxel_fp32_ref} steps=${STEPS:-30} tokens=${NUM_TOKENS:-2}"
 echo "[run_arrhenius_mini_matrix] Best Config Smoke is intentionally not run in Stop C."
 
 EXTRA=()
@@ -57,7 +57,7 @@ python fl_v3/scripts/arrhenius_mini_matrix.py \
   --dataroot "${ARRHENIUS_NUSCENES_DATAROOT}" \
   --cache-dir "${ARRHENIUS_NUSCENES_CACHE}" \
   --output-dir "${OUT_DIR}" \
-  --matrix "${MATRIX:-pillar_fp32,voxel_fp32,voxel_fp16}" \
+  --matrix "${MATRIX:-voxel_fp16_main,voxel_fp32_ref}" \
   --steps "${STEPS:-30}" \
   --num-tokens "${NUM_TOKENS:-2}" \
   --batch-size "${BATCH_SIZE:-1}" \

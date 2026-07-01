@@ -44,7 +44,7 @@ echo "[run_arrhenius_profile_mini] repo=${REPO}"
 echo "[run_arrhenius_profile_mini] dataroot=${ARRHENIUS_NUSCENES_DATAROOT}"
 echo "[run_arrhenius_profile_mini] cache=${ARRHENIUS_NUSCENES_CACHE}"
 echo "[run_arrhenius_profile_mini] out=${OUT_DIR}"
-echo "[run_arrhenius_profile_mini] matrix=${MATRIX:-pillar_fp32,voxel_fp32,voxel_fp16} warmup=${WARMUP_ITERS:-2} iters=${PROFILE_ITERS:-5}"
+echo "[run_arrhenius_profile_mini] matrix=${MATRIX:-voxel_fp16_main} warmup=${WARMUP_ITERS:-2} iters=${PROFILE_ITERS:-5}"
 echo "[run_arrhenius_profile_mini] batch=${BATCH_SIZE:-1} workers=${NUM_WORKERS:-0} pin=${PIN_MEMORY:-1} prefetch=${PREFETCH_FACTOR:-4}"
 echo "[run_arrhenius_profile_mini] Best Config Smoke is intentionally not run in Stop D."
 
@@ -68,7 +68,7 @@ python fl_v3/scripts/arrhenius_profile_mini.py \
   --dataroot "${ARRHENIUS_NUSCENES_DATAROOT}" \
   --cache-dir "${ARRHENIUS_NUSCENES_CACHE}" \
   --output-dir "${OUT_DIR}" \
-  --matrix "${MATRIX:-pillar_fp32,voxel_fp32,voxel_fp16}" \
+  --matrix "${MATRIX:-voxel_fp16_main}" \
   --warmup-iters "${WARMUP_ITERS:-2}" \
   --profile-iters "${PROFILE_ITERS:-5}" \
   --num-tokens "${NUM_TOKENS:-2}" \

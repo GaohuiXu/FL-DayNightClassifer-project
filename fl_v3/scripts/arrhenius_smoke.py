@@ -11,9 +11,53 @@ import argparse
 import json
 import os
 import platform
+import subprocess
 import sys
 from itertools import islice, cycle
 from pathlib import Path
+from typing import Any
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _git_rev() -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=_repo_root(),
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except Exception:
+        return ""
+
+
+def _jsonable(obj: Any) -> Any:
+    try:
+        import torch
+
+        if torch.is_tensor(obj):
+            if obj.numel() == 1:
+                return obj.detach().cpu().item()
+            return obj.detach().cpu().tolist()
+    except Exception:
+        pass
+    if isinstance(obj, dict):
+        return {str(k): _jsonable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_jsonable(v) for v in obj]
+    if isinstance(obj, Path):
+        return str(obj)
+    if isinstance(obj, (str, int, float, bool)) or obj is None:
+        return obj
+    return str(obj)
+
+
+def _sparse_meta(model) -> dict:
+    enc = getattr(model, "lidar_encoder", None)
+    return dict(getattr(enc, "last_sparse_meta", {}) or {})
 
 
 def _load_cfg(path: str, args: argparse.Namespace) -> dict:
@@ -43,7 +87,7 @@ def _load_cfg(path: str, args: argparse.Namespace) -> dict:
     return cfg
 
 
-def import_sanity() -> None:
+def import_sanity() -> dict:
     import numpy
     import scipy
     import torch
@@ -70,9 +114,27 @@ def import_sanity() -> None:
     print("[import] spconv", getattr(spconv, "__version__", "?"), spconv_torch)
     print("[import] fl_v3", getattr(fl_v3, "__version__", "?"))
     print("[import] OK")
+    return {
+        "machine": platform.machine(),
+        "python": sys.version.replace("\n", " "),
+        "torch": torch.__version__,
+        "torch_cuda": torch.version.cuda,
+        "cuda_available": bool(torch.cuda.is_available()),
+        "gpu0": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "",
+        "torchvision": torchvision.__version__,
+        "numpy": numpy.__version__,
+        "scipy": scipy.__version__,
+        "flwr": flwr.__version__,
+        "ray": ray.__version__,
+        "sklearn": sklearn.__version__,
+        "matplotlib": matplotlib.__version__,
+        "cumm": getattr(cumm, "__version__", "?"),
+        "cumm_file": getattr(cumm, "__file__", ""),
+        "spconv": getattr(spconv, "__version__", "?"),
+    }
 
 
-def spconv_smoke() -> None:
+def spconv_smoke() -> dict:
     import torch
     import spconv.pytorch as spconv
 
@@ -110,8 +172,12 @@ def spconv_smoke() -> None:
     loss = y.features.float().square().mean() * 1_000_000
     loss.backward()
     torch.cuda.synchronize()
-    print("[spconv] FP32_OK", "out", tuple(y.features.shape), "dtype", y.features.dtype,
-          "loss", float(loss.detach().cpu()), "feat_grad", float(feat.grad.detach().float().norm().cpu()))
+    fp32_shape = tuple(y.features.shape)
+    fp32_dtype = str(y.features.dtype)
+    fp32_loss = float(loss.detach().cpu())
+    fp32_grad = float(feat.grad.detach().float().norm().cpu())
+    print("[spconv] FP32_OK", "out", fp32_shape, "dtype", y.features.dtype,
+          "loss", fp32_loss, "feat_grad", fp32_grad)
 
     net = make_net()
     opt = torch.optim.AdamW(net.parameters(), lr=1e-3)
@@ -129,9 +195,21 @@ def spconv_smoke() -> None:
         torch.cuda.synchronize()
         out_dtypes.append(str(y.features.dtype))
     print("[spconv] FP16_AMP_GRADSCALER_OK", "scale", scaler.get_scale(), "out_dtypes", out_dtypes)
+    return {
+        "fp32": {
+            "out_shape": fp32_shape,
+            "out_dtype": fp32_dtype,
+            "loss": fp32_loss,
+            "feat_grad_norm": fp32_grad,
+        },
+        "fp16_amp": {
+            "grad_scaler_final_scale": float(scaler.get_scale()),
+            "out_dtypes": out_dtypes,
+        },
+    }
 
 
-def sparse_lidar_smoke() -> None:
+def sparse_lidar_smoke() -> dict:
     import torch
     from fl_v3.models.fusion.bev_grid import BEVConfig
     from fl_v3.models.fusion.sparse_voxel_encoder import SparseVoxelEncoder
@@ -185,9 +263,18 @@ def sparse_lidar_smoke() -> None:
     empty.sum().backward()
     assert all(p.grad is not None for p in enc.parameters() if p.requires_grad)
     print("[sparse-lidar] OK", "out", tuple(y.shape), "meta", meta, "grad_norm", float(grad_norm))
+    return {
+        "out_shape": tuple(y.shape),
+        "finite": bool(torch.isfinite(y).all().item()),
+        "sparse_meta": meta,
+        "occupancy_sum": float(occ.sum().detach().cpu()),
+        "empty_output_shape": tuple(empty.shape),
+        "empty_nonzero": int(torch.count_nonzero(empty.detach()).cpu()),
+        "grad_norm": float(grad_norm),
+    }
 
 
-def data_preflight(cfg: dict) -> bool:
+def data_preflight(cfg: dict) -> dict:
     from fl_v3.data.nuscenes import paths as P
     from fl_v3.data.nuscenes import info_cache as IC
 
@@ -198,22 +285,40 @@ def data_preflight(cfg: dict) -> bool:
     print("[data] dataroot", dataroot)
     print("[data] cache", cfg["nuscenes-cache-dir"])
     ok = True
+    report = {
+        "ok": True,
+        "dataroot": dataroot,
+        "cache_dir": cfg["nuscenes-cache-dir"],
+        "version": version,
+        "splits": {},
+    }
     try:
-        print("[data] verify_dataset", P.verify_dataset(version, dataroot))
+        dataset_report = P.verify_dataset(version, dataroot)
+        report["verify_dataset"] = dataset_report
+        print("[data] verify_dataset", dataset_report)
     except Exception as exc:
         ok = False
+        report["verify_dataset_error"] = f"{type(exc).__name__}: {exc}"
         print("[data] verify_dataset FAIL", type(exc).__name__, exc)
     for split in (train_split, val_split):
         try:
             info, meta = IC.load_cache(str(cfg["nuscenes-cache-dir"]), version, split)
+            report["splits"][split] = {
+                "ok": True,
+                "n": len(info),
+                "content_hash": meta.get("content_hash", ""),
+                "meta": meta,
+            }
             print("[data] cache OK", split, "n", len(info), "hash", meta.get("content_hash", "")[:16])
         except Exception as exc:
             ok = False
+            report["splits"][split] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
             print("[data] cache FAIL", split, type(exc).__name__, exc)
-    return ok
+    report["ok"] = ok
+    return report
 
 
-def eval_smoke(cfg: dict) -> None:
+def eval_smoke(cfg: dict) -> dict:
     import torch
     from fl_v3.training.tasks import get_task
     from fl_v3.utils.runtime import enforce_determinism, seed_everything
@@ -223,12 +328,20 @@ def eval_smoke(cfg: dict) -> None:
     task = get_task("nuscenes_detection")
     device = torch.device("cuda")
     model = task.build_model(cfg).to(device).eval()
+    if cfg.get("det-lidar-encoder") == "voxel":
+        getattr(model, "lidar_encoder").record_debug = True
     crit = task.build_criterion(cfg)
     metrics = task.evaluate(model, task.eval_loader(cfg), crit, device, cfg)
     print("[eval] OK", metrics)
+    return {
+        "metrics": metrics,
+        "precision": str(cfg.get("precision", "fp16")),
+        "lidar_encoder": str(cfg.get("det-lidar-encoder", "pillar")),
+        "sparse_meta": _sparse_meta(model),
+    }
 
 
-def train_smoke(cfg: dict, steps: int) -> None:
+def train_smoke(cfg: dict, steps: int) -> dict:
     import torch
     from fl_v3.training.tasks import get_task, _aug_from_run
     from fl_v3.data.nuscenes.dataset import NuScenesMultimodalDataset, make_loader
@@ -265,6 +378,8 @@ def train_smoke(cfg: dict, steps: int) -> None:
     )
     device = torch.device("cuda")
     model = task.build_model(cfg).to(device).train()
+    if cfg.get("det-lidar-encoder") == "voxel":
+        getattr(model, "lidar_encoder").record_debug = True
     crit = task.build_criterion(cfg)
     opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=1e-4)
     precision = str(cfg.get("precision", "fp16"))
@@ -272,6 +387,7 @@ def train_smoke(cfg: dict, steps: int) -> None:
     print("[train] start", "steps", steps, "batch", cfg["batch-size"], "tokens", len(toks), "precision", cfg["precision"])
     print("[train] lidar_encoder", cfg.get("det-lidar-encoder", "pillar"))
     ok = True
+    step_records = []
     for i, batch in enumerate(islice(cycle(loader), steps)):
         opt.zero_grad(set_to_none=True)
         batch = _move_to_device(batch, device)
@@ -286,15 +402,37 @@ def train_smoke(cfg: dict, steps: int) -> None:
         scaler.step(opt)
         scaler.update()
         finite = bool(torch.isfinite(loss).item())
+        skipped = bool(scaler.get_scale() < before)
         ok = ok and finite
         print("[train] step", i, "loss", float(loss.detach().cpu()), "finite", finite,
-              "grad_norm", float(grad_norm), "scale", scaler.get_scale(), "skipped", scaler.get_scale() < before)
+              "grad_norm", float(grad_norm), "scale", scaler.get_scale(), "skipped", skipped)
+        step_records.append({
+            "step": i,
+            "loss": float(loss.detach().cpu()),
+            "finite": finite,
+            "grad_norm": float(grad_norm),
+            "grad_scaler_scale_before": float(before),
+            "grad_scaler_scale_after": float(scaler.get_scale()),
+            "grad_scaler_skipped": skipped,
+            "sparse_meta": _sparse_meta(model),
+        })
     if not ok:
         raise RuntimeError("train smoke saw non-finite loss")
     print("[train] OK")
+    return {
+        "precision": precision,
+        "lidar_encoder": str(cfg.get("det-lidar-encoder", "pillar")),
+        "steps_requested": int(steps),
+        "tokens": toks,
+        "grad_scaler_enabled": bool(scaler.is_enabled()),
+        "grad_scaler_final_scale": float(scaler.get_scale()),
+        "grad_scaler_skips": sum(int(r["grad_scaler_skipped"]) for r in step_records),
+        "finite": all(bool(r["finite"]) for r in step_records),
+        "steps": step_records,
+    }
 
 
-def dummy_train_smoke() -> None:
+def dummy_train_smoke() -> dict:
     from fl_v3.engine.local_runner import run_clean_rounds
 
     cfg = {
@@ -310,6 +448,10 @@ def dummy_train_smoke() -> None:
     }
     result = run_clean_rounds(cfg, defense="none", num_rounds=1, fraction_train=1.0)
     print("[dummy-train] OK", result["final_checksum"][:16], result["final_eval"])
+    return {
+        "final_checksum": result["final_checksum"],
+        "final_eval": result["final_eval"],
+    }
 
 
 def main() -> None:
@@ -333,36 +475,97 @@ def main() -> None:
     cfg = _load_cfg(args.config, args)
     if not cfg.get("nuscenes-cache-dir"):
         cfg["nuscenes-cache-dir"] = str(Path(args.output_dir or ".") / "nuscenes" / "info_cache")
+    output_dir = Path(str(cfg.get("output-dir") or args.output_dir or ".")).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    run_stamp = os.environ.get("SLURM_JOB_ID", "manual")
+    summary_path = output_dir / f"arrhenius_smoke_summary_{run_stamp}.json"
+    summary = {
+        "kind": "arrhenius_mini_regression_smoke",
+        "scientific_claim": False,
+        "engineering_scope": "mini import/data/cache/sparse/eval/train smoke only",
+        "git_rev": _git_rev(),
+        "slurm_job_id": os.environ.get("SLURM_JOB_ID", ""),
+        "repo": str(_repo_root()),
+        "config": str(Path(args.config).resolve()),
+        "output_dir": str(output_dir),
+        "summary_path": str(summary_path),
+        "precision": str(cfg.get("precision", "fp16")),
+        "lidar_encoder": str(cfg.get("det-lidar-encoder", "pillar")),
+        "dataroot": str(cfg.get("nuscenes-dataroot", "")),
+        "cache_dir": str(cfg.get("nuscenes-cache-dir", "")),
+        "modes_requested": list(args.modes),
+        "args": vars(args),
+        "modes": [],
+    }
+
+    def write_summary() -> None:
+        with open(summary_path, "w", encoding="utf-8") as f:
+            json.dump(_jsonable(summary), f, indent=2, sort_keys=True)
+
+    write_summary()
+    print("[smoke] summary", summary_path)
+    print("[smoke] engineering_scope", summary["engineering_scope"])
+    print("[smoke] git_rev", summary["git_rev"])
+    print("[smoke] precision", summary["precision"], "lidar_encoder", summary["lidar_encoder"])
 
     for mode in args.modes:
-        if mode == "import":
-            import_sanity()
-        elif mode == "spconv":
-            spconv_smoke()
-        elif mode == "sparse-lidar":
-            sparse_lidar_smoke()
-        elif mode == "data":
-            ok = data_preflight(cfg)
-            if args.require_data and not ok:
-                raise SystemExit(3)
-        elif mode == "eval":
-            if not data_preflight(cfg):
-                if args.require_data:
+        record = {"mode": mode, "status": "started"}
+        summary["modes"].append(record)
+        write_summary()
+        try:
+            if mode == "import":
+                record["result"] = import_sanity()
+            elif mode == "spconv":
+                record["result"] = spconv_smoke()
+            elif mode == "sparse-lidar":
+                record["result"] = sparse_lidar_smoke()
+            elif mode == "data":
+                report = data_preflight(cfg)
+                record["result"] = report
+                if args.require_data and not report["ok"]:
+                    record["status"] = "failed"
+                    write_summary()
                     raise SystemExit(3)
-                print("[eval] SKIP data/cache unavailable")
+            elif mode == "eval":
+                report = data_preflight(cfg)
+                record["data_preflight"] = report
+                if not report["ok"]:
+                    if args.require_data:
+                        record["status"] = "failed"
+                        write_summary()
+                        raise SystemExit(3)
+                    print("[eval] SKIP data/cache unavailable")
+                    record["status"] = "skipped"
+                    write_summary()
+                    continue
+                record["result"] = eval_smoke(cfg)
+            elif mode == "train":
+                report = data_preflight(cfg)
+                record["data_preflight"] = report
+                if not report["ok"]:
+                    if args.require_data:
+                        record["status"] = "failed"
+                        write_summary()
+                        raise SystemExit(3)
+                    print("[train] SKIP data/cache unavailable")
+                    record["status"] = "skipped"
+                    write_summary()
+                    continue
+                record["result"] = train_smoke(cfg, args.train_steps)
+            elif mode == "dummy-train":
+                record["result"] = dummy_train_smoke()
             else:
-                eval_smoke(cfg)
-        elif mode == "train":
-            if not data_preflight(cfg):
-                if args.require_data:
-                    raise SystemExit(3)
-                print("[train] SKIP data/cache unavailable")
-            else:
-                train_smoke(cfg, args.train_steps)
-        elif mode == "dummy-train":
-            dummy_train_smoke()
-        else:
-            raise ValueError(f"unknown mode {mode!r}")
+                raise ValueError(f"unknown mode {mode!r}")
+            if record.get("status") == "started":
+                record["status"] = "ok"
+        except BaseException as exc:
+            record["status"] = "failed"
+            record["error_type"] = type(exc).__name__
+            record["error"] = str(exc)
+            write_summary()
+            raise
+        finally:
+            write_summary()
 
 
 if __name__ == "__main__":
