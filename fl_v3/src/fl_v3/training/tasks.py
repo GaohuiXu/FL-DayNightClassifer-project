@@ -566,7 +566,8 @@ class NuScenesDetectionTask(Task):
             raise FileNotFoundError(
                 f"nuScenes info-cache for ({version}, {split}) not found under "
                 f"{cache_dir!r}. Build it on the LOGIN node first: "
-                f"`bash fl_v3/scripts/run_in_venv.sh python fl_v3/scripts/build_nuscenes_cache.py`. "
+                f"`source fl_v3/scripts/arrhenius_env.sh && arrhenius_activate_env && "
+                f"python fl_v3/scripts/build_nuscenes_cache.py ...`. "
                 f"client_data must NOT build the devkit during a training run."
             ) from e
         return info_list, meta

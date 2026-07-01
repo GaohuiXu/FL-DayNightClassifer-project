@@ -63,7 +63,7 @@
   "det-lidar-backbone-checkpoint": true,
   "det-lidar-backbone-stages": 4,
   "det-gt-paste": true,
-  "det-gt-paste-db": "/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/thesis_workspace/fl_weather_project/.claude/worktrees/hungry-hofstadter-be5c1e/fl_outputs/nuscenes/gt_database_msweep10",
+  "det-gt-paste-db": "./fl_outputs/nuscenes/gt_database_msweep10",
   "det-gt-paste-counts": {
     "trailer": 3,
     "construction_vehicle": 3,

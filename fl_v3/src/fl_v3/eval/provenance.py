@@ -4,7 +4,7 @@ The readiness verdict must be bound — not merely by checkpoint checksum, but b
 **provenance** — to the D10 regime: a full-participation (`fraction-train == 1.0`) **log-group trainval
 clean FedAvg** checkpoint. A verdict computed on a sampled (`fraction<1`) / IID / defended / wrong-split
 checkpoint is **INVALID** (the §0.2 partition/participation-mismatch trap — the Codex T4 finding). The
-reference launcher (`run_t4_reference_a40.sh`) writes `provenance.json` beside `final_model.pt` via
+current training/eval launcher writes `provenance.json` beside `final_model.pt` via
 :func:`build_provenance`; the readiness eval hard-verifies it via :func:`verify_d10_provenance` BEFORE it
 will emit a (valid) trainval go/no-go — so an overridden `CONFIG`/`CKPT` can never sneak a sampled/IID
 checkpoint past the gate just because its metric floors happen to pass.
@@ -84,7 +84,7 @@ def verify_d10_provenance(checkpoint_path: str, checksum: str) -> dict:
         raise RuntimeError(
             f"D10 provenance MISSING ({prov_path}). A trainval readiness verdict MUST be bound to a "
             "full-participation log-group trainval checkpoint (T4_SPEC §0.2) — refusing a checkpoint of "
-            "unverified provenance. Train via run_t4_reference_a40.sh (it writes provenance.json).")
+            "unverified provenance. Train via a current Arrhenius launcher that writes provenance.json.")
     with open(prov_path, encoding="utf-8") as f:
         prov = json.load(f)
     bad = check_d10(prov, checksum)
@@ -141,7 +141,7 @@ def verify_attack_provenance(checkpoint_path: str, checksum: str) -> dict:
         raise RuntimeError(
             f"attack provenance MISSING ({prov_path}). The disappear-ASR + fusion-aware verdict MUST be "
             "bound to a provenance-verified trainval poisoned checkpoint (T5_SPEC §0.C8). Train via "
-            "run_t5_attack_a40.sh (it writes provenance.json + roster).")
+            "a current attack launcher that writes provenance.json + roster.")
     with open(prov_path, encoding="utf-8") as f:
         prov = json.load(f)
     bad = check_attack(prov, checksum)

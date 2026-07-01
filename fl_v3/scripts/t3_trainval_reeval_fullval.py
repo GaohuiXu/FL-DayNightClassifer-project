@@ -5,7 +5,7 @@ The trainval gap run capped server eval at det-eval-limit=256 (a fixed
 256-sample-val proxy. This loads the two saved FULL-model checkpoints (Swin-T headline,
 strict=True) and re-evaluates them on the ENTIRE v1.0-trainval val split (6019 samples,
 det-eval-limit=0) to report the accurate IID-vs-log-group recall@2m gap. Eval-only (no
-training); run on the A40 for numbers comparable to the original run.
+training); historical results were A40-comparable, while new validation should record the Arrhenius regime.
 """
 from __future__ import annotations
 

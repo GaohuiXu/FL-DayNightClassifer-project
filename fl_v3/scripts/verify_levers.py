@@ -4,11 +4,16 @@ and prints checksums of the head outputs, the loss, and the trainable gradients.
 capture the reference, then on the NEW code — the checksums MUST match exactly (the refactors are
 bit-identical or they are WRONG). Also isolates the view-transform + loss components directly.
 
-Usage: bash fl_v3/scripts/run_in_venv.sh python fl_v3/scripts/verify_levers.py [MINI_CACHE_DIR]
+Usage:
+  source fl_v3/scripts/arrhenius_env.sh
+  arrhenius_load_modules build
+  arrhenius_activate_env
+  PYTHONPATH=fl_v3/src python fl_v3/scripts/verify_levers.py <MINI_CACHE_DIR>
 """
 from __future__ import annotations
 
 import hashlib
+import os
 import sys
 
 sys.path.insert(0, "fl_v3/src")
@@ -23,8 +28,17 @@ def ck(t):
 
 
 def main():
-    cache = sys.argv[1] if len(sys.argv) > 1 else \
-        "/mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/thesis_workspace/fl_weather_project/fl_outputs/nuscenes/info_cache"
+    cache = (
+        sys.argv[1] if len(sys.argv) > 1
+        else os.environ.get("ARRHENIUS_NUSCENES_CACHE")
+        or os.environ.get("NUSCENES_CACHE_DIR")
+        or ""
+    )
+    if not cache:
+        raise SystemExit(
+            "verify_levers.py requires MINI_CACHE_DIR as argv[1] or ARRHENIUS_NUSCENES_CACHE/"
+            "NUSCENES_CACHE_DIR; no historical host path is assumed."
+        )
     cfg = {
         "task-type": "nuscenes_detection", "seed": 1234, "device": "cpu",
         "nuscenes-cache-dir": cache, "nuscenes-version": "v1.0-mini",
@@ -34,7 +48,6 @@ def main():
         "det-camera-backbone": "resnet18", "det-freeze-backbone": True,
         "det-pretrained-backbone": True, "batch-size": 2, "num-workers": 0,
     }
-    import os
     precision = os.environ.get("PRECISION", "fp32")
     cfg["precision"] = precision
     seed_everything(int(cfg["seed"]))

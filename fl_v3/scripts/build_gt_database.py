@@ -6,9 +6,12 @@ run uses (so cropped objects match the run's point density + columns), crops eac
 its box-local frame, and writes per-class pickles + a meta.json. Deterministic (a fixed-order walk;
 per-class subsampling uses a fixed RandomState seed). Pure CPU/IO — runs on the login node, no GPU.
 
-  fl_v3/scripts/run_in_venv.sh python fl_v3/scripts/build_gt_database.py \
+  source fl_v3/scripts/arrhenius_env.sh
+  arrhenius_load_modules build
+  arrhenius_activate_env
+  python fl_v3/scripts/build_gt_database.py \
     --cache-dir <info_cache_msweep10> --version v1.0-trainval --split train --n-sweeps 10 \
-    --dataroot /mimer/NOBACKUP/Datasets/NuScenes_v1.0 \
+    --dataroot /path/to/NuScenes_v1.0 \
     --out-dir ./fl_outputs/nuscenes/gt_database_msweep10 \
     --classes trailer,construction_vehicle,bus,truck,bicycle,motorcycle --min-points 5 --max-per-class 8000
 """
@@ -42,13 +45,22 @@ def main():
     ap.add_argument("--version", default="v1.0-trainval")
     ap.add_argument("--split", default="train")
     ap.add_argument("--n-sweeps", type=int, default=10)
-    ap.add_argument("--dataroot", default="/mimer/NOBACKUP/Datasets/NuScenes_v1.0")
+    ap.add_argument(
+        "--dataroot",
+        default=os.environ.get("ARRHENIUS_NUSCENES_DATAROOT") or os.environ.get("NUSCENES_DATAROOT") or "",
+        help="nuScenes dataroot; defaults to ARRHENIUS_NUSCENES_DATAROOT/NUSCENES_DATAROOT.",
+    )
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--classes", default="trailer,construction_vehicle,bus,truck,bicycle,motorcycle")
     ap.add_argument("--min-points", type=int, default=5)
     ap.add_argument("--max-per-class", type=int, default=8000)
     ap.add_argument("--seed", type=int, default=20259)
     args = ap.parse_args()
+    if not args.dataroot:
+        raise SystemExit(
+            "--dataroot is required unless ARRHENIUS_NUSCENES_DATAROOT or NUSCENES_DATAROOT is set; "
+            "do not rely on site-specific historical paths."
+        )
 
     classes = [c.strip() for c in args.classes.split(",") if c.strip()]
     info_list = _load_info_list(args.cache_dir, args.version, args.split)

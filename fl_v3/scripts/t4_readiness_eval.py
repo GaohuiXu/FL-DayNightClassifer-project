@@ -1,4 +1,4 @@
-"""DT4-A — the benchmark-readiness eval (fl_v3 T4). Run on the A40 via run_t4_readiness_eval_a40.sh.
+"""DT4-A — the benchmark-readiness eval (fl_v3 T4). Run through the current Arrhenius launcher/config.
 
 Loads the FULL-participation (D10) log-group trainval clean FedAvg checkpoint and, on the held-out
 ``val`` split, computes everything the T5 go/no-go needs — all from a SINGLE shared decode pass
@@ -303,8 +303,8 @@ def main() -> None:
         "recommended_strengthening": (
             [] if ready else
             ["full participation already applied (D10) — if NOT-READY, escalate to architecture "
-             "strengthening: deeper LiDAR PFN / full-model-from-scratch on A100 (D9), re-validate "
-             "the A100 determinism gate first"]),
+             "strengthening: sparse voxel LiDAR capacity / full-model-from-scratch trainval validation "
+             "on Arrhenius once full nuScenes is available"]),
         "n_eval_samples": det["n_eval_samples"],
         "tp_errors": det["tp_errors"],
         "official_recall_at_tp": det["official_recall_at_tp"],

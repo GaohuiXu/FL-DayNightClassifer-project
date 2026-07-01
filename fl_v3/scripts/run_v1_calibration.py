@@ -5,8 +5,9 @@ calibration figures (cam+LiDAR, cam+3D-GT, BEV, partition plots) for ≥5 distin
 keyframes, with the independent-projector overlay. Login-node-safe (metadata +
 mini blobs only; no GPU, no training). Run via:
 
-    PYTHONPATH=fl_v3/src bash fl_v3/scripts/run_in_venv.sh \
-        python fl_v3/scripts/run_v1_calibration.py --out fl_outputs/.../t1_v1
+    source fl_v3/scripts/arrhenius_env.sh
+    arrhenius_activate_env
+    PYTHONPATH=fl_v3/src python fl_v3/scripts/run_v1_calibration.py --out fl_outputs/.../t1_v1
 """
 from __future__ import annotations
 

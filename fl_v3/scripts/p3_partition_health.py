@@ -12,7 +12,9 @@ day/night/rain from ``scene.json``). Plus the partition-level non-IID metrics
 set), and a determinism re-check.
 
 Run:
-  bash fl_v3/scripts/run_in_venv.sh python fl_v3/scripts/p3_partition_health.py \
+  source fl_v3/scripts/arrhenius_env.sh
+  arrhenius_activate_env
+  PYTHONPATH=fl_v3/src python fl_v3/scripts/p3_partition_health.py \
       --cache-dir <abs info_cache_msweep10> [--with-scene-meta] [--out <json>]
 """
 from __future__ import annotations

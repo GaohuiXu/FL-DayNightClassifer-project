@@ -43,10 +43,10 @@ options.backend.client-resources.num-gpus = 1.0
 # under concurrency (the fl_v2 "diverges at round 2" finding was on a different, atomic-USING model).
 # Both verified BYTE-IDENTICAL to single-actor. num-supernodes hardcoded to 8 = the gate config N.
 #
-#   -shared : Path B (concurrent / shared-GPU) — N actors SHARE ONE A40 (num-gpus=0.25). Submit on
+#   -shared : Path B (concurrent / shared-GPU) — N actors share one GPU (num-gpus=0.25). Submit on
 #             1 GPU. Gap-filler only (no compute multiplier; ~no gain at GPU saturation).
-#   -4x     : Path A (multi-GPU) — ONE actor PER A40 (num-gpus=1.0) on a 4-GPU node. Submit with
-#             --gpus-per-node=A40:4. Multiplies compute -> ~N× wall-clock (the real per-cell speedup).
+#   -4x     : Path A (multi-GPU) — one actor per GPU (num-gpus=1.0) on a 4-GPU node. Submit with
+#             the site-specific GPU request. Multiplies compute -> ~N× wall-clock (the real per-cell speedup).
 # ---------------------------------------------------------------------------
 [superlink.local-simulation-gpu-shared]
 options.num-supernodes = 8

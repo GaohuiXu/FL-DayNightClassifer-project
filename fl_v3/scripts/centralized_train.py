@@ -9,7 +9,7 @@ centrally but dies under FL → averaging dilution, the plan's Q2.)
 
 Saves a self-contained ``final_model.pt`` + ``trainable_checksum.txt`` + ``provenance.json`` +
 ``train_curve.json`` (per-epoch loss), checkpointing after EACH epoch (resumable; any epoch is
-post-hoc evaluable by t4_readiness_eval.py --diagnostic). Run via run_centralized_a40.sh.
+post-hoc evaluable by t4_readiness_eval.py --diagnostic). Run through the current Arrhenius Slurm wrapper.
 """
 from __future__ import annotations
 

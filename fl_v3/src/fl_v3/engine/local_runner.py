@@ -166,7 +166,7 @@ def run_clean_round(
     """
     # local_runner is the in-process DETERMINISM-test / FL-gate harness (NOT the science Flower path —
     # that is client_app/server_app, which default to fp16). Its precision default is therefore ``fp32``
-    # (the byte-identical regime), so the CPU determinism tests + the A40 fl-gate stay byte-identical with
+    # (the byte-identical regime), so the CPU determinism tests + the historical fl-gate stay byte-identical with
     # no per-config edit. A throughput run via local_runner must pass ``precision=fp16`` explicitly.
     enforce_determinism(
         strict=strict_determinism,
@@ -260,13 +260,13 @@ def run_clean_rounds(
     The login-node↔Ray cross-check substrate (SPEC §2.5): each round selects participants
     via ``select_partition_ids`` (identical to the Flower strategy), trains the sampled
     clients, aggregates the trainable-only vectors via the same defense core, sorted by
-    partition-id. Two same-seed calls return an identical ``final_checksum``; run on the
-    SAME A40 as the Ray driver, the ``final_checksum`` matches the Ray run's
-    ``FL_TRAINABLE_CHECKSUM`` byte-for-byte (CPU↔A40 float drift otherwise — documented).
+    partition-id. Two same-seed calls return an identical ``final_checksum``; historical
+    A40 cross-checks required comparing against the same GPU tier because CPU↔GPU float
+    drift is expected.
     """
     # local_runner is the in-process DETERMINISM-test / FL-gate harness (NOT the science Flower path —
     # that is client_app/server_app, which default to fp16). Its precision default is therefore ``fp32``
-    # (the byte-identical regime), so the CPU determinism tests + the A40 fl-gate stay byte-identical with
+    # (the byte-identical regime), so the CPU determinism tests + the historical fl-gate stay byte-identical with
     # no per-config edit. A throughput run via local_runner must pass ``precision=fp16`` explicitly.
     enforce_determinism(
         strict=strict_determinism,

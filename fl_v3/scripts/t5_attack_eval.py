@@ -149,7 +149,10 @@ def _val_dataset(cfg, val_info, tokens):
 def _seed(cfg):
     from fl_v3.utils.runtime import enforce_determinism, seed_everything, truthy
     seed_everything(int(cfg.get("seed", 42)))
-    enforce_determinism(strict=truthy(cfg.get("determinism-strict", True)))
+    enforce_determinism(
+        strict=truthy(cfg.get("determinism-strict", True)),
+        precision=str(cfg.get("precision", "fp16")),
+    )
 
 
 # ---------------------------------------------------------------------------

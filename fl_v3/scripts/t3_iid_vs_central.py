@@ -14,8 +14,8 @@ Falsifiable bars (a zero-decode dead loop FAILS):
   * the two recalls agree within ``delta`` (loss reported as secondary, never the sole match).
 
 mini = engineering smoke (NOT a scientific claim — the scientific gap is the trainval run).
-Run on the A40 via SLURM for the headline numbers (any CUDA suffices for the falsifiable
-bars). Reports the curve + a machine-readable JSON next to ``--out``.
+Run through the current Arrhenius launcher/config for new validation (any CUDA suffices for the
+falsifiable bars). Reports the curve + a machine-readable JSON next to ``--out``.
 """
 from __future__ import annotations
 

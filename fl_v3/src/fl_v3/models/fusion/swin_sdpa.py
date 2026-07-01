@@ -2,7 +2,7 @@
 
 torchvision's ``shifted_window_attention`` does the attention core as **manual fp32-ish math**
 (``(q*scale) @ kᵀ + rel_pos_bias [+ shift_mask] → softmax → @ v``), which leaves ``aten::bmm`` +
-softmax as separate kernels (verified in the A100 kernel profile — ~188 ms ``bmm`` even after
+softmax as separate kernels (verified in a historical A100 kernel profile — ~188 ms ``bmm`` even after
 ``torch.compile``). This module swaps ONLY that core for ``F.scaled_dot_product_attention`` while keeping
 torchvision's exact padding / window-partition / cyclic-shift / unpad — so the output is numerically
 equivalent (validated within tolerance) but the attention runs as one fused, tensor-core kernel.

@@ -105,13 +105,13 @@ learning-rate = 0.01
 weight-decay = 0.0
 num-workers = 0
 
-# ===== precision regime + server-eval policy (Cycle-04 D16 — single knob) =====
+# ===== precision regime + server-eval policy (Arrhenius GH200 — single knob) =====
 # precision: the ONE precision knob (D16; replaces the old numeric-mode×determinism-level pair).
-# "bf16" = the SCIENCE path (bf16-AMP: cuDNN autotuner + atomic scatter + autocast; NOT same-seed
-# byte-identical — the bar is ≥3-seed claim-reproducibility). "fp32" = the offline dev-regression /
-# determinism tool (true IEEE FP32, same-seed byte-identical on one GPU tier). Default = bf16 (science).
-# NEVER mix precision regimes within one scientific comparison. The byte-identity gates pin precision=fp32.
-precision = "bf16"
+# "fp16" = the supported Arrhenius sparse training path (CUDA autocast fp16 + GradScaler init_scale=512).
+# "fp32" = dev/debug/reference and strict regression work. Direct sparse bf16 is unsupported by the
+# validated GH200 cumm/spconv stack and is rejected by runtime helpers.
+# NEVER mix precision regimes within one scientific comparison. Mini runs are engineering checks only.
+precision = "fp16"
 # server-eval-mode: per-round server eval computes PROXY metrics only (eval_loss, proxy_recall) —
 # NOT the scientific result (official mAP/NDS + ASR are post-hoc on the final checkpoint). Policy:
 # none | final | every_n | all. Default "all" = legacy behavior; trainval configs set "none".
@@ -123,8 +123,8 @@ server-eval-frequency = 1             # every_n: eval every N rounds (+ always t
 # analysis (T6) — O(n²·d) ≈ 150 s/round over bb02d's 33M update vector. Default true (benchmark unchanged);
 # the clean FL baseline sets false (the cheap per-client update norms are always logged regardless).
 log-gradient-metrics = true
-# compile-backbone (D15 L8): torch.compile the camera backbone in the FL train path (precision=bf16 only;
-# the D16 envelope keeps torch.compile an explicit opt-in with an eager fallback). Needs a persistent
+# compile-backbone (D15 L8): torch.compile the camera backbone in the FL train path (revalidate per
+# precision/backend; the D16 envelope keeps torch.compile an explicit opt-in with an eager fallback). Needs a persistent
 # TORCHINDUCTOR_CACHE_DIR (set by the launcher) so the per-client/round rebuild is a compile cache-hit.
 # Default off.
 compile-backbone = false
@@ -170,6 +170,7 @@ det-head-channels = 64
 det-n-classes = 10                    # nuScenes detection classes (DETECTION_NAMES order)
 det-bev-voxel = 0.4                   # fine BEV grid voxel (m); range 102.4m -> 256x256
 det-out-size-factor = 2               # head grid = fine grid / factor -> 128x128 (0.8 m/cell)
+det-lidar-encoder = "voxel"           # Arrhenius default: spconv sparse voxel branch; pillar remains explicit baseline
 det-reg-weight = 0.25                 # L1 regression vs focal heatmap weight
 det-max-objects = 200                 # decode top-K per sample (pre-threshold)
 det-score-threshold = 0.1             # decode score floor
@@ -179,7 +180,7 @@ det-eval-limit = 0                    # >0 caps eval samples (0 = full val split
 # ===== MCR (D17) — bb02d capability knobs for the FL path (registered so `flwr run --run-config`
 # accepts them; the centralized path reads the JSON directly and never needed them here). All default to
 # the OFF / baseline value ⇒ a frozen-backbone FL config is byte-identical to the pre-MCR FL path. =====
-det-swin-sdpa = false                 # SDPA-rewrite Swin attention (bf16-only fast path)
+det-swin-sdpa = false                 # SDPA-rewrite Swin attention (validate with active precision/backend)
 det-activation-checkpoint = false     # gradient checkpointing of the camera backbone
 det-lidar-sweeps = 1                  # multi-sweep LiDAR accumulation (bb02d=10)
 det-lidar-backbone = false            # dense 2D LiDAR backbone (bb02d=true)
@@ -200,7 +201,7 @@ det-class-weights = ""
 
 # ===== MCR Phase-3 (D17) — the FL recipe (client recipe + server optimizer). All default to the
 # off / identity state ⇒ byte-identical to the pre-MCR FedAvg FL path. =====
-determinism-strict = true             # strict-AST dev gate (bf16 science runs may set false)
+determinism-strict = true             # strict dev gate (fp16 performance/science runs may set false and record it)
 det-optimizer = "adam"                # adam (default) | adamw (decoupled wd — bb02d FL)
 grad-clip-norm = 0.0                  # client grad-clip (bb02d FL = 35)
 det-backbone-lr-mult = 1.0            # client backbone LR group multiplier (bb02d FL = 0.1)

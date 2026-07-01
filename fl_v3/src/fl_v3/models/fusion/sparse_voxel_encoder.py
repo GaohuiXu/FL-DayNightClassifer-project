@@ -8,10 +8,10 @@ residual z into channels → a dense ``[B, out_channels, ny, nx]`` BEV. It is a 
 unchanged and the comparison isolates pillars→voxels at the matched grid.
 
 Rule #2 relaxation (owner, 2026-06-28; Phase 0A de-risked spconv on Arrhenius): spconv kernels are **non-
-deterministic** (fine under D16's seed-variance regime, NOT the strict byte-id dev tool) and do **not support
-bf16** (Phase 0A) — so the spconv stack runs **autocast-DISABLED in fp32**; the dense BEV re-enters the model's
-fp16 autocast for fusion. Requires ``spconv-cu126`` + ``unset BOOST_ROOT`` (the EasyBuild Boost confuses
-spconv's import check). Gated by ``det-lidar-encoder=voxel`` (default ``pillar`` ⇒ this module is never built).
+deterministic** (fine under D16's seed-variance regime, NOT the strict byte-id dev tool) and direct sparse
+**bf16** is unsupported. The sparse stack therefore runs with autocast disabled in fp32; the dense BEV returns
+to the model's outer fp16 autocast for camera/fusion/head work. Requires source-built cumm/spconv from the
+Arrhenius env. Gated by ``det-lidar-encoder=voxel``.
 """
 from __future__ import annotations
 
