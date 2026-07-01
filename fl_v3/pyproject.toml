@@ -10,27 +10,24 @@ license = "Apache-2.0"
 requires-python = ">=3.10"
 
 # ---------------------------------------------------------------------------
-# PORTABLE, ARM-REBUILDABLE MANIFEST  (Cycle-04 portability decision, T0)
+# ARRHENIUS-FIRST MANIFEST  (Cycle-04 portability decision, T0/Phase0B)
 # ---------------------------------------------------------------------------
-# Deliberately a PURE-PyTorch stack: NO mmdet3d / mmcv / spconv. Those three
-# are exactly the packages that (a) fail to build on 2026-era CUDA, (b) do not
-# build on ARM (Arrhenius H200), and (c) ship atomicAdd-based voxel/scatter
-# ops that break bit-determinism. The whole BEVFusion-class model (T2) is
-# reimplemented atomic-free from Apache-2.0 references instead.
+# Deliberately no mmdet3d / mmcv. spconv is supported on Arrhenius GH200 only
+# through the source-build route in fl_v3/scripts/build_arrhenius_env.sh
+# (cumm v0.7.13 + spconv v2.3.8, sm_90); do not let pip resolve a generic
+# spconv wheel from this manifest.
 #
-# `torch`, `numpy`, `scipy` are NOT listed here on purpose — on Alvis they are
-# provided by `module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0` and the venv
-# is built with `--system-site-packages` so the CUDA-matched module build is
-# used (pinning them would make pip reinstall CPU/other-CUDA wheels and shadow
-# the module). On Arrhenius (ARM) they come from that machine's torch module.
-# See docs/env.md for the exact build + the ARM rebuild note.
+# `torch`, `torchvision`, `numpy`, `scipy`, cumm, and spconv are installed by
+# the Arrhenius environment builder, not by this project metadata. See
+# docs/env.md and fl_v3/collab/arrhenius_migration.md for exact versions,
+# commands, and smoke results.
 #
 # HDBSCAN: provided by scikit-learn (`sklearn.cluster.HDBSCAN`), NOT the
 # standalone `hdbscan` PyPI package. sklearn's implementation is pure-Python/
 # Cython-in-sklearn (already built in the wheel), so it rebuilds painlessly on
 # ARM, whereas the standalone `hdbscan` needs its own Cython compile and is a
 # known new-platform build hazard. This is the FLAME-parity-preserving and
-# Arrhenius-portability-preserving choice (fl_v2 also uses sklearn's HDBSCAN).
+# portability-preserving choice (fl_v2 also uses sklearn's HDBSCAN).
 dependencies = [
     "flwr[simulation]==1.27.0",  # Flower Message API + Ray simulation backend
     "ray==2.51.1",               # pinned via flwr[simulation]; sequential num-gpus=1.0
@@ -118,7 +115,8 @@ precision = "bf16"
 # server-eval-mode: per-round server eval computes PROXY metrics only (eval_loss, proxy_recall) —
 # NOT the scientific result (official mAP/NDS + ASR are post-hoc on the final checkpoint). Policy:
 # none | final | every_n | all. Default "all" = legacy behavior; trainval configs set "none".
-# RNG-neutral (run_b_eval_neutral_a40.sh proves byte-identical checksum none-vs-all).
+# RNG-neutral in the historical A40 validation; revalidate on Arrhenius before
+# using as a scientific comparison knob.
 server-eval-mode = "all"
 server-eval-frequency = 1             # every_n: eval every N rounds (+ always the final round)
 # log-gradient-metrics (MCR P3): the n×n pairwise-cosine + top-k-energy gradient-space telemetry is DEFENSE

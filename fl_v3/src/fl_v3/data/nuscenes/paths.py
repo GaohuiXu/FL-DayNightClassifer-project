@@ -1,7 +1,7 @@
 """nuScenes dataset paths + read-only guard (fl_v3 T1).
 
-**Single source of truth** for the staged, read-only nuScenes dataset. Only this
-file's ``DATAROOT`` changes on an Arrhenius (ARM) re-point — see ``docs/env.md``.
+**Single source of truth** for the staged, read-only nuScenes dataset. The
+dataroot is config/env driven on Arrhenius — see ``docs/env.md``.
 
 The dataset is **fully extracted, read-only** at ``DATAROOT`` (config-overridable
 via the ``nuscenes-dataroot`` app key). T1 **extracts/copies nothing** and writes
@@ -23,12 +23,13 @@ import os
 from typing import Iterable
 
 # ---------------------------------------------------------------------------
-# The staged dataset (read-only). ONLY this constant moves on an ARM re-point.
-# A *different*, wrong-layout /mimer/NOBACKUP/Datasets/nuScenes also exists — do
-# NOT point at it (it has a `full/` subtree, not version table dirs at top level;
-# verify_dataset catches the mistake via the sentinel + table-dir checks).
+# The staged dataset (read-only). Prefer an explicit run config key; otherwise
+# set NUSCENES_DATAROOT or ARRHENIUS_NUSCENES_DATAROOT in the Slurm launcher.
 # ---------------------------------------------------------------------------
-DATAROOT = "/mimer/NOBACKUP/Datasets/NuScenes_v1.0"
+DATAROOT = (
+    os.environ.get("NUSCENES_DATAROOT", "").strip()
+    or os.environ.get("ARRHENIUS_NUSCENES_DATAROOT", "").strip()
+)
 
 # The six cameras (all cameras nuScenes ships) + the single LiDAR we carry.
 CAMERA_CHANNELS = (
@@ -78,19 +79,31 @@ def get_dataroot(run_config: dict | None = None) -> str:
         override = str(run_config.get("nuscenes-dataroot", "") or "").strip()
         if override:
             return os.path.abspath(override)
-    return DATAROOT
+    if DATAROOT:
+        return os.path.abspath(DATAROOT)
+    raise FileNotFoundError(
+        "nuScenes dataroot is not configured. Set the run config key "
+        "`nuscenes-dataroot`, or export NUSCENES_DATAROOT / "
+        "ARRHENIUS_NUSCENES_DATAROOT before running."
+    )
+
+
+def _root_or_raise(dataroot: str | None = None) -> str:
+    if dataroot:
+        return dataroot
+    return get_dataroot()
 
 
 def version_table_dir(version: str, dataroot: str | None = None) -> str:
-    return os.path.join(dataroot or DATAROOT, version)
+    return os.path.join(_root_or_raise(dataroot), version)
 
 
 def samples_dir(dataroot: str | None = None) -> str:
-    return os.path.join(dataroot or DATAROOT, "samples")
+    return os.path.join(_root_or_raise(dataroot), "samples")
 
 
 def sweeps_dir(dataroot: str | None = None) -> str:
-    return os.path.join(dataroot or DATAROOT, "sweeps")
+    return os.path.join(_root_or_raise(dataroot), "sweeps")
 
 
 def abspath_from_relative(rel_path: str, dataroot: str | None = None) -> str:
@@ -99,7 +112,7 @@ def abspath_from_relative(rel_path: str, dataroot: str | None = None) -> str:
     The cache stores DATAROOT-relative paths so its content hash is host-portable;
     this is the only place they become host-absolute (at read time).
     """
-    return os.path.join(dataroot or DATAROOT, rel_path)
+    return os.path.join(_root_or_raise(dataroot), rel_path)
 
 
 def relative_to_dataroot(abs_path: str, dataroot: str | None = None) -> str:
@@ -112,7 +125,7 @@ def relative_to_dataroot(abs_path: str, dataroot: str | None = None) -> str:
     dataset the devkit always returns ``dataroot/<filename>``, so this never fires in
     practice; it is a hard guard against a future mis-pointed root.
     """
-    root = dataroot or DATAROOT
+    root = _root_or_raise(dataroot)
     rel = os.path.relpath(abs_path, root).replace(os.sep, "/")
     if rel == ".." or rel.startswith("../"):
         raise ValueError(
@@ -139,7 +152,7 @@ def verify_dataset(version: str, dataroot: str | None = None) -> dict:
     camera blob dirs + ``LIDAR_TOP`` exist under ``samples/``; (3) the per-version
     sentinel ``sample_token`` is present in ``sample.json``. No full devkit load.
     """
-    root = dataroot or DATAROOT
+    root = _root_or_raise(dataroot)
     table_dir = version_table_dir(version, root)
     if not os.path.isdir(table_dir):
         raise FileNotFoundError(
@@ -182,7 +195,7 @@ def resolve_writable(path: str, dataroot: str | None = None) -> str:
     immutable; a write under it is a bug. Uses ``commonpath`` on the real,
     absolute paths so symlink/``..`` tricks cannot slip a write under DATAROOT.
     """
-    root = os.path.realpath(dataroot or DATAROOT)
+    root = os.path.realpath(_root_or_raise(dataroot))
     target = os.path.realpath(os.path.abspath(path))
     try:
         common = os.path.commonpath([root, target])

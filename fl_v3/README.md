@@ -10,13 +10,13 @@ autonomous-driving perception**. `fl_v2/` is **frozen** and used only as an
 - **Decisions D1–D8:** [`docs/cycle_04/decisions.md`](docs/cycle_04/decisions.md)
 - **This task's contract + self-review:** [`collab/T0/SPEC.md`](collab/T0/SPEC.md)
 
-## Status: T0 — scaffold + determinism + carry-over + viz harness
+## Status: Cycle 04 — Arrhenius bring-up in progress
 
 What landed in T0 (see `collab/T0/SPEC.md` for the full GATE):
 
 - **`v3-ad-perception`** branch; `fl_v3/` skeleton; `fl_v2/` untouched.
-- **Portable, ARM-rebuildable venv** (no `mmdet3d`/`mmcv`/`spconv`). See
-  [`docs/env.md`](docs/env.md).
+- **Arrhenius GH200 environment** with PyTorch cu128 and source-built
+  cumm/spconv. See [`docs/env.md`](docs/env.md).
 - **Determinism harness** (`utils/runtime.py`): `derive_seed`,
   `seeded_worker_init`, `enforce_determinism`, `seed_everything`.
 - **Defense family as framework-free numerical cores** (`strategy/defenses/`):
@@ -25,7 +25,7 @@ What landed in T0 (see `collab/T0/SPEC.md` for the full GATE):
 - **Task-agnostic FL skeleton** (`training/tasks.py`, `client_app.py`,
   `server_app.py`): no hardcoded loss / num-classes; the dummy task uses MSE.
 - **In-process FL round runner** (`engine/local_runner.py`) — login-node-safe,
-  no Ray; the real Ray run is exercised at T3 via SLURM.
+  no Ray; real distributed runs go through Arrhenius Slurm launchers.
 - **Viz writer scaffold** (`viz/writer.py`): the deterministic V1–V6 tree.
 
 ## Layout
@@ -51,10 +51,15 @@ collab/                       SPEC/REVIEW/templates + findings_log (the Codex lo
 
 ## Run the tests
 
+Run inside an Arrhenius GH200 Slurm allocation, not on the x86 login node:
+
 ```bash
-bash fl_v3/scripts/run_in_venv.sh python -m pytest fl_v3/tests -q
+source fl_v3/scripts/arrhenius_env.sh
+arrhenius_load_modules build
+arrhenius_activate_env
+python -m pytest fl_v3/tests -q
 # regenerate oracle fixtures (needs fl_v2 on path):
-bash fl_v3/scripts/run_in_venv.sh python fl_v3/tests/fixtures/make_oracle_fixtures.py
+python fl_v3/tests/fixtures/make_oracle_fixtures.py
 ```
 
 **Engineering smoke (mini / dummy) vs scientific result (trainval) is a hard

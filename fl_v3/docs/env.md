@@ -1,94 +1,172 @@
-# fl_v3 environment — Alvis x86 build + Arrhenius (ARM) rebuild note
+# fl_v3 Environment on Arrhenius GH200
 
-The venv is a **throwaway**; the **manifest is the durable artifact**. Rebuild
-anywhere from the manifest. This is the Cycle-04 portability posture: we never
-depend on a frozen binary venv, only on a clean pinned manifest that rebuilds on
-a new machine.
+Arrhenius is the active runtime target for `fl_v3`. The Python/CUDA/spconv
+environment is a long-lived conda prefix on project storage, not a Git artifact
+and not something each Slurm job recreates.
 
-## What's in the manifest (and what is deliberately NOT)
+## Persistent Environment
 
-- **Pure-PyTorch stack only.** `flwr[simulation]`, `ray`, `scikit-learn`
-  (HDBSCAN for FLAME), `nuscenes-devkit`, `matplotlib`, `wandb`, `pytest`, plus
-  the nuScenes runtime deps (`opencv-python-headless`, `pyquaternion`, `shapely`,
-  `cachetools`, `tqdm`, `fire`).
-- **NO `mmdet3d` / `mmcv` / `spconv`.** These fail to build on 2026-era CUDA and
-  on ARM, and ship `atomicAdd` voxel/scatter ops that break bit-determinism. The
-  whole BEVFusion-class model (T2) is reimplemented atomic-free from Apache-2.0
-  references instead. **This "no mmdet3d" decision IS the Arrhenius-portability
-  decision.**
-- **`torch` / `numpy` / `scipy` / `Pillow` come from the module**, not pip — see
-  the `--system-site-packages` step below. `constraints.txt` pins numpy/scipy to
-  the module versions so pip never shadows the CUDA-matched build.
-- **HDBSCAN = `sklearn.cluster.HDBSCAN`**, not the standalone `hdbscan` PyPI
-  package. sklearn's implementation ships in the wheel (no Cython compile on the
-  target), so it rebuilds painlessly on ARM. fl_v2 also used sklearn's HDBSCAN,
-  so FLAME parity is exact.
-
-### nuscenes-devkit footgun (resolved)
-
-`nuscenes-devkit==1.1.11` publishes `matplotlib<3.6.0` (via the abandoned
-`descartes` map-rendering dep, which has **no Python-3.12 wheel**). We don't use
-map rendering, so the build installs **`nuscenes-devkit --no-deps`** and supplies
-its real runtime deps (above) at modern, py3.12-compatible, numpy-1.x versions.
-The data + `DetectionEval` APIs we need import without `descartes` (asserted in
-the build's import-sanity check). Routing around an abandoned transitive is
-itself the portability posture.
-
-## Build on Alvis (x86)
+Validated environment root:
 
 ```bash
-# one command (idempotent — recreates the venv):
-bash fl_v3/scripts/build_venv.sh
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3
 ```
 
-Equivalent manual steps:
+Conda prefix:
 
 ```bash
-module purge
-module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0     # provides torch/numpy/scipy/Pillow
-python3 -m venv --system-site-packages /mimer/NOBACKUP/groups/naiss2024-22-991/gaohui/thesis_workspace/fl_weather_project/.venv_v3
-source .../.venv_v3/bin/activate
-pip install --upgrade pip
-pip install --no-cache-dir -c fl_v3/constraints.txt -r fl_v3/requirements.txt
-pip install --no-cache-dir --no-deps -c fl_v3/constraints.txt nuscenes-devkit==1.1.11
-pip install --no-cache-dir -e fl_v3 --no-deps
-pip freeze > fl_v3/requirements.lock.txt
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/envs/pt311-cu128-spconv
 ```
 
-The build verifies (and the import-sanity step asserts): `numpy == 1.26.4`
-(module build NOT shadowed), `torch` CUDA available, `sklearn.cluster.HDBSCAN`
-importable, nuScenes data + `DetectionEval` APIs import with no `descartes`, and
-`import fl_v3`.
+Source-build trees:
 
-**Verified build (this T0):** torch 2.7.1 (CUDA), numpy 1.26.4, scipy 1.13.1,
-flwr 1.27.0, ray 2.51.1, scikit-learn 1.8.0, matplotlib 3.10.8,
-nuscenes-devkit 1.1.11.
+```bash
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/src/cumm
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/src/spconv
+```
 
-## Rebuild on Arrhenius (ARM, H200) — later
+This directory also owns pip/conda caches, Torch weights, temporary build
+artifacts, info-cache outputs, and smoke logs. These paths intentionally live
+under `/nobackup`, not under `$HOME`.
 
-1. `module load` that machine's PyTorch/CUDA module (provides ARM torch + numpy).
-2. Update `constraints.txt` numpy/scipy pins to that module's versions.
-3. Re-run `build_venv.sh` (point `PROJ_ROOT` / `PY_MODULE` at the ARM machine).
-4. Re-point data paths (nuScenes ZIPs) — see T1's data module.
+## Rebuild Only When Needed
 
-Nothing x86-specific is baked into the **manifest**; only the module name + the
-numpy/scipy constraint versions change. No package in the manifest requires
-compilation against a specific CUDA/arch (the `mmdet3d`/`spconv` hazard is
-absent by design).
+Build or fully recreate the environment on a GH200 node:
+
+```bash
+cd /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project__arrhenius-env-bringup
+sbatch --export=ALL,RECREATE=1 fl_v3/scripts/run_arrhenius_env_build.sh
+```
+
+Incremental/idempotent rebuild:
+
+```bash
+sbatch fl_v3/scripts/run_arrhenius_env_build.sh
+```
+
+Do not run this for every training job. Normal jobs only load modules and
+activate the existing prefix.
+
+## Activate in Slurm Jobs
+
+Every Arrhenius Slurm launcher should use the shared bootstrap:
+
+```bash
+source fl_v3/scripts/arrhenius_env.sh
+arrhenius_load_modules build
+arrhenius_activate_env
+```
+
+`arrhenius_load_modules build` is used even for smoke/runtime jobs because
+source-built cumm/spconv can still trigger `ccimport`/ninja checks on import and
+may need `nvcc`.
+
+The login node is `x86_64`; GH200 compute nodes are `aarch64`. Do not treat a
+login-node import failure of the aarch64 conda prefix as an environment failure.
+Submit a Slurm job to validate this stack.
+
+## Validated Stack
+
+- Python `3.11.15`.
+- PyTorch `2.11.0+cu128`, CUDA wheel runtime `12.8`.
+- CUDA compiler module `12.9.1`.
+- torchvision `0.26.0+cu128`.
+- numpy `1.26.4`, scipy `1.13.1`.
+- flwr `1.27.0`, ray `2.51.1`, scikit-learn `1.8.0`.
+- nuscenes-devkit `1.1.11`.
+- cumm `v0.7.13` at `4dedaf43ff801e417c60c6bd7536a29d83d29ee0`.
+- spconv `v2.3.8` at `263d6b47425ef843c82f997b12d8b714013d216c`.
+
+The source build is pinned to `sm_90`:
+
+```bash
+TORCH_CUDA_ARCH_LIST=9.0
+CUMM_CUDA_ARCH_LIST=9.0
+```
+
+Precision status:
+
+- Supported for Arrhenius sparse path: `fp16` AMP + GradScaler, and `fp32`.
+- Direct `torch.bfloat16` sparse convolution is not supported by this
+  cumm/spconv path.
+- Formal trainer integration for Arrhenius `fp16` is separate from the
+  environment smoke; the smoke harness already covers fp32 real-data train and
+  FP16 AMP sparse-conv.
+
+## Smoke Tests
+
+Non-data smoke:
+
+```bash
+sbatch fl_v3/scripts/run_arrhenius_smoke.sh
+```
+
+Real nuScenes smoke once a dataroot and info-cache are available:
+
+```bash
+sbatch --export=ALL,\
+ARRHENIUS_NUSCENES_DATAROOT=/path/to/NuScenes_v1.0,\
+ARRHENIUS_NUSCENES_CACHE=/path/to/info_cache,\
+REQUIRE_DATA=1,\
+SMOKE_MODES='import spconv data eval train' \
+fl_v3/scripts/run_arrhenius_smoke.sh
+```
+
+For mini-only partition smoke, lower the keyframe floor:
+
+```bash
+sbatch --export=ALL,\
+ARRHENIUS_NUSCENES_DATAROOT=/path/to/nuscenes_mini,\
+ARRHENIUS_NUSCENES_CACHE=/path/to/info_cache_mini,\
+REQUIRE_DATA=1,\
+SMOKE_MODES='data eval train',\
+PRECISION=fp32,\
+MIN_KEYFRAMES_PER_CLIENT=10 \
+fl_v3/scripts/run_arrhenius_smoke.sh
+```
+
+## nuScenes Data
+
+The code no longer defaults to the old Alvis/Mimer path. Provide the dataroot
+through either:
+
+- run config key `nuscenes-dataroot`, or
+- environment variable `NUSCENES_DATAROOT`, or
+- environment variable `ARRHENIUS_NUSCENES_DATAROOT`.
+
+The info-cache must live outside the read-only dataroot. Build it explicitly
+before training/eval:
+
+```bash
+python fl_v3/scripts/build_nuscenes_cache.py \
+  --dataroot "$ARRHENIUS_NUSCENES_DATAROOT" \
+  --cache-dir /path/to/info_cache
+```
+
+Mini real-data smoke validated on 2026-07-01:
+
+- Dataroot:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini`
+- Size: `5.1G`.
+- `v1.0-mini` verify passed with `404` samples.
+- Cache build job `209574`: `mini_train=323`, `mini_val=81`.
+- Eval smoke job `209576`: `eval_loss=8.889362335205078` over 2 examples.
+- Train smoke job `209577`: one fp32 optimizer step, finite
+  `loss=30.326335906982422`.
+
+Mini remains engineering smoke only. Scientific results require trainval.
 
 ## Files
 
-- `pyproject.toml` — project metadata + dependency rationale.
-- `requirements.txt` — curated direct pins (**the durable manifest**).
-- `constraints.txt` — numpy/scipy floor=ceiling at the module versions.
-- `requirements.lock.txt` — a `pip freeze` **audit/freeze SNAPSHOT**, NOT a
-  portable reinstall file: because the venv is `--system-site-packages`, the
-  module-provided deps (torch, numpy, scipy, Pillow, pytest, …) are captured as
-  machine-local `@ file:///dev/shm/...` / `@ file:///apps/...` URLs, and the
-  editable self-entry encodes a worktree-local path. It records exactly what was
-  installed on the Alvis build node; it does NOT `pip install -r` cleanly on a
-  fresh checkout or on ARM. **The canonical, portable rebuild is
-  `build_venv.sh` + `pyproject.toml`/`requirements.txt`/`constraints.txt`** — not
-  the lockfile.
-- `scripts/build_venv.sh` — the canonical build.
-- `scripts/run_in_venv.sh` — run a command inside the venv (tests, fixtures).
+- `fl_v3/scripts/arrhenius_env.sh` - module/cache/env activation.
+- `fl_v3/scripts/build_arrhenius_env.sh` - conda + PyTorch + source cumm/spconv builder.
+- `fl_v3/scripts/run_arrhenius_env_build.sh` - GH200 Slurm build template.
+- `fl_v3/scripts/arrhenius_smoke.py` - import/spconv/data/eval/train smoke harness.
+- `fl_v3/scripts/run_arrhenius_smoke.sh` - GH200 Slurm smoke template.
+- `fl_v3/requirements.txt` - direct dependency manifest used by the builder.
+- `fl_v3/requirements.lock.txt` - Arrhenius audit snapshot, not a standalone reinstall recipe.
+- `fl_v3/collab/arrhenius_migration.md` - detailed job IDs, commands, versions, failures, and fixes.
+
+The old Alvis/A40/A100 Slurm launchers and `.venv_v3` helpers have been removed
+from the active scripts directory. Historical task/collab documents may still
+mention them as provenance for earlier Cycle-04 work.

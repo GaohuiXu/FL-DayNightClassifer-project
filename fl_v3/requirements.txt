@@ -1,15 +1,16 @@
-# fl_v3 — direct, curated dependency pins (the PORTABLE MANIFEST).
+# fl_v3 — direct, curated dependency pins (Arrhenius portable manifest).
 #
-# Build: `module load PyTorch/2.7.1-foss-2024a-CUDA-12.6.0` provides
-# torch / numpy / scipy / Pillow (NOT listed — see pyproject.toml + env.md).
-# The venv is built `--system-site-packages`; these direct deps are pip-installed
-# on top WITH `-c constraints.txt` (keeps the module numpy/scipy). After a clean
-# build we `pip freeze` the full closure into requirements.lock.txt.
+# Build on Arrhenius through fl_v3/scripts/run_arrhenius_env_build.sh. PyTorch,
+# torchvision, cumm, and spconv are installed separately there because the GH200
+# stack needs official cu128 aarch64 wheels plus source-built cumm/spconv.
+# These direct deps are installed into the Arrhenius conda prefix with
+# `-c constraints.txt`; `requirements.lock.txt` records the validated snapshot.
 #
-# NO mmdet3d / mmcv / spconv  — the Arrhenius-portability + bit-determinism
-# decision (see pyproject.toml and docs/env.md).
+# NO mmdet3d / mmcv in the portable manifest. spconv is present on Arrhenius,
+# but source-built by build_arrhenius_env.sh, not resolved from this generic
+# requirements file.
 #
-# nuscenes-devkit is installed SEPARATELY with `--no-deps` in build_venv.sh: its
+# nuscenes-devkit is installed SEPARATELY with `--no-deps` in build_arrhenius_env.sh: its
 # published metadata caps matplotlib<3.6.0 (via the abandoned `descartes`
 # map-rendering dep, which has no py3.12 wheel). We don't use map rendering, so
 # we route around that brittle cap and supply the devkit's real runtime deps
@@ -26,12 +27,8 @@ pyyaml>=6.0.1
 pytest>=8.0
 
 # ---- camera backbone (T2): torchvision Swin-T / ResNet-18 (installed --no-deps) ----
-# torchvision==0.22.1 is the exact pairing for torch 2.7.1. Installed SEPARATELY with
-# --no-deps in build_venv.sh (its PyPI metadata pins torch==2.7.1 + numpy, which would
-# shadow the CUDA/numpy-matched module build — the nuscenes-devkit footgun). cp312
-# manylinux wheels exist for x86_64 AND aarch64 → Arrhenius-portable. torchvision swin_t
-# uses manual fp32 math attention (no scaled_dot_product_attention) so no SDPA pin needed.
-# torchvision==0.22.1   (installed via --no-deps in build_venv.sh, like nuscenes-devkit)
+# torchvision==0.26.0+cu128 is installed separately with --no-deps from the
+# official PyTorch cu128 aarch64 index in build_arrhenius_env.sh.
 
 # ---- nuscenes-devkit runtime deps (devkit itself installed --no-deps) ----
 opencv-python-headless==4.10.0.84
@@ -40,4 +37,4 @@ shapely==2.0.6
 cachetools==5.5.2
 tqdm==4.67.3
 fire==0.7.1
-# Pillow is provided by the PyTorch module (10.4.0); not pinned here.
+# Pillow is installed explicitly by build_arrhenius_env.sh (validated: 12.2.0).

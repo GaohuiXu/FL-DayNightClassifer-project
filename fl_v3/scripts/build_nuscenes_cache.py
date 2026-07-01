@@ -1,16 +1,20 @@
-"""Build the nuScenes info-cache on the LOGIN node (T2 setup; devkit-using).
+"""Build the nuScenes info-cache once for a staged nuScenes dataroot.
 
 The detection task's ``client_data`` loads this cache and **raises if it is absent**
-(it must never build the devkit during a training/compute run). Run this once on the
-login node (where the devkit + dataset are reachable):
+(it must never build the devkit during a training/compute run). Run this once where
+the devkit + dataset are reachable. On Arrhenius, submit through a GH200 job after
+activating ``fl_v3/scripts/arrhenius_env.sh``:
 
-    bash fl_v3/scripts/run_in_venv.sh python fl_v3/scripts/build_nuscenes_cache.py
+    python fl_v3/scripts/build_nuscenes_cache.py \
+        --dataroot "$ARRHENIUS_NUSCENES_DATAROOT"
     # trainval (heavier; metadata + geometry build):
-    bash fl_v3/scripts/run_in_venv.sh python fl_v3/scripts/build_nuscenes_cache.py \
+    python fl_v3/scripts/build_nuscenes_cache.py \
+        --dataroot "$ARRHENIUS_NUSCENES_DATAROOT" \
         --version v1.0-trainval --splits train val
     # MULTI-SWEEP cache (MCR P1 lever) — MUST go in a DEDICATED --cache-dir (the sweep records change
     # the content hash but the filename schema is shared, so it would collide with the single-sweep cache):
-    bash fl_v3/scripts/run_in_venv.sh python fl_v3/scripts/build_nuscenes_cache.py \
+    python fl_v3/scripts/build_nuscenes_cache.py \
+        --dataroot "$ARRHENIUS_NUSCENES_DATAROOT" \
         --version v1.0-trainval --splits train val --n-sweeps 10 \
         --cache-dir ./fl_outputs/nuscenes/info_cache_msweep10
 
@@ -29,20 +33,24 @@ def main() -> None:
     ap.add_argument("--version", default="v1.0-mini")
     ap.add_argument("--splits", nargs="+", default=["mini_train", "mini_val"])
     ap.add_argument("--cache-dir", default="./fl_outputs/nuscenes/info_cache")
+    ap.add_argument("--dataroot", default="",
+                    help="Extracted nuScenes root. Defaults to the nuscenes-dataroot environment "
+                         "resolved by fl_v3.data.nuscenes.paths.")
     ap.add_argument("--n-sweeps", type=int, default=1,
                     help="MCR P1: >1 accumulates prev LIDAR_TOP sweeps (+dt). Use a DEDICATED "
                          "--cache-dir to avoid colliding with the single-sweep cache.")
     ap.add_argument("--rebuild", action="store_true")
     args = ap.parse_args()
 
-    P.verify_dataset(args.version)
+    dataroot = args.dataroot or P.get_dataroot()
+    P.verify_dataset(args.version, dataroot)
     from nuscenes import NuScenes
 
-    nusc = NuScenes(version=args.version, dataroot=P.DATAROOT, verbose=False)
+    nusc = NuScenes(version=args.version, dataroot=dataroot, verbose=False)
     scale = "mini-smoke" if "mini" in args.version else "trainval-scientific"
     for split in args.splits:
         info_list, meta = IC.get_or_build_cache(
-            nusc, args.cache_dir, args.version, split, scale, P.DATAROOT,
+            nusc, args.cache_dir, args.version, split, scale, dataroot,
             rebuild=args.rebuild, n_sweeps=args.n_sweeps,
         )
         n_sw = sum(len(i.get("lidar_sweeps", [])) for i in info_list)

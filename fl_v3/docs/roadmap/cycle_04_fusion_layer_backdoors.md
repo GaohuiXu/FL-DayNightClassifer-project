@@ -243,15 +243,15 @@ systematically across these regimes.** If a defense fails only under location-co
 whether the cause is location/domain shift, sample-count imbalance, class/object skew, target-count
 imbalance, or scene difficulty.
 
-## HPC: Alvis now, Arrhenius later (your venv question)
+## HPC: Arrhenius GH200 is the active target
 
-Build an Alvis **x86** venv — Alvis is x86 and the only sprint machine (until 2026-06-30). It does
-**not** port to Arrhenius (ARM H200); *nothing* x86 does — rebuilt there regardless. Portability =
-**throwaway venv, portable manifest** (clean pinned `pyproject` that rebuilds on ARM). **Our
-"no mmdet3d/mmcv/spconv" decision IS the Arrhenius-portability decision** — those are exactly the
-packages that fail on new-CUDA/ARM; a pure-PyTorch model (torch+numpy+nuscenes-devkit+sklearn+hdbscan)
-rebuilds painlessly on H200. Front-load extraction+engineering on Alvis now; Arrhenius = "rebuild
-venv from manifest + re-point data paths." Keep an ARM-build note in `fl_v3`.
+Alvis x86 launchers are legacy. Arrhenius uses ARM/GH200 compute nodes, so the
+environment is rebuilt natively and kept as a long-lived conda prefix under
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3`.
+Portability = **committed build/activation recipes, uncommitted binary env**.
+The active sparse stack is source-built cumm/spconv on Arrhenius; `mmdet3d` and
+`mmcv` remain excluded. Official/scientific runs must use Arrhenius Slurm
+launchers and a configured nuScenes dataroot/cache.
 
 ---
 
@@ -432,7 +432,7 @@ ASR/utility metric definitions. Codex never commits code.
 `fl_v2/` frozen as oracle; `fl_v3/` clean rewrite, no mechanical port. **Carry (reimplemented +
 oracle-checked):** determinism harness, the **defense family** (FLAME/FoolsGold/MultiKrum/FedMedian/
 NormClip) + gradient-space metrics, Dirichlet partition logic, sequential `num-gpus=1.0` model +
-`run_alvis.sh` hardening. **Build fresh:** all `data/` (nuScenes multimodal + geographic partition),
+Slurm launcher patterns. **Build fresh:** all `data/` (nuScenes multimodal + geographic partition),
 `models/fusion/`, detection train/eval + ASR harness, the attack suite, the per-module gradient
 logger, and the **V1–V6 viz layer**.
 
