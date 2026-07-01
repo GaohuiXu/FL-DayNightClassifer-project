@@ -23,9 +23,14 @@ from typing import Any, Dict, List, Tuple
 
 
 CANONICAL_MATRIX_CELLS = {
-    "voxel_fp16_main": {"det-lidar-encoder": "voxel", "precision": "fp16"},
-    "voxel_fp32_ref": {"det-lidar-encoder": "voxel", "precision": "fp32"},
-    "pillar_fp32_legacy": {"det-lidar-encoder": "pillar", "precision": "fp32"},
+    "voxel_fp16_main": {"det-lidar-encoder": "voxel", "precision": "fp16", "det-sparse-conv-fp16": False},
+    "voxel_fp16_sparseconv_fp16_exp": {
+        "det-lidar-encoder": "voxel",
+        "precision": "fp16",
+        "det-sparse-conv-fp16": True,
+    },
+    "voxel_fp32_ref": {"det-lidar-encoder": "voxel", "precision": "fp32", "det-sparse-conv-fp16": False},
+    "pillar_fp32_legacy": {"det-lidar-encoder": "pillar", "precision": "fp32", "det-sparse-conv-fp16": False},
 }
 LEGACY_MATRIX_ALIASES = {
     "voxel_fp16": "voxel_fp16_main",
@@ -168,9 +173,13 @@ def _make_loader(cfg: dict, tokens: List[str], args: argparse.Namespace):
 
 
 def _next_batch(loader, state: dict) -> dict:
+    if "it" not in state:
+        state["initializations"] = int(state.get("initializations", 0)) + 1
+        state["it"] = iter(loader)
     try:
         return next(state["it"])
-    except (KeyError, StopIteration):
+    except StopIteration:
+        state["resets"] = int(state.get("resets", 0)) + 1
         state["it"] = iter(loader)
         return next(state["it"])
 
@@ -420,6 +429,7 @@ def _aggregate(records: List[dict], batch_size: int) -> Dict[str, Any]:
     measured = [r for r in records if r.get("phase") == "measured"]
     if not measured:
         return {"measured_steps": 0}
+    measured_no_reset = [r for r in measured if not r.get("data_iterator_reset", False)]
     keys = sorted({k for r in measured for k in r.get("stage_ms", {})})
     stage_mean, stage_max = {}, {}
     for key in keys:
@@ -440,8 +450,10 @@ def _aggregate(records: List[dict], batch_size: int) -> Dict[str, Any]:
     skips = sum(int(r.get("grad_scaler_skipped", False)) for r in measured)
     mean_compute = sum(compute_vals) / len(compute_vals)
     mean_end_to_end = sum(end_to_end_vals) / len(end_to_end_vals)
-    return {
+    out = {
         "measured_steps": len(measured),
+        "data_iterator_resets_all": sum(int(r.get("data_iterator_reset", False)) for r in records),
+        "data_iterator_resets_measured": sum(int(r.get("data_iterator_reset", False)) for r in measured),
         "loss_first_measured": losses[0],
         "loss_last_measured": losses[-1],
         "loss_min_measured": min(losses),
@@ -463,6 +475,31 @@ def _aggregate(records: List[dict], batch_size: int) -> Dict[str, Any]:
         "memory_allocated_mib_peak": max(float(r["memory_allocated_mib"]) for r in measured),
         "memory_reserved_mib_peak": max(float(r["memory_reserved_mib"]) for r in measured),
     }
+    if measured_no_reset:
+        data_fetch_vals = [
+            float(r.get("stage_ms", {}).get("data_fetch", r.get("data_fetch_ms", 0.0)))
+            for r in measured_no_reset
+        ]
+        e2e_no_reset_vals = [
+            float(r["stage_ms"].get(
+                "end_to_end_step_total",
+                r["stage_ms"]["train_step_total"] + r["stage_ms"].get("data_fetch", 0.0),
+            ))
+            for r in measured_no_reset
+        ]
+        mean_e2e_no_reset = sum(e2e_no_reset_vals) / len(e2e_no_reset_vals)
+        out.update({
+            "measured_steps_no_iterator_reset": len(measured_no_reset),
+            "data_fetch_ms_mean_no_iterator_reset": sum(data_fetch_vals) / len(data_fetch_vals),
+            "data_fetch_ms_max_no_iterator_reset": max(data_fetch_vals),
+            "end_to_end_step_total_ms_mean_no_iterator_reset": mean_e2e_no_reset,
+            "end_to_end_samples_per_sec_mean_no_iterator_reset": (
+                float(batch_size) * 1000.0 / mean_e2e_no_reset if mean_e2e_no_reset > 0 else 0.0
+            ),
+        })
+    else:
+        out["measured_steps_no_iterator_reset"] = 0
+    return out
 
 
 def _torch_env() -> Dict[str, Any]:
@@ -547,7 +584,9 @@ def _run_cell(
             total_steps = int(args.warmup_iters) + int(args.profile_iters)
             for step in range(total_steps):
                 fetch_t0 = time.perf_counter()
+                resets_before = int(state.get("resets", 0))
                 batch_cpu = _next_batch(loader, state)
+                reset_this_step = int(state.get("resets", 0)) > resets_before
                 fetch_ms = (time.perf_counter() - fetch_t0) * 1000.0
                 rec = _profile_train_step(
                     model,
@@ -563,6 +602,9 @@ def _run_cell(
                     "step": step,
                     "phase": "warmup" if step < int(args.warmup_iters) else "measured",
                     "data_fetch_ms": fetch_ms,
+                    "data_iterator_reset": reset_this_step,
+                    "data_iterator_resets_total": int(state.get("resets", 0)),
+                    "data_iterator_initializations_total": int(state.get("initializations", 0)),
                     "batch_size": int(batch_cpu.get("batch_size", len(batch_cpu.get("gt_boxes", [])))),
                     "sample_tokens": list(batch_cpu.get("sample_token", [])),
                 })
@@ -585,6 +627,10 @@ def _run_cell(
                     f"{rec['stage_ms']['end_to_end_step_total']:.2f}",
                     "gpu_mem_mib",
                     f"{rec['memory_allocated_mib']:.1f}",
+                    "fetch_ms",
+                    f"{fetch_ms:.2f}",
+                    "reset",
+                    reset_this_step,
                     "scale",
                     f"{rec['grad_scaler_scale_after']:.1f}",
                     "skip",
@@ -604,6 +650,7 @@ def _run_cell(
         "error": error,
         "precision": cfg["precision"],
         "lidar_encoder": cfg["det-lidar-encoder"],
+        "sparse_conv_fp16": bool(cfg.get("det-sparse-conv-fp16", False)),
         "model_build_ms": model_build_ms,
         "precision_state": precision_state(),
         "grad_scaler_enabled": bool(scaler.is_enabled()),
@@ -656,11 +703,11 @@ def main() -> None:
     ap.add_argument("--cache-dir", default=os.environ.get("ARRHENIUS_NUSCENES_CACHE", str(default_cache)))
     ap.add_argument("--output-dir", default=str(Path(default_root) / "stop_d_profile_mini"))
     ap.add_argument("--matrix", default="voxel_fp16_main")
-    ap.add_argument("--warmup-iters", type=int, default=2)
-    ap.add_argument("--profile-iters", type=int, default=5)
-    ap.add_argument("--num-tokens", type=int, default=2)
-    ap.add_argument("--batch-size", type=int, default=1)
-    ap.add_argument("--num-workers", type=int, default=0)
+    ap.add_argument("--warmup-iters", type=int, default=4)
+    ap.add_argument("--profile-iters", type=int, default=8)
+    ap.add_argument("--num-tokens", type=int, default=256)
+    ap.add_argument("--batch-size", type=int, default=16)
+    ap.add_argument("--num-workers", type=int, default=8)
     ap.add_argument("--pin-memory", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--persistent-workers", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--prefetch-factor", type=int, default=4)
@@ -702,6 +749,17 @@ def main() -> None:
     token_count = max(int(args.num_tokens), int(args.batch_size))
     tokens = _select_tokens(train_info, token_count)
     loader, loader_meta, dataset_init_ms = _make_loader(base_cfg, tokens, args)
+    total_profile_steps = int(args.warmup_iters) + int(args.profile_iters)
+    tokens_for_full_batches_without_reset = int(args.batch_size) * total_profile_steps
+    data_window = {
+        "selected_token_count": len(tokens),
+        "batch_size": int(args.batch_size),
+        "warmup_iters": int(args.warmup_iters),
+        "profile_iters": int(args.profile_iters),
+        "total_steps": total_profile_steps,
+        "tokens_for_full_batches_without_iterator_reset": tokens_for_full_batches_without_reset,
+        "iterator_reset_expected": len(tokens) < tokens_for_full_batches_without_reset,
+    }
 
     manifest = {
         "kind": "arrhenius_stop_d_mini_profile",
@@ -719,6 +777,7 @@ def main() -> None:
         "selected_tokens": tokens,
         "matrix": cells,
         "args": vars(args),
+        "data_window": data_window,
         "data_timing_ms": {
             "cache_load": cache_load_ms,
             "dataset_init": dataset_init_ms,
@@ -732,6 +791,14 @@ def main() -> None:
     print("[profile] dataroot", dataroot, flush=True)
     print("[profile] cache", cache_dir, flush=True)
     print("[profile] tokens", len(tokens), "batch_size", args.batch_size, "workers", args.num_workers, flush=True)
+    print(
+        "[profile] data_window",
+        "tokens_for_full_batches_without_reset",
+        tokens_for_full_batches_without_reset,
+        "iterator_reset_expected",
+        data_window["iterator_reset_expected"],
+        flush=True,
+    )
 
     ok = True
     for cell in cells:
@@ -763,6 +830,10 @@ def main() -> None:
             agg.get("compute_step_total_ms_mean"),
             "mean_e2e_ms",
             agg.get("end_to_end_step_total_ms_mean"),
+            "resets_measured",
+            agg.get("data_iterator_resets_measured"),
+            "mean_e2e_no_reset_ms",
+            agg.get("end_to_end_step_total_ms_mean_no_iterator_reset"),
             "e2e_samples_per_sec",
             agg.get("end_to_end_samples_per_sec_mean"),
             "peak_alloc_mib",

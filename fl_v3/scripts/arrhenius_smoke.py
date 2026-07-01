@@ -79,6 +79,10 @@ def _load_cfg(path: str, args: argparse.Namespace) -> dict:
     cfg["det-pretrained-backbone"] = True
     if args.lidar_encoder:
         cfg["det-lidar-encoder"] = args.lidar_encoder
+    if args.sparse_conv_fp16 is not None:
+        cfg["det-sparse-conv-fp16"] = bool(args.sparse_conv_fp16)
+    else:
+        cfg["det-sparse-conv-fp16"] = bool(cfg.get("det-sparse-conv-fp16", False))
     validate_sparse_precision(cfg.get("precision"), cfg.get("det-lidar-encoder", "pillar"))
     if int(args.min_keyframes_per_client) > 0:
         cfg["min-keyframes-per-client"] = int(args.min_keyframes_per_client)
@@ -221,56 +225,78 @@ def sparse_lidar_smoke() -> dict:
     torch.manual_seed(20260701)
 
     cfg = BEVConfig(point_cloud_range=(-4.0, -4.0, -2.0, 4.0, 4.0, 2.0), bev_voxel=(1.0, 1.0))
-    enc = SparseVoxelEncoder(
-        out_channels=8,
-        cfg=cfg,
-        max_voxels=128,
-        max_points_per_voxel=8,
-    ).to(dev).train()
-    enc.record_debug = True
     pts = torch.tensor(
         [
             [0, -3.5, -3.5, -1.5, 0.10, 0],
-            [0, -3.4, -3.4, -1.4, 0.20, 0],
-            [0, -0.2,  0.2,  0.1, 0.30, 0],
             [1,  1.2, -1.1, -0.6, 0.40, 0],
+            [0, -3.4, -3.4, -1.4, 0.20, 0],
             [1,  2.7,  2.9,  1.2, 0.50, 0],
+            [0, -0.2,  0.2,  0.1, 0.30, 0],
             [1,  9.0,  0.0,  0.0, 0.60, 0],  # out of range; should be dropped
         ],
         device=dev,
         dtype=torch.float32,
     )
-    y = enc(pts, B=2)
-    meta = enc.last_sparse_meta or {}
-    assert y.shape == (2, 8, cfg.ny, cfg.nx), y.shape
-    assert torch.isfinite(y).all()
-    assert meta.get("coord_order") == "bzyx", meta
-    assert meta.get("indices_dtype") == "torch.int32", meta
-    assert meta.get("features_dtype") == "torch.float32", meta
-    assert meta.get("spatial_shape") == (enc.nz, cfg.ny, cfg.nx), meta
-    assert meta.get("batch_index_min") == 0 and meta.get("batch_index_max") == 1, meta
-    (y.float().square().mean()).backward()
-    grad_norm = torch.nn.utils.clip_grad_norm_([p for p in enc.parameters() if p.requires_grad], 1e9)
 
-    occ = enc.occupancy(pts, B=2)
-    assert occ.shape == (2, cfg.ny, cfg.nx)
-    assert float(occ.sum().detach().cpu()) == 5.0
+    def run_case(name: str, sparse_conv_fp16: bool) -> dict:
+        enc = SparseVoxelEncoder(
+            out_channels=8,
+            cfg=cfg,
+            max_voxels=128,
+            max_points_per_voxel=8,
+            sparse_conv_fp16=sparse_conv_fp16,
+        ).to(dev).train()
+        enc.record_debug = True
+        y = enc(pts, B=2)
+        meta = enc.last_sparse_meta or {}
+        expected_feature_dtype = "torch.float16" if sparse_conv_fp16 else "torch.float32"
+        assert y.shape == (2, 8, cfg.ny, cfg.nx), y.shape
+        assert torch.isfinite(y).all()
+        assert meta.get("coord_order") == "bzyx", meta
+        assert meta.get("indices_dtype") == "torch.int32", meta
+        assert meta.get("features_dtype") == expected_feature_dtype, meta
+        assert meta.get("vfe_features_dtype") == "torch.float32", meta
+        assert meta.get("sparse_conv_fp16_active") is sparse_conv_fp16, meta
+        assert meta.get("point_grouping") == "sorted", meta
+        assert meta.get("spatial_shape") == (enc.nz, cfg.ny, cfg.nx), meta
+        assert meta.get("batch_index_min") == 0 and meta.get("batch_index_max") == 1, meta
+        (y.float().square().mean()).backward()
+        grad_norm = torch.nn.utils.clip_grad_norm_([p for p in enc.parameters() if p.requires_grad], 1e9)
 
-    enc.zero_grad(set_to_none=True)
-    empty = enc(pts[:0], B=2)
-    assert empty.shape == (2, 8, cfg.ny, cfg.nx)
-    assert torch.count_nonzero(empty.detach()) == 0
-    empty.sum().backward()
-    assert all(p.grad is not None for p in enc.parameters() if p.requires_grad)
-    print("[sparse-lidar] OK", "out", tuple(y.shape), "meta", meta, "grad_norm", float(grad_norm))
+        occ = enc.occupancy(pts, B=2)
+        assert occ.shape == (2, cfg.ny, cfg.nx)
+        assert float(occ.sum().detach().cpu()) == 5.0
+
+        enc.zero_grad(set_to_none=True)
+        empty = enc(pts[:0], B=2)
+        assert empty.shape == (2, 8, cfg.ny, cfg.nx)
+        assert torch.count_nonzero(empty.detach()) == 0
+        empty.sum().backward()
+        assert all(p.grad is not None for p in enc.parameters() if p.requires_grad)
+        print(
+            "[sparse-lidar] OK",
+            name,
+            "out",
+            tuple(y.shape),
+            "meta",
+            meta,
+            "grad_norm",
+            float(grad_norm),
+        )
+        return {
+            "out_shape": tuple(y.shape),
+            "out_dtype": str(y.dtype),
+            "finite": bool(torch.isfinite(y).all().item()),
+            "sparse_meta": meta,
+            "occupancy_sum": float(occ.sum().detach().cpu()),
+            "empty_output_shape": tuple(empty.shape),
+            "empty_nonzero": int(torch.count_nonzero(empty.detach()).cpu()),
+            "grad_norm": float(grad_norm),
+        }
+
     return {
-        "out_shape": tuple(y.shape),
-        "finite": bool(torch.isfinite(y).all().item()),
-        "sparse_meta": meta,
-        "occupancy_sum": float(occ.sum().detach().cpu()),
-        "empty_output_shape": tuple(empty.shape),
-        "empty_nonzero": int(torch.count_nonzero(empty.detach()).cpu()),
-        "grad_norm": float(grad_norm),
+        "sparse_fp32_ref": run_case("sparse_fp32_ref", sparse_conv_fp16=False),
+        "sparse_fp16_amp": run_case("sparse_fp16_amp", sparse_conv_fp16=True),
     }
 
 
@@ -468,6 +494,8 @@ def main() -> None:
     ap.add_argument("--min-keyframes-per-client", type=int, default=0)
     ap.add_argument("--backbone", default="resnet18", choices=["resnet18", "swin_t"])
     ap.add_argument("--lidar-encoder", default="", choices=["", "pillar", "voxel"])
+    ap.add_argument("--sparse-conv-fp16", action=argparse.BooleanOptionalAction, default=None,
+                    help="voxel only; default follows config and remains off in canonical mini smoke")
     ap.add_argument("--require-data", action="store_true")
     ap.add_argument("modes", nargs="*", default=["import", "spconv", "data", "dummy-train"])
     args = ap.parse_args()
@@ -491,6 +519,7 @@ def main() -> None:
         "summary_path": str(summary_path),
         "precision": str(cfg.get("precision", "fp16")),
         "lidar_encoder": str(cfg.get("det-lidar-encoder", "pillar")),
+        "sparse_conv_fp16": bool(cfg.get("det-sparse-conv-fp16", False)),
         "dataroot": str(cfg.get("nuscenes-dataroot", "")),
         "cache_dir": str(cfg.get("nuscenes-cache-dir", "")),
         "modes_requested": list(args.modes),
@@ -506,7 +535,14 @@ def main() -> None:
     print("[smoke] summary", summary_path)
     print("[smoke] engineering_scope", summary["engineering_scope"])
     print("[smoke] git_rev", summary["git_rev"])
-    print("[smoke] precision", summary["precision"], "lidar_encoder", summary["lidar_encoder"])
+    print(
+        "[smoke] precision",
+        summary["precision"],
+        "lidar_encoder",
+        summary["lidar_encoder"],
+        "sparse_conv_fp16",
+        summary["sparse_conv_fp16"],
+    )
 
     for mode in args.modes:
         record = {"mode": mode, "status": "started"}

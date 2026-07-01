@@ -150,6 +150,7 @@ class CenterPointLoss(nn.Module):
             self.register_buffer("reg_class_weights", rw, persistent=False)
         else:
             self.reg_class_weights = None
+        self.record_terms = True
         self.last_terms: Dict[str, float] = {}
 
     # --- target construction (RNG-free, atomic-free) ---
@@ -283,10 +284,13 @@ class CenterPointLoss(nn.Module):
         else:
             reg_loss = reg_pred.sum() * 0.0
         total = hm_loss + self.reg_weight * reg_loss
-        self.last_terms = {
-            "loss": float(total.detach().item()),
-            "hm_loss": float(hm_loss.detach().item()),
-            "reg_loss": float(reg_loss.detach().item()),
-            "n_gt": int(reg_target.shape[0]),
-        }
+        if self.record_terms:
+            self.last_terms = {
+                "loss": float(total.detach().item()),
+                "hm_loss": float(hm_loss.detach().item()),
+                "reg_loss": float(reg_loss.detach().item()),
+                "n_gt": int(reg_target.shape[0]),
+            }
+        else:
+            self.last_terms = {"n_gt": int(reg_target.shape[0])}
         return total

@@ -373,7 +373,13 @@ def _det_config_from_run(run_config: dict):
         bev_kwargs["point_cloud_range"] = tuple(float(v) for v in pcr)
     bev = BEVConfig(**bev_kwargs)
     lidar_encoder = str(run_config.get("det-lidar-encoder", "pillar"))
-    validate_sparse_precision(run_config.get("precision", "fp32"), lidar_encoder)
+    precision = str(run_config.get("precision", "fp32")).strip().lower()
+    validate_sparse_precision(precision, lidar_encoder)
+    sparse_conv_fp16 = truthy(run_config.get("det-sparse-conv-fp16", False))
+    if sparse_conv_fp16 and lidar_encoder != "voxel":
+        raise ValueError("det-sparse-conv-fp16=true is only valid with det-lidar-encoder='voxel'")
+    if sparse_conv_fp16 and precision != "fp16":
+        raise ValueError("det-sparse-conv-fp16=true requires precision='fp16' (fp32 reference must stay fp32)")
     return DetectorConfig(
         camera_backbone=str(run_config.get("det-camera-backbone", "swin_t")),
         freeze_camera_backbone=truthy(run_config.get("det-freeze-backbone", True)),
@@ -394,6 +400,7 @@ def _det_config_from_run(run_config: dict):
         max_pillars=int(run_config.get("det-max-pillars", 30000)),
         lidar_sweeps=int(run_config.get("det-lidar-sweeps", 1)),
         lidar_encoder=lidar_encoder,
+        sparse_conv_fp16=sparse_conv_fp16,
         lidar_backbone=truthy(run_config.get("det-lidar-backbone", False)),
         lidar_backbone_out=int(run_config.get("det-lidar-backbone-out", 128)),
         lidar_backbone_checkpoint=truthy(run_config.get("det-lidar-backbone-checkpoint", False)),

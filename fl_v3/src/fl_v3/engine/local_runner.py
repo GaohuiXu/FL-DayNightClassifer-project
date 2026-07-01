@@ -103,6 +103,7 @@ def _client_recipe_kwargs(run_config: dict) -> dict:
         "grad_clip_norm": float(run_config.get("grad-clip-norm", 0.0)),
         "backbone_lr_mult": float(run_config.get("det-backbone-lr-mult", 1.0)),
         "optimizer_name": str(run_config.get("det-optimizer", "adam")),
+        "telemetry_interval": int(run_config.get("train-telemetry-interval", 0)),
     }
 
 

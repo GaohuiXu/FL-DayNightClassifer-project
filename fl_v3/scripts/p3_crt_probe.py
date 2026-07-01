@@ -205,6 +205,7 @@ def main() -> None:
     head_params = [p for p in model.parameters() if p.requires_grad]
     optimizer = OptCls(head_params, lr=base_lr, weight_decay=wd, fused=_fused)
     grad_clip_norm = float(cfg.get("grad-clip-norm", 0.0))
+    telemetry_interval = int(cfg.get("train-telemetry-interval", 0))
 
     # OneCycle over the whole run (warmup→cosine), peaking at base_lr (head-only ⇒ single max_lr).
     sched = None
@@ -298,7 +299,8 @@ def main() -> None:
         loader = epoch_loader(epoch)
         m = train_one_epoch(model, loader, criterion, optimizer, device,
                             grad_clip_norm=grad_clip_norm, scheduler=sched, ema_model=ema_model,
-                            max_steps=args.max_steps, precision=precision)
+                            max_steps=args.max_steps, precision=precision,
+                            telemetry_interval=telemetry_interval)
         dt = time.perf_counter() - t0
         # always overwrite the rolling raw + ema checkpoints
         chk_raw = _save(exp_dir, model.state_dict(), model, "raw", epoch + 1)

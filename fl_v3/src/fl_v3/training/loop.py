@@ -135,6 +135,7 @@ def train_one_epoch(
     max_steps: int = 0,
     precision: Optional[str] = None,
     grad_scaler: Optional[Any] = None,
+    telemetry_interval: int = 0,
 ) -> Dict[str, float]:
     """One epoch of training with the injected criterion (tensor or dict batch).
 
@@ -153,65 +154,77 @@ def train_one_epoch(
     scaler = grad_scaler if grad_scaler is not None else make_grad_scaler(device, precision)
     use_amp = precision == "fp16" and device.type == "cuda"
     do_clip = bool(grad_clip_norm and grad_clip_norm > 0)
+    telemetry_interval = max(0, int(telemetry_interval))
     loss_sum = torch.zeros((), device=device, dtype=torch.float64)  # L4: device accumulate (no per-step sync)
+    nonfinite_loss_count = torch.zeros((), device=device, dtype=torch.float64)
     total_n = 0
     step_count = 0
     optimizer_steps = 0
     scaler_skips = 0
-    nonfinite_loss_steps = 0
     last_grad_norm = 0.0
-    for batch in dataloader:
-        inputs, targets = _unpack_batch(batch, device)
-        optimizer.zero_grad(set_to_none=True)
-        if use_amp:
-            with precision_autocast_context(precision, device):
-                out = model(inputs)
-            out = _float_tensors(out)
-        else:
-            out = model(inputs)
-        loss = criterion(out, targets)
-        if not bool(torch.isfinite(loss.detach()).item()):
-            nonfinite_loss_steps += 1
-        if scaler.is_enabled():
-            scale_before = float(scaler.get_scale())
-            scaler.scale(loss).backward()
-            scaler.unscale_(optimizer)
-            if do_clip:
-                grad_norm_t = torch.nn.utils.clip_grad_norm_(
-                    [p for p in model.parameters() if p.requires_grad], grad_clip_norm)
-                last_grad_norm = float(grad_norm_t.detach().cpu())
+    _missing = object()
+    old_record_terms = getattr(criterion, "record_terms", _missing)
+    try:
+        for batch in dataloader:
+            next_step = step_count + 1
+            record_step = bool(telemetry_interval and next_step % telemetry_interval == 0)
+            if old_record_terms is not _missing:
+                criterion.record_terms = record_step
+            inputs, targets = _unpack_batch(batch, device)
+            optimizer.zero_grad(set_to_none=True)
+            if use_amp:
+                with precision_autocast_context(precision, device):
+                    out = model(inputs)
+                out = _float_tensors(out)
             else:
-                last_grad_norm = _grad_norm(model)
-            scaler.step(optimizer)
-            scaler.update()
-            skipped = float(scaler.get_scale()) < scale_before
-            scaler_skips += int(skipped)
-            if not skipped:
+                out = model(inputs)
+            loss = criterion(out, targets)
+            nonfinite_loss_count += (~torch.isfinite(loss.detach())).to(torch.float64)
+            if scaler.is_enabled():
+                scale_before = float(scaler.get_scale())
+                scaler.scale(loss).backward()
+                scaler.unscale_(optimizer)
+                if do_clip:
+                    grad_norm_t = torch.nn.utils.clip_grad_norm_(
+                        [p for p in model.parameters() if p.requires_grad], grad_clip_norm)
+                    if record_step:
+                        last_grad_norm = float(grad_norm_t.detach().cpu())
+                elif record_step:
+                    last_grad_norm = _grad_norm(model)
+                scaler.step(optimizer)
+                scaler.update()
+                skipped = float(scaler.get_scale()) < scale_before
+                scaler_skips += int(skipped)
+                if not skipped:
+                    optimizer_steps += 1
+                    if scheduler is not None:
+                        scheduler.step()
+                    if ema_model is not None:
+                        ema_model.update_parameters(model)
+            else:
+                loss.backward()
+                if do_clip:
+                    grad_norm_t = torch.nn.utils.clip_grad_norm_(
+                        [p for p in model.parameters() if p.requires_grad], grad_clip_norm)
+                    if record_step:
+                        last_grad_norm = float(grad_norm_t.detach().cpu())
+                elif record_step:
+                    last_grad_norm = _grad_norm(model)
+                optimizer.step()
                 optimizer_steps += 1
                 if scheduler is not None:
                     scheduler.step()
                 if ema_model is not None:
                     ema_model.update_parameters(model)
-        else:
-            loss.backward()
-            if do_clip:
-                grad_norm_t = torch.nn.utils.clip_grad_norm_(
-                    [p for p in model.parameters() if p.requires_grad], grad_clip_norm)
-                last_grad_norm = float(grad_norm_t.detach().cpu())
-            else:
-                last_grad_norm = _grad_norm(model)
-            optimizer.step()
-            optimizer_steps += 1
-            if scheduler is not None:
-                scheduler.step()
-            if ema_model is not None:
-                ema_model.update_parameters(model)
-        bs = _batch_size(targets)
-        loss_sum += loss.detach().double() * bs
-        total_n += int(bs)
-        step_count += 1
-        if max_steps and step_count >= max_steps:
-            break                              # smoke cap (default 0 = full epoch ⇒ byte-identical)
+            bs = _batch_size(targets)
+            loss_sum += loss.detach().double() * bs
+            total_n += int(bs)
+            step_count += 1
+            if max_steps and step_count >= max_steps:
+                break                              # smoke cap (default 0 = full epoch ⇒ byte-identical)
+    finally:
+        if old_record_terms is not _missing:
+            criterion.record_terms = old_record_terms
     return {
         "loss": float(loss_sum.item()) / total_n if total_n else 0.0,
         "num_samples": float(total_n),
@@ -221,8 +234,9 @@ def train_one_epoch(
         "grad_scaler_enabled": float(scaler.is_enabled()),
         "grad_scaler_scale": float(scaler.get_scale()),
         "grad_scaler_skips": float(scaler_skips),
-        "nonfinite_loss_steps": float(nonfinite_loss_steps),
+        "nonfinite_loss_steps": float(nonfinite_loss_count.item()),
         "last_grad_norm": float(last_grad_norm),
+        "telemetry_interval": float(telemetry_interval),
     }
 
 
@@ -239,6 +253,7 @@ def train_local(
     backbone_lr_mult: float = 1.0,
     optimizer_name: str = "adam",
     precision: Optional[str] = None,
+    telemetry_interval: int = 0,
 ) -> Dict[str, float]:
     """Train locally for ``num_epochs``; evaluate on ``valloader`` (last epoch).
 
@@ -274,7 +289,8 @@ def train_local(
     final_train_loss = 0.0
     for _ in range(num_epochs):
         tm = train_one_epoch(model, trainloader, criterion, optimizer, device,
-                             grad_clip_norm=grad_clip_norm, precision=precision)
+                             grad_clip_norm=grad_clip_norm, precision=precision,
+                             telemetry_interval=telemetry_interval)
         final_train_loss = tm["loss"]
     final_val_loss = 0.0
     if valloader is not None:

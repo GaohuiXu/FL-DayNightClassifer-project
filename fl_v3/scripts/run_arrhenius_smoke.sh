@@ -46,8 +46,20 @@ fi
 echo "[run_arrhenius_smoke] host=$(hostname) arch=$(uname -m) modes=${MODES}"
 echo "[run_arrhenius_smoke] env=${ARRHENIUS_VENV}"
 echo "[run_arrhenius_smoke] precision=${PRECISION:-fp16} lidar_encoder=${LIDAR_ENCODER:-voxel}"
+echo "[run_arrhenius_smoke] sparse_conv_fp16=${SPARSE_CONV_FP16:-auto}"
 echo "[run_arrhenius_smoke] dataroot=${ARRHENIUS_NUSCENES_DATAROOT:-<unset>}"
 echo "[run_arrhenius_smoke] cache=${ARRHENIUS_NUSCENES_CACHE}"
+
+EXTRA=()
+case "${SPARSE_CONV_FP16:-auto}" in
+  auto|"") ;;
+  1|true|TRUE|yes|YES) EXTRA+=(--sparse-conv-fp16) ;;
+  0|false|FALSE|no|NO) EXTRA+=(--no-sparse-conv-fp16) ;;
+  *)
+    echo "[run_arrhenius_smoke] invalid SPARSE_CONV_FP16=${SPARSE_CONV_FP16}; use auto, 1, or 0" >&2
+    exit 2
+    ;;
+esac
 
 python fl_v3/scripts/arrhenius_smoke.py \
   --dataroot "${ARRHENIUS_NUSCENES_DATAROOT:-}" \
@@ -60,5 +72,6 @@ python fl_v3/scripts/arrhenius_smoke.py \
   --batch-size "${BATCH_SIZE:-1}" \
   --num-workers "${NUM_WORKERS:-0}" \
   --min-keyframes-per-client "${MIN_KEYFRAMES_PER_CLIENT:-0}" \
+  "${EXTRA[@]}" \
   "${REQ[@]}" \
   ${MODES}

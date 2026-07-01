@@ -235,6 +235,8 @@ def main():
     if _os_state is not None:
         optimizer.load_state_dict(_os_state["optimizer"])
     grad_clip_norm = float(cfg.get("grad-clip-norm", 0.0))
+    telemetry_interval = int(cfg.get("train-telemetry-interval", 0))
+    log(f"[centralized] train_telemetry_interval={telemetry_interval}")
 
     # Exp3: per-step LR schedule (default 'none' ⇒ flat LR, baseline-identical). 'onecycle' = warmup ramp
     # (pct_start) → cosine decay, peaking at the per-group base LRs; total_steps spans the WHOLE run so the
@@ -338,7 +340,8 @@ def main():
         loader = epoch_loader(epoch)         # per-epoch loader seeded (seed+epoch) → resume-reproducible
         m = train_one_epoch(model, loader, criterion, optimizer, device,
                             grad_clip_norm=grad_clip_norm, scheduler=sched, ema_model=ema_model,
-                            max_steps=args.max_steps, precision=precision)   # max_steps=0 → full epoch
+                            max_steps=args.max_steps, precision=precision,
+                            telemetry_interval=telemetry_interval)   # max_steps=0 → full epoch
         if ddp:  # global mean loss for the logged curve (each rank trained on 1/world of the epoch)
             tt = torch.tensor([m["loss"] * m["num_samples"], m["num_samples"]], device=device, dtype=torch.float64)
             dist.all_reduce(tt, op=dist.ReduceOp.SUM)

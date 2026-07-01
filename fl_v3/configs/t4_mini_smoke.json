@@ -19,6 +19,7 @@
   "num-workers": 2,
   "det-camera-backbone": "resnet18",
   "det-lidar-encoder": "voxel",
+  "det-sparse-conv-fp16": false,
   "det-freeze-backbone": true,
   "det-pretrained-backbone": true,
   "det-eval-limit": 0,

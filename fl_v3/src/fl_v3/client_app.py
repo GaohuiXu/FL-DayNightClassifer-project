@@ -116,6 +116,7 @@ def train(msg: Message, context: Context) -> Message:
         backbone_lr_mult=float(run_config.get("det-backbone-lr-mult", 1.0)),
         optimizer_name=str(run_config.get("det-optimizer", "adam")),
         precision=str(run_config.get("precision", "fp16")),
+        telemetry_interval=int(run_config.get("train-telemetry-interval", 0)),
     )
 
     _t_train = _time.perf_counter() - _t_train0   # local-training wall (loader + fwd/bwd/opt over the shard)

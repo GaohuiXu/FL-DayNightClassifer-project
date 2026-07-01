@@ -20,9 +20,9 @@ from typing import Any, Dict, List
 
 
 CANONICAL_MATRIX_CELLS = {
-    "voxel_fp16_main": {"det-lidar-encoder": "voxel", "precision": "fp16"},
-    "voxel_fp32_ref": {"det-lidar-encoder": "voxel", "precision": "fp32"},
-    "pillar_fp32_legacy": {"det-lidar-encoder": "pillar", "precision": "fp32"},
+    "voxel_fp16_main": {"det-lidar-encoder": "voxel", "precision": "fp16", "det-sparse-conv-fp16": False},
+    "voxel_fp32_ref": {"det-lidar-encoder": "voxel", "precision": "fp32", "det-sparse-conv-fp16": False},
+    "pillar_fp32_legacy": {"det-lidar-encoder": "pillar", "precision": "fp32", "det-sparse-conv-fp16": False},
 }
 LEGACY_MATRIX_ALIASES = {
     "voxel_fp16": "voxel_fp16_main",
@@ -237,6 +237,7 @@ def _run_cell(
         "cell": cell_name,
         "precision": cfg["precision"],
         "lidar_encoder": cfg["det-lidar-encoder"],
+        "sparse_conv_fp16": bool(cfg.get("det-sparse-conv-fp16", False)),
         "steps_requested": int(args.steps),
         "optimizer_steps": 0,
         "grad_scaler_enabled": bool(scaler.is_enabled()),
