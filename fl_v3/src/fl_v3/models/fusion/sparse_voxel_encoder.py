@@ -15,6 +15,9 @@ spconv's import check). Gated by ``det-lidar-encoder=voxel`` (default ``pillar``
 """
 from __future__ import annotations
 
+import time
+from contextlib import contextmanager
+
 import torch
 import torch.nn as nn
 
@@ -54,6 +57,8 @@ class SparseVoxelEncoder(nn.Module):
         self._voxelizer = None                              # built lazily (device-bound)
         self.record_debug = False                           # opt-in only; keeps the hot path sync-free
         self.last_sparse_meta: dict | None = None
+        self.record_profile = False                         # opt-in synchronized timing for profiling only
+        self.last_profile_times: dict | None = None
 
         # PFN-style per-point VFE: per-point [abs xyz, intensity(+dt), voxel-center-relative xyz] → Linear → GN →
         # ReLU → masked max-pool per voxel. (The earlier naive mean-VFE collapsed each voxel to ~[center,
@@ -102,32 +107,47 @@ class SparseVoxelEncoder(nn.Module):
     def forward(self, points: torch.Tensor, B: int) -> torch.Tensor:
         """``points`` ``[TotalP, 1+W]`` (col0 batch, col1:4 xyz, col4 intensity, col6 dt) → ``[B, out, ny, nx]``."""
         dev = points.device
+        profile_times: dict[str, float] = {}
+
+        @contextmanager
+        def stage(name: str):
+            if self.record_profile and dev.type == "cuda":
+                torch.cuda.synchronize(dev)
+                t0 = time.perf_counter()
+                yield
+                torch.cuda.synchronize(dev)
+                profile_times[name] = (time.perf_counter() - t0) * 1000.0
+            else:
+                yield
+
         if self._voxelizer is None:
-            self._build_voxelizer(dev)
+            with stage("voxelizer_init"):
+                self._build_voxelizer(dev)
         import spconv.pytorch as sp              # local (not stored on self — see __init__ note re: EMA deepcopy)
         feat_cols = [1, 2, 3, 4] + ([6] if self.use_timestamp else [])
         bidx = points[:, 0].to(torch.int64)
         # spconv: fp32, autocast OFF (no bf16; allowed inside the relaxed fp16 Arrhenius regime).
         with torch.autocast(device_type=dev.type, enabled=False):
-            vfeats, coords_b = [], []
-            for b in range(B):
-                pf = points[bidx == b][:, feat_cols].to(torch.float32)          # [P,F], xyz first 3
-                if pf.shape[0] == 0:
-                    continue
-                voxels, coords, num_p = self._voxelizer(pf)                     # [V,P,F], [V,3]=(z,y,x), [V]
-                V, P = voxels.shape[0], voxels.shape[1]
-                # voxel center (x,y,z) from coords (z,y,x) → per-point voxel-center-relative offset
-                xc = (coords[:, 2].float() + 0.5) * self.vx + self.cfg.x_min
-                yc = (coords[:, 1].float() + 0.5) * self.vy + self.cfg.y_min
-                zc = (coords[:, 0].float() + 0.5) * self.vz + self.cfg.z_min
-                rel = voxels[:, :, :3] - torch.stack([xc, yc, zc], dim=1).view(V, 1, 3)   # [V,P,3]
-                ppf = torch.cat([voxels, rel], dim=2)                            # [V,P,F+3] abs+intensity(+dt)+rel
-                valid = torch.arange(P, device=dev).view(1, P) < num_p.view(V, 1)         # [V,P] mask padded
-                fp = self.vfe_point(ppf.reshape(V * P, -1)).reshape(V, P, -1)    # [V,P,C] per-point
-                fp = fp.masked_fill(~valid.unsqueeze(-1), float("-inf"))
-                vfeats.append(torch.nan_to_num(fp.max(dim=1).values, neginf=0.0))         # [V,C] masked max-pool
-                bcol = torch.full((coords.shape[0], 1), b, dtype=coords.dtype, device=dev)
-                coords_b.append(torch.cat([bcol, coords], dim=1))               # [V,4]=(b,z,y,x)
+            with stage("voxelize_vfe"):
+                vfeats, coords_b = [], []
+                for b in range(B):
+                    pf = points[bidx == b][:, feat_cols].to(torch.float32)      # [P,F], xyz first 3
+                    if pf.shape[0] == 0:
+                        continue
+                    voxels, coords, num_p = self._voxelizer(pf)                 # [V,P,F], [V,3]=(z,y,x), [V]
+                    V, P = voxels.shape[0], voxels.shape[1]
+                    # voxel center (x,y,z) from coords (z,y,x) → per-point voxel-center-relative offset
+                    xc = (coords[:, 2].float() + 0.5) * self.vx + self.cfg.x_min
+                    yc = (coords[:, 1].float() + 0.5) * self.vy + self.cfg.y_min
+                    zc = (coords[:, 0].float() + 0.5) * self.vz + self.cfg.z_min
+                    rel = voxels[:, :, :3] - torch.stack([xc, yc, zc], dim=1).view(V, 1, 3)  # [V,P,3]
+                    ppf = torch.cat([voxels, rel], dim=2)                        # [V,P,F+3] abs+intensity(+dt)+rel
+                    valid = torch.arange(P, device=dev).view(1, P) < num_p.view(V, 1)       # [V,P] mask padded
+                    fp = self.vfe_point(ppf.reshape(V * P, -1)).reshape(V, P, -1)  # [V,P,C] per-point
+                    fp = fp.masked_fill(~valid.unsqueeze(-1), float("-inf"))
+                    vfeats.append(torch.nan_to_num(fp.max(dim=1).values, neginf=0.0))       # [V,C] masked max-pool
+                    bcol = torch.full((coords.shape[0], 1), b, dtype=coords.dtype, device=dev)
+                    coords_b.append(torch.cat([bcol, coords], dim=1))           # [V,4]=(b,z,y,x)
             if not vfeats:
                 if self.record_debug:
                     self.last_sparse_meta = {
@@ -140,9 +160,12 @@ class SparseVoxelEncoder(nn.Module):
                         "batch_size": int(B),
                         "num_voxels": 0,
                     }
+                if self.record_profile:
+                    self.last_profile_times = dict(profile_times)
                 return self._empty_bev(points, B)
-            features = torch.cat(vfeats, 0).to(torch.float32)
-            indices = torch.cat(coords_b, 0).to(torch.int32)
+            with stage("sparse_tensor_inputs"):
+                features = torch.cat(vfeats, 0).to(torch.float32)
+                indices = torch.cat(coords_b, 0).to(torch.int32)
             if self.record_debug:
                 self.last_sparse_meta = {
                     "coord_order": "bzyx",
@@ -162,11 +185,18 @@ class SparseVoxelEncoder(nn.Module):
                     "x_min": int(indices[:, 3].min().item()),
                     "x_max": int(indices[:, 3].max().item()),
                 }
-            x = sp.SparseConvTensor(features, indices, spatial_shape=[self.nz, self.ny, self.nx], batch_size=B)
-            x = self.backbone(x)
-            dense = x.dense()                                                   # [B, ch, z_final, ny, nx]
-            dense = dense.reshape(B, self.ch_final * self.z_final, self.ny, self.nx)
-        return self.to_bev(dense)                                              # outer autocast casts to model dtype
+            with stage("sparse_tensor_construct"):
+                x = sp.SparseConvTensor(features, indices, spatial_shape=[self.nz, self.ny, self.nx], batch_size=B)
+            with stage("spconv_backbone"):
+                x = self.backbone(x)
+            with stage("dense_collapse"):
+                dense = x.dense()                                               # [B, ch, z_final, ny, nx]
+                dense = dense.reshape(B, self.ch_final * self.z_final, self.ny, self.nx)
+        with stage("to_bev"):
+            out = self.to_bev(dense)                                            # outer autocast casts to model dtype
+        if self.record_profile:
+            self.last_profile_times = dict(profile_times)
+        return out
 
     def _empty_bev(self, points: torch.Tensor, B: int) -> torch.Tensor:
         """Zero BEV for all-empty batches, with a zero-gradient anchor for DDP safety."""
