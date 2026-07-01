@@ -1,11 +1,11 @@
-"""Per-stage runtime profiler for the AD detector training step (Cycle-04 D14 Phase-1 A).
+"""Per-stage runtime profiler for the AD detector training step.
 
 Builds the REAL nuScenes detection Task model + ONE real client's trainloader (log-group trainval,
 frozen Swin-T, batch 16 — the headline config), runs N real training steps under the
-determinism-neutral StepProfiler, in BOTH numeric regimes (fp32 then tf32), and reports:
+determinism-neutral StepProfiler, under Arrhenius precision regimes, and reports:
   * per-stage wall-clock (dataloader wait · the 8 forward submodules · loss · backward · optimizer);
   * the MEASURED frozen-backbone share of the step (settles D12's inferred 80–90%);
-  * the per-stage TF32 speedup (fp32 mean / tf32 mean) + the end-to-end TF32 speedup;
+  * the per-stage fp16 AMP speedup (fp32 mean / fp16 mean) + the end-to-end speedup;
   * peak GPU memory + sampled GPU/CPU utilization.
 
 Run via run_profile_a40.sh (A40:1). Instrumentation only — never feeds a scientific checkpoint.
@@ -24,11 +24,14 @@ sys.path.insert(0, "fl_v3/src")
 import torch
 
 from fl_v3.training.tasks import get_task
+from fl_v3.training.loop import _float_tensors, _unpack_batch
 from fl_v3.utils.profiling import StepProfiler, max_mem_mb, reset_peak_mem
 from fl_v3.utils.runtime import (
     derive_seed,
     enforce_determinism,
+    make_grad_scaler,
     precision_state,
+    precision_autocast_context,
     seed_everything,
 )
 
@@ -96,13 +99,15 @@ class UtilSampler:
 
 def profile_regime(precision, run_config, cid, steps, warmup, device, compile_model=False,
                    fixed_batch=False):
-    """Run (warmup+steps) real training steps under one precision regime (D16: bf16|fp32).
+    """Run (warmup+steps) real training steps under one precision regime (fp16|fp32).
 
     fixed_batch=True (E1, overcommit-ceiling diag): fetch ONE batch, move it on-device, and loop the
     SAME tensors — the dataloader is bypassed so the measurement isolates pure GPU compute + per-step
     launch/CPU overhead under concurrency (no data pipeline, no host->device transfer)."""
-    enforce_determinism(strict=True, precision=precision)
-    use_amp = (precision == "bf16") and device.type == "cuda"
+    run_config = dict(run_config)
+    run_config["precision"] = precision
+    enforce_determinism(strict=(precision == "fp32"), precision=precision)
+    use_amp = (precision == "fp16") and device.type == "cuda"
     seed = int(run_config.get("seed", 42))
     # Mirror the real per-client seeding so the trajectory matches a real round-1 client.
     seed_everything(derive_seed(seed, cid, 1))
@@ -116,28 +121,36 @@ def profile_regime(precision, run_config, cid, steps, warmup, device, compile_mo
     loader = cdata.trainloader
     optimizer = torch.optim.Adam([p for p in model.parameters() if p.requires_grad],
                                  lr=float(run_config.get("learning-rate", 3e-3)))
+    scaler = make_grad_scaler(device, precision)
     model.train()
 
     prof = StepProfiler(use_cuda=(device.type == "cuda"))
     prof.attach_module_timers(model, FORWARD_STAGES)
     reset_peak_mem()
 
-    from fl_v3.training.loop import _unpack_batch
-
     def _step(inputs, targets):
         optimizer.zero_grad()
         with prof.section("forward_total"):
             if use_amp:
-                with torch.autocast("cuda", dtype=torch.bfloat16):
+                with precision_autocast_context(precision, device):
                     out = model(inputs)
+                out = _float_tensors(out)
             else:
                 out = model(inputs)
         with prof.section("loss"):
             loss = criterion(out, targets)
         with prof.section("backward"):
-            loss.backward()
+            if scaler.is_enabled():
+                scaler.scale(loss).backward()
+                scaler.unscale_(optimizer)
+            else:
+                loss.backward()
         with prof.section("optimizer_step"):
-            optimizer.step()
+            if scaler.is_enabled():
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                optimizer.step()
 
     total = warmup + steps
     done = 0
@@ -197,8 +210,8 @@ def main():
     ap.add_argument("--warmup", type=int, default=5)
     ap.add_argument("--client-id", type=int, default=0)
     ap.add_argument("--out", default="fl_v3/collab/speedup/profile_stages_a40.json")
-    ap.add_argument("--precisions", default="bf16,fp32",
-                    help="D16 precision regimes to profile (bf16: AMP+autotuner+atomics; fp32: deterministic)")
+    ap.add_argument("--precisions", default="fp16,fp32",
+                    help="Arrhenius precision regimes to profile (fp16: AMP+GradScaler; fp32: reference)")
     ap.add_argument("--compile", action="store_true", help="L8: torch.compile the backbone")
     ap.add_argument("--fixed-batch", action="store_true",
                     help="E1 overcommit-ceiling: loop one on-device batch (bypass dataloader)")
@@ -218,7 +231,7 @@ def main():
         run_config["num-workers"] = a.num_workers
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type != "cuda":
-        print("[profile] WARNING: no CUDA — bf16 autocast will not engage; numbers are login-node only.")
+        print("[profile] WARNING: no CUDA — fp16 autocast will not engage; numbers are login-node only.")
 
     results = {}
     for precision in a.precisions.split(","):
@@ -228,7 +241,7 @@ def main():
         r = profile_regime(precision, run_config, a.client_id, a.steps, a.warmup, device,
                            compile_model=a.compile, fixed_batch=a.fixed_batch)
         results[precision] = r
-        print(f"[profile] {mode}: mean_step={r['mean_step_ms']:.1f}ms  "
+        print(f"[profile] {precision}: mean_step={r['mean_step_ms']:.1f}ms  "
               f"forward={r['forward_total_ms']/r['steps_measured']:.1f}ms/step  "
               f"backbone_share_of_step={r['backbone_share_of_step']:.1%}  "
               f"peak_mem={r['peak_gpu_mem_mb']:.0f}MB  gpu_util={r['utilization']['gpu_util_mean_pct']:.0f}%")
@@ -244,22 +257,22 @@ def main():
             if st:
                 print(f"    {s:<24} {st['mean_ms']:8.2f}  {st['total_ms']/r['step_total_ms']:6.1%}")
 
-    # TF32 vs FP32 per-stage speedup + end-to-end.
+    # FP16 AMP vs FP32 per-stage speedup + end-to-end.
     speedup = {}
-    if "fp32" in results and "tf32" in results:
-        f, t = results["fp32"]["per_stage"], results["tf32"]["per_stage"]
+    if "fp32" in results and "fp16" in results:
+        f, t = results["fp32"]["per_stage"], results["fp16"]["per_stage"]
         for s in FORWARD_STAGES + LOOP_STAGES:
             if s in f and s in t and t[s]["mean_ms"] > 0:
                 speedup[s] = f[s]["mean_ms"] / t[s]["mean_ms"]
         speedup["end_to_end_step"] = (
-            results["fp32"]["mean_step_ms"] / results["tf32"]["mean_step_ms"]
-            if results["tf32"]["mean_step_ms"] else 0.0
+            results["fp32"]["mean_step_ms"] / results["fp16"]["mean_step_ms"]
+            if results["fp16"]["mean_step_ms"] else 0.0
         )
-        print("\n===== TF32 speedup (fp32/tf32, >1 = tf32 faster) =====")
+        print("\n===== FP16 AMP speedup (fp32/fp16, >1 = fp16 faster) =====")
         for s, v in speedup.items():
             print(f"  {s:<28} {v:.2f}x")
 
-    out = {"config": a.config, "client_id": a.client_id, "regimes": results, "tf32_speedup": speedup}
+    out = {"config": a.config, "client_id": a.client_id, "regimes": results, "fp16_speedup": speedup}
     os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
     with open(a.out, "w", encoding="utf-8") as f:
         json.dump(out, f, indent=2, sort_keys=True)

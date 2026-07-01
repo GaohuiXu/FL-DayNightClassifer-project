@@ -1,7 +1,7 @@
 """Full-detector VRAM + step-time probe (MCR P1 — the LiDAR-backbone OOM gate).
 
 Builds the detector for the 4 configs {0.4m, 0.2m} × {no-backbone, +backbone}, runs fwd+loss+backward on a
-real B=4 multi-sweep batch under bf16-AMP, and reports peak torch.cuda.max_memory_allocated() + per-step ms +
+real B=4 multi-sweep batch under fp16 AMP, and reports peak torch.cuda.max_memory_allocated() + per-step ms +
 the encoder occupied-pillar count P (to catch 0.2m silent pillar-truncation at the max_pillars cap). This is
 the go/no-go for the heavy 0.2m run — MUST run on an A100 (40GB); the login T4 (16GB) would OOM at 0.2m."""
 import sys, time, json, copy
@@ -12,9 +12,10 @@ from fl_v3.data.nuscenes import info_cache as IC, paths as P
 from fl_v3.data.nuscenes.dataset import NuScenesMultimodalDataset
 from fl_v3.models.fusion.collate import detection_collate_fn
 from fl_v3.training.tasks import get_task, _det_config_from_run
-from fl_v3.utils.runtime import enforce_determinism
+from fl_v3.training.loop import _float_tensors
+from fl_v3.utils.runtime import enforce_determinism, make_grad_scaler, precision_autocast_context
 
-enforce_determinism(strict=False, precision="bf16")
+enforce_determinism(strict=False, precision="fp16")
 dev = torch.device("cuda")
 CACHE = "./fl_outputs/nuscenes/info_cache_msweep10"
 ms, _ = IC.load_cache(CACHE, "v1.0-mini", "mini_train")
@@ -25,7 +26,7 @@ batch = {k: (v.to(dev) if torch.is_tensor(v) else v) for k, v in batch.items()}
 BASE = {
     "det-camera-backbone": "swin_t", "det-swin-sdpa": True, "det-freeze-backbone": False,
     "det-lidar-sweeps": 10, "nuscenes-cache-dir": CACHE, "nuscenes-version": "v1.0-mini",
-    "det-pretrained-backbone": True,
+    "det-pretrained-backbone": True, "precision": "fp16",
 }
 CONFIGS = [
     ("0.4m  no-bb", {"det-bev-voxel": 0.4, "det-max-pillars": 30000, "det-lidar-backbone": False}),
@@ -52,12 +53,17 @@ for name, ov in CONFIGS:
             key = pts[keep, 0] * (bevc.nx * bevc.ny) + flat_index(col[keep], row[keep], bevc.nx)
             Pn = int(torch.unique(key).numel())
         opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=1e-4)
+        scaler = make_grad_scaler(dev, "fp16")
         def step():
             opt.zero_grad()
-            with torch.autocast("cuda", dtype=torch.bfloat16):
+            with precision_autocast_context("fp16", dev):
                 out = model(batch)
-            out = {k: (v.float() if torch.is_tensor(v) else v) for k, v in out.items()}
-            loss = crit(out, batch); loss.backward(); opt.step(); return float(loss)
+            out = _float_tensors(out)
+            loss = crit(out, batch)
+            scaler.scale(loss).backward()
+            scaler.step(opt)
+            scaler.update()
+            return float(loss)
         for _ in range(3): step()
         torch.cuda.synchronize(); t0 = time.perf_counter()
         for _ in range(5): step()

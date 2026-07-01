@@ -26,7 +26,14 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from fl_v3.data.partition import iid_partition
 from fl_v3.models.dummy import TinyMLP
-from fl_v3.utils.runtime import derive_seed, seeded_worker_init, truthy
+from fl_v3.utils.runtime import (
+    current_precision,
+    derive_seed,
+    precision_autocast_context,
+    seeded_worker_init,
+    truthy,
+    validate_sparse_precision,
+)
 
 # ---------------------------------------------------------------------------
 # DT3-A — trainable-only update vector + the frozen T3→T6 layout contract.
@@ -365,6 +372,8 @@ def _det_config_from_run(run_config: dict):
     if pcr:
         bev_kwargs["point_cloud_range"] = tuple(float(v) for v in pcr)
     bev = BEVConfig(**bev_kwargs)
+    lidar_encoder = str(run_config.get("det-lidar-encoder", "pillar"))
+    validate_sparse_precision(run_config.get("precision", "fp32"), lidar_encoder)
     return DetectorConfig(
         camera_backbone=str(run_config.get("det-camera-backbone", "swin_t")),
         freeze_camera_backbone=truthy(run_config.get("det-freeze-backbone", True)),
@@ -384,7 +393,7 @@ def _det_config_from_run(run_config: dict):
         max_points_per_pillar=int(run_config.get("det-max-points-per-pillar", 32)),
         max_pillars=int(run_config.get("det-max-pillars", 30000)),
         lidar_sweeps=int(run_config.get("det-lidar-sweeps", 1)),
-        lidar_encoder=str(run_config.get("det-lidar-encoder", "pillar")),
+        lidar_encoder=lidar_encoder,
         lidar_backbone=truthy(run_config.get("det-lidar-backbone", False)),
         lidar_backbone_out=int(run_config.get("det-lidar-backbone-out", 128)),
         lidar_backbone_checkpoint=truthy(run_config.get("det-lidar-backbone-checkpoint", False)),
@@ -648,10 +657,11 @@ class NuScenesDetectionTask(Task):
         return self._make_loader(run_config, info_list, tokens, shuffle=False)
 
     def evaluate(self, model, eval_loader, criterion, device, run_config) -> dict:
-        from fl_v3.training.loop import _move_to_device
+        from fl_v3.training.loop import _float_tensors, _move_to_device
 
         target_class = int(run_config.get("det-target-class", 0))  # D8 car
         thr = float(run_config.get("det-score-threshold", 0.1))
+        precision = current_precision()
         model.eval()
         total_loss, total_n = 0.0, 0
         agg = {"recall_at": 0.0, "mean_best_center_dist": 0.0, "n_gt": 0.0,
@@ -662,7 +672,10 @@ class NuScenesDetectionTask(Task):
         with _torch.no_grad():
             for batch in eval_loader:
                 batch = _move_to_device(batch, device)
-                out = model(batch)
+                with precision_autocast_context(precision, device):
+                    out = model(batch)
+                if precision == "fp16" and device.type == "cuda":
+                    out = _float_tensors(out)
                 loss = criterion(out, batch)
                 bs = len(batch["gt_boxes"])
                 total_loss += float(loss.item()) * bs

@@ -117,10 +117,10 @@ def main() -> None:
     # batch-invariant decode feeding DetectionEval + the frozen subset + disappearance + V4. T5 inherits
     # this protocol (decode triggered inputs at batch_size=1 too). See collab/findings_log.md.
     cfg["batch-size"] = 1
-    precision = str(cfg.get("precision", "bf16"))
+    precision = str(cfg.get("precision", "fp16"))
     seed_everything(int(cfg.get("seed", 42)))
-    # Regime consistency (D14/D16): evaluate a checkpoint in the SAME precision regime it was trained in
-    # (no mixing). The science default is bf16; the offline dev/determinism path is fp32.
+    # Regime consistency: evaluate a checkpoint in the SAME precision regime it was trained in
+    # (no mixing). Arrhenius sparse default is fp16; the offline dev/debug path is fp32.
     enforce_determinism(strict=truthy(cfg.get("determinism-strict", True)), precision=precision)
 
     version = str(cfg["nuscenes-version"])
@@ -148,9 +148,9 @@ def main() -> None:
 
     # --- regime-consistency guard (det-review #3; D16): a checkpoint MUST be evaluated in the SAME
     # precision regime it was trained in (no mixing). If a provenance.json beside the checkpoint records
-    # a ``precision``, it MUST match the evaluator's — RAISE on mismatch so a silent bf16/fp32 mix cannot
+    # a ``precision``, it MUST match the evaluator's — RAISE on mismatch so a silent fp16/fp32 mix cannot
     # pass. Checkpoints that predate the D16 knob carry only a legacy ``numeric-mode`` (fp32/tf32) and no
-    # ``precision`` → only WARN (their regime is not bf16-vs-fp32 comparable).
+    # ``precision`` → only WARN (their regime is not fp16-vs-fp32 comparable).
     _prov_file = os.path.join(os.path.dirname(os.path.abspath(args.checkpoint)), "provenance.json")
     if os.path.isfile(_prov_file):
         _prov = json.load(open(_prov_file, encoding="utf-8"))

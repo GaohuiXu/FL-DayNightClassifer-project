@@ -42,7 +42,7 @@
   "server-eval-frequency": 1,
   "det-eval-limit": 512,
   "log-gradient-metrics": false,
-  "precision": "bf16",
+  "precision": "fp16",
   "determinism-strict": false,
 
   "det-camera-backbone": "swin_t",

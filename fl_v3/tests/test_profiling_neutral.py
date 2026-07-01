@@ -91,7 +91,7 @@ def test_profiling_summary_shape():
 # --- C: precision regime wiring (regression; D16 single knob) ---
 @pytest.mark.parametrize("precision,deterministic,benchmark,det_algos", [
     ("fp32", True, False, True),    # dev/determinism tool: byte-identical, autotuner off, atomics RAISE
-    ("bf16", False, True, False),   # science: autotuner on, atomic scatter + AMP allowed (not byte-identical)
+    ("fp16", False, True, False),   # Arrhenius sparse train: fp16 AMP + GradScaler, relaxed kernels
 ])
 def test_precision_sets_flags(precision, deterministic, benchmark, det_algos):
     enforce_determinism(strict=True, precision=precision)
@@ -107,12 +107,13 @@ def test_precision_sets_flags(precision, deterministic, benchmark, det_algos):
     assert ps["precision"] == precision
     assert ps["determinism_level"] == ("strict" if deterministic else "relaxed")
     assert ps["float32_matmul_precision"] == "highest"
-    # reset to the strict fp32 dev default so test order can't leak the bf16/relaxed regime.
+    # reset to the strict fp32 dev default so test order can't leak the fp16/relaxed regime.
     enforce_determinism(strict=True, precision="fp32")
 
 
 def test_precision_bad_raises():
-    # "tf32" is RETIRED under D16 (was a valid numeric-mode); only {bf16, fp32} are valid now.
-    with pytest.raises(ValueError):
-        enforce_determinism(strict=True, precision="tf32")
+    # "tf32" is retired and direct sparse bf16 is unsupported on Arrhenius.
+    for bad in ("tf32", "bf16"):
+        with pytest.raises(ValueError):
+            enforce_determinism(strict=True, precision=bad)
     enforce_determinism(strict=True, precision="fp32")

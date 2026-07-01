@@ -1,7 +1,8 @@
 # MCR Phase-1 — Capability summary (canonical; consolidates all phase-0/1/2 + the three later CL levers)
 
 > The single, AUTHORITATIVE, human-readable record for the MCR centralized (CL) capability push (D17) — read this first.
-> Centralized BEVFusion-class detector on nuScenes, pure-PyTorch (no spconv by default, Rule #2), bf16-AMP (D16).
+> Centralized BEVFusion-class detector on nuScenes. Historical Alvis/A40 runs used bf16-AMP (D16);
+> current Arrhenius/GH200 sparse work uses `fp32` reference or `fp16` AMP + GradScaler.
 > **★ STRONGEST CL REFERENCE SO FAR: bb02d = 0.5656 mAP / 0.5733 NDS** (val, official 10-class; ckpt `…/p2_ddp/bb02d_r20/ema_ep15`,
 > config `configs/p1_bb02d.json`). Locked 2026-06-25 as the working reference after a second session re-investigated
 > independently and three further levers (CBGS, head-capacity, GT-paste) came in below it; **three more levers were run
@@ -77,8 +78,9 @@ profiler is `scripts/p1_profile_a100.py`; the VRAM probe (backbone × voxel) is 
 
 ## Determinism / precision (Phase 0)
 
-ONE `precision={bf16,fp32}` knob (D16) replaced numeric-mode×determinism-level. bf16=science default;
-fp32+strict=offline dev-regression tool (the static-AST ban over models/fusion/** + byte-identity). The LiDAR
+Current Arrhenius policy is `precision={fp16,fp32}`: `fp32` is the dev/debug/reference path, and `fp16`
+is CUDA AMP + GradScaler for supported sparse training. Direct sparse bf16 is unsupported in the validated
+cumm/spconv path. Historically, D16 used `precision={bf16,fp32}` on Alvis/A40. The LiDAR
 backbone is AST-clean (Conv2d/GN/ReLU/interpolate) and downstream of the perm-invariant scatter ⇒ no new
 determinism obligation. All capability knobs default-OFF ⇒ byte-identical baseline; 247-test suite + the new
 backbone/aug tests green. (The sparse-voxel encoder of the LATER-CL-LEVERS § *voxel* is the one path that pulls in spconv;

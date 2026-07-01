@@ -172,7 +172,7 @@ class PointPillarsEncoder(nn.Module):
         # injective-cell invariant (pillar identity == cell identity). uniq_keys comes from
         # unique_consecutive on a sorted key ⇒ unique BY CONSTRUCTION, so this torch.unique (a full
         # extra sort over ~28k keys/step) is redundant on the hot path — keep it only under the strict
-        # offline dev-regression path (cudnn.deterministic), drop it from the bf16 science path.
+        # offline dev-regression path (cudnn.deterministic), drop it from the relaxed fp16 path.
         if torch.backends.cudnn.deterministic:
             assert torch.unique(uniq_keys).numel() == uniq_keys.numel(), "pillar keys not unique"
         canvas = pillar_feat.new_zeros((B * cfg.ny * cfg.nx, self.out_channels))

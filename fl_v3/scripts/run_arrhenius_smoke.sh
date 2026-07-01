@@ -44,6 +44,7 @@ fi
 
 echo "[run_arrhenius_smoke] host=$(hostname) arch=$(uname -m) modes=${MODES}"
 echo "[run_arrhenius_smoke] env=${ARRHENIUS_VENV}"
+echo "[run_arrhenius_smoke] precision=${PRECISION:-fp16} lidar_encoder=${LIDAR_ENCODER:-<config>}"
 echo "[run_arrhenius_smoke] dataroot=${ARRHENIUS_NUSCENES_DATAROOT:-<unset>}"
 echo "[run_arrhenius_smoke] cache=${ARRHENIUS_NUSCENES_CACHE}"
 
@@ -52,9 +53,11 @@ python fl_v3/scripts/arrhenius_smoke.py \
   --cache-dir "${ARRHENIUS_NUSCENES_CACHE}" \
   --output-dir "${ARRHENIUS_OUTPUT_ROOT}" \
   --precision "${PRECISION:-fp16}" \
+  --lidar-encoder "${LIDAR_ENCODER:-}" \
   --eval-limit "${EVAL_LIMIT:-2}" \
   --train-steps "${TRAIN_STEPS:-1}" \
   --batch-size "${BATCH_SIZE:-1}" \
+  --num-workers "${NUM_WORKERS:-0}" \
   --min-keyframes-per-client "${MIN_KEYFRAMES_PER_CLIENT:-0}" \
   "${REQ[@]}" \
   ${MODES}

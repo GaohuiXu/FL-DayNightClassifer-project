@@ -71,7 +71,7 @@ def main():
         k, _, v = ov.partition("=")
         cfg[k] = _parse_scalar(v)
 
-    precision = str(cfg.get("precision", "bf16"))   # D16 science default = bf16 (centralized baseline)
+    precision = str(cfg.get("precision", "fp16"))   # Arrhenius sparse default: fp16 AMP + GradScaler
     seed = int(cfg.get("seed", 42))
     # REVIEW-FIX (MED, det-review #6): the matched-budget control assumes 1 local epoch/round, so
     # R FL rounds == R centralized epochs of data exposure. If the FL reference ever uses >1 local
@@ -218,7 +218,7 @@ def main():
         if not p.requires_grad:
             continue
         (bb_params if n.startswith("camera_backbone.") else rest_params).append(p)
-    _fused = (device.type == "cuda" and not torch.backends.cudnn.deterministic)  # fused Adam/AdamW: bf16 only
+    _fused = (device.type == "cuda" and precision == "fp16")
     # Exp3: Adam (default ⇒ baseline-identical) | AdamW (decoupled weight-decay — the correct WD vehicle,
     # still the Adam family per the reproduction-fidelity decision). Same args + fused path.
     opt_name = str(cfg.get("det-optimizer", "adam")).lower()
@@ -338,7 +338,7 @@ def main():
         loader = epoch_loader(epoch)         # per-epoch loader seeded (seed+epoch) → resume-reproducible
         m = train_one_epoch(model, loader, criterion, optimizer, device,
                             grad_clip_norm=grad_clip_norm, scheduler=sched, ema_model=ema_model,
-                            max_steps=args.max_steps)   # max_steps=0 → full epoch; sched/ema None ⇒ baseline-identical
+                            max_steps=args.max_steps, precision=precision)   # max_steps=0 → full epoch
         if ddp:  # global mean loss for the logged curve (each rank trained on 1/world of the epoch)
             tt = torch.tensor([m["loss"] * m["num_samples"], m["num_samples"]], device=device, dtype=torch.float64)
             dist.all_reduce(tt, op=dist.ReduceOp.SUM)

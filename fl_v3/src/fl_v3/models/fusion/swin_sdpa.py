@@ -88,7 +88,7 @@ def _sdpa_swa_forward(self, x: torch.Tensor) -> torch.Tensor:
         with sdpa_kernel(SDPBackend.MATH):
             out = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, dropout_p=p,
                                                  scale=head_dim ** -0.5)
-    else:                                                           # bf16 science → EFFICIENT (float-mask)
+    else:                                                           # fp16 relaxed path -> EFFICIENT (float-mask)
         out = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, dropout_p=p,
                                              scale=head_dim ** -0.5)
 

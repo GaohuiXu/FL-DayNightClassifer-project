@@ -86,12 +86,12 @@ CUMM_CUDA_ARCH_LIST=9.0
 
 Precision status:
 
-- Supported for Arrhenius sparse path: `fp16` AMP + GradScaler, and `fp32`.
+- Supported for Arrhenius sparse path: `fp32` dev/debug/reference and `fp16`
+  AMP + GradScaler (`init_scale=512`) for sparse training.
 - Direct `torch.bfloat16` sparse convolution is not supported by this
-  cumm/spconv path.
-- Formal trainer integration for Arrhenius `fp16` is separate from the
-  environment smoke; the smoke harness already covers fp32 real-data train and
-  FP16 AMP sparse-conv.
+  cumm/spconv path; `bf16` configs should fail loudly instead of falling back.
+- Trainer, smoke, and provenance paths use the explicit `precision` policy
+  rather than inferring AMP dtype from cuDNN deterministic flags.
 
 ## Smoke Tests
 

@@ -1,5 +1,10 @@
 # MODEL CAPABILITY + RECIPE (MCR) session — paste into a fresh session (OUTSIDE the T<N> sessions)
 
+> Arrhenius update (2026-07): this kickoff records the historical Alvis/A40 D16
+> precision plan. The active GH200 policy is now `fp32` for dev/debug/reference and
+> `fp16` AMP + `GradScaler(init_scale=512)` for supported sparse training. Direct
+> sparse `bf16` is unsupported in the validated cumm/spconv path.
+
 > A dedicated capability + recipe + infrastructure session, sibling to the (now-closed) speedup session.
 > NOT a T<N> build session, NOT a Codex review. Charter by the orchestrator; decision record **D17**
 > (with **D15** = the speedup/diagnostics findings it builds on, **D16** = the bf16-AMP precision regime

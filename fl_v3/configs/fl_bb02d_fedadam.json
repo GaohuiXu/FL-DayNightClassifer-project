@@ -45,7 +45,7 @@
   "snapshot-rounds": "8,10,12,14,15",
   "server-eval-mode": "every_n",
   "server-eval-frequency": 3,
-  "precision": "bf16",
+  "precision": "fp16",
   "determinism-strict": false,
 
   "det-camera-backbone": "swin_t",

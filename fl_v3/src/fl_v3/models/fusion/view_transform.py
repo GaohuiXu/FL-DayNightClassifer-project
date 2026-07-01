@@ -199,9 +199,9 @@ class DepthLSSTransform(nn.Module):
             ij = p % (fH * fW)
             depth_vals = depth_prob.reshape(B * N, P)[bn, p]
             ctx_vals = context.reshape(B * N, Cc, fH * fW)[bn, :, ij]
-            # bf16 STABILITY: accumulate the BEV splat in fp32 (thousands of points sum into one cell —
-            # bf16 accumulation loses precision / can overflow). The forward stays bf16; only this
-            # reduction is fp32 (cheap). Output is fp32; downstream fusion re-casts under autocast.
+            # AMP STABILITY: accumulate the BEV splat in fp32 (thousands of points sum into one cell).
+            # The forward stays autocast; only this reduction is fp32 (cheap). Output is fp32;
+            # downstream fusion re-casts under autocast.
             xf = (depth_vals.unsqueeze(1) * ctx_vals).float()  # [P_valid, Cc] fp32
             canvas = xf.new_zeros((B * cfg.ny * cfg.nx, Cc))
             canvas.scatter_add_(0, ranks_pt.unsqueeze(1).expand(-1, Cc), xf)  # D15-relaxed-ok

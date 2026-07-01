@@ -13,7 +13,7 @@ from fl_v3.models.fusion.detector import DetectorConfig
 from fl_v3.models.fusion.lidar_encoder import PointPillarsEncoder
 from fl_v3.utils.runtime import enforce_determinism
 
-enforce_determinism(strict=False, precision="bf16")
+enforce_determinism(strict=False, precision="fp16")
 dev = torch.device("cuda")
 CACHE = "./fl_outputs/nuscenes/info_cache_msweep10"
 ms, _ = IC.load_cache(CACHE, "v1.0-mini", "mini_train")

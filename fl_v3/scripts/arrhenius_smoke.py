@@ -12,12 +12,13 @@ import json
 import os
 import platform
 import sys
-from contextlib import nullcontext
 from itertools import islice, cycle
 from pathlib import Path
 
 
 def _load_cfg(path: str, args: argparse.Namespace) -> dict:
+    from fl_v3.utils.runtime import validate_sparse_precision
+
     cfg = json.load(open(path, encoding="utf-8"))
     if args.dataroot:
         cfg["nuscenes-dataroot"] = args.dataroot
@@ -32,6 +33,9 @@ def _load_cfg(path: str, args: argparse.Namespace) -> dict:
     cfg["batch-size"] = int(args.batch_size)
     cfg["det-camera-backbone"] = args.backbone
     cfg["det-pretrained-backbone"] = True
+    if args.lidar_encoder:
+        cfg["det-lidar-encoder"] = args.lidar_encoder
+    validate_sparse_precision(cfg.get("precision"), cfg.get("det-lidar-encoder", "pillar"))
     if int(args.min_keyframes_per_client) > 0:
         cfg["min-keyframes-per-client"] = int(args.min_keyframes_per_client)
     cfg["wandb-enabled"] = False
@@ -127,6 +131,62 @@ def spconv_smoke() -> None:
     print("[spconv] FP16_AMP_GRADSCALER_OK", "scale", scaler.get_scale(), "out_dtypes", out_dtypes)
 
 
+def sparse_lidar_smoke() -> None:
+    import torch
+    from fl_v3.models.fusion.bev_grid import BEVConfig
+    from fl_v3.models.fusion.sparse_voxel_encoder import SparseVoxelEncoder
+
+    if not torch.cuda.is_available():
+        raise RuntimeError("CUDA is required for sparse_lidar_smoke")
+    dev = torch.device("cuda:0")
+    torch.cuda.set_device(dev)
+    torch.manual_seed(20260701)
+
+    cfg = BEVConfig(point_cloud_range=(-4.0, -4.0, -2.0, 4.0, 4.0, 2.0), bev_voxel=(1.0, 1.0))
+    enc = SparseVoxelEncoder(
+        out_channels=8,
+        cfg=cfg,
+        max_voxels=128,
+        max_points_per_voxel=8,
+    ).to(dev).train()
+    enc.record_debug = True
+    pts = torch.tensor(
+        [
+            [0, -3.5, -3.5, -1.5, 0.10, 0],
+            [0, -3.4, -3.4, -1.4, 0.20, 0],
+            [0, -0.2,  0.2,  0.1, 0.30, 0],
+            [1,  1.2, -1.1, -0.6, 0.40, 0],
+            [1,  2.7,  2.9,  1.2, 0.50, 0],
+            [1,  9.0,  0.0,  0.0, 0.60, 0],  # out of range; should be dropped
+        ],
+        device=dev,
+        dtype=torch.float32,
+    )
+    y = enc(pts, B=2)
+    meta = enc.last_sparse_meta or {}
+    assert y.shape == (2, 8, cfg.ny, cfg.nx), y.shape
+    assert torch.isfinite(y).all()
+    assert meta.get("coord_order") == "bzyx", meta
+    assert meta.get("indices_dtype") == "torch.int32", meta
+    assert meta.get("features_dtype") == "torch.float32", meta
+    assert meta.get("spatial_shape") == (enc.nz, cfg.ny, cfg.nx), meta
+    assert meta.get("batch_index_min") == 0 and meta.get("batch_index_max") == 1, meta
+    (y.float().square().mean()).backward()
+    grad_norm = torch.nn.utils.clip_grad_norm_([p for p in enc.parameters() if p.requires_grad], 1e9)
+
+    occ = enc.occupancy(pts, B=2)
+    assert occ.shape == (2, cfg.ny, cfg.nx)
+    assert float(occ.sum().detach().cpu()) == 5.0
+
+    enc.zero_grad(set_to_none=True)
+    empty = enc(pts[:0], B=2)
+    assert empty.shape == (2, 8, cfg.ny, cfg.nx)
+    assert torch.count_nonzero(empty.detach()) == 0
+    empty.sum().backward()
+    assert all(p.grad is not None for p in enc.parameters() if p.requires_grad)
+    print("[sparse-lidar] OK", "out", tuple(y.shape), "meta", meta, "grad_norm", float(grad_norm))
+
+
 def data_preflight(cfg: dict) -> bool:
     from fl_v3.data.nuscenes import paths as P
     from fl_v3.data.nuscenes import info_cache as IC
@@ -174,8 +234,13 @@ def train_smoke(cfg: dict, steps: int) -> None:
     from fl_v3.data.nuscenes.dataset import NuScenesMultimodalDataset, make_loader
     from fl_v3.data.nuscenes import paths as P
     from fl_v3.models.fusion.collate import detection_collate_fn
-    from fl_v3.training.loop import _move_to_device
-    from fl_v3.utils.runtime import enforce_determinism, seed_everything
+    from fl_v3.training.loop import _float_tensors, _move_to_device
+    from fl_v3.utils.runtime import (
+        enforce_determinism,
+        make_grad_scaler,
+        precision_autocast_context,
+        seed_everything,
+    )
 
     seed_everything(int(cfg.get("seed", 42)))
     enforce_determinism(strict=False, precision=str(cfg.get("precision", "fp16")))
@@ -203,21 +268,16 @@ def train_smoke(cfg: dict, steps: int) -> None:
     crit = task.build_criterion(cfg)
     opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=1e-4)
     precision = str(cfg.get("precision", "fp16"))
-    scaler = torch.amp.GradScaler("cuda", enabled=precision == "fp16", init_scale=512.0)
-    if precision == "fp16":
-        amp_ctx = torch.autocast("cuda", dtype=torch.float16)
-    elif precision == "bf16":
-        amp_ctx = torch.autocast("cuda", dtype=torch.bfloat16)
-    else:
-        amp_ctx = nullcontext()
+    scaler = make_grad_scaler(device, precision)
     print("[train] start", "steps", steps, "batch", cfg["batch-size"], "tokens", len(toks), "precision", cfg["precision"])
+    print("[train] lidar_encoder", cfg.get("det-lidar-encoder", "pillar"))
     ok = True
     for i, batch in enumerate(islice(cycle(loader), steps)):
         opt.zero_grad(set_to_none=True)
         batch = _move_to_device(batch, device)
-        with amp_ctx:
+        with precision_autocast_context(precision, device):
             out = model(batch)
-        out = {k: (v.float() if torch.is_tensor(v) else v) for k, v in out.items()}
+        out = _float_tensors(out)
         loss = crit(out, batch)
         before = scaler.get_scale()
         scaler.scale(loss).backward()
@@ -258,13 +318,14 @@ def main() -> None:
     ap.add_argument("--dataroot", default=os.environ.get("ARRHENIUS_NUSCENES_DATAROOT", ""))
     ap.add_argument("--cache-dir", default=os.environ.get("ARRHENIUS_NUSCENES_CACHE", ""))
     ap.add_argument("--output-dir", default=os.environ.get("ARRHENIUS_OUTPUT_ROOT", ""))
-    ap.add_argument("--precision", default="fp16", choices=["fp16", "bf16", "fp32"])
+    ap.add_argument("--precision", default="fp16", choices=["fp16", "fp32"])
     ap.add_argument("--eval-limit", type=int, default=2)
     ap.add_argument("--train-steps", type=int, default=1)
     ap.add_argument("--batch-size", type=int, default=1)
     ap.add_argument("--num-workers", type=int, default=0)
     ap.add_argument("--min-keyframes-per-client", type=int, default=0)
     ap.add_argument("--backbone", default="resnet18", choices=["resnet18", "swin_t"])
+    ap.add_argument("--lidar-encoder", default="", choices=["", "pillar", "voxel"])
     ap.add_argument("--require-data", action="store_true")
     ap.add_argument("modes", nargs="*", default=["import", "spconv", "data", "dummy-train"])
     args = ap.parse_args()
@@ -278,6 +339,8 @@ def main() -> None:
             import_sanity()
         elif mode == "spconv":
             spconv_smoke()
+        elif mode == "sparse-lidar":
+            sparse_lidar_smoke()
         elif mode == "data":
             ok = data_preflight(cfg)
             if args.require_data and not ok:

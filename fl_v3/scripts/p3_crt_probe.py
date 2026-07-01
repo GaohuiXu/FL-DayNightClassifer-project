@@ -103,12 +103,12 @@ def main() -> None:
         k, _, v = ov.partition("=")
         cfg[k] = _parse_scalar(v)
 
-    precision = str(cfg.get("precision", "bf16"))     # D16 science default
+    precision = str(cfg.get("precision", "fp16"))     # Arrhenius sparse default
     seed = int(cfg.get("seed", 42))
     device = torch.device("cuda" if (str(cfg.get("device", "cuda")) == "cuda"
                                      and torch.cuda.is_available()) else "cpu")
     seed_everything(seed)
-    # bf16-AMP science path (D16); strict=False (this is a bf16 diagnostic, not the offline byte-id dev tool).
+    # fp16-AMP Arrhenius path; strict=False because this is a throughput diagnostic.
     enforce_determinism(strict=False, precision=precision)
     print(f"[cRT] precision={precision} device={device} precision_state={precision_state()} "
           f"trainable_prefix={prefixes} init_from={args.init_from}", flush=True)
@@ -199,7 +199,7 @@ def main() -> None:
     # --- head-only optimizer (over requires_grad params = the head; backbone frozen ⇒ flat single-group) ---
     base_lr = float(cfg.get("learning-rate", 1e-3))
     wd = float(cfg.get("weight-decay", 0.0))
-    _fused = (device.type == "cuda" and not torch.backends.cudnn.deterministic)
+    _fused = (device.type == "cuda" and precision == "fp16")
     opt_name = str(cfg.get("det-optimizer", "adam")).lower()
     OptCls = torch.optim.AdamW if opt_name == "adamw" else torch.optim.Adam
     head_params = [p for p in model.parameters() if p.requires_grad]
@@ -298,7 +298,7 @@ def main() -> None:
         loader = epoch_loader(epoch)
         m = train_one_epoch(model, loader, criterion, optimizer, device,
                             grad_clip_norm=grad_clip_norm, scheduler=sched, ema_model=ema_model,
-                            max_steps=args.max_steps)
+                            max_steps=args.max_steps, precision=precision)
         dt = time.perf_counter() - t0
         # always overwrite the rolling raw + ema checkpoints
         chk_raw = _save(exp_dir, model.state_dict(), model, "raw", epoch + 1)

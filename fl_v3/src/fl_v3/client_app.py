@@ -62,7 +62,7 @@ def train(msg: Message, context: Context) -> Message:
     seed_everything(derive_seed(int(run_config.get("seed", 42)), client_id, server_round))
     enforce_determinism(
         strict=truthy(run_config.get("determinism-strict", True)),
-        precision=str(run_config.get("precision", "bf16")),
+        precision=str(run_config.get("precision", "fp16")),
     )
 
     import time as _time
@@ -75,9 +75,9 @@ def train(msg: Message, context: Context) -> Message:
     # per client/round, so this re-traces each time — but a PERSISTENT inductor cache
     # (TORCHINDUCTOR_CACHE_DIR, set in the launcher; the Ray actor persists across rounds) makes the
     # expensive kernel compile a cache HIT after the first client → only the cheap dynamo re-trace
-    # recurs. bf16-only (compile is off the strict byte-identity dev path). Default off (explicit opt-in
+    # recurs. fp16-only (compile is off the strict byte-identity dev path). Default off (explicit opt-in
     # per the D16 tooling envelope: torch.compile stays opt-in with an eager fallback).
-    _can_compile = device.type == "cuda" and str(run_config.get("precision", "bf16")) == "bf16"
+    _can_compile = device.type == "cuda" and str(run_config.get("precision", "fp16")) == "fp16"
     if _can_compile and truthy(run_config.get("compile-backbone", False)):
         model.camera_backbone = torch.compile(model.camera_backbone)
     # MCR P3: compile the STATIC-shape BEV conv stack too (camera_neck+fusion+bev_neck+head + the dense
@@ -115,6 +115,7 @@ def train(msg: Message, context: Context) -> Message:
         grad_clip_norm=float(run_config.get("grad-clip-norm", 0.0)),
         backbone_lr_mult=float(run_config.get("det-backbone-lr-mult", 1.0)),
         optimizer_name=str(run_config.get("det-optimizer", "adam")),
+        precision=str(run_config.get("precision", "fp16")),
     )
 
     _t_train = _time.perf_counter() - _t_train0   # local-training wall (loader + fwd/bwd/opt over the shard)
@@ -151,7 +152,7 @@ def evaluate_client(msg: Message, context: Context) -> Message:
     seed_everything(derive_seed(int(run_config.get("seed", 42)), client_id, server_round))
     enforce_determinism(
         strict=truthy(run_config.get("determinism-strict", True)),
-        precision=str(run_config.get("precision", "bf16")),
+        precision=str(run_config.get("precision", "fp16")),
     )
 
     device = _device(run_config)

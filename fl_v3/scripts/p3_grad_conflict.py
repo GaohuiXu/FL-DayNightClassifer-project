@@ -46,7 +46,8 @@ def main() -> None:
                 if v in ("true", "false"): v = (v == "true")
         cfg[k] = v
     seed = int(cfg.get("seed", 42))
-    enforce_determinism(strict=False, precision=str(cfg.get("precision", "bf16")))
+    precision = str(cfg.get("precision", "fp16"))
+    enforce_determinism(strict=False, precision=precision)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     task = get_task(str(cfg["task-type"]))
     n_clients = task.num_clients(cfg)
@@ -64,7 +65,8 @@ def main() -> None:
     lr = float(cfg.get("learning-rate", 1e-3)); wd = float(cfg.get("weight-decay", 0.0))
     rkw = dict(grad_clip_norm=float(cfg.get("grad-clip-norm", 0.0)),
                backbone_lr_mult=float(cfg.get("det-backbone-lr-mult", 1.0)),
-               optimizer_name=str(cfg.get("det-optimizer", "adam")))
+               optimizer_name=str(cfg.get("det-optimizer", "adam")),
+               precision=precision)
 
     deltas = []  # per client: dict key -> np.ndarray (the update)
     for cid in range(n_clients):

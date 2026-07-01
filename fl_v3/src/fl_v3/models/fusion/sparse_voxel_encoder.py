@@ -10,7 +10,7 @@ unchanged and the comparison isolates pillars→voxels at the matched grid.
 Rule #2 relaxation (owner, 2026-06-28; Phase 0A de-risked spconv on Arrhenius): spconv kernels are **non-
 deterministic** (fine under D16's seed-variance regime, NOT the strict byte-id dev tool) and do **not support
 bf16** (Phase 0A) — so the spconv stack runs **autocast-DISABLED in fp32**; the dense BEV re-enters the model's
-autocast (bf16/fp16) for fusion. Requires ``spconv-cu126`` + ``unset BOOST_ROOT`` (the EasyBuild Boost confuses
+fp16 autocast for fusion. Requires ``spconv-cu126`` + ``unset BOOST_ROOT`` (the EasyBuild Boost confuses
 spconv's import check). Gated by ``det-lidar-encoder=voxel`` (default ``pillar`` ⇒ this module is never built).
 """
 from __future__ import annotations
@@ -18,7 +18,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from fl_v3.models.fusion.bev_grid import BEVConfig
+from fl_v3.models.fusion.bev_grid import BEVConfig, flat_index, in_grid_mask, metric_to_grid
 
 
 def _gn(channels: int, max_groups: int = 8) -> nn.GroupNorm:
@@ -52,6 +52,8 @@ class SparseVoxelEncoder(nn.Module):
         self.max_voxels = int(max_voxels)
         self.max_pts = int(max_points_per_voxel)
         self._voxelizer = None                              # built lazily (device-bound)
+        self.record_debug = False                           # opt-in only; keeps the hot path sync-free
+        self.last_sparse_meta: dict | None = None
 
         # PFN-style per-point VFE: per-point [abs xyz, intensity(+dt), voxel-center-relative xyz] → Linear → GN →
         # ReLU → masked max-pool per voxel. (The earlier naive mean-VFE collapsed each voxel to ~[center,
@@ -105,7 +107,7 @@ class SparseVoxelEncoder(nn.Module):
         import spconv.pytorch as sp              # local (not stored on self — see __init__ note re: EMA deepcopy)
         feat_cols = [1, 2, 3, 4] + ([6] if self.use_timestamp else [])
         bidx = points[:, 0].to(torch.int64)
-        # spconv: fp32, autocast OFF (no bf16; non-deterministic ok under D16).
+        # spconv: fp32, autocast OFF (no bf16; allowed inside the relaxed fp16 Arrhenius regime).
         with torch.autocast(device_type=dev.type, enabled=False):
             vfeats, coords_b = [], []
             for b in range(B):
@@ -127,11 +129,72 @@ class SparseVoxelEncoder(nn.Module):
                 bcol = torch.full((coords.shape[0], 1), b, dtype=coords.dtype, device=dev)
                 coords_b.append(torch.cat([bcol, coords], dim=1))               # [V,4]=(b,z,y,x)
             if not vfeats:
-                return points.new_zeros((B, self.out_channels, self.ny, self.nx))
-            x = sp.SparseConvTensor(torch.cat(vfeats, 0).to(torch.float32),
-                                    torch.cat(coords_b, 0).to(torch.int32),
-                                    spatial_shape=[self.nz, self.ny, self.nx], batch_size=B)
+                if self.record_debug:
+                    self.last_sparse_meta = {
+                        "coord_order": "bzyx",
+                        "indices_shape": (0, 4),
+                        "indices_dtype": "torch.int32",
+                        "features_shape": (0, self.vfe_point[0].out_features),
+                        "features_dtype": "torch.float32",
+                        "spatial_shape": (self.nz, self.ny, self.nx),
+                        "batch_size": int(B),
+                        "num_voxels": 0,
+                    }
+                return self._empty_bev(points, B)
+            features = torch.cat(vfeats, 0).to(torch.float32)
+            indices = torch.cat(coords_b, 0).to(torch.int32)
+            if self.record_debug:
+                self.last_sparse_meta = {
+                    "coord_order": "bzyx",
+                    "indices_shape": tuple(indices.shape),
+                    "indices_dtype": str(indices.dtype),
+                    "features_shape": tuple(features.shape),
+                    "features_dtype": str(features.dtype),
+                    "spatial_shape": (self.nz, self.ny, self.nx),
+                    "batch_size": int(B),
+                    "num_voxels": int(indices.shape[0]),
+                    "batch_index_min": int(indices[:, 0].min().item()),
+                    "batch_index_max": int(indices[:, 0].max().item()),
+                    "z_min": int(indices[:, 1].min().item()),
+                    "z_max": int(indices[:, 1].max().item()),
+                    "y_min": int(indices[:, 2].min().item()),
+                    "y_max": int(indices[:, 2].max().item()),
+                    "x_min": int(indices[:, 3].min().item()),
+                    "x_max": int(indices[:, 3].max().item()),
+                }
+            x = sp.SparseConvTensor(features, indices, spatial_shape=[self.nz, self.ny, self.nx], batch_size=B)
             x = self.backbone(x)
             dense = x.dense()                                                   # [B, ch, z_final, ny, nx]
             dense = dense.reshape(B, self.ch_final * self.z_final, self.ny, self.nx)
         return self.to_bev(dense)                                              # outer autocast casts to model dtype
+
+    def _empty_bev(self, points: torch.Tensor, B: int) -> torch.Tensor:
+        """Zero BEV for all-empty batches, with a zero-gradient anchor for DDP safety."""
+        out = points.new_zeros((B, self.out_channels, self.ny, self.nx))
+        if not self.training:
+            return out
+        anchor = None
+        for p in self.parameters():
+            term = p.float().sum() * 0.0
+            anchor = term if anchor is None else anchor + term
+        return out if anchor is None else out + anchor.to(dtype=out.dtype)
+
+    def occupancy(self, points: torch.Tensor, B: int) -> torch.Tensor:
+        """Per-cell in-range LiDAR point count ``[B, ny, nx]`` for sparse-encoder viz/smoke.
+
+        This mirrors :meth:`PointPillarsEncoder.occupancy` at the BEV-cell level so
+        V2 diagnostics do not silently assume the dense pillar implementation.
+        """
+        cfg = self.cfg
+        b = points[:, 0].to(torch.int64)
+        x, y, z = points[:, 1], points[:, 2], points[:, 3]
+        col, row = metric_to_grid(x, y, cfg.x_min, cfg.y_min, cfg.vx, cfg.vy)
+        keep = in_grid_mask(col, row, cfg.nx, cfg.ny) & (z >= cfg.z_min) & (z < cfg.z_max)
+        occ = points.new_zeros((B * cfg.ny * cfg.nx,))
+        if keep.sum() == 0:
+            return occ.view(B, cfg.ny, cfg.nx)
+        key = b[keep] * (cfg.nx * cfg.ny) + flat_index(col[keep], row[keep], cfg.nx)
+        key_s = key[torch.argsort(key, stable=True)]
+        uniq, counts = torch.unique_consecutive(key_s, return_counts=True)
+        occ.index_copy_(0, uniq, counts.to(occ.dtype))
+        return occ.view(B, cfg.ny, cfg.nx)

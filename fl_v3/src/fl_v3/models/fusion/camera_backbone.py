@@ -57,7 +57,7 @@ class CameraBackbone(nn.Module):
         # Numerically equivalent to torchvision's manual core (validated). swin_t only; no-op for resnet18.
         self.sdpa_attention = bool(sdpa_attention)
         # MCR P1 (D16 envelope): gradient/activation checkpointing on a TRAINED Swin backbone — trades
-        # ~20-30% recompute for the VRAM headroom that lets bf16 backbone-training fit a useful batch.
+        # ~20-30% recompute for the VRAM headroom that lets fp16 backbone-training fit a useful batch.
         # No effect when frozen (no backward through the backbone) or in eval; off ⇒ byte-identical.
         self.activation_checkpoint = bool(activation_checkpoint)
         self.strides = (4, 8, 16, 32)

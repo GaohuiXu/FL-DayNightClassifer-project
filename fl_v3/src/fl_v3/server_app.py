@@ -253,7 +253,7 @@ def main(grid: Grid, context: Context) -> None:
     run_config = context.run_config
 
     seed = int(run_config.get("seed", 42))
-    precision = str(run_config.get("precision", "bf16"))
+    precision = str(run_config.get("precision", "fp16"))
     seed_everything(seed)
     enforce_determinism(
         strict=truthy(run_config.get("determinism-strict", True)),

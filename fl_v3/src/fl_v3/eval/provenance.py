@@ -25,11 +25,11 @@ D10_REQUIRED: Dict[str, str] = {
     "defense-type": "none",
 }
 # The D10-relevant run-config keys the reference launcher records into provenance.json.
-# ``precision`` (D16: bf16=science / fp32=dev) is the canonical regime field — set explicitly in
+# ``precision`` (Arrhenius: fp16=AMP sparse train / fp32=dev) is the canonical regime field — set explicitly in
 # build_provenance (NOT in this tuple, so the T5 ATTACK_PROVENANCE_KEYS schema stays unchanged). The
 # legacy ``numeric-mode`` {fp32,tf32} key is kept here for back-compat/traceability but is NOT in
-# D10_REQUIRED (so legacy FP32/TF32 provenance is not retroactively invalidated); a bf16 verdict must be
-# bound to a bf16 checkpoint ("no mixing regimes"), enforced by the t4 regime-match guard on ``precision``.
+# D10_REQUIRED (so legacy FP32/TF32 provenance is not retroactively invalidated); a reported verdict must
+# match checkpoint precision ("no mixing regimes"), enforced by the t4 regime-match guard on ``precision``.
 PROVENANCE_KEYS = (
     "task-type", "nuscenes-version", "nuscenes-train-split", "nuscenes-val-split",
     "nuscenes-partition-mode", "fraction-train", "defense-type", "nuscenes-num-clients",
@@ -54,11 +54,11 @@ def build_provenance(run_config: dict, checksum: str) -> dict:
     prov = {k: run_config.get(k) for k in PROVENANCE_KEYS}
     prov["fl_recipe"] = {k: run_config.get(k) for k in FL_RECIPE_KEYS}
     prov["fraction-train"] = float(run_config.get("fraction-train", 0.0))
-    # D16: ``precision`` ∈ {bf16, fp32} is the canonical regime field; the legacy ``numeric-mode``
+    # Arrhenius: ``precision`` in {fp16, fp32} is the canonical regime field; the legacy ``numeric-mode``
     # {fp32,tf32} key is retained in PROVENANCE_KEYS for back-compat but is now recorded honestly as
     # whatever the run set (None for a D16 ``precision`` run — NOT silently stamped fp32, which would
-    # mislabel a bf16 checkpoint). A reported number's regime is read from ``precision``.
-    prov["precision"] = str(run_config.get("precision", "bf16"))
+    # mislabel a checkpoint). A reported number's regime is read from ``precision``.
+    prov["precision"] = str(run_config.get("precision", "fp16"))
     prov["numeric-mode"] = run_config.get("numeric-mode")  # legacy/back-compat; None under the D16 knob
     prov["FL_TRAINABLE_CHECKSUM"] = str(checksum)
     prov["regime"] = "D10-full-participation-log-group-trainval-clean"

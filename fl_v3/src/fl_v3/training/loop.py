@@ -19,6 +19,13 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+from fl_v3.utils.runtime import (
+    current_precision,
+    make_grad_scaler,
+    normalize_precision,
+    precision_autocast_context,
+)
+
 # A criterion maps (model_output, target) → scalar loss. ``target`` may be a tensor
 # (the regression/classification tasks) OR the multimodal detection batch dict (the AD
 # task) — the alias is widened from the T0 tensor-only signature so the SAME loop trains
@@ -49,6 +56,17 @@ def _move_to_device(obj: Any, device: torch.device) -> Any:
     return obj
 
 
+def _float_tensors(obj: Any) -> Any:
+    """Recursively upcast tensors to fp32 for numerically sensitive losses/decode."""
+    if torch.is_tensor(obj):
+        return obj.float()
+    if isinstance(obj, dict):
+        return {k: _float_tensors(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return type(obj)(_float_tensors(v) for v in obj)
+    return obj
+
+
 def _unpack_batch(batch: Any, device: torch.device) -> Tuple[Any, Any]:
     """Return ``(inputs, targets)`` both on ``device``.
 
@@ -70,6 +88,17 @@ def _batch_size(targets: Any) -> int:
     raise TypeError(f"cannot infer batch size from targets of type {type(targets)!r}")
 
 
+def _grad_norm(model: nn.Module) -> float:
+    norms = [
+        p.grad.detach().float().norm(2)
+        for p in model.parameters()
+        if p.requires_grad and p.grad is not None
+    ]
+    if not norms:
+        return 0.0
+    return float(torch.linalg.vector_norm(torch.stack(norms), 2).detach().cpu())
+
+
 def evaluate(
     model: nn.Module,
     dataloader: DataLoader,
@@ -78,11 +107,15 @@ def evaluate(
 ) -> Dict[str, float]:
     """Mean loss over ``dataloader`` (no accuracy assumption; tensor or dict batch)."""
     model.eval()
+    precision = current_precision()
     total_loss, total_n = 0.0, 0
     with torch.no_grad():
         for batch in dataloader:
             inputs, targets = _unpack_batch(batch, device)
-            out = model(inputs)
+            with precision_autocast_context(precision, device):
+                out = model(inputs)
+            if precision == "fp16" and device.type == "cuda":
+                out = _float_tensors(out)
             loss = criterion(out, targets)
             bs = _batch_size(targets)
             total_loss += float(loss.item()) * bs
@@ -100,16 +133,15 @@ def train_one_epoch(
     scheduler: Optional[Any] = None,
     ema_model: Optional[Any] = None,
     max_steps: int = 0,
+    precision: Optional[str] = None,
+    grad_scaler: Optional[Any] = None,
 ) -> Dict[str, float]:
     """One epoch of training with the injected criterion (tensor or dict batch).
 
-    Precision (D16): the bf16-AMP decision is read from the global cuDNN state (set by
-    ``enforce_determinism(precision=...)`` — no signature change). Under ``precision=bf16``
-    (``cudnn.deterministic`` False) the forward is wrapped in ``bf16`` autocast (L2) and the head is
-    upcast to fp32 for the loss; under ``precision=fp32`` it is byte-identical to before. The per-step
-    ``loss.item()`` CPU↔GPU sync (L4) is removed in both — the loss is accumulated on-device (fp64) and
-    read ONCE at epoch end (logging-only). ``zero_grad()`` keeps the torch-2.7 default
-    (``set_to_none=True``) → the fp32 path stays byte-identical.
+    Precision is explicit: ``fp32`` runs without autocast/scaler, ``fp16`` uses CUDA
+    autocast plus GradScaler(init_scale=512). Outputs are upcast to fp32 before the
+    loss/head math. The per-step ``loss.item()`` CPU↔GPU sync is avoided for the
+    mean-loss accumulator; telemetry fields expose scaler and finite-loss state.
 
     **Capability hooks (MCR Phase 1; all default-off ⇒ byte-identical for FL/gate callers):**
     ``grad_clip_norm>0`` clips the trainable grads (stability once the backbone is trained); ``scheduler``
@@ -117,40 +149,81 @@ def train_one_epoch(
     ``swa_utils.AveragedModel``) is updated after each step. None of these fire unless passed, so
     ``train_local`` / the determinism gate are unchanged."""
     model.train()
-    relaxed = not torch.backends.cudnn.deterministic     # precision=bf16 ⇒ cudnn.deterministic False (D16)
-    use_amp = relaxed and device.type == "cuda"
+    precision = normalize_precision(precision or current_precision())
+    scaler = grad_scaler if grad_scaler is not None else make_grad_scaler(device, precision)
+    use_amp = precision == "fp16" and device.type == "cuda"
     do_clip = bool(grad_clip_norm and grad_clip_norm > 0)
     loss_sum = torch.zeros((), device=device, dtype=torch.float64)  # L4: device accumulate (no per-step sync)
     total_n = 0
+    step_count = 0
+    optimizer_steps = 0
+    scaler_skips = 0
+    nonfinite_loss_steps = 0
+    last_grad_norm = 0.0
     for batch in dataloader:
         inputs, targets = _unpack_batch(batch, device)
         optimizer.zero_grad()
         if use_amp:
-            with torch.autocast("cuda", dtype=torch.bfloat16):  # L2: bf16 over the forward (precision=bf16)
+            with precision_autocast_context(precision, device):
                 out = model(inputs)
-            # bf16 STABILITY (standard AMP): compute the loss in fp32 — the CenterPoint focal loss
-            # (log(sigmoid(logit)), 1-pred) and the L1 over log-dims are numerically unstable on bf16
-            # head logits (→ NaN). The forward stays bf16 (fast); only the small head tensors are upcast.
-            out = (out.float() if torch.is_tensor(out)
-                   else {k: (v.float() if torch.is_tensor(v) else v) for k, v in out.items()})
+            out = _float_tensors(out)
         else:
             out = model(inputs)
         loss = criterion(out, targets)
-        loss.backward()
-        if do_clip:
-            torch.nn.utils.clip_grad_norm_(
-                [p for p in model.parameters() if p.requires_grad], grad_clip_norm)
-        optimizer.step()
-        if scheduler is not None:
-            scheduler.step()
-        if ema_model is not None:
-            ema_model.update_parameters(model)
+        if not bool(torch.isfinite(loss.detach()).item()):
+            nonfinite_loss_steps += 1
+        if scaler.is_enabled():
+            scale_before = float(scaler.get_scale())
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
+            if do_clip:
+                grad_norm_t = torch.nn.utils.clip_grad_norm_(
+                    [p for p in model.parameters() if p.requires_grad], grad_clip_norm)
+                last_grad_norm = float(grad_norm_t.detach().cpu())
+            else:
+                last_grad_norm = _grad_norm(model)
+            scaler.step(optimizer)
+            scaler.update()
+            skipped = float(scaler.get_scale()) < scale_before
+            scaler_skips += int(skipped)
+            if not skipped:
+                optimizer_steps += 1
+                if scheduler is not None:
+                    scheduler.step()
+                if ema_model is not None:
+                    ema_model.update_parameters(model)
+        else:
+            loss.backward()
+            if do_clip:
+                grad_norm_t = torch.nn.utils.clip_grad_norm_(
+                    [p for p in model.parameters() if p.requires_grad], grad_clip_norm)
+                last_grad_norm = float(grad_norm_t.detach().cpu())
+            else:
+                last_grad_norm = _grad_norm(model)
+            optimizer.step()
+            optimizer_steps += 1
+            if scheduler is not None:
+                scheduler.step()
+            if ema_model is not None:
+                ema_model.update_parameters(model)
         bs = _batch_size(targets)
         loss_sum += loss.detach().double() * bs
         total_n += int(bs)
-        if max_steps and (total_n // max(bs, 1)) >= max_steps:
+        step_count += 1
+        if max_steps and step_count >= max_steps:
             break                              # smoke cap (default 0 = full epoch ⇒ byte-identical)
-    return {"loss": float(loss_sum.item()) / total_n if total_n else 0.0, "num_samples": float(total_n)}
+    return {
+        "loss": float(loss_sum.item()) / total_n if total_n else 0.0,
+        "num_samples": float(total_n),
+        "steps": float(step_count),
+        "optimizer_steps": float(optimizer_steps),
+        "precision": precision,
+        "grad_scaler_enabled": float(scaler.is_enabled()),
+        "grad_scaler_scale": float(scaler.get_scale()),
+        "grad_scaler_skips": float(scaler_skips),
+        "nonfinite_loss_steps": float(nonfinite_loss_steps),
+        "last_grad_norm": float(last_grad_norm),
+    }
 
 
 def train_local(
@@ -165,6 +238,7 @@ def train_local(
     grad_clip_norm: float = 0.0,
     backbone_lr_mult: float = 1.0,
     optimizer_name: str = "adam",
+    precision: Optional[str] = None,
 ) -> Dict[str, float]:
     """Train locally for ``num_epochs``; evaluate on ``valloader`` (last epoch).
 
@@ -178,10 +252,9 @@ def train_local(
     params** (it does NOT for a frozen-backbone / dummy model → flat single-group Adam, the byte-identical
     determinism-gate path). Adam-family only (the standing reproduction-fidelity decision — no SGD).
     """
-    # fused Adam collapses the per-tensor moment updates into one kernel (~free win on the now-non-trivial
-    # unfrozen optimizer step). NOT byte-identical (fused FMA ordering) → gated OFF under the fp32 dev tool
-    # (cudnn.deterministic) so train_local stays byte-identical for the FL/determinism gate; ON under bf16.
-    _fused = (device.type == "cuda" and not torch.backends.cudnn.deterministic)
+    precision = normalize_precision(precision or current_precision())
+    # Fused Adam is a throughput path for fp16 CUDA runs; fp32 reference keeps the plain optimizer.
+    _fused = (device.type == "cuda" and precision == "fp16")
     OptCls = torch.optim.AdamW if str(optimizer_name).lower() == "adamw" else torch.optim.Adam
     # Backbone LR group: only when the backbone is TRAINED (bb02d). Frozen/dummy → bb_params empty → the
     # exact pre-MCR flat path (byte-identical for the determinism gate + the old frozen-backbone FL configs).
@@ -201,7 +274,7 @@ def train_local(
     final_train_loss = 0.0
     for _ in range(num_epochs):
         tm = train_one_epoch(model, trainloader, criterion, optimizer, device,
-                             grad_clip_norm=grad_clip_norm)
+                             grad_clip_norm=grad_clip_norm, precision=precision)
         final_train_loss = tm["loss"]
     final_val_loss = 0.0
     if valloader is not None:

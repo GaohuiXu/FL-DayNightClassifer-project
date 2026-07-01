@@ -275,17 +275,19 @@ historical run's.)*
 - **Only cost:** ~7 throwaway calibration steps at startup. Removable with **GradScaler `init_scale≈512`** (skips the
   search) or a brief **fp32 warmup**. Neither is necessary (7 of thousands of steps).
 
-## Precision plan for Arrhenius (proposed D16 amendment — per-platform)
-- **Alvis:** bf16-AMP (no GradScaler), as today.
-- **Arrhenius:** **fp16-AMP + GradScaler** (`init_scale≈512`) for the dense/camera path; sparse branch fp16
-  (Phase 0A) or fp32 fallback. **Keep fp32 for:** the LSS BEV splat (already), GroupNorm/softmax (autocast does),
-  the focal/L1 head loss (already upcast), EMA, and `view_transform.depth_targets` (already autocast-disabled).
+## Precision plan for Arrhenius (implemented in Stop B)
+- **Arrhenius active policy:** `fp32` for dev/debug/reference; **fp16 AMP + GradScaler**
+  (`init_scale=512`) for supported sparse training.
+- **Direct sparse bf16 is disallowed** for the validated cumm/spconv path; configs/scripts should fail loudly
+  instead of falling back.
+- **Keep fp32 for:** the LSS BEV splat (already), GroupNorm/softmax (autocast does), the focal/L1 head loss
+  (upcast before criterion), EMA, and `view_transform.depth_targets` (already autocast-disabled).
 - Determinism stays **seed-variance-based** (D16 already relaxed byte-identity); GradScaler's dynamic scale widens
   the band slightly. Cross-platform numbers compare only at the seed-variance level, never byte-wise.
 - **No code blocker found** — the platform's existing fp32-accumulation choices (D15 splat, head-loss upcast)
-  already make the model fp16-friendly. The fp16 run path needs only: an fp16 autocast option in the trainer +
-  a GradScaler (the bf16 path uses neither today). Small, additive.
+  already make the model fp16-friendly. The shared trainer and Arrhenius smoke now use explicit precision
+  helpers instead of inferring AMP dtype from `cudnn.deterministic`.
 
 ## Tooling
-`scripts/p1_amp_smoke.py --fp16` (fp16-AMP+GradScaler, cycles the loader, reports per-step scale + skips + finite),
+`scripts/p1_amp_smoke.py --precision fp16` (fp16-AMP+GradScaler, cycles the loader, reports per-step scale + skips + finite),
 `scripts/run_p1_amp_smoke.sh FP16=1`. Reusable for the Arrhenius bring-up smoke.

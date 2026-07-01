@@ -1,4 +1,12 @@
-# fl_v3 determinism contract (D16: bf16 science path + fp32 dev-regression tool)
+# fl_v3 determinism contract (historical D16; Arrhenius supersedes precision)
+
+> Arrhenius update (2026-07): the active GH200 sparse policy is `fp32` for
+> dev/debug/reference and `fp16` AMP + `GradScaler(init_scale=512)` for supported
+> sparse training. Direct sparse `bf16` is unsupported by the validated
+> cumm/spconv path and should raise loudly. Treat the older D16 `bf16` text below
+> as historical context unless a run is explicitly labeled as an old Alvis/A40
+> provenance artifact. Current runtime truth lives in `fl_v3/docs/env.md` and
+> `fl_v3/src/fl_v3/utils/runtime.py`.
 
 **Regime (D16, 2026-06-21 — supersedes "bit-determinism is sacred").** There is ONE precision knob,
 `precision` ∈ {`bf16`, `fp32`} (set by `enforce_determinism(precision=...)`):

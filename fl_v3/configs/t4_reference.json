@@ -27,7 +27,7 @@
   "det-freeze-backbone": true,
   "det-pretrained-backbone": true,
   "det-eval-limit": 0,
-  "precision": "bf16",
+  "precision": "fp16",
   "server-eval-mode": "none",
   "defense-type": "none",
   "wandb-enabled": false,

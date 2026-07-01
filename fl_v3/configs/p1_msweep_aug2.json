@@ -31,7 +31,7 @@
   "det-backbone-lr-mult": 0.1,
   "grad-clip-norm": 35.0,
   "det-eval-limit": 0,
-  "precision": "bf16",
+  "precision": "fp16",
   "det-optimizer": "adamw",
   "lr-schedule": "onecycle",
   "lr-warmup-frac": 0.15,

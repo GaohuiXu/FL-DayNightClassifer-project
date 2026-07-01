@@ -1,7 +1,7 @@
-"""MCR Phase-1 login-node smoke: the UNFROZEN-Swin bf16 recipe trains clean.
+"""MCR Phase-1 login-node smoke: the UNFROZEN-Swin fp16 recipe trains clean.
 
 Validates the new capability path end-to-end on the login-node T4 (real mini batch, real model):
-unfreeze (det-freeze-backbone=false) + activation checkpointing on Swin + bf16 autocast + fp32 head
+unfreeze (det-freeze-backbone=false) + activation checkpointing on Swin + fp16 autocast + fp32 head
 upcast + LR param groups (backbone @ lr*mult) + grad-clip. Asserts: no NaN/inf loss, the camera
 backbone actually RECEIVES gradients (so unfreeze + checkpoint compose correctly), and the loss drops
 on a fixed batch (the model learns). This is a SMOKE (pipeline/no-NaN), NOT a scientific result (Rule #3).
@@ -15,15 +15,21 @@ import sys
 sys.path.insert(0, "fl_v3/src")
 import torch
 
-from fl_v3.utils.runtime import enforce_determinism, precision_state, seed_everything
+from fl_v3.utils.runtime import (
+    enforce_determinism,
+    make_grad_scaler,
+    precision_autocast_context,
+    precision_state,
+    seed_everything,
+)
 from fl_v3.training.tasks import get_task
-from fl_v3.training.loop import _move_to_device
+from fl_v3.training.loop import _float_tensors, _move_to_device
 
 
 def main() -> int:
     if not torch.cuda.is_available():
-        print("[p1-smoke] no CUDA — bf16 autocast is a no-op; run on the login T4."); return 2
-    enforce_determinism(strict=True, precision="bf16")   # science path: cudnn.deterministic=False → AMP on
+        print("[p1-smoke] no CUDA — fp16 autocast is a no-op; run on a CUDA node."); return 2
+    enforce_determinism(strict=False, precision="fp16")
     seed_everything(42)
     dev = torch.device("cuda")
     cfg = {
@@ -34,7 +40,7 @@ def main() -> int:
         # the Phase-1 headline lever: TRAIN the Swin backbone + activation-checkpoint it.
         "det-camera-backbone": "swin_t", "det-pretrained-backbone": True,
         "det-freeze-backbone": False, "det-activation-checkpoint": True,
-        "precision": "bf16",
+        "precision": "fp16",
     }
     task = get_task("nuscenes_detection")
     cdata = task.client_data(0, cfg)
@@ -58,28 +64,30 @@ def main() -> int:
     base_lr = 3e-3
     opt = torch.optim.Adam([{"params": rest, "lr": base_lr}, {"params": bb, "lr": base_lr * 0.1}],
                            lr=base_lr, weight_decay=0.0)
-    use_amp = (not torch.backends.cudnn.deterministic) and dev.type == "cuda"
-    assert use_amp, "bf16 autocast did not engage under precision=bf16"
+    scaler = make_grad_scaler(dev, "fp16")
+    assert scaler.is_enabled(), "fp16 GradScaler did not engage under precision=fp16"
     model.train()
     losses, bb_grad_l1 = [], 0.0
     for step in range(25):
         opt.zero_grad()
-        with torch.autocast("cuda", dtype=torch.bfloat16):
+        with precision_autocast_context("fp16", dev):
             out = model(batch)
-        out = {k: (v.float() if torch.is_tensor(v) else v) for k, v in out.items()}  # fp32 head upcast
+        out = _float_tensors(out)
         loss = crit(out, batch)
         assert torch.isfinite(loss), f"NON-FINITE loss at step {step}: {float(loss)}"
-        loss.backward()
+        scaler.scale(loss).backward()
+        scaler.unscale_(opt)
         bb_grad_l1 = sum((p.grad.abs().sum().item() if p.grad is not None else 0.0) for p in bb)
         torch.nn.utils.clip_grad_norm_([p for p in model.parameters() if p.requires_grad], 35.0)
-        opt.step()
+        scaler.step(opt)
+        scaler.update()
         losses.append(float(loss))
         if step in (0, 5, 12, 24):
             print(f"[p1-smoke] step {step:2d}: loss={float(loss):.4f}  backbone_grad_L1={bb_grad_l1:.3e}")
 
     assert bb_grad_l1 > 0.0, "backbone received ZERO gradient — unfreeze/activation-ckpt did not compose"
     assert losses[-1] < losses[0], f"loss did not drop on a fixed batch: {losses[0]:.3f}→{losses[-1]:.3f}"
-    print(f"[p1-smoke] OK — unfrozen Swin + activation-ckpt + bf16 + grad-clip trains CLEAN "
+    print(f"[p1-smoke] OK — unfrozen Swin + activation-ckpt + fp16 + grad-clip trains CLEAN "
           f"(loss {losses[0]:.3f}→{losses[-1]:.3f}, backbone learns).")
     return 0
 

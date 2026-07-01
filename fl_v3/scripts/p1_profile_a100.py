@@ -29,10 +29,17 @@ import time
 sys.path.insert(0, "fl_v3/src")
 import torch
 
-from fl_v3.utils.runtime import enforce_determinism, precision_state, seed_everything, truthy
+from fl_v3.utils.runtime import (
+    enforce_determinism,
+    make_grad_scaler,
+    precision_autocast_context,
+    precision_state,
+    seed_everything,
+    truthy,
+)
 from fl_v3.utils.profiling import StepProfiler, max_mem_mb, reset_peak_mem
 from fl_v3.training.tasks import get_task
-from fl_v3.training.loop import _unpack_batch
+from fl_v3.training.loop import _float_tensors, _unpack_batch
 
 FORWARD_STAGES = ["preprocess", "camera_backbone", "camera_neck", "view_transform",
                   "lidar_encoder", "lidar_backbone", "fusion", "bev_neck", "head"]
@@ -133,7 +140,8 @@ def _model_opt(task, run_config, device):
     rest = [p for n, p in model.named_parameters() if p.requires_grad and not n.startswith("camera_backbone.")]
     groups = ([{"params": rest, "lr": base_lr}, {"params": bb, "lr": base_lr * bb_mult}] if bb
               else [{"params": rest, "lr": base_lr}])
-    _fused = (device.type == "cuda" and not torch.backends.cudnn.deterministic)
+    precision = str(run_config.get("precision", "fp16"))
+    _fused = (device.type == "cuda" and precision == "fp16")
     return model, crit, torch.optim.Adam(groups, lr=base_lr, fused=_fused), len(bb), len(rest)
 
 
@@ -147,37 +155,53 @@ def _free_loader(loader, it):
     gc.collect()
 
 
-def _step(model, crit, batch, opt, device, use_amp, grad_clip, prof=None):
+def _step(model, crit, batch, opt, device, use_amp, grad_clip, prof=None, scaler=None, precision="fp16"):
     inputs, targets = _unpack_batch(batch, device)
     opt.zero_grad()
     if prof is not None:
         with prof.section("forward_total"):
             if use_amp:
-                with torch.autocast("cuda", dtype=torch.bfloat16):
+                with precision_autocast_context(precision, device):
                     out = model(inputs)
-                out = {k: (v.float() if torch.is_tensor(v) else v) for k, v in out.items()}
+                out = _float_tensors(out)
             else:
                 out = model(inputs)
         with prof.section("loss"):
             loss = crit(out, targets)
         with prof.section("backward"):
-            loss.backward()
+            if scaler is not None and scaler.is_enabled():
+                scaler.scale(loss).backward()
+                scaler.unscale_(opt)
+            else:
+                loss.backward()
         with prof.section("optimizer"):
             if grad_clip > 0:
                 torch.nn.utils.clip_grad_norm_([p for p in model.parameters() if p.requires_grad], grad_clip)
-            opt.step()
+            if scaler is not None and scaler.is_enabled():
+                scaler.step(opt)
+                scaler.update()
+            else:
+                opt.step()
     else:
         if use_amp:
-            with torch.autocast("cuda", dtype=torch.bfloat16):
+            with precision_autocast_context(precision, device):
                 out = model(inputs)
-            out = {k: (v.float() if torch.is_tensor(v) else v) for k, v in out.items()}
+            out = _float_tensors(out)
         else:
             out = model(inputs)
         loss = crit(out, targets)
-        loss.backward()
+        if scaler is not None and scaler.is_enabled():
+            scaler.scale(loss).backward()
+            scaler.unscale_(opt)
+        else:
+            loss.backward()
         if grad_clip > 0:
             torch.nn.utils.clip_grad_norm_([p for p in model.parameters() if p.requires_grad], grad_clip)
-        opt.step()
+        if scaler is not None and scaler.is_enabled():
+            scaler.step(opt)
+            scaler.update()
+        else:
+            opt.step()
     return float(loss.detach())
 
 
@@ -185,7 +209,9 @@ def profile_regime(task, dataset, run_config, device, steps, warmup, label, inst
     """One regime: per-module fwd + loop phases + util + peak mem + wall step time. Frees its loader/model."""
     model, crit, opt, n_bb, n_rest = _model_opt(task, run_config, device)
     loader = _make_loader(dataset, run_config)
-    use_amp = (not torch.backends.cudnn.deterministic) and device.type == "cuda"
+    precision = str(run_config.get("precision", "fp16"))
+    use_amp = (precision == "fp16") and device.type == "cuda"
+    scaler = make_grad_scaler(device, precision)
     grad_clip = float(run_config.get("grad-clip-norm", 0.0))
     model.train()
     prof = StepProfiler(use_cuda=(device.type == "cuda")) if instrument else None
@@ -207,7 +233,8 @@ def profile_regime(task, dataset, run_config, device, steps, warmup, label, inst
                     batch = next(it)
             else:
                 batch = next(it)
-            _step(model, crit, batch, opt, device, use_amp, grad_clip, prof=prof)
+            _step(model, crit, batch, opt, device, use_amp, grad_clip, prof=prof,
+                  scaler=scaler, precision=precision)
             if device.type == "cuda":
                 torch.cuda.synchronize()
             wall.append(time.perf_counter() - t0)
@@ -243,17 +270,21 @@ def kernel_breakdown(task, dataset, run_config, device, steps=6, warmup=3):
     from torch.profiler import ProfilerActivity, profile
     model, crit, opt, _, _ = _model_opt(task, run_config, device)
     loader = _make_loader(dataset, run_config)
-    use_amp = (not torch.backends.cudnn.deterministic) and device.type == "cuda"
+    precision = str(run_config.get("precision", "fp16"))
+    use_amp = (precision == "fp16") and device.type == "cuda"
+    scaler = make_grad_scaler(device, precision)
     grad_clip = float(run_config.get("grad-clip-norm", 0.0))
     model.train()
     it = iter(loader)
     try:
         for _ in range(warmup):
-            _step(model, crit, next(it), opt, device, use_amp, grad_clip)
+            _step(model, crit, next(it), opt, device, use_amp, grad_clip,
+                  scaler=scaler, precision=precision)
         torch.cuda.synchronize()
         with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
             for _ in range(steps):
-                _step(model, crit, next(it), opt, device, use_amp, grad_clip)
+                _step(model, crit, next(it), opt, device, use_amp, grad_clip,
+                      scaler=scaler, precision=precision)
             torch.cuda.synchronize()
         ka = list(prof.key_averages())
         # torch 2.7 renamed self_cuda_time_total → self_device_time_total (device-agnostic refactor).
@@ -316,9 +347,10 @@ def main():
 
     if not torch.cuda.is_available():
         print("[p1-profile] no CUDA — this profile is meaningless off-GPU."); return 2
-    enforce_determinism(strict=True, precision="bf16")
-    device = torch.device("cuda")
     base = _load_cfg(a.config, a.overrides)
+    base["precision"] = str(base.get("precision", "fp16"))
+    enforce_determinism(strict=False, precision=str(base["precision"]))
+    device = torch.device("cuda")
     base["det-freeze-backbone"] = False               # this profiler is for the UNFROZEN model
     base["num-workers"] = a.num_workers               # RAM-bounded loader
     print(f"[p1-profile] device={torch.cuda.get_device_name(0)} precision={precision_state()['precision']} "
