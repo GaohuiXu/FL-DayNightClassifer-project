@@ -38,7 +38,8 @@ class SparseVoxelEncoder(nn.Module):
     """Voxelize → mean-VFE → sparse 3D backbone (z-downsampling) → collapse-z → ``[B, out_channels, ny, nx]``."""
 
     def __init__(self, out_channels: int = 64, cfg: BEVConfig = BEVConfig(), use_timestamp: bool = False,
-                 vfe_channels: int = 16, z_voxel: float | None = None, max_voxels: int = 120000,
+                 vfe_channels: int = 16, z_voxel: float | None = None,
+                 sparse_z_size: int | None = None, max_voxels: int = 120000,
                  max_points_per_voxel: int = 10, sparse_conv_fp16: bool = False):
         super().__init__()
         import spconv.pytorch as spconv          # import-gated: only when this encoder is actually built
@@ -50,7 +51,13 @@ class SparseVoxelEncoder(nn.Module):
         self.n_pt_feat = 5 if use_timestamp else 4          # x,y,z,intensity (+dt)
         self.vx, self.vy = cfg.vx, cfg.vy
         self.vz = float(z_voxel) if z_voxel else cfg.vx     # cubic voxels by default (z-res = xy-res)
-        self.nz = int(round((cfg.z_max - cfg.z_min) / self.vz))
+        computed_nz = int(round((cfg.z_max - cfg.z_min) / self.vz))
+        self.nz = int(sparse_z_size) if sparse_z_size is not None else computed_nz
+        if self.nz < computed_nz:
+            raise ValueError(
+                f"sparse_z_size={self.nz} is smaller than the voxelized z extent {computed_nz}"
+            )
+        self.computed_nz = computed_nz
         self.nx, self.ny = cfg.nx, cfg.ny
         self.max_voxels = int(max_voxels)
         self.max_pts = int(max_points_per_voxel)
@@ -215,6 +222,10 @@ class SparseVoxelEncoder(nn.Module):
                         "vfe_valid_points": int(vfe_valid_points),
                         "vfe_total_slots": int(vfe_total_slots),
                         "spatial_shape": (self.nz, self.ny, self.nx),
+                        "bevfusion_sparse_shape_order_xyz": (self.nx, self.ny, self.nz),
+                        "voxel_size_xyz": (self.vx, self.vy, self.vz),
+                        "computed_z_bins": int(self.computed_nz),
+                        "sparse_z_size": int(self.nz),
                         "batch_size": int(B),
                         "num_voxels": 0,
                     }
@@ -258,6 +269,10 @@ class SparseVoxelEncoder(nn.Module):
                 "vfe_valid_points": int(vfe_valid_points),
                 "vfe_total_slots": int(vfe_total_slots),
                 "spatial_shape": (self.nz, self.ny, self.nx),
+                "bevfusion_sparse_shape_order_xyz": (self.nx, self.ny, self.nz),
+                "voxel_size_xyz": (self.vx, self.vy, self.vz),
+                "computed_z_bins": int(self.computed_nz),
+                "sparse_z_size": int(self.nz),
                 "batch_size": int(B),
                 "num_voxels": int(indices.shape[0]),
                 "batch_index_min": int(indices[:, 0].min().item()),

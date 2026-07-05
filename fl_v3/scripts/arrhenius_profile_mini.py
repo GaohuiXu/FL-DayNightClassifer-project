@@ -18,8 +18,30 @@ import shutil
 import subprocess
 import sys
 import time
+import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+
+from arrhenius_lidar_gap_utils import (
+    BRANCH_TOPOLOGIES,
+    CAPABILITY_MATRIX_CELLS,
+    TRAIN_POLICIES,
+    apply_train_policy,
+    cell_branch_topology,
+    cell_train_policy,
+    config_fields,
+    fuser_contract,
+    grad_diagnostics,
+    model_shape_summary,
+    module_grad_coverage,
+    module_param_coverage,
+    parity_summary,
+    tensor_stats,
+    trainable_parameters,
+    validate_bevfusion_075_parity,
+    validate_controls,
+    zero_bev,
+)
 
 
 CANONICAL_MATRIX_CELLS = {
@@ -31,6 +53,7 @@ CANONICAL_MATRIX_CELLS = {
     },
     "voxel_fp32_ref": {"det-lidar-encoder": "voxel", "precision": "fp32", "det-sparse-conv-fp16": False},
     "pillar_fp32_legacy": {"det-lidar-encoder": "pillar", "precision": "fp32", "det-sparse-conv-fp16": False},
+    **CAPABILITY_MATRIX_CELLS,
 }
 LEGACY_MATRIX_ALIASES = {
     "voxel_fp16": "voxel_fp16_main",
@@ -96,7 +119,6 @@ def _build_base_cfg(args: argparse.Namespace) -> dict:
     cfg["task-type"] = "nuscenes_detection"
     cfg["device"] = "cuda"
     cfg["seed"] = int(args.seed)
-    cfg["precision"] = "fp32"
     cfg["output-dir"] = str(Path(args.output_dir).resolve())
     cfg["nuscenes-dataroot"] = str(Path(args.dataroot).resolve())
     cfg["nuscenes-cache-dir"] = str(Path(args.cache_dir).resolve())
@@ -109,14 +131,18 @@ def _build_base_cfg(args: argparse.Namespace) -> dict:
     cfg["det-eval-limit"] = int(args.num_tokens)
     cfg["batch-size"] = int(args.batch_size)
     cfg["num-workers"] = int(args.num_workers)
-    cfg["det-camera-backbone"] = str(args.backbone)
-    cfg["det-freeze-backbone"] = True
-    cfg["det-pretrained-backbone"] = bool(args.pretrained_backbone)
-    cfg["det-aug-bev"] = False
-    cfg["det-gt-paste"] = False
-    cfg["det-lidar-sweeps"] = int(args.lidar_sweeps)
-    cfg["det-max-pillars"] = int(args.max_pillars)
-    cfg["det-max-points-per-pillar"] = int(args.max_points_per_pillar)
+    if not bool(args.respect_config_shape):
+        cfg["precision"] = "fp32"
+        cfg["det-camera-backbone"] = str(args.backbone)
+        cfg["det-freeze-backbone"] = True
+        cfg["det-pretrained-backbone"] = bool(args.pretrained_backbone)
+        cfg["det-aug-bev"] = False
+        cfg["det-gt-paste"] = False
+        cfg["det-lidar-sweeps"] = int(args.lidar_sweeps)
+        cfg["det-max-pillars"] = int(args.max_pillars)
+        cfg["det-max-points-per-pillar"] = int(args.max_points_per_pillar)
+    else:
+        cfg["det-gt-paste"] = False
     cfg["wandb-enabled"] = False
     cfg["wandb-mode"] = "disabled"
     return cfg
@@ -328,29 +354,60 @@ def _nvidia_smi_static() -> Dict[str, Any]:
         return {"available": False, "error": f"{type(exc).__name__}: {exc}"}
 
 
-def _profile_forward(model, batch: dict, timer: CudaTimer) -> Tuple[dict, Dict[str, float]]:
+def _profile_forward(
+    model,
+    batch: dict,
+    timer: CudaTimer,
+    branch_topology: str,
+) -> Tuple[dict, Dict[str, float], Dict[str, Any]]:
     times: Dict[str, float] = {}
 
-    pre, times["preprocess"] = timer.measure(
-        lambda: model.preprocess(batch["images"], batch["lidar2img"], batch["cam_intrinsics"])
-    )
-    imgs = pre["images"]
-    B, N = imgs.shape[0], imgs.shape[1]
-    feats, times["camera_backbone"] = timer.measure(
-        lambda: model.camera_backbone(imgs.reshape(B * N, *imgs.shape[2:]))
-    )
-    camfeat, times["camera_neck"] = timer.measure(lambda: model.camera_neck(feats))
-    vt, times["view_transform_lss"] = timer.measure(lambda: model.view_transform(camfeat, pre["lidar2img"], B, N))
-    camera_bev = vt["bev"]
-    lidar_bev, times["lidar_encoder_total"] = timer.measure(lambda: model.lidar_encoder(batch["lidar_points"], B))
-    for name, ms in _sparse_profile(model).items():
-        times[f"sparse_voxel_{name}"] = float(ms)
-    if model.lidar_backbone is not None:
-        lidar_bev, times["lidar_backbone"] = timer.measure(lambda: model.lidar_backbone(lidar_bev))
+    branch_topology, _ = validate_controls(branch_topology, "all_trainable")
+    images = batch["images"]
+    B, N = images.shape[0], images.shape[1]
+    camera_bev = None
+    lidar_bev = None
+
+    if branch_topology != "lidar_only":
+        pre, times["preprocess"] = timer.measure(
+            lambda: model.preprocess(batch["images"], batch["lidar2img"], batch["cam_intrinsics"])
+        )
+        imgs = pre["images"]
+        feats, times["camera_backbone"] = timer.measure(
+            lambda: model.camera_backbone(imgs.reshape(B * N, *imgs.shape[2:]))
+        )
+        camfeat, times["camera_neck"] = timer.measure(lambda: model.camera_neck(feats))
+        vt, times["view_transform_lss"] = timer.measure(lambda: model.view_transform(camfeat, pre["lidar2img"], B, N))
+        camera_bev = vt["bev"]
+    else:
+        times.update({"preprocess": 0.0, "camera_backbone": 0.0, "camera_neck": 0.0, "view_transform_lss": 0.0})
+
+    if branch_topology != "camera_only":
+        lidar_bev, times["lidar_encoder_total"] = timer.measure(lambda: model.lidar_encoder(batch["lidar_points"], B))
+        for name, ms in _sparse_profile(model).items():
+            times[f"sparse_voxel_{name}"] = float(ms)
+        if model.lidar_backbone is not None:
+            lidar_bev, times["lidar_backbone"] = timer.measure(lambda: model.lidar_backbone(lidar_bev))
+    else:
+        times.update({"lidar_encoder_total": 0.0, "lidar_backbone": 0.0})
+
+    if camera_bev is None:
+        assert lidar_bev is not None
+        camera_bev = zero_bev(B, model.fusion.camera_channels, model.cfg.bev.ny, model.cfg.bev.nx, lidar_bev)
+    if lidar_bev is None:
+        assert camera_bev is not None
+        lidar_bev = zero_bev(B, model.fusion.lidar_channels, model.cfg.bev.ny, model.cfg.bev.nx, camera_bev)
+
+    branch_stats = {
+        "branch_topology": branch_topology,
+        "camera_bev": tensor_stats(camera_bev),
+        "lidar_bev": tensor_stats(lidar_bev),
+    }
     fused, times["fusion"] = timer.measure(lambda: model.fusion(camera_bev, lidar_bev))
+    branch_stats["fused_bev"] = tensor_stats(fused)
     neck, times["bev_neck"] = timer.measure(lambda: model.bev_neck(fused))
     out, times["head"] = timer.measure(lambda: model.head(neck))
-    return out, times
+    return out, times, branch_stats
 
 
 def _profile_train_step(
@@ -361,6 +418,8 @@ def _profile_train_step(
     batch_cpu,
     precision: str,
     device,
+    branch_topology: str,
+    train_policy: str,
 ) -> Dict[str, Any]:
     import torch
 
@@ -376,11 +435,12 @@ def _profile_train_step(
 
     def forward_body():
         with precision_autocast_context(precision, device):
-            return _profile_forward(model, batch, timer)
+            return _profile_forward(model, batch, timer, branch_topology)
 
-    (out, forward_stages), forward_total_ms = timer.measure(forward_body)
+    (out, forward_stages, branch_stats), forward_total_ms = timer.measure(forward_body)
     record["stage_ms"]["forward_total"] = forward_total_ms
     record["stage_ms"].update(forward_stages)
+    record["branch_metrics"] = branch_stats
     if precision == "fp16":
         out, record["stage_ms"]["fp16_output_upcast"] = timer.measure(lambda: _float_tensors(out))
 
@@ -389,6 +449,28 @@ def _profile_train_step(
     if not finite_loss:
         raise RuntimeError(f"non-finite loss: {float(loss.detach().cpu())}")
     scale_before = float(scaler.get_scale())
+    if train_policy == "probe_no_backward":
+        record["loss"] = float(loss.detach().cpu())
+        record["finite_loss"] = finite_loss
+        record["loss_terms"] = _loss_terms(criterion)
+        record["grad_norm"] = 0.0
+        record["grad_scaler_scale_before"] = scale_before
+        record["grad_scaler_scale_after"] = float(scaler.get_scale())
+        record["grad_scaler_skipped"] = False
+        record["optimizer_step_counted"] = False
+        record["module_grad_coverage"] = module_grad_coverage(model)
+        record["memory_allocated_mib"] = torch.cuda.max_memory_allocated(device) / (1024.0 ** 2)
+        record["memory_reserved_mib"] = torch.cuda.max_memory_reserved(device) / (1024.0 ** 2)
+        record["sparse_meta"] = _sparse_meta(model)
+        record["stage_ms"]["backward"] = 0.0
+        record["stage_ms"]["unscale_grad_norm"] = 0.0
+        record["stage_ms"]["optimizer_step"] = 0.0
+        record["stage_ms"]["train_step_total"] = sum(
+            float(record["stage_ms"].get(k, 0.0))
+            for k in ("h2d", "forward_total", "fp16_output_upcast", "loss")
+        )
+        return record
+
     _, record["stage_ms"]["backward"] = timer.measure(lambda: scaler.scale(loss).backward())
 
     def unscale_and_grad():
@@ -396,25 +478,30 @@ def _profile_train_step(
         return _grad_norm(model)
 
     grad_norm, record["stage_ms"]["unscale_grad_norm"] = timer.measure(unscale_and_grad)
-    if not math.isfinite(grad_norm):
-        raise RuntimeError(f"non-finite grad_norm: {grad_norm}")
+    finite_grad_norm = math.isfinite(grad_norm)
 
     def optimizer_step():
-        scaler.step(optimizer)
-        scaler.update()
+        if scaler.is_enabled():
+            scaler.step(optimizer)
+            scaler.update()
+        elif finite_grad_norm:
+            scaler.step(optimizer)
 
     _, record["stage_ms"]["optimizer_step"] = timer.measure(optimizer_step)
     scale_after = float(scaler.get_scale())
-    skipped = bool(scaler.is_enabled() and scale_after < scale_before)
+    skipped = bool((not finite_grad_norm) or (scaler.is_enabled() and scale_after < scale_before))
 
     record["loss"] = float(loss.detach().cpu())
     record["finite_loss"] = finite_loss
     record["loss_terms"] = _loss_terms(criterion)
     record["grad_norm"] = float(grad_norm)
+    record["finite_grad_norm"] = bool(finite_grad_norm)
     record["grad_scaler_scale_before"] = scale_before
     record["grad_scaler_scale_after"] = scale_after
     record["grad_scaler_skipped"] = skipped
     record["optimizer_step_counted"] = bool(not skipped)
+    record["module_grad_coverage"] = module_grad_coverage(model)
+    record["grad_diagnostics"] = grad_diagnostics(model)
     record["memory_allocated_mib"] = torch.cuda.max_memory_allocated(device) / (1024.0 ** 2)
     record["memory_reserved_mib"] = torch.cuda.max_memory_reserved(device) / (1024.0 ** 2)
     record["sparse_meta"] = _sparse_meta(model)
@@ -530,7 +617,7 @@ def _torch_env() -> Dict[str, Any]:
 def _run_cell(
     cell_name: str,
     base_cfg: dict,
-    loader,
+    tokens: List[str],
     output_dir: Path,
     args: argparse.Namespace,
 ) -> Dict[str, Any]:
@@ -547,6 +634,11 @@ def _run_cell(
 
     cfg = copy.deepcopy(base_cfg)
     cfg.update(MATRIX_CELLS[cell_name])
+    branch_topology = cell_branch_topology(cfg, str(args.branch_topology))
+    train_policy = cell_train_policy(cfg, str(args.train_policy))
+    validate_controls(branch_topology, train_policy)
+    cfg["branch_topology"] = branch_topology
+    cfg["train_policy"] = train_policy
     cfg["output-dir"] = str(output_dir / cell_name)
     Path(cfg["output-dir"]).mkdir(parents=True, exist_ok=True)
     validate_sparse_precision(cfg["precision"], cfg["det-lidar-encoder"])
@@ -558,19 +650,27 @@ def _run_cell(
     torch.cuda.empty_cache()
 
     task = get_task("nuscenes_detection")
+    loader, loader_meta, dataset_init_ms = _make_loader(cfg, tokens, args)
     build_t0 = time.perf_counter()
     model = task.build_model(cfg).to(device).train()
+    apply_train_policy(model, train_policy)
+    parity_errors = validate_bevfusion_075_parity(cfg, model)
+    if parity_errors:
+        raise RuntimeError("BEVFusion 0.075 parity check failed: " + "; ".join(parity_errors))
     model_build_ms = (time.perf_counter() - build_t0) * 1000.0
     if cfg.get("det-lidar-encoder") == "voxel":
         getattr(model, "lidar_encoder").record_debug = True
         getattr(model, "lidar_encoder").record_profile = True
     criterion = task.build_criterion(cfg)
+    opt_params = trainable_parameters(model)
+    if not opt_params and train_policy != "probe_no_backward":
+        raise RuntimeError(f"{cell_name}: train_policy={train_policy} left no trainable parameters")
     optimizer = torch.optim.AdamW(
-        [p for p in model.parameters() if p.requires_grad],
+        opt_params,
         lr=float(args.learning_rate),
         weight_decay=float(args.weight_decay),
     )
-    scaler = make_grad_scaler(device, str(cfg["precision"]))
+    scaler = make_grad_scaler(device, str(cfg["precision"]), init_scale=float(args.grad_scale_init))
 
     sampler = GpuSampler(output_dir, cell_name, int(args.gpu_sample_ms))
     sampler.start()
@@ -579,6 +679,7 @@ def _run_cell(
     step_path = output_dir / f"{cell_name}_profile_steps.jsonl"
     ok = True
     error = ""
+    error_traceback = ""
     try:
         with open(step_path, "w", encoding="utf-8") as sf:
             total_steps = int(args.warmup_iters) + int(args.profile_iters)
@@ -596,6 +697,8 @@ def _run_cell(
                     batch_cpu,
                     str(cfg["precision"]),
                     device,
+                    branch_topology,
+                    train_policy,
                 )
                 rec.update({
                     "cell": cell_name,
@@ -637,9 +740,13 @@ def _run_cell(
                     rec["grad_scaler_skipped"],
                     flush=True,
                 )
+                if not bool(rec.get("finite_grad_norm", True)):
+                    raise RuntimeError(f"non-finite grad_norm: {rec['grad_norm']}")
     except Exception as exc:
         ok = False
         error = f"{type(exc).__name__}: {exc}"
+        error_traceback = traceback.format_exc()
+        print(error_traceback, flush=True)
     finally:
         sampler.stop()
 
@@ -648,9 +755,19 @@ def _run_cell(
         "cell": cell_name,
         "status": "ok" if ok else "failed",
         "error": error,
+        "error_traceback": error_traceback if not ok else "",
         "precision": cfg["precision"],
         "lidar_encoder": cfg["det-lidar-encoder"],
         "sparse_conv_fp16": bool(cfg.get("det-sparse-conv-fp16", False)),
+        "branch_topology": branch_topology,
+        "train_policy": train_policy,
+        "config_fields": config_fields(cfg),
+        "model_shape": model_shape_summary(cfg, model),
+        "fuser_contract": fuser_contract(model),
+        "param_coverage": module_param_coverage(model),
+        "bevfusion_075_parity": parity_summary(cfg, model) if cfg.get("bevfusion-parity-075", False) else None,
+        "loader_cache_meta": loader_meta,
+        "dataset_init_ms": dataset_init_ms,
         "model_build_ms": model_build_ms,
         "precision_state": precision_state(),
         "grad_scaler_enabled": bool(scaler.is_enabled()),
@@ -694,7 +811,11 @@ def main() -> None:
         "ARRHENIUS_OUTPUT_ROOT",
         "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs",
     )
-    default_dataroot = _repo_root() / "data" / "nuscenes_mini"
+    repo_mini = _repo_root() / "data" / "nuscenes_mini"
+    canonical_mini = Path(
+        "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini"
+    )
+    default_dataroot = repo_mini if repo_mini.exists() else canonical_mini
     default_cache = Path(default_root) / "nuscenes" / "info_cache_mini_from_main"
 
     ap = argparse.ArgumentParser()
@@ -703,6 +824,9 @@ def main() -> None:
     ap.add_argument("--cache-dir", default=os.environ.get("ARRHENIUS_NUSCENES_CACHE", str(default_cache)))
     ap.add_argument("--output-dir", default=str(Path(default_root) / "stop_d_profile_mini"))
     ap.add_argument("--matrix", default="voxel_fp16_main")
+    ap.add_argument("--respect-config-shape", action="store_true")
+    ap.add_argument("--branch-topology", default="full_fusion", choices=BRANCH_TOPOLOGIES)
+    ap.add_argument("--train-policy", default="all_trainable", choices=TRAIN_POLICIES)
     ap.add_argument("--warmup-iters", type=int, default=4)
     ap.add_argument("--profile-iters", type=int, default=8)
     ap.add_argument("--num-tokens", type=int, default=256)
@@ -714,6 +838,7 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--learning-rate", type=float, default=1e-4)
     ap.add_argument("--weight-decay", type=float, default=0.0)
+    ap.add_argument("--grad-scale-init", type=float, default=512.0)
     ap.add_argument("--backbone", default="resnet18", choices=["resnet18", "swin_t"])
     ap.add_argument("--pretrained-backbone", action="store_true")
     ap.add_argument("--lidar-sweeps", type=int, default=1)
@@ -748,7 +873,6 @@ def main() -> None:
     cache_load_ms = (time.perf_counter() - cache_t0) * 1000.0
     token_count = max(int(args.num_tokens), int(args.batch_size))
     tokens = _select_tokens(train_info, token_count)
-    loader, loader_meta, dataset_init_ms = _make_loader(base_cfg, tokens, args)
     total_profile_steps = int(args.warmup_iters) + int(args.profile_iters)
     tokens_for_full_batches_without_reset = int(args.batch_size) * total_profile_steps
     data_window = {
@@ -773,14 +897,14 @@ def main() -> None:
         "dataroot": dataroot,
         "cache_dir": str(cache_dir),
         "train_cache_meta": train_meta,
-        "loader_cache_meta": loader_meta,
         "selected_tokens": tokens,
         "matrix": cells,
+        "branch_topology_default": args.branch_topology,
+        "train_policy_default": args.train_policy,
         "args": vars(args),
         "data_window": data_window,
         "data_timing_ms": {
             "cache_load": cache_load_ms,
-            "dataset_init": dataset_init_ms,
         },
         "env": _torch_env(),
         "cells": [],
@@ -803,16 +927,29 @@ def main() -> None:
     ok = True
     for cell in cells:
         try:
-            result = _run_cell(cell, base_cfg, loader, output_dir, args)
+            result = _run_cell(cell, base_cfg, tokens, output_dir, args)
             manifest["cells"].append(result)
         except Exception as exc:
             ok = False
+            error_traceback = traceback.format_exc()
+            failure_cfg = copy.deepcopy(base_cfg)
+            failure_cfg.update(MATRIX_CELLS[cell])
+            failure_branch_topology = cell_branch_topology(failure_cfg, str(args.branch_topology))
+            failure_train_policy = cell_train_policy(failure_cfg, str(args.train_policy))
+            failure_cfg["branch_topology"] = failure_branch_topology
+            failure_cfg["train_policy"] = failure_train_policy
             manifest["cells"].append({
                 "cell": cell,
                 "status": "failed",
                 "error_type": type(exc).__name__,
                 "error": str(exc),
+                "error_traceback": error_traceback,
+                "branch_topology": failure_branch_topology,
+                "train_policy": failure_train_policy,
+                "config_fields": config_fields(failure_cfg),
+                "step_log": str(output_dir / f"{cell}_profile_steps.jsonl"),
             })
+            print(error_traceback, flush=True)
             print(f"[profile] FAIL {cell}: {type(exc).__name__}: {exc}", flush=True)
             break
         finally:

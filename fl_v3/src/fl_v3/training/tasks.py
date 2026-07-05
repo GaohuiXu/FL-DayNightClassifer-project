@@ -400,6 +400,16 @@ def _det_config_from_run(run_config: dict):
         max_pillars=int(run_config.get("det-max-pillars", 30000)),
         lidar_sweeps=int(run_config.get("det-lidar-sweeps", 1)),
         lidar_encoder=lidar_encoder,
+        lidar_z_voxel=(
+            None
+            if run_config.get("det-lidar-z-voxel", None) in (None, "")
+            else float(run_config.get("det-lidar-z-voxel"))
+        ),
+        lidar_sparse_z_size=(
+            None
+            if run_config.get("det-lidar-sparse-z-size", None) in (None, "")
+            else int(run_config.get("det-lidar-sparse-z-size"))
+        ),
         sparse_conv_fp16=sparse_conv_fp16,
         lidar_backbone=truthy(run_config.get("det-lidar-backbone", False)),
         lidar_backbone_out=int(run_config.get("det-lidar-backbone-out", 128)),

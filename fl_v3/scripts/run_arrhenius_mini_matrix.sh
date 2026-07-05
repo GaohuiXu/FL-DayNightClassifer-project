@@ -31,7 +31,12 @@ else
 fi
 arrhenius_activate_env
 
-export ARRHENIUS_NUSCENES_DATAROOT="${ARRHENIUS_NUSCENES_DATAROOT:-${REPO}/data/nuscenes_mini}"
+CANONICAL_MINI="/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini"
+DEFAULT_MINI="${REPO}/data/nuscenes_mini"
+if [ ! -d "${DEFAULT_MINI}" ] && [ -d "${CANONICAL_MINI}" ]; then
+  DEFAULT_MINI="${CANONICAL_MINI}"
+fi
+export ARRHENIUS_NUSCENES_DATAROOT="${ARRHENIUS_NUSCENES_DATAROOT:-${DEFAULT_MINI}}"
 export ARRHENIUS_NUSCENES_CACHE="${ARRHENIUS_NUSCENES_CACHE:-${ARRHENIUS_OUTPUT_ROOT}/nuscenes/info_cache_mini_from_main}"
 
 RUN_STAMP="${SLURM_JOB_ID:-manual_$(date +%Y%m%d_%H%M%S)}"
@@ -45,11 +50,19 @@ echo "[run_arrhenius_mini_matrix] dataroot=${ARRHENIUS_NUSCENES_DATAROOT}"
 echo "[run_arrhenius_mini_matrix] cache=${ARRHENIUS_NUSCENES_CACHE}"
 echo "[run_arrhenius_mini_matrix] out=${OUT_DIR}"
 echo "[run_arrhenius_mini_matrix] matrix=${MATRIX:-voxel_fp16_main,voxel_fp32_ref} steps=${STEPS:-30} tokens=${NUM_TOKENS:-2}"
+echo "[run_arrhenius_mini_matrix] branch_topology=${BRANCH_TOPOLOGY:-full_fusion} train_policy=${TRAIN_POLICY:-all_trainable} respect_config_shape=${RESPECT_CONFIG_SHAPE:-0} branch_delta=${BRANCH_DELTA_SANITY:-0}"
+echo "[run_arrhenius_mini_matrix] grad_scale_init=${GRAD_SCALE_INIT:-512.0}"
 echo "[run_arrhenius_mini_matrix] Best Config Smoke is intentionally not run in Stop C."
 
 EXTRA=()
 if [ "${PRETRAINED_BACKBONE:-0}" = "1" ]; then
   EXTRA+=(--pretrained-backbone)
+fi
+if [ "${RESPECT_CONFIG_SHAPE:-0}" = "1" ]; then
+  EXTRA+=(--respect-config-shape)
+fi
+if [ "${BRANCH_DELTA_SANITY:-0}" = "1" ]; then
+  EXTRA+=(--branch-delta-sanity)
 fi
 
 python fl_v3/scripts/arrhenius_mini_matrix.py \
@@ -58,6 +71,8 @@ python fl_v3/scripts/arrhenius_mini_matrix.py \
   --cache-dir "${ARRHENIUS_NUSCENES_CACHE}" \
   --output-dir "${OUT_DIR}" \
   --matrix "${MATRIX:-voxel_fp16_main,voxel_fp32_ref}" \
+  --branch-topology "${BRANCH_TOPOLOGY:-full_fusion}" \
+  --train-policy "${TRAIN_POLICY:-all_trainable}" \
   --steps "${STEPS:-30}" \
   --num-tokens "${NUM_TOKENS:-2}" \
   --batch-size "${BATCH_SIZE:-1}" \
@@ -65,5 +80,6 @@ python fl_v3/scripts/arrhenius_mini_matrix.py \
   --seed "${SEED:-42}" \
   --learning-rate "${LEARNING_RATE:-1e-4}" \
   --weight-decay "${WEIGHT_DECAY:-0.0}" \
+  --grad-scale-init "${GRAD_SCALE_INIT:-512.0}" \
   --backbone "${BACKBONE:-resnet18}" \
   "${EXTRA[@]}"

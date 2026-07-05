@@ -57,6 +57,8 @@ class DetectorConfig:
     max_pillars: int = 30000
     lidar_sweeps: int = 1                 # MCR P1: >1 ⇒ multi-sweep input (+dt channel in the PFN)
     lidar_encoder: str = "pillar"         # pillar (PFN, default) | voxel (spconv sparse 3D, Rule#2-relaxed; z-res)
+    lidar_z_voxel: float | None = None     # voxel only: z voxel size; None keeps historical cubic xyz voxels
+    lidar_sparse_z_size: int | None = None # voxel only: optional sparse z shape override for parity probes
     sparse_conv_fp16: bool = False         # voxel only: fp16 AMP sparse conv backbone; VFE/voxelization stay fp32
     lidar_backbone: bool = False          # MCR P1 capacity lever: dense 2D conv LiDAR backbone (default OFF)
     lidar_backbone_out: int = 128         # backbone Cout → widens ConvFuser.lidar_channels when ON
@@ -104,6 +106,7 @@ class BEVFusionDetector(nn.Module):
             self.lidar_encoder = SparseVoxelEncoder(
                 out_channels=c.lidar_channels, cfg=c.bev, use_timestamp=(c.lidar_sweeps > 1),
                 max_voxels=c.max_pillars, max_points_per_voxel=c.max_points_per_pillar,
+                z_voxel=c.lidar_z_voxel, sparse_z_size=c.lidar_sparse_z_size,
                 sparse_conv_fp16=c.sparse_conv_fp16,
             )
         else:
