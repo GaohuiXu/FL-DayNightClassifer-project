@@ -1,4 +1,4 @@
-"""Shared helpers for Arrhenius LiDAR capability diagnostics.
+"""Shared helpers for Arrhenius branch capability diagnostics.
 
 These helpers are intentionally script-facing. They keep branch-isolation,
 reference-parity assertions, and telemetry out of the production detector path.
@@ -10,7 +10,13 @@ from typing import Any, Dict, Iterable, List, Tuple
 
 
 BRANCH_TOPOLOGIES = ("full_fusion", "lidar_only", "camera_only")
-TRAIN_POLICIES = ("all_trainable", "camera_frozen", "lidar_only_trainable", "probe_no_backward")
+TRAIN_POLICIES = (
+    "all_trainable",
+    "camera_frozen",
+    "lidar_only_trainable",
+    "camera_only_trainable",
+    "probe_no_backward",
+)
 
 BEVFUSION_075_REFERENCE = {
     "voxel_size": [0.075, 0.075, 0.2],
@@ -24,7 +30,7 @@ BEVFUSION_075_REFERENCE = {
 FULLSHAPE_COMMON = {
     "det-camera-backbone": "swin_t",
     "det-freeze-backbone": False,
-    "det-pretrained-backbone": False,
+    "det-pretrained-backbone": True,
     "det-max-pillars": 120000,
     "det-lidar-backbone": True,
     "det-lidar-backbone-stages": 4,
@@ -120,6 +126,69 @@ CAPABILITY_MATRIX_CELLS = {
         "bevfusion-max-voxels-reference": BEVFUSION_075_REFERENCE["max_voxels"],
         "bevfusion-head-grid-size-reference": BEVFUSION_075_REFERENCE["head_grid_size"],
     },
+    "camera_iso_020_fp16_swin": {
+        **FULLSHAPE_COMMON,
+        "branch_topology": "camera_only",
+        "train_policy": "camera_only_trainable",
+        "det-lidar-encoder": "pillar",
+        "precision": "fp16",
+        "det-sparse-conv-fp16": False,
+        "det-bev-voxel": 0.2,
+        "det-lidar-backbone-out": 128,
+        "det-fusion-channels": 128,
+    },
+    "camera_iso_020_fp16_swin_no_sdpa": {
+        **FULLSHAPE_COMMON,
+        "branch_topology": "camera_only",
+        "train_policy": "camera_only_trainable",
+        "det-lidar-encoder": "pillar",
+        "precision": "fp16",
+        "det-sparse-conv-fp16": False,
+        "det-bev-voxel": 0.2,
+        "det-lidar-backbone-out": 128,
+        "det-fusion-channels": 128,
+        "det-swin-sdpa": False,
+    },
+    "camera_iso_020_fp16_swin_no_ckpt": {
+        **FULLSHAPE_COMMON,
+        "branch_topology": "camera_only",
+        "train_policy": "camera_only_trainable",
+        "det-lidar-encoder": "pillar",
+        "precision": "fp16",
+        "det-sparse-conv-fp16": False,
+        "det-bev-voxel": 0.2,
+        "det-lidar-backbone-out": 128,
+        "det-fusion-channels": 128,
+        "det-activation-checkpoint": False,
+    },
+    "camera_iso_075_ch256_fp16_probe": {
+        **FULLSHAPE_COMMON,
+        "branch_topology": "camera_only",
+        "train_policy": "probe_no_backward",
+        "det-lidar-encoder": "pillar",
+        "precision": "fp16",
+        "det-sparse-conv-fp16": False,
+        "det-bev-voxel": 0.075,
+        "det-pc-range": BEVFUSION_075_REFERENCE["point_cloud_range"],
+        "det-max-pillars": 120000,
+        "det-max-points-per-pillar": 10,
+        "det-lidar-backbone-out": 256,
+        "det-fusion-channels": 256,
+    },
+    "camera_iso_075_ch256_fp16_swin": {
+        **FULLSHAPE_COMMON,
+        "branch_topology": "camera_only",
+        "train_policy": "camera_only_trainable",
+        "det-lidar-encoder": "pillar",
+        "precision": "fp16",
+        "det-sparse-conv-fp16": False,
+        "det-bev-voxel": 0.075,
+        "det-pc-range": BEVFUSION_075_REFERENCE["point_cloud_range"],
+        "det-max-pillars": 120000,
+        "det-max-points-per-pillar": 10,
+        "det-lidar-backbone-out": 256,
+        "det-fusion-channels": 256,
+    },
 }
 
 CONFIG_FIELD_KEYS = (
@@ -138,11 +207,18 @@ CONFIG_FIELD_KEYS = (
     "det-lidar-backbone-stages",
     "det-lidar-backbone-out",
     "det-activation-checkpoint",
+    "det-swin-sdpa",
     "det-lidar-backbone-checkpoint",
     "det-fusion-channels",
+    "det-neck-channels",
+    "det-context-channels",
     "det-bev-neck-channels",
     "det-head-channels",
     "det-head-conv-layers",
+    "det-image-h",
+    "det-image-w",
+    "det-feat-stride",
+    "det-out-size-factor",
     "precision",
     "det-sparse-conv-fp16",
     "batch-size",
@@ -172,16 +248,32 @@ def config_fields(cfg: dict) -> Dict[str, Any]:
     return {k: cfg.get(k) for k in CONFIG_FIELD_KEYS if k in cfg}
 
 
+CAMERA_PREFIXES = ("camera_backbone", "camera_neck", "view_transform")
+LIDAR_PREFIXES = ("lidar_encoder", "lidar_backbone")
+
+
+def _set_prefix_trainability(model, prefixes: Tuple[str, ...], trainable: bool) -> None:
+    for name, param in model.named_parameters():
+        if name.split(".", 1)[0] in prefixes:
+            param.requires_grad_(bool(trainable))
+
+
 def apply_train_policy(model, train_policy: str) -> None:
     validate_controls("full_fusion", train_policy)
     if train_policy == "all_trainable":
         return
 
-    camera_prefixes = ("camera_backbone", "camera_neck", "view_transform")
     if train_policy in ("camera_frozen", "lidar_only_trainable"):
-        for name, param in model.named_parameters():
-            if name.split(".", 1)[0] in camera_prefixes:
-                param.requires_grad_(False)
+        _set_prefix_trainability(model, CAMERA_PREFIXES, False)
+    elif train_policy == "camera_only_trainable":
+        # Policy-level camera isolation should not inherit a frozen-backbone
+        # bring-up config. This is a diagnostic-only override; camera audit cells
+        # use Swin-T, so there are no ResNet BatchNorm running-stat surprises.
+        backbone = getattr(model, "camera_backbone", None)
+        if backbone is not None and hasattr(backbone, "frozen"):
+            backbone.frozen = False
+        _set_prefix_trainability(model, CAMERA_PREFIXES, True)
+        _set_prefix_trainability(model, LIDAR_PREFIXES, False)
 
 
 def trainable_parameters(model) -> List[Any]:
@@ -295,15 +387,20 @@ def tensor_stats(x) -> Dict[str, Any]:
         if x is None or not torch.is_tensor(x):
             return {"available": False}
         xf = x.detach().float()
+        numel = int(xf.numel())
+        nonzero = int((xf != 0).sum().cpu()) if numel else 0
         return {
             "available": True,
             "shape": tuple(x.shape),
             "dtype": str(x.dtype),
             "finite": bool(torch.isfinite(xf).all().item()),
             "norm": float(xf.norm().cpu()),
-            "mean": float(xf.mean().cpu()) if xf.numel() else 0.0,
-            "std": float(xf.std(unbiased=False).cpu()) if xf.numel() else 0.0,
-            "nonzero": int((xf != 0).sum().cpu()) if xf.numel() else 0,
+            "mean": float(xf.mean().cpu()) if numel else 0.0,
+            "std": float(xf.std(unbiased=False).cpu()) if numel else 0.0,
+            "variance": float(xf.var(unbiased=False).cpu()) if numel else 0.0,
+            "numel": numel,
+            "nonzero": nonzero,
+            "nonzero_ratio": (float(nonzero) / float(numel)) if numel else 0.0,
         }
     except Exception as exc:
         return {"available": False, "error": f"{type(exc).__name__}: {exc}"}
@@ -325,6 +422,58 @@ def fuser_contract(model) -> Dict[str, Any]:
     }
 
 
+def camera_model_summary(model) -> Dict[str, Any]:
+    cfg = getattr(model, "cfg", None)
+    backbone = getattr(model, "camera_backbone", None)
+    neck = getattr(model, "camera_neck", None)
+    vt = getattr(model, "view_transform", None)
+    bev = getattr(cfg, "bev", None)
+    pretrained = bool(getattr(cfg, "pretrained_backbone", False))
+    return {
+        "backbone": getattr(backbone, "name", getattr(cfg, "camera_backbone", "")),
+        "pretrained_backbone": pretrained,
+        "camera_init_policy": "imagenet_pretrained" if pretrained else "scratch",
+        "freeze_camera_backbone_config": bool(getattr(cfg, "freeze_camera_backbone", False)),
+        "backbone_frozen_runtime": bool(getattr(backbone, "frozen", False)),
+        "backbone_out_channels": list(getattr(backbone, "out_channels", [])),
+        "backbone_strides": list(getattr(backbone, "strides", [])),
+        "image_hw": list(getattr(cfg, "image_hw", ())),
+        "neck_out_channels": int(getattr(neck, "out_channels", -1)),
+        "neck_out_stride": int(getattr(neck, "out_stride", -1)),
+        "view_transform_fhw": [int(getattr(vt, "fH", -1)), int(getattr(vt, "fW", -1))],
+        "view_transform_depth_bins": int(getattr(vt, "D", -1)),
+        "context_channels": int(getattr(vt, "context_channels", getattr(cfg, "context_channels", -1))),
+        "camera_bev_grid": [int(getattr(bev, "ny", -1)), int(getattr(bev, "nx", -1))],
+        "head_heatmap_grid": [int(getattr(bev, "head_ny", -1)), int(getattr(bev, "head_nx", -1))],
+        "fuser": fuser_contract(model),
+    }
+
+
+def camera_batch_summary(batch: dict) -> Dict[str, Any]:
+    images = batch.get("images")
+    cam_order = batch.get("cam_order", [])
+    sample_order = list(cam_order[0]) if cam_order and isinstance(cam_order, list) else []
+    try:
+        image_shape = tuple(images.shape)
+        batch_size = int(images.shape[0])
+        camera_count = int(images.shape[1])
+    except Exception:
+        image_shape = ()
+        batch_size = int(batch.get("batch_size", 0) or 0)
+        camera_count = 0
+    return {
+        "batch_size": batch_size,
+        "camera_count": camera_count,
+        "raw_image_shape": image_shape,
+        "cam_order_first_sample": sample_order,
+    }
+
+
+def projection_meta(model) -> Dict[str, Any]:
+    vt = getattr(model, "view_transform", None)
+    return dict(getattr(vt, "last_projection_meta", {}) or {})
+
+
 def model_shape_summary(cfg: dict, model) -> Dict[str, Any]:
     bev = model.cfg.bev
     enc = getattr(model, "lidar_encoder", None)
@@ -343,6 +492,7 @@ def model_shape_summary(cfg: dict, model) -> Dict[str, Any]:
         ),
         "max_voxels_active": int(cfg.get("det-max-pillars", 0)),
         "fuser": fuser_contract(model),
+        "camera": camera_model_summary(model),
     }
     if sparse_nz is not None:
         out["computed_z_bins"] = int(getattr(enc, "computed_nz", sparse_nz))

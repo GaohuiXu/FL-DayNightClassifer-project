@@ -24,6 +24,8 @@ from arrhenius_lidar_gap_utils import (
     CAPABILITY_MATRIX_CELLS,
     TRAIN_POLICIES,
     apply_train_policy,
+    camera_batch_summary,
+    camera_model_summary,
     cell_branch_topology,
     cell_train_policy,
     config_fields,
@@ -33,12 +35,16 @@ from arrhenius_lidar_gap_utils import (
     module_grad_coverage,
     module_param_coverage,
     parity_summary,
+    projection_meta,
     tensor_stats,
     trainable_parameters,
     validate_bevfusion_075_parity,
     validate_controls,
     zero_bev,
 )
+
+
+HEAD_KEYS = ("heatmap", "reg", "height", "dim", "rot", "vel")
 
 
 CANONICAL_MATRIX_CELLS = {
@@ -127,7 +133,7 @@ def _build_base_cfg(args: argparse.Namespace) -> dict:
     if not bool(args.respect_config_shape):
         cfg["precision"] = "fp32"
         cfg["det-camera-backbone"] = str(args.backbone)
-        cfg["det-freeze-backbone"] = True
+        cfg["det-freeze-backbone"] = False
         cfg["det-pretrained-backbone"] = bool(args.pretrained_backbone)
         cfg["det-aug-bev"] = False
         cfg["det-gt-paste"] = False
@@ -195,25 +201,69 @@ def _sparse_meta(model) -> Dict[str, Any]:
     return dict(getattr(enc, "last_sparse_meta", {}) or {})
 
 
-def _forward_with_branch_topology(model, batch: dict, branch_topology: str):
+def _shape_list(xs) -> List[tuple]:
+    return [tuple(x.shape) for x in xs]
+
+
+def _head_delta_stats(pred: dict, ref: dict) -> Dict[str, Any]:
+    import torch
+
+    out: Dict[str, Any] = {}
+    for key in HEAD_KEYS:
+        a, b = pred.get(key), ref.get(key)
+        if not (torch.is_tensor(a) and torch.is_tensor(b)):
+            continue
+        d = (a.detach().float() - b.detach().float()).abs()
+        out[key] = {
+            "max_abs": float(d.max().cpu()) if d.numel() else 0.0,
+            "mean_abs": float(d.mean().cpu()) if d.numel() else 0.0,
+            "nonzero": int((d > 0).sum().cpu()) if d.numel() else 0,
+        }
+    return out
+
+
+def _forward_with_branch_topology(
+    model,
+    batch: dict,
+    branch_topology: str,
+    *,
+    zero_camera: bool = False,
+    zero_lidar: bool = False,
+):
     branch_topology, _ = validate_controls(branch_topology, "all_trainable")
     images = batch["images"]
     B, N = images.shape[0], images.shape[1]
     camera_bev = None
     lidar_bev = None
+    camera_shapes: Dict[str, Any] = {}
+    vt_projection_meta: Dict[str, Any] = {}
+    executed_camera = branch_topology != "lidar_only"
+    executed_lidar = branch_topology != "camera_only"
+    executed_lidar_backbone = False
 
-    if branch_topology != "lidar_only":
+    if executed_camera:
         pre = model.preprocess(batch["images"], batch["lidar2img"], batch["cam_intrinsics"])
         imgs = pre["images"]
         feats = model.camera_backbone(imgs.reshape(B * N, *imgs.shape[2:]))
         camfeat = model.camera_neck(feats)
         vt = model.view_transform(camfeat, pre["lidar2img"], B, N)
         camera_bev = vt["bev"]
+        vt_projection_meta = dict(vt.get("projection_meta", projection_meta(model)) or {})
+        camera_shapes = {
+            "raw_images": tuple(batch["images"].shape),
+            "preprocessed_images": tuple(imgs.shape),
+            "backbone_features": _shape_list(feats),
+            "camera_neck": tuple(camfeat.shape),
+            "depth_prob": tuple(vt["depth_prob"].shape),
+            "camera_context": tuple(vt["context"].shape),
+            "camera_bev": tuple(camera_bev.shape),
+        }
 
-    if branch_topology != "camera_only":
+    if executed_lidar:
         lidar_bev = model.lidar_encoder(batch["lidar_points"], B)
         if model.lidar_backbone is not None:
             lidar_bev = model.lidar_backbone(lidar_bev)
+            executed_lidar_backbone = True
 
     if camera_bev is None:
         assert lidar_bev is not None
@@ -221,12 +271,26 @@ def _forward_with_branch_topology(model, batch: dict, branch_topology: str):
     if lidar_bev is None:
         assert camera_bev is not None
         lidar_bev = zero_bev(B, model.fusion.lidar_channels, model.cfg.bev.ny, model.cfg.bev.nx, camera_bev)
+    if zero_camera:
+        camera_bev = camera_bev.new_zeros(camera_bev.shape)
+    if zero_lidar:
+        lidar_bev = lidar_bev.new_zeros(lidar_bev.shape)
 
     fused = model.fusion(camera_bev, lidar_bev)
     neck = model.bev_neck(fused)
     out = model.head(neck)
     branch_stats = {
         "branch_topology": branch_topology,
+        "zero_camera_at_fusion": bool(zero_camera),
+        "zero_lidar_at_fusion": bool(zero_lidar),
+        "executed": {
+            "camera": bool(executed_camera),
+            "lidar_encoder": bool(executed_lidar),
+            "lidar_backbone": bool(executed_lidar_backbone),
+        },
+        "camera_batch": camera_batch_summary(batch),
+        "camera_shapes": camera_shapes,
+        "projection_meta": vt_projection_meta,
         "camera_bev": tensor_stats(camera_bev),
         "lidar_bev": tensor_stats(lidar_bev),
         "fused_bev": tensor_stats(fused),
@@ -257,24 +321,43 @@ def _branch_delta_sanity(model, criterion, batch: dict, precision: str, device) 
     from fl_v3.utils.runtime import precision_autocast_context
 
     out: Dict[str, Any] = {}
+    ref_pred = None
     model.eval()
     with torch.no_grad():
-        for topology in BRANCH_TOPOLOGIES:
+        modes = [
+            ("full_fusion", "full_fusion", False, False),
+            ("camera_only", "camera_only", False, False),
+            ("lidar_only", "lidar_only", False, False),
+            ("full_fusion_camera_zeroed", "full_fusion", True, False),
+            ("full_fusion_lidar_zeroed", "full_fusion", False, True),
+        ]
+        for mode_name, topology, zero_camera, zero_lidar in modes:
             torch.cuda.synchronize()
             t0 = time.perf_counter()
             with precision_autocast_context(precision, device):
-                pred, branch_stats = _forward_with_branch_topology(model, batch, topology)
+                pred, branch_stats = _forward_with_branch_topology(
+                    model,
+                    batch,
+                    topology,
+                    zero_camera=zero_camera,
+                    zero_lidar=zero_lidar,
+                )
             if precision == "fp16":
                 pred = _float_tensors(pred)
             loss = criterion(pred, batch)
             torch.cuda.synchronize()
-            out[topology] = {
+            rec = {
                 "loss": float(loss.detach().cpu()),
                 "finite": bool(torch.isfinite(loss.detach()).item()),
                 "seconds": time.perf_counter() - t0,
                 "branch_metrics": branch_stats,
                 "head_heatmap": tensor_stats(pred.get("heatmap")),
             }
+            if mode_name == "full_fusion":
+                ref_pred = {k: v.detach().clone() for k, v in pred.items() if k in HEAD_KEYS}
+            elif ref_pred is not None:
+                rec["head_delta_from_full_fusion"] = _head_delta_stats(pred, ref_pred)
+            out[mode_name] = rec
     model.train()
     return out
 
@@ -304,6 +387,9 @@ def _run_cell(
 
     cfg = copy.deepcopy(base_cfg)
     cfg.update(MATRIX_CELLS[cell_name])
+    if not bool(args.respect_config_shape):
+        cfg["det-camera-backbone"] = str(args.backbone)
+        cfg["det-pretrained-backbone"] = bool(args.pretrained_backbone)
     branch_topology = cell_branch_topology(cfg, str(args.branch_topology))
     train_policy = cell_train_policy(cfg, str(args.train_policy))
     validate_controls(branch_topology, train_policy)
@@ -328,6 +414,7 @@ def _run_cell(
         raise RuntimeError("BEVFusion 0.075 parity check failed: " + "; ".join(parity_errors))
     if cfg.get("det-lidar-encoder") == "voxel":
         getattr(model, "lidar_encoder").record_debug = True
+    getattr(model, "view_transform").record_debug = True
     criterion = task.build_criterion(cfg)
     opt_params = trainable_parameters(model)
     if not opt_params and train_policy != "probe_no_backward":
@@ -349,6 +436,7 @@ def _run_cell(
         "train_policy": train_policy,
         "config_fields": config_fields(cfg),
         "model_shape": model_shape_summary(cfg, model),
+        "camera_model": camera_model_summary(model),
         "fuser_contract": fuser_contract(model),
         "param_coverage": module_param_coverage(model),
         "bevfusion_075_parity": parity_summary(cfg, model) if cfg.get("bevfusion-parity-075", False) else None,
@@ -462,7 +550,7 @@ def _run_cell(
                 skipped,
                 flush=True,
             )
-            if nonfinite_grad:
+            if nonfinite_grad and not scaler.is_enabled():
                 raise RuntimeError(f"{cell_name}: step {step} non-finite grad_norm {grad_norm}")
 
     cell["seconds"] = time.perf_counter() - start
@@ -473,9 +561,15 @@ def _run_cell(
     cell["loss_decreased"] = bool(losses and min(losses) < losses[0])
     cell["loss_last_le_first"] = bool(losses and losses[-1] <= losses[0])
     cell["grad_scaler_final_scale"] = float(scaler.get_scale())
-    if train_policy != "probe_no_backward" and scaler.is_enabled() and int(cell["optimizer_steps"]) <= 0:
+    steps_requested = int(args.steps)
+    if (
+        steps_requested > 0
+        and train_policy != "probe_no_backward"
+        and scaler.is_enabled()
+        and int(cell["optimizer_steps"]) <= 0
+    ):
         raise RuntimeError(f"{cell_name}: GradScaler skipped every optimizer step")
-    if not cell["loss_decreased"]:
+    if steps_requested > 0 and not cell["loss_decreased"]:
         cell["warnings"].append(
             "tiny-overfit loss did not decrease below the first step; treated as engineering warning, not a scientific failure"
         )
@@ -546,11 +640,11 @@ def main() -> None:
     default_cache = Path(default_root) / "nuscenes" / "info_cache_mini_from_main"
 
     ap = argparse.ArgumentParser()
-    ap.add_argument("--config", default=str(_repo_root() / "fl_v3" / "configs" / "t4_mini_smoke.json"))
+    ap.add_argument("--config", default=str(_repo_root() / "fl_v3" / "configs" / "p1_bb02d_voxel.json"))
     ap.add_argument("--dataroot", default=os.environ.get("ARRHENIUS_NUSCENES_DATAROOT", str(default_dataroot)))
     ap.add_argument("--cache-dir", default=os.environ.get("ARRHENIUS_NUSCENES_CACHE", str(default_cache)))
-    ap.add_argument("--output-dir", default=str(Path(default_root) / "stop_c_mini_tiny_overfit"))
-    ap.add_argument("--matrix", default="voxel_fp16_main,voxel_fp32_ref")
+    ap.add_argument("--output-dir", default=str(Path(default_root) / "camera_audit_mini_matrix"))
+    ap.add_argument("--matrix", default="camera_iso_020_fp16_swin")
     ap.add_argument("--respect-config-shape", action="store_true")
     ap.add_argument("--branch-topology", default="full_fusion", choices=BRANCH_TOPOLOGIES)
     ap.add_argument("--train-policy", default="all_trainable", choices=TRAIN_POLICIES)
@@ -563,8 +657,8 @@ def main() -> None:
     ap.add_argument("--learning-rate", type=float, default=1e-4)
     ap.add_argument("--weight-decay", type=float, default=0.0)
     ap.add_argument("--grad-scale-init", type=float, default=512.0)
-    ap.add_argument("--backbone", default="resnet18", choices=["resnet18", "swin_t"])
-    ap.add_argument("--pretrained-backbone", action="store_true")
+    ap.add_argument("--backbone", default="swin_t", choices=["resnet18", "swin_t"])
+    ap.add_argument("--pretrained-backbone", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--lidar-sweeps", type=int, default=1)
     args = ap.parse_args()
 
@@ -594,9 +688,11 @@ def main() -> None:
     tokens = _select_tokens(train_info, int(args.num_tokens))
 
     manifest = {
-        "kind": "arrhenius_stop_c_mini_tiny_overfit",
+        "kind": "arrhenius_camera_audit_mini_matrix",
         "scientific_claim": False,
-        "engineering_scope": "mini data/cached one-batch eval and tiny-overfit only",
+        "engineering_scope": "mini camera-branch audit, one-batch eval, branch delta, and tiny-overfit only",
+        "camera_audit": True,
+        "resnet_camera_backbone_status": "legacy_unsupported_for_arrhenius_camera_audit",
         "git_rev": _git_rev(),
         "slurm_job_id": os.environ.get("SLURM_JOB_ID", ""),
         "repo": str(_repo_root()),

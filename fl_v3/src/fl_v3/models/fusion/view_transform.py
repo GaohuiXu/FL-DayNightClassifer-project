@@ -147,6 +147,8 @@ class DepthLSSTransform(nn.Module):
         self.register_buffer("frustum", frustum, persistent=False)
         # canonical per-cell geom index (n,d,i,j) added at forward (depends on N).
         self.register_buffer("depth_values", ds, persistent=False)
+        self.record_debug = False
+        self.last_projection_meta = {}
 
     def _img2lidar(self, lidar2img: torch.Tensor) -> torch.Tensor:
         """Inverse of (rescaled) ``lidar2img`` in float64 (calibration, not hot-path).
@@ -187,6 +189,38 @@ class DepthLSSTransform(nn.Module):
         ranks = b_idx * (cfg.nx * cfg.ny) + flat               # [B,N,P]
         m = valid.reshape(-1)
         ranks_pt = ranks.reshape(-1)[m]
+        projection_meta = {}
+        if self.record_debug:
+            valid_counts = valid.detach().sum(dim=2)            # [B,N]
+            per_camera = valid_counts.sum(dim=0)
+            valid_total = int(valid_counts.sum().detach().cpu())
+            total = int(B * N * P)
+            denom_per_camera = max(int(B * P), 1)
+            projection_meta = {
+                "B": int(B),
+                "N": int(N),
+                "D": int(D),
+                "fH": int(fH),
+                "fW": int(fW),
+                "frustum_points_per_camera": int(P),
+                "frustum_points_total": total,
+                "valid_points_total": valid_total,
+                "valid_ratio": (float(valid_total) / float(total)) if total else 0.0,
+                "valid_points_per_camera": [int(v) for v in per_camera.detach().cpu().tolist()],
+                "valid_ratio_per_camera": [
+                    float(v) / float(denom_per_camera) for v in per_camera.detach().cpu().tolist()
+                ],
+                "bev_grid_hw": [int(cfg.ny), int(cfg.nx)],
+                "point_cloud_range": [
+                    float(cfg.x_min),
+                    float(cfg.y_min),
+                    float(cfg.z_min),
+                    float(cfg.x_max),
+                    float(cfg.y_max),
+                    float(cfg.z_max),
+                ],
+            }
+            self.last_projection_meta = projection_meta
 
         if relaxed:
             # L3a+L3b (D15 relaxed): mask-then-lift (lift ONLY at valid points — the atomicAdd backward
@@ -216,7 +250,10 @@ class DepthLSSTransform(nn.Module):
             x_pt = feats_pt.reshape(-1, Cc)[m]
             geom_pt = geom_id.reshape(-1)[m]
             bev = bev_splat(x_pt, ranks_pt, geom_pt, B, cfg.nx, cfg.ny)
-        return {"bev": bev, "depth_prob": depth_prob, "context": context}
+        out = {"bev": bev, "depth_prob": depth_prob, "context": context}
+        if projection_meta:
+            out["projection_meta"] = projection_meta
+        return out
 
 
 def P_(D: int, fH: int, fW: int) -> int:

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Arrhenius Stop C mini tiny-overfit matrix launcher.
+# Arrhenius camera-branch mini audit / tiny-overfit matrix launcher.
 #
 # Engineering-only mini validation:
 #   sbatch fl_v3/scripts/run_arrhenius_mini_matrix.sh
@@ -40,7 +40,7 @@ export ARRHENIUS_NUSCENES_DATAROOT="${ARRHENIUS_NUSCENES_DATAROOT:-${DEFAULT_MIN
 export ARRHENIUS_NUSCENES_CACHE="${ARRHENIUS_NUSCENES_CACHE:-${ARRHENIUS_OUTPUT_ROOT}/nuscenes/info_cache_mini_from_main}"
 
 RUN_STAMP="${SLURM_JOB_ID:-manual_$(date +%Y%m%d_%H%M%S)}"
-OUT_DIR="${OUT_DIR:-${ARRHENIUS_OUTPUT_ROOT}/stop_c_mini_tiny_overfit_${RUN_STAMP}}"
+OUT_DIR="${OUT_DIR:-${ARRHENIUS_OUTPUT_ROOT}/camera_audit_mini_matrix_${RUN_STAMP}}"
 mkdir -p "${OUT_DIR}" "${ARRHENIUS_NUSCENES_CACHE}" "${ARRHENIUS_OUTPUT_ROOT}"
 
 echo "[run_arrhenius_mini_matrix] host=$(hostname) arch=$(uname -m)"
@@ -49,13 +49,16 @@ echo "[run_arrhenius_mini_matrix] repo=${REPO}"
 echo "[run_arrhenius_mini_matrix] dataroot=${ARRHENIUS_NUSCENES_DATAROOT}"
 echo "[run_arrhenius_mini_matrix] cache=${ARRHENIUS_NUSCENES_CACHE}"
 echo "[run_arrhenius_mini_matrix] out=${OUT_DIR}"
-echo "[run_arrhenius_mini_matrix] matrix=${MATRIX:-voxel_fp16_main,voxel_fp32_ref} steps=${STEPS:-30} tokens=${NUM_TOKENS:-2}"
+echo "[run_arrhenius_mini_matrix] matrix=${MATRIX:-camera_iso_020_fp16_swin} steps=${STEPS:-30} tokens=${NUM_TOKENS:-2}"
 echo "[run_arrhenius_mini_matrix] branch_topology=${BRANCH_TOPOLOGY:-full_fusion} train_policy=${TRAIN_POLICY:-all_trainable} respect_config_shape=${RESPECT_CONFIG_SHAPE:-0} branch_delta=${BRANCH_DELTA_SANITY:-0}"
 echo "[run_arrhenius_mini_matrix] grad_scale_init=${GRAD_SCALE_INIT:-512.0}"
-echo "[run_arrhenius_mini_matrix] Best Config Smoke is intentionally not run in Stop C."
+echo "[run_arrhenius_mini_matrix] backbone=${BACKBONE:-swin_t} pretrained=${PRETRAINED_BACKBONE:-1}"
+echo "[run_arrhenius_mini_matrix] Best Config Smoke is intentionally not run in the camera audit."
 
 EXTRA=()
-if [ "${PRETRAINED_BACKBONE:-0}" = "1" ]; then
+if [ "${PRETRAINED_BACKBONE:-1}" = "0" ]; then
+  EXTRA+=(--no-pretrained-backbone)
+else
   EXTRA+=(--pretrained-backbone)
 fi
 if [ "${RESPECT_CONFIG_SHAPE:-0}" = "1" ]; then
@@ -66,11 +69,11 @@ if [ "${BRANCH_DELTA_SANITY:-0}" = "1" ]; then
 fi
 
 python fl_v3/scripts/arrhenius_mini_matrix.py \
-  --config "${CONFIG:-fl_v3/configs/t4_mini_smoke.json}" \
+  --config "${CONFIG:-fl_v3/configs/p1_bb02d_voxel.json}" \
   --dataroot "${ARRHENIUS_NUSCENES_DATAROOT}" \
   --cache-dir "${ARRHENIUS_NUSCENES_CACHE}" \
   --output-dir "${OUT_DIR}" \
-  --matrix "${MATRIX:-voxel_fp16_main,voxel_fp32_ref}" \
+  --matrix "${MATRIX:-camera_iso_020_fp16_swin}" \
   --branch-topology "${BRANCH_TOPOLOGY:-full_fusion}" \
   --train-policy "${TRAIN_POLICY:-all_trainable}" \
   --steps "${STEPS:-30}" \
@@ -81,5 +84,5 @@ python fl_v3/scripts/arrhenius_mini_matrix.py \
   --learning-rate "${LEARNING_RATE:-1e-4}" \
   --weight-decay "${WEIGHT_DECAY:-0.0}" \
   --grad-scale-init "${GRAD_SCALE_INIT:-512.0}" \
-  --backbone "${BACKBONE:-resnet18}" \
+  --backbone "${BACKBONE:-swin_t}" \
   "${EXTRA[@]}"

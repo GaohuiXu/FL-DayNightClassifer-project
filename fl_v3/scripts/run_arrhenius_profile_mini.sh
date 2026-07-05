@@ -1,5 +1,5 @@
 #!/bin/bash
-# Arrhenius Stop D mini profiling launcher.
+# Arrhenius Stop F camera module teardown/speedup profiling launcher.
 #
 # Engineering-only mini profiling:
 #   sbatch fl_v3/scripts/run_arrhenius_profile_mini.sh
@@ -40,7 +40,7 @@ export ARRHENIUS_NUSCENES_DATAROOT="${ARRHENIUS_NUSCENES_DATAROOT:-${DEFAULT_MIN
 export ARRHENIUS_NUSCENES_CACHE="${ARRHENIUS_NUSCENES_CACHE:-${ARRHENIUS_OUTPUT_ROOT}/nuscenes/info_cache_mini_from_main}"
 
 RUN_STAMP="${SLURM_JOB_ID:-manual_$(date +%Y%m%d_%H%M%S)}"
-OUT_DIR="${OUT_DIR:-${ARRHENIUS_OUTPUT_ROOT}/stop_d_profile_mini_${RUN_STAMP}}"
+OUT_DIR="${OUT_DIR:-${ARRHENIUS_OUTPUT_ROOT}/stop_f_camera_profile_mini_${RUN_STAMP}}"
 mkdir -p "${OUT_DIR}" "${ARRHENIUS_NUSCENES_CACHE}" "${ARRHENIUS_OUTPUT_ROOT}"
 
 echo "[run_arrhenius_profile_mini] host=$(hostname) arch=$(uname -m)"
@@ -49,14 +49,17 @@ echo "[run_arrhenius_profile_mini] repo=${REPO}"
 echo "[run_arrhenius_profile_mini] dataroot=${ARRHENIUS_NUSCENES_DATAROOT}"
 echo "[run_arrhenius_profile_mini] cache=${ARRHENIUS_NUSCENES_CACHE}"
 echo "[run_arrhenius_profile_mini] out=${OUT_DIR}"
-echo "[run_arrhenius_profile_mini] matrix=${MATRIX:-voxel_fp16_main} warmup=${WARMUP_ITERS:-4} iters=${PROFILE_ITERS:-8} tokens=${NUM_TOKENS:-256}"
+echo "[run_arrhenius_profile_mini] matrix=${MATRIX:-camera_iso_020_fp16_swin} warmup=${WARMUP_ITERS:-4} iters=${PROFILE_ITERS:-8} tokens=${NUM_TOKENS:-256}"
 echo "[run_arrhenius_profile_mini] batch=${BATCH_SIZE:-16} workers=${NUM_WORKERS:-8} pin=${PIN_MEMORY:-1} persistent=${PERSISTENT_WORKERS:-1} prefetch=${PREFETCH_FACTOR:-4}"
 echo "[run_arrhenius_profile_mini] branch_topology=${BRANCH_TOPOLOGY:-full_fusion} train_policy=${TRAIN_POLICY:-all_trainable} respect_config_shape=${RESPECT_CONFIG_SHAPE:-0}"
 echo "[run_arrhenius_profile_mini] grad_scale_init=${GRAD_SCALE_INIT:-512.0}"
-echo "[run_arrhenius_profile_mini] Best Config Smoke is intentionally not run in Stop D."
+echo "[run_arrhenius_profile_mini] backbone=${BACKBONE:-swin_t} pretrained=${PRETRAINED_BACKBONE:-1}"
+echo "[run_arrhenius_profile_mini] Best Config Smoke is intentionally not run in Stop F."
 
 EXTRA=()
-if [ "${PRETRAINED_BACKBONE:-0}" = "1" ]; then
+if [ "${PRETRAINED_BACKBONE:-1}" = "0" ]; then
+  EXTRA+=(--no-pretrained-backbone)
+else
   EXTRA+=(--pretrained-backbone)
 fi
 if [ "${PIN_MEMORY:-1}" = "0" ]; then
@@ -74,11 +77,11 @@ if [ "${RESPECT_CONFIG_SHAPE:-0}" = "1" ]; then
 fi
 
 python fl_v3/scripts/arrhenius_profile_mini.py \
-  --config "${CONFIG:-fl_v3/configs/t4_mini_smoke.json}" \
+  --config "${CONFIG:-fl_v3/configs/p1_bb02d_voxel.json}" \
   --dataroot "${ARRHENIUS_NUSCENES_DATAROOT}" \
   --cache-dir "${ARRHENIUS_NUSCENES_CACHE}" \
   --output-dir "${OUT_DIR}" \
-  --matrix "${MATRIX:-voxel_fp16_main}" \
+  --matrix "${MATRIX:-camera_iso_020_fp16_swin}" \
   --branch-topology "${BRANCH_TOPOLOGY:-full_fusion}" \
   --train-policy "${TRAIN_POLICY:-all_trainable}" \
   --warmup-iters "${WARMUP_ITERS:-4}" \
@@ -91,7 +94,7 @@ python fl_v3/scripts/arrhenius_profile_mini.py \
   --learning-rate "${LEARNING_RATE:-1e-4}" \
   --weight-decay "${WEIGHT_DECAY:-0.0}" \
   --grad-scale-init "${GRAD_SCALE_INIT:-512.0}" \
-  --backbone "${BACKBONE:-resnet18}" \
+  --backbone "${BACKBONE:-swin_t}" \
   --lidar-sweeps "${LIDAR_SWEEPS:-1}" \
   --max-pillars "${MAX_PILLARS:-30000}" \
   --max-points-per-pillar "${MAX_POINTS_PER_PILLAR:-32}" \

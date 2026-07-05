@@ -27,6 +27,8 @@ from arrhenius_lidar_gap_utils import (
     CAPABILITY_MATRIX_CELLS,
     TRAIN_POLICIES,
     apply_train_policy,
+    camera_batch_summary,
+    camera_model_summary,
     cell_branch_topology,
     cell_train_policy,
     config_fields,
@@ -36,6 +38,7 @@ from arrhenius_lidar_gap_utils import (
     module_grad_coverage,
     module_param_coverage,
     parity_summary,
+    projection_meta,
     tensor_stats,
     trainable_parameters,
     validate_bevfusion_075_parity,
@@ -134,7 +137,7 @@ def _build_base_cfg(args: argparse.Namespace) -> dict:
     if not bool(args.respect_config_shape):
         cfg["precision"] = "fp32"
         cfg["det-camera-backbone"] = str(args.backbone)
-        cfg["det-freeze-backbone"] = True
+        cfg["det-freeze-backbone"] = False
         cfg["det-pretrained-backbone"] = bool(args.pretrained_backbone)
         cfg["det-aug-bev"] = False
         cfg["det-gt-paste"] = False
@@ -235,6 +238,10 @@ def _sparse_meta(model) -> Dict[str, Any]:
 def _sparse_profile(model) -> Dict[str, Any]:
     enc = getattr(model, "lidar_encoder", None)
     return dict(getattr(enc, "last_profile_times", {}) or {})
+
+
+def _shape_list(xs) -> List[tuple]:
+    return [tuple(x.shape) for x in xs]
 
 
 class CudaTimer:
@@ -367,8 +374,13 @@ def _profile_forward(
     B, N = images.shape[0], images.shape[1]
     camera_bev = None
     lidar_bev = None
+    camera_shapes: Dict[str, Any] = {}
+    vt_projection_meta: Dict[str, Any] = {}
+    executed_camera = branch_topology != "lidar_only"
+    executed_lidar = branch_topology != "camera_only"
+    executed_lidar_backbone = False
 
-    if branch_topology != "lidar_only":
+    if executed_camera:
         pre, times["preprocess"] = timer.measure(
             lambda: model.preprocess(batch["images"], batch["lidar2img"], batch["cam_intrinsics"])
         )
@@ -379,15 +391,26 @@ def _profile_forward(
         camfeat, times["camera_neck"] = timer.measure(lambda: model.camera_neck(feats))
         vt, times["view_transform_lss"] = timer.measure(lambda: model.view_transform(camfeat, pre["lidar2img"], B, N))
         camera_bev = vt["bev"]
+        vt_projection_meta = dict(vt.get("projection_meta", projection_meta(model)) or {})
+        camera_shapes = {
+            "raw_images": tuple(batch["images"].shape),
+            "preprocessed_images": tuple(imgs.shape),
+            "backbone_features": _shape_list(feats),
+            "camera_neck": tuple(camfeat.shape),
+            "depth_prob": tuple(vt["depth_prob"].shape),
+            "camera_context": tuple(vt["context"].shape),
+            "camera_bev": tuple(camera_bev.shape),
+        }
     else:
         times.update({"preprocess": 0.0, "camera_backbone": 0.0, "camera_neck": 0.0, "view_transform_lss": 0.0})
 
-    if branch_topology != "camera_only":
+    if executed_lidar:
         lidar_bev, times["lidar_encoder_total"] = timer.measure(lambda: model.lidar_encoder(batch["lidar_points"], B))
         for name, ms in _sparse_profile(model).items():
             times[f"sparse_voxel_{name}"] = float(ms)
         if model.lidar_backbone is not None:
             lidar_bev, times["lidar_backbone"] = timer.measure(lambda: model.lidar_backbone(lidar_bev))
+            executed_lidar_backbone = True
     else:
         times.update({"lidar_encoder_total": 0.0, "lidar_backbone": 0.0})
 
@@ -400,6 +423,14 @@ def _profile_forward(
 
     branch_stats = {
         "branch_topology": branch_topology,
+        "executed": {
+            "camera": bool(executed_camera),
+            "lidar_encoder": bool(executed_lidar),
+            "lidar_backbone": bool(executed_lidar_backbone),
+        },
+        "camera_batch": camera_batch_summary(batch),
+        "camera_shapes": camera_shapes,
+        "projection_meta": vt_projection_meta,
         "camera_bev": tensor_stats(camera_bev),
         "lidar_bev": tensor_stats(lidar_bev),
     }
@@ -634,6 +665,9 @@ def _run_cell(
 
     cfg = copy.deepcopy(base_cfg)
     cfg.update(MATRIX_CELLS[cell_name])
+    if not bool(args.respect_config_shape):
+        cfg["det-camera-backbone"] = str(args.backbone)
+        cfg["det-pretrained-backbone"] = bool(args.pretrained_backbone)
     branch_topology = cell_branch_topology(cfg, str(args.branch_topology))
     train_policy = cell_train_policy(cfg, str(args.train_policy))
     validate_controls(branch_topology, train_policy)
@@ -661,6 +695,7 @@ def _run_cell(
     if cfg.get("det-lidar-encoder") == "voxel":
         getattr(model, "lidar_encoder").record_debug = True
         getattr(model, "lidar_encoder").record_profile = True
+    getattr(model, "view_transform").record_debug = True
     criterion = task.build_criterion(cfg)
     opt_params = trainable_parameters(model)
     if not opt_params and train_policy != "probe_no_backward":
@@ -740,7 +775,7 @@ def _run_cell(
                     rec["grad_scaler_skipped"],
                     flush=True,
                 )
-                if not bool(rec.get("finite_grad_norm", True)):
+                if not bool(rec.get("finite_grad_norm", True)) and not bool(rec.get("grad_scaler_skipped", False)):
                     raise RuntimeError(f"non-finite grad_norm: {rec['grad_norm']}")
     except Exception as exc:
         ok = False
@@ -751,6 +786,13 @@ def _run_cell(
         sampler.stop()
 
     aggregate = _aggregate(records, int(args.batch_size))
+    measured_steps = int(aggregate.get("measured_steps", 0))
+    optimizer_steps = int(aggregate.get("optimizer_steps", 0))
+    speed_candidate = bool(
+        ok
+        and measured_steps > 0
+        and (train_policy == "probe_no_backward" or optimizer_steps > 0)
+    )
     result = {
         "cell": cell_name,
         "status": "ok" if ok else "failed",
@@ -763,6 +805,7 @@ def _run_cell(
         "train_policy": train_policy,
         "config_fields": config_fields(cfg),
         "model_shape": model_shape_summary(cfg, model),
+        "camera_model": camera_model_summary(model),
         "fuser_contract": fuser_contract(model),
         "param_coverage": module_param_coverage(model),
         "bevfusion_075_parity": parity_summary(cfg, model) if cfg.get("bevfusion-parity-075", False) else None,
@@ -775,6 +818,7 @@ def _run_cell(
         "step_log": str(step_path),
         "gpu_telemetry": sampler.summary(),
         "aggregate": aggregate,
+        "engineering_speed_candidate": speed_candidate,
     }
     if records:
         result["sparse_meta_last"] = records[-1].get("sparse_meta", {})
@@ -819,11 +863,11 @@ def main() -> None:
     default_cache = Path(default_root) / "nuscenes" / "info_cache_mini_from_main"
 
     ap = argparse.ArgumentParser()
-    ap.add_argument("--config", default=str(_repo_root() / "fl_v3" / "configs" / "t4_mini_smoke.json"))
+    ap.add_argument("--config", default=str(_repo_root() / "fl_v3" / "configs" / "p1_bb02d_voxel.json"))
     ap.add_argument("--dataroot", default=os.environ.get("ARRHENIUS_NUSCENES_DATAROOT", str(default_dataroot)))
     ap.add_argument("--cache-dir", default=os.environ.get("ARRHENIUS_NUSCENES_CACHE", str(default_cache)))
-    ap.add_argument("--output-dir", default=str(Path(default_root) / "stop_d_profile_mini"))
-    ap.add_argument("--matrix", default="voxel_fp16_main")
+    ap.add_argument("--output-dir", default=str(Path(default_root) / "stop_f_camera_profile_mini"))
+    ap.add_argument("--matrix", default="camera_iso_020_fp16_swin")
     ap.add_argument("--respect-config-shape", action="store_true")
     ap.add_argument("--branch-topology", default="full_fusion", choices=BRANCH_TOPOLOGIES)
     ap.add_argument("--train-policy", default="all_trainable", choices=TRAIN_POLICIES)
@@ -839,8 +883,8 @@ def main() -> None:
     ap.add_argument("--learning-rate", type=float, default=1e-4)
     ap.add_argument("--weight-decay", type=float, default=0.0)
     ap.add_argument("--grad-scale-init", type=float, default=512.0)
-    ap.add_argument("--backbone", default="resnet18", choices=["resnet18", "swin_t"])
-    ap.add_argument("--pretrained-backbone", action="store_true")
+    ap.add_argument("--backbone", default="swin_t", choices=["resnet18", "swin_t"])
+    ap.add_argument("--pretrained-backbone", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--lidar-sweeps", type=int, default=1)
     ap.add_argument("--max-pillars", type=int, default=30000)
     ap.add_argument("--max-points-per-pillar", type=int, default=32)
@@ -886,9 +930,12 @@ def main() -> None:
     }
 
     manifest = {
-        "kind": "arrhenius_stop_d_mini_profile",
+        "kind": "arrhenius_stop_f_camera_profile",
         "scientific_claim": False,
-        "engineering_scope": "mini module/stage profiling only",
+        "engineering_scope": "mini camera module teardown/speedup audit only",
+        "camera_audit": True,
+        "engineering_speed_candidate": True,
+        "resnet_camera_backbone_status": "legacy_unsupported_for_arrhenius_camera_audit",
         "git_rev": _git_rev(),
         "slurm_job_id": os.environ.get("SLURM_JOB_ID", ""),
         "repo": str(_repo_root()),
