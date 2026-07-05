@@ -122,6 +122,30 @@ def make_grad_scaler(
     )
 
 
+def grad_scaler_init_scale_from_config(
+    run_config: dict | None,
+    precision: str | None = None,
+) -> float:
+    """Resolve the explicit GradScaler init scale for a run.
+
+    The normal fp16 policy keeps the historical ``512`` init scale. Sparse voxel
+    LiDAR can opt into a separate init scale through
+    ``det-sparse-grad-scale-init``; this only applies to
+    ``det-lidar-encoder='voxel'`` under fp16 and is recorded in manifests as a
+    precision-policy choice, not an architecture change.
+    """
+    cfg = run_config or {}
+    p = normalize_precision(precision or str(cfg.get("precision", _CURRENT_PRECISION)))
+    if p != "fp16":
+        return 0.0
+    if "grad-scale-init" in cfg:
+        return float(cfg["grad-scale-init"])
+    enc = str(cfg.get("det-lidar-encoder", "pillar")).strip().lower()
+    if enc == "voxel" and "det-sparse-grad-scale-init" in cfg:
+        return float(cfg["det-sparse-grad-scale-init"])
+    return 512.0
+
+
 def truthy(value, default: bool = False) -> bool:
     """Robust boolean parsing for YAML / Flower config values.
 
@@ -258,6 +282,7 @@ def precision_state() -> dict:
         "amp_dtype": str(amp_dtype).replace("torch.", "") if amp_dtype is not None else "",
         "grad_scaler": bool(_CURRENT_PRECISION == "fp16" and cuda_available),
         "grad_scaler_init_scale": 512.0 if _CURRENT_PRECISION == "fp16" else 0.0,
+        "grad_scaler_init_scale_default": 512.0 if _CURRENT_PRECISION == "fp16" else 0.0,
         "cuda_matmul_allow_tf32": bool(torch.backends.cuda.matmul.allow_tf32),
         "cudnn_allow_tf32": bool(torch.backends.cudnn.allow_tf32),
         "float32_matmul_precision": str(torch.get_float32_matmul_precision()),

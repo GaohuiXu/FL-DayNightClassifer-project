@@ -253,6 +253,7 @@ def train_local(
     backbone_lr_mult: float = 1.0,
     optimizer_name: str = "adam",
     precision: Optional[str] = None,
+    grad_scaler_init_scale: float = 512.0,
     telemetry_interval: int = 0,
 ) -> Dict[str, float]:
     """Train locally for ``num_epochs``; evaluate on ``valloader`` (last epoch).
@@ -286,16 +287,24 @@ def train_local(
         )
     else:
         optimizer = OptCls(rest_params, lr=learning_rate, weight_decay=weight_decay, fused=_fused)
+    scaler = make_grad_scaler(device, precision, init_scale=float(grad_scaler_init_scale))
     final_train_loss = 0.0
+    final_tm: Dict[str, float] = {}
     for _ in range(num_epochs):
         tm = train_one_epoch(model, trainloader, criterion, optimizer, device,
                              grad_clip_norm=grad_clip_norm, precision=precision,
+                             grad_scaler=scaler,
                              telemetry_interval=telemetry_interval)
         final_train_loss = tm["loss"]
+        final_tm = tm
     final_val_loss = 0.0
     if valloader is not None:
         final_val_loss = evaluate(model, valloader, criterion, device)["loss"]
     return {
         "final_train_loss": float(final_train_loss),
         "final_val_loss": float(final_val_loss),
+        "grad_scaler_init_scale": float(grad_scaler_init_scale) if precision == "fp16" else 0.0,
+        "grad_scaler_final_scale": float(scaler.get_scale()) if scaler.is_enabled() else 0.0,
+        "grad_scaler_skips": float(final_tm.get("grad_scaler_skips", 0.0)),
+        "optimizer_steps": float(final_tm.get("optimizer_steps", 0.0)),
     }

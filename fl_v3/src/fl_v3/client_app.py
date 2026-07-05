@@ -24,7 +24,13 @@ from flwr.app import (
 from flwr.clientapp import ClientApp
 
 from fl_v3.training.tasks import get_task, load_trainable_state_dict, trainable_state_dict
-from fl_v3.utils.runtime import derive_seed, enforce_determinism, seed_everything, truthy
+from fl_v3.utils.runtime import (
+    derive_seed,
+    enforce_determinism,
+    grad_scaler_init_scale_from_config,
+    seed_everything,
+    truthy,
+)
 
 app = ClientApp()
 
@@ -116,6 +122,9 @@ def train(msg: Message, context: Context) -> Message:
         backbone_lr_mult=float(run_config.get("det-backbone-lr-mult", 1.0)),
         optimizer_name=str(run_config.get("det-optimizer", "adam")),
         precision=str(run_config.get("precision", "fp16")),
+        grad_scaler_init_scale=grad_scaler_init_scale_from_config(
+            run_config, str(run_config.get("precision", "fp16"))
+        ),
         telemetry_interval=int(run_config.get("train-telemetry-interval", 0)),
     )
 
@@ -134,6 +143,9 @@ def train(msg: Message, context: Context) -> Message:
             "num-examples": cdata.num_train,
             "train_loss": float(res["final_train_loss"]),
             "val_loss": float(res["final_val_loss"]),
+            "grad_scaler_init_scale": float(res.get("grad_scaler_init_scale", 0.0)),
+            "grad_scaler_final_scale": float(res.get("grad_scaler_final_scale", 0.0)),
+            "grad_scaler_skips": float(res.get("grad_scaler_skips", 0.0)),
             "build_s": float(_t_build),
             "train_s": float(_t_train),
         }

@@ -27,6 +27,11 @@ def _parse_scalar(s: str):
     low = s.lower()
     if low in ("true", "false"):
         return low == "true"
+    if s[:1] in ("[", "{"):
+        try:
+            return json.loads(s)
+        except json.JSONDecodeError:
+            pass
     for cast in (int, float):
         try:
             return cast(s)
@@ -63,7 +68,14 @@ def main():
     from fl_v3.data.nuscenes.dataset import NuScenesMultimodalDataset, make_loader
     from fl_v3.data.nuscenes import paths as P
     from fl_v3.models.fusion.collate import detection_collate_fn
-    from fl_v3.utils.runtime import enforce_determinism, precision_state, seed_everything, truthy
+    from fl_v3.utils.runtime import (
+        enforce_determinism,
+        grad_scaler_init_scale_from_config,
+        make_grad_scaler,
+        precision_state,
+        seed_everything,
+        truthy,
+    )
 
     with open(args.config, encoding="utf-8") as f:
         cfg = json.load(f)
@@ -236,6 +248,12 @@ def main():
         optimizer.load_state_dict(_os_state["optimizer"])
     grad_clip_norm = float(cfg.get("grad-clip-norm", 0.0))
     telemetry_interval = int(cfg.get("train-telemetry-interval", 0))
+    grad_scaler_init_scale = grad_scaler_init_scale_from_config(cfg, precision)
+    grad_scaler = make_grad_scaler(device, precision, init_scale=grad_scaler_init_scale)
+    if _os_state is not None and _os_state.get("grad_scaler") is not None:
+        grad_scaler.load_state_dict(_os_state["grad_scaler"])
+    log(f"[centralized] grad_scaler_init_scale={grad_scaler_init_scale} "
+        f"current_scale={float(grad_scaler.get_scale()) if grad_scaler.is_enabled() else 0.0}")
     log(f"[centralized] train_telemetry_interval={telemetry_interval}")
 
     # Exp3: per-step LR schedule (default 'none' ⇒ flat LR, baseline-identical). 'onecycle' = warmup ramp
@@ -279,6 +297,7 @@ def main():
         full = {k.replace("module.", "", 1).replace("._orig_mod.", "."): v for k, v in core.state_dict().items()}
         torch.save(full, ckpt_path)
         torch.save({"optimizer": optimizer.state_dict(), "epoch": epoch,
+                    "grad_scaler": (grad_scaler.state_dict() if grad_scaler.is_enabled() else None),
                     "scheduler": (sched.state_dict() if sched is not None else None)}, opt_path)
         arrs = [v.detach().cpu().numpy() for v in trainable_state_dict(core).values()]
         chk = numpy_state_checksum(arrs)
@@ -295,10 +314,21 @@ def main():
             "det-camera-backbone": cfg.get("det-camera-backbone"), "seed": seed,
             "batch-size": cfg.get("batch-size"), "learning-rate": cfg.get("learning-rate"),
             "num-local-epochs": nle,
+            "max_steps_per_epoch": int(args.max_steps),
+            "scientific_claim": bool(int(args.max_steps) == 0),
+            "stop_e_gate": bool(int(args.max_steps) > 0),
+            "stop_e_cell": cfg.get("stop-e-cell"),
             # Exp3 recipe knobs (recorded for the lever→mAP attribution table)
             "det-optimizer": opt_name, "weight-decay": wd, "lr-schedule": sched_name,
             "lr-warmup-frac": cfg.get("lr-warmup-frac") if sched_name != "none" else None,
             "det-ema-decay": ema_decay, "det-backbone-lr-mult": bb_mult,
+            "det-lidar-encoder": cfg.get("det-lidar-encoder", "pillar"),
+            "det-bev-voxel": cfg.get("det-bev-voxel"),
+            "det-lidar-z-voxel": cfg.get("det-lidar-z-voxel"),
+            "det-lidar-sparse-z-size": cfg.get("det-lidar-sparse-z-size"),
+            "det-sparse-grad-scale-init": cfg.get("det-sparse-grad-scale-init"),
+            "grad_scaler_init_scale": grad_scaler_init_scale,
+            "grad_scaler_current_scale": float(grad_scaler.get_scale()) if grad_scaler.is_enabled() else 0.0,
             "FL_TRAINABLE_CHECKSUM": chk, "tag": args.tag,
             # Matched-budget caveat (det-review): vs FL this differs by (a) NO cross-client FedAvg
             # averaging AND (b) ONE Adam optimizer kept warm across epochs (FL rebuilds Adam per
@@ -341,6 +371,7 @@ def main():
         m = train_one_epoch(model, loader, criterion, optimizer, device,
                             grad_clip_norm=grad_clip_norm, scheduler=sched, ema_model=ema_model,
                             max_steps=args.max_steps, precision=precision,
+                            grad_scaler=grad_scaler,
                             telemetry_interval=telemetry_interval)   # max_steps=0 → full epoch
         if ddp:  # global mean loss for the logged curve (each rank trained on 1/world of the epoch)
             tt = torch.tensor([m["loss"] * m["num_samples"], m["num_samples"]], device=device, dtype=torch.float64)
@@ -349,8 +380,20 @@ def main():
         dt = time.perf_counter() - t0
         chk = save_ckpt(epoch + 1)
         if is_main:
-            rec = {"epoch": epoch + 1, "train_loss": float(m["loss"]),
-                   "num_samples": int(m["num_samples"]), "seconds": dt, "checksum": chk}
+            rec = {
+                "epoch": epoch + 1,
+                "train_loss": float(m["loss"]),
+                "num_samples": int(m["num_samples"]),
+                "steps": int(m.get("steps", 0)),
+                "optimizer_steps": int(m.get("optimizer_steps", 0)),
+                "grad_scaler_init_scale": float(grad_scaler_init_scale),
+                "grad_scaler_final_scale": float(m.get("grad_scaler_scale", 0.0)),
+                "grad_scaler_skips": int(m.get("grad_scaler_skips", 0)),
+                "last_grad_norm": float(m.get("last_grad_norm", 0.0)),
+                "nonfinite_loss_steps": int(m.get("nonfinite_loss_steps", 0)),
+                "seconds": dt,
+                "checksum": chk,
+            }
             curve.append(rec)
             json.dump(curve, open(curve_path, "w"), indent=2)
             log(f"[centralized] epoch {epoch+1}/{args.epochs} loss={m['loss']:.5f} "
