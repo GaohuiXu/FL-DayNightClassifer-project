@@ -6,11 +6,18 @@ autonomous-driving perception**. `fl_v2/` is **frozen** and used only as an
 
 - **Durable plan:** [`docs/roadmap/cycle_04_fusion_layer_backdoors.md`](docs/roadmap/cycle_04_fusion_layer_backdoors.md)
 - **Active roadmap:** [`docs/roadmap/INDEX.md`](docs/roadmap/INDEX.md)
-- **Orchestration:** [`docs/cycle_04/README.md`](docs/cycle_04/README.md)
+- **Active Orchestra:** [`usenix27_orchestra/ORCHESTRA.md`](usenix27_orchestra/ORCHESTRA.md)
+- **Session contracts + kickoffs:** [`usenix27_orchestra/SESSIONS.md`](usenix27_orchestra/SESSIONS.md) · [`usenix27_orchestra/KICKOFFS.md`](usenix27_orchestra/KICKOFFS.md)
+- **Cycle-04 experimental-design history:** [`docs/cycle_04/README.md`](docs/cycle_04/README.md)
 - **Decisions D1–D8:** [`docs/cycle_04/decisions.md`](docs/cycle_04/decisions.md)
-- **This task's contract + self-review:** [`collab/T0/SPEC.md`](collab/T0/SPEC.md)
+- **Historical task evidence (read-only):** [`collab/`](collab/)
 
-## Status: Cycle 04 — Arrhenius bring-up in progress
+## Status: USENIX '27 CL/security sprint on Arrhenius
+
+The current critical path is a strong centralized camera-LiDAR backbone followed by
+the owner-approved Protocol-B federated tail-adaptation security study. New plans,
+handoffs, reviews, and results live under `usenix27_orchestra/`; `collab/` is
+read-only evidence from earlier Cycle-04 work.
 
 What landed in T0 (see `collab/T0/SPEC.md` for the full GATE):
 
@@ -46,7 +53,8 @@ src/fl_v3/
   viz/writer.py               deterministic V1–V6 artifact tree + manifest
   client_app.py, server_app.py   task-agnostic Flower apps
 tests/                        determinism + oracle-parity + task-agnostic + smoke
-collab/                       SPEC/REVIEW/templates + findings_log (the Codex loop)
+usenix27_orchestra/           active plan, session contracts, kickoffs, handoffs/reviews
+collab/                       read-only historical Cycle-04 evidence
 ```
 
 ## Run the tests

@@ -1,7 +1,12 @@
 # Cycle 04 — Orchestration Guide
 
+> **Historical experimental-design scaffold.** The T0-T7 design and decisions
+> remain readable, but new execution planning, handoffs, reviews, and results use
+> [`../../usenix27_orchestra/`](../../usenix27_orchestra/). `fl_v3/collab/` is
+> read-only for the active stage.
+
 **The durable plan** is `../roadmap/cycle_04_fusion_layer_backdoors.md`. Read it first. This folder
-holds the *orchestration* scaffolding that lets serial Claude + Codex sessions execute it.
+holds the historical orchestration scaffold that executed the original T0-T7 design.
 
 ## Session model
 

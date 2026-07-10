@@ -22,6 +22,13 @@ their era, and each era's roadmap references the prior frozen one.
 
 ## Cycle 04 working folder
 
+> **2026-07-10 execution update:** `docs/cycle_04/` remains the Cycle-04
+> experimental-design/decision record. Active cross-session coordination has moved
+> to [`../../usenix27_orchestra/ORCHESTRA.md`](../../usenix27_orchestra/ORCHESTRA.md),
+> with [session contracts](../../usenix27_orchestra/SESSIONS.md) and
+> [copy-ready kickoffs](../../usenix27_orchestra/KICKOFFS.md). `fl_v3/collab/` is
+> read-only historical evidence for the new stage.
+
 Orchestration + execution scaffolding is in [`../cycle_04/`](../cycle_04/): the
 [orchestration model](../cycle_04/README.md), [confirmed decisions D1–D8](../cycle_04/decisions.md),
 and the per-task contracts + kickoffs:
@@ -32,21 +39,24 @@ and the per-task contracts + kickoffs:
 - **T4** (done, Codex-PASS): [contract](../cycle_04/tasks/T4_SPEC.md) · [kickoff](../cycle_04/kickoff/T4_kickoff.md)
 - **T5** (built + reviewed; **PAUSED** — camera-only backdoor non-viable, pilot negative; null uninterpretable on the undertrained/diluted checkpoint, see D14/D15): [contract](../cycle_04/tasks/T5_SPEC.md) · [kickoff](../cycle_04/kickoff/T5_kickoff.md)
 - **Speedup + Clean-Baseline Diagnostics** (**DONE** — D15/D16, historical Alvis/A40 context): `determinism-level` knob ~3×/step; overcommit a measured dead end; weak model = FL-undertraining + FedAvg dilution, not architecture. Arrhenius supersedes the old bf16 default with `fp32` reference and `fp16` AMP + GradScaler for sparse training. [charter](../cycle_04/kickoff/speedup_kickoff.md) · [findings](../../collab/speedup/speedup_session_findings.md) · [decision](../../collab/speedup/D15_D16_decision_for_orchestrator.md)
-- **Model Capability + Recipe (MCR)** (**active** — D17; blocks T5-restart/T6/T7): raise the model (train the camera backbone, fusion/recipe/resolution), close the FedAvg-dilution gap (FedAdam, ≥30 rounds), and produce the new clean Arrhenius reference under the active `fp32`/`fp16` precision policy. [charter](../cycle_04/kickoff/model_capability_kickoff.md)
+- **Model Capability + Recipe (MCR)** (**historical input to the active Orchestra** — D17): its results and audits remain evidence; the corrected CL backbone and Protocol-B work are now governed by `fl_v3/usenix27_orchestra/`. [charter](../cycle_04/kickoff/model_capability_kickoff.md)
 
-Per-task working `SPEC.md`/`REVIEW.md` + `findings_log.md` and the templates live in `fl_v3/collab/`.
+Historical per-task `SPEC.md`/`REVIEW.md` and `findings_log.md` remain in the read-only
+`fl_v3/collab/`. New worker/reviewer packages live in
+`fl_v3/usenix27_orchestra/handoffs/Sxx/`.
 
 ## Reading order for a new collaborator (Cycle 04)
 
-1. [`cycle_04_fusion_layer_backdoors.md`](cycle_04_fusion_layer_backdoors.md) — the approved plan.
-2. [`../cycle_04/README.md`](../cycle_04/README.md) — the orchestrator + serial-worker session model.
-3. [`../cycle_04/decisions.md`](../cycle_04/decisions.md) — the locked D1–D8.
-4. The frozen Cycle-02/03 context in `fl_v2/docs/` (why GTSRB was exhausted) — linked above.
+1. [`../../usenix27_orchestra/ORCHESTRA.md`](../../usenix27_orchestra/ORCHESTRA.md) — active objective/protocol/gates.
+2. [`../../usenix27_orchestra/SESSIONS.md`](../../usenix27_orchestra/SESSIONS.md) and [`../../usenix27_orchestra/KICKOFFS.md`](../../usenix27_orchestra/KICKOFFS.md) — active collaboration contracts.
+3. [`cycle_04_fusion_layer_backdoors.md`](cycle_04_fusion_layer_backdoors.md) — approved Cycle-04 experimental design.
+4. [`../cycle_04/decisions.md`](../cycle_04/decisions.md) — historical locked decisions.
+5. The frozen Cycle-02/03 context in `fl_v2/docs/` (why GTSRB was exhausted) — linked above.
 
 ## Document conventions
 
 - Cycle files: `cycle_NN_short_descriptive_label.md`. Status ∈ {planned, active, paused, closed}.
 - Closed/paused cycle docs are edited only to fix factual errors — they are the research trajectory.
-- Active research docs live with the active codebase (`fl_v3/docs/`); AI operating instructions
-  (`CLAUDE.md`, `AGENTS.md`) live at the repo root; per-task working collab files live in
-  `fl_v3/collab/`.
+- Experimental-design/roadmap docs live in `fl_v3/docs/`; AI operating instructions
+  live at the repo root; active session work lives in `fl_v3/usenix27_orchestra/`.
+  `fl_v3/collab/` is read-only historical evidence.

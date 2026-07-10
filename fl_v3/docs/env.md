@@ -127,6 +127,20 @@ fl_v3/scripts/run_arrhenius_smoke.sh
 
 ## nuScenes Data
 
+The licensed shared full dataset is now exposed by the Arrhenius module:
+
+```bash
+module load nuScenes-data/1.0-map-1.3-zip
+echo "$NUSCENES_DATA_DIR"
+```
+
+It contains trainval metadata and stored ZIP blob archives. The current production
+dataset reader is not yet ZIP-aware, so full-data training is not ready merely
+because module access works. The active S01 contract in
+`fl_v3/usenix27_orchestra/SESSIONS.md` owns ZIP parity, member coverage, and
+multi-worker verification. Do not extract/duplicate the dataset or submit data/full
+jobs without owner permission.
+
 The code no longer defaults to the old Alvis/Mimer path. Provide the dataroot
 through either:
 
@@ -165,7 +179,8 @@ Mini remains engineering smoke only. Scientific results require trainval.
 - `fl_v3/scripts/run_arrhenius_smoke.sh` - GH200 Slurm smoke template.
 - `fl_v3/requirements.txt` - direct dependency manifest used by the builder.
 - `fl_v3/requirements.lock.txt` - Arrhenius audit snapshot, not a standalone reinstall recipe.
-- `fl_v3/collab/arrhenius_migration.md` - detailed job IDs, commands, versions, failures, and fixes.
+- `fl_v3/collab/arrhenius_migration.md` - read-only historical job/version evidence.
+- `fl_v3/usenix27_orchestra/` - active protocol, session, kickoff, handoff, and review workspace.
 
 The old Alvis/A40/A100 Slurm launchers and `.venv_v3` helpers have been removed
 from the active scripts directory. Historical task/collab documents may still
