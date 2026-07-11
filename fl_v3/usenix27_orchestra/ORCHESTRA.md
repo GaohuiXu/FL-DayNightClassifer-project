@@ -2,10 +2,15 @@
 
 > **Status:** active. The owner designated the pinned S00 task at
 > `detached@f262f6bea037580065a8505008773c04fdd259f5` as the sole canonical writer
-> on 2026-07-10. S01 is independently reviewed PASS and accepted as an S07
-> dependency at worker SHA `abe5c58b174dbbe1f7045ce91c8b15168d97b87b`; review
-> artifact SHA `7cf7fcc4b17d43806f1a134cf8c8a7b6868aa5bc` remains a separate
-> review-only commit. No S01 merge or push has occurred. S12 has delivered its
+> on 2026-07-10. S01 is integrated into the dedicated S07-A branch, and S07-A is
+> independently reviewed **PASS for the data-foundation phase** at delivery
+> `ba1571632557c20adbda3172221694cdbecfeabe`, executable INT-A
+> `44cefd06bc815e893919d95c754896711dba3402`, and review artifact
+> `370ea6c0bd4d9d737a5a50b6aff1c6f742589825`. Job `335280` closed the two
+> prior provenance P1 findings plus locale-stable source attestation with 7/7
+> focused tests. No merge to `v3-ad-perception` or push has occurred. The full
+> trainval `t1.v2` cache remains unapproved/unexecuted, and S07-B model readiness
+> remains a separate gate. S12 has delivered its
 > evidence/proposal-only handoff for completeness/review and used no compute.
 > Remaining architecture choices, cells, and run requests still require their own
 > approvals.
@@ -85,13 +90,14 @@ improves over the stronger branch.
    fall back to pillar (`training/tasks.py:363-426`).
 6. **No production single-modality topology.** Mini diagnostics can mask branches,
    but production training/evaluation always constructs and executes both branches.
-7. **ZIP backend accepted but not yet integrated/frozen.** S01/S01-R passed at
-   `abe5c58`; historical job `332651` proves ten-archive member coverage and loader
-   determinism, while remediation job `333206` proves `t1.v2` depth binding plus
-   real-mini directory/ZIP and fork/spawn parity. Before training, S07-A must land
-   the reviewed implementation/review artifact, migrate `build_gt_database.py`
-   away from hardcoded `t1.v1`, generate and freeze full trainval `t1.v2` caches,
-   and preserve the exact manifest/cache hashes in provenance.
+7. **Data foundation reviewed, production cache still absent.** S07-A reviewed
+   PASS at `ba15716`/`44cefd0`/`370ea6c`: the S01 ZIP history is integrated,
+   `build_gt_database.py` binds canonical plus physical pickle/sidecar identities,
+   and source attestation is complete and locale-stable. Historical job `332651`
+   still supplies only coverage/loader evidence and its `t1.v1` caches remain
+   forbidden. Before any production training, the separately owner-approved full
+   trainval `t1.v2` cache job must generate and freeze exact cache/sidecar/manifest
+   hashes, and S06/S07-B must bind those identities at every production entry point.
 
 ### Capability limitations to resolve during architecture freeze
 
@@ -720,6 +726,7 @@ runs they judge; they cannot be selected after seeing those outcomes.
 
 | Decision | Current status | Latest owner freeze point |
 |---|---|---|
+| Gaussian-radius/target equation and golden values | pending | before S02 changes target semantics; per-sample pillar-cap work may not silently choose it |
 | Minimum modular backbone/interface contract | pending | before S03/S04/S05 makes an irreversible primary implementation choice; final integrated contract before S07 |
 | Multi-task CenterHead primary; TransFusion contingency/generalization | pending | primary head choice before S05 implementation; opening TransFusion can wait for reviewed S05/S07 evidence |
 | `D_base`/`D_tail`, regional/fleet client unit, and fine-tuning scope | pending | S12 may design alternatives now; freeze and hash before split materialization or any Protocol-B training in S13 |
@@ -742,8 +749,11 @@ evidence that caused it; material entries remain `PENDING` until the owner appro
 | O-006 | 2026-07-10 | owner approval in active S00 task | pin `/home/gaohui/.codex/worktrees/bb67/fl_weather_project` as the sole S00 canonical writer; archive the idle `/home/gaohui/.codex/worktrees/90d4/fl_weather_project` task without deleting its worktree or branch | workspace coordination | approved and executed |
 | O-007 | 2026-07-10 | owner approval in active S00 task | issue S01 ZIP-backend implementation and S12 evidence/proposal-only kickoffs from `f262f6bea037580065a8505008773c04fdd259f5`; exact ownership is recorded in `SESSIONS.md`; both had `APPROVED_COMPUTE: none` at issuance | operational launch | approved and active; S01 later amended by O-009 |
 | O-008 | 2026-07-10 | owner reasoning-budget decision | S00 must explicitly create future Sxx/Sxx-R tasks at `xhigh`; use `ultra` only for a recorded unusually complex implementation/review or broad difficult research task | resource policy | approved; applies to future tasks; S01 follow-up amended to xhigh |
-| O-009 | 2026-07-10 | owner compute-policy decision and direct S01 smoke approval | allow bounded non-scientific Slurm smoke without per-job waiting, subject to the standing limits and preflight record above; retain exact owner review for full tests, full-data/profile/metrics, matrices, seeds, and reruns; active S01 must acknowledge amendment in its durable package | compute policy | approved and acknowledged in `RUN_REQUEST.md`; job `330409` running |
+| O-009 | 2026-07-10 | owner compute-policy decision and direct S01 smoke approval | allow bounded non-scientific Slurm smoke without per-job waiting, subject to the standing limits and preflight record above; retain exact owner review for full tests, full-data/profile/metrics, matrices, seeds, and reruns | compute policy | standing; S07-A focused jobs `333477` and `335280` completed PASS within scope |
 | O-010 | 2026-07-10 | owner clarification request | replace ambiguous worker-kickoff `WORKER_SHA: n/a` with `pending`; record that worker SHA/ref is produced only after S00 completeness checking and owner-authorized delivery commit, and is then consumed by Sxx-R | kickoff schema clarification | approved operational clarification |
 | O-011 | 2026-07-11 | owner workflow clarification | before S00 directly creates any Sxx/Sxx-R, present upstream handoff/review/diff status and the complete filled kickoff for owner review and explicit launch authorization; worker sessions never launch their own reviewer; S07 remains the sole code-integration session | launch/integration workflow | approved |
 | O-012 | 2026-07-11 | S01 worker `abe5c58`, review `7cf7fcc`, jobs `332651`/`333206`, and S00 raw-artifact audit | accept S01 as a reviewed dependency for S07 only: full manifest/checksums and scheduler records match; 56/56 focused tests and all listed remediation-source hashes match. Do not merge the review branch as implementation; do not use historical `t1.v1` caches or claim model/scientific readiness | integration evidence | accepted dependency; no merge/push |
-| O-013 | 2026-07-11 | accepted S01/S01-R evidence and `build_gt_database.py` audit | split S07 into phase S07-A data-foundation integration and later S07-B full-stack integration. S07-A lands exact worker history plus review artifact, fixes the `t1.v1` caller and active-doc status, hardens future test attestation, and prepares a separately approved full `t1.v2` cache gate; S06 must bind `n_sweeps` and cache/manifest hashes explicitly | operational dependency refinement | requirements approved; task launch and Git operations pending owner authorization |
+| O-013 | 2026-07-11 | accepted S01/S01-R evidence and `build_gt_database.py` audit | split S07 into phase S07-A data-foundation integration and later S07-B full-stack integration. S07-A lands exact worker history plus review artifact, fixes the `t1.v1` caller and active-doc status, hardens future test attestation, and prepares a separately approved full `t1.v2` cache gate; S06 must bind `n_sweeps` and cache/manifest hashes explicitly | operational dependency refinement | executed; S07-A final review PASS at `370ea6c` |
+| O-014 | 2026-07-11 | owner temporary delegation in active S00 task | S00 may coordinate S07-A/S07-A-R through completion, approve reasonable validation-only O-009 jobs, and after S07-A completion prepare parallel S02-S05 launches; no large jobs/metrics, push, or merge to `v3-ad-perception` | scoped orchestration/compute authority | approved and exercised; Job `335280` completed PASS, no retry/follow-on |
+| O-015 | 2026-07-11 | S07-A delivery `ba15716`, executable `44cefd0`, review `370ea6c`, Jobs `333477`/`335280`, and S00 raw-artifact audit | accept S07-A as reviewed data-foundation dependency; preserve old c8dd locale preflight rejection and historical `t1.v1` limits; full trainval `t1.v2` cache and S07-B remain separate gates | integration evidence | accepted; no full-cache/model authorization |
+| O-016 | 2026-07-11 | accepted S07-A review plus S02-S05 ownership audit | future S02-S05 workers start from one S00-frozen integration SHA; `fusion/losses.py` is exclusive to S02 during the parallel wave, while S05 treats it as read-only and returns any shared-interface change to S00; all four read S07-A handoff/review and preserve the exact data contract | operational refinement affecting S02-S05 | approved under O-003; locked Gaussian/backbone/head choices still require owner decision |

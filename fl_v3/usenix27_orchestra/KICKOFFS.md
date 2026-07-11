@@ -175,6 +175,8 @@ You are worker S02: CL P0 correctness.
 Read completely before editing:
 - repository AGENTS.md;
 - fl_v3/usenix27_orchestra/{ORCHESTRA.md,SESSIONS.md,KICKOFFS.md}, especially S02;
+- accepted S07-A HANDOFF/RESULTS at delivery `ba15716` and final REVIEW at
+  `370ea6c`, especially the exact `t1.v2`/manifest/provenance boundary;
 - fl_v3/src/fl_v3/models/fusion/{lidar_encoder.py,losses.py,bev_grid.py};
 - focused existing pillar/loss/geometry tests;
 - read-only historical capability/audit evidence referenced by ORCHESTRA.md.
@@ -185,7 +187,9 @@ sample/batch isolation, batch permutation, over-cap, empty-input, and target-ren
 tests. Do not redesign sparse SECOND, camera, head, trainer, or scientific recipe.
 
 Before editing, state which Gaussian reference/equation is approved; if it is not
-recorded, stop for S00/owner. Own only the focused modules/tests and handoffs/S02/.
+recorded, stop for S00/owner. Own `models/fusion/lidar_encoder.py`,
+`models/fusion/losses.py`, focused tests, and handoffs/S02/. During the parallel
+wave `losses.py` is exclusive to S02; do not edit S03-S05 modules.
 Write HANDOFF.md with migration impact on old checkpoints. Any GPU/Slurm check needs
 a RUN_REQUEST.md; only a bounded non-scientific smoke may self-submit under O-009.
 Return exact equations, fixtures, tests, residual risks, and forbidden
@@ -200,6 +204,8 @@ You are worker S03: Camera branch architecture.
 Read completely before editing:
 - repository AGENTS.md;
 - fl_v3/usenix27_orchestra/{ORCHESTRA.md,SESSIONS.md,KICKOFFS.md}, especially S03;
+- accepted S07-A HANDOFF/RESULTS at delivery `ba15716` and final REVIEW at
+  `370ea6c`; preserve its data/cache identities and interpretation limits;
 - fl_v3/docs/env.md;
 - camera_backbone.py, camera_neck.py, preprocess.py, view_transform.py and their tests;
 - read-only arrhenius_camera_branch_audit.md;
@@ -227,6 +233,8 @@ You are worker S04: LiDAR SECOND architecture.
 Read completely before editing:
 - repository AGENTS.md;
 - fl_v3/usenix27_orchestra/{ORCHESTRA.md,SESSIONS.md,KICKOFFS.md}, especially S04;
+- accepted S07-A HANDOFF/RESULTS at delivery `ba15716` and final REVIEW at
+  `370ea6c`; preserve its data/cache identities and interpretation limits;
 - fl_v3/docs/env.md and the sparse precision policy;
 - sparse_voxel_encoder.py, lidar_backbone.py, bev_grid.py and focused tests;
 - read-only arrhenius_bevfusion_gap_audit.md and official SECOND/BEVFusion reference.
@@ -253,6 +261,8 @@ You are worker S05: Detection head and decode.
 Read completely before editing:
 - repository AGENTS.md;
 - fl_v3/usenix27_orchestra/{ORCHESTRA.md,SESSIONS.md,KICKOFFS.md}, especially S05;
+- accepted S07-A HANDOFF/RESULTS at delivery `ba15716` and final REVIEW at
+  `370ea6c`; preserve its data/cache identities and interpretation limits;
 - head.py, losses.py, detector.decode, bev_grid.py, box_to_global.py, detection_eval.py;
 - current tests/fixtures for target generation, box conventions, decode, and eval;
 - official CenterPoint/BEVFusion CenterHead and NMS references.
@@ -261,9 +271,12 @@ Objective: implement a framework-independent, reference-faithful multi-task
 CenterHead and deterministic class/task-aware candidate selection plus rotate/circle
 NMS. Preserve canonical dimensions/yaw/velocity and official nuScenes conversion.
 
-Own head/loss-interface/decode-NMS modules and tests, but do not wire the production
-detector; S07 integrates. Before editing, declare task groups, thresholds, top-K/NMS
-semantics, reference equations, and files. Write handoffs/S05/HANDOFF.md. Any
+Own head/decode-NMS modules, new head-specific loss adapters, and focused tests,
+but do not wire the production detector; S07 integrates. Existing
+`models/fusion/losses.py` is read-only while S02 is active; any required shared
+interface edit returns to S00 after S02 review. Before editing, declare task groups,
+thresholds, top-K/NMS semantics, reference equations, and files. Write
+handoffs/S05/HANDOFF.md. Any
 material compute needs RUN_REQUEST.md; only a bounded non-scientific smoke may
 self-submit under O-009. Return reference fixtures, permutation stability,
 tail-class candidate behavior, duplicate-box checks, eval round-trip, negative

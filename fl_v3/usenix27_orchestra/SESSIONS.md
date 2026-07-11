@@ -1,11 +1,15 @@
 # USENIX Security '27 Orchestra — session contracts
 
 > **Status:** the 15-session delivery/review model is owner-approved. S01/S01-R is
-> accepted as a reviewed S07 dependency at `abe5c58`/`7cf7fcc`; it is not merged.
+> integrated into the dedicated S07-A history, and S07-A is independently reviewed
+> PASS for the data-foundation phase at delivery `ba15716`, executable `44cefd0`,
+> and review `370ea6c`. This is not a full-cache or S07-B/model PASS.
 > S12 delivered its evidence/proposal-
 > only `HANDOFF.md` and awaits S00 completeness checking plus S12-R; it has no
-> integration/scientific PASS. All other technical sessions remain `PLANNED` and
-> inactive. Full tests, full-data/profile/metric work, matrices, seeds, and reruns
+> integration/scientific PASS. S02-S05 are next-wave candidates from one future
+> S00-frozen integration SHA, but their Gaussian/backbone/head choices remain owner
+> gates. All later technical sessions remain `PLANNED` and inactive. Full tests,
+> full-data/profile/metric work, matrices, seeds, and reruns
 > still require a separately owner-approved `RUN_REQUEST.md`.
 > **Canonical objective/gates:** [`ORCHESTRA.md`](ORCHESTRA.md).
 > **Copy-ready worker/reviewer prompts:** [`KICKOFFS.md`](KICKOFFS.md).
@@ -47,7 +51,7 @@ S12 protocol + paper skeleton ────────────────�
 | Wave | Sessions | Parallelism and boundary |
 |---|---|---|
 | A0 | S01, S12 | S01 reviewed/accepted as dependency; S12 handoff awaits review |
-| A1 | S07-A, S02-S05 | S07-A builds the reviewed data foundation while independent module work proceeds from an owner-approved pinned base |
+| A1 | S07-A, S02-S05 | S07-A data foundation reviewed PASS; S02-S05 may proceed in parallel only from one S00-frozen base after their locked implementation choices are approved |
 | B | S06, S07-B | S06 consumes the accepted data/cache contract; S07 remains sole integration owner and lands only reviewed results |
 | C | S08, S09 | camera and LiDAR scientific jobs run concurrently on the integrated commit |
 | D | S10 | fusion/recipe selection; produces `CL-PILOT` |
@@ -110,13 +114,13 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 | ID | Session | Depends on | Primary output | Status |
 |---|---|---|---|---|
 | S00 | Orchestra/owner decisions | — | approved contracts and status ledger | active; sole pinned canonical writer |
-| S01 | Shared nuScenes ZIP backend | S00 kickoff | data backend, manifest, parity/coverage tests | reviewed PASS; accepted S07 dependency at `abe5c58`; not merged |
+| S01 | Shared nuScenes ZIP backend | S00 kickoff | data backend, manifest, parity/coverage tests | reviewed PASS; integrated through S07-A, historical `t1.v1` caches forbidden |
 | S02 | CL P0 correctness | S00 kickoff | pillar/Gaussian fixes and invariance tests | planned |
 | S03 | Camera branch architecture | S00 kickoff | corrected stride-8 independent camera modules | planned |
 | S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | planned |
 | S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | planned |
 | S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | planned; must consume explicit `t1.v2` depth/hash contract |
-| S07 | Integrated engineering gate | phase A: S01 PASS; phase B: S01-S06 PASS | staged data foundation, then one resolved candidate stack and 100/1000-step evidence | S07-A launch packet ready; no Git/compute authorization |
+| S07 | Integrated engineering gate | phase A: S01 PASS; phase B: S01-S06 PASS | staged data foundation, then one resolved candidate stack and 100/1000-step evidence | S07-A reviewed PASS at `ba15716`/`44cefd0`/`370ea6c`; full cache and S07-B separate |
 | S08 | Camera scientific run | S07 PASS | `C-STR8` full-val result/checkpoint | planned |
 | S09 | LiDAR scientific runs | S07 PASS | `L-P020` and `L-S075` results/checkpoints | planned |
 | S10 | Fusion and recipe selection | S08, S09 | `F-U`/`F-CBGS`, optional init A/B, `CL-PILOT` | planned |
@@ -219,7 +223,9 @@ pillar caps and the approved Gaussian radius semantics; add adversarial batch an
 target golden tests.”
 
 **Owns.** `models/fusion/lidar_encoder.py`, `models/fusion/losses.py`, and focused
-tests. It does not redesign sparse SECOND, camera, head, or trainer code.
+tests. During the parallel S02-S05 wave, `losses.py` is exclusive to S02; S05 reads
+it but does not edit it without an S00 amendment. S02 does not redesign sparse
+SECOND, camera, head, or trainer code.
 
 **Deliverables.**
 
@@ -312,8 +318,11 @@ control if resources allow.
 CenterHead and deterministic task/class-aware box decode/NMS; validate coordinates
 against nuScenes conventions.”
 
-**Owns.** `models/fusion/head.py`, a separable decode/NMS module if needed, head/loss
-interfaces, and focused tests. It does not edit the production detector wiring.
+**Owns.** `models/fusion/head.py`, a separable decode/NMS module if needed,
+head-specific loss adapters/new modules, and focused tests. It does not edit the
+production detector wiring. While S02 is active, existing
+`models/fusion/losses.py` is read-only to S05; any required shared-interface edit
+returns to S00 after S02 review.
 
 **Deliverables.**
 
@@ -395,6 +404,15 @@ it does not wait for S02-S06. It must:
 
 S07-A does not integrate unreviewed S02-S06 code, run a model, waive later full-
 stack gates, or merge/push `v3-ad-perception`.
+
+**Reviewed S07-A outcome (2026-07-11).** Delivery
+`ba1571632557c20adbda3172221694cdbecfeabe`, executable INT-A
+`44cefd06bc815e893919d95c754896711dba3402`, and independent review
+`370ea6c0bd4d9d737a5a50b6aff1c6f742589825` are accepted for the data-foundation
+phase. Job `335280` ran 7/7 focused provenance tests, including hostile derived
+`gt_boxes` and `sweep2keylidar` mutation rejection; the exact 25-file source set and
+locale-stable aggregate were checksummed. The full trainval `t1.v2` cache output is
+still absent and Section B remains `PENDING_OWNER_APPROVAL_DO_NOT_SUBMIT`.
 
 **Deliverables.**
 
@@ -654,10 +672,12 @@ manually verified.
 
 ## 4. Suggested launch order after owner review
 
-1. S01/S01-R is complete and accepted as a dependency; launch S07-A only after the
-   owner reviews its exact Git/file/compute packet.
-2. Launch S02-S05 from the owner-approved pinned base as their scientific choices
-   are frozen; use `INT-A_SHA` when it is available before kickoff.
+1. S01/S01-R and S07-A/S07-A-R2 are complete for the reviewed data foundation;
+   preserve their exact implementation/review separation and negative limits.
+2. Freeze one integration SHA containing the accepted S07-A delivery, review
+   artifact, and canonical ledger. Launch S02-S05 from that same SHA only after
+   the owner freezes their Gaussian/backbone/head implementation choices. Keep
+   `fusion/losses.py` exclusive to S02 during the parallel wave.
 3. Launch S06 from reviewed `INT-A_SHA` and approved model-mode/resolved-config
    interfaces; require explicit `t1.v2` depth/hash provenance.
 4. Open S02-R through S06-R as workers return, then continue S07-B as the sole
