@@ -3,8 +3,8 @@
 ## Session identity and self-assessment
 
 - Session: `S03`, Camera branch architecture.
-- Worker self-assessment: **CHANGES-REQUESTED — IMPLEMENTATION DELIVERED, FOCUSED
-  RUNTIME GATE NOT EXECUTED**.
+- Worker self-assessment: **PASS — IMPLEMENTATION DELIVERED AND FOCUSED SYNTHETIC
+  RUNTIME GATE PASSED; INDEPENDENT S03-R PENDING**.
 - Base: `372de9398ae435f82b83367a922fd302c0635738`.
 - Source branch named by kickoff: `codex/s00-orchestra-ledger`.
 - Initial state: clean detached HEAD at the exact base.
@@ -28,6 +28,10 @@ now adds the active Arrhenius account/partition directives and uses a new output
 identity.  After S00 corrected a mismatched approval message, the exact tuple was
 submitted once as job `335630`; it failed in launcher provenance preflight before
 output creation or runtime tests.  There was no retry or follow-on.
+S00 later approved the exact scheduler-only remediation tuple once.  Job `336708`
+completed `0:0` on exact one-GPU/eight-CPU shared allocation, and all 10 requested
+synthetic camera-contract tests passed with zero failures/errors/skips.  That
+approval is consumed; no retry, requeue, resubmission, or follow-on occurred.
 
 ## Scope and files
 
@@ -41,6 +45,7 @@ Modified only within the S03 envelope:
 - `fl_v3/usenix27_orchestra/handoffs/S03/{RUN_REQUEST,RESULTS,HANDOFF}.md`;
 - `fl_v3/usenix27_orchestra/handoffs/S03/run_s03_camera_contract.sh`;
 - `fl_v3/usenix27_orchestra/handoffs/S03/artifacts/job_335630/**`.
+- `fl_v3/usenix27_orchestra/handoffs/S03/artifacts/job_336708/**`.
 
 `swin_sdpa.py` was inspected but not modified.  `detector.py`, `training/tasks.py`,
 `bev_grid.py`, all S02/S04/S05 files, canonical Orchestra documents,
@@ -199,7 +204,8 @@ GPUs/288 CPUs for six seconds (`0.006667` allocation-equivalent GPU-hours).  Raw
 evidence and checksums are committed under `artifacts/job_335630/`.
 
 After S00 independently confirmed that negative result, S03 prepared a source-only
-proposal and did not create a snapshot or submit another job.  S00 returned commit
+proposal and did not create a snapshot or submit another job from that commit.
+S00 returned commit
 `2496fecaa1a5daa4a60d7354d06a69ab6ea7d918` unexecuted because its launcher still
 declared `--nodes=1`.  This scheduler-only remediation preserves that snapshot
 design and revises only launcher/request/result/handoff scope.  The revised launcher
@@ -210,7 +216,7 @@ branch ref, implementation ancestry, and unchanged 15-file source closure are al
 verified before output creation.  It does not depend on the inaccessible `/home`
 linked-worktree `.git` path.
 
-Proposal identities before the final documentation commit:
+Executed identities before the final documentation commit:
 
 - launcher SHA-256:
   `dc61bd2ebd2a88c8be717c8deb2bdfb848971bcf29fe3995e43e1f139f2bfaee`;
@@ -226,22 +232,32 @@ GPU/eight CPUs but Slurm allocated the entire four-GPU/288-CPU node with
 `OverSubscribe=OK` and exact one-GPU/eight-CPU `AllocTRES`.  Before any snapshot,
 output, environment, or model action, it now requires actual one-node/eight-CPU/
 one-GH200 allocation and exactly one CUDA-visible device; torch independently
-rechecks one visible device before tests.  Thus the proposal is O-009-shaped, but
-it still has no execution permission.
+rechecks one visible device before tests.  S00 approved that exact tuple and job
+`336708` verified `OverSubscribe=OK`, exact matching one-GPU/eight-CPU requested and
+allocated TRES, aarch64 GH200 runtime identity, and all artifact checksums.
+
+Job `336708` ran for 89 seconds on `n591`, used 504 MiB batch MaxRSS, and accounted
+for `0.024722` allocation-equivalent GPU-hour.  The exact executable was
+`5c83daa1dffea6920e9918a3befec96e6db767c9`, tree
+`d7125faffc6cb30c792ac2635dfda285f1dbe43c`, and approved request hash
+`0e6a22ecfd0d9f28d9a91e62bd23c425fac96a4e8d9ddeab81e2242e8225d615`.
+The output identity, JUnit, pytest log, source state, allocation record, summary,
+and their checksums are under the recorded `/nobackup` output root; scheduler/log
+copies and hashes are durable under `artifacts/job_336708/`.
 
 ## Gate checklist
 
 | Gate | Worker status | Evidence / missing work |
 |---|---|---|
-| Swin-T taps and valid stride-8 output | IMPLEMENTED / STATIC ONLY | Source contract and focused tests; no torch execution. |
-| No permanently disconnected intended level | TEST AUTHORED, NOT RUN | Per-level input gradients and every neck parameter checked by test. |
-| 0.5 m depth bins | IMPLEMENTED / STATIC ONLY | 118-bin constructor and contract fixture; no runtime. |
-| Exact resize/crop/pad/flip/rotation calibration | TEST AUTHORED, NOT RUN | Four independent scalar residual fixtures avoid reusing implementation affine as oracle. |
-| Deterministic validation geometry | TEST AUTHORED, NOT RUN | Native 1600x900 golden plus repeated outputs. |
-| Complete intended parameter finite gradients | TEST AUTHORED, NOT RUN | Submitted job failed before the full Swin/FPN/LSS CUDA fp16-autocast backward executed. |
-| Camera feature/pixel sensitivity | TEST AUTHORED, NOT RUN | No runtime result. |
-| LiDAR invariance | STATIC API PASS; RUNTIME NOT RUN | No LiDAR input in signature; hostile keyword/repeated-output test not executed. |
-| Explicit shape/dtype/config contract | PASS STATIC | Module contract methods and fail-closed validation compile. |
+| Swin-T taps and valid stride-8 output | PASS | Runtime contract passed in job `336708`. |
+| No permanently disconnected intended level | PASS | Every level and intended neck parameter received finite gradients. |
+| 0.5 m depth bins | PASS | 118-bin runtime contract passed. |
+| Exact resize/crop/pad/flip/rotation calibration | PASS | Independent scalar projection fixtures passed. |
+| Deterministic validation geometry | PASS | Native 1600x900 golden and repeats passed. |
+| Complete intended parameter finite gradients | PASS | GH200 CUDA fp16-autocast Swin/FPN/LSS backward passed. |
+| Camera feature/pixel sensitivity | PASS | Focused feature/pixel sensitivity tests passed. |
+| LiDAR invariance | PASS | Hostile keyword rejection and repeated pure-camera output passed. |
+| Explicit shape/dtype/config contract | PASS | Runtime contract and fail-closed validation passed. |
 | Tiny-overfit / 100-step loss decrease | NOT AUTHORIZED / NOT RUN | Must remain a later exact gate. |
 | Memory profile | NOT AUTHORIZED / NOT RUN | Arithmetic only; no measured CUDA allocation. |
 
@@ -265,11 +281,13 @@ Allowed:
   account/partition reason, with zero GPU use;
 - the corrected scheduler-remediation job failed before camera/runtime execution
   for the recorded launcher repository-discovery reason.
+- exact job `336708` passed the focused 10-case synthetic camera contract on the
+  attested GH200 runtime with one-GPU shared allocation.
 
 Forbidden:
 
-- claiming projection residual, gradient, sensitivity, invariance, deterministic
-  validation, CUDA fp16, memory, or tiny-overfit runtime PASS;
+- extrapolating the focused projection/gradient/sensitivity/invariance/CUDA-fp16
+  PASS to model accuracy, throughput, integration, or training stability;
 - claiming camera/model/full-data readiness, accuracy, mAP/NDS, fusion gain, FL,
   attack/defense, generalization, scientific, or publication evidence;
 - using mini/static/arithmetic evidence as model-quality evidence;
@@ -278,15 +296,12 @@ Forbidden:
 
 ## Remaining risks and requested S00 decisions
 
-1. Independent S03-R should review the implementation and authored fixtures even
-   though runtime evidence is missing; it must not convert authored tests into a
-   PASS.
-2. Runtime evidence remains absent.  The immutable snapshot plus scheduler-only
-   one-GPU remediation is prepared, but no execution is authorized; S00 must bind
-   and approve the exact post-commit tuple before any `sbatch`.
-3. The launcher will fail before snapshot/output/model activity if Arrhenius does
-   not reproduce one-node/eight-CPU/one-GPU `OverSubscribe=OK` allocation or one
-   CUDA-visible device.  Such a failure would not authorize retry.
+1. Independent S03-R must review the implementation, fixtures, actual job `336708`
+   artifacts, and the two preserved negative attempts before integration.
+2. The focused synthetic runtime gate is complete.  No tiny-overfit, 100-step,
+   trainval, profile, metric, or scientific execution was authorized or performed.
+3. The consumed job `336708` approval cannot be reused; no follow-on compute is
+   requested by this handoff.
 4. S07-B must explicitly wire reference augmentation, stride 8, 0.5 m bins,
    `bev_output_dtype`, and the reviewed common BEV geometry.  Current unwired
    detector/task defaults remain legacy and do not satisfy O-017 by themselves.

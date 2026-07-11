@@ -2,8 +2,8 @@
 
 ## Overall result
 
-**SCHEDULER-REMEDIATION JOB FAILED IN LAUNCHER PROVENANCE PREFLIGHT; RUNTIME
-GATES NOT EXECUTED.**
+**FOCUSED SYNTHETIC CAMERA-CONTRACT RUNTIME GATE PASSED: JOB `336708`, 10/10
+TESTS, EXACT ONE-GPU SHARED ALLOCATION.**
 
 The exact-once O-009 request was approved by S00 and invoked once.  Slurm rejected
 it during submission with an account/partition error.  No job, allocation, output,
@@ -11,9 +11,12 @@ log, JUnit, execution identity, runtime source record, or model/runtime evidence
 created.  A separately approved scheduler remediation then created job `335630`,
 which failed in six seconds before output creation because the launcher attempted
 Git discovery from Slurm's spool-script directory.  Environment activation, CUDA,
-pytest, and camera code were never reached.  The implementation and synthetic
-tests remain available for independent review, but S03 does not claim a runtime
-PASS.
+pytest, and camera code were never reached.  Both negative attempts remain
+preserved.  After an independently audited scheduler-only correction, exact O-009
+job `336708` completed `0:0`; all 10 requested synthetic tests passed with zero
+failures/errors/skips, source and request identities matched, and every artifact
+checksum verified.  This is an engineering runtime PASS pending independent S03-R,
+not model-training or scientific evidence.
 
 ## First approved identity and rejected attempt
 
@@ -145,13 +148,12 @@ Raw durable evidence is under `artifacts/job_335630/`: `sacct.txt`, normalized
 one-line `scontrol.txt`, exact empty `stdout.txt`, exact `stderr.txt`, and
 `sha256sums.txt`.
 
-## Scheduler-only remediation proposal (not executed)
+## Scheduler-only remediation execution
 
-S03 prepared a revised launcher/request for S00 review only.  No snapshot was
-created and no job was submitted.  Commit
+S03 prepared a revised launcher/request for S00 review only.  Commit
 `2496fecaa1a5daa4a60d7354d06a69ab6ea7d918` was specifically not executed because
-its launcher retained `--nodes=1`.  The current proposal keeps its replacement of
-Git discovery from the
+its launcher retained `--nodes=1`.  The executed remediation kept its replacement
+of Git discovery from the
 Slurm spool path with an exact `git archive` of the approved commit/tree from the
 shared `/nobackup/.../fl_weather_project/.git` object store.  It verifies the spool
 launcher, archived launcher/request, branch ref, tree, implementation ancestry,
@@ -166,23 +168,65 @@ with the S04-job-335579-proven
 rechecks `device_count() == 1` before tests.  If it reaches output creation, the
 verified record is written to `slurm_allocation.txt` and checksummed.
 
-- Proposed launcher SHA-256:
+- Executed launcher SHA-256:
   `dc61bd2ebd2a88c8be717c8deb2bdfb848971bcf29fe3995e43e1f139f2bfaee`.
 - Source-list SHA-256 (unchanged):
   `d4eb8d29da926c88bbcf5c9bbbf9b3e9197f9eda4478ea956ec4c7cfaf664742`.
-- Proposed source-state SHA-256:
+- Executed source-state SHA-256:
   `197e5692e6d3c4477a3595cff39d831240b4419954bf929c7ff61e55b65a687e`.
-- Proposed snapshot root:
+- Executed snapshot root:
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s03_camera_contract_snapshotfix_6dfd2c775f54`.
-- Proposed output root:
+- Executed output root:
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_snapshotfix_6dfd2c775f54`.
 
 The four-GPU allocation from job `335630` remains preserved negative evidence.
 S04 job `335579` independently demonstrated that the revised scheduler directives
 produce `OverSubscribe=OK` and exact one-GPU/eight-CPU `AllocTRES`; the launcher's
-runtime checks prevent silent drift.  The proposal therefore requests only the
-O-009 ceiling of 0.25 GPU-hour, but it remains unexecuted and unauthorized pending
-S00's exact tuple approval.
+runtime checks prevent silent drift.  S00 then approved executable
+`5c83daa1dffea6920e9918a3befec96e6db767c9`, tree
+`d7125faffc6cb30c792ac2635dfda285f1dbe43c`, and RUN_REQUEST hash
+`0e6a22ecfd0d9f28d9a91e62bd23c425fac96a4e8d9ddeab81e2242e8225d615`
+exactly once.  That approval produced job `336708` and is consumed.
+
+### Job `336708` outcome and resource reconciliation
+
+| Field | Recorded value |
+|---|---|
+| State / exit | `COMPLETED` / `0:0` |
+| Node / elapsed | `n591` / 89 seconds |
+| Requested TRES | 1 GH200, 8 CPUs, 1 node, `00:15:00` ceiling |
+| Allocated TRES | exactly 1 GH200, 8 CPUs, 1 node; `OverSubscribe=OK` |
+| Allocation-equivalent GPU-hours | `89 / 3600 = 0.024722` |
+| Batch MaxRSS | 504 MiB |
+| CUDA visibility | `CUDA_VISIBLE_DEVICES=0`; torch saw exactly one device |
+| Runtime | aarch64; Python 3.11.15; torch 2.11.0+cu128; torchvision 0.26.0+cu128; pytest 9.1.1; CUDA 12.8; NVIDIA GH200 120GB |
+| Tests | `10 passed`, 0 failures, 0 errors, 0 skips, 13.52 seconds |
+| Retry/requeue/follow-on | none; not authorized |
+
+The only warning was pytest's inability to create `.pytest_cache` inside the
+deliberately read-only execution snapshot.  It did not skip or alter any requested
+test.  In-job `sha256sum -c` verified all ten listed output artifacts.
+
+Key output SHA-256 values:
+
+- `execution_identity.json`:
+  `37d70e7ada0de4cf7e2e197d8755ee090292efca2db766bd7384327c30b1bd28`;
+- `pytest.junit.xml`:
+  `d1da1948fb71a0203e7dfa57a49d93c0de1cd3880c6ae87f9b62c76c38a652c5`;
+- `pytest.log`:
+  `00f06042f110e6d11a21d87bf7334df22805392813f56b03879e7ee0467742f8`;
+- `slurm_allocation.txt`:
+  `48cacecd5ab0b70224347adb4e2cc04ba43c814fd33ffad94141bafcb5c8104d`;
+- `snapshot_identity.json`:
+  `b990ac6e9064cdfa1f557f3e57eb7b307bebe9e9a82182b7c291e15fd0fdb615`;
+- `test_summary.json`:
+  `fa9cdd0ad6e7402b511a3d2f4003179b99699ac15a1536233a2f931d3c6fc35a`.
+
+Raw durable scheduler/log evidence is under `artifacts/job_336708/`.  Its copied
+stdout SHA-256 is
+`4f0b4e526f0fafd5af7696db5ca92f095691d203f121f4c33ebc647acb97fd3e`
+and stderr SHA-256 is
+`ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57`.
 
 ## Local/static evidence
 
@@ -201,14 +245,14 @@ Executed locally before the request:
 
 | Gate | Status | Evidence / limit |
 |---|---|---|
-| Exact resize/crop/pad/flip/rotation projection residuals | TEST AUTHORED, NOT EXECUTED | Four independent scalar fixtures exist; no dependency-complete result. |
-| Native 1600x900 deterministic validation geometry | TEST AUTHORED, NOT EXECUTED | Expected 0.48 resize -> 432x768, crop `(32,176)`. |
-| Seed-replayable training augmentation | TEST AUTHORED, NOT EXECUTED | Explicit CPU generator path covered by test source only. |
-| All intended FPN levels affect output | TEST AUTHORED, NOT EXECUTED | Gradient checks cover every input level and neck parameter. |
-| Every intended Swin/FPN/LSS parameter finite gradient | TEST AUTHORED, NOT EXECUTED | CUDA fp16-autocast chain did not run. |
-| Camera feature/pixel sensitivity | TEST AUTHORED, NOT EXECUTED | No runtime output. |
-| LiDAR invariance / pure-camera API | STATIC PASS; RUNTIME NOT EXECUTED | View-transform signature has no point/depth/LiDAR feature input; hostile keyword fixture did not run. |
-| Stride-8 / 0.5 m / dtype/shape contract | STATIC PASS; RUNTIME NOT EXECUTED | Constructor/contracts compile; no torch execution. |
+| Exact resize/crop/pad/flip/rotation projection residuals | PASS | Job `336708` independent scalar fixtures passed. |
+| Native 1600x900 deterministic validation geometry | PASS | Expected 0.48 resize -> 432x768, crop `(32,176)`, passed. |
+| Seed-replayable training augmentation | PASS | Explicit CPU-generator replay passed. |
+| All intended FPN levels affect output | PASS | Every input level and neck parameter received finite gradients. |
+| Every intended Swin/FPN/LSS parameter finite gradient | PASS | CUDA fp16-autocast camera chain forward/backward passed. |
+| Camera feature/pixel sensitivity | PASS | Both focused sensitivity checks passed. |
+| LiDAR invariance / pure-camera API | PASS | Hostile LiDAR keyword rejection and repeated pure-camera output passed. |
+| Stride-8 / 0.5 m / dtype/shape contract | PASS | Runtime constructor/output contract passed. |
 | 100-step camera-only loss decrease | NOT AUTHORIZED / NOT RUN | Explicitly outside S03 request. |
 | Profile / throughput / peak CUDA memory | NOT AUTHORIZED / NOT RUN | No performance claim. |
 
@@ -232,14 +276,14 @@ Allowed:
   account/partition reason;
 - the corrected job failed during launcher provenance preflight before environment,
   CUDA, pytest, or camera execution;
-- an immutable-snapshot plus scheduler-only one-GPU remediation is prepared but
-  unexecuted and has no exact S00 approval;
-- no data, optimizer/model step, metric, or scientific evidence was produced.
+- exact job `336708` passed the 10-case synthetic camera contract on the attested
+  GH200 runtime with one-GPU shared allocation;
+- no dataset, optimizer/model step, metric, or scientific evidence was produced.
 
 Forbidden:
 
-- any projection, gradient, sensitivity, invariance, CUDA/fp16, memory, or
-  deterministic-validation runtime PASS;
+- extrapolating the focused synthetic geometry/gradient PASS to accuracy,
+  throughput, training stability, or full integration;
 - camera/model/full-data readiness, tiny-overfit/100-step acceptance, throughput,
   mAP/NDS, fusion gain, FL, attack/defense, generalization, scientific, or
   publication claims;
