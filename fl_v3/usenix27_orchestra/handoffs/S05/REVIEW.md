@@ -132,8 +132,8 @@ scientific metric, profile, merge, push, upload, or external publication occurre
 `RUN_REQUEST.md` binds:
 
 - exact request SHA-256
-  `b5e43c0e4fb1f999a5273076a32518c9309752a33e651bd732386973213dd19c`;
-- exact proposed launcher-body SHA-256
+  `bcd8f426e5b95438f91973e9a3d9712193cf96a23f9254732114111fb68019c1`;
+- exact durable committed launcher SHA-256
   `7ea5e8128fac4ddb471c27030b2d18b7e133297fca6a50fb336f27ee007a9e10`;
 - worker `705216d`, tree `2d5cd99...`;
 - 31-file source-list hash `bea19dd5...` and source-state hash `2ff6389f...`;
