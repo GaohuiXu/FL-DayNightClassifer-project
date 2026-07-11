@@ -72,6 +72,15 @@ DECISION_SCOPE: evidence/proposal only, or exact owner-approved implementation c
     conflicts, and the complete filled kickoff including reasoning and compute.
     Creation occurs only after explicit owner authorization. A worker never launches
     its own reviewer, and acceptance of a handoff never auto-launches downstream work.
+14. Owner decision O-017 freezes the Wave-A S02-S05 implementation choices and
+    authorizes their parallel launch at `xhigh` from one canonical ledger commit
+    directly atop S07-A freeze `0249eb21a32730ac1689255491b19a158711401f`.
+    O-017 also authorizes scoped worker branches/commits, S00 review scheduling,
+    and S00 approval of exact O-009-compliant short smokes only. For S02-S05 this
+    is stricter than general O-009 self-submission: the worker must send the filled
+    `RUN_REQUEST.md` to S00 and wait for explicit S00 approval before `sbatch`. It does not
+    authorize full trainval, 100/1000-step gates, profiles/metrics/matrices, push,
+    or merge to `v3-ad-perception`.
 
 Before editing or reviewing, every task runs/reports `git rev-parse --show-toplevel`,
 `git rev-parse HEAD`, `git branch --show-current`, and `git status --short`. An empty
@@ -182,18 +191,24 @@ Read completely before editing:
 - read-only historical capability/audit evidence referenced by ORCHESTRA.md.
 
 Objective: fix only the result-invalidating per-sample pillar-cap semantics and the
-owner-approved Gaussian-radius/target semantics. Add numerical golden tests,
+O-017-approved exact official CenterPoint/BEVFusion Gaussian-radius/target
+semantics with `min_overlap=0.1` and `min_radius=2`. Add numerical golden tests,
 sample/batch isolation, batch permutation, over-cap, empty-input, and target-render
 tests. Do not redesign sparse SECOND, camera, head, trainer, or scientific recipe.
 
-Before editing, state which Gaussian reference/equation is approved; if it is not
-recorded, stop for S00/owner. Own `models/fusion/lidar_encoder.py`,
+Before editing, identify the exact upstream reference/equation, state its three
+roots and integer/min-radius behavior, and derive independently checked golden
+values; any deviation from the O-017 reference returns to S00/owner. Own
+`models/fusion/lidar_encoder.py`,
 `models/fusion/losses.py`, focused tests, and handoffs/S02/. During the parallel
 wave `losses.py` is exclusive to S02; do not edit S03-S05 modules.
 Write HANDOFF.md with migration impact on old checkpoints. Any GPU/Slurm check needs
-a RUN_REQUEST.md; only a bounded non-scientific smoke may self-submit under O-009.
+a RUN_REQUEST.md sent to S00; even an O-009-eligible bounded non-scientific smoke
+must wait for explicit S00 approval before submission.
 Return exact equations, fixtures, tests, residual risks, and forbidden
-interpretations. Do not commit/merge/push without authorization.
+interpretations. O-017 authorizes a scoped `codex/s02-*` branch plus implementation,
+test, RUN_REQUEST/RESULTS when applicable, and HANDOFF commits only within the
+envelope ownership. Do not merge or push.
 ```
 
 ### S03 — camera branch architecture
@@ -211,18 +226,21 @@ Read completely before editing:
 - read-only arrhenius_camera_branch_audit.md;
 - the official MIT BEVFusion camera configuration/reference linked in the active docs.
 
-Objective: produce an independent, effective multi-scale camera module contract:
-no dead FPN levels, valid stride-8 flow, approved depth bins, aspect-preserving
+Objective: implement the O-017-approved independent multi-scale camera contract:
+Swin-T, no dead FPN levels, valid stride-8 flow, 0.5 m depth bins, aspect-preserving
 geometry/augmentation, calibration correctness, complete gradient coverage, and no
 LiDAR-conditioned input in the primary branch.
 
 Own camera-specific modules/tests and handoffs/S03/. Do not wire detector.py or
 tasks.py; return the exact integration shape/dtype/config contract to S07. Before
 editing, report intended files and geometry assumptions. Write HANDOFF.md. Any
-bounded smoke may use O-009 after recording RUN_REQUEST.md; profiles and larger
+bounded smoke requires a recorded RUN_REQUEST.md plus explicit S00 approval under
+O-017/O-009; profiles and larger
 tests require exact owner approval. Return projection residuals, gradient/
 invariance/tiny-overfit evidence, memory implications, negative results, and
-unresolved design choices. Do not commit/merge/push without authorization.
+unresolved design choices. O-017 authorizes a scoped `codex/s03-*` branch plus
+implementation, test, RUN_REQUEST/RESULTS when applicable, and HANDOFF commits only
+within the envelope ownership. Do not merge or push.
 ```
 
 ### S04 — LiDAR SECOND architecture
@@ -239,18 +257,22 @@ Read completely before editing:
 - sparse_voxel_encoder.py, lidar_backbone.py, bev_grid.py and focused tests;
 - read-only arrhenius_bevfusion_gap_audit.md and official SECOND/BEVFusion reference.
 
-Objective: implement a SECOND-style sparse LiDAR module that downsamples XY in
-sparse space before densification, exposes an approximately stride-8 BEV contract,
-supports approved fp16/fp32 behavior and train/eval voxel caps, and never creates a
+Objective: implement the O-017-approved SECOND-style sparse LiDAR module at
+`0.075x0.075x0.2 m` that downsamples XY by approximately 8x in sparse space before
+low-resolution densification, exposes the matching BEV contract, supports fp16 AMP
+plus fp32 reference behavior and train/eval voxel caps, and never creates a
 1440x1440 dense/fusion tensor.
 
 Own LiDAR sparse modules/tests and handoffs/S04/. Do not wire detector/tasks/trainer.
 Before editing, report coordinate order, spatial shapes, stride/receptive-field
 contract, intended files, and reference mapping. Write HANDOFF.md. Any GH200/Slurm
-test needs RUN_REQUEST.md; only a bounded non-scientific smoke may self-submit under
-O-009. Return shape/metric-coordinate fixtures, empty/over-cap/batch tests, dtype/
-gradient/memory evidence, negative findings, and integration requirements. Do not
-commit/merge/push without authorization.
+test needs RUN_REQUEST.md and explicit S00 approval; S00 may approve only a bounded
+non-scientific smoke within O-017/O-009. Return shape/metric-coordinate fixtures,
+empty/over-cap/batch tests, dtype/
+gradient/memory evidence, negative findings, and integration requirements. O-017
+authorizes a scoped `codex/s04-*` branch plus implementation, test,
+RUN_REQUEST/RESULTS when applicable, and HANDOFF commits only within the envelope
+ownership. Do not merge or push.
 ```
 
 ### S05 — detection head and decode
@@ -267,20 +289,23 @@ Read completely before editing:
 - current tests/fixtures for target generation, box conventions, decode, and eval;
 - official CenterPoint/BEVFusion CenterHead and NMS references.
 
-Objective: implement a framework-independent, reference-faithful multi-task
-CenterHead and deterministic class/task-aware candidate selection plus rotate/circle
-NMS. Preserve canonical dimensions/yaw/velocity and official nuScenes conversion.
+Objective: implement the O-017-approved framework-independent, reference-faithful
+multi-task CenterHead primary and deterministic class/task-aware candidate selection
+plus rotate/circle NMS. Preserve canonical dimensions/yaw/velocity and official
+nuScenes conversion. TransFusion remains closed contingency.
 
 Own head/decode-NMS modules, new head-specific loss adapters, and focused tests,
 but do not wire the production detector; S07 integrates. Existing
 `models/fusion/losses.py` is read-only while S02 is active; any required shared
 interface edit returns to S00 after S02 review. Before editing, declare task groups,
 thresholds, top-K/NMS semantics, reference equations, and files. Write
-handoffs/S05/HANDOFF.md. Any
-material compute needs RUN_REQUEST.md; only a bounded non-scientific smoke may
-self-submit under O-009. Return reference fixtures, permutation stability,
+handoffs/S05/HANDOFF.md. Any material compute needs RUN_REQUEST.md plus explicit S00
+approval; S00 may approve only a bounded non-scientific smoke within O-017/O-009.
+Return reference fixtures, permutation stability,
 tail-class candidate behavior, duplicate-box checks, eval round-trip, negative
-results, and risks. Do not commit/merge/push without authorization.
+results, and risks. O-017 authorizes a scoped `codex/s05-*` branch plus
+implementation, test, RUN_REQUEST/RESULTS when applicable, and HANDOFF commits only
+within the envelope ownership. Do not merge or push.
 ```
 
 ### S06 — production modes, config, and runtime

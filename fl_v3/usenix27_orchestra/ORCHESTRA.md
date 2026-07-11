@@ -130,15 +130,16 @@ improves over the stronger branch.
 - EMA history is not restored on resume; fp32 non-finite loss handling can still
   take an optimizer step.
 
-## 3. Candidate backbone contract — not yet frozen
+## 3. Owner-approved Wave-A module contract — final integration not yet frozen
 
-The following is the current evidence-based candidate, not an owner-approved final
-architecture. It gives S03-S06 a concrete design to audit and estimate. S00 may
-launch reference analysis, interface design, and reversible engineering checks, but
-must obtain the relevant stage-gate decision in Section 10 before a worker commits
-to a primary implementation choice or S07 integrates it.
+The owner approved the following implementation contract for parallel S02-S05 work
+on 2026-07-11 under O-017. This freezes the primary module choices that those
+workers may implement; it does not approve S07-B integration, a full-trainval cache
+or model run, numerical CL gates, or a final scientific architecture. S07-B and its
+independent review must still reconcile the reviewed module contracts before any
+production or scientific execution.
 
-The candidate primary model is a strong, modular late-BEV detector whose modality
+The approved Wave-A primary model is a strong, modular late-BEV detector whose modality
 boundaries remain meaningful for attacks and defenses:
 
 - **Camera:** Swin-T initially; effective multi-scale FPN output at stride 8;
@@ -726,9 +727,9 @@ runs they judge; they cannot be selected after seeing those outcomes.
 
 | Decision | Current status | Latest owner freeze point |
 |---|---|---|
-| Gaussian-radius/target equation and golden values | pending | before S02 changes target semantics; per-sample pillar-cap work may not silently choose it |
-| Minimum modular backbone/interface contract | pending | before S03/S04/S05 makes an irreversible primary implementation choice; final integrated contract before S07 |
-| Multi-task CenterHead primary; TransFusion contingency/generalization | pending | primary head choice before S05 implementation; opening TransFusion can wait for reviewed S05/S07 evidence |
+| Gaussian-radius/target equation and golden values | owner-approved for S02 under O-017: exact official CenterPoint/BEVFusion reference semantics, `min_overlap=0.1`, `min_radius=2`; deterministic golden fixtures must pin the equation | S02-R independently recomputes the fixtures; any deviation or alternative geometric formula returns to S00/owner |
+| Minimum modular backbone/interface contract | owner-approved for Wave-A under O-017: S03 Swin-T/stride-8/pure-camera LSS/0.5 m bins/aspect-preserving geometry; S04 SECOND `0.075x0.075x0.2 m`/~8x sparse-XY reduction/low-resolution densification/fp16+fp32 contract | final cross-module integration contract remains an S07-B review gate |
+| Multi-task CenterHead primary; TransFusion contingency/generalization | owner-approved for S05 under O-017: reference-faithful multi-task CenterHead; TransFusion remains closed contingency | S05 must declare and pin official-reference task groups/top-K/NMS semantics before editing; deviations return to S00/owner |
 | `D_base`/`D_tail`, regional/fleet client unit, and fine-tuning scope | pending | S12 may design alternatives now; freeze and hash before split materialization or any Protocol-B training in S13 |
 | mAP/NDS, fusion-gain, per-class, speed, memory, and acceptance gates | pending | numerical floors may use S07 engineering/profile evidence, but freeze before the S08/S09/S10 scientific run each gate evaluates |
 | Five-cell single-seed matrix and whether 11 full runs are necessary | pending | use S07 cost plus reviewed branch evidence; approve each exact wave before its `RUN_REQUEST.md`, and freeze fusion cells before S10 outcomes |
@@ -756,4 +757,5 @@ evidence that caused it; material entries remain `PENDING` until the owner appro
 | O-013 | 2026-07-11 | accepted S01/S01-R evidence and `build_gt_database.py` audit | split S07 into phase S07-A data-foundation integration and later S07-B full-stack integration. S07-A lands exact worker history plus review artifact, fixes the `t1.v1` caller and active-doc status, hardens future test attestation, and prepares a separately approved full `t1.v2` cache gate; S06 must bind `n_sweeps` and cache/manifest hashes explicitly | operational dependency refinement | executed; S07-A final review PASS at `370ea6c` |
 | O-014 | 2026-07-11 | owner temporary delegation in active S00 task | S00 may coordinate S07-A/S07-A-R through completion, approve reasonable validation-only O-009 jobs, and after S07-A completion prepare parallel S02-S05 launches; no large jobs/metrics, push, or merge to `v3-ad-perception` | scoped orchestration/compute authority | approved and exercised; Job `335280` completed PASS, no retry/follow-on |
 | O-015 | 2026-07-11 | S07-A delivery `ba15716`, executable `44cefd0`, review `370ea6c`, Jobs `333477`/`335280`, and S00 raw-artifact audit | accept S07-A as reviewed data-foundation dependency; preserve old c8dd locale preflight rejection and historical `t1.v1` limits; full trainval `t1.v2` cache and S07-B remain separate gates | integration evidence | accepted; no full-cache/model authorization |
-| O-016 | 2026-07-11 | accepted S07-A review plus S02-S05 ownership audit | future S02-S05 workers start from one S00-frozen integration SHA; `fusion/losses.py` is exclusive to S02 during the parallel wave, while S05 treats it as read-only and returns any shared-interface change to S00; all four read S07-A handoff/review and preserve the exact data contract | operational refinement affecting S02-S05 | approved under O-003; locked Gaussian/backbone/head choices still require owner decision |
+| O-016 | 2026-07-11 | accepted S07-A review plus S02-S05 ownership audit | future S02-S05 workers start from one S00-frozen integration SHA; `fusion/losses.py` is exclusive to S02 during the parallel wave, while S05 treats it as read-only and returns any shared-interface change to S00; all four read S07-A handoff/review and preserve the exact data contract | operational refinement affecting S02-S05 | approved under O-003; implementation-choice dependency satisfied by O-017 |
+| O-017 | 2026-07-11 | owner approval in active S00 task after review of the S02-S05 scope and full-data boundary | freeze the S02 official-reference Gaussian semantics (`min_overlap=0.1`, `min_radius=2`), S03 Swin-T stride-8 pure-camera contract, S04 SECOND `0.075x0.075x0.2 m` sparse-XY contract, and S05 multi-task CenterHead primary/TransFusion contingency; authorize S00 to commit the canonical launch ledger directly atop S07-A freeze `0249eb21a32730ac1689255491b19a158711401f`, launch S02-S05 at `xhigh` from that resulting common ledger SHA, and authorize each worker to create `codex/s0x-*` plus implementation/test/handoff commits strictly inside its envelope | locked Wave-A implementation choices plus scoped orchestration | approved; S00 may audit and approve only O-009-compliant short non-scientific Slurm requests and may schedule exact independent S02-R through S05-R after handoff completeness checks; no full trainval, 100/1000-step gate, profile/metrics/matrix, push, merge to `v3-ad-perception`, or approval drift |

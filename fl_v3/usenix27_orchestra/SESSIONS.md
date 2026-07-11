@@ -6,9 +6,11 @@
 > and review `370ea6c`. This is not a full-cache or S07-B/model PASS.
 > S12 delivered its evidence/proposal-
 > only `HANDOFF.md` and awaits S00 completeness checking plus S12-R; it has no
-> integration/scientific PASS. S02-S05 are next-wave candidates from one future
-> S00-frozen integration SHA, but their Gaussian/backbone/head choices remain owner
-> gates. All later technical sessions remain `PLANNED` and inactive. Full tests,
+> integration/scientific PASS. Under O-017, S02-S05 are owner-authorized to launch
+> in parallel from one S00 canonical ledger commit directly atop S07-A freeze
+> `0249eb21a32730ac1689255491b19a158711401f`; their Gaussian/camera/SECOND/
+> CenterHead implementation choices are frozen below. All later technical sessions
+> remain `PLANNED` and inactive. Full tests,
 > full-data/profile/metric work, matrices, seeds, and reruns
 > still require a separately owner-approved `RUN_REQUEST.md`.
 > **Canonical objective/gates:** [`ORCHESTRA.md`](ORCHESTRA.md).
@@ -115,10 +117,10 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 |---|---|---|---|---|
 | S00 | Orchestra/owner decisions | — | approved contracts and status ledger | active; sole pinned canonical writer |
 | S01 | Shared nuScenes ZIP backend | S00 kickoff | data backend, manifest, parity/coverage tests | reviewed PASS; integrated through S07-A, historical `t1.v1` caches forbidden |
-| S02 | CL P0 correctness | S00 kickoff | pillar/Gaussian fixes and invariance tests | planned |
-| S03 | Camera branch architecture | S00 kickoff | corrected stride-8 independent camera modules | planned |
-| S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | planned |
-| S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | planned |
+| S02 | CL P0 correctness | S00 kickoff | pillar/Gaussian fixes and invariance tests | owner-authorized for parallel launch under O-017 |
+| S03 | Camera branch architecture | S00 kickoff | corrected stride-8 independent camera modules | owner-authorized for parallel launch under O-017 |
+| S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | owner-authorized for parallel launch under O-017 |
+| S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | owner-authorized for parallel launch under O-017 |
 | S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | planned; must consume explicit `t1.v2` depth/hash contract |
 | S07 | Integrated engineering gate | phase A: S01 PASS; phase B: S01-S06 PASS | staged data foundation, then one resolved candidate stack and 100/1000-step evidence | S07-A reviewed PASS at `ba15716`/`44cefd0`/`370ea6c`; full cache and S07-B separate |
 | S08 | Camera scientific run | S07 PASS | `C-STR8` full-val result/checkpoint | planned |
@@ -255,11 +257,11 @@ augmentation geometry, and camera-only gradient coverage.”
 `preprocess.py`, `view_transform.py`) and focused tests. To avoid parallel conflicts,
 it exposes a module/output contract but does not wire `detector.py` or `tasks.py`.
 
-**Candidate contract, not yet frozen.** Swin-T; valid stride-8 multi-scale output;
+**Owner-approved Wave-A contract (O-017).** Swin-T; valid stride-8 multi-scale output;
 0.5 m depth bins;
 aspect-preserving resize/crop with calibration consistency; pure-camera view
-transform without LiDAR-conditioned inputs. The exact kickoff must either record
-owner approval for this implementation or limit S03 to evidence/interface work.
+transform without LiDAR-conditioned inputs. O-017 authorizes this implementation;
+any deviation returns to S00/owner before editing.
 
 **Deliverables.**
 
@@ -287,12 +289,12 @@ BEV contract suitable for fusion.”
 **Owns.** `sparse_voxel_encoder.py` or a new focused SECOND module, LiDAR-specific
 support code, and tests. It does not wire detector/trainer entry points.
 
-**Candidate contract, not yet frozen.** Voxel candidate `0.075x0.075x0.2 m`; sparse
+**Owner-approved Wave-A contract (O-017).** Voxel size `0.075x0.075x0.2 m`; sparse
 3D stages with
 approximately 8x XY reduction; densification only at the reduced grid; train/eval
 max-voxel settings separately configurable; fp16 sparse convolution with fp32
-reference support. The exact kickoff must either record owner approval for this
-implementation or limit S04 to evidence/interface work.
+reference support. O-017 authorizes this implementation; any deviation returns to
+S00/owner before editing.
 
 **Deliverables.**
 
@@ -326,7 +328,8 @@ returns to S00 after S02 review.
 
 **Deliverables.**
 
-- approved task grouping and separate heads for heatmap/regression fields;
+- official-reference nuScenes task grouping and separate heads for
+  heatmap/regression fields;
 - class/task candidate budgets rather than a single global 10-class top-K;
 - deterministic circle/rotate NMS with explicit thresholds;
 - canonical box dimension/yaw/velocity conversion and round-trip fixtures;
