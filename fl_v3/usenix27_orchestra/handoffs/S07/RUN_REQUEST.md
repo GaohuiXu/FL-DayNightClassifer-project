@@ -14,8 +14,9 @@
 
 ### Immutable preflight
 
-- Repository: `/home/gaohui/.codex/worktrees/d3cc/fl_weather_project`.
-- Branch: `codex/s07-a-data-foundation`.
+- Historical submission branch: `codex/s07-a-data-foundation`. This completed
+  Job 333477 record is not the execution-worktree contract for the pending cache
+  request and must not be reused to submit it.
 - Exact implementation HEAD:
   `c1f4fbeade20975fd648e8d6c109f50d27f2bbf4`.
 - Working source diff before this audit record: empty; SHA-256 of
@@ -87,10 +88,18 @@ walltime. There is no automatic retry.
 - **Status:** `PENDING_OWNER_APPROVAL_DO_NOT_SUBMIT`.
 - This full trainval cache generation is outside O-009. Preparing this request is
   not permission to execute it.
-- Exact candidate commit:
-  `c1f4fbeade20975fd648e8d6c109f50d27f2bbf4`.
+- Returned delivery SHA before scoped remediation:
+  `c7d57510e94de5429b62aa9df735a867bdcd199c`.
+- Exact remediated implementation candidate (`NEW_IMPL_SHA`):
+  `ed31f23b2ee1b193b5dd3600c00570e40a888ce9`.
 - Exact cache-launcher source-state SHA-256:
-  `3a00769bb6e8d6b65d15cf45e35ceee2dfd3d3e1fe325f874f56a8a683277f54`.
+  `7ddb06b3d57ef89be3b67782d90e93d64ddaa567ebd946ceda09910dc17b42f5`.
+- Eventual executor contract: after separate owner approval, the owner/Codex task
+  UI provisions a fresh isolated worktree at
+  `detached@ed31f23b2ee1b193b5dd3600c00570e40a888ce9`. The executor verifies a
+  clean worktree, empty branch name, and exact HEAD before submission. This
+  request does not name, reuse, or depend on the current worker worktree. No
+  execution worktree has been created by this remediation.
 - Environment: Arrhenius persistent prefix
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/envs/pt311-cu128-spconv`,
   activated through `fl_v3/scripts/arrhenius_env.sh` after
@@ -98,6 +107,13 @@ walltime. There is no automatic retry.
   `nuScenes-data/1.0-map-1.3-zip` is loaded afterward.
 - Dataset/version/splits/depth: module `NUSCENES_DATA_DIR`, official
   `v1.0-trainval`, splits `train val`, `n_sweeps=10` total including keyframe.
+- Read-only prefix metadata currently records CPython `3.11.15` (`aarch64`),
+  NumPy `1.26.4`, nuscenes-devkit `1.1.11`, and pyquaternion `0.9.9`. These are
+  expected values only. The in-job `execution_identity.json` records the actual
+  interpreter path/implementation/version, platform, and installed versions of
+  NumPy, nuscenes-devkit, and pyquaternion; an approved execution must retain and
+  review that actual identity. Source/requirements hashes do not substitute for
+  this runtime record.
 
 ### Accepted immutable manifest input
 
@@ -120,16 +136,20 @@ walltime. There is no automatic retry.
   GPU allocation is for the validated aarch64 environment; cache construction is
   metadata/CPU/I/O work. One job only, no array/DDP/retry/follow-on.
 - Exact unique output root:
-  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_c1f4fbeade20`.
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_ed31f23b2ee1`.
+  It was confirmed absent during this local remediation; this is a proposed path,
+  not a created output.
 - Logs:
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07a_cache_t1v2_%j.{out,err}`.
 
 ```bash
-test "$(git rev-parse HEAD)" = "c1f4fbeade20975fd648e8d6c109f50d27f2bbf4" && \
-test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_c1f4fbeade20 && \
+test -z "$(git branch --show-current)" && \
+test "$(git rev-parse HEAD)" = "ed31f23b2ee1b193b5dd3600c00570e40a888ce9" && \
+test -z "$(git status --short)" && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_ed31f23b2ee1 && \
 test -z "$(squeue -u "$USER" -h -o '%i %j' | awk '$2 ~ /flv3_s07a_cache_t1v2/ {print}')" && \
 sbatch --time=00:30:00 --cpus-per-task=8 \
-  --export=ALL,EXPECTED_S07A_SHA=c1f4fbeade20975fd648e8d6c109f50d27f2bbf4,EXPECTED_S07A_STATE_HASH=3a00769bb6e8d6b65d15cf45e35ceee2dfd3d3e1fe325f874f56a8a683277f54,S07A_ACCEPTED_MANIFEST=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_v2_1fe651700bd0/nuscenes_trainval_zip_manifest.sqlite,S07A_ACCEPTED_MANIFEST_HASH=023f72b4220bb0db587be00920308bf9074384740fe186d243be92f9a53119f6,S07A_ACCEPTED_MANIFEST_FILE_SHA256=228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb,S07A_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_c1f4fbeade20 \
+  --export=ALL,EXPECTED_S07A_SHA=ed31f23b2ee1b193b5dd3600c00570e40a888ce9,EXPECTED_S07A_STATE_HASH=7ddb06b3d57ef89be3b67782d90e93d64ddaa567ebd946ceda09910dc17b42f5,S07A_ACCEPTED_MANIFEST=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_v2_1fe651700bd0/nuscenes_trainval_zip_manifest.sqlite,S07A_ACCEPTED_MANIFEST_HASH=023f72b4220bb0db587be00920308bf9074384740fe186d243be92f9a53119f6,S07A_ACCEPTED_MANIFEST_FILE_SHA256=228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb,S07A_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_ed31f23b2ee1 \
   fl_v3/scripts/run_s07a_nuscenes_cache_t1v2.sh
 ```
 
@@ -143,8 +163,13 @@ Expected outputs whose identities/checksums must be frozen:
   `cache_identity.json`, and `sha256sums.txt`.
 
 `cache_identity.json` must freeze, for both train and val, format `t1.v2`, depth
-10, sample/box counts, canonical cache hash, absolute output path, byte size, pickle
-SHA-256, and sidecar SHA-256. `sha256sum -c` must pass over every generated file.
+10, predeclared/actual/metadata sample and box counts, canonical cache hash,
+absolute output path, byte size, pickle SHA-256, and sidecar SHA-256. The exact
+locked counts are train `n_samples=28130`, `n_boxes=944881` and val
+`n_samples=6019`, `n_boxes=187528`; both actual records and metadata must equal
+these values. The launcher first generates `sha256sums.txt`, then separately runs
+`sha256sum -c "$S07A_OUTPUT_ROOT/sha256sums.txt"`; checksum generation alone is
+not acceptance.
 The accepted manifest logical/file hashes are copied into the execution identity;
 the cache is not silently relabeled from historical `t1.v1` output.
 
@@ -153,7 +178,9 @@ the cache is not silently relabeled from historical `t1.v1` output.
 Pass requires exact commit/source identity; accepted manifest logical/file/archive
 identity; external fresh output; successful explicit `t1.v2` train and val builds;
 explicit `load_cache(..., n_sweeps=10)` validation of every record, sidecar, and
-canonical content hash; expected official sample counts; and complete checksums.
+canonical content hash; exact train `28130/944881` and val `6019/187528`
+sample/box counts in both actual records and metadata; captured actual runtime
+identity; generated checksums; and successful in-job `sha256sum -c` verification.
 Stop on any identity/hash/archive/output mismatch, missing/ambiguous cache,
 format/depth/record/sidecar/content mismatch, unexpected sample count, exception,
 or walltime. No retry or additional coverage/profile/model job is implied.

@@ -3,8 +3,9 @@
 ## Session identity and self-assessment
 
 - Session/phase: `S07-A`, reviewed S01 data-foundation integration.
-- Worker self-assessment: **PASS FOR INDEPENDENT S07-A-R REVIEW**. This is not
-  Orchestra integration/scientific acceptance.
+- Worker self-assessment: **SCOPED RETURN-FOR-CHANGES REMEDIATED; READY FOR S00
+  COMPLETENESS CHECK AND INDEPENDENT S07-A-R**. This is not self-approval of the
+  cache request or Orchestra integration/scientific acceptance.
 - Initial base: `953bfb57941b5a3660ed650c1a80267cd82245d4`, source branch
   `codex/s00-orchestra-ledger`, expected and observed detached mode.
 - Worker branch: `codex/s07-a-data-foundation`.
@@ -16,18 +17,61 @@
   `7cf7fcc4b17d43806f1a134cf8c8a7b6868aa5bc`, whose parent is old review
   baseline `ce2e77284b290de4c9faa6b2f971c0bd52f98eff` and whose diff contains only
   `fl_v3/usenix27_orchestra/handoffs/S01/REVIEW.md`.
-- Final implementation commit:
+- Original implementation commit:
   `c1f4fbeade20975fd648e8d6c109f50d27f2bbf4`.
-- Final implementation plus immutable run-request/results evidence commit:
+- Original implementation plus run-request/results evidence commit:
   `d26ba78a4766552c7c486206556183cc04bb9dae`.
-- **Proposed `INT-A_SHA`:**
-  `d26ba78a4766552c7c486206556183cc04bb9dae`. The subsequent delivery commit adds
-  only this `HANDOFF.md`; S00 should use the actual worker delivery HEAD for
-  S07-A-R and may designate `d26ba78` as the executable/evidence integration
-  candidate after review.
+- Original returned delivery SHA:
+  `c7d57510e94de5429b62aa9df735a867bdcd199c`.
+- Scoped compute-request remediation implementation (`NEW_IMPL_SHA`):
+  `ed31f23b2ee1b193b5dd3600c00570e40a888ce9`.
+- Remediated cache-launcher source-state SHA-256:
+  `7ddb06b3d57ef89be3b67782d90e93d64ddaa567ebd946ceda09910dc17b42f5`.
+- **Proposed executable `INT-A_SHA`:**
+  `ed31f23b2ee1b193b5dd3600c00570e40a888ce9`.
+- Final remediation delivery HEAD is the documentation commit containing this
+  updated handoff and request. Its exact SHA is returned to S00 in the session
+  response and is recoverable with `git rev-parse HEAD`; embedding that commit's
+  own SHA in its tree would change the SHA. S07-A-R should use the exact returned
+  delivery HEAD, while any approved cache executor must use detached
+  `NEW_IMPL_SHA`, not the documentation HEAD.
 
 No merge into `v3-ad-perception`, push, PR, upload, branch deletion, or worktree
 operation occurred.
+
+## Scoped compute-request remediation — no new execution
+
+S00 returned only the pending full-cache request. The owner authorized launcher
+and documentation remediation but explicitly prohibited new compute. This
+continuation therefore submitted no `sbatch`/`srun`, did not rerun Job 333477, and
+did not create an execution worktree. Existing Job 333477 artifacts, facts, and
+hashes in `RESULTS.md` remain unchanged.
+
+The remediated launcher and request now enforce:
+
+- eventual execution only from a fresh owner/Codex-UI-provisioned isolated
+  worktree in clean `detached@ed31f23b2ee1b193b5dd3600c00570e40a888ce9`
+  mode; the pending command and launcher `EXPECTED_S07A_SHA` both bind that SHA;
+- runtime source-state hash
+  `7ddb06b3d57ef89be3b67782d90e93d64ddaa567ebd946ceda09910dc17b42f5`,
+  recomputed identically from the worktree and immutable `NEW_IMPL_SHA` objects;
+- fresh proposed output root
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_ed31f23b2ee1`,
+  confirmed absent but not created;
+- exact fail-closed counts in both actual records and cache metadata: train
+  `n_samples=28130`, `n_boxes=944881`; val `n_samples=6019`,
+  `n_boxes=187528`; `cache_identity.json` records expected, actual, and metadata
+  counts separately;
+- actual in-job interpreter/platform identity and installed NumPy,
+  nuscenes-devkit, and pyquaternion versions. Read-only prefix metadata currently
+  reports CPython `3.11.15` on `aarch64`, NumPy `1.26.4`, nuscenes-devkit
+  `1.1.11`, and pyquaternion `0.9.9`, but the job record—not lockfiles—is
+  authoritative after any approved execution;
+- separate checksum generation and in-job verification: after writing
+  `sha256sums.txt`, the launcher runs
+  `sha256sum -c "$S07A_OUTPUT_ROOT/sha256sums.txt"` and fails on mismatch.
+
+`RUN_REQUEST.md` remains explicitly `PENDING_OWNER_APPROVAL_DO_NOT_SUBMIT`.
 
 ## Exact approved Git topology
 
@@ -39,8 +83,11 @@ operation occurred.
    `abe5c58b174dbbe1f7045ce91c8b15168d97b87b`.
 3. Cherry-picked review-only commit `7cf7fcc...` as
    `a4ca386db59a9250d3fce95209e38ac617b4ff77`.
-4. Added scoped implementation/test/docs commit `c1f4fbe...` and evidence commit
-   `d26ba78...`.
+4. Added scoped implementation/test/docs commit `c1f4fbe...`, evidence commit
+   `d26ba78...`, and original handoff delivery `c7d5751...`.
+5. After S00 returned scoped compute-request changes, added launcher-only
+   `NEW_IMPL_SHA=ed31f23b...`; subsequent commits update only request/handoff
+   documentation and do not change the executable tree at `NEW_IMPL_SHA`.
 
 The exact S01 history `011e464 → 1fe6517 → ce2e772 → 54a48f9 → abe5c58` remains
 reachable through the merge second parent. The review branch itself was never
@@ -203,6 +250,12 @@ Local/static:
 - `git diff --check`: PASS.
 - Login `/usr/bin/python3 -m pytest`: unavailable (`pytest`, NumPy, and Torch not
   installed); not treated as a test result.
+- Scoped remediation: `bash -n` passed for the changed cache launcher;
+  `python3 -m py_compile` passed for the unchanged Python modules in its runtime
+  source set; `git diff --check` passed; and the read-only source-state hash from
+  the worktree exactly matched recomputation from immutable `NEW_IMPL_SHA` at
+  `7ddb06b3d57ef89be3b67782d90e93d64ddaa567ebd946ceda09910dc17b42f5`.
+  Per owner instruction, no pytest or compute was rerun for this remediation.
 
 O-009 Job `333477`:
 
@@ -215,7 +268,8 @@ O-009 Job `333477`:
 - complete hashes/resources/limits are in `RESULTS.md`.
 
 No full cache job, model job, 100/1000-step job, full-data profile, metric,
-scientific run, or upload was submitted.
+scientific run, or upload was submitted. The remediation itself submitted no new
+job of any kind and preserves Job 333477 as the latest execution evidence.
 
 ## Exact cache/manifest/provenance contract for S06
 
@@ -231,7 +285,12 @@ provenance must freeze and agree on:
 6. backend mode: `directory` or `zip`;
 7. for ZIP mode, exact accepted manifest path, format, logical manifest hash,
    SQLite file SHA-256, and archive-name set;
-8. resolved config hash/checkpoint provenance that includes these fields.
+8. locked train counts `28130` samples / `944881` boxes and val counts `6019`
+   samples / `187528` boxes, checked independently against actual records and
+   metadata;
+9. actual Python/platform plus NumPy, nuscenes-devkit, and pyquaternion versions;
+10. generated artifact hashes followed by successful in-job `sha256sum -c`;
+11. resolved config hash/checkpoint provenance that includes these fields.
 
 Loading must fail before data/model execution on missing/ambiguous depth, `t1.v1`
 or other format, missing/mutated sidecar, record-depth drift, canonical hash drift,
@@ -239,7 +298,9 @@ expected cache hash mismatch, manifest logical/file/archive mismatch, or backend
 relabeling. Directory mode carries null ZIP-manifest fields and must not be treated
 as legacy/dead.
 
-The full cache request in `RUN_REQUEST.md` is exact and **PENDING**. If separately
+The full cache request in `RUN_REQUEST.md` is exact and **PENDING**. Its eventual
+executor must be a fresh clean UI-provisioned
+`detached@ed31f23b2ee1b193b5dd3600c00570e40a888ce9` worktree. If separately
 approved and passed, it will fill the currently unknown train/val canonical cache
 hashes and physical pickle/sidecar hashes in `cache_identity.json`. Until then,
 S06 must not substitute the historical `t1.v1` files or claim full-data readiness.
@@ -255,6 +316,10 @@ S06 must not substitute the historical `t1.v1` files or claim full-data readines
 | directory mode supported | PASS | implementation plus directory/ZIP tests |
 | focused launcher attests fixtures/config/deps | PASS | source list and execution identity |
 | shell/Python/diff checks | PASS | commands above |
+| executor ref/worktree contract | PASS | fresh clean UI worktree at detached `NEW_IMPL_SHA` required |
+| exact cache sample/box counts | PASS (implementation) | train 28130/944881; val 6019/187528; actual+meta checked |
+| actual runtime dependency capture | PASS (implementation) | Python/platform + NumPy/devkit/pyquaternion written in-job |
+| generated checksum verification | PASS (implementation) | explicit in-job `sha256sum -c` after generation |
 | canonical Orchestra docs unchanged | PASS | empty diff for three canonical paths |
 | no S02-S06 integration | PASS | topology/name-scope audit |
 | full `t1.v2` cache | PENDING | exact request prepared; not submitted |
@@ -264,6 +329,9 @@ S06 must not substitute the historical `t1.v1` files or claim full-data readines
 
 - Full trainval `t1.v2` train/val cache artifacts do not yet exist; their cache and
   file hashes cannot be frozen until owner-approved execution.
+- The remediation launcher/count/runtime/checksum changes have only local/static
+  validation. No remediation job or test rerun was authorized or performed; the
+  request remains pending independent review and exact owner approval.
 - Historical job 332651 proves referenced-member coverage and loader-only timing,
   but its `t1.v1` caches are forbidden and its job lacks retroactive in-job source
   attestation.
