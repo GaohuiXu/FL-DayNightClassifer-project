@@ -12,9 +12,9 @@
 > trainval `t1.v2` cache remains unapproved/unexecuted, and S07-B model readiness
 > remains a separate gate. Wave-A S02-S05 is active from common base `372de939`:
 > S02 delivered `7ad396e` after preserved failed Job `335565` and separate passing
-> remediation Job `335578`; independent review `fb17da3` found no source defect but
-> returned **CHANGES-REQUESTED** because the binding GPU forward/backward gate is
-> still missing. S03 Job `335630` failed before tests because the
+> remediation Job `335578`; bounded GPU Job `336713` closed the sole review gap,
+> and limited re-review `df142dc` now accepts S02 as a reviewed S07-B dependency.
+> S03 Job `335630` failed before tests because the
 > compute node could not resolve the `/home` linked worktree, while the allocation
 > exposed a four-GPU whole-node billing risk; S04 Job `335579` closed the sparse
 > composition defect but failed two final-BEV fp16 dtype assertions; and S05-R at
@@ -181,10 +181,12 @@ an explicit later experiment, not the primary security backbone.
   JUnit aggregation/final checksum stage failed. Separately approved parser-only
   remediation Job `335578` is `COMPLETED 0:0`, 12/0/0/0 with final checksums OK.
   S02-R at `fb17da3ea55a93d7709f6a2b5f6e4bb6adc0bf7e` independently
-  reviewed both histories and returned **CHANGES-REQUESTED** with one blocker only:
-  both jobs hid CUDA, so the binding one-GPU forward/backward gate remains NOT RUN.
-  The source audit found no confirmed per-sample-cap or Gaussian defect. A bounded
-  synthetic GPU evidence-only remediation and limited re-review are required.
+  found no confirmed per-sample-cap or Gaussian defect but returned one blocker:
+  the binding GPU forward/backward gate was NOT RUN. Exact Job `336713` then passed
+  the bounded B=3 synthetic CUDA gate at delivery `3aebf2d`, and limited re-review
+  `df142dc9a391b87d05bd7becaba59459e9659f88` resolved the sole P1. S02 is
+  accepted only as a reviewed S07-B dependency; integration/full-data/scientific
+  readiness remain separate.
 - **S03:** implementation `6dfd2c775f54e488f3930996b303ce21f9b8e8b7`
   is not runtime-accepted. The first submission attempt was rejected client-side
   for missing scheduler account/partition. Corrected Job `335630` is `FAILED 1:0`
@@ -812,3 +814,4 @@ evidence that caused it; material entries remain `PENDING` until the owner appro
 | O-018 | 2026-07-11 | S05 pre-edit audit of MIT BEVFusion archived HEAD `326653dc06e0938edf1aae7d01efcd158ba83de5`, CenterPoint v0.2 `e9ef04c3715aa3342fa42f4f4e064db987def6ad`, and owner approval in active S00 task | resolve the official coder's per-class K=500 followed by task-wide K=500 conflict with O-017 no-starvation: retain per-class K=500, remove only the second task-wide K, feed at most 500/1000 candidates for one/two-class tasks into the pinned official task-wide NMS, and use deterministic ties ordered by score descending, class ID ascending, then flattened spatial index ascending; retain official score/range, task groups, circle/rotate choice/scales, pre=1000, post=83, and IoU threshold; use GroupNorm instead of official BN while retaining the shared-conv and per-task two-layer field topology; map task-local labels to the project's devkit-global `DETECTION_NAMES` IDs explicitly by class name rather than official task-flatten offsets | locked S05 active-session amendment | approved; implementation must be labeled `reference-faithful no-starvation adaptation`, not exact official decode parity; require single-class parity plus B=1/B>1, batch/input permutation, equal-score tie, tail-candidate retention, duplicate, coordinate, explicit `construction_vehicle`/`bus`/`barrier`/`pedestrian`/`traffic_cone` label-map, and submission-conversion fixtures; all O-017 compute/Git/integration limits remain unchanged |
 | O-019 | 2026-07-11 | S02 delivery `7ad396e`; Jobs `335565`/`335578`; S03 Job `335630`; S04 Jobs `335566`/`335579`; S05 review `c818262`; S00 raw-log/diff/hash audit | preserve every Wave-A negative result and apply scoped return-for-changes: launch S02-R only from exact delivery; require S03 shared `/nobackup` immutable execution provenance plus an explicit decision on observed four-GPU whole-node allocation before another job; retain the S04 final-BEV fp16 gate and repair implementation rather than tests; return S05's three review findings and require fresh re-review | operational evidence/refinement under O-017; affects S02-S05 and S07-B readiness | active; no retry, worker PASS, integration PASS, merge, push, full-data, profile, metric, or scientific authorization implied |
 | O-020 | 2026-07-11 | S02 review `fb17da3`/REVIEW hash `75b6a5ed...`; S05 remediation delivery `705216d`, implementation `753944c`, HANDOFF hash `91506174...`; S00 completeness audits | accept S02-R's source audit but return the missing one-GPU forward/backward as an evidence-only remediation with implementation semantics frozen; accept S05 remediation as complete enough for a fresh exact-SHA re-review, not as PASS; keep all authored-but-unexecuted runtime cases explicitly NOT RUN | review scheduling/evidence refinement under O-017 | active; S02 exact GPU request and S05 fresh reviewer pending; no integration/compute authorization implied by this ledger entry |
+| O-021 | 2026-07-11 | S02 Job `336713`, delivery `3aebf2d`, limited review `df142dc`; S03 Job `336708`, delivery `5089383`; repeated Codex reviewer-provisioning API timeouts | accept S02 as a reviewed S07-B dependency after exact one-GPU B=3 forward/backward evidence; send S03 delivery to independent review after exact 10-test one-GPU PASS; when the Codex task provisioning API times out without creating a worktree, S00 may use the owner's existing S02-S05 reviewer-launch delegation to provision an exact-SHA detached review worktree itself, while the reviewer remains forbidden to manage worktrees and retains review-only ownership | operational evidence/infrastructure fallback under O-017 | S02 accepted dependency; S03-R active; fallback used only for S03-R/S05-R2 after three failed API attempts; no merge/push/scientific scope expansion |

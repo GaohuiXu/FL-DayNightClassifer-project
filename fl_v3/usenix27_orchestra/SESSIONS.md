@@ -117,9 +117,9 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 |---|---|---|---|---|
 | S00 | Orchestra/owner decisions | — | approved contracts and status ledger | active; sole pinned canonical writer |
 | S01 | Shared nuScenes ZIP backend | S00 kickoff | data backend, manifest, parity/coverage tests | reviewed PASS; integrated through S07-A, historical `t1.v1` caches forbidden |
-| S02 | CL P0 correctness | S00 kickoff | pillar/Gaussian fixes and invariance tests | review `fb17da3` CHANGES-REQUESTED only for missing GPU F/B; code/CPU audit otherwise passes; evidence-only remediation active |
-| S03 | Camera branch architecture | S00 kickoff | corrected stride-8 independent camera modules | active remediation; Job `335630` failed before tests on inaccessible `/home` Git worktree; four-GPU whole-node allocation risk unresolved |
-| S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | active remediation; Job `335579` 8/10 with final-BEV fp16 dtype defect; no third job approved |
+| S02 | CL P0 correctness | S00 kickoff | pillar/Gaussian fixes and invariance tests | reviewed PASS at delivery `3aebf2d` / review `df142dc`; accepted S07-B dependency only |
+| S03 | Camera branch architecture | S00 kickoff | corrected stride-8 independent camera modules | delivery `5089383`; Job `336708` 10/10 one-GPU PASS after preserved prior negatives; S03-R active |
+| S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | fp16-output remediation at executable `2729f45`; exact one-GPU validation approved/active; prior Jobs `335566`/`335579` remain negative |
 | S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | remediation delivery `705216d` closes review `c818262` findings in source/fixtures; 44 cases NOT RUN; fresh re-review pending |
 | S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | planned; must consume explicit `t1.v2` depth/hash contract |
 | S07 | Integrated engineering gate | phase A: S01 PASS; phase B: S01-S06 PASS | staged data foundation, then one resolved candidate stack and 100/1000-step evidence | S07-A reviewed PASS at `ba15716`/`44cefd0`/`370ea6c`; full cache and S07-B separate |
