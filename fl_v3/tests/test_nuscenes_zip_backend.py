@@ -116,6 +116,8 @@ def test_manifest_routes_identical_duplicate_member_across_archives(tmp_path):
     store = NuScenesBlobStore(str(root), manifest_path=str(manifest))
     assert store.read_bytes("samples/CAM_FRONT/a.jpg") == b"one"
     assert store.debug_state()["open_archives"] == ("a.zip",)
+    assert store.read_archive_bytes("b.zip", "samples/CAM_FRONT/a.jpg") == b"one"
+    assert store.debug_state()["open_archives"] == ("a.zip", "b.zip")
 
 
 def test_manifest_rejects_conflicting_member_across_archives(tmp_path):
@@ -211,6 +213,42 @@ def test_crc_corruption_is_detected_on_read(tmp_path):
     store = NuScenesBlobStore(str(root), manifest_path=str(manifest))
     with pytest.raises(ZipManifestError, match="CRC mismatch"):
         store.read_bytes("samples/CAM_FRONT/a.jpg")
+
+
+def test_same_length_local_header_filename_mutation_is_rejected(tmp_path):
+    member = "samples/CAM_FRONT/a.jpg"
+    root, manifest, _ = _build(tmp_path, [("a.zip", [(member, b"abcdef")])])
+    conn = sqlite3.connect(str(manifest))
+    header_offset = conn.execute(
+        "SELECT header_offset FROM members WHERE path=?", (member,)
+    ).fetchone()[0]
+    conn.close()
+    archive_path = root / "a.zip"
+    with open(archive_path, "r+b") as stream:
+        stream.seek(header_offset + 30)
+        local_name = stream.read(len(member.encode("utf-8")))
+        assert local_name == member.encode("utf-8")
+        stream.seek(header_offset + 30)
+        stream.write(local_name.replace(b"a.jpg", b"b.jpg"))
+    store = NuScenesBlobStore(str(root), manifest_path=str(manifest))
+    with pytest.raises(ZipManifestError, match="local/central ZIP filename mismatch"):
+        store.read_bytes(member)
+
+
+def test_duplicate_sentinel_reads_each_exact_archive_occurrence(tmp_path):
+    member = "LICENSE"
+    root, manifest, _ = _build(
+        tmp_path,
+        [("a.zip", [(member, b"same")]), ("b.zip", [(member, b"same")])],
+    )
+    sentinels = manifest_archive_sentinels(str(manifest))
+    assert sentinels == {"a.zip": member, "b.zip": member}
+    store = NuScenesBlobStore(str(root), manifest_path=str(manifest))
+    assert {
+        archive: store.read_archive_bytes(archive, path)
+        for archive, path in sentinels.items()
+    } == {"a.zip": b"same", "b.zip": b"same"}
+    assert store.debug_state()["open_archives"] == ("a.zip", "b.zip")
 
 
 def test_archive_size_change_invalidates_manifest(tmp_path):

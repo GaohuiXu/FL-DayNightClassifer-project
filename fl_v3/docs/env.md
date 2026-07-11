@@ -150,8 +150,14 @@ stored-member offsets once and uses `pread`+CRC at runtime, avoiding a full Pyth
 Approved v2 full gate `332651` completed the exhaustive shared manifest scan, 100%
 train/val path-coverage audit, ten-archive payload sentinels, and deterministic
 0/2/4/8-worker loader profile. This is an engineering data-path result, not model or
-scientific readiness. Dependency-backed directory/ZIP decoded parity and
-independent S01-R review remain required. Do not extract/duplicate the dataset or
+scientific readiness. Independent S01-R requested changes. The remediation
+candidate binds every cache to its exact `n_sweeps` under cache format `t1.v2`,
+validates the local-header member name, reads duplicate sentinels from their exact
+archive occurrence, and makes future launchers attest the Git/source state inside
+the job. Job `332651`'s `t1.v1` caches remain valid historical coverage evidence
+but must not be consumed by the remediated loader. Dependency-backed real-mini
+directory/ZIP decoded parity, spawn lifecycle execution, and S01-R re-review remain
+required. Do not extract/duplicate the dataset or
 submit further jobs without exact permission.
 
 A bounded one-archive GH200 engineering smoke (`Slurm 330409`, 2026-07-10) passed:

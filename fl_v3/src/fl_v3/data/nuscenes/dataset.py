@@ -211,12 +211,25 @@ class NuScenesMultimodalDataset(Dataset):
                 raise KeyError(f"{len(missing)} sample_tokens not in info_list (e.g. {missing[:3]})")
             order = list(sample_tokens)  # caller-controlled, already deterministic
         self._infos = [by_token[t] for t in order]
-        if self.n_sweeps > 1 and self._infos and not any(
-            "lidar_sweeps" in info for info in self._infos
-        ):
-            raise KeyError(
-                f"n_sweeps={self.n_sweeps} but this info cache has no 'lidar_sweeps' (built "
-                "single-sweep). Rebuild the cache with n_sweeps>1 (see build_msweep_cache).")
+        if self.n_sweeps < 1:
+            raise ValueError(f"n_sweeps must be >= 1, got {self.n_sweeps}")
+        for index, info in enumerate(self._infos):
+            declared = info.get("_cache_n_sweeps")
+            if declared != self.n_sweeps:
+                raise ValueError(
+                    f"info record {index} ({info.get('sample_token', '<unknown>')}) "
+                    f"declares _cache_n_sweeps={declared!r}, requested {self.n_sweeps}"
+                )
+            has_sweeps = "lidar_sweeps" in info
+            if self.n_sweeps == 1 and has_sweeps:
+                raise ValueError(f"single-sweep info record {index} contains lidar_sweeps")
+            if self.n_sweeps > 1 and not has_sweeps:
+                raise ValueError(f"multi-sweep info record {index} has no lidar_sweeps")
+            if has_sweeps and len(info["lidar_sweeps"]) > self.n_sweeps - 1:
+                raise ValueError(
+                    f"info record {index} has {len(info['lidar_sweeps'])} previous sweeps, "
+                    f"exceeding requested n_sweeps={self.n_sweeps}"
+                )
 
     def __len__(self) -> int:
         return len(self._infos)

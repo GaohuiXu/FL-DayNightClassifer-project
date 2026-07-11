@@ -182,7 +182,9 @@ def main() -> None:
         if not refs["sample_tokens"]:
             gate_errors.append(f"split {split} is empty")
 
-        cache_info, cache_meta = IC.load_cache(args.cache_dir, args.version, split)
+        cache_info, cache_meta = IC.load_cache(
+            args.cache_dir, args.version, split, n_sweeps=args.n_sweeps
+        )
         cache_refs = _cache_references(cache_info, args.n_sweeps)
         if cache_refs != {
             "sample_tokens": refs["sample_tokens"],
@@ -271,7 +273,9 @@ def main() -> None:
         report["archive_payload_sentinels"] = {
             archive: {
                 "member": member,
-                "size_bytes": len(payload := store.read_bytes(member)),
+                "size_bytes": len(
+                    payload := store.read_archive_bytes(archive, member)
+                ),
                 "sha256": hashlib.sha256(payload).hexdigest(),
             }
             for archive, member in archive_sentinels.items()

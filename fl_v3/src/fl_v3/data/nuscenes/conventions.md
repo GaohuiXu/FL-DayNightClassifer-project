@@ -174,6 +174,13 @@ Sensor bytes may come from an extracted directory or the S01 stored-ZIP backend.
 Both modes use the same immutable bytes decoder. ZIP routing comes from an external
 read-only manifest; no archive is extracted and every payload is length/CRC checked.
 
+The cache identity includes the requested sweep depth. Cache format `t1.v2` stores
+`n_sweeps` in the filename, sidecar metadata, every sample record, and the canonical
+content hash. A dataset must reject a cache whose recorded depth differs from its
+configured `n_sweeps`; callers that omit the depth may load only when exactly one
+depth-specific cache exists. Historical `t1.v1` caches are migration evidence, not
+valid `t1.v2` inputs.
+
 ## 8. Determinism notes (see `fl_v3/docs/determinism.md`)
 
 - Samples ordered by `sample_token`; boxes within a sample ordered by `ann_token`.

@@ -37,6 +37,7 @@ def _toy_info(cam_paths, lidar_path, sweep_paths):
         )
     return {
         "sample_token": "sample-0",
+        "_cache_n_sweeps": 10,
         "scene_token": "scene-0",
         "log_token": "log-0",
         "location": "boston-seaport",
@@ -214,9 +215,15 @@ def test_real_mini_directory_zip_bytes_and_decoded_arrays_match(
 @pytest.mark.parametrize("n_sweeps", [1, 10])
 def test_decoded_image_and_lidar_arrays_match_directory(directory_and_zip, n_sweeps):
     directory_root, zip_root, manifest, info, _paths = directory_and_zip
-    directory_ds = DS.NuScenesMultimodalDataset([info], str(directory_root), n_sweeps=n_sweeps)
+    runtime_info = copy.deepcopy(info)
+    runtime_info["_cache_n_sweeps"] = n_sweeps
+    if n_sweeps == 1:
+        runtime_info.pop("lidar_sweeps")
+    directory_ds = DS.NuScenesMultimodalDataset(
+        [runtime_info], str(directory_root), n_sweeps=n_sweeps
+    )
     zip_ds = DS.NuScenesMultimodalDataset(
-        [info], str(zip_root), n_sweeps=n_sweeps, zip_manifest=str(manifest)
+        [runtime_info], str(zip_root), n_sweeps=n_sweeps, zip_manifest=str(manifest)
     )
     expected = directory_ds[0]
     actual = zip_ds[0]

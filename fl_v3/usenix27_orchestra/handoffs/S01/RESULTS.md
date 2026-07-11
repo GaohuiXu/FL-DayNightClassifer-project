@@ -2,9 +2,9 @@
 
 ## Overall verdict
 
-**Full-data ZIP coverage/determinism/loader-profile gates PASS on v2; final S01
-verdict remains pending dependency-backed directory/ZIP decoded parity and
-independent S01-R.** Job `332651` completed all declared ten-archive/cache/coverage/
+**Full-data ZIP coverage/determinism/loader-profile gates PASS on v2; S01-R returned
+CHANGES-REQUESTED and final S01 remains pending a focused GH200 remediation test and
+re-review.** Job `332651` completed all declared ten-archive/cache/coverage/
 sentinel/profile stages. Job `332648` remains a preserved negative v1 result, and
 job `330409` is the bounded lifecycle smoke. None is scientific/model evidence.
 
@@ -113,7 +113,7 @@ Output root:
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
 | `trainval01_manifest.sqlite` | 61,648,896 | `d9aa3ada7261d9dea315f4fd8654cf559e773f01af2efc6f3ea796134d2d79c3` |
-| `smoke_report.json` | 6,202 | `e882b490c8bd772c6addfdee20c2c369a2a83be7afddbf096bad9c51f2e1e830` |
+| `smoke_report.json` | 6,202 | `e882b490c8bd772c6addfdee20c2c369a2a83be7afddbf096bad9c51fbac79df` |
 | `sha256sums.txt` | 385 | `1d92fd30397301dd546b07e016565a67188e02e9cc615233fbeaf33c8c118c47` |
 
 The JSON's canonical internal report hash is
@@ -324,4 +324,33 @@ Still forbidden: every one of 2.63 million payloads received a CRC read; real-mi
 directory/ZIP decoded parity has been executed in the dependency-complete runtime;
 end-to-end model/GPU data-wait percentage; training or scientific readiness; model
 quality; and any metric, FL, attack/defense, or publication claim. Independent
-S01-R remains required.
+S01-R re-review remains required.
+
+---
+
+## Independent S01-R findings and remediation status
+
+S01-R reviewed worker SHA `ce2e77284b290de4c9faa6b2f971c0bd52f98eff` and
+returned **CHANGES-REQUESTED**. Its independent `REVIEW.md` SHA-256 is
+`f69de33eec31e6d9e64c86f1fc30d3d76e17a1e482e65113b2c3ed5174551357`.
+The review did not invalidate the job `332651` coverage, deterministic-loader, or
+throughput observations. It identified six follow-ups:
+
+1. Execute dependency-complete real-mini directory/ZIP decoded parity and spawn
+   lifecycle tests.
+2. Bind cache identity to `n_sweeps` so a shallow cache cannot silently satisfy a
+   deeper request.
+3. Add in-job Git/source attestation to future Slurm launchers; do not retrofit
+   that claim to job `332651`.
+4. Reject same-length local-header filename mutation.
+5. Read duplicate-path sentinels from the exact archive occurrence.
+6. Correct the bounded-smoke report hash to
+   `e882b490c8bd772c6addfdee20c2c369a2a83be7afddbf096bad9c51fbac79df`.
+
+The remediation candidate implements items 2–6 and provides a bounded focused-test
+launcher for item 1. Cache format `t1.v2` binds sweep depth in the filename,
+metadata, every sample record, and canonical hash. The full-gate `t1.v1` cache
+artifacts remain historical evidence and are deliberately rejected as remediated
+production cache inputs. No remediation Slurm job has been submitted yet; its exact
+commit, source hash, resources, command, and output root must be recorded and
+explicitly approved in `RUN_REQUEST.md` first.

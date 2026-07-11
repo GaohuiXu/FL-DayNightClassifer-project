@@ -16,15 +16,20 @@
   (`fix(data): support identical ZIP members across shards`). It records failed
   job `332648`, retains matching cross-archive occurrences, and rejects conflicting
   copies. This is the immutable follow-up run candidate, not a reviewed PASS.
-- The final S01-R review baseline is the documentation commit containing this
-  approved v2 full-gate results/handoff update. Its exact SHA is supplied in the
-  S01-R kickoff envelope because a Git commit cannot contain its own final hash.
+- S01-R reviewed baseline `ce2e77284b290de4c9faa6b2f971c0bd52f98eff` and
+  returned **CHANGES-REQUESTED**. The independent `REVIEW.md` artifact SHA-256 is
+  `f69de33eec31e6d9e64c86f1fc30d3d76e17a1e482e65113b2c3ed5174551357`;
+  it remains in the separate review worktree and is not modified by S01.
+- This handoff accompanies the remediation candidate. Its exact Git SHA is
+  recorded in the next `RUN_REQUEST.md` audit entry after the local commit,
+  because a commit cannot contain its own final hash.
 - Working-tree scope: only S01-owned files listed below.
-- Worker verdict: **FULL-DATA ZIP GATES PASS / OVERALL PARTIAL PENDING PARITY AND
-  S01-R**. The v2 ten-archive manifest, 100% train/val reference coverage, real
+- Worker verdict: **FULL-DATA ZIP GATES PASS / S01-R CHANGES REQUESTED / REMEDIATION
+  PENDING FOCUSED GH200 TEST AND RE-REVIEW**. The v2 ten-archive manifest, 100%
+  train/val reference coverage, real
   archive sentinels, deterministic 0/2/4/8-worker reads, and loader throughput gate
-  passed in job `332651`. Dependency-backed real-mini directory/ZIP decoded parity
-  remains unexecuted, and every worker result still requires independent `S01-R`.
+  passed in job `332651` and are not invalidated by the review. Dependency-backed
+  real-mini directory/ZIP decoded parity and spawn lifecycle remain unexecuted.
 
 ## Active-session amendment acknowledgement
 
@@ -69,12 +74,17 @@ Key semantics:
   compression, malformed headers, archive mutation, or a missing exact archive
   set. Identical cross-archive occurrences remain auditable and route to the
   lowest-numbered archive;
+- each payload read verifies that the local-header member name and relevant flags
+  still match the manifest, including same-length filename mutation; exact archive
+  occurrences can be read directly for duplicate-path sentinel coverage;
 - the unified blob store supplies bytes to six-camera, keyframe LiDAR, and all
   requested multi-sweep paths; image decode uses `PIL.Image` over `BytesIO`, LiDAR
   uses `numpy.frombuffer(...).copy()`;
 - info-cache construction uses metadata `sample_data.filename`, so it does not
-  extract or probe every payload; 10-sweep caches retain an explicit empty sweep
-  list at scene starts;
+  extract or probe every payload; cache format `t1.v2` binds `n_sweeps` in the
+  filename, sidecar metadata, every record, and canonical hash, and rejects
+  ambiguous or mismatched depth. Historical full-gate `t1.v1` caches remain
+  evidence only; 10-sweep caches retain an explicit empty sweep list at scene starts;
 - directory mini/local operation does not accidentally inherit a module ZIP
   manifest unless explicitly configured.
 
@@ -105,7 +115,11 @@ Added:
   `run_s01_nuscenes_zip_smoke.sh` — exact bounded real-data lifecycle smoke.
 - `fl_v3/scripts/run_s01_nuscenes_zip_full_gate.sh` — full gate launcher; approved
   v1 attempt `332648` failed and was not retried, then exact v2 attempt `332651`
-  completed all declared stages.
+  completed all declared stages. The remediated launcher verifies the expected Git
+  SHA and runtime source-state hash in-job and writes an execution identity record.
+- `fl_v3/scripts/run_s01_nuscenes_zip_tests.sh` — bounded GH200 focused-test
+  launcher for dependency-backed mini parity, lifecycle, integrity, and cache-depth
+  regressions; prepared but not submitted without an exact approved request.
 - `fl_v3/tests/test_nuscenes_zip_{backend,dataset,info_cache}.py` — stored-ZIP
   safety/integrity, directory/ZIP byte+decoded parity, keyframe/10-sweep routing,
   fork/spawn/persistent lifecycle, module layout, and no-payload-probe cache tests.
@@ -175,13 +189,13 @@ Approved full-data evidence is in `RESULTS.md`:
 | Manifest trainval01..10 | PASS (full real) | 2,631,093 occurrences, 2,631,084 unique; only repeated path is identical `LICENSE` in all ten archives |
 | Worker-safe lazy handles/reopen | PASS (bounded real) | stable two persistent PIDs, per-process state, expected one post-fork reset, no epoch reopen |
 | Six cameras/key LiDAR/requested sweeps use byte readers | PASS (full real) | 2,432 decoded 10-sweep sample reads in profile; all reference classes covered |
-| Info cache without extraction | PASS (full real) | train/val 10-sweep caches built from metadata, hashed, no extraction |
-| Directory/ZIP byte and decoded-array parity | IMPLEMENTED, NOT EXECUTED in GH200 smoke | synthetic/mini parity tests added; dependency-backed execution pending |
+| Info cache without extraction | HISTORICAL FULL PASS; t1.v2 REMEDIATION TEST PENDING | job 332651 built t1.v1 train/val 10-sweep caches without extraction; remediated format binds depth and needs focused runtime execution |
+| Directory/ZIP byte and decoded-array parity | IMPLEMENTED, NOT EXECUTED | synthetic/mini parity tests added; dependency-backed GH200 execution pending |
 | 100% train/val referenced-member coverage | PASS | 538,695/538,695 resolved, 0 missing, cache/metadata identical, ten archive sentinels |
 | Deterministic repeated multi-worker reads | PASS (full real) | one digest across 0/2/4/8 workers and two repeats |
 | No extraction/shared writes | PASS for executed scope | external output roots and fail-closed path guard; full manifest mode 0444 |
 | Full-data throughput/data-wait | PASS (loader-only) | 18.94 to 154.36 samples/s first-repeat range; complete p50/p95 in RESULTS |
-| Independent S01-R | NOT RUN | needs an exact durable worker version and separate review worktree |
+| Independent S01-R | CHANGES-REQUESTED | review of `ce2e77284b29`; six findings addressed in candidate, focused test and re-review pending |
 
 ## Coverage counts and hashes
 
@@ -227,8 +241,19 @@ Exact request identity and artifact/log hashes are in `RUN_REQUEST.md` and
 - Job 332648 remains a required negative result: v1 incorrectly assumed global
   path uniqueness. Job 332651 verified that the repeated path was only identical
   `LICENSE`, not a duplicated sensor payload.
+- S01-R found that cache format `t1.v1` did not bind `n_sweeps`, local-header
+  same-length filename mutation was not detected, duplicate sentinels could route
+  to the canonical archive, and job `332651` lacked in-job source attestation. The
+  candidate addresses each issue; historical job artifacts are not retroactively
+  attested, and its `t1.v1` cache files must not be production inputs.
 - Permission/output-directory callers outside the owned data path have not been
   changed.
+- Integration request to S00: `fl_v3/scripts/build_gt_database.py` is outside S01
+  ownership and still hardcodes a `t1.v1` cache filename. It must be migrated to
+  the `info_cache` API or an explicit `t1.v2` depth-specific path before that tool
+  can consume remediated caches. Other permission-out callers that omit
+  `n_sweeps` remain fail-closed: they load only when exactly one depth exists, and
+  dataset construction rejects a config/cache depth mismatch.
 - Real directory/ZIP parity and spawn behavior remain dependent on executing the
   focused test suite in a compatible environment.
 - Manifest and cache provenance must be frozen and hashed in every later resolved
@@ -256,11 +281,13 @@ Forbidden claims:
 
 ## Requested owner/S00 decisions
 
-1. The owner authorized the final local handoff/results documentation commit on
+1. The owner authorized the six-finding remediation and a local commit on
    `codex/s01-nuscenes-zip-backend`; no merge or push permission is implied.
-2. Create the independent S01-R session from the exact resulting branch tip.
-   Review should prioritize v2 occurrence semantics, manifest query scaling,
-   artifact hashes, and the still-unexecuted dependency-backed real-mini
-   directory/ZIP decoded parity test.
-3. Until S01-R, keep final S01/S07 readiness blocked and preserve all forbidden
-   interpretations above.
+2. After that commit, approve or reject the exact bounded GH200 focused-test entry
+   appended to `RUN_REQUEST.md`. It uses mini only and does not rerun the exhaustive
+   trainval gate.
+3. If the focused test passes, update the durable result package and ask the
+   independent S01-R task to re-review the new worker SHA. Until re-review, keep
+   S01/S07 readiness blocked and preserve all forbidden interpretations above.
+4. Assign the permission-out `build_gt_database.py` cache-path migration to S00 or
+   its owning integration session; S01 did not edit that file.

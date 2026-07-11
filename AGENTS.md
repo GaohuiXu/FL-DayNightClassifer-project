@@ -153,8 +153,15 @@ offset/CRC-checked reads. Directory mode remains the mini/local backend. Approve
 v2 gate job `332651` indexed all ten archives, resolved all 538,695 official
 train/val six-camera/key-LiDAR/10-sweep references with zero missing paths, read a
 CRC-checked payload sentinel from every archive, and measured deterministic
-0/2/4/8-worker loader throughput. Full-data training readiness still requires
-dependency-backed directory/ZIP decoded parity and independent S01-R review. Do not
+0/2/4/8-worker loader throughput. Independent S01-R review subsequently requested
+changes: execute dependency-backed real-mini directory/ZIP decoded parity and
+spawn lifecycle checks, bind cache identity to `n_sweeps`, validate local-header
+member names, address exact-archive duplicate sentinels, and add in-job source
+attestation. The remediation candidate uses cache format `t1.v2`, whose filename,
+metadata, records, and content hash all bind the requested sweep depth; historical
+job `332651` `t1.v1` caches remain coverage evidence but are not production inputs
+to the remediated loader. Full-data training readiness still requires the focused
+GH200 test and independent S01-R re-review. Do not
 extract or duplicate the full dataset into project storage without explicit owner
 permission. The old
 `/mimer/NOBACKUP/Datasets/NuScenes_v1.0` path is not an Arrhenius data path.

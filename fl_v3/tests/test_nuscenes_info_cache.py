@@ -1,7 +1,11 @@
 """T1 — host-portable info-cache reproducibility + no-leakage (info_cache.py)."""
 from __future__ import annotations
 
+import copy
+import json
+
 import numpy as np
+import pytest
 import torch
 
 from fl_v3.data.nuscenes import dataset as DS
@@ -58,6 +62,7 @@ def test_save_load_roundtrip_and_guard(nusc_mini, dataroot, tmp_path):
     meta = IC.save_cache(info, cache_dir, "v1.0-mini", "mini_val", "mini-smoke", dataroot)
     assert meta["cache_hash"] == IC.canonical_hash(info)
     assert meta["scale"] == "mini-smoke"
+    assert meta["n_sweeps"] == 1
     loaded, lmeta = IC.load_cache(cache_dir, "v1.0-mini", "mini_val")
     assert lmeta["cache_hash"] == meta["cache_hash"]
     assert IC.canonical_hash(loaded) == meta["cache_hash"]
@@ -73,6 +78,81 @@ def test_save_load_roundtrip_and_guard(nusc_mini, dataroot, tmp_path):
         assert torch.equal(a["cam_intrinsics"], b["cam_intrinsics"])
         assert torch.equal(a["gt_velocity"], b["gt_velocity"])
         assert a["gt_instance_tokens"] == b["gt_instance_tokens"]
+
+
+def test_cache_depth_is_bound_in_filename_meta_records_and_dataset(
+    nusc_mini, dataroot, tmp_path
+):
+    cache_dir = str(tmp_path / "depth_cache")
+    tokens = IC.split_sample_tokens(nusc_mini, "mini_val")[:3]
+    info2 = IC.build_info_list(nusc_mini, tokens, dataroot, n_sweeps=2)
+    meta2 = IC.save_cache(
+        info2,
+        cache_dir,
+        "v1.0-mini",
+        "mini_val",
+        "mini-smoke",
+        dataroot,
+        n_sweeps=2,
+    )
+    pkl2, sidecar2 = IC.cache_paths(cache_dir, "v1.0-mini", "mini_val", 2)
+    assert "nsweeps2" in pkl2
+    assert meta2["n_sweeps"] == 2
+    assert all(info["_cache_n_sweeps"] == 2 for info in info2)
+    with open(sidecar2, encoding="utf-8") as stream:
+        assert json.load(stream)["n_sweeps"] == 2
+    loaded2, loaded_meta2 = IC.load_cache(
+        cache_dir, "v1.0-mini", "mini_val", n_sweeps=2
+    )
+    assert loaded_meta2 == meta2
+    assert len(loaded2) == len(info2)
+
+    with pytest.raises(FileNotFoundError, match="nsweeps10"):
+        IC.load_cache(cache_dir, "v1.0-mini", "mini_val", n_sweeps=10)
+    with pytest.raises(ValueError, match="_cache_n_sweeps=2, requested 10"):
+        DS.NuScenesMultimodalDataset(info2, dataroot, n_sweeps=10)
+
+    mixed = copy.deepcopy(info2)
+    mixed[-1]["_cache_n_sweeps"] = 10
+    with pytest.raises(ValueError, match="declares _cache_n_sweeps=10, expected 2"):
+        IC.save_cache(
+            mixed,
+            cache_dir,
+            "v1.0-mini",
+            "mini_val",
+            "mini-smoke",
+            dataroot,
+            n_sweeps=2,
+        )
+
+
+def test_load_cache_rejects_ambiguous_depth_and_sidecar_drift(
+    nusc_mini, dataroot, tmp_path
+):
+    cache_dir = str(tmp_path / "ambiguous_cache")
+    tokens = IC.split_sample_tokens(nusc_mini, "mini_val")[:2]
+    for depth in (2, 3):
+        infos = IC.build_info_list(nusc_mini, tokens, dataroot, n_sweeps=depth)
+        IC.save_cache(
+            infos,
+            cache_dir,
+            "v1.0-mini",
+            "mini_val",
+            "mini-smoke",
+            dataroot,
+            n_sweeps=depth,
+        )
+    with pytest.raises(ValueError, match="ambiguous nuScenes cache depth"):
+        IC.load_cache(cache_dir, "v1.0-mini", "mini_val")
+
+    _, sidecar = IC.cache_paths(cache_dir, "v1.0-mini", "mini_val", 2)
+    with open(sidecar, encoding="utf-8") as stream:
+        meta = json.load(stream)
+    meta["n_sweeps"] = 10
+    with open(sidecar, "w", encoding="utf-8") as stream:
+        json.dump(meta, stream)
+    with pytest.raises(ValueError, match="sidecar differs"):
+        IC.load_cache(cache_dir, "v1.0-mini", "mini_val", n_sweeps=2)
 
 
 def test_relative_to_dataroot_rejects_escaping_path():

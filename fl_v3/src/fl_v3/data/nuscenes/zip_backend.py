@@ -713,8 +713,25 @@ class NuScenesBlobStore:
                 f"local/central compression mismatch for {path!r}: "
                 f"local={local_compression}, manifest={expected_compression}"
             )
-        if (local_flags & 0x1) != (expected_flags & 0x1):
-            raise ZipManifestError(f"local/central encryption flag mismatch for {path!r}")
+        if local_flags != (expected_flags & 0xFFFF):
+            raise ZipManifestError(
+                f"local/central flags mismatch for {path!r}: "
+                f"local=0x{local_flags:04x}, manifest=0x{expected_flags & 0xFFFF:04x}"
+            )
+        filename_raw = cls._pread_exact(
+            fd, header_offset + _LOCAL_FILE_HEADER.size, filename_len
+        )
+        encoding = "utf-8" if local_flags & 0x800 else "cp437"
+        try:
+            local_path = filename_raw.decode(encoding)
+        except UnicodeDecodeError as exc:
+            raise ZipManifestError(
+                f"invalid {encoding} local ZIP filename for manifest member {path!r}"
+            ) from exc
+        if local_path != path:
+            raise ZipManifestError(
+                f"local/central ZIP filename mismatch: local={local_path!r}, manifest={path!r}"
+            )
         return int(header_offset + _LOCAL_FILE_HEADER.size + filename_len + extra_len)
 
     def _read_zip_member(
@@ -809,6 +826,47 @@ class NuScenesBlobStore:
 
     def read_bytes(self, rel_path: str) -> bytes:
         return self.read_many([rel_path])[0]
+
+    def read_archive_bytes(self, archive_name: str, rel_path: str) -> bytes:
+        """Read one exact ``(archive, path)`` occurrence instead of routed path.
+
+        Normal training reads route identical duplicates to the lowest archive ID.
+        Integrity audits use this method so a duplicated sentinel still opens and
+        verifies the specifically declared shard.
+        """
+        archive_name = _archive_name(archive_name)
+        path = canonical_member_path(rel_path)
+        with self._lock:
+            conn = self._ensure_manifest()
+            archive_id = next(
+                (
+                    archive_id
+                    for archive_id, name in self._archive_names.items()
+                    if name == archive_name
+                ),
+                None,
+            )
+            if archive_id is None:
+                raise MissingBlobError(
+                    f"archive {archive_name!r} is absent from ZIP manifest {self.manifest_path!r}"
+                )
+            row = conn.execute(
+                "SELECT header_offset,file_size,crc32,compression,flags "
+                "FROM members WHERE path=? AND archive_id=?",
+                (path, archive_id),
+            ).fetchone()
+            if row is None:
+                raise MissingBlobError(
+                    f"member {path!r} is absent from archive {archive_name!r}"
+                )
+            payload = self._read_zip_member(
+                path,
+                archive_id,
+                *(int(value) for value in row),
+            )
+            self._read_count += 1
+            self._byte_count += len(payload)
+            return payload
 
     def contains(self, rel_path: str) -> bool:
         path = canonical_member_path(rel_path)
@@ -906,7 +964,11 @@ def manifest_member_counts(manifest_path: str, rel_paths: Iterable[str]) -> dict
 
 
 def manifest_archive_sentinels(manifest_path: str) -> dict[str, str]:
-    """Return one deterministic member path per non-empty archive."""
+    """Return one deterministic occurrence path per non-empty archive.
+
+    Call :meth:`NuScenesBlobStore.read_archive_bytes` with each ``(archive,path)``
+    pair; normal routed reads are not sufficient when the selected path is shared.
+    """
     conn = sqlite3.connect(_manifest_uri(manifest_path), uri=True)
     try:
         rows = conn.execute(

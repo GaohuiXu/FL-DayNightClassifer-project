@@ -183,7 +183,9 @@ def main() -> None:
     dataset_report = P.verify_dataset(args.version, dataroot)
     if dataset_report["blob_backend"] != "zip":
         raise SystemExit(f"benchmark requires ZIP backend, got {dataset_report['blob_backend']!r}")
-    info_list, cache_meta = IC.load_cache(args.cache_dir, args.version, args.split)
+    info_list, cache_meta = IC.load_cache(
+        args.cache_dir, args.version, args.split, n_sweeps=args.n_sweeps
+    )
     needed_batches = args.determinism_batches + args.warmup_batches + args.measured_batches
     needed_samples = needed_batches * args.batch_size
     tokens = sorted(str(info["sample_token"]) for info in info_list)[:needed_samples]

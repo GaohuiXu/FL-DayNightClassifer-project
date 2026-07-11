@@ -11,8 +11,8 @@ activating ``fl_v3/scripts/arrhenius_env.sh``:
     python fl_v3/scripts/build_nuscenes_cache.py \
         --dataroot "$ARRHENIUS_NUSCENES_DATAROOT" \
         --version v1.0-trainval --splits train val
-    # MULTI-SWEEP cache (MCR P1 lever) — MUST go in a DEDICATED --cache-dir (the sweep records change
-    # the content hash but the filename schema is shared, so it would collide with the single-sweep cache):
+    # MULTI-SWEEP cache (MCR P1 lever). t1.v2 binds depth in filename/meta/records;
+    # a dedicated directory remains recommended for immutable run provenance:
     python fl_v3/scripts/build_nuscenes_cache.py \
         --dataroot "$ARRHENIUS_NUSCENES_DATAROOT" \
         --version v1.0-trainval --splits train val --n-sweeps 10 \
@@ -37,8 +37,8 @@ def main() -> None:
                     help="Extracted or Arrhenius module nuScenes root. Defaults to config-like "
                          "environment resolution, including NUSCENES_DATA_DIR.")
     ap.add_argument("--n-sweeps", type=int, default=1,
-                    help="MCR P1: >1 accumulates prev LIDAR_TOP sweeps (+dt). Use a DEDICATED "
-                         "--cache-dir to avoid colliding with the single-sweep cache.")
+                    help="MCR P1: >1 accumulates prev LIDAR_TOP sweeps (+dt). Cache t1.v2 "
+                         "binds this depth in its filename, metadata, and every record.")
     ap.add_argument("--rebuild", action="store_true")
     args = ap.parse_args()
 
