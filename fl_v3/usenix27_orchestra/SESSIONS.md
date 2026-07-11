@@ -119,7 +119,7 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 | S01 | Shared nuScenes ZIP backend | S00 kickoff | data backend, manifest, parity/coverage tests | reviewed PASS; integrated through S07-A, historical `t1.v1` caches forbidden |
 | S02 | CL P0 correctness | S00 kickoff | pillar/Gaussian fixes and invariance tests | reviewed PASS at delivery `3aebf2d` / review `df142dc`; accepted S07-B dependency only |
 | S03 | Camera branch architecture | S00 kickoff | corrected stride-8 independent camera modules | reviewed module PASS at delivery `5089383` / review `2f62e57`; accepted S07-B dependency with production-shape limits |
-| S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | delivery `80a8fbb`; Job `336718` FAILED 9/10 on fp16 train→eval tiny-occupancy tuner path; diagnostic remediation active |
+| S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | delivery `49f26de`; diagnostics confirm universal current fp16-eval dispatch blocker; owner precision/runtime choice pending |
 | S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | remediation delivery `705216d` closes review `c818262` findings in source/fixtures; 44 cases NOT RUN; fresh re-review pending |
 | S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | planned; must consume explicit `t1.v2` depth/hash contract |
 | S07 | Integrated engineering gate | phase A: S01 PASS; phase B: S01-S06 PASS | staged data foundation, then one resolved candidate stack and 100/1000-step evidence | S07-A reviewed PASS at `ba15716`/`44cefd0`/`370ea6c`; full cache and S07-B separate |
