@@ -107,6 +107,51 @@ def test_single_class_candidate_selection_matches_official_two_stage_topk():
     assert torch.equal(ours["labels"], torch.zeros_like(ref_flat[keep]))
 
 
+def test_fp16_adjacent_logits_are_force_fp32_before_sigmoid_and_topk():
+    outputs = _blank_outputs()
+    outputs = [
+        {name: value.to(torch.float16) for name, value in task.items()}
+        for task in outputs
+    ]
+    heat = outputs[0]["heatmap"][0, 0].reshape(-1)
+    # Adjacent binary16 logits whose FP32 sigmoid values are distinct but whose
+    # rounded binary16 sigmoid values collide at 0.1251220703125.
+    heat[0] = -1.9453125
+    heat[1] = -1.9443359375
+
+    candidates = select_task_candidates(
+        (outputs[0],), BEV, task_specs=(NUSCENES_TASK_SPECS[0],)
+    )[0][0]
+    reference = heat.float().sigmoid()
+    assert candidates["scores"].dtype == torch.float32
+    assert candidates["velocity"].dtype == torch.float32
+    assert reference[1] > reference[0]
+    assert candidates["spatial_indices"][:2].tolist() == [1, 0]
+    assert torch.equal(candidates["scores"][:2], reference[[1, 0]])
+
+
+def test_fp16_logits_use_force_fp32_strict_threshold_neighbourhood():
+    outputs = _blank_outputs()
+    outputs = [
+        {name: value.to(torch.float16) for name, value in task.items()}
+        for task in outputs
+    ]
+    heat = outputs[0]["heatmap"][0, 0].reshape(-1)
+    # Adjacent representable values bracketing logit(0.1) in binary16.
+    heat[7] = -2.197265625
+    heat[9] = -2.1953125
+    reference = heat.float().sigmoid()
+    assert reference[7] < 0.1 < reference[9]
+
+    candidates = select_task_candidates(
+        (outputs[0],), BEV, task_specs=(NUSCENES_TASK_SPECS[0],)
+    )[0][0]
+    assert 7 not in candidates["spatial_indices"].tolist()
+    assert 9 in candidates["spatial_indices"].tolist()
+    selected = candidates["spatial_indices"] == 9
+    assert torch.equal(candidates["scores"][selected], reference[9:10])
+
+
 def test_encode_decode_roundtrip_preserves_box_yaw_velocity_and_global_class():
     outputs = _blank_outputs()
     box = torch.tensor([7.25, 11.75, 0.8, 4.2, 1.7, 1.6, -2.7])

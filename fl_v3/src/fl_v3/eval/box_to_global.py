@@ -228,7 +228,8 @@ def make_detection_box(
 # Content-defined total order on a converted box, so equal-score boxes hit the devkit
 # ``accumulate`` greedy matcher in a reproducible order (its tie-break is the emission
 # index — see T4_SPEC §2 "deterministic box order"). Sort key is (−score, translation,
-# size, yaw): purely a function of box CONTENT, so permuting the decode's emission order
+# size, rotation, velocity, class, and attribute): purely a function of all
+# metric-relevant serialized CONTENT, so permuting the decode's emission order
 # yields the identical serialized order → identical mAP/NDS.
 def detection_box_sort_key(box) -> tuple:
     """Stable content-defined sort key for a ``DetectionBox`` (descending score first)."""
@@ -238,7 +239,9 @@ def detection_box_sort_key(box) -> tuple:
         float(box.size[0]), float(box.size[1]), float(box.size[2]),
         float(box.rotation[0]), float(box.rotation[1]),
         float(box.rotation[2]), float(box.rotation[3]),
+        float(box.velocity[0]), float(box.velocity[1]),
         str(box.detection_name),
+        str(box.attribute_name),
     )
 
 

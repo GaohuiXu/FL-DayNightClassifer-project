@@ -45,10 +45,35 @@ def _ordered_prefix(
     spatial_indices: torch.Tensor,
     pre_max_size: int,
 ) -> List[int]:
+    if int(pre_max_size) <= 0:
+        raise ValueError("pre_max_size must be positive")
     order = deterministic_candidate_order(scores, labels, spatial_indices)
-    if pre_max_size > 0:
-        order = order[: int(pre_max_size)]
+    order = order[: int(pre_max_size)]
     return [int(v) for v in order.detach().cpu().tolist()]
+
+
+def _validate_nms_inputs(
+    boxes: torch.Tensor,
+    scores: torch.Tensor,
+    labels: torch.Tensor,
+    spatial_indices: torch.Tensor,
+    *,
+    pre_max_size: int,
+    post_max_size: int,
+) -> None:
+    """Validate the complete exported canonical-box NMS contract up front."""
+    if boxes.ndim != 2 or boxes.shape[1] < 7:
+        raise ValueError(f"boxes must have shape [N,>=7], got {tuple(boxes.shape)}")
+    count = int(boxes.shape[0])
+    if any(int(value.numel()) != count for value in (scores, labels, spatial_indices)):
+        raise ValueError("boxes, scores, labels, and spatial_indices must have equal length")
+    if int(pre_max_size) <= 0 or int(post_max_size) <= 0:
+        raise ValueError("pre_max_size and post_max_size must be positive")
+    canonical = boxes[:, :7].detach().to(device="cpu", dtype=torch.float64).numpy()
+    if not np.isfinite(canonical).all():
+        raise ValueError("NMS boxes must contain finite canonical geometry")
+    if not (canonical[:, 3:6] > 0.0).all():
+        raise ValueError("NMS canonical box dimensions must be positive")
 
 
 def circle_nms(
@@ -67,9 +92,12 @@ def circle_nms(
     Candidates within ``threshold_sq_m`` of a higher-priority candidate are
     suppressed, including equality as in the reference numba implementation.
     """
-    if boxes.ndim != 2 or boxes.shape[1] < 2:
-        raise ValueError(f"boxes must have shape [N,>=2], got {tuple(boxes.shape)}")
-    if float(threshold_sq_m) < 0.0:
+    _validate_nms_inputs(
+        boxes, scores, labels, spatial_indices,
+        pre_max_size=pre_max_size, post_max_size=post_max_size,
+    )
+    threshold = float(threshold_sq_m)
+    if not math.isfinite(threshold) or threshold < 0.0:
         raise ValueError("circle threshold must be non-negative squared metres")
     if boxes.shape[0] == 0:
         return torch.empty((0,), dtype=torch.long, device=boxes.device)
@@ -79,7 +107,6 @@ def circle_nms(
     order = _ordered_prefix(scores, labels, spatial_indices, pre_max_size)
     suppressed: set[int] = set()
     keep: List[int] = []
-    threshold = float(threshold_sq_m)
     for pos, idx in enumerate(order):
         if idx in suppressed:
             continue
@@ -197,10 +224,12 @@ def rotate_nms(
     Suppression is deliberately task-wide, matching the official CenterHead.  The
     caller may apply the official class-specific dimension scales before calling.
     """
-    if boxes.ndim != 2 or boxes.shape[1] < 7:
-        raise ValueError(f"boxes must have shape [N,>=7], got {tuple(boxes.shape)}")
+    _validate_nms_inputs(
+        boxes, scores, labels, spatial_indices,
+        pre_max_size=pre_max_size, post_max_size=post_max_size,
+    )
     threshold = float(iou_threshold)
-    if not 0.0 <= threshold <= 1.0:
+    if not math.isfinite(threshold) or not 0.0 <= threshold <= 1.0:
         raise ValueError("rotate IoU threshold must lie in [0,1]")
     if boxes.shape[0] == 0:
         return torch.empty((0,), dtype=torch.long, device=boxes.device)

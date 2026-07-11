@@ -103,3 +103,45 @@ def test_rotate_nms_respects_pre_and_post_budgets():
         iou_threshold=0.2, pre_max_size=4, post_max_size=3,
     )
     assert keep.tolist() == [0, 1, 2]
+
+
+def _run_exported_nms(kind, boxes, *, pre_max_size=1000, post_max_size=83):
+    count = boxes.shape[0]
+    scores = torch.linspace(0.9, 0.8, max(count, 1))[:count]
+    labels = torch.zeros(count, dtype=torch.long)
+    flat = torch.arange(count)
+    if kind == "circle":
+        return circle_nms(
+            boxes, scores, labels, flat, threshold_sq_m=4.0,
+            pre_max_size=pre_max_size, post_max_size=post_max_size,
+        )
+    return rotate_nms(
+        boxes, scores, labels, flat, iou_threshold=0.2,
+        pre_max_size=pre_max_size, post_max_size=post_max_size,
+    )
+
+
+@pytest.mark.parametrize("kind", ["circle", "rotate"])
+@pytest.mark.parametrize(
+    "bad_box",
+    [
+        _box(0.0, 0.0, yaw=float("nan")),
+        _box(0.0, 0.0, length=0.0),
+        _box(0.0, 0.0, width=-1.0),
+    ],
+)
+def test_exported_nms_single_box_rejects_invalid_canonical_geometry(kind, bad_box):
+    with pytest.raises(ValueError, match="finite|positive"):
+        _run_exported_nms(kind, torch.tensor([bad_box]))
+
+
+@pytest.mark.parametrize("kind", ["circle", "rotate"])
+@pytest.mark.parametrize(
+    "budget, value",
+    [("pre_max_size", 0), ("pre_max_size", -1),
+     ("post_max_size", 0), ("post_max_size", -1)],
+)
+def test_exported_nms_rejects_nonpositive_budgets(kind, budget, value):
+    kwargs = {budget: value}
+    with pytest.raises(ValueError, match="must be positive"):
+        _run_exported_nms(kind, torch.tensor([_box(0.0, 0.0)]), **kwargs)

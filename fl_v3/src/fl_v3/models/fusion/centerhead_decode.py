@@ -205,7 +205,13 @@ def _select_task_candidates_for_sample(
     bev: BEVConfig,
     config: CenterHeadDecodeConfig,
 ) -> Dict[str, torch.Tensor]:
-    heat = output["heatmap"][batch_index].sigmoid()
+    # The pinned MIT BEVFusion ``get_bboxes`` path is decorated with
+    # ``force_fp32(apply_to=("preds_dicts",))``.  Promote every head field before
+    # *any* decode operation so sigmoid, thresholding, top-K, regression decode,
+    # NMS input, and returned score/velocity semantics do not depend on the AMP
+    # output dtype.
+    output_fp32 = {name: value.to(dtype=torch.float32) for name, value in output.items()}
+    heat = output_fp32["heatmap"][batch_index].sigmoid()
     candidate_scores: List[torch.Tensor] = []
     candidate_local: List[torch.Tensor] = []
     candidate_global: List[torch.Tensor] = []
@@ -254,13 +260,13 @@ def _select_task_candidates_for_sample(
     )
 
     col, row = flat_to_colrow(spatial, bev.head_nx)
-    reg = _gather_field(output["reg"], batch_index, spatial)
+    reg = _gather_field(output_fp32["reg"], batch_index, spatial)
     center_x, center_y = head_decode_to_metric(col, reg[:, 0], row, reg[:, 1], bev)
-    height = _gather_field(output["height"], batch_index, spatial)[:, 0].to(torch.float64)
-    dims = torch.exp(_gather_field(output["dim"], batch_index, spatial).to(torch.float64))
-    rot = _gather_field(output["rot"], batch_index, spatial).to(torch.float64)
+    height = _gather_field(output_fp32["height"], batch_index, spatial)[:, 0].to(torch.float64)
+    dims = torch.exp(_gather_field(output_fp32["dim"], batch_index, spatial).to(torch.float64))
+    rot = _gather_field(output_fp32["rot"], batch_index, spatial).to(torch.float64)
     yaw = torch.atan2(rot[:, 0], rot[:, 1])
-    velocity = _gather_field(output["vel"], batch_index, spatial)
+    velocity = _gather_field(output_fp32["vel"], batch_index, spatial)
     boxes = torch.stack(
         (center_x, center_y, height, dims[:, 0], dims[:, 1], dims[:, 2], yaw),
         dim=1,
@@ -363,11 +369,10 @@ def decode_centerhead(
         nonempty = [item for item in task_kept if item["scores"].numel()]
         if not nonempty:
             device = task_outputs[0]["heatmap"].device
-            dtype = task_outputs[0]["heatmap"].dtype
             decoded.append(
                 {
                     "boxes": torch.empty((0, 7), device=device, dtype=torch.float32),
-                    "scores": torch.empty((0,), device=device, dtype=dtype),
+                    "scores": torch.empty((0,), device=device, dtype=torch.float32),
                     "labels": torch.empty((0,), device=device, dtype=torch.long),
                     "velocity": torch.empty((0, 2), device=device, dtype=torch.float32),
                 }

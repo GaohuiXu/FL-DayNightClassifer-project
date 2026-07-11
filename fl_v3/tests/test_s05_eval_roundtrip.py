@@ -89,6 +89,31 @@ def test_submission_conversion_is_content_permutation_invariant():
     assert forward == reverse
 
 
+def test_submission_duplicate_geometry_orders_velocity_and_attribute_by_content():
+    decoded = {
+        "boxes": np.array([
+            [4.0, 0.0, 0.5, 4.0, 2.0, 1.5, 0.0],
+            [4.0, 0.0, 0.5, 4.0, 2.0, 1.5, 0.0],
+        ]),
+        "scores": np.array([0.5, 0.5]),
+        "labels": np.array([0, 0]),
+        "velocity": np.array([[5.0, 0.0], [0.0, 0.0]]),
+    }
+    forward = build_results_dict(
+        [_sample(decoded)], NUSCENES_DETECTION_NAMES, ["sample-token"]
+    )
+    reverse_decoded = {key: value[::-1].copy() for key, value in decoded.items()}
+    reverse = build_results_dict(
+        [_sample(reverse_decoded)], NUSCENES_DETECTION_NAMES, ["sample-token"]
+    )
+    assert forward == reverse
+    records = forward["results"]["sample-token"]
+    assert [(record["velocity"], record["attribute_name"]) for record in records] == [
+        ([0.0, 0.0], "vehicle.parked"),
+        ([5.0, 0.0], "vehicle.moving"),
+    ]
+
+
 def test_submission_fails_closed_above_official_500_box_cap():
     count = NUSCENES_MAX_BOXES_PER_SAMPLE + 1
     decoded = {
