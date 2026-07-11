@@ -25,7 +25,9 @@ account/partition combination.  There was no retry, job ID, output, allocation, 
 GPU use.  `RESULTS.md` preserves the negative result and missing evidence.  S00
 then authorized preparation only of a scheduler-remediation request.  The launcher
 now adds the active Arrhenius account/partition directives and uses a new output
-identity; no second submission occurred and fresh compute approval remains pending.
+identity.  After S00 corrected a mismatched approval message, the exact tuple was
+submitted once as job `335630`; it failed in launcher provenance preflight before
+output creation or runtime tests.  There was no retry or follow-on.
 
 ## Scope and files
 
@@ -37,7 +39,8 @@ Modified only within the S03 envelope:
 - `fl_v3/src/fl_v3/models/fusion/view_transform.py`;
 - `fl_v3/tests/test_s03_camera_contract.py`;
 - `fl_v3/usenix27_orchestra/handoffs/S03/{RUN_REQUEST,RESULTS,HANDOFF}.md`;
-- `fl_v3/usenix27_orchestra/handoffs/S03/run_s03_camera_contract.sh`.
+- `fl_v3/usenix27_orchestra/handoffs/S03/run_s03_camera_contract.sh`;
+- `fl_v3/usenix27_orchestra/handoffs/S03/artifacts/job_335630/**`.
 
 `swin_sdpa.py` was inspected but not modified.  `detector.py`, `training/tasks.py`,
 `bev_grid.py`, all S02/S04/S05 files, canonical Orchestra documents,
@@ -169,7 +172,7 @@ GPU-hours were zero.  The committed launcher omitted the account and partition u
 by all inspected active Arrhenius GPU launchers.  No runtime test ran and no retry
 was attempted.
 
-The new unexecuted scheduler-remediation candidate changes only the launcher by
+The scheduler-remediation executable snapshot changed only the launcher by
 adding `#SBATCH -A naiss2025-22-1113-gpu` and `#SBATCH -p gpu`, plus the required
 fresh output identity.  Its launcher SHA-256 is
 `d6f236d35f290b4552f3c3e93bb2d92438481100c8fa7726812ea0d658d12983`, its
@@ -177,6 +180,46 @@ unchanged source-list SHA-256 is
 `d4eb8d29da926c88bbcf5c9bbbf9b3e9197f9eda4478ea956ec4c7cfaf664742`, and its
 source-state SHA-256 is
 `6163d27c7f264902a1ac7688b4a13a704d2b98fc6597ca39c0da8b2a115157c1`.
+
+S00 subsequently approved executable
+`ddadd2ec8423e4d68fd434abf0554a7a2eb1377d`, tree
+`2be4655b8533a83251e95435a9d10fa43dfd6a11`, and request
+`d248d8f40f5ed917ec05cbd4681c36d2cfd56a43e25cf96775d47d78cff763f5`.
+Job `335630` ran for six seconds on `n32` and exited `1:0` with:
+
+```text
+fatal: not a git repository (or any of the parent directories): .git
+```
+
+Slurm executes a spool copy of the batch script, so `BASH_SOURCE[0]` did not point
+to the committed worktree; repository discovery failed before output creation,
+environment activation, CUDA, pytest, or camera code.  `sacct` records requested
+TRES of one GPU/eight CPUs but an unexpected whole-node allocation of four
+GPUs/288 CPUs for six seconds (`0.006667` allocation-equivalent GPU-hours).  Raw
+evidence and checksums are committed under `artifacts/job_335630/`.
+
+After S00 independently confirmed that negative result, S03 prepared a source-only
+proposal and did not create a snapshot or submit another job.  The revised launcher
+uses the shared `/nobackup/.../fl_weather_project/.git` object store to resolve an
+externally approved commit/tree and atomically export it into a unique, recursively
+read-only execution snapshot.  The spool launcher, archived launcher/request,
+branch ref, implementation ancestry, and unchanged 15-file source closure are all
+verified before output creation.  It does not depend on the inaccessible `/home`
+linked-worktree `.git` path.
+
+Proposal identities before the final documentation commit:
+
+- launcher SHA-256:
+  `fb36952982adb1f86277e25624490733f90d37ad2a1b6d55335ec4f89b0a47af`;
+- source-list SHA-256:
+  `d4eb8d29da926c88bbcf5c9bbbf9b3e9197f9eda4478ea956ec4c7cfaf664742`;
+- source-state SHA-256:
+  `40c3e11825ebbc0e0494c57043bec359c488ad9d69d242342c5c8e24123387df`.
+
+The resource blocker remains material: job `335630` requested one GPU/eight CPUs
+but Slurm allocated the entire four-GPU/288-CPU node.  At 15 minutes this policy
+could account for 1.0 GPU-hour, so the source proposal does not claim O-009
+compatibility or permission to run.
 
 ## Gate checklist
 
@@ -187,7 +230,7 @@ source-state SHA-256 is
 | 0.5 m depth bins | IMPLEMENTED / STATIC ONLY | 118-bin constructor and contract fixture; no runtime. |
 | Exact resize/crop/pad/flip/rotation calibration | TEST AUTHORED, NOT RUN | Four independent scalar residual fixtures avoid reusing implementation affine as oracle. |
 | Deterministic validation geometry | TEST AUTHORED, NOT RUN | Native 1600x900 golden plus repeated outputs. |
-| Complete intended parameter finite gradients | TEST AUTHORED, NOT RUN | Full Swin/FPN/LSS CUDA fp16-autocast backward was not submitted. |
+| Complete intended parameter finite gradients | TEST AUTHORED, NOT RUN | Submitted job failed before the full Swin/FPN/LSS CUDA fp16-autocast backward executed. |
 | Camera feature/pixel sensitivity | TEST AUTHORED, NOT RUN | No runtime result. |
 | LiDAR invariance | STATIC API PASS; RUNTIME NOT RUN | No LiDAR input in signature; hostile keyword/repeated-output test not executed. |
 | Explicit shape/dtype/config contract | PASS STATIC | Module contract methods and fail-closed validation compile. |
@@ -211,7 +254,9 @@ Allowed:
   integration contract within file ownership;
 - static syntax/AST/diff/launcher checks pass;
 - one approved submission failed before job creation for the recorded Slurm
-  account/partition reason, with zero GPU use.
+  account/partition reason, with zero GPU use;
+- the corrected scheduler-remediation job failed before camera/runtime execution
+  for the recorded launcher repository-discovery reason.
 
 Forbidden:
 
@@ -228,10 +273,13 @@ Forbidden:
 1. Independent S03-R should review the implementation and authored fixtures even
    though runtime evidence is missing; it must not convert authored tests into a
    PASS.
-2. If runtime evidence is still required before review/integration, S00 must audit
-   and explicitly approve the new scheduler-remediation executable/request hashes.
-   It remains a fresh exact-once action, not a retry under the consumed approval.
-3. S07-B must explicitly wire reference augmentation, stride 8, 0.5 m bins,
+2. Runtime evidence remains absent.  Any launcher repair or additional job would
+   require a new scoped request and explicit approval.  A source-only immutable
+   snapshot proposal is prepared, but no execution is authorized.
+3. S00/owner must decide whether the observed whole-node four-GPU allocation and
+   potential 1.0 GPU-hour billing can be authorized; the one-GPU request alone did
+   not constrain actual allocation.
+4. S07-B must explicitly wire reference augmentation, stride 8, 0.5 m bins,
    `bev_output_dtype`, and the reviewed common BEV geometry.  Current unwired
    detector/task defaults remain legacy and do not satisfy O-017 by themselves.
-4. Old checkpoints require retraining under the new FPN/image/depth semantics.
+5. Old checkpoints require retraining under the new FPN/image/depth semantics.

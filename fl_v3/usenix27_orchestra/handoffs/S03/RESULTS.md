@@ -2,15 +2,20 @@
 
 ## Overall result
 
-**SUBMISSION FAILED BEFORE JOB CREATION; RUNTIME GATES NOT EXECUTED.**
+**SCHEDULER-REMEDIATION JOB FAILED IN LAUNCHER PROVENANCE PREFLIGHT; RUNTIME
+GATES NOT EXECUTED.**
 
 The exact-once O-009 request was approved by S00 and invoked once.  Slurm rejected
 it during submission with an account/partition error.  No job, allocation, output,
 log, JUnit, execution identity, runtime source record, or model/runtime evidence was
-created.  The implementation and synthetic tests remain available for independent
-review, but S03 does not claim a runtime PASS.
+created.  A separately approved scheduler remediation then created job `335630`,
+which failed in six seconds before output creation because the launcher attempted
+Git discovery from Slurm's spool-script directory.  Environment activation, CUDA,
+pytest, and camera code were never reached.  The implementation and synthetic
+tests remain available for independent review, but S03 does not claim a runtime
+PASS.
 
-## Approved identity and attempt
+## First approved identity and rejected attempt
 
 - Approved executable HEAD:
   `871db182c5fdcdda46e242d911ac9dcbf393683a`.
@@ -41,7 +46,7 @@ sbatch --export=ALL,EXPECTED_S03_EXECUTABLE_SHA=871db182c5fdcdda46e242d911ac9dcb
 sbatch: error: Batch job submission failed: Invalid account or account/partition combination specified
 ```
 
-## Scheduler and resource reconciliation
+## First attempt scheduler and resource reconciliation
 
 | Field | Result |
 |---|---|
@@ -59,7 +64,7 @@ sbatch: error: Batch job submission failed: Invalid account or account/partition
 Approved but unused resource ceiling was one node, one GH200, eight CPUs,
 `00:15:00`, at most 0.25 GPU-hours.
 
-## Failure diagnosis
+## First attempt failure diagnosis
 
 The committed S03 launcher declares node/GPU/CPU/time/log directives but no Slurm
 account or partition.  A read-only repository audit found the active Arrhenius GPU
@@ -75,13 +80,13 @@ Examples include `run_s07a_provenance_tests.sh`,
 `run_arrhenius_mini_matrix.sh`.  This supports the missing account/partition as the
 direct submission failure, not a test, CUDA, source-attestation, or model failure.
 
-The consumed exact-once authorization does not cover a corrected request.  Under a
-subsequent scoped S00 decision, S03 prepared—but did not submit—a new candidate
-whose only execution changes are the two directives above and a fresh output root.
-Camera code, tests, resources, provenance closure, and acceptance remain unchanged.
-This is a separately reviewed request, not an automatic retry or resubmission.
+The consumed exact-once authorization did not cover a corrected request.  Under a
+subsequent scoped S00 decision, S03 prepared a new candidate whose only execution
+changes were the two directives above and a fresh output root.  Camera code, tests,
+resources, provenance closure, and acceptance remained unchanged.  S00 separately
+reviewed and approved that tuple; it was not an automatic retry or resubmission.
 
-## Scheduler-remediation candidate (not executed)
+## Scheduler-remediation execution
 
 - Account: `naiss2025-22-1113-gpu`.
 - Partition: `gpu`.
@@ -95,9 +100,76 @@ This is a separately reviewed request, not an automatic retry or resubmission.
   `d6f236d35f290b4552f3c3e93bb2d92438481100c8fa7726812ea0d658d12983`.
 - New output root:
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_schedfix_6dfd2c775f54`.
-- Executable HEAD and final RUN_REQUEST SHA-256: reported after commit and subject
-  to a fresh external S00 approval.
-- Submission count under this remediation: `0`.
+- Executable HEAD: `ddadd2ec8423e4d68fd434abf0554a7a2eb1377d`.
+- Tree: `2be4655b8533a83251e95435a9d10fa43dfd6a11`.
+- Approved RUN_REQUEST SHA-256:
+  `d248d8f40f5ed917ec05cbd4681c36d2cfd56a43e25cf96775d47d78cff763f5`.
+- Submission count under this remediation: exactly `1`.
+- Job ID: `335630`.
+- State / exit: `FAILED` / `1:0`.
+- Node / elapsed: `n32` / six seconds.
+- Retry/requeue/resubmit/follow-on: none.
+
+Exact terminal error:
+
+```text
+fatal: not a git repository (or any of the parent directories): .git
+```
+
+The Slurm spool executes a copied script, so `BASH_SOURCE[0]` did not resolve to
+the committed launcher path.  The launcher's first repository lookup used
+`git -C "$SCRIPT_DIR"` and failed.  The unique output root remained absent, hence
+no `execution_identity.json`, runtime source list/state, approved-source copies,
+JUnit, pytest log, or test summary was created.  This is a provenance-launcher
+failure, not a CUDA, pytest, projection, gradient, or model failure.
+
+### Job `335630` resource reconciliation
+
+| Field | Recorded value |
+|---|---|
+| Requested TRES | 1 GH200, 8 CPUs, 1 node, `00:15:00` ceiling |
+| Allocated TRES | 4 GH200, 288 CPUs, 1 node |
+| Elapsed | 6 seconds |
+| Allocation-equivalent GPU-hours | `4 * 6 / 3600 = 0.006667` |
+| GPU workload | none; failure preceded environment/CUDA access |
+| Batch MaxRSS | 36 MiB |
+| Output root | absent |
+| Slurm stdout | empty, SHA-256 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| Slurm stderr | 69 bytes, SHA-256 `d2b35cacadc66b7fad8dedd1be5244e17150a6625978c9330f831bd7a9cd6b1e` |
+
+The requested tuple remained one GPU/eight CPUs.  Slurm nevertheless reported a
+whole-node allocation of four GPUs/288 CPUs (`OverSubscribe=NO`).  This unexpected
+scheduler allocation is preserved rather than silently reported as one GPU.
+
+Raw durable evidence is under `artifacts/job_335630/`: `sacct.txt`, normalized
+one-line `scontrol.txt`, exact empty `stdout.txt`, exact `stderr.txt`, and
+`sha256sums.txt`.
+
+## Source-only remediation proposal (not executed)
+
+S03 prepared a revised launcher/request for S00 review only.  No snapshot was
+created and no job was submitted.  The proposal replaces Git discovery from the
+Slurm spool path with an exact `git archive` of the approved commit/tree from the
+shared `/nobackup/.../fl_weather_project/.git` object store.  It verifies the spool
+launcher, archived launcher/request, branch ref, tree, implementation ancestry,
+and unchanged 15-file source list/state; then it makes the unique snapshot
+recursively read-only before any output, environment, CUDA, or pytest action.
+
+- Proposed launcher SHA-256:
+  `fb36952982adb1f86277e25624490733f90d37ad2a1b6d55335ec4f89b0a47af`.
+- Source-list SHA-256 (unchanged):
+  `d4eb8d29da926c88bbcf5c9bbbf9b3e9197f9eda4478ea956ec4c7cfaf664742`.
+- Proposed source-state SHA-256:
+  `40c3e11825ebbc0e0494c57043bec359c488ad9d69d242342c5c8e24123387df`.
+- Proposed snapshot root:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s03_camera_contract_snapshotfix_6dfd2c775f54`.
+- Proposed output root:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_snapshotfix_6dfd2c775f54`.
+
+This source fix does not resolve scheduler allocation.  Because the prior one-GPU
+request received four allocated GPUs, a full 15-minute allocation under the same
+policy could account for 1.0 GPU-hour.  The proposal is blocked pending an explicit
+S00/owner resource decision and has no resolved or authorized submission command.
 
 ## Local/static evidence
 
@@ -143,9 +215,13 @@ Allowed:
 
 - the source compiles and the launcher/source/request provenance design passed
   static checks;
-- the one approved submission failed before job creation for the recorded Slurm
+- the first approved submission failed before job creation for the recorded Slurm
   account/partition reason;
-- no data, model step, metric, job allocation, or GPU-hour was consumed.
+- the corrected job failed during launcher provenance preflight before environment,
+  CUDA, pytest, or camera execution;
+- a source-only immutable-snapshot remediation is prepared but unexecuted and
+  remains blocked on scheduler/resource authorization;
+- no data, optimizer/model step, metric, or scientific evidence was produced.
 
 Forbidden:
 
@@ -154,4 +230,7 @@ Forbidden:
 - camera/model/full-data readiness, tiny-overfit/100-step acceptance, throughput,
   mAP/NDS, fusion gain, FL, attack/defense, generalization, scientific, or
   publication claims;
-- treating the missing job as a negative model or architecture result.
+- treating either scheduler/provenance failure as a negative model or architecture
+  result;
+- claiming only one GPU was allocated for job `335630`; `sacct` reports four for
+  six seconds despite the one-GPU request.

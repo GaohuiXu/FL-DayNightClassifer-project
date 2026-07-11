@@ -15,21 +15,26 @@ set -euo pipefail
 # and final RUN_REQUEST bytes exist.  Keeping approved hashes outside this file
 # avoids a launcher/request/source self-hash cycle.
 : "${EXPECTED_S03_EXECUTABLE_SHA:?S00-approved executable HEAD is required}"
+: "${EXPECTED_S03_TREE_SHA:?S00-approved executable tree is required}"
 : "${EXPECTED_S03_IMPLEMENTATION_SHA:?S00-approved implementation SHA is required}"
 : "${EXPECTED_S03_BRANCH:?S00-approved branch is required}"
 : "${EXPECTED_S03_SOURCE_LIST_SHA:?S00-approved source-list SHA-256 is required}"
 : "${EXPECTED_S03_SOURCE_SHA:?S00-approved source-state SHA-256 is required}"
 : "${EXPECTED_S03_LAUNCHER_SHA:?S00-approved launcher SHA-256 is required}"
 : "${EXPECTED_S03_RUN_REQUEST_SHA:?S00-approved RUN_REQUEST SHA-256 is required}"
+: "${S03_SNAPSHOT_ROOT:?S00-approved execution snapshot root is required}"
 : "${S03_OUTPUT_ROOT:?S00-approved output root is required}"
+: "${SLURM_JOB_ID:?launcher must run inside one approved Slurm job}"
 
 readonly IMPLEMENTATION_SHA=6dfd2c775f54e488f3930996b303ce21f9b8e8b7
 readonly DELIVERY_BRANCH=codex/s03-camera-architecture
-readonly APPROVED_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_schedfix_6dfd2c775f54
-readonly SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
-readonly SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
-readonly REPO="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
-readonly REQUEST_PATH="$SCRIPT_DIR/RUN_REQUEST.md"
+readonly COMMON_GIT_DIR=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/.git
+readonly APPROVED_SNAPSHOT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s03_camera_contract_snapshotfix_6dfd2c775f54
+readonly APPROVED_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_snapshotfix_6dfd2c775f54
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+readonly SCRIPT_PATH
+readonly REQUEST_REL=fl_v3/usenix27_orchestra/handoffs/S03/RUN_REQUEST.md
+readonly LAUNCHER_REL=fl_v3/usenix27_orchestra/handoffs/S03/run_s03_camera_contract.sh
 
 require_hex() {
   local value="$1"
@@ -42,6 +47,7 @@ require_hex() {
 }
 
 require_hex "$EXPECTED_S03_EXECUTABLE_SHA" 40 EXPECTED_S03_EXECUTABLE_SHA
+require_hex "$EXPECTED_S03_TREE_SHA" 40 EXPECTED_S03_TREE_SHA
 require_hex "$EXPECTED_S03_IMPLEMENTATION_SHA" 40 EXPECTED_S03_IMPLEMENTATION_SHA
 require_hex "$EXPECTED_S03_SOURCE_LIST_SHA" 64 EXPECTED_S03_SOURCE_LIST_SHA
 require_hex "$EXPECTED_S03_SOURCE_SHA" 64 EXPECTED_S03_SOURCE_SHA
@@ -50,20 +56,51 @@ require_hex "$EXPECTED_S03_RUN_REQUEST_SHA" 64 EXPECTED_S03_RUN_REQUEST_SHA
 
 [[ "$EXPECTED_S03_IMPLEMENTATION_SHA" == "$IMPLEMENTATION_SHA" ]]
 [[ "$EXPECTED_S03_BRANCH" == "$DELIVERY_BRANCH" ]]
+[[ "$S03_SNAPSHOT_ROOT" == "$APPROVED_SNAPSHOT_ROOT" ]]
 [[ "$S03_OUTPUT_ROOT" == "$APPROVED_OUTPUT_ROOT" ]]
-[[ -f "$REQUEST_PATH" ]]
+[[ -d "$COMMON_GIT_DIR/objects" ]]
 
-readonly ACTUAL_HEAD="$(git -C "$REPO" rev-parse HEAD)"
-readonly ACTUAL_BRANCH="$(git -C "$REPO" branch --show-current)"
+# sbatch executes a spool copy, so BASH_SOURCE cannot locate a linked worktree.
+# Resolve the approved immutable object directly from the shared /nobackup object
+# store, then export that exact tree into a unique read-only execution snapshot.
+ACTUAL_HEAD="$(git --git-dir="$COMMON_GIT_DIR" rev-parse "refs/heads/$DELIVERY_BRANCH^{commit}")"
+readonly ACTUAL_HEAD
+ACTUAL_TREE="$(git --git-dir="$COMMON_GIT_DIR" rev-parse "$EXPECTED_S03_EXECUTABLE_SHA^{tree}")"
+readonly ACTUAL_TREE
 [[ "$ACTUAL_HEAD" == "$EXPECTED_S03_EXECUTABLE_SHA" ]]
-[[ "$ACTUAL_BRANCH" == "$EXPECTED_S03_BRANCH" ]]
-[[ -z "$(git -C "$REPO" status --short)" ]]
-git -C "$REPO" merge-base --is-ancestor "$IMPLEMENTATION_SHA" "$ACTUAL_HEAD"
+[[ "$ACTUAL_TREE" == "$EXPECTED_S03_TREE_SHA" ]]
+git --git-dir="$COMMON_GIT_DIR" merge-base --is-ancestor "$IMPLEMENTATION_SHA" "$ACTUAL_HEAD"
 
-readonly ACTUAL_LAUNCHER_SHA="$(sha256sum "$SCRIPT_PATH" | awk '{print $1}')"
-readonly ACTUAL_REQUEST_SHA="$(sha256sum "$REQUEST_PATH" | awk '{print $1}')"
+ACTUAL_LAUNCHER_SHA="$(sha256sum "$SCRIPT_PATH" | awk '{print $1}')"
+readonly ACTUAL_LAUNCHER_SHA
 [[ "$ACTUAL_LAUNCHER_SHA" == "$EXPECTED_S03_LAUNCHER_SHA" ]]
+[[ ! -e "$S03_SNAPSHOT_ROOT" ]]
+[[ ! -e "$S03_OUTPUT_ROOT" ]]
+
+readonly TMP_SNAPSHOT_ROOT="${S03_SNAPSHOT_ROOT}.tmp.${SLURM_JOB_ID}"
+[[ ! -e "$TMP_SNAPSHOT_ROOT" ]]
+mkdir -p "$(dirname "$S03_SNAPSHOT_ROOT")"
+mkdir "$TMP_SNAPSHOT_ROOT"
+cleanup_snapshot_tmp() {
+  if [[ -d "$TMP_SNAPSHOT_ROOT" ]]; then
+    chmod -R u+w "$TMP_SNAPSHOT_ROOT"
+    rm -rf -- "$TMP_SNAPSHOT_ROOT"
+  fi
+}
+trap cleanup_snapshot_tmp EXIT
+git --git-dir="$COMMON_GIT_DIR" archive --format=tar "$ACTUAL_HEAD" \
+  | tar -xf - -C "$TMP_SNAPSHOT_ROOT"
+
+readonly SNAPSHOT_REQUEST_PATH="$TMP_SNAPSHOT_ROOT/$REQUEST_REL"
+readonly SNAPSHOT_LAUNCHER_PATH="$TMP_SNAPSHOT_ROOT/$LAUNCHER_REL"
+[[ -f "$SNAPSHOT_REQUEST_PATH" ]]
+[[ -f "$SNAPSHOT_LAUNCHER_PATH" ]]
+ACTUAL_REQUEST_SHA="$(sha256sum "$SNAPSHOT_REQUEST_PATH" | awk '{print $1}')"
+readonly ACTUAL_REQUEST_SHA
+SNAPSHOT_LAUNCHER_SHA="$(sha256sum "$SNAPSHOT_LAUNCHER_PATH" | awk '{print $1}')"
+readonly SNAPSHOT_LAUNCHER_SHA
 [[ "$ACTUAL_REQUEST_SHA" == "$EXPECTED_S03_RUN_REQUEST_SHA" ]]
+[[ "$SNAPSHOT_LAUNCHER_SHA" == "$EXPECTED_S03_LAUNCHER_SHA" ]]
 
 # --noconftest is part of the committed invocation below, so tests/conftest.py is
 # intentionally not an executed input.  This list covers the selected test's local
@@ -88,19 +125,49 @@ SOURCE_FILES=(
   fl_v3/usenix27_orchestra/handoffs/S03/run_s03_camera_contract.sh
 )
 mapfile -t SORTED_SOURCE_FILES < <(printf '%s\n' "${SOURCE_FILES[@]}" | LC_ALL=C sort)
-readonly ACTUAL_SOURCE_LIST_SHA="$(printf '%s\n' "${SORTED_SOURCE_FILES[@]}" | sha256sum | awk '{print $1}')"
-readonly ACTUAL_SOURCE_SHA="$({
+ACTUAL_SOURCE_LIST_SHA="$(printf '%s\n' "${SORTED_SOURCE_FILES[@]}" | sha256sum | awk '{print $1}')"
+readonly ACTUAL_SOURCE_LIST_SHA
+ACTUAL_SOURCE_SHA="$({
   for source_file in "${SORTED_SOURCE_FILES[@]}"; do
-    sha256sum "$REPO/$source_file" | sed "s|  $REPO/|  |"
+    sha256sum "$TMP_SNAPSHOT_ROOT/$source_file" | sed "s|  $TMP_SNAPSHOT_ROOT/|  |"
   done
 } | sha256sum | awk '{print $1}')"
+readonly ACTUAL_SOURCE_SHA
 [[ "$ACTUAL_SOURCE_LIST_SHA" == "$EXPECTED_S03_SOURCE_LIST_SHA" ]]
 [[ "$ACTUAL_SOURCE_SHA" == "$EXPECTED_S03_SOURCE_SHA" ]]
 
+cat > "$TMP_SNAPSHOT_ROOT/.s03_snapshot_identity.json" <<EOF
+{
+  "branch": "$EXPECTED_S03_BRANCH",
+  "executable_git_sha": "$ACTUAL_HEAD",
+  "executable_tree_sha": "$ACTUAL_TREE",
+  "implementation_git_sha": "$IMPLEMENTATION_SHA",
+  "launcher_sha256": "$ACTUAL_LAUNCHER_SHA",
+  "run_request_sha256": "$ACTUAL_REQUEST_SHA",
+  "runtime_source_list_sha256": "$ACTUAL_SOURCE_LIST_SHA",
+  "runtime_source_sha256": "$ACTUAL_SOURCE_SHA",
+  "slurm_job_id": "$SLURM_JOB_ID"
+}
+EOF
+chmod -R a-w "$TMP_SNAPSHOT_ROOT"
+mv "$TMP_SNAPSHOT_ROOT" "$S03_SNAPSHOT_ROOT"
+trap - EXIT
+readonly REPO="$S03_SNAPSHOT_ROOT"
+readonly REQUEST_PATH="$REPO/$REQUEST_REL"
+readonly SNAPSHOT_IDENTITY_PATH="$REPO/.s03_snapshot_identity.json"
+S03_SNAPSHOT_IDENTITY_SHA="$(sha256sum "$SNAPSHOT_IDENTITY_PATH" | awk '{print $1}')"
+readonly S03_SNAPSHOT_IDENTITY_SHA
+export S03_SNAPSHOT_IDENTITY_SHA
+if find "$REPO" -perm /222 -print -quit | grep -q .; then
+  echo "execution snapshot contains writable paths" >&2
+  exit 1
+fi
+
 [[ ! -e "$S03_OUTPUT_ROOT" ]]
 mkdir -p "$S03_OUTPUT_ROOT"
-cp "$SCRIPT_PATH" "$S03_OUTPUT_ROOT/approved_launcher.sh"
+cp "$REPO/$LAUNCHER_REL" "$S03_OUTPUT_ROOT/approved_launcher.sh"
 cp "$REQUEST_PATH" "$S03_OUTPUT_ROOT/approved_run_request.md"
+cp "$SNAPSHOT_IDENTITY_PATH" "$S03_OUTPUT_ROOT/snapshot_identity.json"
 [[ "$(sha256sum "$S03_OUTPUT_ROOT/approved_launcher.sh" | awk '{print $1}')" == "$EXPECTED_S03_LAUNCHER_SHA" ]]
 [[ "$(sha256sum "$S03_OUTPUT_ROOT/approved_run_request.md" | awk '{print $1}')" == "$EXPECTED_S03_RUN_REQUEST_SHA" ]]
 printf '%s\n' "${SORTED_SOURCE_FILES[@]}" > "$S03_OUTPUT_ROOT/runtime_source_files.txt"
@@ -127,13 +194,21 @@ if not torch.cuda.is_available():
 props = torch.cuda.get_device_properties(0)
 record = {
     "executable_git_sha": os.environ["EXPECTED_S03_EXECUTABLE_SHA"],
+    "executable_tree_sha": os.environ["EXPECTED_S03_TREE_SHA"],
     "implementation_git_sha": os.environ["EXPECTED_S03_IMPLEMENTATION_SHA"],
     "git_branch": os.environ["EXPECTED_S03_BRANCH"],
+    "execution_snapshot_root": os.environ["S03_SNAPSHOT_ROOT"],
+    "snapshot_identity_sha256": os.environ["S03_SNAPSHOT_IDENTITY_SHA"],
     "runtime_source_list_sha256": os.environ["EXPECTED_S03_SOURCE_LIST_SHA"],
     "runtime_source_sha256": os.environ["EXPECTED_S03_SOURCE_SHA"],
     "launcher_sha256": os.environ["EXPECTED_S03_LAUNCHER_SHA"],
     "run_request_sha256": os.environ["EXPECTED_S03_RUN_REQUEST_SHA"],
     "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
+    "slurm_job_gpus": os.environ.get("SLURM_JOB_GPUS"),
+    "slurm_cpus_on_node": os.environ.get("SLURM_CPUS_ON_NODE"),
+    "slurm_job_cpus_per_node": os.environ.get("SLURM_JOB_CPUS_PER_NODE"),
+    "slurm_cpus_per_task": os.environ.get("SLURM_CPUS_PER_TASK"),
+    "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
     "host": platform.node(),
     "machine": platform.machine(),
     "python": platform.python_version(),
@@ -178,6 +253,7 @@ PY
 sha256sum \
   "$S03_OUTPUT_ROOT/approved_launcher.sh" \
   "$S03_OUTPUT_ROOT/approved_run_request.md" \
+  "$S03_OUTPUT_ROOT/snapshot_identity.json" \
   "$S03_OUTPUT_ROOT/execution_identity.json" \
   "$S03_OUTPUT_ROOT/runtime_source_files.txt" \
   "$S03_OUTPUT_ROOT/runtime_source_sha256s.txt" \

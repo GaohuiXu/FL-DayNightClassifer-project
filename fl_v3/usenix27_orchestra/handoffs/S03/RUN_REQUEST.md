@@ -2,7 +2,7 @@
 
 ## Approval state
 
-`PENDING_S00_SCHEDULER_REMEDIATION_REVIEW_DO_NOT_SUBMIT`
+`PENDING_S00_RESOURCE_DECISION_SOURCE_ONLY_SNAPSHOT_PROPOSAL_DO_NOT_SUBMIT`
 
 S00 approved the exact executable/request tuple recorded below.  S03 performed
 all preflight checks and invoked the approved command once at
@@ -23,8 +23,9 @@ both `#SBATCH -A naiss2025-22-1113-gpu` and `#SBATCH -p gpu`, while the consumed
 launcher omitted both.  S00 subsequently authorized preparation only of a fresh
 scheduler-remediation request: add exactly those two directives, preserve all
 camera/test/resource/provenance/acceptance scope, and use a new output identity.
-That preparation is not compute approval and is not an automatic resubmission.
-S03 must stop after committing and wait for a new exact S00 approval.
+That preparation was not an automatic resubmission.  S00 later issued one corrected
+exact approval after explicitly superseding an erroneous message.  The corrected
+tuple was submitted once as job `335630`; that approval is now consumed.
 
 Consumed rejected-attempt identity (preserved, never reusable):
 
@@ -44,14 +45,76 @@ Consumed rejected-attempt identity (preserved, never reusable):
 The client-side rejection produced no job ID, allocation, output, or logs and used
 zero GPU-hours.  It was not a runtime, CUDA, test, or model failure.
 
+Scheduler-remediation execution identity and outcome:
+
+- approved executable HEAD: `ddadd2ec8423e4d68fd434abf0554a7a2eb1377d`;
+- approved tree: `2be4655b8533a83251e95435a9d10fa43dfd6a11`;
+- approved RUN_REQUEST SHA-256:
+  `d248d8f40f5ed917ec05cbd4681c36d2cfd56a43e25cf96775d47d78cff763f5`;
+- job: `335630`, node `n32`, state `FAILED`, exit `1:0`, elapsed six seconds;
+- stderr: `fatal: not a git repository (or any of the parent directories): .git`;
+- output root: absent; environment activation, CUDA, pytest, and camera code were
+  never reached;
+- retry/requeue/resubmit/follow-on: none and not authorized.
+
+The launcher resolved `BASH_SOURCE[0]` from Slurm's spool copy, so `SCRIPT_DIR` was
+not the committed worktree and the initial `git -C "$SCRIPT_DIR" rev-parse` failed.
+This is a launcher/provenance-preflight failure, not a camera test, CUDA, or model
+failure.  The request asked for one GPU/eight CPUs, while `sacct` reports an
+unexpected whole-node allocation of four GPUs/288 CPUs for six seconds.  No GPU
+workload started; allocation accounting is nevertheless recorded exactly in
+`RESULTS.md` and the raw artifacts.
+
+## Source-only immutable-snapshot remediation proposal
+
+This is a proposal only.  It does not authorize snapshot creation or `sbatch`.
+Job `335630` is not retried.  The camera implementation, test file, exact 10-case
+scope, fp16 forward/backward, dataset exclusion, acceptance, requested one GPU/
+eight CPU/15-minute limits, and source closure remain unchanged.
+
+The revised committed launcher no longer attempts to discover Git from its Slurm
+spool path or access `/home/.../.codex/worktrees/.../.git`.  If separately approved,
+it would:
+
+1. require externally approved executable HEAD, tree, branch, implementation,
+   request, launcher, source-list/source-state hashes, snapshot root, output root,
+   and Slurm job identity;
+2. resolve the branch commit and tree only from the shared object store
+   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/.git`;
+3. verify the approved implementation is an ancestor and that the spool launcher
+   bytes match the approved launcher hash;
+4. require both the unique snapshot and output roots to be absent;
+5. `git archive` the exact approved commit into a job-unique temporary directory,
+   verify the archived RUN_REQUEST, launcher, 15-file C-locale list/state, and
+   branch/tree identities before any output creation;
+6. write a snapshot identity manifest, remove all write bits recursively, and
+   atomically rename the temporary tree to the approved shared snapshot root;
+7. run environment activation and the unchanged pytest command only from that
+   read-only snapshot, recording the snapshot/tree and Slurm/GPU/CPU identity.
+
+Proposed unique roots, both currently absent:
+
+```text
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s03_camera_contract_snapshotfix_6dfd2c775f54
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_snapshotfix_6dfd2c775f54
+```
+
+The prior job exposed a material authorization risk: although `ReqTRES` was one
+GPU/eight CPUs, `AllocTRES` was the entire node (four GPUs/288 CPUs).  At the
+15-minute ceiling this could account for `4 * 0.25 = 1.0` GPU-hour, four times the
+0.25 GPU-hour request and incompatible with interpreting O-009 as an actual
+single-GPU allocation.  S03 therefore requests an explicit S00/owner resource
+decision before any execution approval; source remediation alone does not resolve
+scheduler allocation or billing.
+
 S00 returned the first request for provenance remediation without approving
 compute: its exact `sbatch` body existed only as a mutable Markdown here-doc and
-neither the launcher nor approved request identity was bound in-job.  This revision
-uses a committed launcher and external post-commit approval hashes.  Preparing or
-committing it is not approval; S03 must receive a new explicit S00 decision before
-one `sbatch`.
+neither the launcher nor approved request identity was bound in-job.  The consumed
+scheduler-remediation snapshot used a committed launcher and external approval
+hashes, but failed before those checks could identify the repository.  This
+post-result revision grants no compute authority.
 
-## Immutable implementation and executable model
+## Proposed immutable implementation and executable model
 
 - Base: `372de9398ae435f82b83367a922fd302c0635738`.
 - Implementation commit:
@@ -60,23 +123,22 @@ one `sbatch`.
 - Durable launcher:
   `fl_v3/usenix27_orchestra/handoffs/S03/run_s03_camera_contract.sh`.
 - Launcher SHA-256:
-  `d6f236d35f290b4552f3c3e93bb2d92438481100c8fa7726812ea0d658d12983`.
-- Executable HEAD: the commit containing this final request plus the launcher.
-  Its SHA cannot be embedded in its own tree; S03 reports it after commit and S00
-  binds it externally through `EXPECTED_S03_EXECUTABLE_SHA`.
-- Final RUN_REQUEST SHA-256: also computed and reported after commit, then bound
-  externally through `EXPECTED_S03_RUN_REQUEST_SHA`.  It is deliberately not
-  embedded here, avoiding a request self-hash cycle.
+  `fb36952982adb1f86277e25624490733f90d37ad2a1b6d55335ec4f89b0a47af`.
+- Proposed executable HEAD/tree and final RUN_REQUEST SHA-256: computed and
+  reported after the source-only proposal commit, then subject to external review.
 
-The launcher runs directly from the approved clean branch/HEAD.  Before creating
-output or importing the runtime it fails closed unless:
+Before creating the immutable snapshot, output, or importing the runtime, the
+proposed launcher fails closed unless:
 
 1. actual HEAD equals the externally approved executable SHA;
-2. actual branch equals `codex/s03-camera-architecture` and status is clean;
+2. the shared branch ref equals that HEAD and its tree equals the externally
+   approved tree SHA;
 3. implementation `6dfd2c7...` is an ancestor of executable HEAD;
-4. launcher and final request bytes match their externally approved SHA-256;
-5. C-locale source-list and content hashes match the approved values;
-6. the exact output root does not exist.
+4. spool and archived launcher plus archived request bytes match their externally
+   approved SHA-256;
+5. archived C-locale source-list and content hashes match the approved values;
+6. both exact snapshot and output roots do not exist;
+7. the exported snapshot contains no writable path before runtime begins.
 
 Any edit or new commit after approval invalidates it.
 
@@ -109,7 +171,7 @@ fl_v3/usenix27_orchestra/handoffs/S03/run_s03_camera_contract.sh
 - C-locale sorted source-list SHA-256:
   `d4eb8d29da926c88bbcf5c9bbbf9b3e9197f9eda4478ea956ec4c7cfaf664742`.
 - SHA-256 of the corresponding `sha256sum` source-state file:
-  `6163d27c7f264902a1ac7688b4a13a704d2b98fc6597ca39c0da8b2a115157c1`.
+  `40c3e11825ebbc0e0494c57043bec359c488ad9d69d242342c5c8e24123387df`.
 
 `RUN_REQUEST.md` is not part of that aggregate because its final hash is a
 separate mandatory externally approved input.  Including both its hash and the
@@ -142,15 +204,19 @@ seed campaign, or scientific result.
 
 - One job; one node; one `nvidia_gh200_120gb`; eight CPUs.
 - Account `naiss2025-22-1113-gpu`; partition `gpu`.
-- Walltime `00:15:00`; maximum requested allocation 0.25 GPU-hours.
-- S03 cumulative GPU use before this request: 0 GPU-hours.
+- Walltime `00:15:00`; requested allocation ceiling 0.25 GPU-hours.
+- Observed scheduler behavior for job `335630`: whole-node allocation of four
+  GPUs/288 CPUs despite the one-GPU/eight-CPU request.
+- Worst observed-policy allocation at the requested walltime: 1.0 GPU-hour.
+- S03 allocation-equivalent use to date: approximately 0.006667 GPU-hour.
 - No array, DDP, concurrent S03 job, retry, requeue, resubmission, follow-on, or
   spare-GPU expansion.
 
-Unique output root, required absent:
+Unique immutable snapshot and output roots, both required absent:
 
 ```text
-/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_schedfix_6dfd2c775f54
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s03_camera_contract_snapshotfix_6dfd2c775f54
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_snapshotfix_6dfd2c775f54
 ```
 
 Logs are fixed by committed `#SBATCH` directives:
@@ -160,34 +226,35 @@ Logs are fixed by committed `#SBATCH` directives:
 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s03_camera_contract_%j.err
 ```
 
-After committing this revision, S03 reports the executable HEAD and final request
-hash alongside the fully resolved one-line command.  S00 approval must bind that
-exact command and all values below:
+Any future approval would have to bind all values below after the proposal commit:
 
 ```text
-EXPECTED_S03_EXECUTABLE_SHA=<post-commit 40-hex reported by S03>
+EXPECTED_S03_EXECUTABLE_SHA=<post-commit 40-hex>
+EXPECTED_S03_TREE_SHA=<post-commit 40-hex>
 EXPECTED_S03_IMPLEMENTATION_SHA=6dfd2c775f54e488f3930996b303ce21f9b8e8b7
 EXPECTED_S03_BRANCH=codex/s03-camera-architecture
 EXPECTED_S03_SOURCE_LIST_SHA=d4eb8d29da926c88bbcf5c9bbbf9b3e9197f9eda4478ea956ec4c7cfaf664742
-EXPECTED_S03_SOURCE_SHA=6163d27c7f264902a1ac7688b4a13a704d2b98fc6597ca39c0da8b2a115157c1
-EXPECTED_S03_LAUNCHER_SHA=d6f236d35f290b4552f3c3e93bb2d92438481100c8fa7726812ea0d658d12983
-EXPECTED_S03_RUN_REQUEST_SHA=<post-commit 64-hex reported by S03>
-S03_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_schedfix_6dfd2c775f54
+EXPECTED_S03_SOURCE_SHA=40c3e11825ebbc0e0494c57043bec359c488ad9d69d242342c5c8e24123387df
+EXPECTED_S03_LAUNCHER_SHA=fb36952982adb1f86277e25624490733f90d37ad2a1b6d55335ec4f89b0a47af
+EXPECTED_S03_RUN_REQUEST_SHA=<post-commit 64-hex>
+S03_SNAPSHOT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s03_camera_contract_snapshotfix_6dfd2c775f54
+S03_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_snapshotfix_6dfd2c775f54
 ```
 
-The only authorized submission form, if S00 later approves, is one `sbatch
---export=ALL,...` of the committed launcher.  The Markdown request contains no
-executable here-doc and does not authorize running the launcher.
+No resolved `sbatch` command is authorized while the resource decision is pending.
+The consumed approval that produced job `335630` remains non-reusable.  This
+Markdown revision contains no executable here-doc and does not authorize running
+the launcher.
 
 ## Recorded identity and artifacts
 
-Before pytest the launcher writes `execution_identity.json` containing:
+Before pytest the proposed launcher writes `execution_identity.json` containing:
 
-- exact executable HEAD, implementation SHA, and branch;
+- exact executable HEAD/tree, implementation SHA, branch, and snapshot root;
 - runtime source-list and source-state hashes;
 - launcher and externally approved RUN_REQUEST hashes;
-- Slurm job ID, host, architecture, Python, torch, torchvision, pytest, CUDA
-  runtime, GPU name, and GPU memory.
+- Slurm job ID/GPU/CPU environment, `CUDA_VISIBLE_DEVICES`, host, architecture,
+  Python, torch, torchvision, pytest, CUDA runtime, GPU name, and GPU memory.
 
 It also writes the exact source file list and per-file SHA-256 state.  Pytest emits
 log and JUnit; a post-check requires exactly `10/0/0/0` tests/failures/errors/skips.
