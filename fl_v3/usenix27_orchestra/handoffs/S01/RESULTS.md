@@ -147,3 +147,42 @@ length/CRC validation, and repeated persistent-worker outputs were deterministic
 Forbidden: full-data readiness, all-member coverage, directory/ZIP parity PASS,
 production throughput, absence of random-read amplification, model readiness or
 quality, and any scientific/attack/defense claim.
+
+---
+
+## Complete-gate attempt 332648 — FAILED
+
+The exact owner-approved ten-archive job was submitted once on 2026-07-11 and was
+not retried.
+
+- Job/node: `332648` / `n569`.
+- Submit/start/end: `04:57:36` / `04:57:37` / `04:58:47`.
+- State/elapsed/exit: `FAILED`, `00:01:10`, `1:0`.
+- Failing stage: `s01_nuscenes_zip_manifest.py` while scanning
+  `trainval02_blobs.zip`.
+- Exact error: SQLite `UNIQUE constraint failed: members.path`, surfaced as
+  `ZipManifestError: duplicate ZIP member (including cross-archive duplicate)`.
+- Result: no complete manifest, cache, coverage JSON, loader profile, or checksum
+  file exists. The approved output root contains only an empty
+  `info_cache_msweep10/` directory.
+
+This proves at least one member path occurs in more than one shared archive. It
+does **not** prove those payload copies differ or that either copy is corrupt; the
+v1 schema stopped before comparing their central-directory size/CRC. Consequently
+all full trainval coverage and throughput claims remain forbidden.
+
+Resources: `MaxRSS=792M`, `MaxVMSize=6214208K`, `MaxDiskRead=140.03M`,
+`MaxDiskWrite=0.28M`, `TotalCPU=00:11.949`; approximately 0.0194 actual GPU-hours.
+
+Logs:
+
+- `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s01_zip_gate_332648.out`,
+  SHA-256 `5f73f4b10fb5c4940fadcf375d9dbfbce4947da396fa1efd28f46a9772f6bc4b`;
+- `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s01_zip_gate_332648.err`,
+  SHA-256 `7b232bac2b86f95c23709cc70fbb87fbeb6ebfcabb83b7b3324cb155de97ff47`.
+
+Required correction before any follow-up: a manifest schema that retains every
+archive occurrence, accepts a cross-archive duplicate only when path, size, and CRC
+match, selects a deterministic runtime archive, keeps per-archive sentinels, and
+still rejects conflicting copies and duplicates inside one archive. A follow-up is
+not authorized by the failed job's approval.

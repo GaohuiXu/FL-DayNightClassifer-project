@@ -162,6 +162,11 @@ the legacy dataroot environment overrides. ZIP runs additionally require
 `NUSCENES_ZIP_MANIFEST` (or `ARRHENIUS_NUSCENES_ZIP_MANIFEST`) pointing outside
 the shared read-only dataset. Building that manifest on shared trainval is an
 exhaustive full-data scan and therefore needs an approved S01 `RUN_REQUEST.md`.
+The first ten-archive gate attempt found that paths can occur in more than one
+trainval archive. The S01 v2 manifest retains all such occurrences, routes reads
+deterministically to the lowest-numbered archive only when size and CRC agree, and
+fails on conflicting copies or duplicates within one archive. A complete v2 rerun
+and S01-R review are still required before full-data readiness.
 
 The currently accessible mini dataset is:
 

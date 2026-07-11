@@ -161,6 +161,14 @@ two persistent-worker reads across two epochs. It covered only
 not the missing ten-archive coverage or throughput gate. Exact artifacts and limits
 are recorded in `usenix27_orchestra/handoffs/S01/{RESULTS,HANDOFF}.md`.
 
+The first approved ten-archive gate (`Slurm 332648`, 2026-07-11) stopped during
+`trainval02` manifest construction because the v1 schema rejected a path repeated
+across archives. This is a negative result, not evidence of corrupt payloads. The
+v2 schema records all occurrences, permits only cross-archive copies with matching
+size+CRC, routes to the lowest archive deterministically, and still rejects
+conflicting copies and within-archive duplicates. The complete v2 gate has not yet
+been approved or run.
+
 The code no longer defaults to the old Alvis/Mimer path. Provide the dataroot
 through either:
 

@@ -5,9 +5,16 @@
 - Session: `S01`.
 - Base/HEAD: `f262f6bea037580065a8505008773c04fdd259f5`.
 - Source branch named by kickoff: `v3-ad-perception`.
-- Actual ref: detached HEAD at the exact base; branch name empty as expected.
-- Worker SHA: `n/a` — changes are uncommitted; no commit/branch/merge/push/upload
-  was authorized or performed.
+- Kickoff ref was detached HEAD at the exact base, with an empty branch name as
+  expected. On 2026-07-11 the owner explicitly authorized a local review branch
+  and commit.
+- Current local branch: `codex/s01-nuscenes-zip-backend`.
+- Implementation commit: `011e4640d26330e2c8145fcdb56833fe19e7b67d`
+  (`feat(data): add nuScenes ZIP backend`). This commit was created locally only;
+  no merge, push, upload, or publication was performed.
+- The final S01-R review baseline will be a later durable branch tip containing
+  the approved full-gate results/handoff update. Until then, `011e464...` is the
+  immutable implementation/run candidate, not a reviewed PASS.
 - Working-tree scope: only S01-owned files listed below.
 - Worker verdict: **PARTIAL / FULL-GATE PENDING**. Implementation and the approved
   bounded real-data smoke pass. The required ten-archive manifest, 100% train/val
@@ -53,9 +60,11 @@ Key semantics:
   retaining the official devkit version;
 - manifest paths come from explicit config or `NUSCENES_ZIP_MANIFEST` /
   `ARRHENIUS_NUSCENES_ZIP_MANIFEST` and must be outside the read-only dataset;
-- manifest construction fails on unsafe/noncanonical names, duplicate members,
-  encryption, compression, malformed headers, archive mutation, or a missing exact
-  archive set when full mode is requested;
+- manifest construction fails on unsafe/noncanonical names, duplicate members
+  within an archive, cross-archive copies whose size/CRC conflict, encryption,
+  compression, malformed headers, archive mutation, or a missing exact archive
+  set. Identical cross-archive occurrences remain auditable and route to the
+  lowest-numbered archive;
 - the unified blob store supplies bytes to six-camera, keyframe LiDAR, and all
   requested multi-sweep paths; image decode uses `PIL.Image` over `BytesIO`, LiDAR
   uses `numpy.frombuffer(...).copy()`;
@@ -90,8 +99,8 @@ Added:
   loader wait/throughput profiler.
 - `fl_v3/scripts/s01_nuscenes_zip_smoke.py` and
   `run_s01_nuscenes_zip_smoke.sh` — exact bounded real-data lifecycle smoke.
-- `fl_v3/scripts/run_s01_nuscenes_zip_full_gate.sh` — prepared full gate only; not
-  approved or submitted.
+- `fl_v3/scripts/run_s01_nuscenes_zip_full_gate.sh` — full gate launcher; approved
+  attempt `332648` failed during v1 manifest construction and was not retried.
 - `fl_v3/tests/test_nuscenes_zip_{backend,dataset,info_cache}.py` — stored-ZIP
   safety/integrity, directory/ZIP byte+decoded parity, keyframe/10-sweep routing,
   fork/spawn/persistent lifecycle, module layout, and no-payload-probe cache tests.
@@ -143,7 +152,7 @@ persistent PID/handle lifecycle.
 |---|---|---|
 | Canonical module and `NUSCENES_DATA_DIR` | PASS (bounded real) | GH200 job resolved module root and `trainval/` tables, 34,149 sample metadata |
 | Preserve directory mode | PASS (implementation/static) | directory store retained; existing dataset paths remain supported |
-| Manifest trainval01..10 | PASS (implementation), NOT RUN full | exact-ten mode implemented; only trainval01 indexed in job 330409 |
+| Manifest trainval01..10 | FAILED attempt; v2 fix local | job 332648 exposed a cross-archive repeated path in trainval02; v2 identical-copy handling awaits a new approved run |
 | Worker-safe lazy handles/reopen | PASS (bounded real) | stable two persistent PIDs, per-process state, expected one post-fork reset, no epoch reopen |
 | Six cameras/key LiDAR/requested sweeps use byte readers | PASS (bounded real) | 24 + 4 + 36 selected real references decoded/CRC checked |
 | Info cache without extraction | PASS (implementation/static), NOT RUN full | metadata filename path implemented; full train/val 10-sweep cache pending |
@@ -191,7 +200,13 @@ in `RUN_REQUEST.md`. Artifact/log hashes are recorded in `RESULTS.md`; notably:
 - Central-directory indexing is one-time, but random payload reads may still suffer
   filesystem amplification. Only the pending full-data profiler can quantify it.
 - Full ten-archive duplicate/canonical/member coverage and archive mutation checks
-  have not been exercised against the shared data as a whole.
+  have not completed. Job 332648 stopped in trainval02 because the v1 schema could
+  not represent a cross-archive repeated path. It did not establish whether the
+  copies have identical content metadata.
+- The local v2 correction retains all archive occurrences, permits only matching
+  path+size+CRC copies, and routes reads to the lowest archive. Synthetic identical
+  and conflicting cases pass, but shared-data v2 behavior is unverified until a
+  separately approved follow-up.
 - The full 10-sweep info cache and its exact train/val reference reconciliation are
   unbuilt. Permission/output-directory callers outside the owned data path have not
   been changed.
@@ -221,12 +236,13 @@ Forbidden claims:
 
 ## Requested owner/S00 decisions
 
-1. If S01-R should begin, explicitly authorize a local handoff commit/branch for
-   this exact uncommitted version so the reviewer can receive a durable `WORKER_SHA`.
-   This request does not include merge, push, upload, or publication.
-2. Decide whether to authorize a separate exact full-gate `RUN_REQUEST.md` for the
+1. The owner authorized and S01 created the local branch/implementation commit
+   above. No merge or push permission is implied.
+2. Decide whether to authorize the separate exact full-gate scope appended to
+   `RUN_REQUEST.md` for the
    ten-archive manifest, full train/val 10-sweep cache+coverage audit, real parity
-   test execution, and bounded throughput/data-wait profile. The prepared two-hour
-   launcher exceeds the autonomous smoke boundary and was deliberately not run.
+   evidence, and bounded throughput/data-wait profile. The proposed CLI overrides
+   the launcher's two-hour default with a 95-minute hard limit; it exceeds O-009's
+   per-job 60-minute autonomous boundary and was deliberately not run.
 3. Until those decisions and independent review, keep S01/S07 full-data readiness
    blocked and preserve all forbidden interpretations above.

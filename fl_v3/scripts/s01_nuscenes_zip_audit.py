@@ -162,6 +162,8 @@ def main() -> None:
         "manifest_hash": summary["manifest_hash"],
         "manifest_archive_count": summary["archive_count"],
         "manifest_member_count": summary["member_count"],
+        "manifest_unique_member_count": summary["unique_member_count"],
+        "manifest_duplicate_occurrence_count": summary["duplicate_occurrence_count"],
         "cache_dir": os.path.abspath(args.cache_dir),
         "metadata_total_samples": len(nusc.sample),
         "n_sweeps_total_including_keyframe": args.n_sweeps,

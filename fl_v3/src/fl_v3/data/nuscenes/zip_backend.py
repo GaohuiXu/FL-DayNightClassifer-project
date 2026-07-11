@@ -13,8 +13,12 @@ step from the hot read path:
   for members actually read; archive descriptors are lazy and process-owned.
 
 No extraction API exists in this module.  Every blob read is length- and CRC-
-checked, member paths are canonical DATAROOT-relative POSIX paths, and ZIPs with
-compression/encryption/duplicate names are rejected when the manifest is built.
+checked, and member paths are canonical DATAROOT-relative POSIX paths. ZIPs with
+compression, encryption, duplicate names within one archive, or conflicting
+cross-archive copies are rejected. Identical cross-archive copies (same path,
+length, and CRC) are retained as auditable occurrences and routed to the first
+archive deterministically. This supports sharded datasets with shared boundary
+members while preserving a fail-closed content-equivalence check.
 """
 from __future__ import annotations
 
@@ -33,7 +37,7 @@ from collections import OrderedDict
 from typing import Iterable, Sequence
 
 
-MANIFEST_FORMAT_VERSION = "s01.nuscenes-zip.v1"
+MANIFEST_FORMAT_VERSION = "s01.nuscenes-zip.v2"
 TRAINVAL_ARCHIVE_NAMES = tuple(f"trainval{i:02d}_blobs.zip" for i in range(1, 11))
 _LOCAL_FILE_HEADER = struct.Struct("<4s5H3I2H")
 _LOCAL_FILE_SIGNATURE = b"PK\x03\x04"
@@ -126,14 +130,15 @@ def _create_manifest_schema(conn: sqlite3.Connection) -> None:
             member_count INTEGER NOT NULL
         );
         CREATE TABLE members (
-            path TEXT PRIMARY KEY,
+            path TEXT NOT NULL,
             archive_id INTEGER NOT NULL,
             header_offset INTEGER NOT NULL,
             file_size INTEGER NOT NULL,
             crc32 INTEGER NOT NULL,
             compression INTEGER NOT NULL,
             flags INTEGER NOT NULL,
-            FOREIGN KEY (archive_id) REFERENCES archives(archive_id)
+            FOREIGN KEY (archive_id) REFERENCES archives(archive_id),
+            PRIMARY KEY (path, archive_id)
         ) WITHOUT ROWID;
         CREATE INDEX members_archive_idx ON members(archive_id);
         """
@@ -236,7 +241,7 @@ def build_zip_manifest(
                                 )
                             except sqlite3.IntegrityError as exc:
                                 raise ZipManifestError(
-                                    f"duplicate ZIP member (including cross-archive duplicate) while scanning {name!r}"
+                                    f"duplicate ZIP member within archive {name!r}"
                                 ) from exc
                             member_rows.clear()
                     if member_rows:
@@ -249,7 +254,7 @@ def build_zip_manifest(
                             )
                         except sqlite3.IntegrityError as exc:
                             raise ZipManifestError(
-                                f"duplicate ZIP member (including cross-archive duplicate) while scanning {name!r}"
+                                f"duplicate ZIP member within archive {name!r}"
                             ) from exc
             except zipfile.BadZipFile as exc:
                 raise ZipManifestError(f"invalid ZIP archive: {archive_path!r}") from exc
@@ -262,6 +267,32 @@ def build_zip_manifest(
                 {"archive_id": archive_id, "name": name, "size_bytes": archive_size, "member_count": member_count}
             )
 
+        # The licensed trainval shards were observed to repeat some paths across
+        # archives. Keep every occurrence so archive coverage remains auditable,
+        # but fail closed if two copies do not have the same central-directory
+        # size and CRC. Runtime routing then picks the lowest archive_id.
+        conflicting = list(
+            conn.execute(
+                "SELECT path,COUNT(*),MIN(file_size),MAX(file_size),MIN(crc32),MAX(crc32) "
+                "FROM members GROUP BY path "
+                "HAVING MIN(file_size) != MAX(file_size) OR MIN(crc32) != MAX(crc32) "
+                "ORDER BY path LIMIT 10"
+            )
+        )
+        if conflicting:
+            preview = "; ".join(
+                f"{path!r} occurrences={count} size={min_size}..{max_size} "
+                f"crc={min_crc:08x}..{max_crc:08x}"
+                for path, count, min_size, max_size, min_crc, max_crc in conflicting
+            )
+            raise ZipManifestError(
+                "conflicting cross-archive ZIP copies (same path but different size/CRC): "
+                + preview
+            )
+        unique_members = int(
+            conn.execute("SELECT COUNT(DISTINCT path) FROM members").fetchone()[0]
+        )
+        duplicate_occurrences = total_members - unique_members
         manifest_hash = digest.hexdigest()
         metadata = {
             "format_version": MANIFEST_FORMAT_VERSION,
@@ -269,6 +300,8 @@ def build_zip_manifest(
             "archive_names": json.dumps(names, separators=(",", ":")),
             "archive_count": str(len(names)),
             "member_count": str(total_members),
+            "unique_member_count": str(unique_members),
+            "duplicate_occurrence_count": str(duplicate_occurrences),
         }
         conn.executemany("INSERT INTO metadata (key,value) VALUES (?,?)", sorted(metadata.items()))
         conn.commit()
@@ -282,6 +315,8 @@ def build_zip_manifest(
             "manifest_hash": manifest_hash,
             "archive_count": len(names),
             "member_count": total_members,
+            "unique_member_count": unique_members,
+            "duplicate_occurrence_count": duplicate_occurrences,
             "archives": archive_reports,
         }
     except BaseException:
@@ -336,6 +371,12 @@ def manifest_summary(manifest_path: str) -> dict:
             archive["member_count"] for archive in archives
         ):
             raise ZipManifestError("manifest member_count does not match archive rows")
+        unique_members = int(metadata["unique_member_count"])
+        duplicate_occurrences = int(metadata["duplicate_occurrence_count"])
+        if unique_members < 0 or duplicate_occurrences < 0:
+            raise ZipManifestError("manifest unique/duplicate member counts must be nonnegative")
+        if unique_members + duplicate_occurrences != int(metadata["member_count"]):
+            raise ZipManifestError("manifest unique + duplicate counts do not match member_count")
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise ZipManifestError(f"invalid ZIP manifest metadata: {manifest_path!r}") from exc
     return {
@@ -343,6 +384,8 @@ def manifest_summary(manifest_path: str) -> dict:
         "manifest_hash": metadata["manifest_hash"],
         "archive_count": int(metadata["archive_count"]),
         "member_count": int(metadata["member_count"]),
+        "unique_member_count": unique_members,
+        "duplicate_occurrence_count": duplicate_occurrences,
         "archive_names": archive_names,
         "archives": archives,
     }
@@ -515,6 +558,14 @@ class NuScenesBlobStore:
                 raise ZipManifestError("manifest archive_names do not match archive rows")
             if int(metadata["member_count"]) != sum(int(row[3]) for row in archive_rows):
                 raise ZipManifestError("manifest member_count does not match archive rows")
+            unique_members = int(metadata["unique_member_count"])
+            duplicate_occurrences = int(metadata["duplicate_occurrence_count"])
+            if unique_members < 0 or duplicate_occurrences < 0:
+                raise ZipManifestError("manifest unique/duplicate member counts must be nonnegative")
+            if unique_members + duplicate_occurrences != int(metadata["member_count"]):
+                raise ZipManifestError(
+                    "manifest unique + duplicate counts do not match member_count"
+                )
             for archive_id, name, size_bytes, _member_count in archive_rows:
                 safe_name = _archive_name(name)
                 archive_path = os.path.join(self.dataroot, safe_name)
@@ -563,10 +614,14 @@ class NuScenesBlobStore:
             placeholders = ",".join("?" for _ in missing_lookup)
             rows = conn.execute(
                 f"SELECT path,archive_id,header_offset,file_size,crc32,compression,flags "
-                f"FROM members WHERE path IN ({placeholders})",
+                f"FROM members WHERE path IN ({placeholders}) ORDER BY path,archive_id",
                 tuple(missing_lookup),
             )
             for path, archive_id, header_offset, file_size, crc32, compression, flags in rows:
+                if str(path) in result:
+                    # Identical cross-archive copy; the first/lowest archive_id
+                    # is the deterministic runtime route.
+                    continue
                 location = (
                     int(archive_id),
                     int(header_offset),
@@ -824,10 +879,12 @@ def manifest_member_counts(manifest_path: str, rel_paths: Iterable[str]) -> dict
                 continue
             rows = conn.execute(
                 f"SELECT members.path,archives.name FROM members JOIN archives USING(archive_id) "
-                f"WHERE members.path IN ({placeholders})",
+                f"WHERE members.path IN ({placeholders}) "
+                f"ORDER BY members.path,members.archive_id",
                 chunk,
             )
-            found.update((str(path), str(archive)) for path, archive in rows)
+            for path, archive in rows:
+                found.setdefault(str(path), str(archive))
     except sqlite3.DatabaseError as exc:
         raise ZipManifestError(f"invalid ZIP manifest: {manifest_path!r}") from exc
     finally:

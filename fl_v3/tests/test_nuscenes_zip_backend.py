@@ -18,6 +18,7 @@ from fl_v3.data.nuscenes.zip_backend import (
     ZipManifestError,
     build_zip_manifest,
     canonical_member_path,
+    manifest_archive_sentinels,
     manifest_member_counts,
     manifest_summary,
 )
@@ -62,6 +63,8 @@ def test_manifest_exact_ten_archives_and_pread_roundtrip(tmp_path):
 
     assert report["archive_count"] == 10
     assert report["member_count"] == 10
+    assert report["unique_member_count"] == 10
+    assert report["duplicate_occurrence_count"] == 0
     summary = manifest_summary(str(manifest))
     assert summary["archive_names"] == TRAINVAL_ARCHIVE_NAMES
     assert summary["manifest_hash"] == report["manifest_hash"]
@@ -96,12 +99,31 @@ def test_manifest_coverage_counts_references_and_unique(tmp_path):
     assert report["missing_unique_members"] == ["missing.bin"]
 
 
-def test_manifest_rejects_duplicate_member_across_archives(tmp_path):
+def test_manifest_routes_identical_duplicate_member_across_archives(tmp_path):
+    root = tmp_path / "data"
+    root.mkdir()
+    _write_zip(root / "a.zip", [("samples/CAM_FRONT/a.jpg", b"one")])
+    _write_zip(root / "b.zip", [("samples/CAM_FRONT/a.jpg", b"one")])
+    manifest = tmp_path / "manifest.sqlite"
+    report = build_zip_manifest(str(root), str(manifest), ["a.zip", "b.zip"])
+    assert report["member_count"] == 2
+    assert report["unique_member_count"] == 1
+    assert report["duplicate_occurrence_count"] == 1
+    assert manifest_archive_sentinels(str(manifest)) == {
+        "a.zip": "samples/CAM_FRONT/a.jpg",
+        "b.zip": "samples/CAM_FRONT/a.jpg",
+    }
+    store = NuScenesBlobStore(str(root), manifest_path=str(manifest))
+    assert store.read_bytes("samples/CAM_FRONT/a.jpg") == b"one"
+    assert store.debug_state()["open_archives"] == ("a.zip",)
+
+
+def test_manifest_rejects_conflicting_member_across_archives(tmp_path):
     root = tmp_path / "data"
     root.mkdir()
     _write_zip(root / "a.zip", [("samples/CAM_FRONT/a.jpg", b"one")])
     _write_zip(root / "b.zip", [("samples/CAM_FRONT/a.jpg", b"two")])
-    with pytest.raises(ZipManifestError, match="duplicate ZIP member"):
+    with pytest.raises(ZipManifestError, match="conflicting cross-archive"):
         build_zip_manifest(str(root), str(tmp_path / "manifest.sqlite"), ["a.zip", "b.zip"])
 
 
@@ -113,7 +135,7 @@ def test_manifest_rejects_duplicate_member_within_one_archive(tmp_path):
             root / "a.zip",
             [("samples/CAM_FRONT/a.jpg", b"one"), ("samples/CAM_FRONT/a.jpg", b"two")],
         )
-    with pytest.raises(ZipManifestError, match="duplicate ZIP member"):
+    with pytest.raises(ZipManifestError, match="duplicate ZIP member within archive"):
         build_zip_manifest(str(root), str(tmp_path / "manifest.sqlite"), ["a.zip"])
 
 

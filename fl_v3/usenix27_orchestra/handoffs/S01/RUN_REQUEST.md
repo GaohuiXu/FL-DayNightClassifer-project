@@ -123,3 +123,151 @@ any attack/defense claim.
 - Outputs and checksums are recorded in `RESULTS.md`. The job stayed within O-009;
   no array, DDP, multi-node, full scan/profile, epoch/eval, matrix, seed expansion,
   rerun, or automatic resubmission occurred.
+
+---
+
+# S01 RUN_REQUEST — complete trainval ZIP coverage and loader gate
+
+## Approval state
+
+- **Status:** `APPROVED_FOR_THIS_EXACT_FULL_GATE`.
+- **Exact owner approval:** the owner message in the active S01 task on 2026-07-11
+  approved commit `011e4640d26330e2c8145fcdb56833fe19e7b67d`, one GH200,
+  32 CPUs, walltime `01:35:00`, maximum 1.583 GPU-hours, the specified output
+  directory, and no automatic resubmission.
+- This job exceeds O-009's autonomous per-job walltime ceiling of 60 minutes; the
+  approval above is the explicit owner-authorized expansion for this exact job.
+- It remains one node, one GPU, one job, no array/DDP/seeds/retry. Its requested
+  1.583 GPU-hours plus the earlier smoke's requested 0.333 GPU-hours remains below
+  the two-GPU-hour cumulative ceiling (1.916 GPU-hours maximum requested).
+
+## Immutable execution identity
+
+- Git branch: `codex/s01-nuscenes-zip-backend`.
+- Exact commit: `011e4640d26330e2c8145fcdb56833fe19e7b67d`.
+- Commit tree: `3bf7344a6afa1b381162e43581c0f550a2924f79`.
+- Full-gate runtime source-state SHA-256:
+  `7c601b2818acec028c2d350e5feee9320021244417f9a75c3e516b232ad379df`.
+  It hashes the sorted per-file SHA-256 list for the complete nuScenes data module,
+  cache builder, manifest/audit/benchmark tools, and full-gate launcher.
+- No model, checkpoint, resolved experiment config, scientific seed, training, or
+  evaluation is involved.
+
+## Exact data and validation scope
+
+1. Load `nuScenes-data/1.0-map-1.3-zip` and resolve the module-provided
+   `NUSCENES_DATA_DIR` read-only root.
+2. Scan the central directories of exactly `trainval01_blobs.zip` through
+   `trainval10_blobs.zip` once and atomically build an external read-only SQLite
+   member manifest. Reject compression, encryption, duplicates within one archive,
+   conflicting cross-archive copies, noncanonical names, malformed archives, or
+   archive mutation. Identical cross-archive copies are retained as occurrences and
+   routed deterministically.
+3. Build extraction-free 10-sweep info caches for official train (28,130 samples)
+   and val (6,019 samples) from metadata.
+4. Reconcile every cache path against a fresh metadata traversal and the manifest:
+   204,894 six-camera references, 34,149 key `LIDAR_TOP` references, and every
+   actually requested previous sweep (up to nine per sample). Require zero missing
+   members, exact train/val counts and disjointness, correct sensor prefixes, and
+   matching cache hashes.
+5. Read and CRC-check one deterministic payload sentinel from every one of the ten
+   archives through the production `pread` path. This demonstrates every archive
+   can serve payload bytes; it intentionally does not read/CRC every one of the
+   millions of blobs, which would create unnecessary shared-filesystem load.
+6. Profile decoded 10-sweep train samples at 0, 2, 4, and 8 DataLoader workers,
+   two persistent-worker repeats each: 32 deterministic batches, 16 warm-up
+   batches, and 256 measured batches per repeat. This decodes 2,432 sample reads in
+   total and emits samples/s plus batch-wait p50/p95/min/max and cold/warm behavior.
+7. Hash the manifest, train/val caches and metadata, coverage JSON, and loader
+   profile JSON. No extraction or write beneath the shared dataset is permitted.
+
+## Exact resources, command, and outputs
+
+- Nodes: 1.
+- GPU: 1 x GH200, used to access the validated aarch64 environment; there is no
+  model/GPU computation.
+- CPUs: 32.
+- Walltime hard limit: `01:35:00` (the CLI overrides the launcher's conservative
+  two-hour template default).
+- Requested GPU budget: 1.583 GPU-hours maximum.
+- Expected elapsed usage: approximately 0.75-1.25 GPU-hours; this is an estimate,
+  not evidence. The 95-minute hard cap is authoritative.
+- Concurrent S01 jobs: one maximum; no array, DDP, multi-node, seed expansion,
+  automatic resubmission, or follow-on cell.
+- Exact output root (must not exist before submission):
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_011e4640d263`.
+- Logs:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s01_zip_gate_%j.{out,err}`.
+
+Exact proposed submission:
+
+```bash
+test "$(git rev-parse HEAD)" = "011e4640d26330e2c8145fcdb56833fe19e7b67d" && \
+test -z "$(git status --short --untracked-files=no -- \
+  fl_v3/src/fl_v3/data/nuscenes \
+  fl_v3/scripts/build_nuscenes_cache.py \
+  fl_v3/scripts/s01_nuscenes_zip_manifest.py \
+  fl_v3/scripts/s01_nuscenes_zip_audit.py \
+  fl_v3/scripts/s01_nuscenes_zip_benchmark.py \
+  fl_v3/scripts/run_s01_nuscenes_zip_full_gate.sh)" && \
+sbatch --time=01:35:00 \
+  --export=ALL,S01_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_011e4640d263 \
+  fl_v3/scripts/run_s01_nuscenes_zip_full_gate.sh
+```
+
+## Estimated stage timing and stop conditions
+
+- Ten central-directory scans + manifest: estimated 10-25 minutes.
+- Full train/val 10-sweep cache + reference audit: estimated 10-25 minutes.
+- Four worker-count profiles and artifact hashing: estimated 15-40 minutes.
+- Expected total: about 45-75 minutes, with 95 minutes as the hard stop. These are
+  planning estimates derived partly from the bounded one-archive smoke and must not
+  be reported as measured throughput.
+
+The job fails immediately on identity/output-path mismatch, module/access error,
+archive/schema/integrity violation, cache disagreement, any missing reference,
+train/val overlap/count mismatch, unreadable archive sentinel, nondeterministic
+decoded hashes, output collision, or walltime. There is no automatic retry. A
+timeout or failure is a negative result and requires a new owner decision before
+any follow-up job.
+
+## Acceptance and interpretation boundary
+
+Pass requires exact ten-archive manifest coverage, zero missing official train/val
+camera/key/sweep references, ten readable archive sentinels, deterministic decoded
+hashes across worker counts/repeats, and an emitted loader wait/throughput report
+with durable hashes.
+
+Allowed interpretation after a pass: all official train/val paths requested by the
+10-sweep data pipeline are represented in the shared stored archives, all ten
+archives can serve real payload bytes, and bounded production-loader performance is
+measured on the declared GH200 node/runtime.
+
+Forbidden interpretation: every payload received a full CRC scan; scientific/model
+readiness; acceptable end-to-end GPU utilization; model quality; or any FL,
+attack/defense, metric, or publication claim. Independent S01-R remains mandatory.
+
+## Execution record — failed attempt 332648
+
+- Submitted once after the exact owner approval; Slurm job `332648`, node `n569`.
+- Submit/start/end: `2026-07-11T04:57:36` / `04:57:37` / `04:58:47`.
+- State/elapsed/exit: `FAILED`, `00:01:10`, `1:0`.
+- Failure stage: manifest construction while scanning
+  `trainval02_blobs.zip`; SQLite rejected a path already present from an earlier
+  archive under the v1 `path PRIMARY KEY` schema.
+- No manifest, cache, coverage report, profile, or checksum artifact completed.
+  The output root contains only the empty `info_cache_msweep10/` directory created
+  by the launcher before the manifest command.
+- Batch-step resources: `MaxRSS=792M`, `MaxVMSize=6214208K`,
+  `MaxDiskRead=140.03M`, `MaxDiskWrite=0.28M`, `TotalCPU=00:11.949`.
+- Actual allocation was approximately 0.0194 GPU-hours. No retry or follow-up job
+  was submitted.
+- Negative conclusion: the shared layout contains at least one path occurrence in
+  multiple archives. This attempt did not determine whether those copies have
+  identical size/CRC, and it provides no full-coverage or throughput result.
+- stdout SHA-256:
+  `5f73f4b10fb5c4940fadcf375d9dbfbce4947da396fa1efd28f46a9772f6bc4b`.
+- stderr SHA-256:
+  `7b232bac2b86f95c23709cc70fbb87fbeb6ebfcabb83b7b3324cb155de97ff47`.
+- Any v2 follow-up requires a new immutable commit, a revised exact request, and
+  fresh owner approval. This record does not authorize resubmission.
