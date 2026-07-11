@@ -225,31 +225,35 @@ class SECONDSparseBackbone(nn.Module):
         self.stem = sparse_norm_act(
             in_channels, 16, padding=1, indice_key="second_stem", subm=True
         )
-        self.stage1 = spconv.SparseSequential(
+        # Custom residual blocks must be called explicitly. spconv.SparseSequential
+        # treats an arbitrary nn.Module as a dense feature-only module and calls it
+        # with ``input.features``; _SparseResidualBlock consumes/returns the complete
+        # SparseConvTensor to preserve indices and residual semantics.
+        self.stage1 = nn.ModuleList((
             _SparseResidualBlock(16, "second_s1"),
             _SparseResidualBlock(16, "second_s1"),
-            sparse_norm_act(
-                16, 32, stride=(2, 2, 2), padding=(1, 1, 1), indice_key="second_down1"
-            ),
+        ))
+        self.down1 = sparse_norm_act(
+            16, 32, stride=(2, 2, 2), padding=(1, 1, 1), indice_key="second_down1"
         )
-        self.stage2 = spconv.SparseSequential(
+        self.stage2 = nn.ModuleList((
             _SparseResidualBlock(32, "second_s2"),
             _SparseResidualBlock(32, "second_s2"),
-            sparse_norm_act(
-                32, 64, stride=(2, 2, 2), padding=(1, 1, 1), indice_key="second_down2"
-            ),
+        ))
+        self.down2 = sparse_norm_act(
+            32, 64, stride=(2, 2, 2), padding=(1, 1, 1), indice_key="second_down2"
         )
-        self.stage3 = spconv.SparseSequential(
+        self.stage3 = nn.ModuleList((
             _SparseResidualBlock(64, "second_s3"),
             _SparseResidualBlock(64, "second_s3"),
-            sparse_norm_act(
-                64, 128, stride=(2, 2, 2), padding=(0, 1, 1), indice_key="second_down3"
-            ),
+        ))
+        self.down3 = sparse_norm_act(
+            64, 128, stride=(2, 2, 2), padding=(0, 1, 1), indice_key="second_down3"
         )
-        self.stage4 = spconv.SparseSequential(
+        self.stage4 = nn.ModuleList((
             _SparseResidualBlock(128, "second_s4"),
             _SparseResidualBlock(128, "second_s4"),
-        )
+        ))
         self.conv_out = sparse_norm_act(
             128,
             contract.sparse_output_channels,
@@ -263,17 +267,26 @@ class SECONDSparseBackbone(nn.Module):
     def _shape(x) -> tuple[int, int, int]:
         return tuple(int(v) for v in x.spatial_shape)
 
+    @staticmethod
+    def _run_residual_stage(blocks: nn.ModuleList, x):
+        for block in blocks:
+            x = block(x)
+        return x
+
     def forward(self, x):
         shapes: list[tuple[int, int, int]] = []
         x = self.stem(x)
         shapes.append(self._shape(x))
-        x = self.stage1(x)
+        x = self._run_residual_stage(self.stage1, x)
+        x = self.down1(x)
         shapes.append(self._shape(x))
-        x = self.stage2(x)
+        x = self._run_residual_stage(self.stage2, x)
+        x = self.down2(x)
         shapes.append(self._shape(x))
-        x = self.stage3(x)
+        x = self._run_residual_stage(self.stage3, x)
+        x = self.down3(x)
         shapes.append(self._shape(x))
-        x = self.stage4(x)
+        x = self._run_residual_stage(self.stage4, x)
         shapes.append(self._shape(x))
         x = self.conv_out(x)
         shapes.append(self._shape(x))

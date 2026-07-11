@@ -72,6 +72,19 @@ def _encoder(SparseVoxelEncoder, *, fp16: bool = False, train_cap: int = 128, ev
 def test_sparse_second_shape_stats_backward_and_reduced_occupancy():
     SparseVoxelEncoder = _sparse_encoder_or_skip()
     enc = _encoder(SparseVoxelEncoder).train()
+    import spconv.pytorch as spconv
+
+    # Regression for Job 335566: a custom residual inside SparseSequential is
+    # called as module(input.features), so it receives Tensor rather than
+    # SparseConvTensor. Residual stages must be explicitly forwarded ModuleLists.
+    for stage_name in ("stage1", "stage2", "stage3", "stage4"):
+        stage = getattr(enc.backbone, stage_name)
+        assert isinstance(stage, torch.nn.ModuleList)
+        assert all(not isinstance(block, spconv.SparseSequential) for block in stage)
+    for module in enc.backbone.modules():
+        if isinstance(module, spconv.SparseSequential):
+            assert not any(type(child).__name__ == "_SparseResidualBlock" for child in module.children())
+
     enc.record_debug = True
     pts = _points(torch.device("cuda:0"))
 
