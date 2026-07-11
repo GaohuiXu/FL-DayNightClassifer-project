@@ -2,7 +2,47 @@
 
 ## Approval state
 
-`PENDING_S00_REAUDIT_DO_NOT_SUBMIT`
+`PENDING_S00_SCHEDULER_REMEDIATION_REVIEW_DO_NOT_SUBMIT`
+
+S00 approved the exact executable/request tuple recorded below.  S03 performed
+all preflight checks and invoked the approved command once at
+`2026-07-11T18:17` Europe/Stockholm.  Slurm rejected the submission before job
+creation:
+
+```text
+sbatch: error: Batch job submission failed: Invalid account or account/partition combination specified
+```
+
+No job ID was returned; `squeue` and `sacct` contain no S03 job; the output root
+and Slurm logs were not created; actual GPU allocation is zero.  The exact-once
+approval is consumed.  There is no retry/requeue/resubmission/follow-on
+authorization.
+
+Read-only diagnosis found that every active Arrhenius GPU launcher inspected uses
+both `#SBATCH -A naiss2025-22-1113-gpu` and `#SBATCH -p gpu`, while the consumed S03
+launcher omitted both.  S00 subsequently authorized preparation only of a fresh
+scheduler-remediation request: add exactly those two directives, preserve all
+camera/test/resource/provenance/acceptance scope, and use a new output identity.
+That preparation is not compute approval and is not an automatic resubmission.
+S03 must stop after committing and wait for a new exact S00 approval.
+
+Consumed rejected-attempt identity (preserved, never reusable):
+
+- executable HEAD: `871db182c5fdcdda46e242d911ac9dcbf393683a`;
+- implementation: `6dfd2c775f54e488f3930996b303ce21f9b8e8b7`;
+- RUN_REQUEST SHA-256:
+  `bd33d91f65558ba97a4ab24f80783133349a8d39b6efa02c925ebd238525b547`;
+- launcher SHA-256:
+  `9473b830776d478c14c55bcb4991bed329a8273cab6c04bbc8681649f33addfc`;
+- source-list SHA-256:
+  `d4eb8d29da926c88bbcf5c9bbbf9b3e9197f9eda4478ea956ec4c7cfaf664742`;
+- source-state SHA-256:
+  `71b0c708325548ad9d09e68e41a0f225bc81f741fd9b4924938317ed591b5b9f`;
+- output identity:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_6dfd2c775f54`.
+
+The client-side rejection produced no job ID, allocation, output, or logs and used
+zero GPU-hours.  It was not a runtime, CUDA, test, or model failure.
 
 S00 returned the first request for provenance remediation without approving
 compute: its exact `sbatch` body existed only as a mutable Markdown here-doc and
@@ -20,7 +60,7 @@ one `sbatch`.
 - Durable launcher:
   `fl_v3/usenix27_orchestra/handoffs/S03/run_s03_camera_contract.sh`.
 - Launcher SHA-256:
-  `9473b830776d478c14c55bcb4991bed329a8273cab6c04bbc8681649f33addfc`.
+  `d6f236d35f290b4552f3c3e93bb2d92438481100c8fa7726812ea0d658d12983`.
 - Executable HEAD: the commit containing this final request plus the launcher.
   Its SHA cannot be embedded in its own tree; S03 reports it after commit and S00
   binds it externally through `EXPECTED_S03_EXECUTABLE_SHA`.
@@ -69,7 +109,7 @@ fl_v3/usenix27_orchestra/handoffs/S03/run_s03_camera_contract.sh
 - C-locale sorted source-list SHA-256:
   `d4eb8d29da926c88bbcf5c9bbbf9b3e9197f9eda4478ea956ec4c7cfaf664742`.
 - SHA-256 of the corresponding `sha256sum` source-state file:
-  `71b0c708325548ad9d09e68e41a0f225bc81f741fd9b4924938317ed591b5b9f`.
+  `6163d27c7f264902a1ac7688b4a13a704d2b98fc6597ca39c0da8b2a115157c1`.
 
 `RUN_REQUEST.md` is not part of that aggregate because its final hash is a
 separate mandatory externally approved input.  Including both its hash and the
@@ -101,6 +141,7 @@ seed campaign, or scientific result.
 ## Resources, output, and command contract
 
 - One job; one node; one `nvidia_gh200_120gb`; eight CPUs.
+- Account `naiss2025-22-1113-gpu`; partition `gpu`.
 - Walltime `00:15:00`; maximum requested allocation 0.25 GPU-hours.
 - S03 cumulative GPU use before this request: 0 GPU-hours.
 - No array, DDP, concurrent S03 job, retry, requeue, resubmission, follow-on, or
@@ -109,7 +150,7 @@ seed campaign, or scientific result.
 Unique output root, required absent:
 
 ```text
-/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_6dfd2c775f54
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_schedfix_6dfd2c775f54
 ```
 
 Logs are fixed by committed `#SBATCH` directives:
@@ -128,10 +169,10 @@ EXPECTED_S03_EXECUTABLE_SHA=<post-commit 40-hex reported by S03>
 EXPECTED_S03_IMPLEMENTATION_SHA=6dfd2c775f54e488f3930996b303ce21f9b8e8b7
 EXPECTED_S03_BRANCH=codex/s03-camera-architecture
 EXPECTED_S03_SOURCE_LIST_SHA=d4eb8d29da926c88bbcf5c9bbbf9b3e9197f9eda4478ea956ec4c7cfaf664742
-EXPECTED_S03_SOURCE_SHA=71b0c708325548ad9d09e68e41a0f225bc81f741fd9b4924938317ed591b5b9f
-EXPECTED_S03_LAUNCHER_SHA=9473b830776d478c14c55bcb4991bed329a8273cab6c04bbc8681649f33addfc
+EXPECTED_S03_SOURCE_SHA=6163d27c7f264902a1ac7688b4a13a704d2b98fc6597ca39c0da8b2a115157c1
+EXPECTED_S03_LAUNCHER_SHA=d6f236d35f290b4552f3c3e93bb2d92438481100c8fa7726812ea0d658d12983
 EXPECTED_S03_RUN_REQUEST_SHA=<post-commit 64-hex reported by S03>
-S03_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_6dfd2c775f54
+S03_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_schedfix_6dfd2c775f54
 ```
 
 The only authorized submission form, if S00 later approves, is one `sbatch

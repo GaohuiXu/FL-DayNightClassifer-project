@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+#SBATCH -A naiss2025-22-1113-gpu
+#SBATCH -p gpu
 #SBATCH --job-name=flv3_s03_camera_contract
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:nvidia_gh200_120gb:1
@@ -23,7 +25,7 @@ set -euo pipefail
 
 readonly IMPLEMENTATION_SHA=6dfd2c775f54e488f3930996b303ce21f9b8e8b7
 readonly DELIVERY_BRANCH=codex/s03-camera-architecture
-readonly APPROVED_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_6dfd2c775f54
+readonly APPROVED_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_schedfix_6dfd2c775f54
 readonly SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 readonly SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 readonly REPO="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
