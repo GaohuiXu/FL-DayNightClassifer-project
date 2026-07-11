@@ -136,14 +136,22 @@ import sys
 import xml.etree.ElementTree as ET
 
 root = ET.parse(sys.argv[1]).getroot()
-tests = int(root.attrib.get("tests", 0))
-failures = int(root.attrib.get("failures", 0))
-errors = int(root.attrib.get("errors", 0))
-skipped = int(root.attrib.get("skipped", 0))
-if (tests, failures, errors, skipped) != (12, 0, 0, 0):
+suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
+if not suites:
+    raise SystemExit(f"JUnit contains no testsuite: root={root.tag}")
+counts = {
+    key: sum(int(suite.attrib.get(key, "0")) for suite in suites)
+    for key in ("tests", "failures", "errors", "skipped")
+}
+if tuple(counts[key] for key in ("tests", "failures", "errors", "skipped")) != (
+    12,
+    0,
+    0,
+    0,
+):
     raise SystemExit(
-        f"unexpected JUnit counts: tests={tests} failures={failures} "
-        f"errors={errors} skipped={skipped}"
+        "unexpected JUnit counts: "
+        + " ".join(f"{key}={value}" for key, value in counts.items())
     )
 PY
 
