@@ -1,9 +1,9 @@
-"""Camera backbone — frozen ImageNet Swin-T (D1) + ResNet-18 fallback (fl_v3 T2).
+"""Camera backbone — O-017 Swin-T taps plus legacy ResNet-18 support.
 
-Per the Architecture table + D1: the camera backbone is an **ImageNet-pretrained
-Swin-T**, **frozen** in the primary FL setting (all AD-specific learning is in the
-FL-trained LSS-depth / LiDAR / fusion / neck / head). **ResNet-18** is the fast
-bring-up fallback (11.7M vs 28.3M params; recommended for the T3 wall-clock bring-up).
+Swin-T exposes the four real feature stages at strides ``(4, 8, 16, 32)``.  The
+S03 FPN consumes every declared tap, so there is no computed-but-permanently-dead
+stage.  Whether the backbone is frozen or trainable remains an explicit constructor
+choice for later protocol integration; S03 does not silently encode a CL/FL policy.
 
 ## "Frozen means frozen through mode switches" (the D1/D6 trap)
 
@@ -139,6 +139,17 @@ class CameraBackbone(nn.Module):
         f3 = self._layer3(f2)
         f4 = self._layer4(f3)
         return [f1, f2, f3, f4]
+
+    def output_contract(self) -> dict:
+        """Return the immutable feature interface consumed by the camera FPN."""
+        return {
+            "backbone": self.name,
+            "layout": "NCHW",
+            "strides": list(self.strides),
+            "channels": list(self.out_channels),
+            "n_levels": len(self.strides),
+            "all_declared_levels_are_returned": True,
+        }
 
     def param_count(self) -> int:
         return sum(p.numel() for p in self.parameters())
