@@ -109,8 +109,8 @@ def test_submission_duplicate_geometry_orders_velocity_and_attribute_by_content(
     assert forward == reverse
     records = forward["results"]["sample-token"]
     assert [(record["velocity"], record["attribute_name"]) for record in records] == [
-        ([0.0, 0.0], "vehicle.parked"),
-        ([5.0, 0.0], "vehicle.moving"),
+        ((0.0, 0.0), "vehicle.parked"),
+        ((5.0, 0.0), "vehicle.moving"),
     ]
 
 
