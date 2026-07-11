@@ -15,11 +15,10 @@
   `753944c199ceeace160732218f1b16dfdd15ac21`.
 - Final delivery SHA: the commit containing this handoff; returned to S00 in the
   task response because a commit cannot embed its own SHA without changing it.
-- Worker self-assessment after scoped remediation and the first dependency-backed
-  runtime: **PASS for the three requested source findings and static gates; the
-  runtime gate is still pending because Job 336731 finished 43/44 after a
-  test-expectation-only tuple/list mismatch. Full-stack integration remains NOT
-  RUN**.
+- Worker self-assessment after scoped remediation and both dependency-backed
+  runtime jobs: **PASS for the three requested source findings, static gates, and
+  the corrected 44-case synthetic runtime gate. Independent final re-review
+  acceptance and full-stack integration remain pending/NOT RUN**.
   This is not an independent review, S07-B PASS, model-readiness PASS, or
   scientific PASS.
 
@@ -138,13 +137,46 @@ corrected test SHA-256 is
 `e938dd34656e3ae5f5e9019748bea52a3ccc5cb99144492d6bf9f45e79c203c0`.
 No production file changed.
 
-`RUN_REQUEST.md` and `run_s05r3_centerhead.sh` prepare one new immutable 44-case
-shared-one-GH200/15-minute request with fresh roots. Its status is
-`PENDING_S00_EXACT_OWNER_DELEGATED_S02_S05_VALIDATION_APPROVAL_DO_NOT_SUBMIT`;
-no sbatch/retry has occurred. This one-time focused rerun relies only on the
-owner's temporary delegation allowing S00 to approve necessary, reasonable
-validation-only S02-S05 Slurm jobs. It is explicitly not O-009, which excludes
-reruns, and does not expand or reinterpret O-009.
+`RUN_REQUEST.md` and `run_s05r3_centerhead.sh` prepared one immutable 44-case
+shared-one-GH200/15-minute request with fresh roots. S00 approved and submitted it
+exactly once under the owner's temporary delegation allowing S00 to approve
+necessary, reasonable validation-only S02-S05 Slurm jobs. It is explicitly not
+O-009, which excludes reruns, and does not expand or reinterpret O-009. No
+automatic retry or follow-on occurred.
+
+### Job 336738 focused rerun PASS
+
+- Exact executed delivery: `98b71eca7684b50ece69afc36175564c7c283033`;
+  execution SHA/tree: `96e509b71a3e22afb4de397132438fd3b9bbf5d8` /
+  `aeaaad044199492b81c4383a013f3fb3c6596c02`.
+- Approved request SHA-256:
+  `e4cb396bc550f08e92905903135f9ab0841ba1bd498f661ba731587a843a10b9`;
+  launcher SHA-256:
+  `b86271e81ec41443232afab6a6ada5d1dbebfa72027946cea6547ee5c01598e5`.
+- Approval class: `S00_OWNER_DELEGATED_S02_S05_VALIDATION_RERUN`.
+- Scheduler: **COMPLETED 0:0**, node `n411`, elapsed `00:01:13`, one shared
+  node/eight CPUs/exactly one GH200, batch MaxRSS `540M`.
+- Pytest/JUnit: **44 passed in 22.64s**; exact counts 44 tests, zero
+  failures/errors/skips; JUnit time `22.645s`.
+- The formerly failing duplicate-geometry velocity/attribute case passed without
+  weakening `forward == reverse` or exact tuple/attribute ordering.
+- All nine in-job checksum targets passed. No dataset, model/optimizer step,
+  metric, profile, array, DDP, retry, or follow-on occurred.
+
+| Job 336738 artifact | SHA-256 |
+|---|---|
+| stdout `s05r3_centerhead_336738.out` | `0cf6f1dc14ad07ef598076fb6ed067352bf71c789172f9babd5f1ed42d01ef87` |
+| stderr `s05r3_centerhead_336738.err` | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+| `approved_launcher.sh` | `b86271e81ec41443232afab6a6ada5d1dbebfa72027946cea6547ee5c01598e5` |
+| `approved_run_request.md` | `e4cb396bc550f08e92905903135f9ab0841ba1bd498f661ba731587a843a10b9` |
+| `snapshot_identity.txt` | `6c47a4252bb65c227ef795eecd161749e5260ce6821a5a638da7b5457ab0aa20` |
+| `runtime_source_files.txt` | `bea19dd528010020a462b18cfaeedd2642fd0e0a147ac458e215bdb8718b1857` |
+| `runtime_source_sha256s.txt` | `7ac7ea66485b319672e9b975ffcd38caa2c607f8932d1ca2acc2a9c5159823b1` |
+| `execution_identity.json` | `9e2dde2468f17d10b99c2992440029b347f4b4a220143c3aecce7c6b84a62aab` |
+| `slurm_allocation.txt` | `c76ffe8201b2025d7ed7b0cbf663fca8706073c10efee090fac0ed2347dba3d8` |
+| `pytest.log` | `4db65ef4592e61cf1886e49bef9649ba87803b6cf41bc45e84de6484645121d3` |
+| `pytest.junit.xml` | `bad9b34e02a4d7267cbbed4e2b4429c6498360a3c3317388fdc21f0be8206910` |
+| `sha256sums.txt` | `301c5c4feed506f0ae5c130b1036cfe0c0aaeacf81f947cf121a6136f7339077` |
 
 ## Frozen reference and exact semantics
 
@@ -305,9 +337,10 @@ The changed test set contains 31 test functions / 44 pytest cases covering:
   invalid labels/geometry, duplicate samples, and the 500-box cap.
 
 The x86_64 login interpreter reports `ModuleNotFoundError` for both `torch` and
-`pytest`. Job 336731 therefore ran the exact dependency-backed suite on GH200 and
-returned 43/44 with the preserved test-only container mismatch above. The corrected
-44-case rerun remains pending exact S00 approval and is not claimed PASS.
+`pytest`. Job 336731 ran the exact dependency-backed suite on GH200 and returned
+43/44 with the preserved test-only container mismatch above. Job 336738 then ran
+the corrected immutable suite and passed all 44 cases. This closes only the
+focused synthetic runtime gate.
 
 ## File hashes at original implementation commit
 
@@ -352,21 +385,21 @@ returned 43/44 with the preserved test-only container mismatch above. The correc
 | S05 gate | Worker status | Evidence / boundary |
 |---|---|---|
 | fixed reference/tasks/fields | PASS (code/static) | immutable reference hashes, six independent task heads |
-| no global/cross-class top-K starvation | PASS (code + authored hostile fixture) | per-class 500; no second task K; tail fixture authored, runtime not executed |
+| no global/cross-class top-K starvation | PASS | per-class 500; no second task K; hostile fixture passed Job 336738 |
 | deterministic tie order | PASS (code + authored fixture) | score/global-ID/flat-index total order |
-| fp16 head / forced-FP32 decode | IMPLEMENTED / RUNTIME NOT RUN | all fields promoted before decode; hostile adjacent-logit and threshold fixtures authored |
-| circle NMS semantics | PASS (code/static) | squared metres, inclusive comparison; runtime fixture pending |
-| rotate NMS geometry/determinism | PASS (actual-source geometry smoke) | known IoUs pass; Torch NMS fixtures not run |
-| duplicate/input permutation | IMPLEMENTED / RUNTIME NOT RUN | circle/rotate and content-permutation fixtures authored |
-| submission metric pairing order | IMPLEMENTED / RUNTIME NOT RUN | velocity/attribute complete key and reverse-input duplicate-geometry fixture authored |
-| exported NMS fail-closed boundary | IMPLEMENTED / RUNTIME NOT RUN | full canonical prevalidation and non-positive budget fixtures authored |
-| box/yaw/velocity encode/decode | IMPLEMENTED / RUNTIME NOT RUN | canonical round-trip fixture authored |
-| local/global/eval/submission conversion | IMPLEMENTED / RUNTIME NOT RUN | class/wlh/yaw/velocity/cap fixtures authored |
+| fp16 head / forced-FP32 decode | PASS | all fields promoted before decode; adjacent-logit/threshold/dtype fixtures passed Job 336738 |
+| circle NMS semantics | PASS | squared metres/inclusive comparison fixtures passed Job 336738 |
+| rotate NMS geometry/determinism | PASS (focused runtime) | known IoU and Torch wrapper fixtures passed Job 336738 |
+| duplicate/input permutation | PASS | circle/rotate/content-permutation fixtures passed Job 336738 |
+| submission metric pairing order | PASS | velocity/attribute total-key and reverse-input duplicate-geometry fixture passed Job 336738 |
+| exported NMS fail-closed boundary | PASS | canonical prevalidation and non-positive budget fixtures passed Job 336738 |
+| box/yaw/velocity encode/decode | PASS | canonical round-trip fixture passed Job 336738 |
+| local/global/eval/submission conversion | PASS (focused runtime) | class/wlh/yaw/velocity/cap fixtures passed Job 336738 |
 | task-local/global label mapping | PASS (code/static) | explicit name map; no cumulative offset code path |
 | loss/target consistency | INTERFACE FROZEN / INTEGRATION PENDING | regression encoder matches field order; Gaussian/losses.py remained S02-owned |
 | production detector/task wiring | NOT DONE BY CONTRACT | S07-B integration requirement |
-| material compute/scientific metric | NOT RUN / FORBIDDEN | no request or job |
-| independent S05-R | CHANGES-REQUESTED, SOURCE REMEDIATED; R2 RUNTIME 43/44, TEST-ONLY RERUN PENDING | original review `c818262`; exact source remediation `753944c`; Job 336731 negative preserved; tuple expectation fixed at `96e509b` |
+| focused compute/scientific metric | SYNTHETIC RUNTIME PASS / SCIENCE FORBIDDEN | exact Job 336738; no data/model step/metric/profile |
+| independent S05-R | SOURCE REMEDIATED; R2 NEGATIVE PRESERVED; R3 RUNTIME PASS; FINAL VERDICT PENDING | original review `c818262`; Job 336731 preserved; Job 336738 44/44 PASS |
 
 ## Required S07-B integration work
 
@@ -399,13 +432,14 @@ loaded as the O-018 model.
   canonical devkit IDs by name.
 - Static Python compilation, diff hygiene, ownership, and actual-source rotated-IoU
   golden geometry passed on the login node.
-- The authored fixtures precisely encode the required runtime review envelope.
+- Exact Job 336738 passed all 44 authored synthetic fixtures under the recorded
+  dependency-complete GH200 runtime and immutable execution identity.
 
 ## Forbidden interpretations
 
 - Multi-class decode is element-wise identical to official BEVFusion.
-- The Torch/pytest fixture suite passed: Job 336731 is a preserved 43/44 failure,
-  and the corrected rerun is pending approval.
+- Job 336731 passed or was erased: it remains a preserved 43/44 failure. Job
+  336738 separately passed the corrected immutable 44-case suite.
 - S05 is independently accepted: review `c818262` requested changes and the exact
   remediation still requires fresh independent re-review.
 - Target rendering or multi-task loss is integrated; `losses.py` remained read-only.
@@ -416,13 +450,12 @@ loaded as the O-018 model.
 
 ## Residual risks and requested S00 action
 
-- S00 should audit the exact test-only request and may authorize its single
-  44-case rerun. After the raw result is preserved, S05-R2/R3 should issue the
-  independent verdict from the exact execution SHA; no production re-review scope
-  or scientific interpretation is added by this tuple-only correction.
+- S05-R2/R3 should independently verify Job 336738 raw evidence and issue the
+  final verdict from execution SHA `96e509b`; no production re-review scope or
+  scientific interpretation is added by this tuple-only correction.
 - Preserve the distinction between pre-NMS candidate no-starvation and official
   task-wide NMS suppression/post-budget behavior.
 - Assign all detector/loss/config integration exclusively to reviewed S07-B/S06
   owners; do not repair those seams opportunistically in this worker branch.
-- Beyond the exact one-time pending 44-case request above, S05 requests no
-  additional rerun, compute, merge, push, upload, or scope expansion.
+- The exact one-time 44-case request is complete. S05 requests no additional
+  rerun, compute, merge, push, upload, or scope expansion.

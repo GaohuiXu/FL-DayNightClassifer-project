@@ -2,8 +2,7 @@
 
 ## Approval state and preserved negative
 
-- **Status:**
-  `PENDING_S00_EXACT_OWNER_DELEGATED_S02_S05_VALIDATION_APPROVAL_DO_NOT_SUBMIT`.
+- **Status:** `EXECUTED_PASS_JOB_336738_NO_FOLLOW_ON`.
 - Prior authorized S05-R2 Job `336731` is preserved as **FAILED 1:0**:
   exactly 44 cases collected, 43 passed, one failed, zero errors/skips. The sole
   failure was the expected container type in
@@ -18,9 +17,33 @@
   delegation allowing S00 to approve necessary, reasonable validation-only Slurm
   jobs for S02-S05. This is **not O-009**: O-009 excludes reruns, and this request
   does not expand or reinterpret it.
-- Preparing/committing this file and launcher is not permission to submit. S05
-  must wait for S00 to approve the exact immutable tuple below under that delegated
-  validation authority.
+- Before execution, preparing/committing this file and launcher did not grant
+  permission. S05 waited for S00 to approve the exact immutable tuple below under
+  the delegated validation authority. That approval was consumed by Job 336738
+  and grants no follow-on.
+
+## Exact approval and execution result
+
+S00 approved this one-time request under the owner-delegated S02-S05 validation
+authority. The approved/executed request bytes had SHA-256
+`e4cb396bc550f08e92905903135f9ab0841ba1bd498f661ba731587a843a10b9`;
+the launcher had SHA-256
+`b86271e81ec41443232afab6a6ada5d1dbebfa72027946cea6547ee5c01598e5`;
+the approved delivery was `98b71eca7684b50ece69afc36175564c7c283033`.
+
+- Submission: exactly once; Job `336738`.
+- Terminal: **COMPLETED 0:0**, node `n411`, elapsed `00:01:13`, batch MaxRSS
+  `540M`.
+- Allocation: one shared node, eight CPUs, exactly one GH200.
+- Pytest/JUnit: `44 passed in 22.64s`; exactly 44 tests, zero
+  failures/errors/skips, JUnit time `22.645s`.
+- All nine in-job checksum targets passed `sha256sum -c`.
+- No dataset, model/optimizer step, scientific metric, profile, array, DDP,
+  automatic retry, or follow-on occurred.
+- Prior Job `336731` remains preserved as the 43/44 negative; this PASS does not
+  erase or relabel it.
+
+Updating this record after execution grants no follow-on permission.
 
 ## Immutable execution source
 
@@ -123,9 +146,8 @@ sbatch --export=ALL,EXPECTED_S05R3_SHA=96e509b71a3e22afb4de397132438fd3b9bbf5d8,
   "$LAUNCHER"
 ```
 
-No command in this section has run. If request-copy staging succeeds but Slurm
-rejects submission before assigning a job ID, preserve the copy as negative
-preflight evidence and return to S00; do not retry automatically.
+This exact staging/submission form ran once and produced Job `336738`. It must not
+run again. The read-only staged request copy remains at the declared path.
 
 ## Acceptance and stop conditions
 
@@ -139,7 +161,7 @@ automatic retry.
 
 ## Interpretation boundary
 
-PASS may close only the S05 authored synthetic runtime gate after the stable tuple
+Job 336738 PASS may close only the S05 authored synthetic runtime gate after the stable tuple
 test correction. It cannot establish production detector/loss/config integration,
 official CUDA-kernel parity, CPU NMS performance, mini/trainval model quality,
 mAP/NDS, full-run readiness, FL/security behavior, or any scientific claim.
