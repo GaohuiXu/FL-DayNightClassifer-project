@@ -155,6 +155,29 @@ python -m pytest -q -ra \
 pytest_status=${PIPESTATUS[0]}
 set -e
 
+if [ "${pytest_status}" -eq 0 ]; then
+  set +e
+  python - "${JUNIT_XML}" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+
+root = ET.parse(sys.argv[1]).getroot()
+suites = [root] if root.tag == "testsuite" else list(root.findall("testsuite"))
+counts = {
+    key: sum(int(suite.attrib.get(key, "0")) for suite in suites)
+    for key in ("tests", "failures", "errors", "skipped")
+}
+if counts["tests"] <= 0 or any(counts[key] for key in ("failures", "errors", "skipped")):
+    raise SystemExit(f"focused pytest JUnit acceptance failed: {counts}")
+print(f"[S07-A provenance] JUnit acceptance passed: {counts}")
+PY
+  junit_status=$?
+  set -e
+  if [ "${junit_status}" -ne 0 ]; then
+    pytest_status="${junit_status}"
+  fi
+fi
+
 artifacts=("${EXECUTION_JSON}" "${SOURCE_HASHES}" "${PYTEST_LOG}")
 if [ -f "${JUNIT_XML}" ]; then
   artifacts+=("${JUNIT_XML}")
