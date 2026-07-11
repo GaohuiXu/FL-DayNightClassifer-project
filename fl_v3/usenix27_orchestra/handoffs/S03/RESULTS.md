@@ -145,31 +145,44 @@ Raw durable evidence is under `artifacts/job_335630/`: `sacct.txt`, normalized
 one-line `scontrol.txt`, exact empty `stdout.txt`, exact `stderr.txt`, and
 `sha256sums.txt`.
 
-## Source-only remediation proposal (not executed)
+## Scheduler-only remediation proposal (not executed)
 
 S03 prepared a revised launcher/request for S00 review only.  No snapshot was
-created and no job was submitted.  The proposal replaces Git discovery from the
+created and no job was submitted.  Commit
+`2496fecaa1a5daa4a60d7354d06a69ab6ea7d918` was specifically not executed because
+its launcher retained `--nodes=1`.  The current proposal keeps its replacement of
+Git discovery from the
 Slurm spool path with an exact `git archive` of the approved commit/tree from the
 shared `/nobackup/.../fl_weather_project/.git` object store.  It verifies the spool
 launcher, archived launcher/request, branch ref, tree, implementation ancestry,
 and unchanged 15-file source list/state; then it makes the unique snapshot
 recursively read-only before any output, environment, CUDA, or pytest action.
 
+The scheduler-only change removes `--nodes=1`, replaces legacy `--gres` spelling
+with the S04-job-335579-proven
+`--gpus-per-node=nvidia_gh200_120gb:1`, and fail-closes before snapshot/output if
+`scontrol` does not report one node/eight CPUs/one typed and generic GPU with
+`OverSubscribe=OK` or if Slurm does not expose exactly one CUDA device.  Torch
+rechecks `device_count() == 1` before tests.  If it reaches output creation, the
+verified record is written to `slurm_allocation.txt` and checksummed.
+
 - Proposed launcher SHA-256:
-  `fb36952982adb1f86277e25624490733f90d37ad2a1b6d55335ec4f89b0a47af`.
+  `dc61bd2ebd2a88c8be717c8deb2bdfb848971bcf29fe3995e43e1f139f2bfaee`.
 - Source-list SHA-256 (unchanged):
   `d4eb8d29da926c88bbcf5c9bbbf9b3e9197f9eda4478ea956ec4c7cfaf664742`.
 - Proposed source-state SHA-256:
-  `40c3e11825ebbc0e0494c57043bec359c488ad9d69d242342c5c8e24123387df`.
+  `197e5692e6d3c4477a3595cff39d831240b4419954bf929c7ff61e55b65a687e`.
 - Proposed snapshot root:
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s03_camera_contract_snapshotfix_6dfd2c775f54`.
 - Proposed output root:
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_snapshotfix_6dfd2c775f54`.
 
-This source fix does not resolve scheduler allocation.  Because the prior one-GPU
-request received four allocated GPUs, a full 15-minute allocation under the same
-policy could account for 1.0 GPU-hour.  The proposal is blocked pending an explicit
-S00/owner resource decision and has no resolved or authorized submission command.
+The four-GPU allocation from job `335630` remains preserved negative evidence.
+S04 job `335579` independently demonstrated that the revised scheduler directives
+produce `OverSubscribe=OK` and exact one-GPU/eight-CPU `AllocTRES`; the launcher's
+runtime checks prevent silent drift.  The proposal therefore requests only the
+O-009 ceiling of 0.25 GPU-hour, but it remains unexecuted and unauthorized pending
+S00's exact tuple approval.
 
 ## Local/static evidence
 
@@ -219,8 +232,8 @@ Allowed:
   account/partition reason;
 - the corrected job failed during launcher provenance preflight before environment,
   CUDA, pytest, or camera execution;
-- a source-only immutable-snapshot remediation is prepared but unexecuted and
-  remains blocked on scheduler/resource authorization;
+- an immutable-snapshot plus scheduler-only one-GPU remediation is prepared but
+  unexecuted and has no exact S00 approval;
 - no data, optimizer/model step, metric, or scientific evidence was produced.
 
 Forbidden:

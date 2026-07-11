@@ -2,7 +2,7 @@
 
 ## Approval state
 
-`PENDING_S00_RESOURCE_DECISION_SOURCE_ONLY_SNAPSHOT_PROPOSAL_DO_NOT_SUBMIT`
+`PENDING_S00_EXACT_APPROVAL_SCHEDULER_ONLY_REMEDIATION_DO_NOT_SUBMIT`
 
 S00 approved the exact executable/request tuple recorded below.  S03 performed
 all preflight checks and invoked the approved command once at
@@ -65,16 +65,21 @@ unexpected whole-node allocation of four GPUs/288 CPUs for six seconds.  No GPU
 workload started; allocation accounting is nevertheless recorded exactly in
 `RESULTS.md` and the raw artifacts.
 
-## Source-only immutable-snapshot remediation proposal
+## Scheduler-only immutable-snapshot remediation proposal
 
 This is a proposal only.  It does not authorize snapshot creation or `sbatch`.
-Job `335630` is not retried.  The camera implementation, test file, exact 10-case
-scope, fp16 forward/backward, dataset exclusion, acceptance, requested one GPU/
-eight CPU/15-minute limits, and source closure remain unchanged.
+Job `335630` is not retried.  Commit `2496fecaa1a5daa4a60d7354d06a69ab6ea7d918`
+was not executed because its launcher still declared `#SBATCH --nodes=1`, the
+directive implicated by the job's `OverSubscribe=NO` whole-node allocation.  The
+camera implementation, test file, exact 10-case scope, fp16 forward/backward,
+dataset exclusion, acceptance, requested one GPU/eight CPU/15-minute limits, and
+source closure remain unchanged.
 
 The revised committed launcher no longer attempts to discover Git from its Slurm
-spool path or access `/home/.../.codex/worktrees/.../.git`.  If separately approved,
-it would:
+spool path or access `/home/.../.codex/worktrees/.../.git`.  It also removes
+`--nodes=1` and uses the exact S04-job-335579-proven scheduler form
+`--gpus-per-node=nvidia_gh200_120gb:1`, `--cpus-per-task=8`, and 15 minutes.  If
+separately approved, it would:
 
 1. require externally approved executable HEAD, tree, branch, implementation,
    request, launcher, source-list/source-state hashes, snapshot root, output root,
@@ -83,14 +88,19 @@ it would:
    `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/.git`;
 3. verify the approved implementation is an ancestor and that the spool launcher
    bytes match the approved launcher hash;
-4. require both the unique snapshot and output roots to be absent;
-5. `git archive` the exact approved commit into a job-unique temporary directory,
+4. before snapshot/output creation, query `scontrol` and require actual
+   `NumNodes=1`, `NumCPUs=8`, `OverSubscribe=OK`, generic GPU count 1, typed GH200
+   count 1, `SLURM_CPUS_PER_TASK=8`, and exactly one non-disabled
+   `CUDA_VISIBLE_DEVICES` entry; echo that record to the Slurm log;
+5. require both the unique snapshot and output roots to be absent;
+6. `git archive` the exact approved commit into a job-unique temporary directory,
    verify the archived RUN_REQUEST, launcher, 15-file C-locale list/state, and
    branch/tree identities before any output creation;
-6. write a snapshot identity manifest, remove all write bits recursively, and
+7. write a snapshot identity manifest, remove all write bits recursively, and
    atomically rename the temporary tree to the approved shared snapshot root;
-7. run environment activation and the unchanged pytest command only from that
-   read-only snapshot, recording the snapshot/tree and Slurm/GPU/CPU identity.
+8. write `slurm_allocation.txt`, then after environment activation require
+   `torch.cuda.device_count() == 1` before the unchanged pytest command runs from
+   that read-only snapshot.
 
 Proposed unique roots, both currently absent:
 
@@ -99,13 +109,13 @@ Proposed unique roots, both currently absent:
 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_snapshotfix_6dfd2c775f54
 ```
 
-The prior job exposed a material authorization risk: although `ReqTRES` was one
-GPU/eight CPUs, `AllocTRES` was the entire node (four GPUs/288 CPUs).  At the
-15-minute ceiling this could account for `4 * 0.25 = 1.0` GPU-hour, four times the
-0.25 GPU-hour request and incompatible with interpreting O-009 as an actual
-single-GPU allocation.  S03 therefore requests an explicit S00/owner resource
-decision before any execution approval; source remediation alone does not resolve
-scheduler allocation or billing.
+The prior job's whole-node allocation remains preserved negative evidence.  The
+new scheduler form is supported by job `335579`, whose `scontrol` recorded
+`OverSubscribe=OK` and whose `ReqTRES` and `AllocTRES` both contained exactly one
+GH200/eight CPUs.  The new launcher additionally refuses to proceed if the actual
+allocation or CUDA visibility differs, so the proposed ceiling is again one
+GPU for 15 minutes (0.25 GPU-hour) under O-009.  This evidence makes the request
+reviewable; it is not compute authorization.
 
 S00 returned the first request for provenance remediation without approving
 compute: its exact `sbatch` body existed only as a mutable Markdown here-doc and
@@ -123,9 +133,10 @@ post-result revision grants no compute authority.
 - Durable launcher:
   `fl_v3/usenix27_orchestra/handoffs/S03/run_s03_camera_contract.sh`.
 - Launcher SHA-256:
-  `fb36952982adb1f86277e25624490733f90d37ad2a1b6d55335ec4f89b0a47af`.
+  `dc61bd2ebd2a88c8be717c8deb2bdfb848971bcf29fe3995e43e1f139f2bfaee`.
 - Proposed executable HEAD/tree and final RUN_REQUEST SHA-256: computed and
-  reported after the source-only proposal commit, then subject to external review.
+  reported after this scheduler-only proposal commit, then subject to external
+  review.
 
 Before creating the immutable snapshot, output, or importing the runtime, the
 proposed launcher fails closed unless:
@@ -137,8 +148,11 @@ proposed launcher fails closed unless:
 4. spool and archived launcher plus archived request bytes match their externally
    approved SHA-256;
 5. archived C-locale source-list and content hashes match the approved values;
-6. both exact snapshot and output roots do not exist;
-7. the exported snapshot contains no writable path before runtime begins.
+6. `scontrol` reports one node/eight CPUs/one generic and typed GH200 allocation
+   with `OverSubscribe=OK`, while Slurm exposes exactly one CUDA device;
+7. both exact snapshot and output roots do not exist;
+8. the exported snapshot contains no writable path before runtime begins;
+9. after environment activation, torch sees exactly one CUDA device before tests.
 
 Any edit or new commit after approval invalidates it.
 
@@ -171,7 +185,7 @@ fl_v3/usenix27_orchestra/handoffs/S03/run_s03_camera_contract.sh
 - C-locale sorted source-list SHA-256:
   `d4eb8d29da926c88bbcf5c9bbbf9b3e9197f9eda4478ea956ec4c7cfaf664742`.
 - SHA-256 of the corresponding `sha256sum` source-state file:
-  `40c3e11825ebbc0e0494c57043bec359c488ad9d69d242342c5c8e24123387df`.
+  `197e5692e6d3c4477a3595cff39d831240b4419954bf929c7ff61e55b65a687e`.
 
 `RUN_REQUEST.md` is not part of that aggregate because its final hash is a
 separate mandatory externally approved input.  Including both its hash and the
@@ -202,12 +216,15 @@ seed campaign, or scientific result.
 
 ## Resources, output, and command contract
 
-- One job; one node; one `nvidia_gh200_120gb`; eight CPUs.
+- One job; actual allocation must be one node, one `nvidia_gh200_120gb`, and eight
+  CPUs or the launcher exits before snapshot/output/model activity.
 - Account `naiss2025-22-1113-gpu`; partition `gpu`.
 - Walltime `00:15:00`; requested allocation ceiling 0.25 GPU-hours.
-- Observed scheduler behavior for job `335630`: whole-node allocation of four
-  GPUs/288 CPUs despite the one-GPU/eight-CPU request.
-- Worst observed-policy allocation at the requested walltime: 1.0 GPU-hour.
+- Historical job `335630`: whole-node allocation of four GPUs/288 CPUs because
+  the launcher still declared `--nodes=1`; negative evidence is retained.
+- Scheduler control evidence: S04 job `335579` used
+  `--gpus-per-node=nvidia_gh200_120gb:1` without `--nodes=1` and recorded
+  `OverSubscribe=OK`, `AllocTRES=1 GPU/8 CPUs`.
 - S03 allocation-equivalent use to date: approximately 0.006667 GPU-hour.
 - No array, DDP, concurrent S03 job, retry, requeue, resubmission, follow-on, or
   spare-GPU expansion.
@@ -234,17 +251,17 @@ EXPECTED_S03_TREE_SHA=<post-commit 40-hex>
 EXPECTED_S03_IMPLEMENTATION_SHA=6dfd2c775f54e488f3930996b303ce21f9b8e8b7
 EXPECTED_S03_BRANCH=codex/s03-camera-architecture
 EXPECTED_S03_SOURCE_LIST_SHA=d4eb8d29da926c88bbcf5c9bbbf9b3e9197f9eda4478ea956ec4c7cfaf664742
-EXPECTED_S03_SOURCE_SHA=40c3e11825ebbc0e0494c57043bec359c488ad9d69d242342c5c8e24123387df
-EXPECTED_S03_LAUNCHER_SHA=fb36952982adb1f86277e25624490733f90d37ad2a1b6d55335ec4f89b0a47af
+EXPECTED_S03_SOURCE_SHA=197e5692e6d3c4477a3595cff39d831240b4419954bf929c7ff61e55b65a687e
+EXPECTED_S03_LAUNCHER_SHA=dc61bd2ebd2a88c8be717c8deb2bdfb848971bcf29fe3995e43e1f139f2bfaee
 EXPECTED_S03_RUN_REQUEST_SHA=<post-commit 64-hex>
 S03_SNAPSHOT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s03_camera_contract_snapshotfix_6dfd2c775f54
 S03_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_snapshotfix_6dfd2c775f54
 ```
 
-No resolved `sbatch` command is authorized while the resource decision is pending.
-The consumed approval that produced job `335630` remains non-reusable.  This
-Markdown revision contains no executable here-doc and does not authorize running
-the launcher.
+The exact resolved command is returned to S00 after the proposal commit; it is not
+authorized until S00 separately approves that immutable tuple.  The consumed
+approval that produced job `335630` remains non-reusable.  This Markdown revision
+contains no executable here-doc and does not authorize running the launcher.
 
 ## Recorded identity and artifacts
 
@@ -256,16 +273,20 @@ Before pytest the proposed launcher writes `execution_identity.json` containing:
 - Slurm job ID/GPU/CPU environment, `CUDA_VISIBLE_DEVICES`, host, architecture,
   Python, torch, torchvision, pytest, CUDA runtime, GPU name, and GPU memory.
 
-It also writes the exact source file list and per-file SHA-256 state.  Pytest emits
-log and JUnit; a post-check requires exactly `10/0/0/0` tests/failures/errors/skips.
-All identity/source/test summary artifacts are checksummed and verified in-job.
+It also writes the exact source file list, per-file SHA-256 state, and the verified
+`scontrol`/CUDA-visible allocation as `slurm_allocation.txt`.  Pytest emits log and
+JUnit; a post-check requires exactly `10/0/0/0` tests/failures/errors/skips.  All
+identity/allocation/source/test summary artifacts are checksummed and verified
+in-job.
 
 ## Stop conditions and interpretation
 
 The job fails on any missing approval variable, malformed hash, HEAD/branch/status/
-ancestor mismatch, launcher/request/source drift, changed output, unavailable CUDA,
-pytest failure/error/skip/count drift, or artifact checksum failure.  Any failure is
-recorded and returned to S00; it does not authorize retry or scope change.
+ancestor mismatch, launcher/request/source drift, changed output, actual allocation
+other than one node/eight CPUs/one GH200 with `OverSubscribe=OK`, CUDA visibility
+other than one device, unavailable CUDA, pytest failure/error/skip/count drift, or
+artifact checksum failure.  Any failure is returned to S00; it does not authorize
+retry or scope change.
 
 Allowed if PASS: the exact synthetic S03 camera geometry/interface/gradient suite
 passes on the recorded GH200 runtime, including one CUDA fp16-autocast camera-chain

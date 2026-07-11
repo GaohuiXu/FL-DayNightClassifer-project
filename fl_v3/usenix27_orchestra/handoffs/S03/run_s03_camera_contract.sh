@@ -2,8 +2,7 @@
 #SBATCH -A naiss2025-22-1113-gpu
 #SBATCH -p gpu
 #SBATCH --job-name=flv3_s03_camera_contract
-#SBATCH --nodes=1
-#SBATCH --gres=gpu:nvidia_gh200_120gb:1
+#SBATCH --gpus-per-node=nvidia_gh200_120gb:1
 #SBATCH --cpus-per-task=8
 #SBATCH --time=00:15:00
 #SBATCH --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s03_camera_contract_%j.out
@@ -59,6 +58,46 @@ require_hex "$EXPECTED_S03_RUN_REQUEST_SHA" 64 EXPECTED_S03_RUN_REQUEST_SHA
 [[ "$S03_SNAPSHOT_ROOT" == "$APPROVED_SNAPSHOT_ROOT" ]]
 [[ "$S03_OUTPUT_ROOT" == "$APPROVED_OUTPUT_ROOT" ]]
 [[ -d "$COMMON_GIT_DIR/objects" ]]
+
+# `--nodes=1` forced a whole non-oversubscribed node for job 335630 even though
+# one GPU was requested.  Fail closed on the scheduler's actual allocation and
+# the batch step's CUDA visibility before creating a snapshot/output or importing
+# any model dependency.  `scontrol` is authoritative here; CUDA visibility is
+# independently rechecked through torch after environment activation.
+SLURM_ALLOCATION_RECORD="$(scontrol show job "$SLURM_JOB_ID" --oneliner)"
+readonly SLURM_ALLOCATION_RECORD
+allocation_field() {
+  local key="$1"
+  printf '%s\n' "$SLURM_ALLOCATION_RECORD" \
+    | tr ' ' '\n' \
+    | awk -F= -v key="$key" '$1 == key {sub(/^[^=]*=/, ""); print; exit}'
+}
+readonly ACTUAL_NUM_NODES="$(allocation_field NumNodes)"
+readonly ACTUAL_NUM_CPUS="$(allocation_field NumCPUs)"
+readonly ACTUAL_OVERSUBSCRIBE="$(allocation_field OverSubscribe)"
+readonly ACTUAL_ALLOC_TRES="$(allocation_field AllocTRES)"
+readonly ACTUAL_ALLOC_GPUS="$({
+  printf '%s\n' "$ACTUAL_ALLOC_TRES" | tr ',' '\n' \
+    | awk -F= '$1 == "gres/gpu" {print $2; exit}'
+})"
+readonly ACTUAL_ALLOC_TYPED_GPUS="$({
+  printf '%s\n' "$ACTUAL_ALLOC_TRES" | tr ',' '\n' \
+    | awk -F= '$1 == "gres/gpu:nvidia_gh200_120gb" {print $2; exit}'
+})"
+: "${CUDA_VISIBLE_DEVICES:?Slurm batch step must expose exactly one CUDA device}"
+IFS=',' read -r -a CUDA_VISIBLE_DEVICE_LIST <<< "$CUDA_VISIBLE_DEVICES"
+[[ "$ACTUAL_NUM_NODES" == "1" ]]
+[[ "$ACTUAL_NUM_CPUS" == "8" ]]
+[[ "$ACTUAL_OVERSUBSCRIBE" == "OK" ]]
+[[ "$ACTUAL_ALLOC_GPUS" == "1" ]]
+[[ "$ACTUAL_ALLOC_TYPED_GPUS" == "1" ]]
+[[ "${SLURM_CPUS_PER_TASK:-}" == "8" ]]
+[[ "${#CUDA_VISIBLE_DEVICE_LIST[@]}" -eq 1 ]]
+[[ -n "${CUDA_VISIBLE_DEVICE_LIST[0]}" ]]
+[[ "${CUDA_VISIBLE_DEVICE_LIST[0]}" != "-1" ]]
+printf '[S03] verified allocation: %s\n' "$SLURM_ALLOCATION_RECORD"
+printf '[S03] CUDA_VISIBLE_DEVICES=%s SLURM_JOB_GPUS=%s\n' \
+  "$CUDA_VISIBLE_DEVICES" "${SLURM_JOB_GPUS:-unset}"
 
 # sbatch executes a spool copy, so BASH_SOURCE cannot locate a linked worktree.
 # Resolve the approved immutable object directly from the shared /nobackup object
@@ -168,6 +207,12 @@ mkdir -p "$S03_OUTPUT_ROOT"
 cp "$REPO/$LAUNCHER_REL" "$S03_OUTPUT_ROOT/approved_launcher.sh"
 cp "$REQUEST_PATH" "$S03_OUTPUT_ROOT/approved_run_request.md"
 cp "$SNAPSHOT_IDENTITY_PATH" "$S03_OUTPUT_ROOT/snapshot_identity.json"
+{
+  printf '%s\n' "$SLURM_ALLOCATION_RECORD"
+  printf 'CUDA_VISIBLE_DEVICES=%s\n' "$CUDA_VISIBLE_DEVICES"
+  printf 'SLURM_JOB_GPUS=%s\n' "${SLURM_JOB_GPUS:-unset}"
+  printf 'SLURM_CPUS_PER_TASK=%s\n' "${SLURM_CPUS_PER_TASK:-unset}"
+} > "$S03_OUTPUT_ROOT/slurm_allocation.txt"
 [[ "$(sha256sum "$S03_OUTPUT_ROOT/approved_launcher.sh" | awk '{print $1}')" == "$EXPECTED_S03_LAUNCHER_SHA" ]]
 [[ "$(sha256sum "$S03_OUTPUT_ROOT/approved_run_request.md" | awk '{print $1}')" == "$EXPECTED_S03_RUN_REQUEST_SHA" ]]
 printf '%s\n' "${SORTED_SOURCE_FILES[@]}" > "$S03_OUTPUT_ROOT/runtime_source_files.txt"
@@ -191,6 +236,10 @@ import torchvision
 
 if not torch.cuda.is_available():
     raise SystemExit("CUDA is required for the S03 GH200 validation")
+if torch.cuda.device_count() != 1:
+    raise SystemExit(
+        f"S03 requires exactly one CUDA-visible GPU, got {torch.cuda.device_count()}"
+    )
 props = torch.cuda.get_device_properties(0)
 record = {
     "executable_git_sha": os.environ["EXPECTED_S03_EXECUTABLE_SHA"],
@@ -254,6 +303,7 @@ sha256sum \
   "$S03_OUTPUT_ROOT/approved_launcher.sh" \
   "$S03_OUTPUT_ROOT/approved_run_request.md" \
   "$S03_OUTPUT_ROOT/snapshot_identity.json" \
+  "$S03_OUTPUT_ROOT/slurm_allocation.txt" \
   "$S03_OUTPUT_ROOT/execution_identity.json" \
   "$S03_OUTPUT_ROOT/runtime_source_files.txt" \
   "$S03_OUTPUT_ROOT/runtime_source_sha256s.txt" \

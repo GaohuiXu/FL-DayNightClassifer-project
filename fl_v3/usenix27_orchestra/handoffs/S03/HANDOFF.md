@@ -199,7 +199,10 @@ GPUs/288 CPUs for six seconds (`0.006667` allocation-equivalent GPU-hours).  Raw
 evidence and checksums are committed under `artifacts/job_335630/`.
 
 After S00 independently confirmed that negative result, S03 prepared a source-only
-proposal and did not create a snapshot or submit another job.  The revised launcher
+proposal and did not create a snapshot or submit another job.  S00 returned commit
+`2496fecaa1a5daa4a60d7354d06a69ab6ea7d918` unexecuted because its launcher still
+declared `--nodes=1`.  This scheduler-only remediation preserves that snapshot
+design and revises only launcher/request/result/handoff scope.  The revised launcher
 uses the shared `/nobackup/.../fl_weather_project/.git` object store to resolve an
 externally approved commit/tree and atomically export it into a unique, recursively
 read-only execution snapshot.  The spool launcher, archived launcher/request,
@@ -210,16 +213,21 @@ linked-worktree `.git` path.
 Proposal identities before the final documentation commit:
 
 - launcher SHA-256:
-  `fb36952982adb1f86277e25624490733f90d37ad2a1b6d55335ec4f89b0a47af`;
+  `dc61bd2ebd2a88c8be717c8deb2bdfb848971bcf29fe3995e43e1f139f2bfaee`;
 - source-list SHA-256:
   `d4eb8d29da926c88bbcf5c9bbbf9b3e9197f9eda4478ea956ec4c7cfaf664742`;
 - source-state SHA-256:
-  `40c3e11825ebbc0e0494c57043bec359c488ad9d69d242342c5c8e24123387df`.
+  `197e5692e6d3c4477a3595cff39d831240b4419954bf929c7ff61e55b65a687e`.
 
-The resource blocker remains material: job `335630` requested one GPU/eight CPUs
-but Slurm allocated the entire four-GPU/288-CPU node.  At 15 minutes this policy
-could account for 1.0 GPU-hour, so the source proposal does not claim O-009
-compatibility or permission to run.
+The resource failure remains negative evidence: job `335630` requested one
+GPU/eight CPUs but Slurm allocated the entire four-GPU/288-CPU node with
+`OverSubscribe=NO`.  The revised launcher deletes `--nodes=1` and uses S04 job
+`335579`'s demonstrated `--gpus-per-node=nvidia_gh200_120gb:1` form, which produced
+`OverSubscribe=OK` and exact one-GPU/eight-CPU `AllocTRES`.  Before any snapshot,
+output, environment, or model action, it now requires actual one-node/eight-CPU/
+one-GH200 allocation and exactly one CUDA-visible device; torch independently
+rechecks one visible device before tests.  Thus the proposal is O-009-shaped, but
+it still has no execution permission.
 
 ## Gate checklist
 
@@ -273,12 +281,12 @@ Forbidden:
 1. Independent S03-R should review the implementation and authored fixtures even
    though runtime evidence is missing; it must not convert authored tests into a
    PASS.
-2. Runtime evidence remains absent.  Any launcher repair or additional job would
-   require a new scoped request and explicit approval.  A source-only immutable
-   snapshot proposal is prepared, but no execution is authorized.
-3. S00/owner must decide whether the observed whole-node four-GPU allocation and
-   potential 1.0 GPU-hour billing can be authorized; the one-GPU request alone did
-   not constrain actual allocation.
+2. Runtime evidence remains absent.  The immutable snapshot plus scheduler-only
+   one-GPU remediation is prepared, but no execution is authorized; S00 must bind
+   and approve the exact post-commit tuple before any `sbatch`.
+3. The launcher will fail before snapshot/output/model activity if Arrhenius does
+   not reproduce one-node/eight-CPU/one-GPU `OverSubscribe=OK` allocation or one
+   CUDA-visible device.  Such a failure would not authorize retry.
 4. S07-B must explicitly wire reference augmentation, stride 8, 0.5 m bins,
    `bev_output_dtype`, and the reviewed common BEV geometry.  Current unwired
    detector/task defaults remain legacy and do not satisfy O-017 by themselves.
