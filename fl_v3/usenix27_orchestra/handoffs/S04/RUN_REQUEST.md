@@ -2,12 +2,11 @@
 
 ## Approval state
 
-`PENDING_S00_EXACT_O009_APPROVAL_NOT_SUBMITTED`
+`APPROVED_EXACT_ONCE_CONSUMED_BY_JOB_336718_FAILED_NO_RETRY`
 
-This is a new request after the preserved failed Jobs `335566` and `335579`.
-Writing or committing it grants no execution permission. S04 must wait for S00 to
-approve the exact delivery SHA, request SHA-256, executable/source tuple, command,
-resources, and output roots below. There is no automatic retry or follow-on.
+S00 independently approved the exact tuple below once. It was consumed only by
+Job `336718`, which ended `FAILED 1:0` with `9 passed / 1 failed`. The approval is
+exhausted. There is no retry, requeue, resubmission, or follow-on authorization.
 
 ## Preserved negative executions
 
@@ -22,6 +21,15 @@ resources, and output roots below. There is no automatic retry or follow-on.
 
 Complete scheduler fields, raw hashes, and interpretation limits remain in
 `RESULTS.md`. Neither approval is reusable.
+
+- Job `336718`: `FAILED 1:0`, `9 passed / 1 failed`. The original active-fp16
+  output assertion and the B=4 dtype/forward/backward/memory case passed. The one
+  failure occurred only when the focused test reused the already-trained/backward
+  fp16 encoder after switching it to eval for a second non-empty forward: spconv
+  `ConvTunerSimple` could not find an inference SubMConv algorithm for the
+  six-voxel input. The new empty/non-empty consistency sub-check therefore did not
+  complete. Identity, allocation, source/request/snapshot, and final artifact
+  checksum gates passed. This approval is not reusable.
 
 ## Immutable implementation and source identity
 
@@ -66,9 +74,9 @@ and the identity/source/request hashes and contents match. Python bytecode and
 pytest cache writes are disabled; all temporary/output writes go to the unique
 output root.
 
-- Snapshot root (must not exist before approval/submission):
+- Snapshot root (absent before submission; now preserved read-only):
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/snapshots/s04_72184e9ed3d2_fp16remediation_v1`.
-- Output root (must not exist before approval/submission):
+- Output root (absent before submission; now preserves Job `336718` artifacts):
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s04_second_72184e9ed3d2_fp16remediation_v1`.
 - Slurm logs:
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s04_second_%j.{out,err}`.
@@ -119,8 +127,8 @@ DDP, or scientific execution.
 
 ## Exact preparation and submission command
 
-After S00 exports the exact approved delivery and request identities, the only
-authorized command is:
+The exact command below was approved and consumed once by Job `336718`. It is
+retained only as provenance and must not be run again:
 
 ```bash
 set -euo pipefail

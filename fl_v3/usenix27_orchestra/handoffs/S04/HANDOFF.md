@@ -16,13 +16,16 @@
   `2729f45144053e1b554a0bf04640b8bbc1ff43e4`.
 - Final request-delivery HEAD is returned after its commit; a commit cannot embed
   its own SHA without changing it.
-- Worker self-assessment: **REMEDIATION IMPLEMENTED / RUNTIME VALIDATION PENDING**.
+- Job-336718 evidence delivery is returned after the docs commit.
+- Worker self-assessment: **CHANGES-REQUESTED / DTYPE AND B=4 PASS, EVAL-REUSE
+  SPCONV BLOCKER**.
 
-This is not an integration PASS. Jobs `335566` and `335579` both failed and remain
-visible. S00 returned S04 for a narrow dtype-interface remediation, which is now
-implemented but not runtime-validated. A new exact O-009 request is pending S00;
-no submission/retry is authorized by this handoff. Independent S04-R plus
-Orchestra acceptance remain required after a clean approved validation.
+This is not an integration PASS. Jobs `335566`, `335579`, and `336718` all remain
+visible failed negatives. Job `336718` validated the original fp16 output assertion
+and the complete B=4 dtype/forward/backward/memory case, but the added same-model
+train/backward-to-eval non-empty reuse sub-check failed inside the spconv tuner.
+No retry is authorized. Independent S04-R plus Orchestra disposition remain
+required.
 
 ## Delivered architecture contract
 
@@ -132,8 +135,8 @@ next blocker:
 - B=4 reached correct `[4,256,180,180]`, loss/backward and finite gradients, but
   failed before recording peak CUDA memory.
 
-No third job, retry, requeue, resubmission, or follow-on occurred. Full Job 335579
-scheduler/artifact hashes are in `RESULTS.md`.
+At that stage no third job, retry, requeue, resubmission, or follow-on had occurred.
+Full Job 335579 scheduler/artifact hashes are in `RESULTS.md`.
 
 S00 then authorized implementation/request preparation only. Commit `72184e9`
 records the fp32 projection boundary and converts only the active sparse-AMP final
@@ -144,9 +147,26 @@ also assert the pre-cast/output trace and empty/non-empty consistency. Local
 login-node pytest was unavailable (`/usr/bin/python3` has no pytest), so this is
 not runtime evidence. After S00 found that `--chdir` alone does not guarantee
 `SLURM_SUBMIT_DIR`, commit `2729f45` additionally binds both actual directories and
-an immutable SHA/tree/source/request identity file. `RUN_REQUEST.md` proposes the
-same ten synthetic tests from that `/nobackup` snapshot and awaits exact S00
-approval.
+an immutable SHA/tree/source/request identity file. `RUN_REQUEST.md` proposed the
+same ten synthetic tests from that `/nobackup` snapshot; S00 later approved and
+consumed that exact request once as recorded below.
+
+Exact-once Job `336718` then ran from the attested read-only snapshot:
+
+- scheduler `FAILED 1:0`, `00:02:53`, node `n593`, restarts 0;
+- actual allocation exactly one GH200, eight CPUs, one node;
+- JUnit `10 tests / 1 failure / 0 errors / 0 skips`, `9 passed`;
+- original fp32/fp16 output assertions passed;
+- B=4 passed output/dense shapes, fp16 dtype, loss/backward, finite gradients and
+  memory bounds; peak allocated/reserved were `1,017,576,960` / `1,109,393,408`
+  bytes on a `102,005,473,280`-byte device;
+- the sole failure was the added second non-empty fp16 inference after reusing the
+  train/backward model in eval mode; spconv `ConvTunerSimple` reported no suitable
+  algorithm for the six-voxel SubMConv input before empty/non-empty comparison;
+- execution/source/request/snapshot identity and all artifact checksums passed.
+
+No retry, requeue, resubmission, modification, or follow-on occurred. Full raw
+hashes and interpretation limits are in `RESULTS.md`.
 
 ## Gate checklist
 
@@ -158,9 +178,9 @@ approval.
 | empty/extreme occupancy | PASS bounded synthetic runtime | Job 335579 |
 | metric/camera-fusion mapping | PASS static | 0.6m, 180x180 golden |
 | sample/batch isolation | PASS bounded synthetic runtime | Job 335579 |
-| fp32/fp16 behavior | REMEDIATION PENDING RUNTIME | prior failure preserved; source now enforces final fp16 and traces the boundary |
-| B=4 forward/backward | PARTIAL PASS | correct output shape/loss/backward/finite grads; dtype fails |
-| B=4 bounded memory | NOT ESTABLISHED | dtype assertion precedes peak-memory capture |
+| fp32/fp16 behavior | PARTIAL PASS / BLOCKED | original dtype/finite/backward assertions and B=4 trace pass; same-model eval reuse fails in spconv before empty/non-empty comparison |
+| B=4 forward/backward | PASS bounded synthetic runtime | Job 336718, correct shape/fp16/loss/backward/finite grads |
+| B=4 bounded memory | PASS bounded observation | Job 336718, allocated/reserved/device bytes recorded above |
 | sparse composition remediation | PASS bounded synthetic runtime | explicit forwarding + Job 335579 |
 | independent S04-R | NOT STARTED | S00/owner controls reviewer launch |
 
@@ -172,21 +192,26 @@ Allowed:
   evidence;
 - Job 335566 identified a concrete spconv composition incompatibility;
 - the manual fix preserves sparse tensor flow and reduced-resolution densification
-  at source level.
+  at source level;
+- Job 336718 provides bounded evidence for the exact original fp16-output and B=4
+  dtype/shape/backward/memory cases listed above, while preserving its later
+  lifecycle failure.
 
 Forbidden:
 
 - S04 PASS, integration readiness, or runtime acceptance of the remediation;
-- any overall S04 PASS, final fp16-output or B=4 peak-memory claim;
+- any overall S04 PASS, or extrapolating the bounded fp16/B=4 observations beyond
+  executable `2729f45` and Job 336718;
 - production detector/model/full-data readiness, mAP/NDS, model superiority,
   voxel-size selection, throughput/profile, convergence, fusion gain, FL,
   attack/defense, generalization, or publication claim.
 
 ## Remaining actions for S00/owner
 
-1. Preserve both Job 335566 (composition) and Job 335579 (fp16 output dtype) as
-   failed negatives.
-2. Audit and either approve or reject the new exact immutable-snapshot O-009
-   request. No submission has occurred.
-3. Only after a clean runtime gate and independent S04-R may S07-B consider this
+1. Preserve Jobs 335566 (composition), 335579 (fp16 output dtype), and 336718
+   (same-model eval reuse spconv tuning) as failed negatives.
+2. Independently review whether Job 336718 exposes an implementation lifecycle
+   defect, a spconv cache/tuner limitation, or a fixture sequencing problem; do
+   not reinterpret the nine passes as overall runtime PASS.
+3. Only after Orchestra disposition and independent S04-R may S07-B consider this
    module for integration.

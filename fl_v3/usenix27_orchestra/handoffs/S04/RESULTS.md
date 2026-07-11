@@ -2,12 +2,13 @@
 
 ## Overall result
 
-Both exact S04 jobs are preserved **FAILED** engineering results. Job `335566`
-found the sparse composition bug (`5 passed / 5 failed`); manual remediation then
-closed that bug, but Job `335579` found a final fp16-output dtype mismatch
-(`8 passed / 2 failed`). No third job, retry, requeue, resubmission, or follow-on
-occurred. Worker status remains **CHANGES-REQUESTED**, not runtime or integration
-PASS.
+All three exact S04 jobs are preserved **FAILED** engineering results. Job `335566`
+found the sparse composition bug (`5 passed / 5 failed`); Job `335579` closed that
+bug but found a final fp16-output mismatch (`8 passed / 2 failed`); Job `336718`
+closed the exercised dtype/B=4 cases but exposed a same-model train/backward-to-eval
+spconv tuner failure (`9 passed / 1 failed`). No retry, requeue, resubmission, or
+follow-on occurred. Worker status remains **CHANGES-REQUESTED**, not runtime or
+integration PASS.
 
 Job `335566` is a preserved **FAILED** engineering result: scheduler state
 `FAILED`, exit `1:0`, with exactly `10` collected tests, `5 passed`, `5 failed`,
@@ -227,6 +228,87 @@ exact test-function count 10; `git diff --check` PASS. The login-node system Pyt
 does not have pytest, and the x86 login node is not the validated spconv runtime,
 so no local pytest or GH200 claim is made.
 
-A new `RUN_REQUEST.md` is `PENDING_S00_EXACT_O009_APPROVAL_NOT_SUBMITTED`.
-No Job 335566/335579 status or interpretation has been overwritten, and no third
-job, retry, requeue, resubmission, or follow-on has occurred at this delivery.
+A new `RUN_REQUEST.md` was pending at that delivery. No Job 335566/335579 status
+or interpretation was overwritten, and no third job had occurred yet.
+
+## Final-output remediation validation Job 336718 — FAILED
+
+### Verdict and exact test result
+
+S00 approved the attested snapshot request exactly once. Job `336718` ended
+`FAILED 1:0`: JUnit reports exactly `10` tests, `1` failure, `0` errors, and `0`
+skips in `88.124s`; pytest reports `9 passed, 1 failed, 6 warnings in 88.12s`.
+
+The prior final-output defect is closed for the exercised paths:
+
+- the focused test passed `out32.dtype == torch.float32` and
+  `out16.dtype == torch.float16` before its later failure;
+- the B=4 test passed final fp16 dtype, debug projection/output dtype assertions,
+  output `[4,256,180,180]`, dense boundary `[4,128,2,180,180]`, scalar loss,
+  backward, finite intended gradients, voxel-drop checks, and memory bounds;
+- B=4 evidence: loss `0.01097890641540289`, peak allocated
+  `1,017,576,960`, peak reserved `1,109,393,408`, device total
+  `102,005,473,280` bytes, and `optimizer_or_parameter_update=false`.
+
+The sole failure is later in
+`test_fp32_and_fp16_sparse_paths_have_finite_outputs_and_gradients`. After the
+same fp16 model had completed train-mode forward/backward, the new fixture called
+`fp16.eval()` and attempted another six-voxel non-empty forward before its empty
+comparison. The stem's inference SubMConv reached spconv `ConvTunerSimple` with
+fp16 features, fp32 filters, `is_train=False`, `is_subm=True`, and
+`output_dtype=torch.float32`, then raised:
+
+```text
+!all_profile_res.empty() assert faild. can't find suitable algorithm for 0
+```
+
+Therefore same-model train/backward-to-eval reuse and the new fp16 empty/non-empty
+comparison are not established. This is not an overall runtime PASS. The raw
+failure does not undo the separate B=4 and initial fp16-output passes.
+
+### Identity and scheduler
+
+- Approved delivery/executable/tree:
+  `465788332b1a431d808d509b484525d0092e4d95` /
+  `2729f45144053e1b554a0bf04640b8bbc1ff43e4` /
+  `2fdb42c97995112b3defc7e78ea148daa6ee7786`.
+- Request/source/identity SHA-256:
+  `120a33111a42a7f3bb1e0fa5f5fceb5eb924ac58e23f51b15ed874fe04fe7104` /
+  `a9b6fd7f6a5d72cc7691cb6118b001ac4221d6d5cffe4b6799d75ef32fa58c06` /
+  `4106a780694a2d6e1b1cf036b3a72b1c98bafa93134486799abd534a346ae12d`.
+- Job/name/node: `336718` / `flv3_s04_second` / `n593`.
+- State/exit: `FAILED` / `1:0`; restarts `0`.
+- Submit/start/end: `2026-07-11T18:58:03` / `18:58:04` / `19:00:57`.
+- Elapsed/timelimit: `00:02:53` / `00:20:00`.
+- Allocation: exactly one node, one `nvidia_gh200_120gb`, eight CPUs,
+  `mem=11672M`; the launcher and Torch one-device fail-closed checks passed.
+- Batch MaxRSS/MaxVMSize: `1,142,016K` / `18,891,648K`; TotalCPU `00:37.851`;
+  disk read/write `117.50M` / `0.27M`.
+- Elapsed allocation approximately `0.0481` GPU-hours; cumulative S04 elapsed
+  allocation approximately `0.0890` GPU-hours.
+- Runtime: CPython `3.11.15`, Torch `2.11.0+cu128`, spconv `2.3.8`, cumm
+  `0.7.13`, NumPy `1.26.4`, pytest `9.1.1`, aarch64.
+
+The immutable snapshot remained free of write bits after execution. The output
+root is
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s04_second_72184e9ed3d2_fp16remediation_v1`.
+
+### Raw artifacts and checksums
+
+In-job `sha256sum -c` passed every primary artifact despite pytest failure.
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `execution_identity.json` | 2,907 | `a0d59d11bc16b801fba625d6ecadec9beba2b46c3438cbdd8d553376b8dd73e3` |
+| `runtime_source_sha256s.txt` | 1,753 | `a9b6fd7f6a5d72cc7691cb6118b001ac4221d6d5cffe4b6799d75ef32fa58c06` |
+| `pytest.log` | 11,365 | `3353d78a6f73ea38093b2a19a7453dba3f0fde46cee56fe27af097a858d96265` |
+| `pytest.junit.xml` | 10,585 | `0c7756f1ed801b0268bd4b32fda0224bf55bedd973e3d6df749f57f5a95d7439` |
+| `sha256sums.txt` | 823 | `373dfb5063c060dc1fd4f7b407f0de759f60b2edeeb81894633e2a2e16e35730` |
+| Slurm stdout | 12,453 | `af6ae66979f98ad12e083e6959fcb54d660437f20f10d36afc6d500aa5e8d303` |
+| Slurm stderr | 123 | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+No dataset, optimizer/scaler/parameter step, metric, profile, retry, requeue,
+resubmission, or follow-on occurred. Allowed evidence is limited to the explicit
+nine passes and preserved failure above; production/S07-B/scientific readiness and
+all model-quality, throughput, convergence, FL, attack/defense, or publication
+claims remain forbidden.
