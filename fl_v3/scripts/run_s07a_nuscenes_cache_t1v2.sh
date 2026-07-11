@@ -128,6 +128,7 @@ test "$(sha256sum "${SOURCE_HASHES}" | awk '{print $1}')" = "${S07A_STATE_HASH}"
 python - "${IDENTITY_JSON}" "${ACTUAL_SHA}" "${S07A_STATE_HASH}" \
   "${NUSCENES_DATAROOT}" "${NUSCENES_ZIP_MANIFEST}" \
   "${S07A_ACCEPTED_MANIFEST_HASH}" "${S07A_ACCEPTED_MANIFEST_FILE_SHA256}" <<'PY'
+import importlib.metadata
 import json
 import os
 import platform
@@ -143,6 +144,15 @@ record = {
     "slurm_job_id": os.environ.get("SLURM_JOB_ID", ""),
     "host": socket.gethostname(),
     "machine": platform.machine(),
+    "platform": platform.platform(),
+    "python_executable": sys.executable,
+    "python_implementation": platform.python_implementation(),
+    "python_version": platform.python_version(),
+    "python_runtime": sys.version,
+    "dependency_versions": {
+        name: importlib.metadata.version(name)
+        for name in ("numpy", "nuscenes-devkit", "pyquaternion")
+    },
     "dataroot": os.path.abspath(dataroot),
     "manifest_path": os.path.abspath(manifest),
     "manifest_hash": manifest_hash,
@@ -171,13 +181,29 @@ import sys
 from fl_v3.data.nuscenes import info_cache as IC
 
 output, cache_dir = sys.argv[1:]
+expected_counts = {
+    "train": {"n_samples": 28130, "n_boxes": 944881},
+    "val": {"n_samples": 6019, "n_boxes": 187528},
+}
 records = {}
 for split in ("train", "val"):
     infos, meta = IC.load_cache(
         cache_dir, "v1.0-trainval", split, n_sweeps=10
     )
-    if len(infos) != meta["n_samples"]:
-        raise SystemExit(f"{split} cache sample count mismatch")
+    actual_counts = {
+        "n_samples": len(infos),
+        "n_boxes": sum(len(info["gt_ann_tokens"]) for info in infos),
+    }
+    expected = expected_counts[split]
+    meta_counts = {
+        "n_samples": meta.get("n_samples"),
+        "n_boxes": meta.get("n_boxes"),
+    }
+    if actual_counts != expected or meta_counts != expected:
+        raise SystemExit(
+            f"{split} cache count mismatch: expected={expected}, "
+            f"actual={actual_counts}, metadata={meta_counts}"
+        )
     pkl_path, sidecar_path = IC.cache_paths(
         cache_dir, "v1.0-trainval", split, n_sweeps=10
     )
@@ -192,7 +218,13 @@ for split in ("train", "val"):
             "bytes": os.path.getsize(path),
             "sha256": digest.hexdigest(),
         }
-    records[split] = {"meta": meta, "files": files}
+    records[split] = {
+        "expected_counts": expected,
+        "actual_counts": actual_counts,
+        "metadata_counts": meta_counts,
+        "meta": meta,
+        "files": files,
+    }
 with open(output, "w", encoding="utf-8") as stream:
     json.dump(
         {"schema": "s07a.nuscenes-cache-t1v2-identity.v1", "splits": records},
@@ -210,5 +242,8 @@ sha256sum \
   "${CACHE_DIR}"/*.pkl \
   "${CACHE_DIR}"/*.meta.json \
   > "${S07A_OUTPUT_ROOT}/sha256sums.txt"
-echo "[S07-A cache] completed; checksums:"
+echo "[S07-A cache] generated checksums:"
 cat "${S07A_OUTPUT_ROOT}/sha256sums.txt"
+echo "[S07-A cache] verifying generated files against sha256sums.txt"
+sha256sum -c "${S07A_OUTPUT_ROOT}/sha256sums.txt"
+echo "[S07-A cache] checksum verification completed"
