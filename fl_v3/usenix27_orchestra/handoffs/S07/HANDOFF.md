@@ -3,8 +3,8 @@
 ## Session identity and self-assessment
 
 - Session/phase: `S07-A`, reviewed S01 data-foundation integration.
-- Worker self-assessment: **S07-A-R P1 REMEDIATIONS IMPLEMENTED; LOCALE-STABLE
-  FOCUSED EXECUTION APPROVED ONCE BUT NOT EXECUTED**. This is not self-approval of the
+- Worker self-assessment: **S07-A-R P1 REMEDIATIONS FOCUSED VALIDATION PASS;
+  READY FOR S00 COMPLETENESS CHECK AND INDEPENDENT RE-REVIEW**. This is not self-approval of the
   fixes, cache request, or Orchestra integration/scientific acceptance.
 - Initial base: `953bfb57941b5a3660ed650c1a80267cd82245d4`, source branch
   `codex/s00-orchestra-ledger`, expected and observed detached mode.
@@ -58,11 +58,12 @@
 No merge into `v3-ad-perception`, push, PR, upload, branch deletion, or worktree
 operation occurred.
 
-## S07-A-R P1 remediation — locale-stable implementation, focused execution approved once
+## S07-A-R P1 remediation — locale-stable focused validation completed PASS
 
 The owner authorized correction of both durable-review findings, scoped commits,
-and preparation of one bounded validation request. No `sbatch`/`srun` has been
-submitted in this continuation.
+and S00 control through completion. The locale-stable bounded focused validation
+was approved exactly once under O-009/delegation and executed as Job 335280. No
+other `sbatch`/`srun`, retry, full cache, model, or follow-on was submitted.
 
 After delivery `29d5edc0f8a3ac53928cd08636e6e02ead00b07d`, S00 independently
 verified the immutable focused request and recorded one-time status
@@ -95,7 +96,8 @@ bound to `44cefd06...`, focused hash `2710655b...`, file-list hash `90310705...`
 the exact mini root/output/command, and one node/GH200/eight CPUs/at most 15
 minutes/0.25 GPU-hours, with no array/DDP/model/full-cache/metric/retry/resubmit/
 follow-on. Any bound-field change invalidates approval. This record does not claim
-execution; Section B remains pending owner approval.
+additional execution; Job 335280 consumed the approval and completed PASS. Section
+B remains pending owner approval.
 
 P1-A is remediated at `NEW_IMPL_SHA`:
 
@@ -388,8 +390,8 @@ Local/static:
   cache and new focused provenance launchers; `git diff --check` passed.
 - Login-node `python3 -m pytest -q fl_v3/tests/test_build_gt_database.py` could
   not start because `/usr/bin/python3` has no `pytest`; this is an environment
-  limitation, not a PASS or code failure. No login-node result is substituted for
-  the pending GH200 focused evidence.
+  limitation, not a PASS or code failure. Job 335280 supplies the dependency-
+  complete GH200 evidence instead.
 - Locale-hardening commit `44cefd06...`: `bash -n` passed for both changed
   launchers and `git diff --check` passed. Audit found no other source-list sort
   in either S07-A attestation path.
@@ -402,11 +404,11 @@ Local/static:
   `2710655b166a78e3af39d6537a5098c916463415d27dd9f5503bb79a533c1531`.
 - Both aggregate hashes were independently recomputed from immutable Git blobs at
   `NEW_IMPL_SHA`; full uses 23 files and focused uses 25 files.
-- Fresh proposed roots
+- The full-cache root
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_44cefd06bc81`
-  and
+  remains absent. The focused root
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_44cefd06bc81`
-  were confirmed absent and were not created.
+  was absent before submission and was created only by Job 335280.
 
 O-009 Job `333477`:
 
@@ -418,9 +420,23 @@ O-009 Job `333477`:
 - `sha256sum -c` passed for execution identity, source list, pytest log, and JUnit;
 - complete hashes/resources/limits are in `RESULTS.md`.
 
+O-009/delegated Job `335280`:
+
+- exact implementation `44cefd06bc815e893919d95c754896711dba3402`, focused
+  source/list hashes `2710655b...` / `90310705...`;
+- `n430` aarch64, one GH200/eight CPUs, `COMPLETED 0:0`, `00:01:16`,
+  approximately 0.0211 elapsed GPU-hours, `Restarts=0`, no retry/requeue/
+  resubmission/follow-on;
+- batch `MaxRSS=540M`, `MaxVMSize=6476352K`, `TotalCPU=00:08.591`;
+- JUnit `7/0/0/0`, pytest `7 passed in 1.52s`; both derived `gt_boxes` and
+  `sweep2keylidar` physical-hash hostile cases were present and passed;
+- in-job artifact checksum verification and independent 25-file source verification
+  passed; actual Python/dependency identity and all hashes are in `RESULTS.md`;
+- stderr contains only the normal module-purge notice. The approval is consumed.
+
 No full cache job, model job, 100/1000-step job, full-data profile, metric,
-scientific run, or upload was submitted. The remediation itself submitted no new
-job of any kind and preserves Job 333477 as the latest execution evidence.
+scientific run, or upload was submitted. Job 335280 is the latest execution
+evidence and is limited to focused real-mini/synthetic provenance validation.
 
 ## Exact cache/manifest/provenance contract for S06
 
@@ -464,10 +480,10 @@ S06 must not substitute the historical `t1.v1` files or claim full-data readines
 | exact worker history reachable | PASS | merge second parent is exact `abe5c58` |
 | REVIEW artifact present, not implementation | PASS | cherry-only `a4ca386`; review parent remains old `ce2e772` |
 | no production GT `t1.v1` bypass | PASS | explicit IC API plus hostile test |
-| depth/format/sidecar/cache/manifest fail closed | PASS for pre-review tree | job 333477, 62/62 at `c1f4fbe`; P1 changes need focused execution |
-| physical pickle/sidecar GT binding | PASS (implementation), EXECUTION APPROVED ONCE / NOT RUN | pre/post hash checks + hostile tests preserved at `44cefd0`; replacement focused request approved exactly once |
+| depth/format/sidecar/cache/manifest fail closed | PASS | job 333477, 62/62 at `c1f4fbe`; retained GT cases plus P1 changes pass Job 335280 |
+| physical pickle/sidecar GT binding | PASS (worker evidence) | Job 335280: both hostile cases pass before blob/crop, 7/0/0/0 |
 | directory mode supported | PASS | implementation plus directory/ZIP tests |
-| focused launcher attests fixtures/config/deps | PASS (implementation) | locale-stable immutable 25-file set + source hash; execution approved once but not run |
+| focused launcher attests fixtures/config/deps | PASS (worker evidence) | Job 335280 exact SHA/hash, all 25 sources OK, runtime identity captured |
 | shell/Python/diff checks | PASS | commands above |
 | executor ref/worktree contract | PASS | fresh clean UI worktree at detached `NEW_IMPL_SHA` required |
 | exact cache sample/box counts | PASS (implementation) | train 28130/944881; val 6019/187528; actual+meta checked |
@@ -482,15 +498,14 @@ S06 must not substitute the historical `t1.v1` files or claim full-data readines
 
 - Full trainval `t1.v2` train/val cache artifacts do not yet exist; their cache and
   file hashes cannot be frozen until owner-approved execution.
-- The new P1-A hostile regression has not executed on GH200. The exact one-job
-  focused request is approved exactly once but has not run; no retry/resubmit/
-  follow-on is authorized.
+- The new P1-A hostile regressions executed exactly once on GH200 and passed. The
+  approval is consumed; no retry/resubmit/follow-on is authorized.
 - The previous c8dd/357 request was approved once but rejected before submission
   because executor locale changed its aggregate source hash. This is a preserved
   negative reproducibility finding: zero jobs, zero outputs, empty queue.
 - The remediation launcher/count/runtime/checksum changes have only local/static
-  validation. No remediation job or test rerun was performed; the replacement
-  request remains pending execution and independent re-review.
+  plus focused GH200 validation. They remain pending independent re-review and do
+  not establish full-cache/model/scientific readiness.
 - Historical job 332651 proves referenced-member coverage and loader-only timing,
   but its `t1.v1` caches are forbidden and its job lacks retroactive in-job source
   attestation.
@@ -503,10 +518,10 @@ S06 must not substitute the historical `t1.v1` files or claim full-data readines
 
 Allowed interpretation: reviewed S01 is integrated with preserved history/review;
 historical Job 333477 still supports the pre-review 62-test data-foundation tree;
-and the two S07-A-R P1 findings have scoped implementation/static evidence plus an
-exact pending focused validation request.
+and Job 335280 supports the exact P1 physical-cache provenance regressions and
+locale-stable source attestation at `44cefd06`.
 
-Forbidden interpretation: independent remediation PASS before re-review, executed
-P1 hostile-test evidence, permission to submit either pending request, full-data/model training readiness, architecture or
+Forbidden interpretation: independent remediation acceptance before re-review,
+permission to rerun Section C or submit pending Section B, full-data/model training readiness, architecture or
 metric acceptance, mAP/NDS/model quality, FL, attack/defense, generalization,
 scientific, or publication claims.

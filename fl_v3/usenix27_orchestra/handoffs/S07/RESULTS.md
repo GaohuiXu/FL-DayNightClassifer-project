@@ -2,7 +2,8 @@
 
 ## Overall result
 
-The bounded O-009 focused data-foundation job **PASS**. Full trainval `t1.v2`
+The bounded O-009 focused data-foundation jobs **PASS**, including the
+S07-A-R physical-cache provenance remediation gate at Job 335280. Full trainval `t1.v2`
 cache materialization was **not submitted** and remains
 `PENDING_OWNER_APPROVAL_DO_NOT_SUBMIT` in `RUN_REQUEST.md`. No model, training,
 evaluation, profile, metric, matrix, seed, attack, defense, upload, or publication
@@ -67,6 +68,63 @@ Output root:
 
 Stderr contains only the normal module-purge notice.
 
+## Job 335280 — S07-A-R P1 focused provenance validation PASS
+
+- Approval: exact one-time O-009/S00 approval under the owner's 2026-07-11
+  validation-only delegation; consumed by this job.
+- Executable commit: `44cefd06bc815e893919d95c754896711dba3402`.
+- Runtime source-state SHA-256:
+  `2710655b166a78e3af39d6537a5098c916463415d27dd9f5503bb79a533c1531`.
+- C-locale-sorted 25-file list SHA-256:
+  `90310705f1bac3bcdfba9128deea6aed60a270e811cc62759f1204612d61d913`.
+- Job/name/node: `335280` / `flv3_s07a_provenance` / `n430` (`aarch64`).
+- State/exit/elapsed/timelimit: `COMPLETED`, `0:0`, `00:01:16`, `00:15:00`.
+- Allocation: one node, one GH200, eight CPUs; at most 0.25 requested GPU-hours
+  and approximately 0.0211 elapsed GPU-hours. `AllocTRES` was
+  `billing=1,cpu=8,gres/gpu:nvidia_gh200_120gb=1,gres/gpu=1,mem=11672M,node=1`.
+- Batch resources: `MaxRSS=540M`, `MaxVMSize=6476352K`,
+  `TotalCPU=00:08.591`.
+- Scheduler `Restarts=0`; no requeue, retry, resubmission, or follow-on job.
+- Pytest/JUnit: `7 passed in 1.52s`; seven tests, zero failures, errors, or skips.
+
+The exact hostile regressions both executed and passed:
+
+- `test_gt_database_rejects_derived_cache_mutation_before_blob_or_crop[gt_boxes]`;
+- `test_gt_database_rejects_derived_cache_mutation_before_blob_or_crop[sweep2keylidar]`.
+
+They preserve logically consistent raw-input canonical hash, pickle metadata, and
+JSON sidecar while mutating only derived geometry, then require the GT caller to
+reject the physical pickle mismatch before blob-store opening or point cropping.
+The retained cases also cover exact depth/canonical/physical identity, historical
+`t1.v1` rejection, directory backend preservation, ZIP manifest hashes, and the
+absence of a direct legacy bypass.
+
+Output root:
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_44cefd06bc81`.
+
+| Artifact | SHA-256 |
+|---|---|
+| `sha256sums.txt` | `bae54e1d863523ec7662d16b6fada9b30651c2af08213a3faf09c14443f94c2f` |
+| `runtime_source_sha256s.txt` | `2710655b166a78e3af39d6537a5098c916463415d27dd9f5503bb79a533c1531` |
+| `pytest.junit.xml` | `c6f28882186bdd8403fa5a7e9d0a059193b34c89c32b4b9258c94aed755c62ba` |
+| `pytest.log` | `40f696584529a148f334775fcbead4d33981049fbcc122f5b6a0562a17a2725d` |
+| `execution_identity.json` | `56d4c10cf085085bd2ccd9ce8e31c0c4ef04989ca9597b64d40129fd7f50c770` |
+
+`sha256sum -c sha256sums.txt` passed in-job. Independent post-job verification
+also passed every one of the 25 per-source checks. Logs:
+
+- stdout path
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07a_provenance_335280.out`, SHA-256:
+  `9db6bc86997614d95fbd1a58a98641df44fc47cb0508667e0177abfd8fe35ac8`;
+- stderr path
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07a_provenance_335280.err`, SHA-256:
+  `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57`.
+
+Stderr contains only the normal module-purge notice. The execution identity records
+CPython `3.11.15`, NumPy `1.26.4`, nuscenes-devkit `1.1.11`, pyquaternion `0.9.9`,
+Pillow `12.2.0`, pytest `9.1.1`, and Torch `2.11.0+cu128`. It also records empty
+`PYTEST_ADDOPTS` and disabled third-party pytest plugin autoload.
+
 ## Local/static verification
 
 - `/usr/bin/python3 -m pytest ...` could not run because the login interpreter has
@@ -80,6 +138,9 @@ Stderr contains only the normal module-purge notice.
 
 - No full trainval `t1.v2` cache exists from this session; its canonical/file hashes
   remain unknown until the pending exact request is approved and executed.
+- Job 335280 is focused real-mini/synthetic provenance evidence only. It does not
+  materialize the full trainval cache or establish trainval/model/scientific
+  readiness.
 - Job 333477 uses real mini plus synthetic ZIP/cache fixtures. It is not
   trainval-scale parity, all-payload CRC coverage, or model-step data-path evidence.
 - Historical job 332651 remains the accepted full reference-coverage/loader-only

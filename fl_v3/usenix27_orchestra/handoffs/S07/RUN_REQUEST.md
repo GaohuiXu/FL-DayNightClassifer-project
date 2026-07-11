@@ -208,12 +208,12 @@ metrics, FL/attack/defense, generalization, or publication claims.
 
 ---
 
-## C. S07-A-R P1 focused provenance validation — APPROVED ONCE, NOT EXECUTED
+## C. S07-A-R P1 focused provenance validation — EXECUTED ONCE, COMPLETED PASS
 
 ### Approval state and immutable scope
 
-- **Status:**
-  `APPROVED_ONCE_BY_S00_UNDER_O-009_AND_OWNER_DELEGATION_2026-07-11`.
+- **Status:** `EXECUTED_ONCE_COMPLETED_PASS`; the exact one-time approval
+  `APPROVED_ONCE_BY_S00_UNDER_O-009_AND_OWNER_DELEGATION_2026-07-11` is consumed.
 - **Locale-stable replacement approval:** after independently verifying the actual
   diff, three-locale hashes, fresh output absence, empty queue, and unchanged
   RESULTS blob, S00 reapproved exactly one submission. This approval is strictly
@@ -260,12 +260,12 @@ metrics, FL/attack/defense, generalization, or publication claims.
   locale.
 - Input mini root:
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini`.
-- Exact fresh output root, confirmed absent and not created:
+- Exact output root, confirmed absent before submission and created only by Job
+  335280:
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_44cefd06bc81`.
 - Resources: one submission, one node, one GH200, eight CPUs, walltime at most
   `00:15:00`, maximum 0.25 GPU-hours. No array, DDP, model, full cache, metric,
-  retry, resubmit, or follow-on job is authorized. This record does not claim the
-  approved submission has occurred.
+  retry, resubmit, or follow-on job was authorized or executed.
 - Executor: a fresh owner/Codex-UI-provisioned clean
   `detached@44cefd06bc815e893919d95c754896711dba3402` worktree.
 
@@ -299,3 +299,24 @@ nuscenes-devkit, pyquaternion, Pillow, pytest, and Torch versions, emits JUnit/l
 source/identity artifacts, generates checksums, and runs `sha256sum -c`. Stop on
 any SHA/source/output/data mismatch, any failure/error/skip, exception, or walltime.
 No retry or downstream action follows automatically.
+
+### Execution record — Job 335280
+
+- Submitted exactly once under the bound command. Job `335280`
+  (`flv3_s07a_provenance`) completed `0:0` on `n430` (`aarch64`) in `00:01:16`.
+  It used one node, one GH200 and eight CPUs; `Restarts=0`, with no retry,
+  requeue, resubmit, or follow-on. Batch resources were `MaxRSS=540M`,
+  `MaxVMSize=6476352K`, and `TotalCPU=00:08.591`.
+- Exact execution identity matched implementation `44cefd06...`, focused source
+  hash `2710655b...`, declared mini root, aarch64 Python `3.11.15`, and the
+  approved output. The clean-detached SHA/source/output guards passed before test
+  execution.
+- Pytest/JUnit recorded seven tests, zero failures/errors/skips in `1.52s`;
+  both `gt_boxes` and `sweep2keylidar` hostile mutation cases were present and
+  passed.
+- In-job `sha256sum -c` passed for all output artifacts. Independent post-job
+  checking passed all 25 source entries, reproduced the exact list/aggregate
+  identities, and matched scheduler/log/artifact records. Complete hashes are in
+  `RESULTS.md`.
+- Section C approval is consumed. No rerun is authorized. Section B remains
+  `PENDING_OWNER_APPROVAL_DO_NOT_SUBMIT` and was not submitted.
