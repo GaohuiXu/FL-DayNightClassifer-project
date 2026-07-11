@@ -117,10 +117,10 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 |---|---|---|---|---|
 | S00 | Orchestra/owner decisions | — | approved contracts and status ledger | active; sole pinned canonical writer |
 | S01 | Shared nuScenes ZIP backend | S00 kickoff | data backend, manifest, parity/coverage tests | reviewed PASS; integrated through S07-A, historical `t1.v1` caches forbidden |
-| S02 | CL P0 correctness | S00 kickoff | pillar/Gaussian fixes and invariance tests | owner-authorized for parallel launch under O-017 |
-| S03 | Camera branch architecture | S00 kickoff | corrected stride-8 independent camera modules | owner-authorized for parallel launch under O-017 |
-| S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | owner-authorized for parallel launch under O-017 |
-| S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | owner-authorized for parallel launch under O-017 |
+| S02 | CL P0 correctness | S00 kickoff | pillar/Gaussian fixes and invariance tests | active from common base `372de939`; branch `codex/s02-cl-p0-correctness` |
+| S03 | Camera branch architecture | S00 kickoff | corrected stride-8 independent camera modules | active from common base `372de939`; branch `codex/s03-camera-architecture` |
+| S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | active from common base `372de939`; branch `codex/s04-lidar-second` |
+| S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | active from common base `372de939`; branch `codex/s05-centerhead-decode` |
 | S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | planned; must consume explicit `t1.v2` depth/hash contract |
 | S07 | Integrated engineering gate | phase A: S01 PASS; phase B: S01-S06 PASS | staged data foundation, then one resolved candidate stack and 100/1000-step evidence | S07-A reviewed PASS at `ba15716`/`44cefd0`/`370ea6c`; full cache and S07-B separate |
 | S08 | Camera scientific run | S07 PASS | `C-STR8` full-val result/checkpoint | planned |
