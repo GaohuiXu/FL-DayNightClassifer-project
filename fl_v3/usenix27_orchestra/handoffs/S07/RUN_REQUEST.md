@@ -88,15 +88,20 @@ walltime. There is no automatic retry.
 - **Status:** `PENDING_OWNER_APPROVAL_DO_NOT_SUBMIT`.
 - This full trainval cache generation is outside O-009. Preparing this request is
   not permission to execute it.
-- Returned delivery SHA before scoped remediation:
-  `c7d57510e94de5429b62aa9df735a867bdcd199c`.
-- Exact remediated implementation candidate (`NEW_IMPL_SHA`):
-  `ed31f23b2ee1b193b5dd3600c00570e40a888ce9`.
+- Durable S07-A-R review:
+  `976206405ccf7d2c864d318f5ee27302bdf59059` (`CHANGES-REQUESTED`).
+- Exact P1-remediated implementation candidate (`NEW_IMPL_SHA`):
+  `c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe`.
 - Exact cache-launcher source-state SHA-256:
-  `7ddb06b3d57ef89be3b67782d90e93d64ddaa567ebd946ceda09910dc17b42f5`.
+  `6a4ad312b41ff161aa07f7628176ab74f550768f8b15c335314c5d262cbec1c2`.
+- The 23-file set was recomputed identically from the clean worktree and immutable
+  Git blobs. It includes every tracked Python file under
+  `fl_v3/src/fl_v3/data/nuscenes/`, package initializers,
+  `fl_v3/src/fl_v3/data/partition.py`, `fl_v3/src/fl_v3/utils/runtime.py`, the
+  cache builder/launcher/environment bootstrap, and dependency/config manifests.
 - Eventual executor contract: after separate owner approval, the owner/Codex task
   UI provisions a fresh isolated worktree at
-  `detached@ed31f23b2ee1b193b5dd3600c00570e40a888ce9`. The executor verifies a
+  `detached@c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe`. The executor verifies a
   clean worktree, empty branch name, and exact HEAD before submission. This
   request does not name, reuse, or depend on the current worker worktree. No
   execution worktree has been created by this remediation.
@@ -111,9 +116,11 @@ walltime. There is no automatic retry.
   NumPy `1.26.4`, nuscenes-devkit `1.1.11`, and pyquaternion `0.9.9`. These are
   expected values only. The in-job `execution_identity.json` records the actual
   interpreter path/implementation/version, platform, and installed versions of
-  NumPy, nuscenes-devkit, and pyquaternion; an approved execution must retain and
-  review that actual identity. Source/requirements hashes do not substitute for
-  this runtime record.
+  NumPy, nuscenes-devkit, pyquaternion, Torch, and Pillow; an approved execution
+  must retain and review that actual identity. Source/requirements hashes do not
+  substitute for this runtime record.
+- The obsolete tuple `ed31f23` / `7ddb06...` /
+  `s07a_cache_t1v2_ed31f23b2ee1` is permanently superseded and unapproved.
 
 ### Accepted immutable manifest input
 
@@ -136,7 +143,7 @@ walltime. There is no automatic retry.
   GPU allocation is for the validated aarch64 environment; cache construction is
   metadata/CPU/I/O work. One job only, no array/DDP/retry/follow-on.
 - Exact unique output root:
-  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_ed31f23b2ee1`.
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_c8dd920cf3f8`.
   It was confirmed absent during this local remediation; this is a proposed path,
   not a created output.
 - Logs:
@@ -144,12 +151,12 @@ walltime. There is no automatic retry.
 
 ```bash
 test -z "$(git branch --show-current)" && \
-test "$(git rev-parse HEAD)" = "ed31f23b2ee1b193b5dd3600c00570e40a888ce9" && \
+test "$(git rev-parse HEAD)" = "c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe" && \
 test -z "$(git status --short)" && \
-test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_ed31f23b2ee1 && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_c8dd920cf3f8 && \
 test -z "$(squeue -u "$USER" -h -o '%i %j' | awk '$2 ~ /flv3_s07a_cache_t1v2/ {print}')" && \
 sbatch --time=00:30:00 --cpus-per-task=8 \
-  --export=ALL,EXPECTED_S07A_SHA=ed31f23b2ee1b193b5dd3600c00570e40a888ce9,EXPECTED_S07A_STATE_HASH=7ddb06b3d57ef89be3b67782d90e93d64ddaa567ebd946ceda09910dc17b42f5,S07A_ACCEPTED_MANIFEST=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_v2_1fe651700bd0/nuscenes_trainval_zip_manifest.sqlite,S07A_ACCEPTED_MANIFEST_HASH=023f72b4220bb0db587be00920308bf9074384740fe186d243be92f9a53119f6,S07A_ACCEPTED_MANIFEST_FILE_SHA256=228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb,S07A_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_ed31f23b2ee1 \
+  --export=ALL,EXPECTED_S07A_SHA=c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe,EXPECTED_S07A_STATE_HASH=6a4ad312b41ff161aa07f7628176ab74f550768f8b15c335314c5d262cbec1c2,S07A_ACCEPTED_MANIFEST=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_v2_1fe651700bd0/nuscenes_trainval_zip_manifest.sqlite,S07A_ACCEPTED_MANIFEST_HASH=023f72b4220bb0db587be00920308bf9074384740fe186d243be92f9a53119f6,S07A_ACCEPTED_MANIFEST_FILE_SHA256=228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb,S07A_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_c8dd920cf3f8 \
   fl_v3/scripts/run_s07a_nuscenes_cache_t1v2.sh
 ```
 
@@ -190,3 +197,58 @@ may be proposed as production inputs with their frozen cache and accepted manife
 hashes. Forbidden: retroactive attestation of job 332651, trainval-scale decoded
 directory/ZIP parity, all-payload CRC coverage, model-step readiness, model quality,
 metrics, FL/attack/defense, generalization, or publication claims.
+
+---
+
+## C. S07-A-R P1 focused provenance validation — PENDING OWNER APPROVAL
+
+### Approval state and immutable scope
+
+- **Status:** `PENDING_OWNER_APPROVAL_DO_NOT_SUBMIT`.
+- This request validates only the remediated GT-cache physical-identity contract
+  and its existing directory/ZIP provenance neighbors on real mini plus synthetic
+  mutated caches. It does not open shared trainval archives, build full caches,
+  run a model, profile, evaluate metrics, or make scientific claims.
+- Exact implementation: `c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe`.
+- Exact 25-file focused runtime source-state SHA-256:
+  `357da48780436aaba3cbc6735e350d446763acc9f6cb8a0bf424728e55a32d0e`.
+- Input mini root:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini`.
+- Exact fresh output root, confirmed absent and not created:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_c8dd920cf3f8`.
+- Resources: one submission, one node, one GH200, eight CPUs, walltime at most
+  `00:15:00`, maximum 0.25 GPU-hours. No array, DDP, model, full cache, metric,
+  retry, resubmit, or follow-on job is authorized by this request.
+- Executor: a fresh owner/Codex-UI-provisioned clean
+  `detached@c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe` worktree.
+
+### Exact command
+
+```bash
+test -z "$(git branch --show-current)" && \
+test "$(git rev-parse HEAD)" = "c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe" && \
+test -z "$(git status --short)" && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_c8dd920cf3f8 && \
+test -z "$(squeue -u "$USER" -h -o '%i %j' | awk '$2 ~ /flv3_s07a_provenance/ {print}')" && \
+sbatch --time=00:15:00 --cpus-per-task=8 \
+  --export=ALL,EXPECTED_S07A_SHA=c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe,EXPECTED_S07A_PROVENANCE_STATE_HASH=357da48780436aaba3cbc6735e350d446763acc9f6cb8a0bf424728e55a32d0e,S07A_MINI_DATAROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini,S07A_PROVENANCE_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_c8dd920cf3f8 \
+  fl_v3/scripts/run_s07a_provenance_tests.sh
+```
+
+### Acceptance and stop conditions
+
+The launcher itself rechecks clean detached SHA, source hash, mini dataset, and
+fresh output before executing exactly
+`fl_v3/tests/test_build_gt_database.py`. Pass requires at least one collected test,
+zero failures, zero errors, zero skips, and specifically both hostile variants:
+
+- derived `gt_boxes` changed while raw canonical inputs/meta/sidecar remain
+  logically consistent;
+- derived `lidar_sweeps[*].sweep2keylidar` changed under the same conditions.
+
+Both must be rejected by physical pickle SHA mismatch before blob-store opening or
+point cropping. The job records Python/platform and installed NumPy,
+nuscenes-devkit, pyquaternion, Pillow, pytest, and Torch versions, emits JUnit/log/
+source/identity artifacts, generates checksums, and runs `sha256sum -c`. Stop on
+any SHA/source/output/data mismatch, any failure/error/skip, exception, or walltime.
+No retry or downstream action follows automatically.
