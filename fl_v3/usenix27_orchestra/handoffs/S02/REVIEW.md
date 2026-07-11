@@ -2,12 +2,14 @@
 
 ## Verdict
 
-**CHANGES-REQUESTED.** The implementation diff contains no confirmed correctness
-defect in the reviewed per-sample pillar-cap or Gaussian-target semantics, and the
-CPU evidence is internally consistent. However, the binding S02 gate requires one
-GPU forward/backward pass. Both delivered jobs intentionally set
-`CUDA_VISIBLE_DEVICES=""`; the worker explicitly records the GPU gate as not run.
-S02 therefore cannot yet be accepted as a reviewed S07-B dependency.
+**PASS after limited re-review (2026-07-11).** The original review at
+`fb17da3ea55a93d7709f6a2b5f6e4bb6adc0bf7e` returned `CHANGES-REQUESTED` only
+because the binding GPU forward/backward gate was absent. Exact executable
+`b6f815d01b5374eb4b922559b83b1d28c208e2b9`, Job `336713`, and final worker
+delivery `3aebf2dc1d19473f29260df279421047d216d70e` close that evidence gap without
+changing implementation `65c83c0...`. S02 may now be accepted as a reviewed
+S07-B dependency. This is not S07-B integration, full-stack, performance, data,
+or scientific readiness.
 
 Reviewed worker delivery:
 
@@ -16,12 +18,14 @@ Reviewed worker delivery:
 - implementation SHA: `65c83c077210469861ba722a285ab1e58e6d719f`;
 - first executable: `a877ea0ecdc510350e03843ec66b9a679cdb6f37`;
 - parser-remediation executable: `840e8bee8d1157c71b7752d3937c6cb8e75201e7`;
+- GPU-remediation executable: `b6f815d01b5374eb4b922559b83b1d28c208e2b9`;
+- final worker delivery: `3aebf2dc1d19473f29260df279421047d216d70e`;
 - expected source branch: `codex/s02-cl-p0-correctness`;
 - review worktree preflight: clean, detached, exact HEAD `7ad396e...`.
 
 ## Findings
 
-### [P1] Required GPU forward/backward evidence is absent
+### [P1][RESOLVED 2026-07-11] Required GPU forward/backward evidence was absent
 
 The canonical S02 contract requires both the focused unit suite and one GPU
 forward/backward pass (`SESSIONS.md:240-246`). The handoff records the latter as
@@ -191,7 +195,7 @@ aarch64 job evidence.
 | Old-checkpoint invalidation documented | PASS |
 | Job 335565 terminal evidence | FAILED preserved correctly |
 | Job 335578 terminal evidence | PASS, CPU only |
-| One GPU forward/backward | **MISSING — BLOCKS S02 PASS** |
+| One GPU forward/backward | PASS — exact Job 336713, limited re-review below |
 | Ownership/provenance/authorization | PASS for delivered history |
 
 ## Allowed and forbidden claims
@@ -202,11 +206,15 @@ Allowed now:
   O-017 Gaussian formula/golden contract;
 - the twelve exact CPU tensor tests passed twice on the recorded aarch64 runtime;
 - Job 335565 is a preserved post-pytest evidence-pipeline failure, while Job
-  335578 separately closes that parser/checksum path.
+  335578 separately closes that parser/checksum path;
+- Job 336713 closes the missing bounded synthetic CUDA forward/backward gate for
+  the unchanged reviewed implementation;
+- S02 may be consumed as a reviewed S07-B dependency subject to S07-B's separate
+  integration gates.
 
 Forbidden now:
 
-- `S02 PASS`, reviewed integration readiness, or GPU correctness;
+- treating S02 PASS as S07-B/full-stack/data/performance/scientific readiness;
 - calling Job 335565 completed/passing or claiming it produced an in-job final
   checksum manifest;
 - old-target checkpoint resume/scientific compatibility;
@@ -221,3 +229,117 @@ semantics remain unchanged. Any implementation or fixture change reopens the ful
 code review. The focused tests do not establish full-stack integration, SECOND
 behavior, full-data truncation rates, throughput, or scientific performance; those
 remain S07-B and later-session gates.
+
+## Limited evidence re-review — 2026-07-11
+
+### Scope and immutable identities
+
+This re-review was limited exactly as authorized: the existing review worktree
+remained clean on `codex/s02-r-p0-correctness-review` at prior review SHA
+`fb17da3...`; no branch/worktree topology changed; no compute or fix was run. The
+worker ref `refs/heads/codex/s02-cl-p0-correctness` resolves to final delivery
+`3aebf2dc1d19473f29260df279421047d216d70e` and the worker worktree was clean.
+
+Verified identities:
+
+| Field | Value |
+|---|---|
+| unchanged model implementation | `65c83c077210469861ba722a285ab1e58e6d719f` |
+| GPU executable / tree | `b6f815d01b5374eb4b922559b83b1d28c208e2b9` / `8ee64fbde2d022f468def7d24cddf0f87e08a3fb` |
+| final worker delivery | `3aebf2dc1d19473f29260df279421047d216d70e` |
+| executable RUN_REQUEST SHA-256 | `aaec2fdf8662edcccf1dde6cec68737fdadf18461c087c46eee84ae312ce3769` |
+| launcher SHA-256 | `78715618936c1469da37d3bbe5582ff84964a04bb9c8521bbdc8573023a797ed` |
+| GPU test SHA-256 | `f45cc992bde4b1353713fdf906578c22a684c8c0b000f8a4eb115199288e5fee` |
+| executable runtime-source state | `5f5cc459a149483120bafc91cacb1c8a19bf500c45844a60891fe47ee28e1e49` |
+
+The diff from prior delivery `7ad396e...` to executable `b6f815d...` adds only the
+focused GPU test and launcher plus request/handoff preparation. The two model files
+are byte-identical to implementation `65c83c0...`. The executable-to-final-delivery
+diff changes only `HANDOFF.md`, `RESULTS.md`, and `RUN_REQUEST.md`; it contains no
+executable source change.
+
+Final delivery-document hashes are:
+
+| File | SHA-256 |
+|---|---|
+| `HANDOFF.md` | `d7a0624bd0599271712698947279e5ffa93e7f7ac138dcf81206306e2ded0e85` |
+| `RESULTS.md` | `bf81a64d7feeaae610d549e7a725cd25278026e9663f1ed08e9262079002211c` |
+| `RUN_REQUEST.md` | `44ac7f6716f80fc001e37866123fedbc37a521edae220d3c5bd983fe0cb6b1b4` |
+
+### Job 336713 raw scheduler and allocation evidence
+
+Read-only `sacct`/`scontrol` reconciliation matches the package:
+
+- job/name: `336713 / flv3_s02_gpu_fb`;
+- state/exit: `COMPLETED 0:0`, `Restarts=0`, `Requeue=0`;
+- submit/start/end: `18:48:05 / 18:48:06 / 18:49:24` Europe/Stockholm;
+- elapsed/limit: `00:01:18 / 00:10:00`;
+- node: `n580`, shared allocation `OverSubscribe=OK`;
+- requested and allocated TRES match exactly: one GH200, four CPUs, 16 GiB,
+  one node, billing one;
+- batch evidence: `MaxRSS=36M`, `MaxVMSize=6738496K`, read/write
+  `65.52M/0.26M`, `TotalCPU=00:07.844`;
+- command and workdir both point to the immutable `/nobackup` Git-archive snapshot
+  `s02_gpu_fb_b6f815d01b53`, not the `/home` worker worktree.
+
+Execution identity independently confirms exact SHA/tree/request/launcher/source
+hashes, aarch64, PyTorch `2.11.0+cu128`, `SLURM_GPUS_ON_NODE=1`,
+`SLURM_JOB_GPUS=1`, `CUDA_VISIBLE_DEVICES=0`, and exactly one Torch-visible
+`NVIDIA GH200 120GB` with capability 9.0. The job performed no optimizer or scaler
+step and records `synthetic_only=true`.
+
+### CUDA fixture and gradient evidence
+
+The sole JUnit testcase is
+`test_s02_cuda_b3_overcap_empty_isolation_forward_backward`; independent parsing
+gives exactly `1/0/0/0`, and pytest reports `1 passed in 5.50s`.
+
+The actual fixture meets the requested hostile conditions:
+
+- B=3 with populated samples 0 and 2 and empty sample 1;
+- both populated samples exceed point and per-sample pillar caps;
+- sample 0's batched output equals its isolated B=1 output exactly;
+- output shape `[3,32,4,6]`, fp32, all finite; empty sample output is zero;
+- exact input/in-range `[12,0,9]`, occupied `[3,0,4]`, selected `[2,0,2]`,
+  truncated `[1,0,2]`, kept `[5,0,4]`, point drops `[3,0,2]`, pillar drops
+  `[4,0,3]`, selected batch ids `[0,0,2,2]`, and local keys `[0,1,4,6]`;
+- finite positive loss `0.027591658756136894`;
+- present, finite, nonzero intended gradients:
+  `linear.weight=0.015205752104520798`,
+  `norm.weight=0.012320908717811108`, and
+  `norm.bias=0.012358705513179302`.
+
+No optimizer/GradScaler step, mini/trainval/cache/ZIP/checkpoint access, metric,
+profile, matrix, seed campaign, retry, requeue, resubmission, or follow-on appears
+in the launcher, request, execution identity, scheduler history, or raw log.
+
+### Artifact and historical-evidence reconciliation
+
+Raw Job 336713 hashes independently match `RESULTS.md`:
+
+| Artifact | SHA-256 |
+|---|---|
+| `execution_identity.json` | `b8f63aba3e898c11da56fb4ab4193e1bc9f832199f80418dacff6f4e4d448d55` |
+| `runtime_source_sha256s.txt` | `5f5cc459a149483120bafc91cacb1c8a19bf500c45844a60891fe47ee28e1e49` |
+| `pytest.log` | `f2228e25fdf14dadbcf15cdb1c73fd6760703321971eda928d8b75759dab42ad` |
+| `pytest.junit.xml` | `38990046c2ab3f855bae48cbbb3a0ff917b578800bc92a0f6517187d8cc6e7f1` |
+| `sha256sums.txt` | `87c62e780c526f0407c2c50ee192694ad1c61d85f759e517c802634b311a6d39` |
+| stdout | `1a0264a829a98f64891f5c01f85fe542b32d714fba3a7a59aa8aa7eb621be21f` |
+| stderr | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+The source manifest verifies completely against the exact executable snapshot both
+before and after pytest; the final four-artifact manifest also verifies. Stderr is
+only the normal module-purge notice. Prior Jobs `335565` and `335578` remain
+unchanged: Job 335565 is still overall `FAILED 1:0` with no final checksum manifest,
+while Job 335578 remains the separate CPU parser-remediation `COMPLETED 0:0` result.
+
+### Final limited re-review verdict
+
+The sole original P1 is resolved. No new finding was identified in the bounded
+test/launcher, immutable execution, final documentation, allocation, or raw
+artifacts. Final verdict is **PASS for S02 as a reviewed S07-B dependency**.
+
+Residual limits remain unchanged: the evidence does not establish S07-B
+cross-module integration, SECOND behavior, full-data truncation frequency,
+performance/memory, old-checkpoint compatibility, model quality, mAP/NDS, fusion
+gain, FL/security, generalization, or publication claims.
