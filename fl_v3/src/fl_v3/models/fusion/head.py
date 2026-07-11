@@ -1,61 +1,206 @@
-"""CenterPoint dense detection head (fl_v3 T2).
+"""Framework-independent multi-task CenterHead for nuScenes.
 
-A SeparateHead over the BEV neck feature: a shared Conv-GN-ReLU, then one conv per
-task — a **per-class heatmap** (``n_classes`` channels) and class-agnostic regression
-(``reg`` xy-offset, ``height`` z, ``dim`` log-extent, ``rot`` (sin,cos), ``vel`` (vx,vy)).
-GroupNorm (D6); no adaptive pooling. The heatmap's final-conv bias is initialized to
-``-2.19`` (focal-loss prior ≈ sigmoid 0.1, the CenterPoint init) so the overfit does
-not start saturated.
+Reference contract
+------------------
+The topology and task grouping follow the archived MIT BEVFusion CenterHead at
+commit ``326653dc06e0938edf1aae7d01efcd158ba83de5``.  The implementation is the
+owner-approved O-018 **reference-faithful no-starvation adaptation**:
 
-The regression channels parameterize the **T1 canonical box** ``(cx,cy,cz,dx=l,dy=w,
-dz=h,yaw)`` — decode (in :mod:`detector`) reconstructs it with **no** mmdet3d ``-π/2``
-offset and **no** ``(l,w,h)`` swap (the encode→decode golden pins this).
+* one shared ``3x3 Conv -> GroupNorm -> ReLU`` feature transform;
+* six official nuScenes task heads;
+* each task has independent two-convolution ``heatmap``, ``reg``, ``height``,
+  ``dim``, ``rot``, and ``vel`` branches;
+* GroupNorm replaces the reference BatchNorm so one sample cannot change another
+  sample's output through batch statistics.
+
+Candidate selection and NMS intentionally live in :mod:`centerhead_decode` rather
+than in this module.  O-018 removes the reference coder's *second* task-wide top-K
+while retaining per-class K=500; multi-class decode is therefore not claimed to be
+element-wise identical to the official implementation.  Single-class tasks retain
+the official candidate semantics.
+
+The regression field order is ``offset_xy, z, log(l,w,h), sin/cos(yaw), vx/vy``.
+Decoded boxes use the project canonical gravity-center convention
+``(cx,cy,cz,l,w,h,yaw)`` in ``LIDAR_TOP``.
 """
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, List, Sequence, Tuple
 
 import torch
 import torch.nn as nn
 
 
-def _gn(channels: int, max_groups: int = 32) -> nn.GroupNorm:
-    g = min(max_groups, channels)
-    while channels % g != 0:
-        g -= 1
-    return nn.GroupNorm(g, channels)
+# Canonical global label order from nuscenes-devkit 1.1.11.  Keep this local to
+# the model module so importing the head does not require importing the devkit.
+NUSCENES_DETECTION_NAMES: Tuple[str, ...] = (
+    "car",
+    "truck",
+    "bus",
+    "trailer",
+    "construction_vehicle",
+    "pedestrian",
+    "motorcycle",
+    "bicycle",
+    "traffic_cone",
+    "barrier",
+)
+
+# Official CenterPoint/BEVFusion task order.  It is deliberately *not* the same
+# as NUSCENES_DETECTION_NAMES, so callers must map by name, never task offsets.
+NUSCENES_CENTERHEAD_TASKS: Tuple[Tuple[str, ...], ...] = (
+    ("car",),
+    ("truck", "construction_vehicle"),
+    ("bus", "trailer"),
+    ("barrier",),
+    ("motorcycle", "bicycle"),
+    ("pedestrian", "traffic_cone"),
+)
+
+REG_CHANNELS: Dict[str, int] = {
+    "reg": 2,
+    "height": 1,
+    "dim": 3,
+    "rot": 2,
+    "vel": 2,
+}
 
 
-# regression sub-head channel layout (class-agnostic)
-REG_CHANNELS = {"reg": 2, "height": 1, "dim": 3, "rot": 2, "vel": 2}
+def _group_norm(channels: int, max_groups: int = 32) -> nn.GroupNorm:
+    groups = min(int(max_groups), int(channels))
+    while channels % groups != 0:
+        groups -= 1
+    return nn.GroupNorm(groups, channels)
+
+
+def _validate_tasks(tasks: Sequence[Sequence[str]]) -> Tuple[Tuple[str, ...], ...]:
+    normalized = tuple(tuple(str(name) for name in task) for task in tasks)
+    if not normalized or any(not task for task in normalized):
+        raise ValueError("CenterHead tasks must be a non-empty sequence of non-empty tasks")
+    flat = tuple(name for task in normalized for name in task)
+    if len(flat) != len(set(flat)):
+        raise ValueError(f"CenterHead classes must be unique across tasks, got {flat}")
+    unknown = sorted(set(flat) - set(NUSCENES_DETECTION_NAMES))
+    if unknown:
+        raise ValueError(f"unknown nuScenes detection classes in tasks: {unknown}")
+    return normalized
+
+
+class _TwoConvBranch(nn.Module):
+    """Official two-convolution branch with the O-018 GroupNorm adaptation."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        hidden_channels: int,
+        out_channels: int,
+        *,
+        init_bias: float | None = None,
+    ) -> None:
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Conv2d(in_channels, hidden_channels, 3, padding=1, bias=False),
+            _group_norm(hidden_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(hidden_channels, out_channels, 3, padding=1, bias=True),
+        )
+        if init_bias is not None:
+            nn.init.constant_(self.layers[-1].bias, float(init_bias))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.layers(x)
+
+
+class SeparateTaskHead(nn.Module):
+    """One task's independent heatmap and five regression field branches."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        class_names: Sequence[str],
+        *,
+        head_channels: int = 64,
+        init_bias: float = -2.19,
+    ) -> None:
+        super().__init__()
+        self.class_names = tuple(str(name) for name in class_names)
+        if not self.class_names:
+            raise ValueError("a task head must contain at least one class")
+        self.branches = nn.ModuleDict()
+        self.branches["heatmap"] = _TwoConvBranch(
+            in_channels,
+            head_channels,
+            len(self.class_names),
+            init_bias=init_bias,
+        )
+        for name, channels in REG_CHANNELS.items():
+            self.branches[name] = _TwoConvBranch(
+                in_channels,
+                head_channels,
+                channels,
+            )
+
+    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+        return {name: branch(x) for name, branch in self.branches.items()}
 
 
 class CenterPointHead(nn.Module):
-    """Dense per-class heatmap + shared regression over the BEV feature."""
+    """Official six-task nuScenes CenterHead topology with GroupNorm.
 
-    def __init__(self, in_channels: int, n_classes: int = 10, head_channels: int = 64,
-                 init_bias: float = -2.19, conv_layers: int = 1):
+    ``forward`` returns a list in task order.  Each item is a dictionary whose
+    fields are ``heatmap/reg/height/dim/rot/vel``.  The production detector and
+    loss wiring are intentionally outside S05 ownership and must be updated by
+    S07 against this explicit list-of-task-dicts contract.
+    """
+
+    def __init__(
+        self,
+        in_channels: int,
+        n_classes: int = 10,
+        head_channels: int = 64,
+        init_bias: float = -2.19,
+        conv_layers: int = 2,
+        *,
+        tasks: Sequence[Sequence[str]] = NUSCENES_CENTERHEAD_TASKS,
+        shared_channels: int = 64,
+    ) -> None:
         super().__init__()
-        self.n_classes = int(n_classes)
-        # Shared pre-head tower: ``conv_layers`` Conv-GN-ReLU blocks (the first maps in→head_channels, the
-        # rest head_channels→head_channels). MCR P1 large-vehicle localization lever: the box size/yaw regress
-        # off a 1×1 probe on this shared feature, so deepening/widening it adds the specialization capacity the
-        # single-conv tower lacked. ``conv_layers=1`` ⇒ a single Conv-GN-ReLU ⇒ byte-identical to the baseline.
-        def _block(cin: int, cout: int):
-            return [nn.Conv2d(cin, cout, 3, padding=1, bias=False), _gn(cout), nn.ReLU(inplace=True)]
-        layers = _block(in_channels, head_channels)
-        for _ in range(max(0, int(conv_layers) - 1)):
-            layers += _block(head_channels, head_channels)
-        self.shared = nn.Sequential(*layers)
-        self.heatmap = nn.Conv2d(head_channels, n_classes, 1)
-        nn.init.constant_(self.heatmap.bias, init_bias)  # focal-loss prior
-        self.reg_heads = nn.ModuleDict(
-            {name: nn.Conv2d(head_channels, ch, 1) for name, ch in REG_CHANNELS.items()}
+        if int(conv_layers) != 2:
+            raise ValueError(
+                "O-018 freezes two convolutions per task field; "
+                f"got conv_layers={conv_layers}"
+            )
+        self.class_names = _validate_tasks(tasks)
+        total_classes = sum(len(task) for task in self.class_names)
+        if int(n_classes) != total_classes:
+            raise ValueError(
+                f"n_classes={n_classes} disagrees with task total {total_classes}"
+            )
+        self.n_classes = total_classes
+        self.shared = nn.Sequential(
+            nn.Conv2d(in_channels, shared_channels, 3, padding=1, bias=False),
+            _group_norm(shared_channels),
+            nn.ReLU(inplace=True),
+        )
+        self.task_heads = nn.ModuleList(
+            SeparateTaskHead(
+                shared_channels,
+                task,
+                head_channels=head_channels,
+                init_bias=init_bias,
+            )
+            for task in self.class_names
         )
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
-        h = self.shared(x)
-        out = {"heatmap": self.heatmap(h)}
-        for name, head in self.reg_heads.items():
-            out[name] = head(h)
-        return out
+    def forward(self, x: torch.Tensor) -> List[Dict[str, torch.Tensor]]:
+        shared = self.shared(x)
+        return [head(shared) for head in self.task_heads]
+
+
+__all__ = [
+    "CenterPointHead",
+    "SeparateTaskHead",
+    "REG_CHANNELS",
+    "NUSCENES_CENTERHEAD_TASKS",
+    "NUSCENES_DETECTION_NAMES",
+]

@@ -32,7 +32,10 @@ from typing import Dict, List, Optional, Sequence
 import numpy as np
 import torch
 
-from fl_v3.eval.box_to_global import decoded_sample_to_boxes
+from fl_v3.eval.box_to_global import (
+    NUSCENES_MAX_BOXES_PER_SAMPLE,
+    decoded_sample_to_boxes,
+)
 
 
 # version ↔ eval_set table (devkit hard-couples these; mismatch → AssertionError in load_gt).
@@ -147,11 +150,18 @@ def build_results_dict(
     vms = float(rc.get("attr-vehicle-moving-speed", 0.2))
     pms = float(rc.get("attr-pedestrian-moving-speed", 0.2))
     results: Dict[str, list] = {str(t): [] for t in all_eval_tokens}
+    if len(results) != len(all_eval_tokens):
+        raise ValueError("all_eval_tokens contains duplicate sample tokens")
+    seen: set[str] = set()
     for d in decodes:
+        if d.sample_token in seen:
+            raise ValueError(f"sample {d.sample_token!r} was decoded more than once")
+        seen.add(d.sample_token)
         decoded = {"boxes": d.boxes, "scores": d.scores, "labels": d.labels, "velocity": d.velocity}
         boxes = decoded_sample_to_boxes(
             decoded, d.lidar2ego, d.ego2global_lidar, d.sample_token, class_names,
             vehicle_moving_speed=vms, pedestrian_moving_speed=pms,
+            max_boxes_per_sample=NUSCENES_MAX_BOXES_PER_SAMPLE,
         )
         if d.sample_token not in results:
             raise KeyError(f"decoded sample {d.sample_token} not in the eval-split token set")

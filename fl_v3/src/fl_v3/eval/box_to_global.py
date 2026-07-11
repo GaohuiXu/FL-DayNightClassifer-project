@@ -47,6 +47,7 @@ from fl_v3.data.nuscenes import transforms as T
 _VEHICLE_CLASSES = ("car", "truck", "bus", "trailer", "construction_vehicle")
 DEFAULT_VEHICLE_MOVING_SPEED = 0.2   # m/s (global planar speed) → vehicle.moving else parked
 DEFAULT_PEDESTRIAN_MOVING_SPEED = 0.2
+NUSCENES_MAX_BOXES_PER_SAMPLE = 500
 
 
 def lidar_to_global_matrix(lidar2ego, ego2global_lidar) -> np.ndarray:
@@ -124,6 +125,10 @@ def convert_box_to_global(
     coercion happens in :func:`make_detection_box`). No RNG, deterministic.
     """
     b = np.asarray(box7, dtype=np.float64).reshape(7)
+    if not np.all(np.isfinite(b)):
+        raise ValueError(f"canonical box must be finite, got {b.tolist()}")
+    if not np.all(b[3:6] > 0.0):
+        raise ValueError(f"canonical box dimensions must be positive, got {b[3:6].tolist()}")
     cx, cy, cz, dl, dw, dh, yaw = b
     l2g = lidar_to_global_matrix(lidar2ego, ego2global_lidar)
     R_l2g = l2g[:3, :3]
@@ -247,6 +252,7 @@ def decoded_sample_to_boxes(
     score_threshold: Optional[float] = None,
     vehicle_moving_speed: float = DEFAULT_VEHICLE_MOVING_SPEED,
     pedestrian_moving_speed: float = DEFAULT_PEDESTRIAN_MOVING_SPEED,
+    max_boxes_per_sample: int = NUSCENES_MAX_BOXES_PER_SAMPLE,
 ) -> List["object"]:
     """Convert one sample's ``detector.decode`` dict → sorted list of global ``DetectionBox``.
 
@@ -266,6 +272,18 @@ def decoded_sample_to_boxes(
     if vel is not None:
         vel = np.asarray(vel.detach().cpu().numpy() if hasattr(vel, "detach") else vel, dtype=np.float64)
 
+    if boxes.ndim != 2 or boxes.shape[1] != 7:
+        raise ValueError(f"decoded boxes must have shape [K,7], got {boxes.shape}")
+    count = boxes.shape[0]
+    if scores.reshape(-1).shape[0] != count or labels.reshape(-1).shape[0] != count:
+        raise ValueError("decoded boxes, scores, and labels must have equal length")
+    if vel is not None and (vel.ndim != 2 or vel.shape != (count, 2)):
+        raise ValueError(f"decoded velocity must have shape {(count, 2)}, got {vel.shape}")
+    if not np.all(np.isfinite(scores)):
+        raise ValueError("decoded scores must be finite")
+    scores = scores.reshape(-1)
+    labels = labels.reshape(-1)
+
     out: List[object] = []
     for k in range(boxes.shape[0]):
         score = float(scores[k])
@@ -273,7 +291,9 @@ def decoded_sample_to_boxes(
             continue
         cls = int(labels[k])
         if cls < 0 or cls >= len(class_names):
-            continue
+            raise ValueError(
+                f"decoded label {cls} is outside canonical class range [0,{len(class_names)})"
+            )
         name = class_names[cls]
         v_l = vel[k] if vel is not None else None
         conv = convert_box_to_global(boxes[k], lidar2ego, ego2global_lidar, velocity_lidar=v_l)
@@ -283,4 +303,8 @@ def decoded_sample_to_boxes(
                                          pedestrian_moving_speed),
         ))
     out.sort(key=detection_box_sort_key)
+    if len(out) > int(max_boxes_per_sample):
+        raise ValueError(
+            f"nuScenes allows at most {max_boxes_per_sample} boxes per sample, got {len(out)}"
+        )
     return out
