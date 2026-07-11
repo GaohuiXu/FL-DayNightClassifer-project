@@ -9,8 +9,10 @@
 > integration/scientific PASS. Under O-017, S02-S05 are owner-authorized to launch
 > in parallel from one S00 canonical ledger commit directly atop S07-A freeze
 > `0249eb21a32730ac1689255491b19a158711401f`; their Gaussian/camera/SECOND/
-> CenterHead implementation choices are frozen below. All later technical sessions
-> remain `PLANNED` and inactive. Full tests,
+> CenterHead implementation choices are frozen below. S02 and S03 are reviewed
+> dependencies; S05 is reviewed PASS at worker `a9c801f` / review `1c44084`; S04
+> remains blocked only on the owner precision/runtime choice in O-023. All later
+> technical sessions remain `PLANNED` and inactive. Full tests,
 > full-data/profile/metric work, matrices, seeds, and reruns
 > still require a separately owner-approved `RUN_REQUEST.md`.
 > **Canonical objective/gates:** [`ORCHESTRA.md`](ORCHESTRA.md).
@@ -120,7 +122,7 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 | S02 | CL P0 correctness | S00 kickoff | pillar/Gaussian fixes and invariance tests | reviewed PASS at delivery `3aebf2d` / review `df142dc`; accepted S07-B dependency only |
 | S03 | Camera branch architecture | S00 kickoff | corrected stride-8 independent camera modules | reviewed module PASS at delivery `5089383` / review `2f62e57`; accepted S07-B dependency with production-shape limits |
 | S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | delivery `49f26de`; diagnostics confirm universal current fp16-eval dispatch blocker; owner precision/runtime choice pending |
-| S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | remediation delivery `705216d` closes review `c818262` findings in source/fixtures; 44 cases NOT RUN; fresh re-review pending |
+| S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | reviewed PASS at worker `a9c801f` / execution `96e509b` / review `1c44084`; Job `336731` 43/44 negative preserved, Job `336738` 44/44 focused runtime PASS; accepted S07-B dependency only |
 | S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | planned; must consume explicit `t1.v2` depth/hash contract |
 | S07 | Integrated engineering gate | phase A: S01 PASS; phase B: S01-S06 PASS | staged data foundation, then one resolved candidate stack and 100/1000-step evidence | S07-A reviewed PASS at `ba15716`/`44cefd0`/`370ea6c`; full cache and S07-B separate |
 | S08 | Camera scientific run | S07 PASS | `C-STR8` full-val result/checkpoint | planned |
@@ -691,8 +693,9 @@ manually verified.
    `fusion/losses.py` exclusive to S02 during the parallel wave.
 3. Launch S06 from reviewed `INT-A_SHA` and approved model-mode/resolved-config
    interfaces; require explicit `t1.v2` depth/hash provenance.
-4. Open S02-R through S06-R as workers return, then continue S07-B as the sole
-   full-stack integration phase after approved diffs are available.
+4. S02-R, S03-R, and S05-R are complete; resolve S04 under O-023 and independently
+   review it, then open S06/S06-R. Continue S07-B as the sole full-stack integration
+   phase only after all approved dependency diffs are available.
 5. Submit S08 and S09 jobs concurrently after S07-B/S07-R passes.
 6. Launch S10 as soon as the selected branch checkpoints arrive.
 7. Finish S12's protocol/split review; on `CL-PILOT`, start S13's clean baselines
