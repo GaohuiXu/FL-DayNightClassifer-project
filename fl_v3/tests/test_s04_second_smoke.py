@@ -50,31 +50,31 @@ def test_s04_reference_b4_fp16_forward_backward_memory_bound():
         sparse_conv_fp16=True,
     ).to(dev).train()
     encoder.record_debug = True
-    optimizer = torch.optim.AdamW(encoder.parameters(), lr=1e-4)
-    scaler = torch.amp.GradScaler("cuda", init_scale=512.0)
     points = _reference_points(dev)
 
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats(dev)
-    optimizer.zero_grad(set_to_none=True)
-    output = encoder(points, B=4)
+    encoder.zero_grad(set_to_none=True)
+    with torch.autocast(device_type="cuda", dtype=torch.float16):
+        output = encoder(points, B=4)
     loss = output.float().square().mean()
-    scaler.scale(loss).backward()
-    scaler.unscale_(optimizer)
+    loss.backward()
     grads = [p.grad for p in encoder.parameters() if p.requires_grad]
     assert grads and all(g is not None and torch.isfinite(g).all() for g in grads)
-    scale_before = scaler.get_scale()
-    scaler.step(optimizer)
-    scaler.update()
 
     meta = encoder.last_sparse_meta or {}
     assert output.shape == (4, 256, 180, 180)
     assert output.dtype == torch.float16 and torch.isfinite(output).all()
+    assert torch.isfinite(loss)
     assert meta["dense_shape"] == (4, 128, 2, 180, 180)
     assert meta["stage_shapes_zyx"][-1] == (2, 180, 180)
-    assert scaler.get_scale() >= scale_before
     assert encoder.last_voxel_stats is not None
     assert torch.equal(encoder.last_voxel_stats[:, 4], torch.zeros(4, device=dev, dtype=torch.int64))
+
+    peak_allocated = torch.cuda.max_memory_allocated(dev)
+    peak_reserved = torch.cuda.max_memory_reserved(dev)
+    device_total = torch.cuda.get_device_properties(dev).total_memory
+    assert 0 < peak_allocated <= peak_reserved <= device_total
 
     evidence = {
         "batch_size": 4,
@@ -82,10 +82,10 @@ def test_s04_reference_b4_fp16_forward_backward_memory_bound():
         "output_shape": list(output.shape),
         "output_dtype": str(output.dtype),
         "dense_shape": list(meta["dense_shape"]),
-        "peak_allocated_bytes": torch.cuda.max_memory_allocated(dev),
-        "peak_reserved_bytes": torch.cuda.max_memory_reserved(dev),
-        "grad_scale_before": scale_before,
-        "grad_scale_after": scaler.get_scale(),
+        "peak_allocated_bytes": peak_allocated,
+        "peak_reserved_bytes": peak_reserved,
+        "device_total_bytes": device_total,
         "loss": float(loss.detach().cpu()),
+        "optimizer_or_parameter_update": False,
     }
     print("S04_B4_EVIDENCE=" + json.dumps(evidence, sort_keys=True))

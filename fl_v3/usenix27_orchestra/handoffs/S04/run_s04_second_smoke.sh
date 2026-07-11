@@ -160,9 +160,12 @@ counts = {
     key: sum(int(suite.attrib.get(key, "0")) for suite in suites)
     for key in ("tests", "failures", "errors", "skipped")
 }
-if counts["tests"] <= 0 or any(counts[key] for key in ("failures", "errors", "skipped")):
+expected_tests = 10
+if counts["tests"] != expected_tests or any(
+    counts[key] for key in ("failures", "errors", "skipped")
+):
     raise SystemExit(f"S04 JUnit acceptance failed: {counts}")
-print(f"[S04] JUnit acceptance passed: {counts}")
+print(f"[S04] JUnit acceptance passed: expected={expected_tests} actual={counts}")
 PY
   junit_status=$?
   set -e
