@@ -15,14 +15,18 @@
   `753944c199ceeace160732218f1b16dfdd15ac21`.
 - Final delivery SHA: the commit containing this handoff; returned to S00 in the
   task response because a commit cannot embed its own SHA without changing it.
-- Worker self-assessment after scoped remediation: **PASS for the three requested
-  source findings and static gates; fresh independent re-review, runtime
-  Torch/pytest execution, and full-stack integration remain pending/NOT RUN**.
+- Worker self-assessment after scoped remediation and the first dependency-backed
+  runtime: **PASS for the three requested source findings and static gates; the
+  runtime gate is still pending because Job 336731 finished 43/44 after a
+  test-expectation-only tuple/list mismatch. Full-stack integration remains NOT
+  RUN**.
   This is not an independent review, S07-B PASS, model-readiness PASS, or
   scientific PASS.
 
-No Slurm/srun, model training, mini traversal, full trainval access, metric,
-profile, merge, push, PR, upload, or publication action occurred.
+This worker did not invoke Slurm/srun. Independent S05-R2 later ran exact synthetic
+Job 336731 under S00 approval; its negative result is preserved below. No model
+training, mini traversal, full trainval access, metric, profile, merge, push, PR,
+upload, or publication action occurred.
 
 ## O-018 amendment acknowledgement
 
@@ -86,6 +90,57 @@ The findings and their closure in remediation commit `753944c` are preserved:
 
 No other review finding was reinterpreted or waived. Runtime execution remains a
 fresh re-review requirement rather than retroactive PASS evidence.
+
+## S05-R2 Job 336731 negative and test-only return
+
+Independent S05-R2 prepared the exact 44-case synthetic request on review branch
+`codex/s05-r2-centerhead-review`; its current durable review SHA is
+`61e7fb14bc6f44fe681628a1fb0ed701ad4f7f28`. S00 authorized the immutable request,
+and Job `336731` executed worker delivery `705216d` on GH200 node `n570`.
+
+- Scheduler status: **FAILED**, exit `1:0`, elapsed `00:01:15`, one node, eight
+  CPUs, exactly one `nvidia_gh200_120gb`, no retry.
+- JUnit: exactly 44 tests, 43 passed, one failure, zero errors/skips; test time
+  `22.878s`.
+- All forced-FP32, GroupNorm, O-018 no-starvation/tie, label-map, NMS geometry,
+  invalid-input/budget, box conversion, and other submission tests passed.
+- Sole failure:
+  `test_submission_duplicate_geometry_orders_velocity_and_attribute_by_content`.
+  Its scientifically/correctness-critical `forward == reverse` check passed. The
+  remaining expected value used `[0.0,0.0]`/`[5.0,0.0]` lists, while installed
+  nuScenes devkit `DetectionBox.serialize()` stably returned `(0.0,0.0)`/
+  `(5.0,0.0)` tuples. Attributes and ordering were already correct. This is a
+  test container-contract mismatch, not a production/source defect.
+- Runtime identity: aarch64, Python `3.11.15`, torch `2.11.0+cu128`, NumPy
+  `1.26.4`, pytest `9.1.1`, nuscenes-devkit `1.1.11`, Pillow `12.2.0`; no dataset,
+  optimizer update, or scientific metric.
+
+Raw durable evidence:
+
+| Artifact | SHA-256 |
+|---|---|
+| stdout `s05r2_centerhead_336731.out` | `fbeac7dbcc5b14cf1f377a6ca1e363c06e4932eb66a416d1179ea02349249b6e` |
+| stderr `s05r2_centerhead_336731.err` | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+| `pytest.log` | `3e461e6e83df9dedbdd68b2e0059e4afc2348bc54d56efebf55ef57a348a20fc` |
+| `pytest.junit.xml` | `0f79ed5509881bcc84a48f8dd546ebc69de0fd8ac4cdbfe074a8cd5ee806288e` |
+| `execution_identity.json` | `ca35c57e1f0b3eb7ba4257f5be8a1df0f6b0ca736b5f1902e360ce153695e490` |
+| `slurm_allocation.txt` | `de382961649eed7e5a31c213d924c50fed88160e36171cba0e4f9f9114a80d3f` |
+| `runtime_source_files.txt` | `bea19dd528010020a462b18cfaeedd2642fd0e0a147ac458e215bdb8718b1857` |
+| `runtime_source_sha256s.txt` | `2ff6389f0a556663e0cd2284c76c9fa11741bb0f44adb28eda4aebd33765c766` |
+
+The test-only correction commit is
+`96e509b71a3e22afb4de397132438fd3b9bbf5d8`: it changes only the two expected
+velocity containers from lists to the actual stable tuples and leaves both
+`forward == reverse` and exact velocity/attribute ordering assertions intact.
+Its tree is `aeaaad044199492b81c4383a013f3fb3c6596c02`; test-only diff SHA-256 is
+`aed0033a6843212557b14bc0b950006e3b791cd2a75afb7fd5d40938e79fc700`;
+corrected test SHA-256 is
+`e938dd34656e3ae5f5e9019748bea52a3ccc5cb99144492d6bf9f45e79c203c0`.
+No production file changed.
+
+`RUN_REQUEST.md` and `run_s05r3_centerhead.sh` prepare one new immutable 44-case
+shared-one-GH200/15-minute request with fresh roots. Its status is
+`PENDING_S00_EXACT_O009_APPROVAL_DO_NOT_SUBMIT`; no sbatch/retry has occurred.
 
 ## Frozen reference and exact semantics
 
@@ -222,9 +277,9 @@ canonical Orchestra documents, S01/S07 artifacts, `fl_v3/collab/`, or `fl_v2/`.
    `actual-source rotated_iou fixtures: PASS`.
 5. Ownership audit from `git status`/diff: **PASS**, only envelope-owned paths.
 
-### Authored but not executed runtime fixtures
+### Runtime fixture scope
 
-The changed test set now contains 31 test functions / 44 pytest cases covering:
+The changed test set contains 31 test functions / 44 pytest cases covering:
 
 - six-task topology, independent two-convolution fields, bias, GN batch isolation;
 - exact class-name mapping including construction vehicle, bus, barrier,
@@ -246,11 +301,9 @@ The changed test set now contains 31 test functions / 44 pytest cases covering:
   invalid labels/geometry, duplicate samples, and the 500-box cap.
 
 The x86_64 login interpreter reports `ModuleNotFoundError` for both `torch` and
-`pytest`. The validated project environment is aarch64/GH200 and cannot be treated
-as a login-node environment. O-018 preserved `APPROVED_COMPUTE: none`; therefore
-S05 did not submit Slurm and does **not** claim these runtime fixtures passed.
-Independent S05-R/S07-B should execute them in an authorized dependency-complete
-runtime.
+`pytest`. Job 336731 therefore ran the exact dependency-backed suite on GH200 and
+returned 43/44 with the preserved test-only container mismatch above. The corrected
+44-case rerun remains pending exact S00 approval and is not claimed PASS.
 
 ## File hashes at original implementation commit
 
@@ -309,7 +362,7 @@ runtime.
 | loss/target consistency | INTERFACE FROZEN / INTEGRATION PENDING | regression encoder matches field order; Gaussian/losses.py remained S02-owned |
 | production detector/task wiring | NOT DONE BY CONTRACT | S07-B integration requirement |
 | material compute/scientific metric | NOT RUN / FORBIDDEN | no request or job |
-| independent S05-R | CHANGES-REQUESTED, REMEDIATED, RE-REVIEW PENDING | original review `c818262`; exact three-finding remediation at `753944c` |
+| independent S05-R | CHANGES-REQUESTED, SOURCE REMEDIATED; R2 RUNTIME 43/44, TEST-ONLY RERUN PENDING | original review `c818262`; exact source remediation `753944c`; Job 336731 negative preserved; tuple expectation fixed at `96e509b` |
 
 ## Required S07-B integration work
 
@@ -347,8 +400,8 @@ loaded as the O-018 model.
 ## Forbidden interpretations
 
 - Multi-class decode is element-wise identical to official BEVFusion.
-- The Torch/pytest fixture suite passed; it was not executable locally and no job
-  was authorized.
+- The Torch/pytest fixture suite passed: Job 336731 is a preserved 43/44 failure,
+  and the corrected rerun is pending approval.
 - S05 is independently accepted: review `c818262` requested changes and the exact
   remediation still requires fresh independent re-review.
 - Target rendering or multi-task loss is integrated; `losses.py` remained read-only.
@@ -359,11 +412,10 @@ loaded as the O-018 model.
 
 ## Residual risks and requested S00 action
 
-- Launch a fresh independent S05-R re-review from the final durable worker SHA
-  after completeness audit. The reviewer should inspect the exact remediation diff
-  and execute the 44 authored cases in the validated runtime if separately
-  authorized, with special attention to forced-FP32 boundary behavior, official
-  TP-error pairing, and public NMS early-return validation.
+- S00 should audit the exact test-only request and may authorize its single
+  44-case rerun. After the raw result is preserved, S05-R2/R3 should issue the
+  independent verdict from the exact execution SHA; no production re-review scope
+  or scientific interpretation is added by this tuple-only correction.
 - Preserve the distinction between pre-NMS candidate no-starvation and official
   task-wide NMS suppression/post-budget behavior.
 - Assign all detector/loss/config integration exclusively to reviewed S07-B/S06
