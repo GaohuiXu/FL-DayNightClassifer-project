@@ -424,4 +424,5 @@ loaded as the O-018 model.
   task-wide NMS suppression/post-budget behavior.
 - Assign all detector/loss/config integration exclusively to reviewed S07-B/S06
   owners; do not repair those seams opportunistically in this worker branch.
-- No rerun, compute, merge, push, upload, or scope expansion is requested by S05.
+- Beyond the exact one-time pending 44-case request above, S05 requests no
+  additional rerun, compute, merge, push, upload, or scope expansion.
