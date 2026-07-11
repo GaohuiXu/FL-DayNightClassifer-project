@@ -17,7 +17,9 @@
 > S03 Job `335630` failed before tests because the
 > compute node could not resolve the `/home` linked worktree, while the allocation
 > exposed a four-GPU whole-node billing risk; S04 Job `335579` closed the sparse
-> composition defect but failed two final-BEV fp16 dtype assertions; and S05-R at
+> composition defect but failed two final-BEV fp16 dtype assertions. S04 Job
+> `336718` closed those dtype assertions and passed the B=4 gate, but remains a
+> preserved 9/10 failure on a tiny-occupancy train-to-eval spconv tuner path. S05-R at
 > `c818262` returned **CHANGES-REQUESTED** for forced-FP32 decode, a content-total
 > submission order, and public-NMS fail-closed behavior; scoped remediation is now
 > durable at `705216d` and awaits fresh re-review. All failures remain
@@ -188,19 +190,29 @@ an explicit later experiment, not the primary security backbone.
   accepted only as a reviewed S07-B dependency; integration/full-data/scientific
   readiness remain separate.
 - **S03:** implementation `6dfd2c775f54e488f3930996b303ce21f9b8e8b7`
-  is not runtime-accepted. The first submission attempt was rejected client-side
+  first encountered two preserved infrastructure failures. The first submission attempt was rejected client-side
   for missing scheduler account/partition. Corrected Job `335630` is `FAILED 1:0`
   in six seconds before environment/tests/artifacts because the compute node could
   not resolve the Codex `/home` linked-worktree Git metadata. `sacct` reported
   four allocated/billed GPUs despite a one-GPU request; a shared `/nobackup`
-  immutable execution source and explicit resource decision are required before
-  any new exact request.
+  immutable execution source and shared-allocation remediation produced passing
+  Job `336708` at delivery `5089383`: 10/10 tests, one GH200/eight CPUs,
+  `OverSubscribe=OK`, and all snapshot/source/artifact checksums. Independent
+  review `2f62e570c9c24ef1e18a483888c3f28ad56a415e` accepts S03 as a
+  module-level S07-B dependency only; production-shape profile/tiny-overfit/100-step
+  and final cross-module opt-in remain separate.
 - **S04:** Job `335566` failed five composition cases; remediation Job `335579`
   proves the composition fix (8/10 pass) but remains `FAILED 1:0` because both
   fp16-path cases returned a final fp32 BEV. The approved contract is not weakened:
   the worker must preserve both jobs, make the fp16 nonempty/empty output contract
   consistent while retaining fp32 reference behavior, and obtain a new exact
-  request before any third smoke.
+  request before any third smoke. Job `336718` then passed the original dtype
+  assertions and the B=4 fp16 forward/backward/memory subgate, but is still
+  `FAILED 1:0` (9/10): reusing the same fp16 model after train/backward and
+  switching to eval on six active voxels caused spconv's inference tuner to find
+  no suitable algorithm. This is a potential lifecycle/low-occupancy blocker,
+  not a test-only nuisance; diagnostic remediation is active and no retry is
+  authorized.
 - **S05:** worker delivery `4561d3ef4d5dd1dcbfe71fdf0ca1eb38d61257d9`
   (implementation `9fd3281651ef006a175ed9462e7bf1eaf3437357`) was
   independently reviewed at `c81826251349ede7c514950df785e4fe05d60192`.
@@ -815,3 +827,4 @@ evidence that caused it; material entries remain `PENDING` until the owner appro
 | O-019 | 2026-07-11 | S02 delivery `7ad396e`; Jobs `335565`/`335578`; S03 Job `335630`; S04 Jobs `335566`/`335579`; S05 review `c818262`; S00 raw-log/diff/hash audit | preserve every Wave-A negative result and apply scoped return-for-changes: launch S02-R only from exact delivery; require S03 shared `/nobackup` immutable execution provenance plus an explicit decision on observed four-GPU whole-node allocation before another job; retain the S04 final-BEV fp16 gate and repair implementation rather than tests; return S05's three review findings and require fresh re-review | operational evidence/refinement under O-017; affects S02-S05 and S07-B readiness | active; no retry, worker PASS, integration PASS, merge, push, full-data, profile, metric, or scientific authorization implied |
 | O-020 | 2026-07-11 | S02 review `fb17da3`/REVIEW hash `75b6a5ed...`; S05 remediation delivery `705216d`, implementation `753944c`, HANDOFF hash `91506174...`; S00 completeness audits | accept S02-R's source audit but return the missing one-GPU forward/backward as an evidence-only remediation with implementation semantics frozen; accept S05 remediation as complete enough for a fresh exact-SHA re-review, not as PASS; keep all authored-but-unexecuted runtime cases explicitly NOT RUN | review scheduling/evidence refinement under O-017 | active; S02 exact GPU request and S05 fresh reviewer pending; no integration/compute authorization implied by this ledger entry |
 | O-021 | 2026-07-11 | S02 Job `336713`, delivery `3aebf2d`, limited review `df142dc`; S03 Job `336708`, delivery `5089383`; repeated Codex reviewer-provisioning API timeouts | accept S02 as a reviewed S07-B dependency after exact one-GPU B=3 forward/backward evidence; send S03 delivery to independent review after exact 10-test one-GPU PASS; when the Codex task provisioning API times out without creating a worktree, S00 may use the owner's existing S02-S05 reviewer-launch delegation to provision an exact-SHA detached review worktree itself, while the reviewer remains forbidden to manage worktrees and retains review-only ownership | operational evidence/infrastructure fallback under O-017 | S02 accepted dependency; S03-R active; fallback used only for S03-R/S05-R2 after three failed API attempts; no merge/push/scientific scope expansion |
+| O-022 | 2026-07-11 | S03 review `2f62e57`/REVIEW hash `01dea6fd...`; S04 Job `336718`, delivery `80a8fbb`, raw JUnit/log/artifact audit | accept S03 as a reviewed module-level S07-B dependency with explicit production-shape/integration limits; preserve S04 Job `336718` as FAILED 9/10 despite passing final dtype and B=4 subgates; treat the fp16 train-to-eval tiny-occupancy spconv tuner failure as a potential lifecycle blocker requiring diagnosis, not as grounds to weaken/remove the eval fixture | integration evidence plus S04 return-for-diagnosis under O-017 | S03 accepted dependency; S04 CHANGES-REQUESTED/diagnosis active; no automatic retry or S04 PASS |
