@@ -2,6 +2,13 @@
 
 ## Overall result
 
+Both exact S04 jobs are preserved **FAILED** engineering results. Job `335566`
+found the sparse composition bug (`5 passed / 5 failed`); manual remediation then
+closed that bug, but Job `335579` found a final fp16-output dtype mismatch
+(`8 passed / 2 failed`). No third job, retry, requeue, resubmission, or follow-on
+occurred. Worker status remains **CHANGES-REQUESTED**, not runtime or integration
+PASS.
+
 Job `335566` is a preserved **FAILED** engineering result: scheduler state
 `FAILED`, exit `1:0`, with exactly `10` collected tests, `5 passed`, `5 failed`,
 and zero skips. No retry, requeue, resubmission, follow-on, dataset access,
@@ -104,8 +111,77 @@ Local-only checks after remediation:
 - fusion-wide static banned-op/stable-sort audit: PASS, zero findings;
 - exact test-function count: `10`.
 
-The remediated code has **not** run on spconv/GH200. A new exact request is pending
-S00 review; no rerun is authorized by these results.
+The remediated code subsequently ran exactly once as Job `335579`; its result is
+recorded below. Job `335566` remains a negative and is not superseded.
+
+## Manual-remediation validation Job 335579 — FAILED
+
+### Identity and scheduler
+
+- Approved request SHA-256:
+  `4acc45db2c6b1e5b0f4aaf5e3247e2e409217090edc62ec013b2c598eaa3354b`.
+- Executed HEAD/tree:
+  `0d6ea005fe138aaa4cb39cfab005431abb622acf` /
+  `b9514e12eb5255602e9f7d0da6671a9be8e45c68`.
+- Sparse fix: `2b5cf2f5da9a123c313780bbdd52b1202b62cd38`.
+- Runtime source SHA-256:
+  `2e5755522cff0aa2899a035f45440fb5ecdb71f2cb5156c96403dd818bba9886`.
+- Job/name/node: `335579` / `flv3_s04_second` / `n507`.
+- State/exit: `FAILED` / `1:0`.
+- Submit/start/end: `2026-07-11T18:24:33` / `18:24:36` / `18:25:22`.
+- Elapsed/timelimit: `00:00:46` / `00:20:00`.
+- Allocation: one GH200, eight CPUs, one node, `mem=11672M`; restarts `0`.
+- Batch MaxRSS/MaxVMSize: `36M` / `6672960K`; TotalCPU `00:33.016`.
+- Elapsed GPU allocation: approximately `0.0128` GPU-hours; cumulative S04
+  elapsed allocation approximately `0.0409` GPU-hours.
+
+Execution identity again records the same CPython/Torch/spconv/cumm dependency
+versions and `synthetic_only=true`. Git/ref/source/request checks passed before
+pytest.
+
+### Exact tests and new failure
+
+JUnit: `tests=10`, `failures=2`, `errors=0`, `skipped=0`; pytest summary
+`8 passed, 2 failed, 6 warnings in 31.14s`.
+
+Passed evidence now includes:
+
+- all static shape/RF/metric/dense-bound fixtures and precision-policy rejection;
+- the structural regression proving custom residuals are not nested in
+  `SparseSequential`;
+- real spconv output shape, reduced occupancy and finite backward at small shape;
+- exact per-sample train/eval caps, extreme occupancy and point-order behavior;
+- empty input plus sample/batch isolation.
+
+Failed cases:
+
+1. `test_fp32_and_fp16_sparse_paths_have_finite_outputs_and_gradients`;
+2. `test_s04_reference_b4_fp16_forward_backward_memory_bound`.
+
+Both expected `torch.float16` for `sparse_conv_fp16=True`, but final output was
+`torch.float32`. The B=4 case reached `[4,256,180,180]`, loss construction,
+backward, and finite-gradient assertion before its dtype assertion. It did not
+reach the subsequent peak allocated/reserved capture, so no B=4 peak-memory value
+may be claimed. The likely seam is the dense/collapse/output boundary retaining or
+promoting fp32 under the current normalization/identity projection; no manual fix
+is authorized or made in this handoff.
+
+### Job 335579 artifacts
+
+In-job `sha256sum -c` passed all four primary artifacts.
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `execution_identity.json` | 819 | `e9e2a513a2ece734c98bc7ad4866368b780f732c47a865bc8b60505f90912dc2` |
+| `runtime_source_sha256s.txt` | 1,753 | `2e5755522cff0aa2899a035f45440fb5ecdb71f2cb5156c96403dd818bba9886` |
+| `pytest.log` | 5,129 | `4b30beadf77a822c9b8edd4b5a6010c403cb81b4c4226e881b544e8ddfc5bf01` |
+| `pytest.junit.xml` | 5,047 | `0c97e228bdaac48a423c14532771191d2c3953e195c25eb2c7b209905538f1f8` |
+| `sha256sums.txt` | 747 | `8ff9002e4045360ddb5d50187fce36e2769da8c84bbc7c876bdcde399edf509f` |
+| Slurm stdout | 6,025 | `c309169861d7fa83cf05bd3f5c6b7a2849390b0d2b7cf2284951d79bc2278576` |
+| Slurm stderr | 123 | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+Output root:
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s04_second_0d6ea000d99d`.
 
 ## Interpretation limits
 
@@ -117,12 +193,14 @@ Allowed:
   spconv `SparseSequential` custom-module dispatch;
 - identity, request binding, scheduler record, and negative artifacts are intact;
 - the manual remediation is statically valid and keeps densification after the
-  reduced sparse grid.
+  reduced sparse grid;
+- Job 335579 supports the explicitly listed eight passing contracts and shows
+  that the remaining blocker is final fp16 output dtype.
 
 Forbidden:
 
-- runtime PASS for the remediated module;
-- B=4 memory, fp16/fp32 gradient, sample isolation, cap, or empty-input PASS;
+- overall runtime PASS for the remediated module;
+- final fp16-output contract or B=4 peak-memory PASS;
 - production detector/S07-B readiness, full-data/mini behavior, throughput,
   profile, training convergence, mAP/NDS, fusion gain, FL, attack/defense,
   generalization, or publication claims.

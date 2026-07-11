@@ -13,12 +13,12 @@
   the returned session report).
 - Final evidence/request-delivery HEAD is returned after its commit; a commit
   cannot embed its own SHA without changing it.
-- Worker self-assessment: **CHANGES-REQUESTED / REMEDIATION PREPARED, RUNTIME
-  REVALIDATION PENDING**.
+- Worker self-assessment: **CHANGES-REQUESTED / COMPOSITION FIX VALIDATED,
+  FP16 OUTPUT DTYPE BLOCKER REMAINS**.
 
-This is not an integration PASS. Job `335566` failed, remains visible, and was not
-retried. Independent S04-R plus Orchestra acceptance remain required after any
-future approved runtime validation.
+This is not an integration PASS. Jobs `335566` and `335579` both failed and remain
+visible. No further retry is authorized. Independent S04-R plus Orchestra
+acceptance remain required after any future approved correction/validation.
 
 ## Delivered architecture contract
 
@@ -110,8 +110,22 @@ limits are in `RESULTS.md`. The approved request hash was
 stdout/stderr hashes are `a8bd2475...18c7` / `ae633085...b57`.
 
 Post-job remediation is local/static only. It explicitly forwards sparse residual
-stages and adds a structural regression inside the first real-spconv fixture. No
-new job has run.
+stages and adds a structural regression inside the first real-spconv fixture.
+
+Exact-once remediation Job `335579` then validated that correction but found the
+next blocker:
+
+- scheduler `FAILED 1:0`, elapsed `00:00:46`, restarts 0;
+- JUnit `10 tests / 2 failures / 0 errors / 0 skips`;
+- eight passed, including real spconv shape/backward, per-sample caps/extreme
+  occupancy, empty input and sample/batch isolation;
+- two failures because `sparse_conv_fp16=True` returns final BEV
+  `torch.float32`, not required `torch.float16`;
+- B=4 reached correct `[4,256,180,180]`, loss/backward and finite gradients, but
+  failed before recording peak CUDA memory.
+
+No third job, retry, requeue, resubmission, or follow-on occurred. Full Job 335579
+scheduler/artifact hashes are in `RESULTS.md`.
 
 ## Gate checklist
 
@@ -119,13 +133,14 @@ new job has run.
 |---|---|---|
 | coordinate/shape/stride/RF declaration | PASS static | exact golden fixtures passed |
 | no fine-grid densification | PASS static | one encoder `.dense()` after `(2,180,180)`; none in sparse backbone |
-| train/eval per-sample caps and truncation | IMPLEMENTED, runtime unaccepted | Job 335566 fails before assertion |
-| empty/extreme occupancy | IMPLEMENTED, runtime unaccepted | same composition failure |
+| train/eval per-sample caps and truncation | PASS bounded synthetic runtime | Job 335579 |
+| empty/extreme occupancy | PASS bounded synthetic runtime | Job 335579 |
 | metric/camera-fusion mapping | PASS static | 0.6m, 180x180 golden |
-| sample/batch isolation | IMPLEMENTED, runtime unaccepted | same composition failure |
-| fp32/fp16 finite gradients | NOT ESTABLISHED | same composition failure |
-| B=4 bounded memory | NOT ESTABLISHED | B=4 failed before output/memory evidence |
-| sparse composition remediation | PASS local/static only | explicit ModuleList forwarding + structural fixture |
+| sample/batch isolation | PASS bounded synthetic runtime | Job 335579 |
+| fp32/fp16 behavior | FAIL | fp16 path final output is fp32; test stops before paired backward completion |
+| B=4 forward/backward | PARTIAL PASS | correct output shape/loss/backward/finite grads; dtype fails |
+| B=4 bounded memory | NOT ESTABLISHED | dtype assertion precedes peak-memory capture |
+| sparse composition remediation | PASS bounded synthetic runtime | explicit forwarding + Job 335579 |
 | independent S04-R | NOT STARTED | S00/owner controls reviewer launch |
 
 ## Allowed and forbidden interpretations
@@ -141,16 +156,16 @@ Allowed:
 Forbidden:
 
 - S04 PASS, integration readiness, or runtime acceptance of the remediation;
-- any B=4 memory-fit, finite-gradient, cap, isolation, fp16/fp32 runtime claim;
+- any overall S04 PASS, final fp16-output or B=4 peak-memory claim;
 - production detector/model/full-data readiness, mAP/NDS, model superiority,
   voxel-size selection, throughput/profile, convergence, fusion gain, FL,
   attack/defense, generalization, or publication claim.
 
 ## Remaining actions for S00/owner
 
-1. Audit the new immutable request tuple and the explicit sparse-stage fix.
-2. If acceptable, approve at most the same bounded exact ten-test job on the new
-   unique output; the current worker has no standing retry permission.
-3. Preserve Job 335566 as a failed negative even if a later validation passes.
-4. Only after runtime evidence and an independent S04-R may S07-B consider this
+1. Preserve both Job 335566 (composition) and Job 335579 (fp16 output dtype) as
+   failed negatives.
+2. Decide whether to return S04 for a narrowly scoped final-output dtype fix and a
+   new request; this worker has no standing retry permission.
+3. Only after a clean runtime gate and independent S04-R may S07-B consider this
    module for integration.
