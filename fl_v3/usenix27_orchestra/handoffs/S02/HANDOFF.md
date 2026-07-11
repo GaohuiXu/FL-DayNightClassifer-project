@@ -20,9 +20,11 @@
   SHA without changing that SHA.
 - Worker self-assessment after Job 335565 and the owner-authorized parser-only
   remediation:
-  **PASS — CODE TESTS 12/12 PASS; INITIAL JOB 335565 FAILED IN POST-PYTEST
+  **CHANGES-REQUESTED — CODE TESTS 12/12 PASS; INITIAL JOB 335565 FAILED IN POST-PYTEST
   JUNIT PARSER AND REMAINS PRESERVED; MANUAL PARSER-ONLY JOB 335578 COMPLETED
-  0:0 WITH FINAL CHECKSUM VERIFICATION; INDEPENDENT S02-R PENDING**.
+  0:0 WITH FINAL CHECKSUM VERIFICATION; S02-R FOUND NO IMPLEMENTATION DEFECT BUT
+  REQUIRES THE CANONICAL GPU FORWARD/BACKWARD EVIDENCE; EXACT REMEDIATION REQUEST
+  PREPARED AND NOT SUBMITTED**.
 
 No merge, push, PR, upload, branch/worktree deletion, mini/trainval traversal,
 model/scientific execution, or unapproved follow-on occurred.
@@ -37,7 +39,9 @@ Modified within exclusive S02 ownership:
 Added within S02 ownership:
 
 - `fl_v3/tests/test_s02_p0_correctness.py`;
+- `fl_v3/tests/test_s02_gpu_forward_backward.py`;
 - `fl_v3/usenix27_orchestra/handoffs/S02/run_s02_cpu_tests.sh`;
+- `fl_v3/usenix27_orchestra/handoffs/S02/run_s02_gpu_forward_backward.sh`;
 - `fl_v3/usenix27_orchestra/handoffs/S02/{RUN_REQUEST,RESULTS,HANDOFF}.md`.
 
 Read-only `bev_grid.py`, `detector.py`, `training/tasks.py`, S03-S05 ownership,
@@ -185,8 +189,8 @@ case inventory, and the exact negative interpretation are in `RESULTS.md`.
 | focused CPU pytest suite | 12/12 TESTS PASS |
 | initial exact O-009 job acceptance | **FAIL preserved: Job 335565 scheduler 1:0, missing final checksum manifest** |
 | manual parser-only exact job acceptance | PASS: Job 335578 `COMPLETED 0:0`, 12/0/0/0, final checksums OK |
-| GPU forward/backward | NOT REQUESTED / NOT RUN |
-| independent S02-R | PENDING |
+| GPU forward/backward | **NOT RUN; exact S02-R remediation prepared pending S00 approval** |
+| independent S02-R | `CHANGES-REQUESTED`; implementation/Gaussian audit passed, GPU evidence is the only blocker |
 
 ## Allowed and forbidden interpretations
 
@@ -218,6 +222,31 @@ Forbidden:
    relying only on worker prose.
 3. S07-B must integrate S02 only after independent review and must treat all old
    target-trained checkpoints as requiring retraining.
+
+## Independent S02-R verdict and scoped GPU remediation preparation
+
+Independent S02-R review commit
+`fb17da3ea55a93d7709f6a2b5f6e4bb6adc0bf7e` (REVIEW.md SHA-256
+`75b6a5ed589c1f29ba847750a915732be8826562c055a7fa1cecd5a749e63497`)
+returned `CHANGES-REQUESTED`. It found no confirmed defect in the reviewed
+per-sample cap or O-017 Gaussian implementation. Its sole P1 is that Jobs 335565
+and 335578 intentionally hid CUDA, while the canonical S02 gate requires one GPU
+forward/backward.
+
+The remediation adds no model/Gaussian/pillar semantic change. It adds one bounded
+synthetic CUDA test and one `/nobackup` snapshot launcher. The B=3 fixture has two
+point-and-pillar-over-cap samples plus one empty sample; it checks finite output/
+loss, B=1-versus-batched isolation, exact cap/drop/key diagnostics, empty output,
+and finite nonzero gradients for every intended encoder parameter. There is no
+optimizer/GradScaler step, data access, metric, profile, 100/1000-step gate, or
+automatic retry.
+
+The new `RUN_REQUEST.md` section binds the eventual executable SHA/tree and
+request/launcher/source hashes externally, runs from a unique Git-archive snapshot
+under `/nobackup`, requests one shared GH200 without `--nodes=1`, records and fails
+closed on actual one-GPU visibility/allocation, and performs in-job source/final
+artifact `sha256sum -c`. It remains `PENDING S00 APPROVAL`; no snapshot, output,
+Slurm job, merge, or push has been created by this preparation.
 
 ## S00 post-job decision and parser-only remediation preparation
 

@@ -2,7 +2,7 @@
 
 ## Approval state and boundary
 
-- **Status:** `FIRST_EXECUTION_FAILED_POST_PYTEST_PRESERVED; MANUAL_PARSER_REMEDIATION_EXECUTED_ONCE_COMPLETED_PASS; NO_FURTHER_SUBMISSION_AUTHORIZED`.
+- **Status:** `FIRST_EXECUTION_FAILED_POST_PYTEST_PRESERVED; MANUAL_PARSER_REMEDIATION_EXECUTED_ONCE_COMPLETED_PASS; GPU_FORWARD_BACKWARD_REMEDIATION_PREPARED_PENDING_S00_APPROVAL`.
 - This is one bounded, non-scientific engineering validation request under the
   O-017 rule for Wave-A workers and the O-009 resource ceiling. O-017 requires S02
   to stop and wait for explicit S00 approval even though the request fits O-009.
@@ -237,4 +237,164 @@ in `RESULTS.md`.
 The new approval is consumed. Job `335565` remains overall `FAILED 1:0` with its
 missing checksum manifest; Job `335578` does not rewrite that history. No retry,
 requeue, resubmission, or follow-on occurred, and no further submission is
-authorized by this final record.
+authorized by that approval. The independent-review remediation request below is a
+new, evidence-only scope and remains unapproved.
+
+## Independent-review GPU forward/backward remediation — PENDING S00 APPROVAL
+
+### Review finding and immutable semantic boundary
+
+Independent S02-R at review commit
+`fb17da3ea55a93d7709f6a2b5f6e4bb6adc0bf7e` and REVIEW.md SHA-256
+`75b6a5ed589c1f29ba847750a915732be8826562c055a7fa1cecd5a749e63497`
+returned `CHANGES-REQUESTED` only because the canonical one-GPU
+forward/backward gate was not executed. The reviewed implementation remains
+`65c83c077210469861ba722a285ab1e58e6d719f`; this request does not modify it,
+the Gaussian equation/fixtures, pillar selection, or diagnostic semantics.
+
+The new executable commit is the commit containing this request, the new focused
+test, and the launcher; its exact 40-character SHA/tree plus the finalized
+request/launcher/source SHA-256 values must be reported externally to S00 because
+a Git commit and a file cannot embed their own final identities. S00 approval is
+valid only for that externally enumerated immutable tuple. Any later commit,
+working-tree change, hash change, command/resource/output change, or output/snapshot
+collision invalidates approval.
+
+### Exact bounded test scope
+
+- One synthetic pytest node only:
+  `fl_v3/tests/test_s02_gpu_forward_backward.py::test_s02_cuda_b3_overcap_empty_isolation_forward_backward`.
+- B=3 with two populated samples and one empty sample.
+- Both populated samples exceed the per-pillar point cap and per-sample pillar cap.
+- Assertions cover one-GPU visibility, finite CUDA output and scalar loss, exact
+  B=1-versus-B=3 isolation, empty-sample zero output, all per-sample cap/drop/key
+  diagnostics, and present/finite/nonzero gradients for every intended encoder
+  parameter.
+- The test performs forward, loss construction, and backward only. It performs no
+  optimizer or GradScaler step.
+- Synthetic tensors only: no mini/trainval, cache, ZIP manifest, GT database,
+  checkpoint, metric, profile, model step, 100/1000-step gate, matrix, or seed
+  campaign.
+
+### Execution provenance and runtime source set
+
+The login-node preflight creates a unique Git-archive snapshot under `/nobackup`
+and writes only its exact Git SHA/tree identity there. `sbatch` executes with
+`--chdir` and a launcher path inside that snapshot; the compute node does not read
+the `/home` linked worktree. The launcher fails closed unless the snapshot identity,
+request hash, launcher hash, and aggregate runtime-source hash match the exact
+S00-approved tuple.
+
+The C-locale-sorted runtime source set contains dependency/test configuration,
+Arrhenius activation, package/model/runtime initializers, `bev_grid.py`, the
+unchanged `lidar_encoder.py`, `tests/conftest.py`, the new one-node GPU test, this
+RUN_REQUEST, and the GPU launcher. The job writes a per-file source manifest and
+runs `sha256sum -c` before and after pytest. It also writes execution identity,
+pytest/JUnit, and a final artifact manifest, then runs `sha256sum -c` on the final
+manifest in-job.
+
+Execution identity records exact SHA/tree/source/request/launcher identities,
+snapshot/output paths, host/aarch64/dependency versions, Slurm job/node/CPU/GPU
+environment, CUDA visibility, and the actual Torch-visible GPU name/count/
+capability. It fails closed unless exactly one GPU is visible, four CPUs are
+assigned, and any populated `SLURM_GPUS_ON_NODE` value is exactly one.
+
+### Resources and unique destinations
+
+- Standing authority boundary: O-017 plus O-009, but explicit S00 approval is
+  still required before submission.
+- Shared allocation request: `--gpus-per-node=nvidia_gh200_120gb:1`; deliberately
+  no `--nodes=1`, no exclusive allocation, no array, no DDP.
+- Four CPUs, 16 GiB RAM, walltime `00:10:00`, one job, one concurrent S02 job.
+- Requested maximum: `0.167` GPU-hour. Prior exact S02 jobs consumed about
+  `0.0522` elapsed allocation GPU-hours, so the session remains below O-009's
+  cumulative two-GPU-hour ceiling.
+- Unique snapshot root pattern:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/snapshots/s02_gpu_fb_<12-char-executable-SHA>`.
+- Unique output root pattern:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s02_gpu_fb_<12-char-executable-SHA>`.
+- Logs:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s02_gpu_fb_%j.{out,err}`.
+
+### Exact approval-bound command shape — DO NOT SUBMIT
+
+The variables below derive the immutable identities and unique paths from the
+clean executable commit. Before approval S02 reports their exact resolved values
+and this file's SHA-256 to S00. Submission is forbidden until S00 explicitly binds
+all of those values to this command.
+
+```bash
+set -euo pipefail
+S02_SHA="$(git rev-parse HEAD)"
+S02_TREE="$(git rev-parse 'HEAD^{tree}')"
+S02_SHORT="${S02_SHA:0:12}"
+S02_REQUEST="fl_v3/usenix27_orchestra/handoffs/S02/RUN_REQUEST.md"
+S02_LAUNCHER="fl_v3/usenix27_orchestra/handoffs/S02/run_s02_gpu_forward_backward.sh"
+S02_REQUEST_HASH="$(sha256sum "${S02_REQUEST}" | awk '{print $1}')"
+S02_LAUNCHER_HASH="$(sha256sum "${S02_LAUNCHER}" | awk '{print $1}')"
+S02_SOURCE_HASH="$({
+  printf '%s\n' \
+    fl_v3/pyproject.toml \
+    fl_v3/requirements.lock.txt \
+    fl_v3/requirements.txt \
+    fl_v3/scripts/arrhenius_env.sh \
+    fl_v3/src/fl_v3/__init__.py \
+    fl_v3/src/fl_v3/models/__init__.py \
+    fl_v3/src/fl_v3/models/fusion/__init__.py \
+    fl_v3/src/fl_v3/models/fusion/bev_grid.py \
+    fl_v3/src/fl_v3/models/fusion/lidar_encoder.py \
+    fl_v3/src/fl_v3/utils/__init__.py \
+    fl_v3/src/fl_v3/utils/runtime.py \
+    fl_v3/tests/conftest.py \
+    fl_v3/tests/test_s02_gpu_forward_backward.py \
+    "${S02_LAUNCHER}" \
+    "${S02_REQUEST}" \
+    | LC_ALL=C sort -u
+} | while IFS= read -r path; do sha256sum "${path}"; done | sha256sum | awk '{print $1}')"
+S02_SNAPSHOT_ROOT="/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/snapshots/s02_gpu_fb_${S02_SHORT}"
+S02_OUTPUT_ROOT="/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s02_gpu_fb_${S02_SHORT}"
+test "$(git branch --show-current)" = "codex/s02-cl-p0-correctness"
+test -z "$(git status --short)"
+test ! -e "${S02_SNAPSHOT_ROOT}"
+test ! -e "${S02_OUTPUT_ROOT}"
+test -z "$(squeue -u "${USER}" -h -o '%i %j' | awk '$2 ~ /^flv3_s02/ {print}')"
+mkdir -p "$(dirname "${S02_SNAPSHOT_ROOT}")"
+mkdir "${S02_SNAPSHOT_ROOT}"
+git archive "${S02_SHA}" | tar -xf - -C "${S02_SNAPSHOT_ROOT}"
+printf 'git_sha=%s\ngit_tree=%s\n' "${S02_SHA}" "${S02_TREE}" \
+  > "${S02_SNAPSHOT_ROOT}/.s02_snapshot_identity"
+sbatch --chdir="${S02_SNAPSHOT_ROOT}" \
+  --export=ALL,EXPECTED_S02_SHA="${S02_SHA}",EXPECTED_S02_TREE="${S02_TREE}",EXPECTED_S02_SOURCE_HASH="${S02_SOURCE_HASH}",EXPECTED_S02_REQUEST_HASH="${S02_REQUEST_HASH}",EXPECTED_S02_LAUNCHER_HASH="${S02_LAUNCHER_HASH}",S02_SNAPSHOT_ROOT="${S02_SNAPSHOT_ROOT}",S02_OUTPUT_ROOT="${S02_OUTPUT_ROOT}" \
+  "${S02_SNAPSHOT_ROOT}/${S02_LAUNCHER}"
+```
+
+If snapshot creation succeeds but `sbatch` is rejected before a job ID is issued,
+the snapshot and rejection are preserved and returned to S00; no automatic retry
+or replacement path is authorized.
+
+### Acceptance and stop conditions
+
+Pass requires all of:
+
+- exact S00-approved SHA/tree/request/launcher/source identities and snapshot;
+- exactly one visible/allocated GPU and four assigned CPUs, with actual allocation
+  recorded for later `sacct` reconciliation;
+- pytest/JUnit exactly `1/0/0/0`, no failure/error/skip;
+- finite CUDA output/loss, exact cap/isolation/empty diagnostics, and finite nonzero
+  intended parameter gradients;
+- runtime-source `sha256sum -c` before and after execution and final artifact
+  `sha256sum -c` all pass;
+- Slurm terminal state `COMPLETED 0:0` within `00:10:00`.
+
+Any identity/allocation/assertion/checksum/job failure stops the session and is
+preserved as a negative. There is no retry, resubmission, requeue, follow-on,
+additional test node, data access, optimizer/scaler step, or scope expansion.
+
+Allowed if it passes: the unchanged reviewed S02 PointPillars implementation
+completes this exact bounded synthetic CUDA forward/backward fixture with the
+recorded diagnostics and intended finite gradients.
+
+Forbidden even if it passes: full-stack/S07-B readiness by itself, GPU performance
+or memory claims, mini/trainval readiness, target-frequency claims, old-checkpoint
+compatibility, model quality, mAP/NDS, fusion gain, FL/security, generalization,
+scientific, or publication claims.
