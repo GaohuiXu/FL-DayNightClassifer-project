@@ -11,14 +11,17 @@
 - Failed-job executable: `49efb05dd341dbfbcc2d373508772e5b214aa726`.
 - Manual sparse-composition remediation: `2b5cf2f` (full SHA is in Git history and
   the returned session report).
-- Final evidence/request-delivery HEAD is returned after its commit; a commit
-  cannot embed its own SHA without changing it.
-- Worker self-assessment: **CHANGES-REQUESTED / COMPOSITION FIX VALIDATED,
-  FP16 OUTPUT DTYPE BLOCKER REMAINS**.
+- Scoped final-output dtype remediation executable:
+  `72184e9ed3d2a9ea4fcd9f1a8dc473312a09a52d`.
+- Final request-delivery HEAD is returned after its commit; a commit cannot embed
+  its own SHA without changing it.
+- Worker self-assessment: **REMEDIATION IMPLEMENTED / RUNTIME VALIDATION PENDING**.
 
 This is not an integration PASS. Jobs `335566` and `335579` both failed and remain
-visible. No further retry is authorized. Independent S04-R plus Orchestra
-acceptance remain required after any future approved correction/validation.
+visible. S00 returned S04 for a narrow dtype-interface remediation, which is now
+implemented but not runtime-validated. A new exact O-009 request is pending S00;
+no submission/retry is authorized by this handoff. Independent S04-R plus
+Orchestra acceptance remain required after a clean approved validation.
 
 ## Delivered architecture contract
 
@@ -83,6 +86,8 @@ Commit history:
 - `a201245`, `5676ff6`, `49efb05`: bounded launcher/request-binding and
   forward/backward-only scope remediation;
 - `2b5cf2f`: manual sparse residual composition fix after Job 335566.
+- `72184e9`: explicit active sparse-AMP BEV output dtype contract, dtype tracing,
+  retained assertions, and immutable-snapshot/fail-closed launcher.
 
 No `lidar_encoder.py`, `lidar_backbone.py`, `bev_grid.py`, `detector.py`,
 `training/tasks.py`, canonical Orchestra file, `fl_v3/collab/`, or `fl_v2/` file
@@ -127,6 +132,16 @@ next blocker:
 No third job, retry, requeue, resubmission, or follow-on occurred. Full Job 335579
 scheduler/artifact hashes are in `RESULTS.md`.
 
+S00 then authorized implementation/request preparation only. Commit `72184e9`
+records the fp32 projection boundary and converts only the active sparse-AMP final
+BEV to fp16, matching the existing empty-input path while leaving the fp32
+reference unchanged. Existing ten tests retain their dtype assertions and now
+also assert the pre-cast/output trace and empty/non-empty consistency. Local
+`py_compile`, `bash -n`, exact ten-test inventory, and `git diff --check` pass;
+login-node pytest was unavailable (`/usr/bin/python3` has no pytest), so this is
+not runtime evidence. `RUN_REQUEST.md` proposes the same ten synthetic tests from
+an immutable `/nobackup` snapshot and awaits exact S00 approval.
+
 ## Gate checklist
 
 | S04 item | Worker status | Evidence / limit |
@@ -137,7 +152,7 @@ scheduler/artifact hashes are in `RESULTS.md`.
 | empty/extreme occupancy | PASS bounded synthetic runtime | Job 335579 |
 | metric/camera-fusion mapping | PASS static | 0.6m, 180x180 golden |
 | sample/batch isolation | PASS bounded synthetic runtime | Job 335579 |
-| fp32/fp16 behavior | FAIL | fp16 path final output is fp32; test stops before paired backward completion |
+| fp32/fp16 behavior | REMEDIATION PENDING RUNTIME | prior failure preserved; source now enforces final fp16 and traces the boundary |
 | B=4 forward/backward | PARTIAL PASS | correct output shape/loss/backward/finite grads; dtype fails |
 | B=4 bounded memory | NOT ESTABLISHED | dtype assertion precedes peak-memory capture |
 | sparse composition remediation | PASS bounded synthetic runtime | explicit forwarding + Job 335579 |
@@ -165,7 +180,7 @@ Forbidden:
 
 1. Preserve both Job 335566 (composition) and Job 335579 (fp16 output dtype) as
    failed negatives.
-2. Decide whether to return S04 for a narrowly scoped final-output dtype fix and a
-   new request; this worker has no standing retry permission.
+2. Audit and either approve or reject the new exact immutable-snapshot O-009
+   request. No submission has occurred.
 3. Only after a clean runtime gate and independent S04-R may S07-B consider this
    module for integration.

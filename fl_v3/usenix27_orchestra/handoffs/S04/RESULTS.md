@@ -204,3 +204,21 @@ Forbidden:
 - production detector/S07-B readiness, full-data/mini behavior, throughput,
   profile, training convergence, mAP/NDS, fusion gain, FL, attack/defense,
   generalization, or publication claims.
+
+## Scoped fp16-output remediation — prepared, not executed
+
+S00 returned S04 for the one remaining implementation defect without authorizing
+compute. Executable `72184e9ed3d2a9ea4fcd9f1a8dc473312a09a52d` explicitly
+casts the active sparse-AMP output to fp16 only after the low-resolution
+projection, records pre-contract/output dtype, preserves the fp32 reference path,
+and extends the existing tests without deleting or weakening any dtype assertion.
+The exact test inventory remains ten.
+
+Local preparation evidence: Python compilation PASS; launcher `bash -n` PASS;
+exact test-function count 10; `git diff --check` PASS. The login-node system Python
+does not have pytest, and the x86 login node is not the validated spconv runtime,
+so no local pytest or GH200 claim is made.
+
+A new `RUN_REQUEST.md` is `PENDING_S00_EXACT_O009_APPROVAL_NOT_SUBMITTED`.
+No Job 335566/335579 status or interpretation has been overwritten, and no third
+job, retry, requeue, resubmission, or follow-on has occurred at this delivery.

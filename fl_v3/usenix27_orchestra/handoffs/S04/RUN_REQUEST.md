@@ -1,182 +1,189 @@
-# S04 RUN REQUEST — one synthetic GH200 SECOND validation
+# S04 RUN REQUEST — final-output dtype remediation validation
 
 ## Approval state
 
-`APPROVED_EXACT_ONCE_CONSUMED_BY_JOB_335579_FAILED_NO_RETRY`
+`PENDING_S00_EXACT_O009_APPROVAL_NOT_SUBMITTED`
 
-This request is governed by O-017 and the stricter S02-S05 rule in
-`KICKOFFS.md`: even though the job fits O-009, S04 must stop and wait for explicit
-S00 approval. Creating this file grants no execution permission.
+This is a new request after the preserved failed Jobs `335566` and `335579`.
+Writing or committing it grants no execution permission. S04 must wait for S00 to
+approve the exact delivery SHA, request SHA-256, executable/source tuple, command,
+resources, and output roots below. There is no automatic retry or follow-on.
 
-## Immutable implementation and worktree state
+## Preserved negative executions
 
-- Session/branch: `S04` / `codex/s04-lidar-second`.
-- Exact executable HEAD: `0d6ea005fe138aaa4cb39cfab005431abb622acf`.
-- Exact executable tree: `b9514e12eb5255602e9f7d0da6671a9be8e45c68`.
-- Initial implementation commit: `20d11e284f20fced3dbc33e7ac105c845da708a5`.
-- Sparse-composition remediation:
-  `2b5cf2f5da9a123c313780bbdd52b1202b62cd38`.
-- Job-335566 evidence delivery:
-  `0d6ea005fe138aaa4cb39cfab005431abb622acf`.
-- Launcher commits: `a201245d7935ac9c385705a54d8eac8355b3df37`, request-binding
-  correction `5676ff6ee0621ce8df26b50edcafa4a7a4f177f4`, and scoped
-  forward/backward-only remediation `49efb05dd341dbfbcc2d373508772e5b214aa726`.
-- Runtime source-state SHA-256 over the 17 locale-sorted files enumerated by the
-  launcher: `2e5755522cff0aa2899a035f45440fb5ecdb71f2cb5156c96403dd818bba9886`.
-- Expected ref: `codex/s04-lidar-second`.
-- Expected worktree status during execution: exactly one untracked file,
-  `fl_v3/usenix27_orchestra/handoffs/S04/RUN_REQUEST.md`; no tracked diff and no
-  other untracked file.
-- This request file's SHA-256 is intentionally recorded by S00 outside this file
-  (a file cannot contain its own content hash). The launcher requires the exact
-  S00-approved value through `EXPECTED_S04_REQUEST_HASH`, recomputes it in-job,
-  and records it in `execution_identity.json`.
+- Job `335566`: `FAILED 1:0`, `5 passed / 5 failed`, because a custom residual
+  block inside `spconv.SparseSequential` received a feature Tensor rather than a
+  SparseConvTensor. Commit `2b5cf2f5da9a123c313780bbdd52b1202b62cd38`
+  corrected that composition. This remains a negative result.
+- Job `335579`: `FAILED 1:0`, `8 passed / 2 failed`. The composition correction
+  passed, but the active sparse-fp16 path returned final non-empty BEV as fp32
+  after the low-resolution projection, while the approved contract and empty path
+  require fp16. This also remains a negative result.
 
-Any change to HEAD/tree, runtime source aggregate, request-file hash, branch/ref,
-command, resources, input, output, or stop conditions invalidates approval.
+Complete scheduler fields, raw hashes, and interpretation limits remain in
+`RESULTS.md`. Neither approval is reusable.
 
-The prior tuple at executable `5676ff6e`, runtime source `374f07b9...`, request
-SHA-256 `e0d482e7...` was explicitly **NOT APPROVED** because it contained an
-optimizer/GradScaler step. It is superseded and must never be submitted or
-reinterpreted as this request.
+## Immutable implementation and source identity
 
-## Preserved prior execution — Job 335566 FAILED, no retry
+- Session/ref: `S04` / `codex/s04-lidar-second`.
+- Approved wave base: `372de9398ae435f82b83367a922fd302c0635738`.
+- Exact remediation executable commit:
+  `72184e9ed3d2a9ea4fcd9f1a8dc473312a09a52d`.
+- Exact executable tree:
+  `c205d2c53571afc16f2246c14ae01a85653b2af7`.
+- Exact runtime source-state SHA-256 over the 17 locale-sorted files enumerated
+  by the launcher:
+  `600ea36bf5d147fa1a2ed9da8db98740a0c711d412ecc53f834d99c8df194032`.
+- Launcher SHA-256:
+  `9c758395a6588882003616487cbae9a46319bdd6b6b693d60a20c6960949b0af`.
+- The request-delivery commit and this request file's SHA-256 are intentionally
+  supplied by S00 as `S04_APPROVED_DELIVERY_SHA` and
+  `S04_APPROVED_REQUEST_SHA256`; a file cannot contain its own content hash or its
+  enclosing commit SHA without changing them.
 
-S00 approved exactly one remediated forward/backward-only request at executable
-`49efb05dd341dbfbcc2d373508772e5b214aa726`, source
-`4816f0de0a653b667e20a79d20b11862bb56423428c374f88e3a66fb6d6209df`, and request
-SHA-256 `00aea9398736471b3a68a1e1fade00fb7e639457795109cc8d9ad6971c956b7c`.
-It was consumed once as Job `335566` and ended `FAILED 1:0` after `00:01:41`:
-exactly 10 tests, 5 passed, 5 failed, zero errors/skips. All failures were the
-same spconv composition error: `_SparseResidualBlock` received a feature Tensor
-from `SparseSequential` and then accessed `.features`. Identity and artifact
-checksums passed. No optimizer/parameter update occurred; B=4 did not complete;
-no memory evidence exists. No retry was submitted. Complete raw hashes and
-scheduler fields are in `RESULTS.md`.
+The remediation is deliberately narrow. After the existing low-resolution
+`to_bev` projection, it records the pre-contract dtype and casts only the active
+sparse-AMP output to fp16. The fp32 reference path stays fp32; empty and non-empty
+fp16 returns now share one dtype contract. Existing dtype assertions are retained
+and extended to trace projection/output dtype. Sparse geometry, voxel caps,
+channels, densification, backward/loss construction, and the ten-test inventory
+are unchanged.
 
-S00 then authorized manual implementation remediation only. Commit `2b5cf2f`
-explicitly forwards residual `ModuleList` stages as `SparseConvTensor` and adds a
-focused structural regression to the first runtime fixture. No voxel geometry,
-stride, channels, caps, test intent/count, resources, or scientific contract
-changed. This section preserves Job 335566 as a negative; the new request below is
-a separately pending execution and is not authorized by the old approval.
+Any change to the delivery/executable SHA, request hash, source aggregate,
+launcher, command, snapshot/output root, tests, resources, or stop conditions
+invalidates approval.
 
-## Remediation execution — Job 335579 FAILED, no further authorization
+## Immutable execution snapshot
 
-S00 independently approved this request exactly once at request SHA-256
-`4acc45db2c6b1e5b0f4aaf5e3247e2e409217090edc62ec013b2c598eaa3354b`.
-It was consumed as Job `335579`; no edit occurred between approval and submission.
-The job ended `FAILED 1:0` after `00:00:46`: exact JUnit counts were 10 tests,
-8 passed, 2 failed, zero errors/skips. The composition remediation worked: real
-spconv shape/backward, per-sample caps/extreme occupancy, empty input, and sample/
-batch isolation cases passed. Both remaining failures are the same precision
-contract mismatch: the fp16 sparse path returns final BEV dtype `torch.float32`,
-not required `torch.float16`.
+The compute job does not execute from `/home` or query a Git worktree. The exact
+command first archives executable `72184e9...` into a unique shared `/nobackup`
+snapshot, replaces only the archived request with the S00-approved request bytes,
+then removes all write bits. The launcher fails unless its working directory is
+that immutable snapshot and its source/request hashes match. Python bytecode and
+pytest cache writes are disabled; all temporary/output writes go to the unique
+output root.
 
-The B=4 case reached output `[4,256,180,180]`, constructed loss, completed backward,
-and observed finite intended gradients before failing the dtype assertion. Because
-the test stops there, it did not record the peak CUDA memory evidence dictionary.
-No optimizer, scaler, parameter update, dataset, profile, metric, retry, requeue,
-resubmission, or follow-on occurred. Identity and checksums passed. Full scheduler,
-test, artifact and log evidence is in `RESULTS.md`.
+- Snapshot root (must not exist before approval/submission):
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/snapshots/s04_72184e9ed3d2_fp16remediation_v1`.
+- Output root (must not exist before approval/submission):
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s04_second_72184e9ed3d2_fp16remediation_v1`.
+- Slurm logs:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s04_second_%j.{out,err}`.
 
-This approval is exhausted. The command below is retained only as exact execution
-provenance and must not be run again. Any dtype remediation or validation requires
-a new S00/owner decision and a new immutable request.
+Expected compact outputs are `execution_identity.json`,
+`runtime_source_sha256s.txt`, `pytest.log`, `pytest.junit.xml`, and
+`sha256sums.txt` with in-job `sha256sum -c`. No checkpoint, dataset, cache,
+profile trace, or remote artifact is produced.
 
 ## Purpose and bounded input
 
-Engineering-only validation of the S04 module contract:
-
-1. CPU/static golden checks for `41x1440x1440 -> 2x180x180`, stride 8,
-   receptive field, metric mapping, and the single reduced-resolution `dense()`;
-2. real spconv fp32/fp16 finite forward/backward, sample/batch isolation,
-   per-sample train/eval caps, empty input, over-cap occupancy, and point-order
-   invariance on small synthetic shapes;
-3. exactly one full-shape synthetic B=4 fp16-autocast forward, scalar loss
-   construction, and backward with 4,096 generated points per sample, output
-   `[4,256,180,180]`, expected dense boundary `[4,128,2,180,180]`, finite intended
-   gradients, and printed peak allocated/reserved CUDA bytes.
-
-The B=4 case constructs no optimizer or GradScaler and performs no `optimizer.step`,
-`scaler.step/update`, scheduler/EMA action, or parameter update. The memory output
-is one bounded engineering guard only, not a throughput/profile result.
-
-Input is generated deterministically in the test. It reads no nuScenes mini,
-trainval, ZIP, cache, checkpoint, or external model artifact. It computes no
-mAP/NDS, throughput profile, scientific metric, 100/1000-step gate, epoch, matrix,
-seed comparison, or detector/trainer result.
-
-## Resources and budget
-
-- Account/partition: `naiss2025-22-1113-gpu` / `gpu`.
-- One node, one `nvidia_gh200_120gb`, eight CPUs.
-- Walltime: `00:20:00`; maximum requested allocation `0.3334 GPU-hours`.
-- One job, one concurrent S04 job, no array, DDP, retry, requeue, resubmission,
-  spare-GPU expansion, or follow-on.
-- S04 cumulative elapsed GPU allocation before this request: approximately
-  `0.0281` GPU-hours from failed Job 335566.
-
-## Exact command
-
-After S00 records the exact SHA-256 of this request file as
-`S04_APPROVED_REQUEST_SHA256`, the only authorized submission is:
+Execute the same exact ten deterministic synthetic tests used by Job `335579`:
 
 ```bash
-test "$(git rev-parse HEAD)" = 0d6ea005fe138aaa4cb39cfab005431abb622acf
-test "$(git branch --show-current)" = codex/s04-lidar-second
-test "$(git status --short)" = "?? fl_v3/usenix27_orchestra/handoffs/S04/RUN_REQUEST.md"
-test "$(sha256sum fl_v3/usenix27_orchestra/handoffs/S04/RUN_REQUEST.md | awk '{print $1}')" = "$S04_APPROVED_REQUEST_SHA256"
-test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s04_second_0d6ea000d99d
-sbatch --export=ALL,EXPECTED_S04_SHA=0d6ea005fe138aaa4cb39cfab005431abb622acf,EXPECTED_S04_REF=codex/s04-lidar-second,EXPECTED_S04_SOURCE_HASH=2e5755522cff0aa2899a035f45440fb5ecdb71f2cb5156c96403dd818bba9886,EXPECTED_S04_REQUEST_HASH="$S04_APPROVED_REQUEST_SHA256",S04_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s04_second_0d6ea000d99d fl_v3/usenix27_orchestra/handoffs/S04/run_s04_second_smoke.sh
-```
-
-The launcher executes exactly:
-
-```bash
-python -m pytest -q -ra -s \
+python -m pytest -q -ra -s -p no:cacheprovider \
   fl_v3/tests/test_s04_second_contract.py \
   fl_v3/tests/test_sparse_voxel_encoder.py \
   fl_v3/tests/test_s04_second_smoke.py \
   --junitxml="$S04_OUTPUT_ROOT/pytest.junit.xml"
 ```
 
-## Outputs and logs
+They cover static `41x1440x1440 -> 2x180x180`/stride/RF/metric mapping and one
+reduced-grid `dense()`; small real-spconv fp32/fp16 forward/backward, finite
+gradients, per-sample caps/extreme occupancy, empty input, and sample/batch
+isolation; and exactly one B=4 full-shape fp16 forward, scalar loss construction,
+backward, finite intended gradients, and peak CUDA allocation/reservation capture
+using 4,096 generated points per sample.
 
-- Unique output root (confirmed absent before request):
-  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s04_second_0d6ea000d99d`.
-- Slurm stdout/stderr:
-  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s04_second_%j.{out,err}`.
-- Expected compact artifacts: `execution_identity.json`,
-  `runtime_source_sha256s.txt`, `pytest.log`, `pytest.junit.xml`, and
-  `sha256sums.txt` with in-job `sha256sum -c`.
+The job reads no nuScenes mini/trainval/ZIP/cache/checkpoint or external model
+artifact. It performs no optimizer/GradScaler/parameter step, scheduler/EMA action,
+model step, metric, profile, 100/1000-step gate, epoch, matrix, seed comparison,
+DDP, or scientific execution.
 
-No checkpoint, dataset, cache, profile trace, or remote artifact is produced.
+## Resources and budget
+
+- Account/partition: `naiss2025-22-1113-gpu` / `gpu`.
+- Shared scheduling request: one `nvidia_gh200_120gb`, eight CPUs, one task;
+  there is deliberately no `--nodes` or exclusive-node request.
+- Walltime: `00:20:00`; maximum requested allocation `0.3334 GPU-hours`.
+- One job, one concurrent S04 job; no array, DDP, retry, requeue, resubmission,
+  spare-GPU expansion, or follow-on.
+- Prior cumulative S04 elapsed GPU allocation is approximately `0.0409` hours;
+  the maximum cumulative total after this request is approximately `0.3743`
+  GPU-hours, within O-009's two-hour session ceiling.
+- The launcher fails closed unless Slurm reports exactly one node, eight CPUs,
+  generic GPU count one, typed GH200 count one, and Torch sees exactly one CUDA
+  device. Allocation drift produces a negative result and no test execution.
+
+## Exact preparation and submission command
+
+After S00 exports the exact approved delivery and request identities, the only
+authorized command is:
+
+```bash
+set -euo pipefail
+S04_APPROVED_DELIVERY_SHA=<exact S00-approved 40-character delivery SHA>
+S04_APPROVED_REQUEST_SHA256=<exact S00-approved request SHA-256>
+EXEC_SHA=72184e9ed3d2a9ea4fcd9f1a8dc473312a09a52d
+EXEC_SOURCE_SHA256=600ea36bf5d147fa1a2ed9da8db98740a0c711d412ecc53f834d99c8df194032
+REQUEST=fl_v3/usenix27_orchestra/handoffs/S04/RUN_REQUEST.md
+SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/snapshots/s04_72184e9ed3d2_fp16remediation_v1
+OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s04_second_72184e9ed3d2_fp16remediation_v1
+TMP_SNAPSHOT="${SNAPSHOT}.tmp"
+
+test "$(git rev-parse HEAD)" = "${S04_APPROVED_DELIVERY_SHA}"
+test "$(git branch --show-current)" = codex/s04-lidar-second
+test -z "$(git status --short)"
+test "$(sha256sum "${REQUEST}" | awk '{print $1}')" = "${S04_APPROVED_REQUEST_SHA256}"
+test ! -e "${SNAPSHOT}"
+test ! -e "${TMP_SNAPSHOT}"
+test ! -e "${OUTPUT}"
+mkdir -p "$(dirname "${SNAPSHOT}")"
+mkdir "${TMP_SNAPSHOT}"
+trap 'chmod -R u+w "${TMP_SNAPSHOT}" 2>/dev/null || true; rm -rf "${TMP_SNAPSHOT}"' EXIT
+git archive "${EXEC_SHA}" | tar -xf - -C "${TMP_SNAPSHOT}"
+install -m 0444 "${REQUEST}" "${TMP_SNAPSHOT}/${REQUEST}"
+find "${TMP_SNAPSHOT}" -type f -exec chmod 0444 {} +
+chmod 0555 "${TMP_SNAPSHOT}/fl_v3/usenix27_orchestra/handoffs/S04/run_s04_second_smoke.sh"
+find "${TMP_SNAPSHOT}" -type d -exec chmod 0555 {} +
+mv "${TMP_SNAPSHOT}" "${SNAPSHOT}"
+trap - EXIT
+
+sbatch --chdir="${SNAPSHOT}" \
+  --export=ALL,EXPECTED_S04_SHA="${EXEC_SHA}",EXPECTED_S04_SOURCE_HASH="${EXEC_SOURCE_SHA256}",EXPECTED_S04_REQUEST_HASH="${S04_APPROVED_REQUEST_SHA256}",S04_SNAPSHOT_ROOT="${SNAPSHOT}",S04_OUTPUT_ROOT="${OUTPUT}" \
+  "${SNAPSHOT}/fl_v3/usenix27_orchestra/handoffs/S04/run_s04_second_smoke.sh"
+```
+
+The two `<exact ...>` values are not executable placeholders and must be replaced
+verbatim by the S00-approved tuple. S04 must report the returned job ID and stop;
+it must not retry or modify the snapshot/request after submission.
 
 ## Acceptance and stop conditions
 
 Pass requires all of:
 
-- exact in-job SHA/ref/status/request/source identity;
-- validated Arrhenius Python/Torch/spconv/cumm versions recorded;
-- JUnit has exactly `10` tests and zero failures, errors, or skips;
-- full-shape B=4 output/dense shape and fp16 dtype match the contract;
-- output, loss, and every intended gradient are finite; no parameter update occurs;
-- per-sample caps/isolation, empty/over-cap, metric/shape/RF and no-fine-dense
-  fixtures pass;
-- artifact checksum verification passes.
+- immutable snapshot, exact executable/source/request identity, dependency
+  versions, and exact one-GPU allocation/visibility checks pass;
+- JUnit reports exactly 10 tests with zero failures, errors, or skips;
+- fp32 reference output is fp32; active sparse-fp16 empty and non-empty output is
+  fp16; debug evidence records the fp32 projection-to-fp16 interface cast;
+- B=4 output/dense shapes are `[4,256,180,180]` and `[4,128,2,180,180]`;
+- output, scalar loss, and every intended gradient are finite; no parameter update;
+- per-sample caps/isolation, empty/over-cap, metric/shape/RF, composition, and
+  no-fine-dense fixtures pass;
+- peak allocated/reserved bytes are recorded and bounded by visible device memory;
+- final artifact checksum verification passes.
 
-Stop immediately on preflight drift, import/build error, OOM, non-finite value,
-test-count drift, test failure/error/skip, checksum failure, scheduler timeout, or
-output-root collision. Record the negative result. Do not retry, modify, resubmit,
-or launch a follow-on without a new request and explicit approval.
+Stop on any identity/allocation/import/build drift, output collision, OOM,
+non-finite value, test-count drift, failure/error/skip, checksum failure, or timeout.
+Preserve the negative. No automatic retry, modification, resubmission, or
+follow-on is authorized.
 
 ## Interpretation boundary
 
-Allowed if passed: bounded synthetic GH200 evidence for this exact standalone S04
-module's shapes, finite fp16/fp32 behavior, gradients, per-sample voxelization, and
-B=4 peak CUDA memory observation.
+Allowed only if passed: bounded synthetic GH200 evidence for this exact standalone
+S04 module's geometry, fp16/fp32 output contract, finite forward/backward,
+per-sample voxelization/isolation, and one B=4 peak-memory observation.
 
-Forbidden regardless of result: production detector/S07-B readiness, full-data or
-mini behavior, model quality, mAP/NDS, fusion gain, best voxel size, throughput,
-training convergence, FL, attack/defense, generalization, or publication claims.
+Forbidden regardless of outcome: S07-B/production/full-data readiness, mini or
+trainval behavior, throughput/profile, convergence, mAP/NDS, fusion gain, best
+voxel size, FL, attack/defense, generalization, or publication claims.
