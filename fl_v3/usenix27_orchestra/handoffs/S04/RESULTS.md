@@ -313,7 +313,7 @@ nine passes and preserved failure above; production/S07-B/scientific readiness a
 all model-quality, throughput, convergence, FL, attack/defense, or publication
 claims remain forbidden.
 
-## Source-only diagnosis and pending lifecycle matrix
+## Source-only diagnosis and lifecycle-matrix preparation
 
 No compute followed Job `336718`. Inspection of installed spconv 2.3.8 shows a
 specific training/eval divergence rather than a final-BEV cast failure:
@@ -331,9 +331,10 @@ specific training/eval divergence rather than a final-BEV cast failure:
 
 This explains why backward itself is unlikely to be the direct cause, but does not
 yet establish whether fresh eval, occupancy, or process-local order changes the
-outcome. Commit `bd1fc9af139cce85240c5908d6704c38425f3c1f` adds a seven-cell,
-fresh-process synthetic diagnostic that traces exact implicit-GEMM call state. Its
-new request is pending and has not run.
+outcome. Commit `bd1fc9af139cce85240c5908d6704c38425f3c1f` added a seven-cell,
+fresh-process synthetic diagnostic that traces exact implicit-GEMM call state. At
+that delivery its request was pending; Job `336728` subsequently executed it as
+recorded below.
 
 Potential remedies are deliberately not implemented:
 
@@ -348,3 +349,130 @@ Potential remedies are deliberately not implemented:
 
 Each is a material precision/lifecycle choice requiring reviewed diagnostic
 evidence and S00/owner approval. None is an authorized fix or current claim.
+
+## Lifecycle diagnostic Job 336728 — COMPLETED matrix, S04 still blocked
+
+### Exact outcome and mechanism evidence
+
+Job `336728` completed `0:0` because every required process returned a valid
+structured envelope and all provenance/artifact gates passed. This is diagnostic
+completion, not S04 PASS. Cell outcomes were six `error` and one `success`:
+
+| Cell | Outcome | Decisive observation |
+|---|---|---|
+| fresh fp16 eval, 6 active voxels | error | first SubMConv fp16/fp32/fp32, no algorithm |
+| same fp16 model train→eval, no backward | error | train half/half succeeds; eval mixed tuple fails |
+| same fp16 model train/backward→eval | error | finite train gradients; eval mixed tuple fails |
+| fresh fp16 eval, 256 active voxels | error | same mixed tuple fails, excluding tiny occupancy |
+| fresh fp32 eval, 6 active voxels | success | all 21 sparse calls fp32/fp32/fp32 succeed |
+| fp32 eval then fresh fp16 eval | error | fp32 cache/order does not satisfy mixed tuple |
+| fp16 train then distinct fresh fp16 eval | error | half training cache does not satisfy mixed tuple |
+
+Every failed fp16-eval cell stopped in the first stem SubMConv with
+`is_train=False`, `is_subm=True`, fp16 feature shape `[6,4]` (or `[256,4]` for the
+large case), fp32 filter `[16,3,3,3,4]`, requested fp32 output, and the same
+`all_profile_res.empty()` assertion. Training traces used fp16 features/filters and
+fp16 output successfully. This establishes a universal current fp16-eval dispatch
+blocker in the tested environment, not a backward, reuse, occupancy, or cache-order
+effect.
+
+### Scheduler, identity and raw artifacts
+
+- Authorization class: one validation-only diagnostic job under the owner's
+  temporary S02-S05 authority; not a scientific matrix or O-009 expansion.
+- Delivery/executable/tree:
+  `7e3bf58d875bf72973c3990dc4fdf5697915ef40` /
+  `bd1fc9af139cce85240c5908d6704c38425f3c1f` /
+  `80b6f5cf5028faffa67b7510454a510e94b72f31`.
+- Request/identity/repo-source/dependency-source SHA-256:
+  `710eecb3cc10ae971ee8eca6f1bec421bc8f045c03df28b9d311cac5d65a63ab` /
+  `a8069f9a2b3d7a1fa6f40d2cebd4e6f3d171e58ba5cc79b805f5f779d0890d7d` /
+  `d2a5041c5177279f874bd788320053df679c5b8ad060f95d729e29ae0ebfbf63` /
+  `e7e162a1f10b4e66c42c1bc07fae19248c42a5e198fbee2c546f3dc0a0d43141`.
+- Job/name/node: `336728` / `flv3_s04_lifecycle` / `n593`.
+- State/exit/restarts: `COMPLETED` / `0:0` / `0`.
+- Submit/start/end: `2026-07-11T19:09:45` / `19:09:46` / `19:13:22`.
+- Elapsed/timelimit: `00:03:36` / `00:20:00`; exactly one GH200, eight CPUs,
+  one node, `mem=11672M`.
+- Batch MaxRSS/MaxVMSize: `1,514,952K` / `24,302,208K`; TotalCPU `03:22.224`;
+  disk read/write `572.85M` / `0.81M`.
+- Elapsed allocation `0.0600` GPU-hours; cumulative S04 elapsed allocation about
+  `0.1490` GPU-hours.
+- CPython `3.11.15`, Torch `2.11.0+cu128`, spconv `2.3.8`, cumm `0.7.13`.
+- Snapshot remained read-only; exactly one matching job was submitted and no S04
+  lifecycle job remains active.
+
+In-job `sha256sum -c` passed all primary artifacts:
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `execution_identity.json` | 2,752 | `0a40265c36c6854f777e7909c2a422f185e3222970dcc71b95be7ae3c6f66119` |
+| `runtime_source_sha256s.txt` | 1,276 | `d2a5041c5177279f874bd788320053df679c5b8ad060f95d729e29ae0ebfbf63` |
+| `dependency_source_sha256s.txt` | 1,262 | `e7e162a1f10b4e66c42c1bc07fae19248c42a5e198fbee2c546f3dc0a0d43141` |
+| `diagnostic.log` | 276 | `ea800f13af1ca13c15f550e7fa68a497b85cdbbb5513acd248fa390e9420ca0f` |
+| `lifecycle_matrix.json` | 174,979 | `3257e16b7bf8ed9b7afcfc252b284ece81595b5c45c83c296e9434e412e346e4` |
+| `sha256sums.txt` | 983 | `038b0a93e4a8e084b2d4a9d06381361e8e4bea30ba89e25fb59e1073f5b102d0` |
+| Slurm stdout | 1,220 | `ddfe1ec1a2b99509c33cef4188b3fc80dc4ae27d1073f35e22e8357d421e17f8` |
+| Slurm stderr | 123 | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+No data, optimizer/parameter step, metric, scientific cell, profile, retry,
+requeue, resubmission, remedy, or follow-on occurred.
+
+## Owner decision docket — remedy not yet authorized
+
+### A — force only spconv convolutions through training dispatch in fp16 eval (recommended)
+
+Keep the encoder in eval mode so eval voxel caps and surrounding module semantics
+remain intact; GroupNorm has no running statistics. Under `torch.no_grad`, route
+only spconv `SparseConvolution` modules through their training dispatch so the
+existing custom-fwd casts fp32 master filters to fp16, matching successful training
+compute. Do not call `.train()` on the whole encoder.
+
+- Benefit: preserves fp32 master parameters/state dict and aligns sparse eval
+  arithmetic with the already validated half/half/half training forward.
+- Runtime risks: training dispatch may generate backward indice/mask state even
+  under `no_grad`, increasing eval memory/time; it relies on spconv private dispatch
+  behavior and must fail closed outside exact tested spconv/cumm versions.
+- Scientific risks: a private dispatch workaround can silently drift after a
+  dependency upgrade. Metadata must declare forced dispatch and dependency hashes;
+  eval metrics are valid only after parity/lifecycle review.
+- Required next validation: fresh 6/256-voxel and same-model before/after-backward
+  eval, fp32 master/state-dict immutability, no eval gradients, forced-dispatch
+  versus train-mode-`no_grad` numerical parity, fp32 control, B=4 eval memory, and
+  explicit version guard rejection.
+
+### B — run sparse eval in fp32, then cast final BEV to fp16
+
+- Benefit: uses the proven fp32 eval path and avoids private spconv dispatch.
+- Risks: training and evaluation use different sparse arithmetic; memory and speed
+  rise, and fp32 eval may hide fp16 numerical failures. Any metrics must be labeled
+  precision drift and cannot be compared as matched fp16 without an approved
+  ablation.
+- Required validation: fp32 eval lifecycle, final-BEV dtype, memory, parity delta
+  versus fp16 training forward, and explicit resolved-config/manifest labeling.
+
+### C — create an fp16 weight copy for evaluation
+
+- Benefit: supplies the native half/half/half inference tuple without changing the
+  installed dependency.
+- Risks: duplicate model memory, conversion/caching complexity, stale-copy risk,
+  GroupNorm/other parameter conversion scope, checkpoint/state semantics, and
+  accidental loss of fp32 master weights if the training instance is mutated.
+- Required validation: immutable fp32 source model, exact clone provenance,
+  fresh/same-checkpoint eval parity, state-dict hashes, memory, and safe destruction
+  before resume/training.
+
+### D — patch the spconv inference path
+
+- Benefit: can make inference autocast filters in the dependency at the intended
+  boundary rather than altering module mode.
+- Risks: highest maintenance and ABI/build risk; requires a maintained fork,
+  source/build attestation, regression coverage across sparse ops, and reevaluation
+  on every dependency upgrade. Numerical behavior becomes project-specific.
+- Required validation: source/build hashes, full sparse-op forward/backward and
+  inference regression, lifecycle/parity/memory tests, and independent dependency
+  review.
+
+Option A is the smallest current candidate because it preserves fp32 master weights
+and matches the successful training dtype tuple, but it remains owner-locked. No
+option is implemented or approved by Job `336728`.

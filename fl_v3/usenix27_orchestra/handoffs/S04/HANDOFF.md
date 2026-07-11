@@ -19,8 +19,8 @@
 - Final request-delivery HEAD is returned after its commit; a commit cannot embed
   its own SHA without changing it.
 - Job-336718 evidence delivery is returned after the docs commit.
-- Worker self-assessment: **CHANGES-REQUESTED / DTYPE AND B=4 PASS, EVAL-REUSE
-  SPCONV BLOCKER**.
+- Worker self-assessment: **CHANGES-REQUESTED / DTYPE AND B=4 TRAIN PASS,
+  UNIVERSAL CURRENT FP16 EVAL BLOCKER CONFIRMED**.
 
 This is not an integration PASS. Jobs `335566`, `335579`, and `336718` all remain
 visible failed negatives. Job `336718` validated the original fp16 output assertion
@@ -179,7 +179,17 @@ features plus fp32 filters. Its generated tuner/cache keys include this dtype
 triple, so training cache state cannot directly satisfy eval. Commit `bd1fc9a`
 prepares seven fresh-process cells covering fresh/same-model eval, before/after
 backward, larger occupancy, fp32 control, and order/cache dependence. It does not
-change encoder code or precision semantics and has no compute approval.
+change encoder code or precision semantics and had no compute approval at that
+preparation point; the exact job was subsequently approved and consumed below.
+
+Exact-once diagnostic Job `336728` completed the matrix with all identities and
+checksums intact. All six cells that attempted current fp16 eval failed at the
+first stem SubMConv with fp16 features, fp32 filters and requested fp32 output:
+fresh six-voxel eval, train→eval before backward, train→eval after backward, fresh
+256-voxel eval, fp32-cache→fp16 eval, and fp16-training-cache→fresh fp16 eval.
+Fresh fp32 eval succeeded through all 21 sparse calls. The failure is therefore
+not caused by backward, same-model reuse, low occupancy, or available training/fp32
+cache order; it is the current eval dispatch's unsupported mixed-dtype tuple.
 
 ## Gate checklist
 
@@ -191,7 +201,7 @@ change encoder code or precision semantics and has no compute approval.
 | empty/extreme occupancy | PASS bounded synthetic runtime | Job 335579 |
 | metric/camera-fusion mapping | PASS static | 0.6m, 180x180 golden |
 | sample/batch isolation | PASS bounded synthetic runtime | Job 335579 |
-| fp32/fp16 behavior | PARTIAL PASS / BLOCKED | original dtype/finite/backward assertions and B=4 trace pass; same-model eval reuse fails in spconv before empty/non-empty comparison |
+| fp32/fp16 behavior | PARTIAL PASS / BLOCKED | fp16 train/B=4 pass; Job 336728 confirms all current fp16 eval variants fail at mixed-dtype first SubMConv; fp32 eval passes |
 | B=4 forward/backward | PASS bounded synthetic runtime | Job 336718, correct shape/fp16/loss/backward/finite grads |
 | B=4 bounded memory | PASS bounded observation | Job 336718, allocated/reserved/device bytes recorded above |
 | sparse composition remediation | PASS bounded synthetic runtime | explicit forwarding + Job 335579 |
@@ -223,11 +233,10 @@ Forbidden:
 
 1. Preserve Jobs 335566 (composition), 335579 (fp16 output dtype), and 336718
    (same-model eval reuse spconv tuning) as failed negatives.
-2. Independently review whether Job 336718 exposes an implementation lifecycle
-   defect, a spconv cache/tuner limitation, or a fixture sequencing problem; do
-   not reinterpret the nine passes as overall runtime PASS.
-3. Audit the pending exact diagnostic request. Any half-weight, fp32-eval,
-   forced-training-path, or dependency-patch remedy is a separate material
-   precision/lifecycle decision.
-4. Only after Orchestra disposition and independent S04-R may S07-B consider this
+2. Owner/S00 selects one remedy from the decision docket in `RESULTS.md`; no option
+   is implemented or authorized by this handoff.
+3. Require fresh/same-model fp16 eval, parameter-state preservation, fp32 control,
+   parity, version guard and bounded memory/lifecycle evidence for the selected
+   remedy.
+4. Only after reviewed remediation and independent S04-R may S07-B consider this
    module for integration.

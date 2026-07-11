@@ -2,11 +2,14 @@
 
 ## Current approval state
 
-`PENDING_S00_EXACT_O009_APPROVAL_NOT_SUBMITTED`
+`APPROVED_ONCE_CONSUMED_BY_JOB_336728_COMPLETED_DIAGNOSTIC_NO_FOLLOW_ON`
 
-The newly proposed lifecycle matrix has no execution permission. It requires a
-new exact S00 approval for the diagnostic delivery/request/source/dependency hashes,
-command, resources, and roots recorded at the end of this file.
+S00 approved the exact lifecycle diagnostic tuple once under the owner's temporary
+S02-S05 authority for necessary validation-only Slurm work. Job `336728` consumed
+it and completed the structured evidence matrix. This was one diagnostic job with
+seven process-isolation observations, not a scientific experiment matrix and not
+an expansion of O-009. The approval is exhausted; no remedy, retry, requeue,
+resubmission, or follow-on is authorized.
 
 ## Prior final-output request state
 
@@ -222,7 +225,7 @@ Forbidden regardless of outcome: S07-B/production/full-data readiness, mini or
 trainval behavior, throughput/profile, convergence, mAP/NDS, fusion gain, best
 voxel size, FL, attack/defense, generalization, or publication claims.
 
-## Proposed source-isolation matrix after Job 336718
+## Executed source-isolation matrix after Job 336718
 
 ### Source diagnosis and purpose
 
@@ -300,18 +303,19 @@ inference, patch spconv, or weaken the eval case.
   optimizer/parameter update, model step, metric, profile, seed comparison, or
   scientific run.
 - Per-cell timeout 120 seconds; cells are sequential and process-isolated.
-- Snapshot root, currently absent:
+- Snapshot root, absent before submission and now preserved read-only:
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/snapshots/s04_lifecycle_bd1fc9af139c_v1`.
-- Output root, currently absent:
+- Output root, absent before submission and now preserving Job `336728` artifacts:
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s04_lifecycle_bd1fc9af139c_v1`.
 - Logs: `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s04_lifecycle_%j.{out,err}`.
 - Artifacts: execution identity, repo/dependency source lists, complete matrix JSON,
   diagnostic log, and checksum manifest with `sha256sum -c`.
 
-### Exact preparation/submission template — not authorized
+### Exact preparation/submission template — consumed, not reusable
 
-S00 must return the three exact external hashes in a fully expanded command. This
-template is not executable permission:
+S00 supplied the three exact external hashes and the fully expanded form of this
+command was consumed once by Job `336728`. The template is retained as provenance
+and must not be reused:
 
 ```bash
 set -euo pipefail
@@ -371,7 +375,9 @@ Individual structured `error` outcomes are accepted observations. The launcher
 must fail on missing/malformed cells, identity drift, wrong allocation, timeout,
 output collision, matrix validation failure, or checksum failure.
 
-Even a scheduler `COMPLETED` result means only that the diagnostic matrix is
-complete. It cannot establish S04 PASS, justify a workaround, or authorize a
-precision change, retry, production integration, full-data run, or scientific
-claim.
+Job `336728` met diagnostic-completion acceptance: all seven envelopes, identities,
+allocation checks, source/dependency hashes and artifact checksums passed. Six
+fp16-eval cells returned structured errors and the fp32 control succeeded. Its
+scheduler `COMPLETED` result means only that the diagnostic matrix is complete. It
+does not establish S04 PASS, select a workaround, or authorize a precision change,
+retry, production integration, full-data run, or scientific claim.
