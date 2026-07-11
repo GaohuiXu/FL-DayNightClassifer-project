@@ -146,12 +146,39 @@ access verification. The module directory contains trainval metadata, ten stored
 `trainvalXX_blobs.zip` archives, and test data. The access check found the camera
 samples, `LIDAR_TOP` keyframes, and sweeps needed by the model.
 
-The production loader is not yet ZIP-aware: it still expects ordinary filesystem
-paths for `Image.open` and `np.fromfile`. Do not describe full-data training as ready
-until the ZIP backend, complete member-coverage manifest, directory/ZIP parity, and
-multi-worker behavior pass the S01 gates. Do not extract or duplicate the full
-dataset into project storage without explicit owner permission. The old
+The S01 implementation provides a read-only stored-ZIP backend: a one-time external
+SQLite member manifest routes sensor paths to `trainval01` through `trainval10`, and
+each DataLoader process lazily opens its own read-only archive descriptors for
+offset/CRC-checked reads. Directory mode remains the mini/local backend. Approved
+v2 gate job `332651` indexed all ten archives, resolved all 538,695 official
+train/val six-camera/key-LiDAR/10-sweep references with zero missing paths, read a
+CRC-checked payload sentinel from every archive, and measured deterministic
+0/2/4/8-worker loader throughput. Independent S01-R review subsequently requested
+changes: execute dependency-backed real-mini directory/ZIP decoded parity and
+spawn lifecycle checks, bind cache identity to `n_sweeps`, validate local-header
+member names, address exact-archive duplicate sentinels, and add in-job source
+attestation. The remediation candidate uses cache format `t1.v2`, whose filename,
+metadata, records, and content hash all bind the requested sweep depth; historical
+job `332651` `t1.v1` caches remain coverage evidence but are not production inputs
+to the remediated loader. Focused GH200 job `333206` subsequently passed all 56
+dependency-backed mini parity, fork/spawn lifecycle, cache-depth, and ZIP-integrity
+tests with zero skips. Full-data training readiness still requires independent
+S01-R re-review and downstream migration of permission-out `t1.v1` callers. Do not
+extract or duplicate the full dataset into project storage without explicit owner
+permission. The old
 `/mimer/NOBACKUP/Datasets/NuScenes_v1.0` path is not an Arrhenius data path.
+
+The module root is discovered from `NUSCENES_DATA_DIR` after explicit config and
+the legacy dataroot environment overrides. ZIP runs additionally require
+`NUSCENES_ZIP_MANIFEST` (or `ARRHENIUS_NUSCENES_ZIP_MANIFEST`) pointing outside
+the shared read-only dataset. Building that manifest on shared trainval is an
+exhaustive full-data scan and therefore needs an approved S01 `RUN_REQUEST.md`.
+The first ten-archive attempt found a cross-archive repeated path. The successful v2
+gate showed that the only repeated path is the same `LICENSE` file in all ten
+archives: 2,631,093 total occurrences, 2,631,084 unique members, and nine duplicate
+occurrences with matching size/CRC. The reader retains all occurrences, routes
+deterministically to the lowest-numbered archive only when size and CRC agree, and
+fails on conflicting copies or duplicates within one archive.
 
 The currently accessible mini dataset is:
 

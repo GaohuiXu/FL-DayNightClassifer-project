@@ -135,27 +135,105 @@ echo "$NUSCENES_DATA_DIR"
 ```
 
 It contains trainval metadata and stored ZIP blob archives. The current production
-dataset reader is not yet ZIP-aware, so full-data training is not ready merely
-because module access works. The active S01 contract in
-`fl_v3/usenix27_orchestra/SESSIONS.md` owns ZIP parity, member coverage, and
-multi-worker verification. Do not extract/duplicate the dataset or submit data/full
-jobs without owner permission.
+data path now has the S01 read-only backend: the ten trainval central directories
+are indexed once into an external SQLite manifest, and workers use PID-owned lazy
+read-only descriptors plus offset/length/CRC checks rather than extracting blobs or
+rebuilding `ZipFile` indexes per worker. Directory mode remains unchanged for mini.
+
+This follows the lifecycle in C3SE's
+[official raw-ZIP DataLoader example](https://www.c3se.chalmers.se/documentation/software/machine_learning/datasets/#raw-files):
+do not reuse the constructor's archive handle in workers, open lazily in the worker,
+decode images through `BytesIO`, and reopen once after a bad handle. S01 records
+stored-member offsets once and uses `pread`+CRC at runtime, avoiding a full Python
+`ZipFile` member dictionary in every worker.
+
+Approved v2 full gate `332651` completed the exhaustive shared manifest scan, 100%
+train/val path-coverage audit, ten-archive payload sentinels, and deterministic
+0/2/4/8-worker loader profile. This is an engineering data-path result, not model or
+scientific readiness. Independent S01-R requested changes. The remediation
+candidate binds every cache to its exact `n_sweeps` under cache format `t1.v2`,
+validates the local-header member name, reads duplicate sentinels from their exact
+archive occurrence, and makes future launchers attest the Git/source state inside
+the job. Job `332651`'s `t1.v1` caches remain valid historical coverage evidence
+but must not be consumed by the remediated loader. Dependency-backed real-mini
+directory/ZIP decoded parity and fork/spawn lifecycle execution passed in focused
+GH200 job `333206` (`56 passed`, zero skipped). S01-R re-review and downstream
+permission-out caller migration remain required. Do not extract/duplicate the dataset or
+submit further jobs without exact permission.
+
+A bounded one-archive GH200 engineering smoke (`Slurm 330409`, 2026-07-10) passed:
+module/table discovery, four real samples with all six cameras plus keyframe and
+nine previous LiDAR sweeps, CRC-checked decode, and deterministic 0-worker versus
+two persistent-worker reads across two epochs. It covered only
+`trainval01_blobs.zip` (258,109 members indexed; 64 selected members read), so it is
+not the missing ten-archive coverage or throughput gate. Exact artifacts and limits
+are recorded in `usenix27_orchestra/handoffs/S01/{RESULTS,HANDOFF}.md`.
+
+The first approved ten-archive gate (`Slurm 332648`, 2026-07-11) stopped during
+`trainval02` manifest construction because the v1 schema rejected a path repeated
+across archives. This is a negative result, not evidence of corrupt payloads. The
+v2 schema records all occurrences, permits only cross-archive copies with matching
+size+CRC, routes to the lowest archive deterministically, and still rejects
+conflicting copies and within-archive duplicates. The follow-up below validates
+that correction against the complete shared trainval archive set.
+
+The exact v2 follow-up (`Slurm 332651`, commit `1fe651700bd0`, 2026-07-11)
+completed in `00:05:29`:
+
+- 2,631,093 member occurrences and 2,631,084 unique members across 417,774,430,886
+  archive bytes; the nine duplicate occurrences are the identical `LICENSE` entry
+  present in all ten archives;
+- all 538,695 official train/val pipeline references resolved (204,894 camera,
+  34,149 key LiDAR, 299,652 previous sweeps), with zero missing paths;
+- ten real archive payload sentinels passed CRC;
+- decoded determinism hashes matched across 0/2/4/8 workers and both repeats;
+- measured sample rates were 18.94/46.81/89.08/154.36 samples/s for the first
+  repeat at 0/2/4/8 workers. These are batch-size-1 data-loader measurements, not
+  end-to-end model-step data-wait percentages.
+
+Exact artifacts and hashes live under the S01 output root recorded in
+`usenix27_orchestra/handoffs/S01/RESULTS.md`.
 
 The code no longer defaults to the old Alvis/Mimer path. Provide the dataroot
 through either:
 
 - run config key `nuscenes-dataroot`, or
 - environment variable `NUSCENES_DATAROOT`, or
-- environment variable `ARRHENIUS_NUSCENES_DATAROOT`.
+- environment variable `ARRHENIUS_NUSCENES_DATAROOT`, or
+- module-provided environment variable `NUSCENES_DATA_DIR` (lowest precedence).
 
-The info-cache must live outside the read-only dataroot. Build it explicitly
-before training/eval:
+ZIP mode also requires an external manifest path:
+
+```bash
+export NUSCENES_ZIP_MANIFEST=/nobackup/.../nuscenes_trainval_zip_manifest.sqlite
+```
+
+The manifest must remain outside `NUSCENES_DATA_DIR`. Building it over shared
+trainval is material compute; prepare/approve the S01 run request before invoking:
+
+```bash
+python fl_v3/scripts/s01_nuscenes_zip_manifest.py \
+  --dataroot "$NUSCENES_DATA_DIR" \
+  --manifest "$NUSCENES_ZIP_MANIFEST"
+```
+
+The info-cache must live outside the read-only dataroot. Build the full trainval
+cache explicitly only within the same approved material-compute scope, before
+training/eval:
 
 ```bash
 python fl_v3/scripts/build_nuscenes_cache.py \
-  --dataroot "$ARRHENIUS_NUSCENES_DATAROOT" \
-  --cache-dir /path/to/info_cache
+  --dataroot "$NUSCENES_DATA_DIR" \
+  --version v1.0-trainval \
+  --splits train val \
+  --n-sweeps 10 \
+  --cache-dir /path/to/info_cache_msweep10
 ```
+
+The cache builder adapts the module's `trainval/` metadata directory to the
+official devkit version name and reads `sample_data.filename` from metadata. It
+does not open or extract image/LiDAR payloads. For the production 10-sweep cache,
+use a dedicated cache directory and `--n-sweeps 10`.
 
 Mini real-data smoke validated on 2026-07-01:
 
@@ -177,6 +255,12 @@ Mini remains engineering smoke only. Scientific results require trainval.
 - `fl_v3/scripts/run_arrhenius_env_build.sh` - GH200 Slurm build template.
 - `fl_v3/scripts/arrhenius_smoke.py` - import/spconv/data/eval/train smoke harness.
 - `fl_v3/scripts/run_arrhenius_smoke.sh` - GH200 Slurm smoke template.
+- `fl_v3/src/fl_v3/data/nuscenes/zip_backend.py` - stored-ZIP manifest and
+  PID-owned read-only blob store.
+- `fl_v3/scripts/s01_nuscenes_zip_{manifest,audit,benchmark}.py` - manifest,
+  coverage, and loader-profile evidence tools.
+- `fl_v3/scripts/run_s01_nuscenes_zip_full_gate.sh` - prepared S01 full-data gate;
+  it is not execution authorization.
 - `fl_v3/requirements.txt` - direct dependency manifest used by the builder.
 - `fl_v3/requirements.lock.txt` - Arrhenius audit snapshot, not a standalone reinstall recipe.
 - `fl_v3/collab/arrhenius_migration.md` - read-only historical job/version evidence.

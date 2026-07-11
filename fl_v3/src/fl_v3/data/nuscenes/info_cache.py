@@ -21,9 +21,11 @@ identical derived schema" test additionally certifies the derived matrices.)
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import pickle
 import struct
+from glob import glob
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -35,8 +37,16 @@ from fl_v3.data.nuscenes.class_map import (
     NAME_TO_ID,
     category_to_detection_name,
 )
+from fl_v3.data.nuscenes.zip_backend import canonical_member_path
 
-CACHE_FORMAT_VERSION = "t1.v1"
+CACHE_FORMAT_VERSION = "t1.v2"
+
+
+def _validated_n_sweeps(value: int) -> int:
+    n_sweeps = int(value)
+    if n_sweeps < 1:
+        raise ValueError(f"n_sweeps must be >= 1, got {value!r}")
+    return n_sweeps
 
 
 # ---------------------------------------------------------------------------
@@ -47,6 +57,19 @@ def _sensor_records(nusc, sample, channel: str):
     cs = nusc.get("calibrated_sensor", sd["calibrated_sensor_token"])
     ep = nusc.get("ego_pose", sd["ego_pose_token"])
     return sd, cs, ep
+
+
+def _sample_data_rel_path(sample_data: dict) -> str:
+    """Canonical blob member from metadata only (never probes/extracts payload).
+
+    Official ``sample_data.filename`` is already DATAROOT-relative.  Reading it
+    directly lets the info-cache build against the Arrhenius metadata+ZIP layout
+    even though ``dataroot/filename`` is not an extracted file.
+    """
+    try:
+        return canonical_member_path(sample_data["filename"])
+    except KeyError as exc:
+        raise KeyError(f"sample_data {sample_data.get('token', '<unknown>')!r} has no filename") from exc
 
 
 def _attr_name(nusc, attribute_tokens) -> str:
@@ -67,16 +90,17 @@ def build_keyframe_info(nusc, sample, dataroot: str, n_sweeps: int = 1) -> dict:
     LIDAR 4×4 transform (devkit ``from_file_multisweep`` convention: sweep_sensor →
     sweep_ego → global → key_ego → key_sensor) and the relative timestamp
     ``dt=(key_ts−sweep_ts)·1e-6`` s. Points are loaded + ego-motion-compensated at
-    train time (the dataset). The sweep records enter the host-portable hash ONLY when
-    present, so an ``n_sweeps=1`` build is byte-identical (same hash) to the pre-lever cache.
+    train time (the dataset). Cache format t1.v2 binds the requested depth in the
+    filename, metadata, every record, and the host-portable hash.
     """
+    n_sweeps = _validated_n_sweeps(n_sweeps)
     sample_token = sample["token"]
     scene = nusc.get("scene", sample["scene_token"])
     log = nusc.get("log", scene["log_token"])
 
     # --- LiDAR (canonical frame anchor) ---
     sd_l, cs_l, ep_l = _sensor_records(nusc, sample, P.LIDAR_CHANNEL)
-    lidar_rel = P.relative_to_dataroot(nusc.get_sample_data_path(sample["data"][P.LIDAR_CHANNEL]), dataroot)
+    lidar_rel = _sample_data_rel_path(sd_l)
     lidar2ego = T.transform_matrix(cs_l["translation"], cs_l["rotation"], inverse=False)
     ego2global_lidar = T.transform_matrix(ep_l["translation"], ep_l["rotation"], inverse=False)
     # global -> lidar (for box centers): inverse chain.
@@ -108,7 +132,7 @@ def build_keyframe_info(nusc, sample, dataroot: str, n_sweeps: int = 1) -> dict:
                 @ T.transform_matrix(cs_s["translation"], cs_s["rotation"], inverse=False)
             )
             sweep2keylidar = (global2lidar @ lidar2global_sweep).astype(np.float64)  # (4,4)
-            rel_s = P.relative_to_dataroot(nusc.get_sample_data_path(sd_cur["token"]), dataroot)
+            rel_s = _sample_data_rel_path(sd_cur)
             dt = (key_ts - int(sd_cur["timestamp"])) * 1e-6  # seconds into the past (>=0)
             lidar_sweeps.append({
                 "rel_path": rel_s,
@@ -128,7 +152,7 @@ def build_keyframe_info(nusc, sample, dataroot: str, n_sweeps: int = 1) -> dict:
     cam_raw = []  # raw records, for the host-portable hash
     for i, ch in enumerate(P.CAMERA_CHANNELS):
         sd_c, cs_c, ep_c = _sensor_records(nusc, sample, ch)
-        rel = P.relative_to_dataroot(nusc.get_sample_data_path(sample["data"][ch]), dataroot)
+        rel = _sample_data_rel_path(sd_c)
         cam_rel_paths.append(rel)
         K = np.asarray(cs_c["camera_intrinsic"], dtype=np.float64)
         cam_intrinsics[i] = K
@@ -202,6 +226,9 @@ def build_keyframe_info(nusc, sample, dataroot: str, n_sweeps: int = 1) -> dict:
         "log_token": scene["log_token"],
         "location": log["location"],
         "timestamp": int(sample["timestamp"]),
+        # Cache/runtime contract. Every record carries the requested depth so a
+        # mixed or lower-sweep cache cannot be silently served as another depth.
+        "_cache_n_sweeps": n_sweeps,
         "cam_order": tuple(P.CAMERA_CHANNELS),
         "cam_rel_paths": cam_rel_paths,
         "lidar_rel_path": lidar_rel,
@@ -232,8 +259,11 @@ def build_keyframe_info(nusc, sample, dataroot: str, n_sweeps: int = 1) -> dict:
         "_lidar_raw": (lidar_rel, cs_l["translation"], cs_l["rotation"],
                        ep_l["translation"], ep_l["rotation"]),
     }
-    # Additive: only present for an n_sweeps>1 build ⇒ the n_sweeps=1 schema + hash are unchanged.
-    if lidar_sweeps:
+    # Additive: present for every sample in an n_sweeps>1 build, including scene
+    # starts with an empty history.  This prevents a valid cache from being
+    # mistaken for single-sweep merely because its first token starts a scene.
+    # t1.v2 records the requested depth explicitly even when it is one.
+    if int(n_sweeps) > 1:
         info["lidar_sweeps"] = lidar_sweeps
     return info
 
@@ -267,6 +297,7 @@ def canonical_hash(info_list: List[dict]) -> str:
         _h_str(h, info["log_token"])
         _h_str(h, info["location"])
         _h_i64(h, info["timestamp"])
+        _h_i64(h, info["_cache_n_sweeps"])
         for ch in info["cam_order"]:
             _h_str(h, ch)
         for (rel, cst, csr, K, ept, epr) in info["_cam_raw"]:
@@ -281,8 +312,7 @@ def canonical_hash(info_list: List[dict]) -> str:
             _h_str(h, at); _h_str(h, it); _h_i64(h, did); _h_str(h, dn)
             _h_f64(h, cg); _h_f64(h, wlh); _h_f64(h, qg)
             _h_i64(h, nlp); _h_i64(h, vis); _h_i64(h, 1 if inr else 0); _h_str(h, attr)
-        # multi-sweep records — hashed ONLY when present, so an n_sweeps=1 cache hash is
-        # byte-identical to the pre-lever cache (no extra bytes emitted).
+        # Multi-sweep records follow the explicit depth already hashed above.
         if "lidar_sweeps" in info:
             _h_i64(h, len(info["lidar_sweeps"]))
             for sw in info["lidar_sweeps"]:
@@ -313,25 +343,29 @@ def split_sample_tokens(nusc, split: str) -> List[str]:
 
 
 def build_info_list(nusc, sample_tokens: List[str], dataroot: str, n_sweeps: int = 1) -> List[dict]:
+    n_sweeps = _validated_n_sweeps(n_sweeps)
     out = []
     for tok in sorted(sample_tokens):  # defensive: enforce token order
         out.append(build_keyframe_info(nusc, nusc.get("sample", tok), dataroot, n_sweeps=n_sweeps))
     return out
 
 
-def cache_paths(cache_dir: str, version: str, split: str) -> tuple[str, str]:
-    base = f"nuscenes_info_{version}_{split}_{CACHE_FORMAT_VERSION}"
+def cache_paths(
+    cache_dir: str, version: str, split: str, n_sweeps: int = 1
+) -> tuple[str, str]:
+    n_sweeps = _validated_n_sweeps(n_sweeps)
+    base = f"nuscenes_info_{version}_{split}_{CACHE_FORMAT_VERSION}_nsweeps{n_sweeps}"
     return os.path.join(cache_dir, base + ".pkl"), os.path.join(cache_dir, base + ".meta.json")
 
 
 def save_cache(info_list: List[dict], cache_dir: str, version: str, split: str,
-               scale: str, dataroot: str) -> dict:
+               scale: str, dataroot: str, n_sweeps: int = 1) -> dict:
     """Pickle the info list + write a JSON sidecar with the host-portable hash."""
-    import json
-
+    n_sweeps = _validated_n_sweeps(n_sweeps)
+    _validate_cache_depth(info_list, {"n_sweeps": n_sweeps}, n_sweeps)
     P.resolve_writable(cache_dir, dataroot)  # active read-only guard
     os.makedirs(cache_dir, exist_ok=True)
-    pkl_path, meta_path = cache_paths(cache_dir, version, split)
+    pkl_path, meta_path = cache_paths(cache_dir, version, split, n_sweeps)
     P.resolve_writable(pkl_path, dataroot)
     chash = canonical_hash(info_list)
     n_boxes = int(sum(len(i["gt_ann_tokens"]) for i in info_list))
@@ -342,6 +376,7 @@ def save_cache(info_list: List[dict], cache_dir: str, version: str, split: str,
         "scale": scale,  # "mini-smoke" | "trainval-scientific"
         "n_samples": len(info_list),
         "n_boxes": n_boxes,
+        "n_sweeps": n_sweeps,
         "cache_hash": chash,
         "dataroot_relative": True,
     }
@@ -352,26 +387,97 @@ def save_cache(info_list: List[dict], cache_dir: str, version: str, split: str,
     return meta
 
 
-def load_cache(cache_dir: str, version: str, split: str) -> tuple[List[dict], dict]:
-    pkl_path, _ = cache_paths(cache_dir, version, split)
+def _validate_cache_depth(info_list: List[dict], meta: dict, expected_n_sweeps: int | None) -> int:
+    try:
+        declared = _validated_n_sweeps(meta["n_sweeps"])
+    except KeyError as exc:
+        raise ValueError("nuScenes cache metadata has no n_sweeps; rebuild with t1.v2") from exc
+    if expected_n_sweeps is not None:
+        expected = _validated_n_sweeps(expected_n_sweeps)
+        if declared != expected:
+            raise ValueError(
+                f"nuScenes cache sweep-depth mismatch: cache={declared}, requested={expected}"
+            )
+    for index, info in enumerate(info_list):
+        actual = info.get("_cache_n_sweeps")
+        if actual != declared:
+            raise ValueError(
+                f"nuScenes cache record {index} ({info.get('sample_token', '<unknown>')}) "
+                f"declares _cache_n_sweeps={actual!r}, expected {declared}"
+            )
+        has_sweeps = "lidar_sweeps" in info
+        if declared == 1 and has_sweeps:
+            raise ValueError(f"single-sweep cache record {index} unexpectedly contains lidar_sweeps")
+        if declared > 1 and not has_sweeps:
+            raise ValueError(f"multi-sweep cache record {index} has no lidar_sweeps")
+        if has_sweeps and len(info["lidar_sweeps"]) > declared - 1:
+            raise ValueError(
+                f"cache record {index} has {len(info['lidar_sweeps'])} previous sweeps, "
+                f"exceeding declared n_sweeps={declared}"
+            )
+    return declared
+
+
+def _discover_cache_path(cache_dir: str, version: str, split: str) -> tuple[str, str]:
+    prefix = f"nuscenes_info_{version}_{split}_{CACHE_FORMAT_VERSION}_nsweeps"
+    matches = sorted(glob(os.path.join(cache_dir, prefix + "*.pkl")))
+    if not matches:
+        raise FileNotFoundError(
+            f"no {CACHE_FORMAT_VERSION} nuScenes cache for ({version}, {split}) under {cache_dir!r}"
+        )
+    if len(matches) != 1:
+        raise ValueError(
+            f"ambiguous nuScenes cache depth for ({version}, {split}): {matches}; "
+            "call load_cache(..., n_sweeps=...) or use a depth-specific cache directory"
+        )
+    pkl_path = matches[0]
+    return pkl_path, pkl_path[:-4] + ".meta.json"
+
+
+def load_cache(
+    cache_dir: str,
+    version: str,
+    split: str,
+    n_sweeps: int | None = None,
+) -> tuple[List[dict], dict]:
+    if n_sweeps is None:
+        pkl_path, meta_path = _discover_cache_path(cache_dir, version, split)
+    else:
+        pkl_path, meta_path = cache_paths(cache_dir, version, split, n_sweeps)
     with open(pkl_path, "rb") as f:
         blob = pickle.load(f)
-    return blob["info_list"], blob["meta"]
+    info_list, meta = blob["info_list"], blob["meta"]
+    if meta.get("format_version") != CACHE_FORMAT_VERSION:
+        raise ValueError(
+            f"unsupported nuScenes cache format {meta.get('format_version')!r}; "
+            f"expected {CACHE_FORMAT_VERSION!r}"
+        )
+    with open(meta_path, encoding="utf-8") as stream:
+        sidecar = json.load(stream)
+    if sidecar != meta:
+        raise ValueError(f"nuScenes cache sidecar differs from pickle metadata: {meta_path!r}")
+    _validate_cache_depth(info_list, meta, n_sweeps)
+    actual_hash = canonical_hash(info_list)
+    if meta.get("cache_hash") != actual_hash:
+        raise ValueError(
+            f"nuScenes cache hash mismatch: metadata={meta.get('cache_hash')!r}, actual={actual_hash}"
+        )
+    return info_list, meta
 
 
 def get_or_build_cache(nusc, cache_dir: str, version: str, split: str, scale: str,
                        dataroot: str, rebuild: bool = False, n_sweeps: int = 1) -> tuple[List[dict], dict]:
     """Load the cache if present (and hash-consistent), else build + save it.
 
-    ``n_sweeps>1`` builds a multi-sweep cache (the sweep records change the content hash,
-    so write it to a DEDICATED ``cache_dir`` to avoid colliding with the single-sweep cache,
-    which shares the same filename schema)."""
-    pkl_path, _ = cache_paths(cache_dir, version, split)
+    Sweep depth is part of the filename, sidecar, pickle metadata, content hash, and
+    every info record. A lower/mixed-depth cache is rejected rather than reused."""
+    n_sweeps = _validated_n_sweeps(n_sweeps)
+    pkl_path, _ = cache_paths(cache_dir, version, split, n_sweeps)
     if not rebuild and os.path.isfile(pkl_path):
-        info_list, meta = load_cache(cache_dir, version, split)
-        if meta.get("cache_hash") == canonical_hash(info_list):
-            return info_list, meta
+        return load_cache(cache_dir, version, split, n_sweeps=n_sweeps)
     tokens = split_sample_tokens(nusc, split)
     info_list = build_info_list(nusc, tokens, dataroot, n_sweeps=n_sweeps)
-    meta = save_cache(info_list, cache_dir, version, split, scale, dataroot)
+    meta = save_cache(
+        info_list, cache_dir, version, split, scale, dataroot, n_sweeps=n_sweeps
+    )
     return info_list, meta
