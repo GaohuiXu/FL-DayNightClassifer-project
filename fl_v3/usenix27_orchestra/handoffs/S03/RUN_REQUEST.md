@@ -2,28 +2,51 @@
 
 ## Approval state
 
-`PENDING_S00_APPROVAL_DO_NOT_SUBMIT`
+`PENDING_S00_REAUDIT_DO_NOT_SUBMIT`
 
-This request is an exact bounded, non-scientific engineering smoke proposed under
-O-017/O-009.  O-017 is stricter than standing O-009 for Wave-A workers: S03 must
-stop and receive explicit S00 approval in this task before `sbatch`.  Preparing or
-committing this file is not approval.
+S00 returned the first request for provenance remediation without approving
+compute: its exact `sbatch` body existed only as a mutable Markdown here-doc and
+neither the launcher nor approved request identity was bound in-job.  This revision
+uses a committed launcher and external post-commit approval hashes.  Preparing or
+committing it is not approval; S03 must receive a new explicit S00 decision before
+one `sbatch`.
 
-## Immutable implementation and source identity
+## Immutable implementation and executable model
 
-- Implementation commit: `6dfd2c775f54e488f3930996b303ce21f9b8e8b7`.
-- Base commit: `372de9398ae435f82b83367a922fd302c0635738`.
+- Base: `372de9398ae435f82b83367a922fd302c0635738`.
+- Implementation commit:
+  `6dfd2c775f54e488f3930996b303ce21f9b8e8b7`.
 - Worker branch: `codex/s03-camera-architecture`.
-- Execution method: `git archive` of the immutable implementation commit into the
-  unique output root.  The job does not depend on later handoff-document commits,
-  an uncommitted diff, or a branch checkout.
-- Runtime source-list entries: 14.
-- C-locale-sorted source-list SHA-256:
-  `ca10176be4aa440aa00cccf4b7f4f706ab85c24ed26ee9da9b982a8bd6a91604`.
-- SHA-256 of the complete `sha256sum` source-state file:
-  `3b8878b2395b38896933ea4d5d7d558d385c9634cac7e8253410dc3130905f3c`.
+- Durable launcher:
+  `fl_v3/usenix27_orchestra/handoffs/S03/run_s03_camera_contract.sh`.
+- Launcher SHA-256:
+  `9473b830776d478c14c55bcb4991bed329a8273cab6c04bbc8681649f33addfc`.
+- Executable HEAD: the commit containing this final request plus the launcher.
+  Its SHA cannot be embedded in its own tree; S03 reports it after commit and S00
+  binds it externally through `EXPECTED_S03_EXECUTABLE_SHA`.
+- Final RUN_REQUEST SHA-256: also computed and reported after commit, then bound
+  externally through `EXPECTED_S03_RUN_REQUEST_SHA`.  It is deliberately not
+  embedded here, avoiding a request self-hash cycle.
 
-Attested files:
+The launcher runs directly from the approved clean branch/HEAD.  Before creating
+output or importing the runtime it fails closed unless:
+
+1. actual HEAD equals the externally approved executable SHA;
+2. actual branch equals `codex/s03-camera-architecture` and status is clean;
+3. implementation `6dfd2c7...` is an ancestor of executable HEAD;
+4. launcher and final request bytes match their externally approved SHA-256;
+5. C-locale source-list and content hashes match the approved values;
+6. the exact output root does not exist.
+
+Any edit or new commit after approval invalidates it.
+
+## Source-state and actual import closure
+
+The committed pytest invocation uses `--noconftest`, empty `PYTEST_ADDOPTS`, and
+`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`.  Therefore `fl_v3/tests/conftest.py` is
+intentionally not imported.  The 15-file C-locale set covers the selected test's
+actual local eager import closure, package initializers, read-only `bev_grid.py`,
+pytest/dependency inputs, Arrhenius environment bootstrap, and durable launcher:
 
 ```text
 fl_v3/pyproject.toml
@@ -40,185 +63,106 @@ fl_v3/src/fl_v3/models/fusion/preprocess.py
 fl_v3/src/fl_v3/models/fusion/swin_sdpa.py
 fl_v3/src/fl_v3/models/fusion/view_transform.py
 fl_v3/tests/test_s03_camera_contract.py
+fl_v3/usenix27_orchestra/handoffs/S03/run_s03_camera_contract.sh
 ```
 
-Pytest is invoked with `--noconftest`, empty `PYTEST_ADDOPTS`, and external plugin
-autoload disabled.  The selected test has no local eager imports beyond the
-package initializers, camera modules, and read-only `bev_grid.py` listed above.
-Torch, torchvision, pytest, Python/platform, CUDA, and GPU identity are captured
-from the activated environment inside the allocation.
+- C-locale sorted source-list SHA-256:
+  `d4eb8d29da926c88bbcf5c9bbbf9b3e9197f9eda4478ea956ec4c7cfaf664742`.
+- SHA-256 of the corresponding `sha256sum` source-state file:
+  `71b0c708325548ad9d09e68e41a0f225bc81f741fd9b4924938317ed591b5b9f`.
 
-## Exact scope
+`RUN_REQUEST.md` is not part of that aggregate because its final hash is a
+separate mandatory externally approved input.  Including both its hash and the
+expected source aggregate inside itself would create a self-reference cycle.  The
+launcher independently recomputes and verifies request, launcher, list, and source
+identities before output creation, then records all four in
+`execution_identity.json`.
 
-- One selected file: `fl_v3/tests/test_s03_camera_contract.py`.
-- Exactly 10 pytest cases after parametrization.
-- Synthetic tensors only; no nuScenes mini or trainval metadata/payload/cache,
-  no ZIP manifest, and no GT database.
-- Covers projection residual fixtures for resize/crop/pad/flip/rotation;
-  deterministic validation and seeded train replay; native 1600x900 validation
-  geometry; all-level FPN gradient connectivity; pure-camera API/LiDAR invariance;
-  pixel/feature sensitivity; stride-8/0.5 m shapes/dtype/memory arithmetic; and one
-  Swin-T -> FPN -> pure-camera LSS forward/backward.  On a CUDA-visible node the
-  last case automatically uses GH200 CUDA with fp16 autocast.
-- No optimizer, scheduler, EMA, DataLoader, model training step, 100/1000-step
-  gate, tiny-overfit loop, profile, evaluation, metric, matrix, seed campaign, or
-  scientific result.
+## Exact validation scope
 
-## Resources and cumulative budget
+- One file: `fl_v3/tests/test_s03_camera_contract.py`.
+- Exactly 10 synthetic pytest cases after parametrization.
+- Projection residual fixtures for resize/crop/pad/flip/rotation.
+- Deterministic validation geometry and seeded train replay.
+- Native 1600x900 -> 256x704 reference validation geometry.
+- Every declared FPN level and parameter has finite gradient coverage.
+- Pure-camera API, LiDAR-input rejection/invariance, camera feature and camera
+  pixel sensitivity.
+- Stride-8, 0.5 m depth-bin shape/dtype contract and theoretical memory arithmetic.
+- One Swin-T -> FPN -> pure-camera LSS forward/backward.  Because CUDA is required
+  by launcher preflight, this case runs on the allocated GH200 and uses fp16
+  autocast.
 
-- One job, one node, one `nvidia_gh200_120gb`, eight CPUs.
-- Walltime: `00:15:00`; maximum requested allocation: 0.25 GPU-hours.
+Inputs are synthetic tensors only.  There is no nuScenes mini/trainval metadata,
+payload, ZIP/cache/GT database, DataLoader, optimizer, scheduler, EMA, model
+training step, tiny-overfit/100/1000-step gate, profile, evaluation, metric, matrix,
+seed campaign, or scientific result.
+
+## Resources, output, and command contract
+
+- One job; one node; one `nvidia_gh200_120gb`; eight CPUs.
+- Walltime `00:15:00`; maximum requested allocation 0.25 GPU-hours.
 - S03 cumulative GPU use before this request: 0 GPU-hours.
-- No array, DDP, concurrent S03 job, retry, requeue, automatic resubmission,
-  follow-on, or spare-GPU expansion.
+- No array, DDP, concurrent S03 job, retry, requeue, resubmission, follow-on, or
+  spare-GPU expansion.
 
-Input repository (Git object source only):
-`/home/gaohui/.codex/worktrees/68cf/fl_weather_project`
+Unique output root, required absent:
 
-Unique output root (must be absent before submission):
-`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_6dfd2c775f54`
+```text
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_6dfd2c775f54
+```
 
-Logs:
+Logs are fixed by committed `#SBATCH` directives:
 
 ```text
 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s03_camera_contract_%j.out
 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s03_camera_contract_%j.err
 ```
 
-## Exact submission
+After committing this revision, S03 reports the executable HEAD and final request
+hash alongside the fully resolved one-line command.  S00 approval must bind that
+exact command and all values below:
 
-Run once only after S00 replaces the pending state above with an explicit approval
-bound to every field in this request:
-
-```bash
-sbatch <<'SBATCH'
-#!/usr/bin/env bash
-#SBATCH --job-name=flv3_s03_camera_contract
-#SBATCH --nodes=1
-#SBATCH --gres=gpu:nvidia_gh200_120gb:1
-#SBATCH --cpus-per-task=8
-#SBATCH --time=00:15:00
-#SBATCH --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s03_camera_contract_%j.out
-#SBATCH --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s03_camera_contract_%j.err
-set -euo pipefail
-
-REPO=/home/gaohui/.codex/worktrees/68cf/fl_weather_project
-IMPL_SHA=6dfd2c775f54e488f3930996b303ce21f9b8e8b7
-EXPECTED_LIST_SHA=ca10176be4aa440aa00cccf4b7f4f706ab85c24ed26ee9da9b982a8bd6a91604
-EXPECTED_SOURCE_SHA=3b8878b2395b38896933ea4d5d7d558d385c9634cac7e8253410dc3130905f3c
-OUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_6dfd2c775f54
-
-test "$(git -C "$REPO" rev-parse "$IMPL_SHA^{commit}")" = "$IMPL_SHA"
-test ! -e "$OUT"
-mkdir -p "$OUT/executor"
-git -C "$REPO" archive "$IMPL_SHA" | tar -x -C "$OUT/executor"
-cd "$OUT/executor"
-
-SOURCE_FILES=(
-  fl_v3/pyproject.toml
-  fl_v3/requirements.lock.txt
-  fl_v3/requirements.txt
-  fl_v3/scripts/arrhenius_env.sh
-  fl_v3/src/fl_v3/__init__.py
-  fl_v3/src/fl_v3/models/__init__.py
-  fl_v3/src/fl_v3/models/fusion/__init__.py
-  fl_v3/src/fl_v3/models/fusion/bev_grid.py
-  fl_v3/src/fl_v3/models/fusion/camera_backbone.py
-  fl_v3/src/fl_v3/models/fusion/camera_neck.py
-  fl_v3/src/fl_v3/models/fusion/preprocess.py
-  fl_v3/src/fl_v3/models/fusion/swin_sdpa.py
-  fl_v3/src/fl_v3/models/fusion/view_transform.py
-  fl_v3/tests/test_s03_camera_contract.py
-)
-printf '%s\n' "${SOURCE_FILES[@]}" | LC_ALL=C sort > "$OUT/runtime_source_files.txt"
-test "$(sha256sum "$OUT/runtime_source_files.txt" | awk '{print $1}')" = "$EXPECTED_LIST_SHA"
-while IFS= read -r source_file; do
-  sha256sum "$source_file"
-done < "$OUT/runtime_source_files.txt" > "$OUT/runtime_source_sha256s.txt"
-test "$(sha256sum "$OUT/runtime_source_sha256s.txt" | awk '{print $1}')" = "$EXPECTED_SOURCE_SHA"
-
-source fl_v3/scripts/arrhenius_env.sh
-arrhenius_load_modules build
-arrhenius_activate_env
-
-python - "$OUT/execution_identity.json" "$IMPL_SHA" "$EXPECTED_SOURCE_SHA" <<'PY'
-import json
-import platform
-import sys
-import pytest
-import torch
-import torchvision
-
-if not torch.cuda.is_available():
-    raise SystemExit("CUDA is required for the S03 GH200 validation")
-props = torch.cuda.get_device_properties(0)
-record = {
-    "git_sha": sys.argv[2],
-    "runtime_source_sha256": sys.argv[3],
-    "slurm_job_id": __import__("os").environ.get("SLURM_JOB_ID"),
-    "host": platform.node(),
-    "machine": platform.machine(),
-    "python": platform.python_version(),
-    "torch": torch.__version__,
-    "torchvision": torchvision.__version__,
-    "pytest": pytest.__version__,
-    "cuda_runtime": torch.version.cuda,
-    "cuda_device": props.name,
-    "cuda_total_memory": props.total_memory,
-}
-with open(sys.argv[1], "w", encoding="utf-8") as handle:
-    json.dump(record, handle, indent=2, sort_keys=True)
-    handle.write("\n")
-PY
-
-export PYTHONPATH="$PWD/fl_v3/src"
-export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
-unset PYTEST_ADDOPTS
-python -m pytest --noconftest -q fl_v3/tests/test_s03_camera_contract.py \
-  --junitxml="$OUT/pytest.junit.xml" | tee "$OUT/pytest.log"
-
-python - "$OUT/pytest.junit.xml" "$OUT/test_summary.json" <<'PY'
-import json
-import sys
-import xml.etree.ElementTree as ET
-
-root = ET.parse(sys.argv[1]).getroot()
-suites = [root] if root.tag == "testsuite" else list(root.findall("testsuite"))
-summary = {
-    field: sum(int(suite.attrib.get(field, "0")) for suite in suites)
-    for field in ("tests", "failures", "errors", "skipped")
-}
-if summary != {"tests": 10, "failures": 0, "errors": 0, "skipped": 0}:
-    raise SystemExit(f"unexpected pytest summary: {summary}")
-with open(sys.argv[2], "w", encoding="utf-8") as handle:
-    json.dump(summary, handle, indent=2, sort_keys=True)
-    handle.write("\n")
-PY
-
-sha256sum \
-  "$OUT/execution_identity.json" \
-  "$OUT/runtime_source_files.txt" \
-  "$OUT/runtime_source_sha256s.txt" \
-  "$OUT/pytest.junit.xml" \
-  "$OUT/pytest.log" \
-  "$OUT/test_summary.json" \
-  > "$OUT/sha256sums.txt"
-(cd "$OUT" && sha256sum -c sha256sums.txt)
-SBATCH
+```text
+EXPECTED_S03_EXECUTABLE_SHA=<post-commit 40-hex reported by S03>
+EXPECTED_S03_IMPLEMENTATION_SHA=6dfd2c775f54e488f3930996b303ce21f9b8e8b7
+EXPECTED_S03_BRANCH=codex/s03-camera-architecture
+EXPECTED_S03_SOURCE_LIST_SHA=d4eb8d29da926c88bbcf5c9bbbf9b3e9197f9eda4478ea956ec4c7cfaf664742
+EXPECTED_S03_SOURCE_SHA=71b0c708325548ad9d09e68e41a0f225bc81f741fd9b4924938317ed591b5b9f
+EXPECTED_S03_LAUNCHER_SHA=9473b830776d478c14c55bcb4991bed329a8273cab6c04bbc8681649f33addfc
+EXPECTED_S03_RUN_REQUEST_SHA=<post-commit 64-hex reported by S03>
+S03_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s03_camera_contract_6dfd2c775f54
 ```
+
+The only authorized submission form, if S00 later approves, is one `sbatch
+--export=ALL,...` of the committed launcher.  The Markdown request contains no
+executable here-doc and does not authorize running the launcher.
+
+## Recorded identity and artifacts
+
+Before pytest the launcher writes `execution_identity.json` containing:
+
+- exact executable HEAD, implementation SHA, and branch;
+- runtime source-list and source-state hashes;
+- launcher and externally approved RUN_REQUEST hashes;
+- Slurm job ID, host, architecture, Python, torch, torchvision, pytest, CUDA
+  runtime, GPU name, and GPU memory.
+
+It also writes the exact source file list and per-file SHA-256 state.  Pytest emits
+log and JUnit; a post-check requires exactly `10/0/0/0` tests/failures/errors/skips.
+All identity/source/test summary artifacts are checksummed and verified in-job.
 
 ## Stop conditions and interpretation
 
-The job fails immediately on missing Git object, pre-existing output, source-list or
-source-content drift, unavailable CUDA, any pytest failure/error/skip, a test count
-other than 10, or checksum failure.  Any failure is recorded; it does not authorize
-a retry.  S03 stops and returns to S00 before changing code, command, resources,
-output, or test scope.
+The job fails on any missing approval variable, malformed hash, HEAD/branch/status/
+ancestor mismatch, launcher/request/source drift, changed output, unavailable CUDA,
+pytest failure/error/skip/count drift, or artifact checksum failure.  Any failure is
+recorded and returned to S00; it does not authorize retry or scope change.
 
-Allowed if PASS: exact synthetic S03 camera geometry/interface/gradient tests pass
-on the recorded GH200 runtime, including the one CUDA fp16-autocast camera-chain
-case.
+Allowed if PASS: the exact synthetic S03 camera geometry/interface/gradient suite
+passes on the recorded GH200 runtime, including one CUDA fp16-autocast camera-chain
+forward/backward.
 
-Forbidden regardless of PASS: trainval/mini model readiness, 100/1000-step or
-tiny-overfit acceptance, throughput/profile claims, mAP/NDS/fusion gain, FL,
+Forbidden regardless of PASS: mini/trainval model readiness, tiny-overfit or
+100/1000-step acceptance, throughput/profile, mAP/NDS/fusion gain, FL,
 attack/defense, generalization, scientific, or publication claims.
