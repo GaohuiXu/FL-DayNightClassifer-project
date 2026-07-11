@@ -208,11 +208,31 @@ metrics, FL/attack/defense, generalization, or publication claims.
 
 ---
 
-## C. S07-A-R P1 focused provenance validation — PENDING S00 REAPPROVAL
+## C. S07-A-R P1 focused provenance validation — APPROVED ONCE, NOT EXECUTED
 
 ### Approval state and immutable scope
 
-- **Status:** `PENDING_S00_REAPPROVAL_DO_NOT_SUBMIT`.
+- **Status:**
+  `APPROVED_ONCE_BY_S00_UNDER_O-009_AND_OWNER_DELEGATION_2026-07-11`.
+- **Locale-stable replacement approval:** after independently verifying the actual
+  diff, three-locale hashes, fresh output absence, empty queue, and unchanged
+  RESULTS blob, S00 reapproved exactly one submission. This approval is strictly
+  bound to:
+  - implementation `44cefd06bc815e893919d95c754896711dba3402`;
+  - focused aggregate source hash
+    `2710655b166a78e3af39d6537a5098c916463415d27dd9f5503bb79a533c1531`;
+  - C-locale-sorted file-list hash
+    `90310705f1bac3bcdfba9128deea6aed60a270e811cc62759f1204612d61d913`;
+  - mini root
+    `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini`;
+  - fresh output root
+    `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_44cefd06bc81`;
+  - the exact command below;
+  - one node, one GH200, eight CPUs, walltime at most `00:15:00`, and at most
+    0.25 GPU-hours;
+  - no array, DDP, model, full cache, metric, retry, resubmit, or follow-on.
+- Any bound-field change invalidates this approval. Section B remains
+  `PENDING_OWNER_APPROVAL_DO_NOT_SUBMIT`.
 - **Preserved preflight rejection:** the earlier status
   `APPROVED_ONCE_BY_S00_UNDER_O-009_AND_OWNER_DELEGATION_2026-07-11` was bound to
   executable `c8dd920...`, focused hash `357da487...`, and output
@@ -244,8 +264,8 @@ metrics, FL/attack/defense, generalization, or publication claims.
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_44cefd06bc81`.
 - Resources: one submission, one node, one GH200, eight CPUs, walltime at most
   `00:15:00`, maximum 0.25 GPU-hours. No array, DDP, model, full cache, metric,
-  retry, resubmit, or follow-on job is requested. Nothing may be submitted until
-  S00 reapproves this exact replacement request.
+  retry, resubmit, or follow-on job is authorized. This record does not claim the
+  approved submission has occurred.
 - Executor: a fresh owner/Codex-UI-provisioned clean
   `detached@44cefd06bc815e893919d95c754896711dba3402` worktree.
 

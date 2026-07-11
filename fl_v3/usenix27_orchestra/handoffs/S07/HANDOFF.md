@@ -4,7 +4,7 @@
 
 - Session/phase: `S07-A`, reviewed S01 data-foundation integration.
 - Worker self-assessment: **S07-A-R P1 REMEDIATIONS IMPLEMENTED; LOCALE-STABLE
-  FOCUSED REQUEST PENDING S00 REAPPROVAL**. This is not self-approval of the
+  FOCUSED EXECUTION APPROVED ONCE BUT NOT EXECUTED**. This is not self-approval of the
   fixes, cache request, or Orchestra integration/scientific acceptance.
 - Initial base: `953bfb57941b5a3660ed650c1a80267cd82245d4`, source branch
   `codex/s00-orchestra-ledger`, expected and observed detached mode.
@@ -58,7 +58,7 @@
 No merge into `v3-ad-perception`, push, PR, upload, branch deletion, or worktree
 operation occurred.
 
-## S07-A-R P1 remediation — locale-stable implementation, focused reapproval pending
+## S07-A-R P1 remediation — locale-stable implementation, focused execution approved once
 
 The owner authorized correction of both durable-review findings, scoped commits,
 and preparation of one bounded validation request. No `sbatch`/`srun` has been
@@ -89,7 +89,13 @@ It does not export or otherwise change the locale of Python, pytest, cache
 construction, or runtime dependencies. Static reconstruction under `C.UTF-8`,
 `en_US.UTF-8`, and `sv_SE.UTF-8` produced identical lists and aggregate hashes for
 both launchers. The replacement focused request is
-`PENDING_S00_REAPPROVAL_DO_NOT_SUBMIT`; Section B remains pending owner approval.
+independently rechecked and now has exact-once status
+`APPROVED_ONCE_BY_S00_UNDER_O-009_AND_OWNER_DELEGATION_2026-07-11`, strictly
+bound to `44cefd06...`, focused hash `2710655b...`, file-list hash `90310705...`,
+the exact mini root/output/command, and one node/GH200/eight CPUs/at most 15
+minutes/0.25 GPU-hours, with no array/DDP/model/full-cache/metric/retry/resubmit/
+follow-on. Any bound-field change invalidates approval. This record does not claim
+execution; Section B remains pending owner approval.
 
 P1-A is remediated at `NEW_IMPL_SHA`:
 
@@ -459,9 +465,9 @@ S06 must not substitute the historical `t1.v1` files or claim full-data readines
 | REVIEW artifact present, not implementation | PASS | cherry-only `a4ca386`; review parent remains old `ce2e772` |
 | no production GT `t1.v1` bypass | PASS | explicit IC API plus hostile test |
 | depth/format/sidecar/cache/manifest fail closed | PASS for pre-review tree | job 333477, 62/62 at `c1f4fbe`; P1 changes need focused execution |
-| physical pickle/sidecar GT binding | PASS (implementation), REAPPROVAL PENDING / NOT RUN | pre/post hash checks + hostile tests preserved at `44cefd0`; replacement focused request pending |
+| physical pickle/sidecar GT binding | PASS (implementation), EXECUTION APPROVED ONCE / NOT RUN | pre/post hash checks + hostile tests preserved at `44cefd0`; replacement focused request approved exactly once |
 | directory mode supported | PASS | implementation plus directory/ZIP tests |
-| focused launcher attests fixtures/config/deps | PASS (implementation) | locale-stable immutable 25-file set + source hash; reapproval pending |
+| focused launcher attests fixtures/config/deps | PASS (implementation) | locale-stable immutable 25-file set + source hash; execution approved once but not run |
 | shell/Python/diff checks | PASS | commands above |
 | executor ref/worktree contract | PASS | fresh clean UI worktree at detached `NEW_IMPL_SHA` required |
 | exact cache sample/box counts | PASS (implementation) | train 28130/944881; val 6019/187528; actual+meta checked |
@@ -477,13 +483,14 @@ S06 must not substitute the historical `t1.v1` files or claim full-data readines
 - Full trainval `t1.v2` train/val cache artifacts do not yet exist; their cache and
   file hashes cannot be frozen until owner-approved execution.
 - The new P1-A hostile regression has not executed on GH200. The exact one-job
-  focused request remains pending S00 reapproval, with no retry/resubmit/follow-on.
+  focused request is approved exactly once but has not run; no retry/resubmit/
+  follow-on is authorized.
 - The previous c8dd/357 request was approved once but rejected before submission
   because executor locale changed its aggregate source hash. This is a preserved
   negative reproducibility finding: zero jobs, zero outputs, empty queue.
 - The remediation launcher/count/runtime/checksum changes have only local/static
   validation. No remediation job or test rerun was performed; the replacement
-  request remains pending reapproval, execution, and independent re-review.
+  request remains pending execution and independent re-review.
 - Historical job 332651 proves referenced-member coverage and loader-only timing,
   but its `t1.v1` caches are forbidden and its job lacks retroactive in-job source
   attestation.
