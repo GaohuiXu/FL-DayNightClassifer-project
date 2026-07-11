@@ -2,15 +2,16 @@
 
 ## Approval state
 
-- **Status:** `PENDING_S00_EXACT_O009_APPROVAL_DO_NOT_SUBMIT`.
-- This request exists because the x86_64 login interpreter has no `torch`,
-  `pytest`, or `numpy`; all 44 authored S05 cases remain `NOT RUN`.
+- **Status:** `EXECUTED_ONCE_FAILED_NO_RETRY_AUTHORIZED`.
+- This request was created because the x86_64 login interpreter has no `torch`,
+  `pytest`, or `numpy`; at approval time all 44 authored S05 cases were `NOT RUN`.
 - The requested job is a dependency/runtime engineering check only. It uses no
   dataset, model checkpoint, optimizer or parameter update, training step,
   scientific metric, profile, seed matrix, array, DDP, retry, or follow-on.
-- Preparing or committing this file is not permission to run it. S05-R2 must not
-  invoke `sbatch` until S00 approves the exact tuple below, including the final
-  immutable request-file SHA-256 and committed launcher SHA-256.
+- S00 approved the exact immutable tuple once under O-009 and the owner's
+  temporary S02-S05 validation authority. That approval was consumed by Job
+  `336731`; it does not authorize retry, requeue, resubmission, remediation, or a
+  follow-on job.
 
 ## Immutable source identity
 
@@ -130,9 +131,30 @@ sbatch --export=ALL,EXPECTED_S05R2_SHA=705216de097ae9eeb1813de6dcdc916e2844fcde,
   "$LAUNCHER"
 ```
 
-No command in this section has been run. If staging succeeds but submission is
-rejected before a job ID exists, the immutable request copy is retained as negative
-preflight evidence and S00 must decide the next action; there is no automatic retry.
+This exact block was run once only after S00's bound approval; the execution record
+below consumes that approval. It must not be run again.
+
+## Execution record — approval consumed
+
+- The exact staging/submission block above was executed once with
+  `S05R2_APPROVED_REVIEW_SHA=61e7fb14bc6f44fe681628a1fb0ed701ad4f7f28`.
+- Read-only request-copy staging succeeded with executed request SHA-256
+  `bcd8f426e5b95438f91973e9a3d9712193cf96a23f9254732114111fb68019c1`.
+- Slurm accepted Job `336731`; no other S05-R2 job was submitted.
+- Terminal state / exit / elapsed: `FAILED` / `1:0` / `00:01:15`.
+- Exact allocation: `n570`, one node, eight CPUs, one
+  `nvidia_gh200_120gb`, `OverSubscribe=OK`; batch MaxRSS `504M`.
+- JUnit: 44 tests, one failure, zero errors, zero skips; pytest summary
+  `1 failed, 43 passed in 22.88s`.
+- The sole failure occurred after `forward == reverse` passed. The fixture then
+  compared actual in-memory velocity tuples against expected lists. This is a
+  test-fixture representation mismatch; it is not an observed submission-order or
+  content defect. The zero-failure acceptance criterion nevertheless failed.
+- All nine generated execution artifacts passed the launcher's in-job
+  `sha256sum -c`; exact paths and hashes are recorded in `RESULTS.md`.
+- No retry/requeue/follow-on is authorized. A test-only worker remediation, new
+  durable SHA, independent review, and separately approved request are required
+  before another runtime attempt.
 
 ## Acceptance and stop conditions
 
