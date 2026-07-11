@@ -12,13 +12,15 @@
 > trainval `t1.v2` cache remains unapproved/unexecuted, and S07-B model readiness
 > remains a separate gate. Wave-A S02-S05 is active from common base `372de939`:
 > S02 delivered `7ad396e` after preserved failed Job `335565` and separate passing
-> remediation Job `335578`, and its independent review worktree is being recovered
-> from a Codex task-system error; S03 Job `335630` failed before tests because the
+> remediation Job `335578`; independent review `fb17da3` found no source defect but
+> returned **CHANGES-REQUESTED** because the binding GPU forward/backward gate is
+> still missing. S03 Job `335630` failed before tests because the
 > compute node could not resolve the `/home` linked worktree, while the allocation
 > exposed a four-GPU whole-node billing risk; S04 Job `335579` closed the sparse
 > composition defect but failed two final-BEV fp16 dtype assertions; and S05-R at
 > `c818262` returned **CHANGES-REQUESTED** for forced-FP32 decode, a content-total
-> submission order, and public-NMS fail-closed behavior. All failures remain
+> submission order, and public-NMS fail-closed behavior; scoped remediation is now
+> durable at `705216d` and awaits fresh re-review. All failures remain
 > negative evidence; no automatic retry or integration PASS has been inferred.
 > S12 has delivered its
 > evidence/proposal-only handoff for completeness/review and used no compute.
@@ -178,9 +180,11 @@ an explicit later experiment, not the primary security backbone.
   Job `335565` remains `FAILED 1:0` after 12 pytest passes because its original
   JUnit aggregation/final checksum stage failed. Separately approved parser-only
   remediation Job `335578` is `COMPLETED 0:0`, 12/0/0/0 with final checksums OK.
-  S02-R must independently review both histories; its exact review worktree exists
-  at `7ad396e`, but task execution has not begun successfully after a Codex
-  `systemError` and therefore is not counted as review evidence.
+  S02-R at `fb17da3ea55a93d7709f6a2b5f6e4bb6adc0bf7e` independently
+  reviewed both histories and returned **CHANGES-REQUESTED** with one blocker only:
+  both jobs hid CUDA, so the binding one-GPU forward/backward gate remains NOT RUN.
+  The source audit found no confirmed per-sample-cap or Gaussian defect. A bounded
+  synthetic GPU evidence-only remediation and limited re-review are required.
 - **S03:** implementation `6dfd2c775f54e488f3930996b303ce21f9b8e8b7`
   is not runtime-accepted. The first submission attempt was rejected client-side
   for missing scheduler account/partition. Corrected Job `335630` is `FAILED 1:0`
@@ -201,8 +205,11 @@ an explicit later experiment, not the primary security backbone.
   Verdict is **CHANGES-REQUESTED**, not integration PASS: decode must force FP32
   before sigmoid/top-K/threshold/NMS; submission order must be total over
   metric-relevant serialized content; exported NMS helpers must fail closed on
-  single-box invalid geometry and non-positive budgets. A scoped remediation and
-  fresh independent re-review are required.
+  single-box invalid geometry and non-positive budgets. Scoped remediation is
+  durable at `705216de097ae9eeb1813de6dcdc916e2844fcde` (implementation/tests
+  `753944c199ceeace160732218f1b16dfdd15ac21`) with all three findings mapped to
+  hostile fixtures; those 44 authored cases remain NOT RUN and a fresh independent
+  re-review is required.
 
 ## 4. CL scientific matrix and gates
 
@@ -804,3 +811,4 @@ evidence that caused it; material entries remain `PENDING` until the owner appro
 | O-017 | 2026-07-11 | owner approval in active S00 task after review of the S02-S05 scope and full-data boundary | freeze the S02 official-reference Gaussian semantics (`min_overlap=0.1`, `min_radius=2`), S03 Swin-T stride-8 pure-camera contract, S04 SECOND `0.075x0.075x0.2 m` sparse-XY contract, and S05 multi-task CenterHead primary/TransFusion contingency; authorize S00 to commit the canonical launch ledger directly atop S07-A freeze `0249eb21a32730ac1689255491b19a158711401f`, launch S02-S05 at `xhigh` from that resulting common ledger SHA, and authorize each worker to create `codex/s0x-*` plus implementation/test/handoff commits strictly inside its envelope | locked Wave-A implementation choices plus scoped orchestration | approved and launched at `xhigh` from common base `372de9398ae435f82b83367a922fd302c0635738` on `codex/s02-cl-p0-correctness`, `codex/s03-camera-architecture`, `codex/s04-lidar-second`, and `codex/s05-centerhead-decode`; S00 may audit/approve only O-009 short non-scientific requests and schedule S02-R through S05-R after completeness checks; no full trainval, 100/1000-step gate, profile/metrics/matrix, push, merge to `v3-ad-perception`, or approval drift |
 | O-018 | 2026-07-11 | S05 pre-edit audit of MIT BEVFusion archived HEAD `326653dc06e0938edf1aae7d01efcd158ba83de5`, CenterPoint v0.2 `e9ef04c3715aa3342fa42f4f4e064db987def6ad`, and owner approval in active S00 task | resolve the official coder's per-class K=500 followed by task-wide K=500 conflict with O-017 no-starvation: retain per-class K=500, remove only the second task-wide K, feed at most 500/1000 candidates for one/two-class tasks into the pinned official task-wide NMS, and use deterministic ties ordered by score descending, class ID ascending, then flattened spatial index ascending; retain official score/range, task groups, circle/rotate choice/scales, pre=1000, post=83, and IoU threshold; use GroupNorm instead of official BN while retaining the shared-conv and per-task two-layer field topology; map task-local labels to the project's devkit-global `DETECTION_NAMES` IDs explicitly by class name rather than official task-flatten offsets | locked S05 active-session amendment | approved; implementation must be labeled `reference-faithful no-starvation adaptation`, not exact official decode parity; require single-class parity plus B=1/B>1, batch/input permutation, equal-score tie, tail-candidate retention, duplicate, coordinate, explicit `construction_vehicle`/`bus`/`barrier`/`pedestrian`/`traffic_cone` label-map, and submission-conversion fixtures; all O-017 compute/Git/integration limits remain unchanged |
 | O-019 | 2026-07-11 | S02 delivery `7ad396e`; Jobs `335565`/`335578`; S03 Job `335630`; S04 Jobs `335566`/`335579`; S05 review `c818262`; S00 raw-log/diff/hash audit | preserve every Wave-A negative result and apply scoped return-for-changes: launch S02-R only from exact delivery; require S03 shared `/nobackup` immutable execution provenance plus an explicit decision on observed four-GPU whole-node allocation before another job; retain the S04 final-BEV fp16 gate and repair implementation rather than tests; return S05's three review findings and require fresh re-review | operational evidence/refinement under O-017; affects S02-S05 and S07-B readiness | active; no retry, worker PASS, integration PASS, merge, push, full-data, profile, metric, or scientific authorization implied |
+| O-020 | 2026-07-11 | S02 review `fb17da3`/REVIEW hash `75b6a5ed...`; S05 remediation delivery `705216d`, implementation `753944c`, HANDOFF hash `91506174...`; S00 completeness audits | accept S02-R's source audit but return the missing one-GPU forward/backward as an evidence-only remediation with implementation semantics frozen; accept S05 remediation as complete enough for a fresh exact-SHA re-review, not as PASS; keep all authored-but-unexecuted runtime cases explicitly NOT RUN | review scheduling/evidence refinement under O-017 | active; S02 exact GPU request and S05 fresh reviewer pending; no integration/compute authorization implied by this ledger entry |

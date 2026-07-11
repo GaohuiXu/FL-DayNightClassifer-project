@@ -117,10 +117,10 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 |---|---|---|---|---|
 | S00 | Orchestra/owner decisions | — | approved contracts and status ledger | active; sole pinned canonical writer |
 | S01 | Shared nuScenes ZIP backend | S00 kickoff | data backend, manifest, parity/coverage tests | reviewed PASS; integrated through S07-A, historical `t1.v1` caches forbidden |
-| S02 | CL P0 correctness | S00 kickoff | pillar/Gaussian fixes and invariance tests | delivery `7ad396e`; Job `335565` negative preserved, Job `335578` PASS; S02-R exact worktree provisioned but reviewer task recovery pending |
+| S02 | CL P0 correctness | S00 kickoff | pillar/Gaussian fixes and invariance tests | review `fb17da3` CHANGES-REQUESTED only for missing GPU F/B; code/CPU audit otherwise passes; evidence-only remediation active |
 | S03 | Camera branch architecture | S00 kickoff | corrected stride-8 independent camera modules | active remediation; Job `335630` failed before tests on inaccessible `/home` Git worktree; four-GPU whole-node allocation risk unresolved |
 | S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | active remediation; Job `335579` 8/10 with final-BEV fp16 dtype defect; no third job approved |
-| S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | review `c818262` CHANGES-REQUESTED; scoped three-finding remediation active, re-review required |
+| S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | remediation delivery `705216d` closes review `c818262` findings in source/fixtures; 44 cases NOT RUN; fresh re-review pending |
 | S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | planned; must consume explicit `t1.v2` depth/hash contract |
 | S07 | Integrated engineering gate | phase A: S01 PASS; phase B: S01-S06 PASS | staged data foundation, then one resolved candidate stack and 100/1000-step evidence | S07-A reviewed PASS at `ba15716`/`44cefd0`/`370ea6c`; full cache and S07-B separate |
 | S08 | Camera scientific run | S07 PASS | `C-STR8` full-val result/checkpoint | planned |
