@@ -3,8 +3,8 @@
 ## Session identity and self-assessment
 
 - Session/phase: `S07-A`, reviewed S01 data-foundation integration.
-- Worker self-assessment: **S07-A-R P1 REMEDIATIONS IMPLEMENTED; NEW FOCUSED
-  EXECUTION REQUEST PENDING OWNER APPROVAL**. This is not self-approval of the
+- Worker self-assessment: **S07-A-R P1 REMEDIATIONS IMPLEMENTED; FOCUSED
+  EXECUTION APPROVED ONCE BUT NOT EXECUTED**. This is not self-approval of the
   fixes, cache request, or Orchestra integration/scientific acceptance.
 - Initial base: `953bfb57941b5a3660ed650c1a80267cd82245d4`, source branch
   `codex/s00-orchestra-ledger`, expected and observed detached mode.
@@ -55,11 +55,21 @@
 No merge into `v3-ad-perception`, push, PR, upload, branch deletion, or worktree
 operation occurred.
 
-## S07-A-R P1 remediation — implementation complete, execution pending
+## S07-A-R P1 remediation — implementation complete, focused execution approved once
 
 The owner authorized correction of both durable-review findings, scoped commits,
 and preparation of one bounded validation request. No `sbatch`/`srun` has been
 submitted in this continuation.
+
+After delivery `29d5edc0f8a3ac53928cd08636e6e02ead00b07d`, S00 independently
+verified the immutable focused request and recorded one-time status
+`APPROVED_ONCE_BY_S00_UNDER_O-009_AND_OWNER_DELEGATION_2026-07-11`. The approval
+is bound to executable `c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe`, source hash
+`357da48780436aaba3cbc6735e350d446763acc9f6cb8a0bf424728e55a32d0e`, the exact
+mini input/output/command in RUN_REQUEST Section C, and one node/GH200, eight CPUs,
+at most 15 minutes/0.25 GPU-hours, with no array/DDP/model/full-cache/metrics/
+retry/resubmit/follow-on. Any field change invalidates approval. This record does
+not claim execution and does not approve Section B full-cache materialization.
 
 P1-A is remediated at `NEW_IMPL_SHA`:
 
@@ -416,9 +426,9 @@ S06 must not substitute the historical `t1.v1` files or claim full-data readines
 | REVIEW artifact present, not implementation | PASS | cherry-only `a4ca386`; review parent remains old `ce2e772` |
 | no production GT `t1.v1` bypass | PASS | explicit IC API plus hostile test |
 | depth/format/sidecar/cache/manifest fail closed | PASS for pre-review tree | job 333477, 62/62 at `c1f4fbe`; P1 changes need focused execution |
-| physical pickle/sidecar GT binding | PASS (implementation), EXECUTION PENDING | pre/post hash checks + hostile tests at `c8dd920`; exact focused request prepared |
+| physical pickle/sidecar GT binding | PASS (implementation), EXECUTION APPROVED ONCE / NOT RUN | pre/post hash checks + hostile tests at `c8dd920`; exact focused request approved under O-009 delegation |
 | directory mode supported | PASS | implementation plus directory/ZIP tests |
-| focused launcher attests fixtures/config/deps | PASS (implementation) | immutable 25-file set + source hash; execution pending |
+| focused launcher attests fixtures/config/deps | PASS (implementation) | immutable 25-file set + source hash; execution approved once but not run |
 | shell/Python/diff checks | PASS | commands above |
 | executor ref/worktree contract | PASS | fresh clean UI worktree at detached `NEW_IMPL_SHA` required |
 | exact cache sample/box counts | PASS (implementation) | train 28130/944881; val 6019/187528; actual+meta checked |

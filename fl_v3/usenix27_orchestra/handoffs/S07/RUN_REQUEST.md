@@ -200,11 +200,29 @@ metrics, FL/attack/defense, generalization, or publication claims.
 
 ---
 
-## C. S07-A-R P1 focused provenance validation — PENDING OWNER APPROVAL
+## C. S07-A-R P1 focused provenance validation — APPROVED ONCE, NOT EXECUTED
 
 ### Approval state and immutable scope
 
-- **Status:** `PENDING_OWNER_APPROVAL_DO_NOT_SUBMIT`.
+- **Status:**
+  `APPROVED_ONCE_BY_S00_UNDER_O-009_AND_OWNER_DELEGATION_2026-07-11`.
+- **Approval record:** S00 independently verified the exact immutable request and
+  exercised the owner's temporary 2026-07-11 delegation for reasonable
+  validation-only Slurm jobs. Approval is strictly bound to:
+  - executable `c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe`;
+  - focused source hash
+    `357da48780436aaba3cbc6735e350d446763acc9f6cb8a0bf424728e55a32d0e`;
+  - mini input
+    `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini`;
+  - output root
+    `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_c8dd920cf3f8`;
+  - the exact command below;
+  - one submission, one node, one GH200, eight CPUs, walltime at most
+    `00:15:00`, and at most 0.25 GPU-hours;
+  - no array, DDP, model, full cache, metrics, retry, resubmit, or follow-on.
+- Any change to a bound field invalidates this approval and requires a new exact
+  request. This approval does not alter Section B, which remains
+  `PENDING_OWNER_APPROVAL_DO_NOT_SUBMIT`.
 - This request validates only the remediated GT-cache physical-identity contract
   and its existing directory/ZIP provenance neighbors on real mini plus synthetic
   mutated caches. It does not open shared trainval archives, build full caches,
