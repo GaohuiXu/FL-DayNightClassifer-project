@@ -317,8 +317,9 @@ control if resources allow.
 ### S05 — Detection head and decode
 
 **Kickoff.** “Implement a reference-faithful but framework-independent multi-task
-CenterHead and deterministic task/class-aware box decode/NMS; validate coordinates
-against nuScenes conventions.”
+CenterHead and deterministic task/class-aware box decode/NMS; apply the declared
+O-018 no-starvation and GroupNorm adaptations; validate coordinates against
+nuScenes conventions.”
 
 **Owns.** `models/fusion/head.py`, a separable decode/NMS module if needed,
 head-specific loss adapters/new modules, and focused tests. It does not edit the
@@ -330,14 +331,21 @@ returns to S00 after S02 review.
 
 - official-reference nuScenes task grouping and separate heads for
   heatmap/regression fields;
-- class/task candidate budgets rather than a single global 10-class top-K;
+- O-018 per-class K=500 without the official second task-wide K; deterministic
+  score/class/spatial tie ordering and at most 500/1000 candidates for one/two-class
+  tasks before the pinned official task-wide NMS;
 - deterministic circle/rotate NMS with explicit thresholds;
+- explicit class-name mapping from task-local labels to canonical devkit-global
+  `DETECTION_NAMES` IDs; task-flatten offsets are forbidden;
 - canonical box dimension/yaw/velocity conversion and round-trip fixtures;
 - decode-only comparison on an existing checkpoint where interface-compatible.
 
-**Gate.** Reference fixture parity for target rendering/decode/NMS, stable output
-under input-order permutations, no cross-class candidate starvation, no duplicate
-box explosion, and official nuScenes submission conversion passes.
+**Gate.** Exact reference fixture parity where O-018 does not declare an adaptation;
+single-class decode parity; B=1/B>1 and input-order stability; equal-score
+determinism; no cross-class candidate starvation or duplicate-box explosion; and
+explicit `construction_vehicle`/`bus`/`barrier`/`pedestrian`/`traffic_cone` mappings
+plus official nuScenes submission conversion pass. S05 must not claim exact
+official decode equivalence for multi-class tasks.
 
 **Contingency.** TransFusion is opened only by S00 if a correct CenterHead stack
 cannot reach the absolute CL gates or a second structure is needed for generality.

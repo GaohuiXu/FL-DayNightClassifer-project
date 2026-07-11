@@ -292,7 +292,18 @@ Read completely before editing:
 Objective: implement the O-017-approved framework-independent, reference-faithful
 multi-task CenterHead primary and deterministic class/task-aware candidate selection
 plus rotate/circle NMS. Preserve canonical dimensions/yaw/velocity and official
-nuScenes conversion. TransFusion remains closed contingency.
+nuScenes conversion. Apply O-018 exactly: retain official per-class K=500, remove
+only the second task-wide K, pass at most 500/1000 candidates for one/two-class tasks
+to the pinned official task-wide NMS, and break ties by score descending, class ID
+ascending, then flattened spatial index ascending. Retain official score/range,
+task groups, circle/rotate choice/scales, pre=1000, post=83, and IoU threshold. Use
+GroupNorm instead of official BN while retaining shared-conv and independent
+two-layer heatmap/reg/height/dim/rot/vel branches. Label this
+`reference-faithful no-starvation adaptation`; do not claim exact official decode
+parity for multi-class tasks. The official task-flatten class order differs from
+the project's devkit-global `DETECTION_NAMES` order: map every task-local label to
+the global ID explicitly by class name, never by cumulative task offset.
+TransFusion remains closed contingency.
 
 Own head/decode-NMS modules, new head-specific loss adapters, and focused tests,
 but do not wire the production detector; S07 integrates. Existing
@@ -302,8 +313,10 @@ thresholds, top-K/NMS semantics, reference equations, and files. Write
 handoffs/S05/HANDOFF.md. Any material compute needs RUN_REQUEST.md plus explicit S00
 approval; S00 may approve only a bounded non-scientific smoke within O-017/O-009.
 Return reference fixtures, permutation stability,
-tail-class candidate behavior, duplicate-box checks, eval round-trip, negative
-results, and risks. O-017 authorizes a scoped `codex/s05-*` branch plus
+tail-class candidate behavior, equal-score deterministic ordering, single-class
+official parity, B=1/B>1 GroupNorm behavior, duplicate-box checks, eval round-trip,
+explicit `construction_vehicle`/`bus`/`barrier`/`pedestrian`/`traffic_cone` label-map
+fixtures, negative results, and risks. O-017/O-018 authorize a scoped `codex/s05-*` branch plus
 implementation, test, RUN_REQUEST/RESULTS when applicable, and HANDOFF commits only
 within the envelope ownership. Do not merge or push.
 ```
