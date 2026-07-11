@@ -140,7 +140,11 @@ No production file changed.
 
 `RUN_REQUEST.md` and `run_s05r3_centerhead.sh` prepare one new immutable 44-case
 shared-one-GH200/15-minute request with fresh roots. Its status is
-`PENDING_S00_EXACT_O009_APPROVAL_DO_NOT_SUBMIT`; no sbatch/retry has occurred.
+`PENDING_S00_EXACT_OWNER_DELEGATED_S02_S05_VALIDATION_APPROVAL_DO_NOT_SUBMIT`;
+no sbatch/retry has occurred. This one-time focused rerun relies only on the
+owner's temporary delegation allowing S00 to approve necessary, reasonable
+validation-only S02-S05 Slurm jobs. It is explicitly not O-009, which excludes
+reruns, and does not expand or reinterpret O-009.
 
 ## Frozen reference and exact semantics
 

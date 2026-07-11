@@ -12,7 +12,7 @@ set -euo pipefail
 required=(
   EXPECTED_S05R3_SHA EXPECTED_S05R3_TREE EXPECTED_S05R3_SOURCE_LIST_SHA
   EXPECTED_S05R3_SOURCE_SHA EXPECTED_S05R3_LAUNCHER_SHA
-  EXPECTED_S05R3_RUN_REQUEST_SHA S05R3_REQUEST_COPY
+  EXPECTED_S05R3_RUN_REQUEST_SHA EXPECTED_S05R3_APPROVAL_CLASS S05R3_REQUEST_COPY
   S05R3_SNAPSHOT_ROOT S05R3_OUTPUT_ROOT
 )
 for name in "${required[@]}"; do
@@ -24,6 +24,7 @@ readonly APPROVED_SHA=96e509b71a3e22afb4de397132438fd3b9bbf5d8
 readonly APPROVED_TREE=aeaaad044199492b81c4383a013f3fb3c6596c02
 readonly APPROVED_SOURCE_LIST_SHA=bea19dd528010020a462b18cfaeedd2642fd0e0a147ac458e215bdb8718b1857
 readonly APPROVED_SOURCE_SHA=7ac7ea66485b319672e9b975ffcd38caa2c607f8932d1ca2acc2a9c5159823b1
+readonly APPROVED_APPROVAL_CLASS=S00_OWNER_DELEGATED_S02_S05_VALIDATION_RERUN
 readonly APPROVED_SNAPSHOT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s05r3_centerhead_96e509b71a3e
 readonly APPROVED_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s05r3_centerhead_96e509b71a3e
 readonly SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
@@ -32,6 +33,7 @@ readonly SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 [[ "$EXPECTED_S05R3_TREE" == "$APPROVED_TREE" ]]
 [[ "$EXPECTED_S05R3_SOURCE_LIST_SHA" == "$APPROVED_SOURCE_LIST_SHA" ]]
 [[ "$EXPECTED_S05R3_SOURCE_SHA" == "$APPROVED_SOURCE_SHA" ]]
+[[ "$EXPECTED_S05R3_APPROVAL_CLASS" == "$APPROVED_APPROVAL_CLASS" ]]
 [[ "$S05R3_SNAPSHOT_ROOT" == "$APPROVED_SNAPSHOT_ROOT" ]]
 [[ "$S05R3_OUTPUT_ROOT" == "$APPROVED_OUTPUT_ROOT" ]]
 [[ -d "$COMMON_GIT_DIR/objects" ]]
@@ -117,6 +119,7 @@ source_list_sha256=$ACTUAL_SOURCE_LIST_SHA
 source_sha256=$ACTUAL_SOURCE_SHA
 launcher_sha256=$EXPECTED_S05R3_LAUNCHER_SHA
 run_request_sha256=$EXPECTED_S05R3_RUN_REQUEST_SHA
+approval_class=$APPROVED_APPROVAL_CLASS
 slurm_job_id=$SLURM_JOB_ID
 EOF
 chmod -R a-w "$TMP_SNAPSHOT"
@@ -169,6 +172,7 @@ record = {
     "runtime_source_sha256": os.environ["EXPECTED_S05R3_SOURCE_SHA"],
     "launcher_sha256": os.environ["EXPECTED_S05R3_LAUNCHER_SHA"],
     "run_request_sha256": os.environ["EXPECTED_S05R3_RUN_REQUEST_SHA"],
+    "approval_class": os.environ["EXPECTED_S05R3_APPROVAL_CLASS"],
     "snapshot_root": os.environ["S05R3_SNAPSHOT_ROOT"],
     "output_root": os.environ["S05R3_OUTPUT_ROOT"],
     "slurm_job_id": os.environ.get("SLURM_JOB_ID", ""),

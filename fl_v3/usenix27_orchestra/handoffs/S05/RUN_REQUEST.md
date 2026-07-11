@@ -2,7 +2,8 @@
 
 ## Approval state and preserved negative
 
-- **Status:** `PENDING_S00_EXACT_O009_APPROVAL_DO_NOT_SUBMIT`.
+- **Status:**
+  `PENDING_S00_EXACT_OWNER_DELEGATED_S02_S05_VALIDATION_APPROVAL_DO_NOT_SUBMIT`.
 - Prior authorized S05-R2 Job `336731` is preserved as **FAILED 1:0**:
   exactly 44 cases collected, 43 passed, one failed, zero errors/skips. The sole
   failure was the expected container type in
@@ -13,8 +14,13 @@
 - This request repeats exactly the same 44 synthetic cases after the two-token
   test-only expectation correction. It adds no test, resource, data, model step,
   metric, profile, seed, matrix, retry loop, or follow-on.
+- **Approval class:** one-time focused rerun under the owner's explicit temporary
+  delegation allowing S00 to approve necessary, reasonable validation-only Slurm
+  jobs for S02-S05. This is **not O-009**: O-009 excludes reruns, and this request
+  does not expand or reinterpret it.
 - Preparing/committing this file and launcher is not permission to submit. S05
-  must wait for S00 to approve the exact immutable tuple below.
+  must wait for S00 to approve the exact immutable tuple below under that delegated
+  validation authority.
 
 ## Immutable execution source
 
@@ -76,7 +82,7 @@ retry.
 - Repository path:
   `fl_v3/usenix27_orchestra/handoffs/S05/run_s05r3_centerhead.sh`.
 - SHA-256:
-  `989b7bfb3bfdbb53c17a9741ceab605b8263c7bc08da30c1358a7b766a473027`.
+  `b86271e81ec41443232afab6a6ada5d1dbebfa72027946cea6547ee5c01598e5`.
 - `bash -n`: PASS.
 - The launcher checks its Slurm spool-copy hash, the immutable request-copy hash,
   execution SHA/tree, source closure, fresh roots, one-node/one-GH200/eight-CPU
@@ -87,21 +93,23 @@ Any launcher-byte change invalidates this request.
 ## Exact staging/submission form after S00 approval
 
 The request cannot embed its own SHA without a self-hash cycle. S00 must approve
-the final clean delivery SHA, this file's independently computed SHA-256, and the
-launcher SHA above. Only then may the following form run:
+the final clean delivery SHA, this file's independently computed SHA-256, the
+launcher SHA above, and approval class
+`S00_OWNER_DELEGATED_S02_S05_VALIDATION_RERUN`. Only then may the following form
+run:
 
 ```bash
 WORKER_ROOT=/home/gaohui/.codex/worktrees/63f8/fl_weather_project
 REQUEST_SOURCE="$WORKER_ROOT/fl_v3/usenix27_orchestra/handoffs/S05/RUN_REQUEST.md"
 LAUNCHER="$WORKER_ROOT/fl_v3/usenix27_orchestra/handoffs/S05/run_s05r3_centerhead.sh"
 REQUEST_COPY=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/launchers/s05r3_RUN_REQUEST_96e509b71a3e.md
-LAUNCHER_SHA=989b7bfb3bfdbb53c17a9741ceab605b8263c7bc08da30c1358a7b766a473027
+LAUNCHER_SHA=b86271e81ec41443232afab6a6ada5d1dbebfa72027946cea6547ee5c01598e5
 REQUEST_SHA="$(sha256sum "$REQUEST_SOURCE" | awk '{print $1}')"
 export LAUNCHER_SHA REQUEST_SHA
-: "${S05R3_APPROVED_DELIVERY_SHA:?S00-approved exact S05 delivery SHA is required}"
+: "${S05R3_S00_DELEGATED_VALIDATION_APPROVED_DELIVERY_SHA:?exact S00 delegated-validation approval is required}"
 
 test "$(git -C "$WORKER_ROOT" branch --show-current)" = codex/s05-centerhead-decode && \
-test "$(git -C "$WORKER_ROOT" rev-parse HEAD)" = "$S05R3_APPROVED_DELIVERY_SHA" && \
+test "$(git -C "$WORKER_ROOT" rev-parse HEAD)" = "$S05R3_S00_DELEGATED_VALIDATION_APPROVED_DELIVERY_SHA" && \
 test -z "$(git -C "$WORKER_ROOT" status --short)" && \
 test "$(sha256sum "$LAUNCHER" | awk '{print $1}')" = "$LAUNCHER_SHA" && \
 test ! -e "$REQUEST_COPY" && \
@@ -111,7 +119,7 @@ test -z "$(squeue -u "$USER" -h -o '%j' | awk '$1 == "flv3_s05r3_centerhead"')" 
 mkdir -p "$(dirname "$REQUEST_COPY")" && \
 install -m 0444 "$REQUEST_SOURCE" "$REQUEST_COPY" && \
 test "$(sha256sum "$REQUEST_COPY" | awk '{print $1}')" = "$REQUEST_SHA" && \
-sbatch --export=ALL,EXPECTED_S05R3_SHA=96e509b71a3e22afb4de397132438fd3b9bbf5d8,EXPECTED_S05R3_TREE=aeaaad044199492b81c4383a013f3fb3c6596c02,EXPECTED_S05R3_SOURCE_LIST_SHA=bea19dd528010020a462b18cfaeedd2642fd0e0a147ac458e215bdb8718b1857,EXPECTED_S05R3_SOURCE_SHA=7ac7ea66485b319672e9b975ffcd38caa2c607f8932d1ca2acc2a9c5159823b1,EXPECTED_S05R3_LAUNCHER_SHA="$LAUNCHER_SHA",EXPECTED_S05R3_RUN_REQUEST_SHA="$REQUEST_SHA",S05R3_REQUEST_COPY="$REQUEST_COPY",S05R3_SNAPSHOT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s05r3_centerhead_96e509b71a3e,S05R3_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s05r3_centerhead_96e509b71a3e \
+sbatch --export=ALL,EXPECTED_S05R3_SHA=96e509b71a3e22afb4de397132438fd3b9bbf5d8,EXPECTED_S05R3_TREE=aeaaad044199492b81c4383a013f3fb3c6596c02,EXPECTED_S05R3_SOURCE_LIST_SHA=bea19dd528010020a462b18cfaeedd2642fd0e0a147ac458e215bdb8718b1857,EXPECTED_S05R3_SOURCE_SHA=7ac7ea66485b319672e9b975ffcd38caa2c607f8932d1ca2acc2a9c5159823b1,EXPECTED_S05R3_LAUNCHER_SHA="$LAUNCHER_SHA",EXPECTED_S05R3_RUN_REQUEST_SHA="$REQUEST_SHA",EXPECTED_S05R3_APPROVAL_CLASS=S00_OWNER_DELEGATED_S02_S05_VALIDATION_RERUN,S05R3_REQUEST_COPY="$REQUEST_COPY",S05R3_SNAPSHOT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s05r3_centerhead_96e509b71a3e,S05R3_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s05r3_centerhead_96e509b71a3e \
   "$LAUNCHER"
 ```
 
