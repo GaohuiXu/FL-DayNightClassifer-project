@@ -13,8 +13,10 @@ set -euo pipefail
 
 required=(
   EXPECTED_S04_SHA
+  EXPECTED_S04_TREE
   EXPECTED_S04_SOURCE_HASH
   EXPECTED_S04_REQUEST_HASH
+  EXPECTED_S04_IDENTITY_HASH
   S04_SNAPSHOT_ROOT
   S04_OUTPUT_ROOT
 )
@@ -34,13 +36,33 @@ case "${REPO}" in
   /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/snapshots/s04_*) ;;
   *) echo "invalid S04 snapshot root: ${REPO}" >&2; exit 2 ;;
 esac
-if [ "$(realpath "${SLURM_SUBMIT_DIR:-.}")" != "${REPO}" ]; then
+if [ "$(pwd -P)" != "${REPO}" ]; then
+  echo "working-directory/snapshot mismatch: pwd=$(pwd -P) snapshot=${REPO}" >&2
+  exit 2
+fi
+if [ "$(realpath "${SLURM_SUBMIT_DIR:?SLURM_SUBMIT_DIR is required}")" != "${REPO}" ]; then
   echo "submit-dir/snapshot mismatch: submit=${SLURM_SUBMIT_DIR:-unset} snapshot=${REPO}" >&2
   exit 2
 fi
 cd "${REPO}"
 if find "${REPO}" -xdev \( -type f -o -type d \) -perm /0222 -print -quit | grep -q .; then
   echo "snapshot is not immutable (a path has write bits): ${REPO}" >&2
+  exit 2
+fi
+IDENTITY_PATH=".s04_snapshot_identity"
+ACTUAL_IDENTITY_HASH="$(sha256sum "${IDENTITY_PATH}" | awk '{print $1}')"
+if [ "${ACTUAL_IDENTITY_HASH}" != "${EXPECTED_S04_IDENTITY_HASH}" ]; then
+  echo "snapshot identity hash mismatch: expected=${EXPECTED_S04_IDENTITY_HASH} actual=${ACTUAL_IDENTITY_HASH}" >&2
+  exit 2
+fi
+EXPECTED_IDENTITY="$(printf '%s\n' \
+  'schema=s04.snapshot.v1' \
+  "exec_sha=${EXPECTED_S04_SHA}" \
+  "exec_tree=${EXPECTED_S04_TREE}" \
+  "source_sha256=${EXPECTED_S04_SOURCE_HASH}" \
+  "request_sha256=${EXPECTED_S04_REQUEST_HASH}")"
+if [ "$(cat "${IDENTITY_PATH}")" != "${EXPECTED_IDENTITY}" ]; then
+  echo "snapshot identity content mismatch" >&2
   exit 2
 fi
 REQUEST_PATH="fl_v3/usenix27_orchestra/handoffs/S04/RUN_REQUEST.md"
@@ -127,8 +149,8 @@ if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
     )
 PY
 
-python - "${EXECUTION_JSON}" "${EXPECTED_S04_SHA}" "${REPO}" \
-  "${S04_SOURCE_HASH}" "${ACTUAL_REQUEST_HASH}" "${JOB_DESC}" <<'PY'
+python - "${EXECUTION_JSON}" "${EXPECTED_S04_SHA}" "${EXPECTED_S04_TREE}" "${REPO}" \
+  "${S04_SOURCE_HASH}" "${ACTUAL_REQUEST_HASH}" "${ACTUAL_IDENTITY_HASH}" "${JOB_DESC}" <<'PY'
 import importlib.metadata
 import json
 import os
@@ -136,11 +158,22 @@ import platform
 import socket
 import sys
 
-output, git_sha, snapshot_root, source_hash, request_hash, job_desc = sys.argv[1:]
+(
+    output,
+    git_sha,
+    git_tree,
+    snapshot_root,
+    source_hash,
+    request_hash,
+    snapshot_identity_hash,
+    job_desc,
+) = sys.argv[1:]
 record = {
     "schema": "s04.second-synthetic-gh200.v2",
     "git_sha": git_sha,
+    "git_tree": git_tree,
     "snapshot_root": snapshot_root,
+    "snapshot_identity_sha256": snapshot_identity_hash,
     "runtime_source_sha256": source_hash,
     "run_request_sha256": request_hash,
     "slurm_job_id": os.environ.get("SLURM_JOB_ID", ""),
