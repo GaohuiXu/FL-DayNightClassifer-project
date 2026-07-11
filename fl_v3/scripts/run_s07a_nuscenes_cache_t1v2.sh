@@ -47,20 +47,30 @@ if [ "${ACTUAL_SHA}" != "${EXPECTED_S07A_SHA}" ]; then
   echo "SHA mismatch: expected=${EXPECTED_S07A_SHA} actual=${ACTUAL_SHA}" >&2
   exit 2
 fi
+if [ -n "$(git branch --show-current)" ] || [ -n "$(git status --short)" ]; then
+  echo "S07-A cache execution requires a clean detached worktree" >&2
+  exit 2
+fi
 runtime_source_files() {
-  printf '%s\n' \
-    fl_v3/src/fl_v3/data/nuscenes/info_cache.py \
-    fl_v3/src/fl_v3/data/nuscenes/paths.py \
-    fl_v3/src/fl_v3/data/nuscenes/transforms.py \
-    fl_v3/src/fl_v3/data/nuscenes/class_map.py \
-    fl_v3/src/fl_v3/data/nuscenes/zip_backend.py \
-    fl_v3/scripts/build_nuscenes_cache.py \
-    fl_v3/scripts/run_s07a_nuscenes_cache_t1v2.sh \
-    fl_v3/scripts/arrhenius_env.sh \
-    fl_v3/pyproject.toml \
-    fl_v3/requirements.txt \
-    fl_v3/requirements.lock.txt \
-    | sort -u
+  # Importing ``fl_v3.data.nuscenes`` executes its package initializer and eager
+  # imports dataset/partition.  Keep the complete tracked package plus every
+  # local dependency reached outside it in the attested set.  The explicit
+  # package initializers matter because Python executes them before submodules.
+  {
+    git ls-files -- 'fl_v3/src/fl_v3/data/nuscenes/*.py'
+    printf '%s\n' \
+      fl_v3/src/fl_v3/__init__.py \
+      fl_v3/src/fl_v3/data/__init__.py \
+      fl_v3/src/fl_v3/data/partition.py \
+      fl_v3/src/fl_v3/utils/__init__.py \
+      fl_v3/src/fl_v3/utils/runtime.py \
+      fl_v3/scripts/build_nuscenes_cache.py \
+      fl_v3/scripts/run_s07a_nuscenes_cache_t1v2.sh \
+      fl_v3/scripts/arrhenius_env.sh \
+      fl_v3/pyproject.toml \
+      fl_v3/requirements.txt \
+      fl_v3/requirements.lock.txt
+  } | sort -u
 }
 S07A_STATE_HASH="$(runtime_source_files | while IFS= read -r path; do
   sha256sum "${path}"
@@ -151,7 +161,13 @@ record = {
     "python_runtime": sys.version,
     "dependency_versions": {
         name: importlib.metadata.version(name)
-        for name in ("numpy", "nuscenes-devkit", "pyquaternion")
+        for name in (
+            "numpy",
+            "nuscenes-devkit",
+            "pyquaternion",
+            "torch",
+            "Pillow",
+        )
     },
     "dataroot": os.path.abspath(dataroot),
     "manifest_path": os.path.abspath(manifest),

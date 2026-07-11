@@ -3,8 +3,9 @@
 
 Walks a split's keyframe infos, loads each (multi-sweep) cloud via the SAME dataset loaders the training
 run uses (so cropped objects match the run's point density + columns), crops each GT object's points into
-its box-local frame, and writes per-class pickles + a meta.json. The input cache depth/content hash and,
-for ZIP mode, both the logical manifest hash and manifest-file SHA-256 are mandatory provenance inputs.
+its box-local frame, and writes per-class pickles + a meta.json. The input cache
+depth/canonical hash plus physical pickle/sidecar SHA-256 values and, for ZIP mode,
+both the logical manifest hash and manifest-file SHA-256 are mandatory provenance inputs.
 Deterministic (a fixed-order walk; per-class subsampling uses a fixed RandomState seed). Pure CPU/IO.
 
   source fl_v3/scripts/arrhenius_env.sh
@@ -13,6 +14,8 @@ Deterministic (a fixed-order walk; per-class subsampling uses a fixed RandomStat
   python fl_v3/scripts/build_gt_database.py \
     --cache-dir <info_cache_msweep10> --version v1.0-trainval --split train --n-sweeps 10 \
     --expected-cache-hash <t1.v2-train-cache-hash> \
+    --expected-cache-file-sha256 <frozen-cache-pickle-sha256> \
+    --expected-cache-sidecar-sha256 <frozen-cache-sidecar-sha256> \
     --dataroot /path/to/NuScenes_v1.0 \
     --zip-manifest /path/to/nuscenes_trainval_zip_manifest.sqlite \
     --expected-manifest-hash <logical-manifest-hash> \
@@ -65,16 +68,99 @@ def _load_info_list(
     split: str,
     n_sweeps: int,
     expected_cache_hash: str,
+    expected_cache_file_sha256: str,
+    expected_cache_sidecar_sha256: str,
 ):
-    """Load only the explicit t1.v2 depth and frozen cache identity."""
-    expected = _required_sha256(expected_cache_hash, "expected cache hash")
-    return IC.load_cache(
+    """Load one exact cache only after binding both physical artifacts.
+
+    The canonical cache hash intentionally covers raw nuScenes inputs, not every
+    serialized derived tensor.  The pickle and sidecar SHA-256 values therefore
+    form a separate mandatory identity boundary.  Both files are hashed before
+    and after deserialization so a mismatch or in-flight change fails before any
+    sensor blob is opened or any object points are cropped.
+    """
+    expected_canonical = _required_sha256(
+        expected_cache_hash, "expected cache canonical hash"
+    )
+    expected_pickle = _required_sha256(
+        expected_cache_file_sha256, "expected cache pickle SHA-256"
+    )
+    expected_sidecar = _required_sha256(
+        expected_cache_sidecar_sha256, "expected cache sidecar SHA-256"
+    )
+    pkl_path, sidecar_path = IC.cache_paths(
+        cache_dir, version, split, n_sweeps=n_sweeps
+    )
+    paths = {
+        "pickle": os.path.abspath(pkl_path),
+        "sidecar": os.path.abspath(sidecar_path),
+    }
+    expected_files = {"pickle": expected_pickle, "sidecar": expected_sidecar}
+
+    def snapshot() -> dict:
+        state = {}
+        for label, path in paths.items():
+            if not os.path.isfile(path):
+                raise FileNotFoundError(
+                    f"required nuScenes cache {label} artifact is missing: {path}"
+                )
+            state[label] = {
+                "path": path,
+                "bytes": os.path.getsize(path),
+                "sha256": _sha256_file(path),
+            }
+            if state[label]["sha256"] != expected_files[label]:
+                raise ValueError(
+                    f"nuScenes cache {label} physical SHA mismatch: "
+                    f"expected={expected_files[label]}, actual={state[label]['sha256']}, "
+                    f"path={path}"
+                )
+        return state
+
+    before = snapshot()
+    info_list, meta = IC.load_cache(
         cache_dir,
         version,
         split,
         n_sweeps=n_sweeps,
-        expected_cache_hash=expected,
+        expected_cache_hash=expected_canonical,
     )
+    after = snapshot()
+    if after != before:
+        raise ValueError(
+            "nuScenes cache physical artifacts changed while being loaded; "
+            f"before={before}, after={after}"
+        )
+    expected_meta = {
+        "format_version": IC.CACHE_FORMAT_VERSION,
+        "version": version,
+        "split": split,
+        "n_sweeps": n_sweeps,
+        "cache_hash": expected_canonical,
+    }
+    mismatches = {
+        key: {"expected": value, "actual": meta.get(key)}
+        for key, value in expected_meta.items()
+        if meta.get(key) != value
+    }
+    if mismatches:
+        raise ValueError(
+            "nuScenes cache metadata does not match the frozen cache contract: "
+            f"{mismatches}"
+        )
+    return info_list, meta, {
+        "cache_format_version": IC.CACHE_FORMAT_VERSION,
+        "cache_version": version,
+        "cache_split": split,
+        "cache_n_sweeps": n_sweeps,
+        "cache_hash": expected_canonical,
+        "cache_pickle_path": after["pickle"]["path"],
+        "cache_pickle_bytes": after["pickle"]["bytes"],
+        "cache_pickle_sha256": after["pickle"]["sha256"],
+        "cache_sidecar_path": after["sidecar"]["path"],
+        "cache_sidecar_bytes": after["sidecar"]["bytes"],
+        "cache_sidecar_sha256": after["sidecar"]["sha256"],
+    }
 
 
 def _open_blob_store(
@@ -146,6 +232,16 @@ def main():
         help="Frozen canonical t1.v2 cache hash for this exact split/depth.",
     )
     ap.add_argument(
+        "--expected-cache-file-sha256",
+        required=True,
+        help="Frozen SHA-256 of the exact depth-specific t1.v2 cache pickle.",
+    )
+    ap.add_argument(
+        "--expected-cache-sidecar-sha256",
+        required=True,
+        help="Frozen SHA-256 of the exact depth-specific t1.v2 metadata sidecar.",
+    )
+    ap.add_argument(
         "--dataroot",
         default=os.environ.get("ARRHENIUS_NUSCENES_DATAROOT") or os.environ.get("NUSCENES_DATAROOT") or "",
         help="nuScenes dataroot; defaults to ARRHENIUS_NUSCENES_DATAROOT/NUSCENES_DATAROOT.",
@@ -179,12 +275,14 @@ def main():
     P.resolve_writable(args.out_dir, args.dataroot)
 
     classes = [c.strip() for c in args.classes.split(",") if c.strip()]
-    info_list, cache_meta = _load_info_list(
+    info_list, cache_meta, cache_provenance = _load_info_list(
         args.cache_dir,
         args.version,
         args.split,
         args.n_sweeps,
         args.expected_cache_hash,
+        args.expected_cache_file_sha256,
+        args.expected_cache_sidecar_sha256,
     )
     blob_store, blob_provenance = _open_blob_store(
         args.dataroot,
@@ -253,8 +351,7 @@ def main():
         "split": args.split,
         "n_sweeps": args.n_sweeps,
         "dataroot": os.path.abspath(args.dataroot),
-        "cache_format_version": cache_meta["format_version"],
-        "cache_hash": cache_meta["cache_hash"],
+        **cache_provenance,
         **blob_provenance,
         "classes": classes,
         "min_points": args.min_points,
