@@ -12,15 +12,19 @@
 - Implementation commit: `011e4640d26330e2c8145fcdb56833fe19e7b67d`
   (`feat(data): add nuScenes ZIP backend`). This commit was created locally only;
   no merge, push, upload, or publication was performed.
-- The final S01-R review baseline will be a later durable branch tip containing
-  the approved full-gate results/handoff update. Until then, `011e464...` is the
-  immutable implementation/run candidate, not a reviewed PASS.
+- v2 correction commit: `1fe651700bd06a07707307c60ad4e31cc9d1e0ba`
+  (`fix(data): support identical ZIP members across shards`). It records failed
+  job `332648`, retains matching cross-archive occurrences, and rejects conflicting
+  copies. This is the immutable follow-up run candidate, not a reviewed PASS.
+- The final S01-R review baseline is the documentation commit containing this
+  approved v2 full-gate results/handoff update. Its exact SHA is supplied in the
+  S01-R kickoff envelope because a Git commit cannot contain its own final hash.
 - Working-tree scope: only S01-owned files listed below.
-- Worker verdict: **PARTIAL / FULL-GATE PENDING**. Implementation and the approved
-  bounded real-data smoke pass. The required ten-archive manifest, 100% train/val
-  reference coverage, real directory/ZIP parity execution, and measurable full-data
-  throughput/data-wait gate remain unexecuted. This is not a worker PASS and still
-  requires independent `S01-R` review.
+- Worker verdict: **FULL-DATA ZIP GATES PASS / OVERALL PARTIAL PENDING PARITY AND
+  S01-R**. The v2 ten-archive manifest, 100% train/val reference coverage, real
+  archive sentinels, deterministic 0/2/4/8-worker reads, and loader throughput gate
+  passed in job `332651`. Dependency-backed real-mini directory/ZIP decoded parity
+  remains unexecuted, and every worker result still requires independent `S01-R`.
 
 ## Active-session amendment acknowledgement
 
@@ -100,7 +104,8 @@ Added:
 - `fl_v3/scripts/s01_nuscenes_zip_smoke.py` and
   `run_s01_nuscenes_zip_smoke.sh` — exact bounded real-data lifecycle smoke.
 - `fl_v3/scripts/run_s01_nuscenes_zip_full_gate.sh` — full gate launcher; approved
-  attempt `332648` failed during v1 manifest construction and was not retried.
+  v1 attempt `332648` failed and was not retried, then exact v2 attempt `332651`
+  completed all declared stages.
 - `fl_v3/tests/test_nuscenes_zip_{backend,dataset,info_cache}.py` — stored-ZIP
   safety/integrity, directory/ZIP byte+decoded parity, keyframe/10-sweep routing,
   fork/spawn/persistent lifecycle, module layout, and no-payload-probe cache tests.
@@ -140,76 +145,90 @@ Local/login-node checks:
   10.0.1 but lacked pytest, numpy, torch, and nuscenes-devkit. No false login-node
   PASS is claimed.
 
+The v2 duplicate-occurrence regression built ten synthetic archives with identical
+cross-archive copies, verified deterministic first-archive routing and per-archive
+sentinels, and rejected both within-archive duplicates and cross-archive size/CRC
+conflicts. Synthetic v2 manifest hash:
+`b28081730286a56d148a44ec684dc0be4689ad5d0668a462c4c918e78b22d0a7`.
+
 Approved real-data smoke: `RESULTS.md` contains the complete evidence for Slurm job
 `330409` (`COMPLETED`, `00:01:46`, exit `0:0`). It passed module discovery, one
 archive's 258,109-member manifest, 64 selected references spanning 24 camera + 4
 key LiDAR + 36 previous sweeps, decoded output, CRC, 0/2-worker repeated hashes, and
 persistent PID/handle lifecycle.
 
+Approved full-data evidence is in `RESULTS.md`:
+
+- job `332648` failed at the v1 cross-archive path uniqueness assumption and was
+  preserved as a negative result without retry;
+- corrected commit `1fe651700bd06a07707307c60ad4e31cc9d1e0ba`, job `332651`,
+  `COMPLETED`, `00:05:29`, exit `0:0`;
+- ten archives indexed, 538,695/538,695 pipeline references resolved, ten payload
+  sentinels passed, and every 0/2/4/8-worker decoded digest matched.
+
 ## Gate-by-gate status
 
 | S01 gate | Status | Evidence / missing work |
 |---|---|---|
-| Canonical module and `NUSCENES_DATA_DIR` | PASS (bounded real) | GH200 job resolved module root and `trainval/` tables, 34,149 sample metadata |
+| Canonical module and `NUSCENES_DATA_DIR` | PASS (full real) | job 332651 resolved module root and `trainval/` tables, 34,149 sample metadata |
 | Preserve directory mode | PASS (implementation/static) | directory store retained; existing dataset paths remain supported |
-| Manifest trainval01..10 | FAILED attempt; v2 fix local | job 332648 exposed a cross-archive repeated path in trainval02; v2 identical-copy handling awaits a new approved run |
+| Manifest trainval01..10 | PASS (full real) | 2,631,093 occurrences, 2,631,084 unique; only repeated path is identical `LICENSE` in all ten archives |
 | Worker-safe lazy handles/reopen | PASS (bounded real) | stable two persistent PIDs, per-process state, expected one post-fork reset, no epoch reopen |
-| Six cameras/key LiDAR/requested sweeps use byte readers | PASS (bounded real) | 24 + 4 + 36 selected real references decoded/CRC checked |
-| Info cache without extraction | PASS (implementation/static), NOT RUN full | metadata filename path implemented; full train/val 10-sweep cache pending |
+| Six cameras/key LiDAR/requested sweeps use byte readers | PASS (full real) | 2,432 decoded 10-sweep sample reads in profile; all reference classes covered |
+| Info cache without extraction | PASS (full real) | train/val 10-sweep caches built from metadata, hashed, no extraction |
 | Directory/ZIP byte and decoded-array parity | IMPLEMENTED, NOT EXECUTED in GH200 smoke | synthetic/mini parity tests added; dependency-backed execution pending |
-| 100% train/val referenced-member coverage | NOT RUN | requires ten-archive manifest + full cache/audit |
-| Deterministic repeated multi-worker reads | PASS (bounded real) | 0 vs 2 workers and two persistent epochs matched |
-| No extraction/shared writes | PASS for executed scope | external output root and fail-closed path guard; manifest mode 0444 |
-| Full-data throughput/data-wait | NOT RUN | prepared profiler/launcher; smoke elapsed and `sacct` I/O are explicitly not substituted |
+| 100% train/val referenced-member coverage | PASS | 538,695/538,695 resolved, 0 missing, cache/metadata identical, ten archive sentinels |
+| Deterministic repeated multi-worker reads | PASS (full real) | one digest across 0/2/4/8 workers and two repeats |
+| No extraction/shared writes | PASS for executed scope | external output roots and fail-closed path guard; full manifest mode 0444 |
+| Full-data throughput/data-wait | PASS (loader-only) | 18.94 to 154.36 samples/s first-repeat range; complete p50/p95 in RESULTS |
 | Independent S01-R | NOT RUN | needs an exact durable worker version and separate review worktree |
 
 ## Coverage counts and hashes
 
-Executed smoke counts:
+Full v2 gate counts:
 
-- archive member coverage: 1/10 archives, 258,109 members indexed;
-- selected reference coverage: 64/64 resolved and read: 24 camera, 4 keyframe
-  LiDAR, 36 historical LiDAR sweeps;
-- decoded samples: four, each with six RGB cameras and ten total LiDAR frames;
-- repeated reads: 64 parent reads plus 128 persistent-worker reads across two
-  epochs; all digests matched.
+- 10/10 archives, 417,774,430,886 bytes, 2,631,093 occurrences and 2,631,084
+  unique members;
+- nine duplicate occurrences are the same `LICENSE` path in all ten archives,
+  matching size 25,319 and CRC `48f670e8`; no sensor path duplicate or conflict;
+- train 28,130 + val 6,019 = 34,149 samples, with 204,894 camera, 34,149 key LiDAR,
+  and 299,652 previous-sweep references;
+- 538,695/538,695 total references resolved to 534,532 unique payloads, zero
+  missing; train/val disjointness and cache/metadata reconciliation passed;
+- 2,432 decoded profile sample reads; deterministic digest
+  `4e46534f92c7979c04667a72f8a6dd0b9c61bfe0a14808b5debb85c34e0b54f7`
+  matched every 0/2/4/8-worker repeat.
 
-Full expected audit targets are train 28,130 + val 6,019 = 34,149 metadata samples,
-but these are configured expectations, not executed coverage counts.
-
-Immutable execution source-state hash:
-`ee7c030911d5c2a99f7e60c73df4454d2f93d15de6881e0f081ceb04c1de0869`.
-The pre-request tracked diff and changed-file content-manifest hashes are recorded
-in `RUN_REQUEST.md`. Artifact/log hashes are recorded in `RESULTS.md`; notably:
+V2 runtime source-state hash:
+`64ba617eb2df8be49df89b83f691d6c91829c0cb91f85acbe665b499f5dab65c`.
+Exact request identity and artifact/log hashes are in `RUN_REQUEST.md` and
+`RESULTS.md`; notably:
 
 - logical manifest:
-  `0761493f3150aaa48e77ee93b4b27848cf3dd3537673800c920fcaec64c1734f`;
+  `023f72b4220bb0db587be00920308bf9074384740fe186d243be92f9a53119f6`;
 - manifest file:
-  `d9aa3ada7261d9dea315f4fd8654cf559e773f01af2efc6f3ea796134d2d79c3`;
-- smoke report file:
-  `e882b490c8bd772c6addfdee20c2c369a2a83be7afddbf096bad9c51f2e1e830`.
+  `228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb`;
+- coverage file:
+  `773b8ea4513bd95363dcde0732bb9e836c7563e3d2e76c58d8b2c6a568ff579b`;
+- profile file:
+  `d34e7a90446dcf0bc3ec355d94ac6d984442e96583c85c0f599259faf987a108`.
 
 ## Negative results and residual risks
 
 - Login-node data access lacked the gated group; the GH200 job had access. The
   architecture-specific environment also prevents treating login imports as a
   definitive runtime test.
-- The one-archive job reached about 8.31 GiB `MaxRSS` and 522.20M aggregate disk
-  writes while creating the 61.6-MB SQLite manifest. Full-gate memory/time/temp-I/O
-  must be measured; neither a linear extrapolation nor a readiness claim is valid.
-- Central-directory indexing is one-time, but random payload reads may still suffer
-  filesystem amplification. Only the pending full-data profiler can quantify it.
-- Full ten-archive duplicate/canonical/member coverage and archive mutation checks
-  have not completed. Job 332648 stopped in trainval02 because the v1 schema could
-  not represent a cross-archive repeated path. It did not establish whether the
-  copies have identical content metadata.
-- The local v2 correction retains all archive occurrences, permits only matching
-  path+size+CRC copies, and routes reads to the lowest archive. Synthetic identical
-  and conflicting cases pass, but shared-data v2 behavior is unverified until a
-  separately approved follow-up.
-- The full 10-sweep info cache and its exact train/val reference reconciliation are
-  unbuilt. Permission/output-directory callers outside the owned data path have not
-  been changed.
+- Full job `MaxRSS` was about 10.54 GiB and aggregate `MaxDiskWrite` was 6392.35M;
+  later training jobs must provision storage for the 633-MB manifest plus roughly
+  698-MB train/val cache and should not rebuild them per run.
+- Central-directory indexing is one-time. The loader profile measures bounded
+  random access but not end-to-end model-step data wait or long-epoch filesystem
+  contention from multiple simultaneous jobs.
+- Job 332648 remains a required negative result: v1 incorrectly assumed global
+  path uniqueness. Job 332651 verified that the repeated path was only identical
+  `LICENSE`, not a duplicated sensor payload.
+- Permission/output-directory callers outside the owned data path have not been
+  changed.
 - Real directory/ZIP parity and spawn behavior remain dependent on executing the
   focused test suite in a compatible environment.
 - Manifest and cache provenance must be frozen and hashed in every later resolved
@@ -219,30 +238,29 @@ in `RUN_REQUEST.md`. Artifact/log hashes are recorded in `RESULTS.md`; notably:
 
 Allowed claims:
 
-- the bounded one-archive GH200 smoke can discover the canonical module and read/
-  decode real camera, key LiDAR, and nine-sweep history without extraction;
-- on its 64 selected references, size/CRC validation passed and 0/2-worker repeated
-  decoded hashes were deterministic with persistent worker-local handles;
+- every official train/val path requested by the 10-sweep pipeline exists in the
+  shared archives, and each of the ten archives serves CRC-checked real bytes;
+- repeated decoded hashes were deterministic across 0/2/4/8 workers and repeats;
+- the loader-only throughput/wait measurements in `RESULTS.md` apply to this exact
+  GH200 runtime and batch-size-1 profile;
 - directory-mode support remains present in the implementation.
 
 Forbidden claims:
 
-- S01/full-data PASS or production training readiness;
-- 100% train/val member coverage or all-ten-archive integrity;
+- final S01 integration PASS or production training readiness before S01-R;
+- every one of 2.63 million payloads was read and CRC-checked;
 - executed real directory/ZIP parity;
-- acceptable full-data throughput/data wait, memory scaling, or absence of random
-  read amplification;
+- end-to-end model-step data-wait percentage, long-epoch/multi-job contention, or
+  absence of random-read amplification;
 - any model-quality, metric, attack/defense, generalization, or publication claim.
 
 ## Requested owner/S00 decisions
 
-1. The owner authorized and S01 created the local branch/implementation commit
-   above. No merge or push permission is implied.
-2. Decide whether to authorize the separate exact full-gate scope appended to
-   `RUN_REQUEST.md` for the
-   ten-archive manifest, full train/val 10-sweep cache+coverage audit, real parity
-   evidence, and bounded throughput/data-wait profile. The proposed CLI overrides
-   the launcher's two-hour default with a 95-minute hard limit; it exceeds O-009's
-   per-job 60-minute autonomous boundary and was deliberately not run.
-3. Until those decisions and independent review, keep S01/S07 full-data readiness
-   blocked and preserve all forbidden interpretations above.
+1. The owner authorized the final local handoff/results documentation commit on
+   `codex/s01-nuscenes-zip-backend`; no merge or push permission is implied.
+2. Create the independent S01-R session from the exact resulting branch tip.
+   Review should prioritize v2 occurrence semantics, manifest query scaling,
+   artifact hashes, and the still-unexecuted dependency-backed real-mini
+   directory/ZIP decoded parity test.
+3. Until S01-R, keep final S01/S07 readiness blocked and preserve all forbidden
+   interpretations above.

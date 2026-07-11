@@ -1,13 +1,22 @@
-# S01 RESULTS — bounded shared-ZIP reader smoke
+# S01 RESULTS — shared nuScenes ZIP backend
 
-## Verdict and scope
+## Overall verdict
 
-**Engineering smoke PASS; full S01 data gate NOT RUN.** Slurm job `330409` proved
+**Full-data ZIP coverage/determinism/loader-profile gates PASS on v2; final S01
+verdict remains pending dependency-backed directory/ZIP decoded parity and
+independent S01-R.** Job `332651` completed all declared ten-archive/cache/coverage/
+sentinel/profile stages. Job `332648` remains a preserved negative v1 result, and
+job `330409` is the bounded lifecycle smoke. None is scientific/model evidence.
+
+## Bounded smoke 330409 — PASS
+
+This historical engineering smoke proved
 that the exact uncommitted S01 runtime state can discover the licensed module on an
 Arrhenius GH200 node, index one stored archive, and decode a bounded set of real
 camera/keyframe-LiDAR/multi-sweep payloads deterministically with persistent
-workers. It did not scan all ten archives, reconcile all train/val references, or
-measure production loader throughput/data wait.
+workers. By itself it did not scan all ten archives, reconcile all train/val
+references, or measure production loader throughput/data wait; those later passed
+in the v2 section below.
 
 This result is bound to:
 
@@ -186,3 +195,133 @@ archive occurrence, accepts a cross-archive duplicate only when path, size, and 
 match, selects a deterministic runtime archive, keeps per-archive sentinels, and
 still rejects conflicting copies and duplicates inside one archive. A follow-up is
 not authorized by the failed job's approval.
+
+---
+
+## Complete v2 gate 332651 — PASS
+
+### Identity and scheduler result
+
+- Exact runtime commit: `1fe651700bd06a07707307c60ad4e31cc9d1e0ba`.
+- Runtime source-state SHA-256:
+  `64ba617eb2df8be49df89b83f691d6c91829c0cb91f85acbe665b499f5dab65c`.
+- Job/node: `332651` / `n574` (`aarch64`).
+- Submit/start/end: `2026-07-11T05:10:26` / `05:10:28` / `05:15:57`.
+- State/elapsed/exit: `COMPLETED`, `00:05:29`, `0:0`.
+- Allocation: one GH200, 32 CPUs, one node; approximately 0.0914 actual
+  GPU-hours. No model/GPU computation, retry, array, or follow-on job occurred.
+
+### Complete archive manifest
+
+- Ten archives, total size 417,774,430,886 bytes.
+- Member occurrences: 2,631,093.
+- Unique members: 2,631,084.
+- Duplicate occurrences: 9.
+- The only repeated path was `LICENSE`, present once in every archive with identical
+  size 25,319 and CRC `48f670e8`. No sensor payload path was duplicated across
+  archives and no conflicting size/CRC pair occurred.
+- Logical manifest hash:
+  `023f72b4220bb0db587be00920308bf9074384740fe186d243be92f9a53119f6`.
+- SQLite file: 633,106,432 bytes, mode `0444`, SHA-256
+  `228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb`.
+
+### Cache and 100% reference coverage
+
+- Train cache: 28,130 samples, 944,881 boxes, 246,840 previous-sweep records;
+  canonical cache hash
+  `7dcdc278bcf25ed5761d3d17d1b42ce206dd2de27d3758373fa610a1e86fdc2f`.
+- Val cache: 6,019 samples, 187,528 boxes, 52,812 previous-sweep records;
+  canonical cache hash
+  `4acc83079f475005474fba411e60386f4bd1af4acad725eef6aff00ace1821ae`.
+- Train and val sample counts matched the official split; token sets were disjoint
+  and their union covered all 34,149 metadata samples.
+
+| Reference class | Train | Val | Total | Missing |
+|---|---:|---:|---:|---:|
+| Six cameras | 168,780 | 36,114 | 204,894 | 0 |
+| Key `LIDAR_TOP` | 28,130 | 6,019 | 34,149 | 0 |
+| Previous LiDAR sweeps | 246,840 | 52,812 | 299,652 | 0 |
+| All references | 443,750 | 94,945 | 538,695 | 0 |
+
+All 538,695 references resolved to 534,532 unique members. Metadata traversal and
+cache paths were identical, sensor prefixes had zero violations, cache sidecars
+matched content hashes, and one real payload from every archive passed the
+production `pread` length/CRC path. Coverage `gate_pass=true`, `gate_errors=[]`.
+
+Coverage JSON: 18,250 bytes, file SHA-256
+`773b8ea4513bd95363dcde0732bb9e836c7563e3d2e76c58d8b2c6a568ff579b`;
+internal report hash
+`cd0e298d31f98874ab398671d31e6d6a30e33a2ad599b7fe363761080bb55e50`.
+
+### Decoded loader determinism and throughput
+
+The benchmark used batch size 1 and 10 LiDAR frames per sample. For each worker
+count it ran two persistent-worker repeats of 32 deterministic, 16 warm-up, and 256
+measured batches. The same 304-token sequence was used for every profile; total
+decoded sample reads were 2,432.
+
+Every repeat and worker count produced digest
+`4e46534f92c7979c04667a72f8a6dd0b9c61bfe0a14808b5debb85c34e0b54f7`.
+`determinism_hash_identical_across_worker_counts=true`.
+
+| Workers | Repeat | State | samples/s | wait p50 ms | wait p95 ms | wait max ms |
+|---:|---:|---|---:|---:|---:|---:|
+| 0 | 0 | cold start | 18.94 | 52.30 | 59.37 | 60.97 |
+| 0 | 1 | warm | 24.05 | 40.99 | 47.83 | 49.36 |
+| 2 | 0 | cold start | 46.81 | 22.53 | 46.60 | 49.67 |
+| 2 | 1 | warm | 47.18 | 18.58 | 47.43 | 64.89 |
+| 4 | 0 | cold start | 89.08 | 6.83 | 31.70 | 37.12 |
+| 4 | 1 | warm | 89.25 | 3.12 | 43.22 | 53.78 |
+| 8 | 0 | cold start | 154.36 | 0.06 | 32.68 | 54.53 |
+| 8 | 1 | warm | 153.42 | 0.03 | 41.78 | 60.28 |
+
+The near-zero 8-worker median reflects prefetch queue availability; p95 and total
+samples/s remain the relevant tail/throughput measures. These are loader-only wait
+measurements and cannot be converted to an end-to-end GPU-step data-wait percentage
+without a model-step profile.
+
+Profile JSON: 9,905 bytes, file SHA-256
+`d34e7a90446dcf0bc3ec355d94ac6d984442e96583c85c0f599259faf987a108`;
+internal report hash
+`397bfeafbec5d07c1694031bef95d81a469e02dc8684e0750f93444b14e6847e`.
+
+### Durable artifacts and resources
+
+Output root (about 1.3 GiB):
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_v2_1fe651700bd0`
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `nuscenes_trainval_zip_manifest.sqlite` | 633,106,432 | `228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb` |
+| `coverage_train_val_msweep10.json` | 18,250 | `773b8ea4513bd95363dcde0732bb9e836c7563e3d2e76c58d8b2c6a568ff579b` |
+| `loader_profile_train_msweep10.json` | 9,905 | `d34e7a90446dcf0bc3ec355d94ac6d984442e96583c85c0f599259faf987a108` |
+| train cache pickle | 580,140,287 | `c45e7af2937120b128e85880625e379b67e5ddecce66a32d25c156810a9329c7` |
+| val cache pickle | 117,994,540 | `52281790df9b2902002442fb7f4a02722c1118787f4cf8bac737828626582fdc` |
+| train cache metadata | 271 | `b81867d660e7b97f8af3461e947c48ffd8b3584484cd66eee6ee8ccf2f697a1f` |
+| val cache metadata | 268 | `9f668bdde4e0910d6880620d92acbf3425631589af29f4aa5553ce9b4e795114` |
+| `sha256sums.txt` | 1,609 | `21c8780f51eac36a4867014c21bf7724573a4f4adb590b2c55c5149612da0e44` |
+
+Logs:
+
+- stdout: 29,390 bytes, SHA-256
+  `5836dfe4ce50f67dca1adfb3d694531dcb35dc949f69fecdf219315aec4c727e`;
+- stderr: 294 bytes, SHA-256
+  `8db5d05b4abfa9c9cc1bd7028c410675c3e2d697af110ce6c6d9aa51f2e1e830`.
+
+Stderr contained only the normal module-purge and gated-dataset notices. Scheduler
+batch-step observations: `MaxRSS=11048512K` (about 10.54 GiB),
+`MaxVMSize=71370624K`, `MaxDiskRead=21058.98M`, `MaxDiskWrite=6392.35M`,
+`TotalCPU=05:40.946`.
+
+### Interpretation boundary and remaining negative evidence
+
+Allowed: every official train/val path requested by the 10-sweep pipeline exists in
+the shared stored archives; all ten archives serve real CRC-checked bytes; the
+declared loader is deterministic across 0/2/4/8 workers/repeats; and the table above
+is measured loader-only performance for this exact GH200 runtime.
+
+Still forbidden: every one of 2.63 million payloads received a CRC read; real-mini
+directory/ZIP decoded parity has been executed in the dependency-complete runtime;
+end-to-end model/GPU data-wait percentage; training or scientific readiness; model
+quality; and any metric, FL, attack/defense, or publication claim. Independent
+S01-R remains required.

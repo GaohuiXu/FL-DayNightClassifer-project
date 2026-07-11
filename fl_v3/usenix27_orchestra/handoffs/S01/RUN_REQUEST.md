@@ -271,3 +271,132 @@ attack/defense, metric, or publication claim. Independent S01-R remains mandator
   `7b232bac2b86f95c23709cc70fbb87fbeb6ebfcabb83b7b3324cb155de97ff47`.
 - Any v2 follow-up requires a new immutable commit, a revised exact request, and
   fresh owner approval. This record does not authorize resubmission.
+
+---
+
+# S01 RUN_REQUEST — v2 complete trainval follow-up
+
+## Approval state
+
+- **Status:** `APPROVED_FOR_THIS_EXACT_V2_FOLLOW_UP`.
+- Failed job `332648` was not retried. Its approval is exhausted and did not cover
+  this v2 commit, output directory, or command.
+- **Exact owner approval:** the owner message in the active S01 task on 2026-07-11
+  approved commit `1fe651700bd06a07707307c60ad4e31cc9d1e0ba`, one GH200,
+  32 CPUs, walltime `01:35:00`, maximum 1.583 GPU-hours, the specified new output
+  directory, and no automatic resubmission.
+
+## Immutable execution identity
+
+- Branch: `codex/s01-nuscenes-zip-backend`.
+- Exact v2 commit: `1fe651700bd06a07707307c60ad4e31cc9d1e0ba`.
+- Commit tree: `e8dcda9f8ee88daf10c2db7ad6629c925550e460`.
+- Full-gate runtime source-state SHA-256:
+  `64ba617eb2df8be49df89b83f691d6c91829c0cb91f85acbe665b499f5dab65c`.
+- Runtime manifest format: `s01.nuscenes-zip.v2`.
+- No model, checkpoint, scientific seed, resolved model config, training, or
+  evaluation is involved.
+
+## Exact scope and v2 acceptance
+
+The data/cache/coverage/profile scope is unchanged from the approved failed attempt:
+
+1. scan central directories from exactly `trainval01_blobs.zip` through
+   `trainval10_blobs.zip` into an external read-only SQLite manifest;
+2. retain every `(path, archive)` occurrence; permit a cross-archive copy only if
+   its central-directory file size and CRC match every other occurrence; reject
+   conflicting copies and duplicates within one archive;
+3. route runtime reads deterministically to the lowest archive ID while retaining
+   per-archive counts and one real CRC-checked sentinel from every archive;
+4. build official train 28,130 + val 6,019 10-sweep caches from metadata without
+   extracting payloads;
+5. reconcile all 204,894 camera references, 34,149 key-LiDAR references, and every
+   requested previous sweep against metadata, cache, and manifest; require zero
+   missing paths, exact counts, train/val disjointness, and matching cache hashes;
+6. profile decoded train samples at 0/2/4/8 workers, two repeats each, with 32
+   determinism + 16 warm-up + 256 measured batches per repeat (2,432 total sample
+   reads), reporting samples/s and batch-wait p50/p95/min/max;
+7. hash manifest, caches/sidecars, coverage report, and loader profile. Never write
+   below the shared dataset and never extract an archive.
+
+The job fails on any identity/output collision, module/access error, unsupported ZIP
+feature, intra-archive duplicate, cross-archive size/CRC conflict, malformed local
+header, missing reference, cache/metadata disagreement, split overlap/count drift,
+unreadable archive sentinel, nondeterministic decoded hash, or walltime. There is no
+automatic retry.
+
+## Resources, budget, output, and exact command
+
+- Nodes: 1; GPU: one GH200; CPUs: 32.
+- Walltime hard limit: `01:35:00`.
+- Maximum new allocation: 1.583 GPU-hours.
+- Expected elapsed allocation: approximately 0.75-1.25 GPU-hours; planning estimate
+  only. The prior smoke and failed attempt used about 0.0489 actual GPU-hours, so
+  cumulative actual allocation would remain at or below approximately 1.632
+  GPU-hours even if this follow-up reaches its hard limit.
+- Concurrent jobs: one; no array, DDP, seeds, training/evaluation, matrix, follow-on
+  cell, or automatic resubmission.
+- New immutable output root, currently absent:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_v2_1fe651700bd0`.
+- Logs:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s01_zip_gate_%j.{out,err}`.
+- Failed output root `s01_zip_full_gate_011e4640d263` is retained read-only as
+  negative evidence and will not be reused or removed.
+
+Exact proposed submission:
+
+```bash
+test "$(git rev-parse HEAD)" = "1fe651700bd06a07707307c60ad4e31cc9d1e0ba" && \
+test -z "$(git status --short --untracked-files=no -- \
+  fl_v3/src/fl_v3/data/nuscenes \
+  fl_v3/scripts/build_nuscenes_cache.py \
+  fl_v3/scripts/s01_nuscenes_zip_manifest.py \
+  fl_v3/scripts/s01_nuscenes_zip_audit.py \
+  fl_v3/scripts/s01_nuscenes_zip_benchmark.py \
+  fl_v3/scripts/run_s01_nuscenes_zip_full_gate.sh)" && \
+test ! -e "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_v2_1fe651700bd0" && \
+test -z "$(squeue -u "$USER" -h -o '%i %j' | \
+  awk '$2 ~ /flv3_s01_zip/ {print}')" && \
+sbatch --time=01:35:00 \
+  --export=ALL,S01_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_v2_1fe651700bd0 \
+  fl_v3/scripts/run_s01_nuscenes_zip_full_gate.sh
+```
+
+## Interpretation boundary
+
+A pass would establish that every official train/val path requested by the 10-sweep
+pipeline resolves, all cross-archive repeated paths have matching size/CRC metadata,
+all ten archives serve a real payload sentinel, repeated decoded hashes are stable,
+and bounded loader wait/throughput is measured for this exact runtime.
+
+It would not mean every payload was read/CRC-scanned, nor establish model/GPU-step
+readiness, scientific quality, metrics, FL/attack/defense behavior, or publication
+claims. Independent S01-R remains required after results are committed.
+
+## Execution record — successful v2 follow-up 332651
+
+- Submitted exactly once after the owner approval above; no concurrent S01 job or
+  automatic resubmission.
+- Job/node: `332651` / `n574` (`aarch64`).
+- Submit/start/end: `2026-07-11T05:10:26` / `05:10:28` / `05:15:57`.
+- State/elapsed/exit: `COMPLETED`, `00:05:29`, `0:0`.
+- Actual allocation: approximately 0.0914 GPU-hours; cumulative actual allocation
+  for jobs 330409, 332648, and 332651 was approximately 0.1402 GPU-hours.
+- Manifest: ten archives, 417,774,430,886 archive bytes, 2,631,093 occurrences,
+  2,631,084 unique members, nine duplicate occurrences. The only repeated path was
+  `LICENSE`, present once in each archive with size 25,319 and CRC `48f670e8`.
+- Coverage: 538,695/538,695 references resolved, 534,532 unique referenced members,
+  zero missing paths; 204,894 camera, 34,149 key LiDAR, and 299,652 previous-sweep
+  references. All ten real archive sentinels passed.
+- Loader determinism digest
+  `4e46534f92c7979c04667a72f8a6dd0b9c61bfe0a14808b5debb85c34e0b54f7`
+  matched every 0/2/4/8-worker repeat.
+- First-repeat throughput at 0/2/4/8 workers was
+  18.94/46.81/89.08/154.36 samples/s; complete wait distributions and warm-repeat
+  values are in `RESULTS.md` and the profile JSON.
+- Batch-step resources: `MaxRSS=11048512K`, `MaxVMSize=71370624K`,
+  `MaxDiskRead=21058.98M`, `MaxDiskWrite=6392.35M`, `TotalCPU=05:40.946`.
+- Output root:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_v2_1fe651700bd0`
+  (approximately 1.3 GiB). No shared-dataset write or extraction occurred.
+- Artifact/log hashes and interpretation limits are recorded in `RESULTS.md`.

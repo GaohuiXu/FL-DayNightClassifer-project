@@ -147,11 +147,12 @@ decode images through `BytesIO`, and reopen once after a bad handle. S01 records
 stored-member offsets once and uses `pread`+CRC at runtime, avoiding a full Python
 `ZipFile` member dictionary in every worker.
 
-This implementation is not yet an end-to-end full-data PASS. The exhaustive shared
-manifest scan, 100% train/val reference coverage, multi-worker repeated-read gate,
-and real full-data loader profile require an owner-approved S01 `RUN_REQUEST.md` and
-independent S01-R review. Do not extract/duplicate the dataset or submit those jobs
-without that exact permission.
+Approved v2 full gate `332651` completed the exhaustive shared manifest scan, 100%
+train/val path-coverage audit, ten-archive payload sentinels, and deterministic
+0/2/4/8-worker loader profile. This is an engineering data-path result, not model or
+scientific readiness. Dependency-backed directory/ZIP decoded parity and
+independent S01-R review remain required. Do not extract/duplicate the dataset or
+submit further jobs without exact permission.
 
 A bounded one-archive GH200 engineering smoke (`Slurm 330409`, 2026-07-10) passed:
 module/table discovery, four real samples with all six cameras plus keyframe and
@@ -166,8 +167,25 @@ The first approved ten-archive gate (`Slurm 332648`, 2026-07-11) stopped during
 across archives. This is a negative result, not evidence of corrupt payloads. The
 v2 schema records all occurrences, permits only cross-archive copies with matching
 size+CRC, routes to the lowest archive deterministically, and still rejects
-conflicting copies and within-archive duplicates. The complete v2 gate has not yet
-been approved or run.
+conflicting copies and within-archive duplicates. The follow-up below validates
+that correction against the complete shared trainval archive set.
+
+The exact v2 follow-up (`Slurm 332651`, commit `1fe651700bd0`, 2026-07-11)
+completed in `00:05:29`:
+
+- 2,631,093 member occurrences and 2,631,084 unique members across 417,774,430,886
+  archive bytes; the nine duplicate occurrences are the identical `LICENSE` entry
+  present in all ten archives;
+- all 538,695 official train/val pipeline references resolved (204,894 camera,
+  34,149 key LiDAR, 299,652 previous sweeps), with zero missing paths;
+- ten real archive payload sentinels passed CRC;
+- decoded determinism hashes matched across 0/2/4/8 workers and both repeats;
+- measured sample rates were 18.94/46.81/89.08/154.36 samples/s for the first
+  repeat at 0/2/4/8 workers. These are batch-size-1 data-loader measurements, not
+  end-to-end model-step data-wait percentages.
+
+Exact artifacts and hashes live under the S01 output root recorded in
+`usenix27_orchestra/handoffs/S01/RESULTS.md`.
 
 The code no longer defaults to the old Alvis/Mimer path. Provide the dataroot
 through either:
