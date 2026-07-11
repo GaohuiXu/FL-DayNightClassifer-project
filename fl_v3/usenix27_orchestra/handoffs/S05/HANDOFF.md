@@ -9,12 +9,15 @@
 - Source branch named by kickoff: `codex/s00-orchestra-ledger`.
 - Expected/observed startup mode: clean detached HEAD at the exact base.
 - Owner-authorized worker branch: `codex/s05-centerhead-decode`.
-- Implementation/test commit:
+- Original implementation/test commit:
   `9fd3281651ef006a175ed9462e7bf1eaf3437357`.
+- Scoped review-remediation implementation/test commit:
+  `753944c199ceeace160732218f1b16dfdd15ac21`.
 - Final delivery SHA: the commit containing this handoff; returned to S00 in the
   task response because a commit cannot embed its own SHA without changing it.
-- Worker self-assessment: **PASS for the scoped implementation and static gates;
-  runtime Torch/pytest execution and full-stack integration remain NOT RUN**.
+- Worker self-assessment after scoped remediation: **PASS for the three requested
+  source findings and static gates; fresh independent re-review, runtime
+  Torch/pytest execution, and full-stack integration remain pending/NOT RUN**.
   This is not an independent review, S07-B PASS, model-readiness PASS, or
   scientific PASS.
 
@@ -48,6 +51,41 @@ top-K. Forbidden interpretation: multi-class decode is element-wise identical to
 the official coder. Official task-wide NMS can still suppress an overlapping
 lower-priority box from another class, and the task post-NMS budget remains 83;
 O-018 removes candidate starvation, not those official NMS semantics.
+
+## Independent review and scoped remediation
+
+Independent S05-R reviewed worker delivery
+`4561d3ef4d5dd1dcbfe71fdf0ca1eb38d61257d9` and returned
+**CHANGES-REQUESTED** in review commit
+`c81826251349ede7c514950df785e4fe05d60192`. The exact `REVIEW.md` SHA-256 is
+`270d47c498af7aaaeef1af535be7513223bd6793c933b9ca721aed223d0a79e5`.
+The findings and their closure in remediation commit `753944c` are preserved:
+
+1. **P1 forced-FP32 decode.** The original code applied sigmoid/top-K directly
+   to fp16 heatmaps. Remediation explicitly promotes every task head field to
+   FP32 before sigmoid, strict thresholding, per-class top-K, regression decode,
+   NMS input, and returned scores/velocity. Hostile fixtures use adjacent fp16
+   logits `-1.9453125/-1.9443359375` whose rounded fp16 sigmoids tie but whose
+   FP32 sigmoids remain distinct, plus adjacent fp16 logits bracketing the strict
+   `0.1` threshold. This aligns the active-AMP decode boundary with the pinned
+   MIT `force_fp32` contract while retaining O-018 no-starvation semantics and
+   the prohibition on multi-class exact-parity claims.
+2. **P1 submission order.** The original equal-score content key omitted
+   `velocity` and `attribute_name`, allowing official TP-error pairing to follow
+   input order for duplicate geometry. Remediation adds both serialized fields
+   to the key. The forward/reverse hostile fixture uses identical
+   score/class/geometry with `(0,0)/vehicle.parked` and
+   `(5,0)/vehicle.moving` and requires byte-equivalent result dictionaries.
+3. **P2 exported NMS validation.** The original public helpers could accept a
+   single invalid box without reaching pairwise geometry validation and treated
+   non-positive budgets incorrectly. Remediation validates full canonical
+   `(x,y,z,l,w,h,yaw)` finiteness and positive `(l,w,h)` before every early
+   return/selection, requires aligned input lengths, rejects non-positive pre/post
+   budgets, and adds NaN-yaw, zero/negative dimension, and zero/negative budget
+   fixtures for both exported helpers.
+
+No other review finding was reinterpreted or waived. Runtime execution remains a
+fresh re-review requirement rather than retroactive PASS evidence.
 
 ## Frozen reference and exact semantics
 
@@ -116,6 +154,8 @@ explicit S07-B integration requirement below.
   `(cx,cy,cz,l,w,h,yaw)` plus LiDAR-frame `(vx,vy)`;
 - inclusive post-center-range and finite/positive-dimension filtering;
 - official task-wide NMS dispatch and deterministic final merge.
+- an explicit forced-FP32 boundary for every incoming head field, including
+  FP32 score and velocity outputs under fp16 AMP head output.
 
 ### Deterministic NMS
 
@@ -125,7 +165,8 @@ explicit S07-B integration requirement below.
   inclusive `<= threshold` suppression;
 - CPU float64 rotated rectangle intersection and task-wide IoU NMS;
 - the same O-018 content order before pre-NMS truncation;
-- explicit pre/post budgets and fail-closed finite/positive geometry checks.
+- explicit positive pre/post budgets and up-front fail-closed validation of full
+  canonical geometry, including single-box/empty early-return paths.
 
 The pure-Python rotated implementation is correctness-first and has not been
 profiled at production candidate volume. S07-B must profile it before a full run;
@@ -143,7 +184,7 @@ performance optimization may not change the frozen geometry/tie fixtures.
 - retain the existing canonical conversion: gravity center to global,
   `size=(w,l,h)`, rigid yaw lift, and rigid LiDAR velocity lift;
 - retain content-defined submission ordering for equal-score permutation
-  invariance.
+  invariance, now including velocity and attribute name in the total key.
 
 ## Files changed
 
@@ -183,8 +224,7 @@ canonical Orchestra documents, S01/S07 artifacts, `fl_v3/collab/`, or `fl_v2/`.
 
 ### Authored but not executed runtime fixtures
 
-The changed test set contains 26 test functions (27 pytest cases because one is
-parameterized) covering:
+The changed test set now contains 31 test functions / 44 pytest cases covering:
 
 - six-task topology, independent two-convolution fields, bias, GN batch isolation;
 - exact class-name mapping including construction vehicle, bus, barrier,
@@ -192,13 +232,18 @@ parameterized) covering:
 - 500 higher-scoring common-class candidates plus one retained tail candidate;
 - equal-score global-class/spatial tie order;
 - single-class official candidate parity;
+- forced-FP32 adjacent-fp16-logit ordering, FP32 score/velocity dtypes, and the
+  strict `0.1` threshold neighbourhood;
 - canonical encode/decode box, yaw, velocity, and class round trip;
 - B=1/B>1 and batch permutation;
 - circle squared-metre boundary, duplicate circle/rotate boxes, task-wide
   cross-class rotate suppression, NMS input permutation, and NMS budgets;
 - known rotated IoUs;
+- exported circle/rotate single-box NaN-yaw and non-positive-dimension rejection,
+  plus zero/negative pre/post budget rejection;
 - local/global/eval round trip, official wlh/velocity/yaw conversion, content
-  permutation, invalid labels/geometry, duplicate samples, and the 500-box cap.
+  permutation including duplicate geometry with different velocity/attribute,
+  invalid labels/geometry, duplicate samples, and the 500-box cap.
 
 The x86_64 login interpreter reports `ModuleNotFoundError` for both `torch` and
 `pytest`. The validated project environment is aarch64/GH200 and cannot be treated
@@ -207,7 +252,7 @@ S05 did not submit Slurm and does **not** claim these runtime fixtures passed.
 Independent S05-R/S07-B should execute them in an authorized dependency-complete
 runtime.
 
-## File hashes at implementation commit
+## File hashes at original implementation commit
 
 | File | SHA-256 |
 |---|---|
@@ -221,6 +266,30 @@ runtime.
 | `tests/test_s05_nms.py` | `bc2b30bdb9c9e3c22ac42d355730d88f8fcb7a359aeb232596190b9b30a2e0c1` |
 | `tests/test_s05_eval_roundtrip.py` | `292fa8bc48b7038444a89a2797c218a2ea0519f82845e1badff135aebc3d8ff8` |
 
+## Scoped remediation provenance and hashes
+
+- Remediation parent (reviewed worker delivery):
+  `4561d3ef4d5dd1dcbfe71fdf0ca1eb38d61257d9`.
+- Remediation implementation commit/tree:
+  `753944c199ceeace160732218f1b16dfdd15ac21` /
+  `dd71827f064b00a998b7213d94ca456dee930be0`.
+- Exact remediation diff SHA-256 (`4561d3e..753944c`):
+  `02627ef26b0f06cdfa7ef9b42a5bd8a95f36e00f3d28fb93304a42dfd1cb1a65`.
+- Full base-through-remediation diff SHA-256 (`372de939..753944c`):
+  `14771e2501b603ac24a8957fe64dec523a45a96b03964e093c3cbb8b4db6c4a9`.
+- `git diff --check 4561d3e..753944c`: PASS, no output.
+- Protected paths `losses.py`, `detector.py`, `training/tasks.py`, `bev_grid.py`,
+  `fl_v3/collab/`, and `fl_v2/`: no remediation diff.
+
+| Remediated file | SHA-256 at `753944c` |
+|---|---|
+| `eval/box_to_global.py` | `08c2abe372b2b0fcbad454dceda6cd49874a7427d470e5e800d7873578db2c4a` |
+| `models/fusion/centerhead_decode.py` | `13d22b6639c48c78efb1f92794dd1ca9e12af20a13d25d9de607a0e8a9aefdbb` |
+| `models/fusion/nms_deterministic.py` | `9adcc7816607fb079d653d96fcdf76fa8e12ef336412485f23c7ebcbd0717962` |
+| `tests/test_s05_centerhead_decode.py` | `12123e37faf35c02d30fc704a05b45e2011ba0ed6c113a3b379548c26a1e0a00` |
+| `tests/test_s05_eval_roundtrip.py` | `08337620e8ffc1de45597868bed7b72351dae1063744bb8bd61d7fd8b51a8ee0` |
+| `tests/test_s05_nms.py` | `3725608b0aac7c528379fee6e66d06b195a75886c7c78f7ab23affe97cc4a284` |
+
 ## Gate checklist
 
 | S05 gate | Worker status | Evidence / boundary |
@@ -228,16 +297,19 @@ runtime.
 | fixed reference/tasks/fields | PASS (code/static) | immutable reference hashes, six independent task heads |
 | no global/cross-class top-K starvation | PASS (code + authored hostile fixture) | per-class 500; no second task K; tail fixture authored, runtime not executed |
 | deterministic tie order | PASS (code + authored fixture) | score/global-ID/flat-index total order |
+| fp16 head / forced-FP32 decode | IMPLEMENTED / RUNTIME NOT RUN | all fields promoted before decode; hostile adjacent-logit and threshold fixtures authored |
 | circle NMS semantics | PASS (code/static) | squared metres, inclusive comparison; runtime fixture pending |
 | rotate NMS geometry/determinism | PASS (actual-source geometry smoke) | known IoUs pass; Torch NMS fixtures not run |
 | duplicate/input permutation | IMPLEMENTED / RUNTIME NOT RUN | circle/rotate and content-permutation fixtures authored |
+| submission metric pairing order | IMPLEMENTED / RUNTIME NOT RUN | velocity/attribute complete key and reverse-input duplicate-geometry fixture authored |
+| exported NMS fail-closed boundary | IMPLEMENTED / RUNTIME NOT RUN | full canonical prevalidation and non-positive budget fixtures authored |
 | box/yaw/velocity encode/decode | IMPLEMENTED / RUNTIME NOT RUN | canonical round-trip fixture authored |
 | local/global/eval/submission conversion | IMPLEMENTED / RUNTIME NOT RUN | class/wlh/yaw/velocity/cap fixtures authored |
 | task-local/global label mapping | PASS (code/static) | explicit name map; no cumulative offset code path |
 | loss/target consistency | INTERFACE FROZEN / INTEGRATION PENDING | regression encoder matches field order; Gaussian/losses.py remained S02-owned |
 | production detector/task wiring | NOT DONE BY CONTRACT | S07-B integration requirement |
 | material compute/scientific metric | NOT RUN / FORBIDDEN | no request or job |
-| independent S05-R | PENDING | worker self-assessment only |
+| independent S05-R | CHANGES-REQUESTED, REMEDIATED, RE-REVIEW PENDING | original review `c818262`; exact three-finding remediation at `753944c` |
 
 ## Required S07-B integration work
 
@@ -264,6 +336,8 @@ loaded as the O-018 model.
 
 - The implementation commit contains a framework-independent six-task CenterHead
   and deterministic candidate/NMS modules matching the recorded O-018 contract.
+- The scoped remediation source explicitly implements pinned forced-FP32 decode,
+  metric-relevant submission ordering, and full exported-NMS fail-closed checks.
 - Candidate selection has no second task-wide top-K and maps task-local classes to
   canonical devkit IDs by name.
 - Static Python compilation, diff hygiene, ownership, and actual-source rotated-IoU
@@ -275,6 +349,8 @@ loaded as the O-018 model.
 - Multi-class decode is element-wise identical to official BEVFusion.
 - The Torch/pytest fixture suite passed; it was not executable locally and no job
   was authorized.
+- S05 is independently accepted: review `c818262` requested changes and the exact
+  remediation still requires fresh independent re-review.
 - Target rendering or multi-task loss is integrated; `losses.py` remained read-only.
 - Detector/tasks/config/checkpoint/full-stack integration is complete.
 - CPU rotate-NMS production performance is acceptable before profiling.
@@ -283,9 +359,11 @@ loaded as the O-018 model.
 
 ## Residual risks and requested S00 action
 
-- Launch independent S05-R from the final durable worker SHA after completeness
-  audit. The reviewer should execute the 27 authored cases in the validated runtime
-  if separately authorized and adversarially compare boundary IoU/tie behavior.
+- Launch a fresh independent S05-R re-review from the final durable worker SHA
+  after completeness audit. The reviewer should inspect the exact remediation diff
+  and execute the 44 authored cases in the validated runtime if separately
+  authorized, with special attention to forced-FP32 boundary behavior, official
+  TP-error pairing, and public NMS early-return validation.
 - Preserve the distinction between pre-NMS candidate no-starvation and official
   task-wide NMS suppression/post-budget behavior.
 - Assign all detector/loss/config integration exclusively to reviewed S07-B/S06
