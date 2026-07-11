@@ -156,8 +156,9 @@ validates the local-header member name, reads duplicate sentinels from their exa
 archive occurrence, and makes future launchers attest the Git/source state inside
 the job. Job `332651`'s `t1.v1` caches remain valid historical coverage evidence
 but must not be consumed by the remediated loader. Dependency-backed real-mini
-directory/ZIP decoded parity, spawn lifecycle execution, and S01-R re-review remain
-required. Do not extract/duplicate the dataset or
+directory/ZIP decoded parity and fork/spawn lifecycle execution passed in focused
+GH200 job `333206` (`56 passed`, zero skipped). S01-R re-review and downstream
+permission-out caller migration remain required. Do not extract/duplicate the dataset or
 submit further jobs without exact permission.
 
 A bounded one-archive GH200 engineering smoke (`Slurm 330409`, 2026-07-10) passed:

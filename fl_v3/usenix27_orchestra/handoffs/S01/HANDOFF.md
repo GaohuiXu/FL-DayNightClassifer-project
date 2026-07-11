@@ -20,16 +20,17 @@
   returned **CHANGES-REQUESTED**. The independent `REVIEW.md` artifact SHA-256 is
   `f69de33eec31e6d9e64c86f1fc30d3d76e17a1e482e65113b2c3ed5174551357`;
   it remains in the separate review worktree and is not modified by S01.
-- This handoff accompanies the remediation candidate. Its exact Git SHA is
-  recorded in the next `RUN_REQUEST.md` audit entry after the local commit,
-  because a commit cannot contain its own final hash.
+- Remediation implementation commit:
+  `54a48f9102fd0de9a9abe97701550740b547e769`. Its exact approved focused-test
+  identity and execution record are in `RUN_REQUEST.md`.
 - Working-tree scope: only S01-owned files listed below.
 - Worker verdict: **FULL-DATA ZIP GATES PASS / S01-R CHANGES REQUESTED / REMEDIATION
-  PENDING FOCUSED GH200 TEST AND RE-REVIEW**. The v2 ten-archive manifest, 100%
+  FOCUSED TESTS PASS / RE-REVIEW PENDING**. The v2 ten-archive manifest, 100%
   train/val reference coverage, real
   archive sentinels, deterministic 0/2/4/8-worker reads, and loader throughput gate
   passed in job `332651` and are not invalidated by the review. Dependency-backed
-  real-mini directory/ZIP decoded parity and spawn lifecycle remain unexecuted.
+  real-mini directory/ZIP decoded parity, fork/spawn lifecycle, cache-depth, and
+  integrity regressions all passed in focused job `333206` (`56 passed`, no skip).
 
 ## Active-session amendment acknowledgement
 
@@ -44,6 +45,11 @@ Received and followed the S00/owner amendment:
    DDP, multi-seed, full scan/profile, epoch/eval, matrix, or auto-resubmit;
 5. recorded job ID, command, logs/artifacts, exit state, and negative results in
    `RESULTS.md`. The smoke is engineering evidence only.
+
+The owner later gave a separate exact approval for remediation commit
+`54a48f9102fd0de9a9abe97701550740b547e769`, one GH200, eight CPUs, walltime
+`00:20:00`, maximum 0.333 GPU-hours, the declared unique output, and no automatic
+resubmission. Focused job `333206` stayed inside that scope and completed once.
 
 ## Implementation summary
 
@@ -119,7 +125,7 @@ Added:
   SHA and runtime source-state hash in-job and writes an execution identity record.
 - `fl_v3/scripts/run_s01_nuscenes_zip_tests.sh` — bounded GH200 focused-test
   launcher for dependency-backed mini parity, lifecycle, integrity, and cache-depth
-  regressions; prepared but not submitted without an exact approved request.
+  regressions; exact approved job `333206` completed successfully.
 - `fl_v3/tests/test_nuscenes_zip_{backend,dataset,info_cache}.py` — stored-ZIP
   safety/integrity, directory/ZIP byte+decoded parity, keyframe/10-sweep routing,
   fork/spawn/persistent lifecycle, module layout, and no-payload-probe cache tests.
@@ -187,15 +193,15 @@ Approved full-data evidence is in `RESULTS.md`:
 | Canonical module and `NUSCENES_DATA_DIR` | PASS (full real) | job 332651 resolved module root and `trainval/` tables, 34,149 sample metadata |
 | Preserve directory mode | PASS (implementation/static) | directory store retained; existing dataset paths remain supported |
 | Manifest trainval01..10 | PASS (full real) | 2,631,093 occurrences, 2,631,084 unique; only repeated path is identical `LICENSE` in all ten archives |
-| Worker-safe lazy handles/reopen | PASS (bounded real) | stable two persistent PIDs, per-process state, expected one post-fork reset, no epoch reopen |
+| Worker-safe lazy handles/reopen | PASS (bounded real + focused mini) | job 330409 persistent PIDs plus job 333206 parent-open fork/spawn and repeated persistent-worker lifecycle checks |
 | Six cameras/key LiDAR/requested sweeps use byte readers | PASS (full real) | 2,432 decoded 10-sweep sample reads in profile; all reference classes covered |
-| Info cache without extraction | HISTORICAL FULL PASS; t1.v2 REMEDIATION TEST PENDING | job 332651 built t1.v1 train/val 10-sweep caches without extraction; remediated format binds depth and needs focused runtime execution |
-| Directory/ZIP byte and decoded-array parity | IMPLEMENTED, NOT EXECUTED | synthetic/mini parity tests added; dependency-backed GH200 execution pending |
+| Info cache without extraction | HISTORICAL FULL PASS; t1.v2 FOCUSED PASS | job 332651 built t1.v1 train/val caches without extraction; job 333206 verified t1.v2 depth binding/rejection on mini |
+| Directory/ZIP byte and decoded-array parity | PASS (real mini) | job 333206 compared two deterministic real mini samples including scene start and full 10-sweep history |
 | 100% train/val referenced-member coverage | PASS | 538,695/538,695 resolved, 0 missing, cache/metadata identical, ten archive sentinels |
-| Deterministic repeated multi-worker reads | PASS (full real) | one digest across 0/2/4/8 workers and two repeats |
+| Deterministic repeated multi-worker reads | PASS (full real + focused fork/spawn) | one digest across 0/2/4/8 workers in job 332651; persistent fork/spawn repeats passed in job 333206 |
 | No extraction/shared writes | PASS for executed scope | external output roots and fail-closed path guard; full manifest mode 0444 |
 | Full-data throughput/data-wait | PASS (loader-only) | 18.94 to 154.36 samples/s first-repeat range; complete p50/p95 in RESULTS |
-| Independent S01-R | CHANGES-REQUESTED | review of `ce2e77284b29`; six findings addressed in candidate, focused test and re-review pending |
+| Independent S01-R | CHANGES-REQUESTED; RE-REVIEW PENDING | review of `ce2e77284b29`; six findings addressed, job 333206 passed, new durable baseline still needs re-review |
 
 ## Coverage counts and hashes
 
@@ -254,8 +260,8 @@ Exact request identity and artifact/log hashes are in `RUN_REQUEST.md` and
   can consume remediated caches. Other permission-out callers that omit
   `n_sweeps` remain fail-closed: they load only when exactly one depth exists, and
   dataset construction rejects a config/cache depth mismatch.
-- Real directory/ZIP parity and spawn behavior remain dependent on executing the
-  focused test suite in a compatible environment.
+- Focused job `333206` closed the previously unexecuted real-mini parity and spawn
+  behavior gap. It does not replace an end-to-end trainval training-loader run.
 - Manifest and cache provenance must be frozen and hashed in every later resolved
   run; a manifest for only one archive must fail a full-data job.
 
@@ -274,7 +280,7 @@ Forbidden claims:
 
 - final S01 integration PASS or production training readiness before S01-R;
 - every one of 2.63 million payloads was read and CRC-checked;
-- executed real directory/ZIP parity;
+- trainval-scale directory/ZIP decoded parity (job 333206 proves real mini only);
 - end-to-end model-step data-wait percentage, long-epoch/multi-job contention, or
   absence of random-read amplification;
 - any model-quality, metric, attack/defense, generalization, or publication claim.
@@ -283,11 +289,10 @@ Forbidden claims:
 
 1. The owner authorized the six-finding remediation and a local commit on
    `codex/s01-nuscenes-zip-backend`; no merge or push permission is implied.
-2. After that commit, approve or reject the exact bounded GH200 focused-test entry
-   appended to `RUN_REQUEST.md`. It uses mini only and does not rerun the exhaustive
-   trainval gate.
-3. If the focused test passes, update the durable result package and ask the
-   independent S01-R task to re-review the new worker SHA. Until re-review, keep
+2. Exact focused job `333206` passed. Authorize a local results/handoff commit so
+   the independent S01-R task can re-review one durable worker SHA; no push or merge
+   is implied.
+3. Ask the independent S01-R task to re-review that new worker SHA. Until re-review, keep
    S01/S07 readiness blocked and preserve all forbidden interpretations above.
 4. Assign the permission-out `build_gt_database.py` cache-path migration to S00 or
    its owning integration session; S01 did not edit that file.

@@ -400,3 +400,138 @@ claims. Independent S01-R remains required after results are committed.
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_v2_1fe651700bd0`
   (approximately 1.3 GiB). No shared-dataset write or extraction occurred.
 - Artifact/log hashes and interpretation limits are recorded in `RESULTS.md`.
+
+---
+
+# S01 RUN_REQUEST — S01-R remediation focused tests
+
+## Approval state
+
+- **Status:** `APPROVED_FOR_THIS_EXACT_FOCUSED_TEST`.
+- **Exact owner approval:** the owner message in the active S01 task on 2026-07-11
+  approved commit `54a48f9102fd0de9a9abe97701550740b547e769`, one GH200,
+  eight CPUs, walltime `00:20:00`, maximum 0.333 GPU-hours, the specified output
+  directory, and no automatic resubmission.
+- Requested execution basis: owner-specific approval for this exact entry plus
+  standing bounded engineering-smoke policy `O-009`.
+- Prior approvals for jobs `330409`, `332648`, and `332651` are exhausted and do
+  not authorize this job or output root.
+
+## Immutable execution identity
+
+- Branch: `codex/s01-nuscenes-zip-backend`.
+- Exact remediation commit:
+  `54a48f9102fd0de9a9abe97701550740b547e769`.
+- Focused-test runtime source-state SHA-256:
+  `260560ef3c5904825ad384825ec6755877748bbb403f65b5d5d907f1b7db1cda`.
+- Source-state set: every regular file under
+  `fl_v3/src/fl_v3/data/nuscenes/` (excluding `__pycache__`), the four exact test
+  files named below, and `fl_v3/scripts/run_s01_nuscenes_zip_tests.sh`.
+- No model, checkpoint, resolved model config, scientific seed, training,
+  evaluation, shared trainval archive, or old full-gate cache is involved.
+
+## Exact scope and acceptance
+
+Run exactly these four focused pytest files in the validated Arrhenius environment:
+
+1. `fl_v3/tests/test_nuscenes_zip_backend.py`;
+2. `fl_v3/tests/test_nuscenes_zip_dataset.py`;
+3. `fl_v3/tests/test_nuscenes_zip_info_cache.py`;
+4. `fl_v3/tests/test_nuscenes_info_cache.py`.
+
+The only real dataset input is the existing extracted mini root
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini`.
+The parity test deterministically selects two `mini_train` keyframes (one scene
+start and one with nine previous LiDAR sweeps), copies only their six-camera,
+key-LiDAR, and requested sweep payloads into small stored ZIP fixtures under the
+job's node-local pytest temporary directory, and compares bytes plus decoded
+arrays against directory mode. Cache tests traverse mini metadata and decode only
+their declared bounded fixtures/selected samples. All other archives and payloads
+are synthetic temporary fixtures. The shared trainval ZIP set is neither opened
+nor scanned.
+
+Acceptance requires:
+
+- every selected test passes with no failure/error;
+- real-mini directory/ZIP bytes, images, key-LiDAR, and 10-sweep decoded arrays
+  match;
+- repeated persistent two-worker reads are deterministic under both available
+  `fork` and `spawn`, with PID-owned handles and stable lifecycle counts;
+- `t1.v2` filenames, sidecars, per-record depth, hash, ambiguity checks, and
+  2-sweep-versus-10-sweep rejection pass;
+- same-length local-header filename mutation is rejected;
+- duplicate-path sentinels open and CRC-check each exact archive occurrence;
+- in-job Git SHA and runtime source-state hash equal the values above;
+- JUnit, pytest log, execution identity, runtime file hashes, and artifact hashes
+  are written to the unique output root.
+
+The job fails closed on identity/hash drift, output collision, mini-root failure,
+pytest failure/error, missing required artifact, or walltime. A platform-inapplicable
+start method may be reported as a pytest skip; any other skip must be treated as a
+negative result requiring review. There is no automatic retry.
+
+## Resources, budget, output, and exact command
+
+- Nodes: 1; GPU: one GH200; CPUs: 8.
+- Walltime hard limit: `00:20:00`.
+- Maximum new allocation: 0.333 GPU-hours.
+- Expected elapsed allocation: approximately 0.05-0.17 GPU-hours (3-10 minutes),
+  planning estimate only.
+- Previous three S01 jobs consumed approximately 0.1402 GPU-hours, so worst-case
+  cumulative S01 allocation after this job is approximately 0.4735 GPU-hours.
+- Concurrent S01 jobs: at most one; no array, DDP, seed sweep, full trainval scan,
+  throughput profile, model step, epoch/eval, matrix, or automatic resubmission.
+- Unique output root, verified absent before submission and created by job 333206:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_review_fixes_54a48f9102fd`.
+- Logs:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s01_zip_tests_%j.{out,err}`.
+- Pytest-created ZIP/cache fixtures live only in the compute node's temporary
+  directory; the shared dataset is read-only and no extraction occurs there.
+
+Exact proposed submission, once the owner approves this immutable entry:
+
+```bash
+test "$(git rev-parse HEAD)" = "54a48f9102fd0de9a9abe97701550740b547e769" && \
+test -z "$(git status --short --untracked-files=no -- \
+  fl_v3/src/fl_v3/data/nuscenes \
+  fl_v3/tests/test_nuscenes_zip_backend.py \
+  fl_v3/tests/test_nuscenes_zip_dataset.py \
+  fl_v3/tests/test_nuscenes_zip_info_cache.py \
+  fl_v3/tests/test_nuscenes_info_cache.py \
+  fl_v3/scripts/run_s01_nuscenes_zip_tests.sh)" && \
+test ! -e "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_review_fixes_54a48f9102fd" && \
+test -z "$(squeue -u "$USER" -h -o '%i %j' | \
+  awk '$2 ~ /flv3_s01_zip/ {print}')" && \
+sbatch --time=00:20:00 --cpus-per-task=8 \
+  --export=ALL,EXPECTED_S01_SHA=54a48f9102fd0de9a9abe97701550740b547e769,EXPECTED_S01_STATE_HASH=260560ef3c5904825ad384825ec6755877748bbb403f65b5d5d907f1b7db1cda,S01_MINI_DATAROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini,S01_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_review_fixes_54a48f9102fd \
+  fl_v3/scripts/run_s01_nuscenes_zip_tests.sh
+```
+
+## Interpretation boundary
+
+A pass would close the dependency-backed mini parity/lifecycle execution finding
+and exercise the other five remediation regressions on GH200. It would not rerun or
+retroactively attest job `332651`, produce a new full trainval `t1.v2` cache, prove
+every shared payload's CRC, measure full-data/model-step throughput, establish
+training readiness, or support any model, metric, FL, attack/defense, scientific,
+or publication claim. Independent S01-R re-review of the new worker SHA remains
+mandatory.
+
+## Execution record — successful focused job 333206
+
+- Submitted exactly once after the exact owner approval above; no concurrent S01
+  job and no automatic resubmission.
+- Job/node: `333206` / `n405` (`aarch64`).
+- Submit/start/end: `2026-07-11T08:32:21` / `08:32:22` / `08:33:49`.
+- State/elapsed/exit: `COMPLETED`, `00:01:27`, `0:0`.
+- Actual allocation: approximately 0.0242 GPU-hours; cumulative S01 actual
+  allocation approximately 0.1644 GPU-hours.
+- In-job identity matched exact commit
+  `54a48f9102fd0de9a9abe97701550740b547e769` and exact runtime source-state hash
+  `260560ef3c5904825ad384825ec6755877748bbb403f65b5d5d907f1b7db1cda`.
+- Pytest/JUnit: 56 tests passed in 13.18 seconds; zero failures, errors, or skips.
+- Output root and logs are the exact paths declared above. Artifact/log hashes,
+  focused acceptance details, resources, negative findings, and interpretation
+  limits are recorded in `RESULTS.md`.
+- No shared trainval archive was opened/scanned, no shared-dataset write or
+  extraction occurred, and no model/scientific work ran.

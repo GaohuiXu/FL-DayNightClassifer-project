@@ -2,9 +2,9 @@
 
 ## Overall verdict
 
-**Full-data ZIP coverage/determinism/loader-profile gates PASS on v2; S01-R returned
-CHANGES-REQUESTED and final S01 remains pending a focused GH200 remediation test and
-re-review.** Job `332651` completed all declared ten-archive/cache/coverage/
+**Full-data ZIP coverage/determinism/loader-profile gates PASS on v2; focused S01-R
+remediation tests PASS; final S01 remains pending independent re-review.** Job
+`332651` completed all declared ten-archive/cache/coverage/
 sentinel/profile stages. Job `332648` remains a preserved negative v1 result, and
 job `330409` is the bounded lifecycle smoke. None is scientific/model evidence.
 
@@ -320,11 +320,11 @@ the shared stored archives; all ten archives serve real CRC-checked bytes; the
 declared loader is deterministic across 0/2/4/8 workers/repeats; and the table above
 is measured loader-only performance for this exact GH200 runtime.
 
-Still forbidden: every one of 2.63 million payloads received a CRC read; real-mini
-directory/ZIP decoded parity has been executed in the dependency-complete runtime;
-end-to-end model/GPU data-wait percentage; training or scientific readiness; model
-quality; and any metric, FL, attack/defense, or publication claim. Independent
-S01-R re-review remains required.
+Still forbidden: every one of 2.63 million payloads received a CRC read;
+trainval-scale directory/ZIP decoded parity; end-to-end model/GPU data-wait
+percentage; training or scientific readiness; model quality; and any metric, FL,
+attack/defense, or publication claim. Focused job 333206 establishes real-mini
+parity only. Independent S01-R re-review remains required.
 
 ---
 
@@ -347,10 +347,65 @@ throughput observations. It identified six follow-ups:
 6. Correct the bounded-smoke report hash to
    `e882b490c8bd772c6addfdee20c2c369a2a83be7afddbf096bad9c51fbac79df`.
 
-The remediation candidate implements items 2–6 and provides a bounded focused-test
-launcher for item 1. Cache format `t1.v2` binds sweep depth in the filename,
+Remediation commit `54a48f9102fd0de9a9abe97701550740b547e769` implements
+items 2–6 and provides a bounded focused-test launcher for item 1. Cache format
+`t1.v2` binds sweep depth in the filename,
 metadata, every sample record, and canonical hash. The full-gate `t1.v1` cache
 artifacts remain historical evidence and are deliberately rejected as remediated
-production cache inputs. No remediation Slurm job has been submitted yet; its exact
-commit, source hash, resources, command, and output root must be recorded and
-explicitly approved in `RUN_REQUEST.md` first.
+production cache inputs. Exact focused job `333206` passed all 56 selected tests
+with no failures, errors, or skips. Independent re-review remains required.
+
+---
+
+## S01-R remediation focused job 333206 — PASS
+
+- Exact commit: `54a48f9102fd0de9a9abe97701550740b547e769`.
+- Runtime source-state SHA-256:
+  `260560ef3c5904825ad384825ec6755877748bbb403f65b5d5d907f1b7db1cda`.
+- Job/node: `333206` / `n405` (`aarch64`).
+- Submit/start/end: `2026-07-11T08:32:21` / `08:32:22` / `08:33:49`.
+- State/elapsed/exit: `COMPLETED`, `00:01:27`, `0:0`.
+- Allocation: one GH200, eight CPUs; actual approximately 0.0242 GPU-hours;
+  cumulative S01 actual allocation approximately 0.1644 GPU-hours.
+- Pytest: `56 passed in 13.18s`; JUnit reports 56 tests, zero failures, errors, or
+  skips.
+
+The exact real-mini parity test selected one scene-start `mini_train` keyframe and
+one with nine previous LiDAR sweeps. Directory and generated stored-ZIP bytes,
+decoded six-camera arrays, key-LiDAR, accumulated 10-sweep points, and GT arrays
+matched. Both fork and spawn passed parent-open/child-handle ownership and repeated
+persistent two-worker determinism tests. The `t1.v2` depth-binding, ambiguity,
+sidecar, and 2-versus-10-sweep rejection tests passed, as did same-length
+local-header mutation rejection and exact-archive duplicate-sentinel reads.
+
+In-job identity attestation recorded the exact Git SHA and source-state hash above.
+This is new provenance for job `333206`; it does not retroactively attest job
+`332651`.
+
+Output root:
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_review_fixes_54a48f9102fd`.
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `execution_identity.json` | 442 | `a41970d8b84c575bfb90bde0f0e65d6801b5ef615068d13303addfd0998ef865` |
+| `runtime_source_sha256s.txt` | 1,950 | `260560ef3c5904825ad384825ec6755877748bbb403f65b5d5d907f1b7db1cda` |
+| `pytest.log` | 100 | `641ff631b532d33d50cdb8805d2ec88df1ed70e96f11a789e21a09218238ac3e` |
+| `pytest.junit.xml` | 7,465 | `38b199b092bdcaecd49a2fde475a0aff276b9a344652aadd4f524e3d84fcd1bc` |
+| `sha256sums.txt` | 787 | `e60dba68c7065a83c84bd6c5eeb02a535042e9416111cbdf672aa158ce5bf83a` |
+
+Logs:
+
+- stdout: 1,292 bytes, SHA-256
+  `bc1547d4b400679915f1a022a025afc9e48ad1af6c7efc908e6d80d68e989544`;
+- stderr: 123 bytes, SHA-256
+  `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57`.
+
+Stderr contained only the normal module-purge notice. Batch-step resources were
+`MaxRSS=540M`, `MaxVMSize=6279744K`, `MaxDiskRead=60.65M`,
+`MaxDiskWrite=0.34M`, and `TotalCPU=00:19.221`.
+
+Allowed: the six review remediations are implemented and the declared focused
+mini parity/lifecycle/integrity regressions pass on this exact GH200 source state.
+Forbidden: retroactive provenance for job 332651, a new full trainval t1.v2 cache,
+all-payload CRC coverage, trainval/model-step readiness, model quality, metrics,
+FL/attack/defense behavior, or any scientific/publication claim.

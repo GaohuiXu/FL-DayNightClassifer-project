@@ -160,8 +160,10 @@ member names, address exact-archive duplicate sentinels, and add in-job source
 attestation. The remediation candidate uses cache format `t1.v2`, whose filename,
 metadata, records, and content hash all bind the requested sweep depth; historical
 job `332651` `t1.v1` caches remain coverage evidence but are not production inputs
-to the remediated loader. Full-data training readiness still requires the focused
-GH200 test and independent S01-R re-review. Do not
+to the remediated loader. Focused GH200 job `333206` subsequently passed all 56
+dependency-backed mini parity, fork/spawn lifecycle, cache-depth, and ZIP-integrity
+tests with zero skips. Full-data training readiness still requires independent
+S01-R re-review and downstream migration of permission-out `t1.v1` callers. Do not
 extract or duplicate the full dataset into project storage without explicit owner
 permission. The old
 `/mimer/NOBACKUP/Datasets/NuScenes_v1.0` path is not an Arrhenius data path.
