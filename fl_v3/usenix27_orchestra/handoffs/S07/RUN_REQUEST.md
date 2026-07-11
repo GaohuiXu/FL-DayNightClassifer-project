@@ -91,17 +91,22 @@ walltime. There is no automatic retry.
 - Durable S07-A-R review:
   `976206405ccf7d2c864d318f5ee27302bdf59059` (`CHANGES-REQUESTED`).
 - Exact P1-remediated implementation candidate (`NEW_IMPL_SHA`):
-  `c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe`.
+  `44cefd06bc815e893919d95c754896711dba3402`.
 - Exact cache-launcher source-state SHA-256:
-  `6a4ad312b41ff161aa07f7628176ab74f550768f8b15c335314c5d262cbec1c2`.
+  `1322c87255bc350323de108e347eea1e54daeb12b59fe1889cb15006f79c3884`.
 - The 23-file set was recomputed identically from the clean worktree and immutable
   Git blobs. It includes every tracked Python file under
   `fl_v3/src/fl_v3/data/nuscenes/`, package initializers,
   `fl_v3/src/fl_v3/data/partition.py`, `fl_v3/src/fl_v3/utils/runtime.py`, the
   cache builder/launcher/environment bootstrap, and dependency/config manifests.
+- Source-list sorting alone is locked with `LC_ALL=C`. The exact full-cache file-
+  list SHA-256 is
+  `eebaaf9528a56004b63cc2cb37fe6d312b75a52df450f374307e8e559cb1cbb5`;
+  this list and aggregate hash matched under ambient `C.UTF-8`, `en_US.UTF-8`, and
+  `sv_SE.UTF-8`. No global Python/cache runtime locale is changed.
 - Eventual executor contract: after separate owner approval, the owner/Codex task
   UI provisions a fresh isolated worktree at
-  `detached@c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe`. The executor verifies a
+  `detached@44cefd06bc815e893919d95c754896711dba3402`. The executor verifies a
   clean worktree, empty branch name, and exact HEAD before submission. This
   request does not name, reuse, or depend on the current worker worktree. No
   execution worktree has been created by this remediation.
@@ -121,6 +126,9 @@ walltime. There is no automatic retry.
   substitute for this runtime record.
 - The obsolete tuple `ed31f23` / `7ddb06...` /
   `s07a_cache_t1v2_ed31f23b2ee1` is permanently superseded and unapproved.
+- The later c8dd/6a4 tuple is also superseded before submission: its ambient-locale
+  source-list sorting was not reproducible across executor locale. No cache job
+  was submitted from either superseded request.
 
 ### Accepted immutable manifest input
 
@@ -143,7 +151,7 @@ walltime. There is no automatic retry.
   GPU allocation is for the validated aarch64 environment; cache construction is
   metadata/CPU/I/O work. One job only, no array/DDP/retry/follow-on.
 - Exact unique output root:
-  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_c8dd920cf3f8`.
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_44cefd06bc81`.
   It was confirmed absent during this local remediation; this is a proposed path,
   not a created output.
 - Logs:
@@ -151,12 +159,12 @@ walltime. There is no automatic retry.
 
 ```bash
 test -z "$(git branch --show-current)" && \
-test "$(git rev-parse HEAD)" = "c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe" && \
+test "$(git rev-parse HEAD)" = "44cefd06bc815e893919d95c754896711dba3402" && \
 test -z "$(git status --short)" && \
-test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_c8dd920cf3f8 && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_44cefd06bc81 && \
 test -z "$(squeue -u "$USER" -h -o '%i %j' | awk '$2 ~ /flv3_s07a_cache_t1v2/ {print}')" && \
 sbatch --time=00:30:00 --cpus-per-task=8 \
-  --export=ALL,EXPECTED_S07A_SHA=c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe,EXPECTED_S07A_STATE_HASH=6a4ad312b41ff161aa07f7628176ab74f550768f8b15c335314c5d262cbec1c2,S07A_ACCEPTED_MANIFEST=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_v2_1fe651700bd0/nuscenes_trainval_zip_manifest.sqlite,S07A_ACCEPTED_MANIFEST_HASH=023f72b4220bb0db587be00920308bf9074384740fe186d243be92f9a53119f6,S07A_ACCEPTED_MANIFEST_FILE_SHA256=228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb,S07A_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_c8dd920cf3f8 \
+  --export=ALL,EXPECTED_S07A_SHA=44cefd06bc815e893919d95c754896711dba3402,EXPECTED_S07A_STATE_HASH=1322c87255bc350323de108e347eea1e54daeb12b59fe1889cb15006f79c3884,S07A_ACCEPTED_MANIFEST=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_v2_1fe651700bd0/nuscenes_trainval_zip_manifest.sqlite,S07A_ACCEPTED_MANIFEST_HASH=023f72b4220bb0db587be00920308bf9074384740fe186d243be92f9a53119f6,S07A_ACCEPTED_MANIFEST_FILE_SHA256=228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb,S07A_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_44cefd06bc81 \
   fl_v3/scripts/run_s07a_nuscenes_cache_t1v2.sh
 ```
 
@@ -200,56 +208,57 @@ metrics, FL/attack/defense, generalization, or publication claims.
 
 ---
 
-## C. S07-A-R P1 focused provenance validation — APPROVED ONCE, NOT EXECUTED
+## C. S07-A-R P1 focused provenance validation — PENDING S00 REAPPROVAL
 
 ### Approval state and immutable scope
 
-- **Status:**
-  `APPROVED_ONCE_BY_S00_UNDER_O-009_AND_OWNER_DELEGATION_2026-07-11`.
-- **Approval record:** S00 independently verified the exact immutable request and
-  exercised the owner's temporary 2026-07-11 delegation for reasonable
-  validation-only Slurm jobs. Approval is strictly bound to:
-  - executable `c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe`;
-  - focused source hash
-    `357da48780436aaba3cbc6735e350d446763acc9f6cb8a0bf424728e55a32d0e`;
-  - mini input
-    `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini`;
-  - output root
-    `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_c8dd920cf3f8`;
-  - the exact command below;
-  - one submission, one node, one GH200, eight CPUs, walltime at most
-    `00:15:00`, and at most 0.25 GPU-hours;
-  - no array, DDP, model, full cache, metrics, retry, resubmit, or follow-on.
-- Any change to a bound field invalidates this approval and requires a new exact
-  request. This approval does not alter Section B, which remains
-  `PENDING_OWNER_APPROVAL_DO_NOT_SUBMIT`.
+- **Status:** `PENDING_S00_REAPPROVAL_DO_NOT_SUBMIT`.
+- **Preserved preflight rejection:** the earlier status
+  `APPROVED_ONCE_BY_S00_UNDER_O-009_AND_OWNER_DELEGATION_2026-07-11` was bound to
+  executable `c8dd920...`, focused hash `357da487...`, and output
+  `s07a_provenance_tests_c8dd920cf3f8`. A clean detached executor at c8dd under
+  `LANG=en_US.UTF-8` computed
+  `8de319b624519ae9582be70699eafa6d9ebb8964bc8e8ba548bc67372201475c`
+  because ambient-locale `sort -u` collated the source list differently from
+  S00's `C.UTF-8` preflight. The exact hash guard rejected before `sbatch`; there
+  was no output and the queue was empty. Implementation change invalidates the
+  old one-time approval, which must not be reused or relabeled.
+- Section B remains `PENDING_OWNER_APPROVAL_DO_NOT_SUBMIT`; this replacement
+  focused request does not approve it.
 - This request validates only the remediated GT-cache physical-identity contract
   and its existing directory/ZIP provenance neighbors on real mini plus synthetic
   mutated caches. It does not open shared trainval archives, build full caches,
   run a model, profile, evaluate metrics, or make scientific claims.
-- Exact implementation: `c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe`.
+- Exact implementation: `44cefd06bc815e893919d95c754896711dba3402`.
 - Exact 25-file focused runtime source-state SHA-256:
-  `357da48780436aaba3cbc6735e350d446763acc9f6cb8a0bf424728e55a32d0e`.
+  `2710655b166a78e3af39d6537a5098c916463415d27dd9f5503bb79a533c1531`.
+- Exact C-locale-sorted file-list SHA-256:
+  `90310705f1bac3bcdfba9128deea6aed60a270e811cc62759f1204612d61d913`.
+- Locale regression evidence: file-list and aggregate hashes above matched exactly
+  under ambient `C.UTF-8`, `en_US.UTF-8`, and `sv_SE.UTF-8`. Only the source-list
+  `sort -u` runs with `LC_ALL=C`; the launcher does not change global test/runtime
+  locale.
 - Input mini root:
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini`.
 - Exact fresh output root, confirmed absent and not created:
-  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_c8dd920cf3f8`.
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_44cefd06bc81`.
 - Resources: one submission, one node, one GH200, eight CPUs, walltime at most
   `00:15:00`, maximum 0.25 GPU-hours. No array, DDP, model, full cache, metric,
-  retry, resubmit, or follow-on job is authorized by this request.
+  retry, resubmit, or follow-on job is requested. Nothing may be submitted until
+  S00 reapproves this exact replacement request.
 - Executor: a fresh owner/Codex-UI-provisioned clean
-  `detached@c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe` worktree.
+  `detached@44cefd06bc815e893919d95c754896711dba3402` worktree.
 
 ### Exact command
 
 ```bash
 test -z "$(git branch --show-current)" && \
-test "$(git rev-parse HEAD)" = "c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe" && \
+test "$(git rev-parse HEAD)" = "44cefd06bc815e893919d95c754896711dba3402" && \
 test -z "$(git status --short)" && \
-test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_c8dd920cf3f8 && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_44cefd06bc81 && \
 test -z "$(squeue -u "$USER" -h -o '%i %j' | awk '$2 ~ /flv3_s07a_provenance/ {print}')" && \
 sbatch --time=00:15:00 --cpus-per-task=8 \
-  --export=ALL,EXPECTED_S07A_SHA=c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe,EXPECTED_S07A_PROVENANCE_STATE_HASH=357da48780436aaba3cbc6735e350d446763acc9f6cb8a0bf424728e55a32d0e,S07A_MINI_DATAROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini,S07A_PROVENANCE_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_c8dd920cf3f8 \
+  --export=ALL,EXPECTED_S07A_SHA=44cefd06bc815e893919d95c754896711dba3402,EXPECTED_S07A_PROVENANCE_STATE_HASH=2710655b166a78e3af39d6537a5098c916463415d27dd9f5503bb79a533c1531,S07A_MINI_DATAROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini,S07A_PROVENANCE_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_44cefd06bc81 \
   fl_v3/scripts/run_s07a_provenance_tests.sh
 ```
 

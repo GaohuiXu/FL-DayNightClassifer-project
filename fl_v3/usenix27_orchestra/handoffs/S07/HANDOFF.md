@@ -3,8 +3,8 @@
 ## Session identity and self-assessment
 
 - Session/phase: `S07-A`, reviewed S01 data-foundation integration.
-- Worker self-assessment: **S07-A-R P1 REMEDIATIONS IMPLEMENTED; FOCUSED
-  EXECUTION APPROVED ONCE BUT NOT EXECUTED**. This is not self-approval of the
+- Worker self-assessment: **S07-A-R P1 REMEDIATIONS IMPLEMENTED; LOCALE-STABLE
+  FOCUSED REQUEST PENDING S00 REAPPROVAL**. This is not self-approval of the
   fixes, cache request, or Orchestra integration/scientific acceptance.
 - Initial base: `953bfb57941b5a3660ed650c1a80267cd82245d4`, source branch
   `codex/s00-orchestra-ledger`, expected and observed detached mode.
@@ -34,15 +34,18 @@
   and verdict is `CHANGES-REQUESTED` for two P1 provenance findings.
 - P1 implementation/test/launcher commit:
   `0a89ea1dffdf9597d6330ca15dff01d6c6f15518`.
-- **Current remediation implementation / proposed executable `INT-A_SHA`
-  (`NEW_IMPL_SHA`):**
+- P1 remediation implementation before locale hardening:
   `c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe` (adds zero-failure/error/skip
   JUnit acceptance to the focused launcher on top of `0a89ea1`).
+- **Current remediation implementation / proposed executable `INT-A_SHA`
+  (`NEW_IMPL_SHA`):**
+  `44cefd06bc815e893919d95c754896711dba3402` (locks only source-list sorting to
+  C locale on top of `c8dd920`; it does not change global test/runtime locale).
 - Current full-cache runtime source-state SHA-256 (23 tracked files, recomputed
   from immutable `NEW_IMPL_SHA`):
-  `6a4ad312b41ff161aa07f7628176ab74f550768f8b15c335314c5d262cbec1c2`.
+  `1322c87255bc350323de108e347eea1e54daeb12b59fe1889cb15006f79c3884`.
 - Current focused provenance-test source-state SHA-256 (25 tracked files):
-  `357da48780436aaba3cbc6735e350d446763acc9f6cb8a0bf424728e55a32d0e`.
+  `2710655b166a78e3af39d6537a5098c916463415d27dd9f5503bb79a533c1531`.
 - Final remediation delivery HEAD is the documentation commit containing this
   updated handoff and request. Its exact SHA is returned to S00 in the session
   response and is recoverable with `git rev-parse HEAD`; embedding that commit's
@@ -55,7 +58,7 @@
 No merge into `v3-ad-perception`, push, PR, upload, branch deletion, or worktree
 operation occurred.
 
-## S07-A-R P1 remediation — implementation complete, focused execution approved once
+## S07-A-R P1 remediation — locale-stable implementation, focused reapproval pending
 
 The owner authorized correction of both durable-review findings, scoped commits,
 and preparation of one bounded validation request. No `sbatch`/`srun` has been
@@ -70,6 +73,23 @@ mini input/output/command in RUN_REQUEST Section C, and one node/GH200, eight CP
 at most 15 minutes/0.25 GPU-hours, with no array/DDP/model/full-cache/metrics/
 retry/resubmit/follow-on. Any field change invalidates approval. This record does
 not claim execution and does not approve Section B full-cache materialization.
+
+That approval was never submitted and is now invalid. A clean detached executor
+at `c8dd920` (worktree suffix `e7d0`) rejected the request during preflight under
+`LANG=en_US.UTF-8`: the unfixed `sort -u` produced focused aggregate hash
+`8de319b624519ae9582be70699eafa6d9ebb8964bc8e8ba548bc67372201475c`, while the
+S00 `C.UTF-8` preflight had approved `357da487...`. No `sbatch` ran, no output root
+was created, and the queue remained empty. Because the implementation, source
+hash, and output root changed, the old c8dd/357 approval is void rather than
+reinterpreted.
+
+Commit `44cefd06bc815e893919d95c754896711dba3402` minimally changes both S07-A
+source-attestation functions from ambient-locale `sort -u` to `LC_ALL=C sort -u`.
+It does not export or otherwise change the locale of Python, pytest, cache
+construction, or runtime dependencies. Static reconstruction under `C.UTF-8`,
+`en_US.UTF-8`, and `sv_SE.UTF-8` produced identical lists and aggregate hashes for
+both launchers. The replacement focused request is
+`PENDING_S00_REAPPROVAL_DO_NOT_SUBMIT`; Section B remains pending owner approval.
 
 P1-A is remediated at `NEW_IMPL_SHA`:
 
@@ -172,7 +192,11 @@ both requests remain non-executable without exact owner approval.
    `976206405ccf7d2c864d318f5ee27302bdf59059` without entering this branch.
    The owner-authorized P1 implementation/test/launcher remediation is scoped
    commits `0a89ea1dffdf9597d6330ca15dff01d6c6f15518` and
-   `NEW_IMPL_SHA=c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe`.
+   `c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe`.
+7. S00 recorded then invalidated-before-submission a focused approval after the
+   locale-sensitive executor preflight. Minimal launcher-only implementation
+   commit `NEW_IMPL_SHA=44cefd06bc815e893919d95c754896711dba3402`
+   freezes only source-list collation.
 
 The exact S01 history `011e464 → 1fe6517 → ce2e772 → 54a48f9 → abe5c58` remains
 reachable through the merge second parent. The review branch itself was never
@@ -353,20 +377,29 @@ Local/static:
   the worktree exactly matched recomputation from immutable `ed31f23b...` at
   `7ddb06b3d57ef89be3b67782d90e93d64ddaa567ebd946ceda09910dc17b42f5`.
   Per owner instruction, no pytest or compute was rerun for this remediation.
-- S07-A-R P1 remediation ending at `c8dd920cf3f8...`: `python3 -m py_compile`
+- S07-A-R P1 remediation through `c8dd920cf3f8...`: `python3 -m py_compile`
   passed for `build_gt_database.py` and its test; `bash -n` passed for the full
   cache and new focused provenance launchers; `git diff --check` passed.
 - Login-node `python3 -m pytest -q fl_v3/tests/test_build_gt_database.py` could
   not start because `/usr/bin/python3` has no `pytest`; this is an environment
   limitation, not a PASS or code failure. No login-node result is substituted for
   the pending GH200 focused evidence.
-- The full-cache and focused source hashes were each recomputed both from the clean
-  worktree and from immutable Git blobs at `NEW_IMPL_SHA`; they matched exactly at
-  `6a4ad312...` (23 files) and `357da487...` (25 files), respectively.
+- Locale-hardening commit `44cefd06...`: `bash -n` passed for both changed
+  launchers and `git diff --check` passed. Audit found no other source-list sort
+  in either S07-A attestation path.
+- Under each of `C.UTF-8`, `en_US.UTF-8`, and `sv_SE.UTF-8`, the full-cache
+  list/hash was exactly
+  `eebaaf9528a56004b63cc2cb37fe6d312b75a52df450f374307e8e559cb1cbb5` /
+  `1322c87255bc350323de108e347eea1e54daeb12b59fe1889cb15006f79c3884`;
+  the focused list/hash was exactly
+  `90310705f1bac3bcdfba9128deea6aed60a270e811cc62759f1204612d61d913` /
+  `2710655b166a78e3af39d6537a5098c916463415d27dd9f5503bb79a533c1531`.
+- Both aggregate hashes were independently recomputed from immutable Git blobs at
+  `NEW_IMPL_SHA`; full uses 23 files and focused uses 25 files.
 - Fresh proposed roots
-  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_c8dd920cf3f8`
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_cache_t1v2_44cefd06bc81`
   and
-  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_c8dd920cf3f8`
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07a_provenance_tests_44cefd06bc81`
   were confirmed absent and were not created.
 
 O-009 Job `333477`:
@@ -413,7 +446,7 @@ as legacy/dead.
 
 The remediated full cache request in `RUN_REQUEST.md` is exact and **PENDING**. Its eventual
 executor must be a fresh clean UI-provisioned
-`detached@c8dd920cf3f8007c3b2ec03f48bcc3f83144ebbe` worktree. If separately
+`detached@44cefd06bc815e893919d95c754896711dba3402` worktree. If separately
 approved and passed, it will fill the currently unknown train/val canonical cache
 hashes and physical pickle/sidecar hashes in `cache_identity.json`. Until then,
 S06 must not substitute the historical `t1.v1` files or claim full-data readiness.
@@ -426,9 +459,9 @@ S06 must not substitute the historical `t1.v1` files or claim full-data readines
 | REVIEW artifact present, not implementation | PASS | cherry-only `a4ca386`; review parent remains old `ce2e772` |
 | no production GT `t1.v1` bypass | PASS | explicit IC API plus hostile test |
 | depth/format/sidecar/cache/manifest fail closed | PASS for pre-review tree | job 333477, 62/62 at `c1f4fbe`; P1 changes need focused execution |
-| physical pickle/sidecar GT binding | PASS (implementation), EXECUTION APPROVED ONCE / NOT RUN | pre/post hash checks + hostile tests at `c8dd920`; exact focused request approved under O-009 delegation |
+| physical pickle/sidecar GT binding | PASS (implementation), REAPPROVAL PENDING / NOT RUN | pre/post hash checks + hostile tests preserved at `44cefd0`; replacement focused request pending |
 | directory mode supported | PASS | implementation plus directory/ZIP tests |
-| focused launcher attests fixtures/config/deps | PASS (implementation) | immutable 25-file set + source hash; execution approved once but not run |
+| focused launcher attests fixtures/config/deps | PASS (implementation) | locale-stable immutable 25-file set + source hash; reapproval pending |
 | shell/Python/diff checks | PASS | commands above |
 | executor ref/worktree contract | PASS | fresh clean UI worktree at detached `NEW_IMPL_SHA` required |
 | exact cache sample/box counts | PASS (implementation) | train 28130/944881; val 6019/187528; actual+meta checked |
@@ -444,10 +477,13 @@ S06 must not substitute the historical `t1.v1` files or claim full-data readines
 - Full trainval `t1.v2` train/val cache artifacts do not yet exist; their cache and
   file hashes cannot be frozen until owner-approved execution.
 - The new P1-A hostile regression has not executed on GH200. The exact one-job
-  focused request remains pending owner approval, with no retry/resubmit/follow-on.
+  focused request remains pending S00 reapproval, with no retry/resubmit/follow-on.
+- The previous c8dd/357 request was approved once but rejected before submission
+  because executor locale changed its aggregate source hash. This is a preserved
+  negative reproducibility finding: zero jobs, zero outputs, empty queue.
 - The remediation launcher/count/runtime/checksum changes have only local/static
-  validation. No remediation job or test rerun was authorized or performed; the
-  request remains pending independent review and exact owner approval.
+  validation. No remediation job or test rerun was performed; the replacement
+  request remains pending reapproval, execution, and independent re-review.
 - Historical job 332651 proves referenced-member coverage and loader-only timing,
   but its `t1.v1` caches are forbidden and its job lacks retroactive in-job source
   attestation.
