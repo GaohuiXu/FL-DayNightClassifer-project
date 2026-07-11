@@ -20,11 +20,11 @@
   SHA without changing that SHA.
 - Worker self-assessment after Job 335565 and the owner-authorized parser-only
   remediation:
-  **CHANGES-REQUESTED — CODE TESTS 12/12 PASS; INITIAL JOB 335565 FAILED IN POST-PYTEST
+  **REMEDIATION PASS / LIMITED INDEPENDENT RE-REVIEW PENDING — CODE TESTS 12/12 PASS; INITIAL JOB 335565 FAILED IN POST-PYTEST
   JUNIT PARSER AND REMAINS PRESERVED; MANUAL PARSER-ONLY JOB 335578 COMPLETED
   0:0 WITH FINAL CHECKSUM VERIFICATION; S02-R FOUND NO IMPLEMENTATION DEFECT BUT
-  REQUIRES THE CANONICAL GPU FORWARD/BACKWARD EVIDENCE; EXACT REMEDIATION REQUEST
-  PREPARED AND NOT SUBMITTED**.
+  REQUIRED THE CANONICAL GPU FORWARD/BACKWARD EVIDENCE; EXACT JOB 336713 NOW
+  COMPLETED 0:0 WITH THE REQUIRED GPU EVIDENCE**.
 
 No merge, push, PR, upload, branch/worktree deletion, mini/trainval traversal,
 model/scientific execution, or unapproved follow-on occurred.
@@ -189,8 +189,8 @@ case inventory, and the exact negative interpretation are in `RESULTS.md`.
 | focused CPU pytest suite | 12/12 TESTS PASS |
 | initial exact O-009 job acceptance | **FAIL preserved: Job 335565 scheduler 1:0, missing final checksum manifest** |
 | manual parser-only exact job acceptance | PASS: Job 335578 `COMPLETED 0:0`, 12/0/0/0, final checksums OK |
-| GPU forward/backward | **NOT RUN; exact S02-R remediation prepared pending S00 approval** |
-| independent S02-R | `CHANGES-REQUESTED`; implementation/Gaussian audit passed, GPU evidence is the only blocker |
+| GPU forward/backward | PASS: exact Job 336713 `COMPLETED 0:0`, synthetic B=3 over-cap/empty/isolation F/B, finite intended gradients |
+| independent S02-R | prior `CHANGES-REQUESTED`; implementation/Gaussian audit passed, limited evidence re-review now requested |
 
 ## Allowed and forbidden interpretations
 
@@ -241,12 +241,23 @@ and finite nonzero gradients for every intended encoder parameter. There is no
 optimizer/GradScaler step, data access, metric, profile, 100/1000-step gate, or
 automatic retry.
 
-The new `RUN_REQUEST.md` section binds the eventual executable SHA/tree and
+The new `RUN_REQUEST.md` section binds executable SHA/tree and
 request/launcher/source hashes externally, runs from a unique Git-archive snapshot
 under `/nobackup`, requests one shared GH200 without `--nodes=1`, records and fails
 closed on actual one-GPU visibility/allocation, and performs in-job source/final
-artifact `sha256sum -c`. It remains `PENDING S00 APPROVAL`; no snapshot, output,
-Slurm job, merge, or push has been created by this preparation.
+artifact `sha256sum -c`.
+
+S00 approved the exact immutable tuple once. Final preflight matched; S02 created
+snapshot `.../snapshots/s02_gpu_fb_b6f815d01b53` and submitted Job `336713` once.
+It completed `0:0` on `n580` in `00:01:18`; requested and allocated TRES both show
+one GH200, four CPUs, 16 GiB, billing one, and `OverSubscribe=OK`. The runtime saw
+exactly one GH200. Pytest/JUnit was `1/0/0/0`; output/loss/all intended gradients
+were finite and nonzero where required; exact cap/isolation/empty diagnostics
+matched; both source checks and the final artifact checksum check passed in-job.
+No retry/requeue/follow-on, optimizer/scaler step, data access, merge, or push
+occurred. `RESULTS.md` contains all raw hashes and scheduler evidence. S02 now
+requests only the limited evidence re-review permitted by S02-R; it does not claim
+independent/integration PASS by itself.
 
 ## S00 post-job decision and parser-only remediation preparation
 

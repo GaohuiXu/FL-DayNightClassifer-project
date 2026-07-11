@@ -2,7 +2,7 @@
 
 ## Approval state and boundary
 
-- **Status:** `FIRST_EXECUTION_FAILED_POST_PYTEST_PRESERVED; MANUAL_PARSER_REMEDIATION_EXECUTED_ONCE_COMPLETED_PASS; GPU_FORWARD_BACKWARD_REMEDIATION_PREPARED_PENDING_S00_APPROVAL`.
+- **Status:** `FIRST_EXECUTION_FAILED_POST_PYTEST_PRESERVED; MANUAL_PARSER_REMEDIATION_EXECUTED_ONCE_COMPLETED_PASS; GPU_FORWARD_BACKWARD_REMEDIATION_EXECUTED_ONCE_COMPLETED_PASS; NO_FURTHER_SUBMISSION_AUTHORIZED`.
 - This is one bounded, non-scientific engineering validation request under the
   O-017 rule for Wave-A workers and the O-009 resource ceiling. O-017 requires S02
   to stop and wait for explicit S00 approval even though the request fits O-009.
@@ -240,7 +240,7 @@ requeue, resubmission, or follow-on occurred, and no further submission is
 authorized by that approval. The independent-review remediation request below is a
 new, evidence-only scope and remains unapproved.
 
-## Independent-review GPU forward/backward remediation — PENDING S00 APPROVAL
+## Independent-review GPU forward/backward remediation — EXECUTED ONCE / PASS
 
 ### Review finding and immutable semantic boundary
 
@@ -316,12 +316,12 @@ assigned, and any populated `SLURM_GPUS_ON_NODE` value is exactly one.
 - Logs:
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s02_gpu_fb_%j.{out,err}`.
 
-### Exact approval-bound command shape — DO NOT SUBMIT
+### Exact approval-bound command — EXECUTED ONCE / DO NOT RESUBMIT
 
-The variables below derive the immutable identities and unique paths from the
-clean executable commit. Before approval S02 reports their exact resolved values
-and this file's SHA-256 to S00. Submission is forbidden until S00 explicitly binds
-all of those values to this command.
+The variables below derived the immutable identities and unique paths from the
+clean executable commit. S02 reported their exact resolved values and this file's
+SHA-256 to S00, which bound them before the one consumed submission. This command
+is retained for provenance and must not be resubmitted.
 
 ```bash
 set -euo pipefail
@@ -398,3 +398,48 @@ Forbidden even if it passes: full-stack/S07-B readiness by itself, GPU performan
 or memory claims, mini/trainval readiness, target-frequency claims, old-checkpoint
 compatibility, model quality, mAP/NDS, fusion gain, FL/security, generalization,
 scientific, or publication claims.
+
+### Exact S00 approval and terminal execution record
+
+S00 independently audited and approved one submission only, bound to:
+
+- branch `codex/s02-cl-p0-correctness`;
+- executable `b6f815d01b5374eb4b922559b83b1d28c208e2b9` and tree
+  `8ee64fbde2d022f468def7d24cddf0f87e08a3fb`;
+- unchanged implementation
+  `65c83c077210469861ba722a285ab1e58e6d719f`;
+- independent review `fb17da3ea55a93d7709f6a2b5f6e4bb6adc0bf7e`;
+- request SHA-256
+  `aaec2fdf8662edcccf1dde6cec68737fdadf18461c087c46eee84ae312ce3769`;
+- launcher SHA-256
+  `78715618936c1469da37d3bbe5582ff84964a04bb9c8521bbdc8573023a797ed`;
+- GPU test SHA-256
+  `f45cc992bde4b1353713fdf906578c22a684c8c0b000f8a4eb115199288e5fee`;
+- runtime source-state SHA-256
+  `5f5cc459a149483120bafc91cacb1c8a19bf500c45844a60891fe47ee28e1e49`;
+- the exact snapshot/output, command, resources, one test node, and stop
+  conditions above.
+
+The final preflight re-matched every approved identity; branch/HEAD was clean,
+both roots were absent, and no S02 job was active. S02 created the exact Git-archive
+snapshot and submitted once as Job `336713`. No retry, requeue, resubmission, or
+follow-on occurred.
+
+Job `336713` completed `COMPLETED 0:0` on node `n580` in `00:01:18` of
+`00:10:00`, with `Restarts=0`. Requested and allocated TRES matched exactly:
+one node, one `nvidia_gh200_120gb`, four CPUs, 16 GiB, and scheduler billing unit
+one. `OverSubscribe=OK`; no exclusive-node request was made. Execution identity
+records `SLURM_GPUS_ON_NODE=1`, `SLURM_JOB_GPUS=1`, `CUDA_VISIBLE_DEVICES=0`,
+and exactly one Torch-visible `NVIDIA GH200 120GB`.
+
+Pytest/JUnit reported exactly `1 passed`, `1/0/0/0`. The B=3 diagnostics matched
+all expected per-sample cap/drop/key counts, sample 1 was empty, and sample 0 was
+exactly equal to its isolated B=1 output. Output and loss were finite; loss was
+`0.027591658756136894`; finite nonzero gradient norms were
+`linear.weight=0.015205752104520798`, `norm.weight=0.012320908717811108`, and
+`norm.bias=0.012358705513179302`. No optimizer or scaler step ran.
+
+Both runtime-source `sha256sum -c` passes and the final four-artifact
+`sha256sum -c` passed in-job. Complete scheduler fields, raw hashes, diagnostics,
+and interpretation limits are in `RESULTS.md`. This approval is consumed and no
+further S02 compute is authorized.

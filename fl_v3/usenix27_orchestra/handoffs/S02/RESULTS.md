@@ -2,7 +2,8 @@
 
 ## Overall result
 
-**Manual parser remediation PASS; initial failed job preserved.** Initial Slurm Job
+**GPU forward/backward remediation PASS; manual parser remediation PASS; initial
+failed job preserved.** Initial Slurm Job
 `335565` ran the twelve approved synthetic CPU tensor tests and reported
 `12 passed in 17.31s`, but failed `1:0` afterward because the launcher misread a
 `testsuites` JUnit root and exited before its final checksum manifest. That job
@@ -13,6 +14,12 @@ unchanged twelve tests and scope from executable `840e8bee...`; it completed
 `COMPLETED 0:0`, reported `12 passed in 19.86s`, aggregated JUnit to 12/0/0/0, and
 verified the complete in-job checksum manifest. No retry/requeue/resubmission or
 follow-on occurred after either exact submission.
+
+Independent S02-R then requested only the missing canonical GPU forward/backward
+evidence. Exact synthetic Job `336713` completed `0:0`, passed its sole CUDA test,
+matched one-GPU allocation and all cap/isolation/empty/gradient assertions, and
+verified source plus final artifacts in-job. Limited evidence re-review remains
+required before independent/integration PASS.
 
 ## Approved identity and submission
 
@@ -241,3 +248,127 @@ Forbidden:
   quality, mAP/NDS, fusion gain, FL, attack/defense, generalization, scientific, or
   publication conclusions;
 - any inference that a retry or launcher change is authorized.
+
+## GPU forward/backward remediation Job 336713 — PASS
+
+### Approval and immutable identity
+
+S00 approved one evidence-only submission against the prior independent
+`CHANGES-REQUESTED` review. The immutable tuple was:
+
+| Field | Value |
+|---|---|
+| executable / tree | `b6f815d01b5374eb4b922559b83b1d28c208e2b9` / `8ee64fbde2d022f468def7d24cddf0f87e08a3fb` |
+| unchanged implementation | `65c83c077210469861ba722a285ab1e58e6d719f` |
+| review / REVIEW hash | `fb17da3ea55a93d7709f6a2b5f6e4bb6adc0bf7e` / `75b6a5ed589c1f29ba847750a915732be8826562c055a7fa1cecd5a749e63497` |
+| RUN_REQUEST SHA-256 | `aaec2fdf8662edcccf1dde6cec68737fdadf18461c087c46eee84ae312ce3769` |
+| launcher SHA-256 | `78715618936c1469da37d3bbe5582ff84964a04bb9c8521bbdc8573023a797ed` |
+| test SHA-256 | `f45cc992bde4b1353713fdf906578c22a684c8c0b000f8a4eb115199288e5fee` |
+| runtime source state | `5f5cc459a149483120bafc91cacb1c8a19bf500c45844a60891fe47ee28e1e49` |
+
+The final clean branch/HEAD/hash/root/active-job preflight matched. The execution
+snapshot was created with `git archive` at
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/snapshots/s02_gpu_fb_b6f815d01b53`.
+The compute job's command and working directory were both inside that snapshot; it
+did not access the `/home` linked worktree.
+
+### Scheduler and actual allocation
+
+| Field | Value |
+|---|---|
+| job / name | `336713` / `flv3_s02_gpu_fb` |
+| submit / start / end | `2026-07-11T18:48:05` / `18:48:06` / `18:49:24` Europe/Stockholm |
+| state / exit | `COMPLETED` / `0:0` |
+| elapsed / limit | `00:01:18` / `00:10:00` |
+| node / machine | `n580` / `aarch64` |
+| requested TRES | one GH200, four CPUs, 16 GiB, one node, billing one |
+| allocated TRES | exactly matched requested TRES |
+| sharing / restarts | `OverSubscribe=OK` / `0` |
+| batch MaxRSS / MaxVMSize | `36M` / `6738496K` |
+| batch disk read / write | `65.52M` / `0.26M` |
+| batch TotalCPU | `00:07.844` |
+
+The scheduler command contained no `--nodes=1` or exclusive request. Runtime
+identity records `SLURM_GPUS_ON_NODE=1`, `SLURM_JOB_GPUS=1`,
+`CUDA_VISIBLE_DEVICES=0`, Torch CUDA device count one, device
+`NVIDIA GH200 120GB`, capability `9.0`. This job used about `0.0217` elapsed
+GPU-hour; all three S02 exact jobs total about `0.0739` elapsed GPU-hour.
+
+### Exact synthetic CUDA result
+
+One and only one test ran:
+
+```text
+tests/test_s02_gpu_forward_backward.py::
+  test_s02_cuda_b3_overcap_empty_isolation_forward_backward
+1 passed in 5.50s
+JUnit: tests=1 failures=0 errors=0 skipped=0
+```
+
+The fixture used B=3: two populated samples each exceeded the point and pillar
+caps; sample 1 was empty. Exact diagnostics were:
+
+```text
+input/in-range             [12, 0, 9]
+occupied pillars           [3, 0, 4]
+selected pillars           [2, 0, 2]
+truncated pillars          [1, 0, 2]
+kept points                [5, 0, 4]
+point-cap drops            [3, 0, 2]
+pillar-cap drops           [4, 0, 3]
+selected batch ids         [0, 0, 2, 2]
+selected local cell keys   [0, 1, 4, 6]
+```
+
+CUDA output shape was `[3,32,4,6]`, dtype fp32, finite, with empty sample output
+zero and sample 0 exactly equal to its isolated B=1 output. Loss was finite and
+positive at `0.027591658756136894`. Backward produced finite nonzero gradients for
+every intended parameter:
+
+| Parameter | Gradient norm |
+|---|---:|
+| `linear.weight` | `0.015205752104520798` |
+| `norm.weight` | `0.012320908717811108` |
+| `norm.bias` | `0.012358705513179302` |
+
+No optimizer or GradScaler step ran.
+
+### Raw artifacts and hashes
+
+Output root:
+
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s02_gpu_fb_b6f815d01b53`
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `execution_identity.json` | 1,472 | `b8f63aba3e898c11da56fb4ab4193e1bc9f832199f80418dacff6f4e4d448d55` |
+| `runtime_source_sha256s.txt` | 1,546 | `5f5cc459a149483120bafc91cacb1c8a19bf500c45844a60891fe47ee28e1e49` |
+| `pytest.log` | 789 | `f2228e25fdf14dadbcf15cdb1c73fd6760703321971eda928d8b75759dab42ad` |
+| `pytest.junit.xml` | 378 | `38990046c2ab3f855bae48cbbb3a0ff917b578800bc92a0f6517187d8cc6e7f1` |
+| `sha256sums.txt` | 747 | `87c62e780c526f0407c2c50ee192694ad1c61d85f759e517c802634b311a6d39` |
+
+Logs:
+
+- stdout: 3,024 bytes, SHA-256
+  `1a0264a829a98f64891f5c01f85fe542b32d714fba3a7a59aa8aa7eb621be21f`;
+- stderr: 123 bytes, SHA-256
+  `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57`.
+
+Stderr contains only the normal module-purge notice. Runtime source manifests
+passed `sha256sum -c` before and after pytest. The final in-job manifest passed
+`sha256sum -c` for execution identity, source manifest, pytest log, and JUnit.
+
+### Interpretation and disposition
+
+Allowed: the unchanged reviewed S02 PointPillars implementation completed the
+exact bounded synthetic CUDA forward/backward fixture with finite intended
+gradients, exact per-sample diagnostics, and one-GPU source-attested execution.
+
+Forbidden: performance/memory claims, full-stack or S07-B readiness by this job
+alone, mini/trainval readiness, target-frequency claims, old-checkpoint
+compatibility, mAP/NDS, fusion gain, FL/security, generalization, science, or
+publication claims.
+
+Job `336713` closes only the P1 evidence gap identified by S02-R. Final reviewed
+acceptance requires the permitted limited re-review of this request/results/handoff
+and exact executable diff. No further compute is authorized.
