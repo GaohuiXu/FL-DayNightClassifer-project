@@ -14,6 +14,8 @@
 - Scoped final-output dtype code/tests: `72184e9ed3d2a9ea4fcd9f1a8dc473312a09a52d`.
 - Attested immutable-snapshot executable:
   `2729f45144053e1b554a0bf04640b8bbc1ff43e4`.
+- Pending source-diagnostic executable:
+  `bd1fc9af139cce85240c5908d6704c38425f3c1f`.
 - Final request-delivery HEAD is returned after its commit; a commit cannot embed
   its own SHA without changing it.
 - Job-336718 evidence delivery is returned after the docs commit.
@@ -94,6 +96,8 @@ Commit history:
   and retained assertions.
 - `2729f45`: verify actual snapshot working/submit directories and immutable
   identity content/hash binding executable SHA/tree plus source/request hashes.
+- `bd1fc9a`: seven subprocess-isolated sparse-fp16 lifecycle cells plus an
+  immutable diagnostic launcher; no production workaround.
 
 No `lidar_encoder.py`, `lidar_backbone.py`, `bev_grid.py`, `detector.py`,
 `training/tasks.py`, canonical Orchestra file, `fl_v3/collab/`, or `fl_v2/` file
@@ -168,6 +172,15 @@ Exact-once Job `336718` then ran from the attested read-only snapshot:
 No retry, requeue, resubmission, modification, or follow-on occurred. Full raw
 hashes and interpretation limits are in `RESULTS.md`.
 
+Source-only follow-up identifies a concrete mixed-dtype framework seam. spconv's
+training path uses a custom-fwd wrapper that casts fp32 filters alongside fp16
+features, while eval bypasses that wrapper and requests fp32 output from fp16
+features plus fp32 filters. Its generated tuner/cache keys include this dtype
+triple, so training cache state cannot directly satisfy eval. Commit `bd1fc9a`
+prepares seven fresh-process cells covering fresh/same-model eval, before/after
+backward, larger occupancy, fp32 control, and order/cache dependence. It does not
+change encoder code or precision semantics and has no compute approval.
+
 ## Gate checklist
 
 | S04 item | Worker status | Evidence / limit |
@@ -213,5 +226,8 @@ Forbidden:
 2. Independently review whether Job 336718 exposes an implementation lifecycle
    defect, a spconv cache/tuner limitation, or a fixture sequencing problem; do
    not reinterpret the nine passes as overall runtime PASS.
-3. Only after Orchestra disposition and independent S04-R may S07-B consider this
+3. Audit the pending exact diagnostic request. Any half-weight, fp32-eval,
+   forced-training-path, or dependency-patch remedy is a separate material
+   precision/lifecycle decision.
+4. Only after Orchestra disposition and independent S04-R may S07-B consider this
    module for integration.

@@ -1,6 +1,14 @@
-# S04 RUN REQUEST — final-output dtype remediation validation
+# S04 RUN REQUEST — spconv fp16 lifecycle diagnostic
 
-## Approval state
+## Current approval state
+
+`PENDING_S00_EXACT_O009_APPROVAL_NOT_SUBMITTED`
+
+The newly proposed lifecycle matrix has no execution permission. It requires a
+new exact S00 approval for the diagnostic delivery/request/source/dependency hashes,
+command, resources, and roots recorded at the end of this file.
+
+## Prior final-output request state
 
 `APPROVED_EXACT_ONCE_CONSUMED_BY_JOB_336718_FAILED_NO_RETRY`
 
@@ -213,3 +221,157 @@ per-sample voxelization/isolation, and one B=4 peak-memory observation.
 Forbidden regardless of outcome: S07-B/production/full-data readiness, mini or
 trainval behavior, throughput/profile, convergence, mAP/NDS, fusion gain, best
 voxel size, FL, attack/defense, generalization, or publication claims.
+
+## Proposed source-isolation matrix after Job 336718
+
+### Source diagnosis and purpose
+
+This is diagnostic-only and does not alter the S04 encoder, dtype assertions, or
+precision policy. Source inspection of the installed spconv 2.3.8 path explains
+the observed mixed-dtype call state:
+
+1. S04 explicitly supplies fp16 sparse features when `sparse_conv_fp16=True`.
+2. In training, `SparseConvolution._conv_forward(training=True)` uses
+   `SparseImplicitGemmFunction`, whose Torch `custom_fwd(cast_inputs=float16)`
+   casts both features and fp32 master filters to fp16. Job 336718 confirms this
+   training path succeeds.
+3. In eval, `_conv_forward(training=False)` bypasses that autograd function and
+   calls `ops.implicit_gemm` directly. Features remain fp16, filters remain fp32,
+   and spconv sets output dtype to the filter dtype, producing the observed
+   fp16/fp32/fp32 tuner request.
+4. `ConvTunerSimple` descriptor and cache keys include input/filter/output dtypes,
+   channels, architecture and mask properties. A cached fp16/fp16/fp16 training
+   kernel therefore cannot satisfy the fp16/fp32/fp32 eval key. Job 336718 reached
+   an empty compatible-descriptor set and asserted before output.
+
+The bounded matrix determines whether the failure is fresh-eval universal,
+backward-dependent, occupancy-sensitive, or affected by process-local tuning
+order. It records every `ops.implicit_gemm` feature/filter/output dtype,
+train/submanifold state, activation count, output or exception.
+
+### Immutable diagnostic implementation
+
+- Exact diagnostic executable: `bd1fc9af139cce85240c5908d6704c38425f3c1f`.
+- Exact executable tree: `80b6f5cf5028faffa67b7510454a510e94b72f31`.
+- Repo runtime source SHA-256 over the 12 locale-sorted launcher files:
+  `d2a5041c5177279f874bd788320053df679c5b8ad060f95d729e29ae0ebfbf63`.
+- Installed spconv source aggregate SHA-256 over `conv.py`, `functional.py`,
+  `ops.py`, and the generated tuner availability/cache/tuning sources:
+  `e7e162a1f10b4e66c42c1bc07fae19248c42a5e198fbee2c546f3dc0a0d43141`.
+- Diagnostic script SHA-256:
+  `381d16b22a224988230a1a03cadd00847fb5f725de80280df4628d28af8c01da`.
+- Launcher SHA-256:
+  `22ccbac6f63c8fccf4725f73b44f81445ee563135e358535ad7964caaac483dc`.
+- Delivery/request/identity hashes are supplied externally by S00 because the
+  request cannot contain its own hash or enclosing delivery SHA.
+
+Any source, dependency source, request, cell, command, resource, or root change
+invalidates approval.
+
+### Exact seven subprocess-isolated cells
+
+Each cell runs in a fresh Python process; one cell error cannot hide later cells.
+The matrix is complete when all seven return a structured `success` or `error`
+envelope. An observed cell error is diagnostic evidence, not by itself a launcher
+failure or an S04 verdict.
+
+1. fresh fp16 eval, exact six-voxel Job-336718 input;
+2. same fp16 model train forward then eval, without backward;
+3. same fp16 model train forward/backward then eval;
+4. fresh fp16 eval with 128 generated points per sample;
+5. fresh fp32 eval on the six-voxel control;
+6. fp32 eval followed by fresh fp16 eval in one process;
+7. fp16 train warm-up followed by a distinct fresh fp16 eval model in one process.
+
+No workaround or fallback is exercised. In particular, the matrix does not cast
+model parameters to half, force training mode for inference, disable fp16 sparse
+inference, patch spconv, or weaken the eval case.
+
+### Resources, input, and outputs
+
+- Account/partition: `naiss2025-22-1113-gpu` / `gpu`.
+- Shared request: one `nvidia_gh200_120gb`, eight CPUs, one task, no explicit
+  `--nodes` or exclusive allocation; walltime `00:20:00`.
+- Maximum `0.3334` GPU-hours. Prior cumulative S04 elapsed allocation is about
+  `0.0890` GPU-hours; maximum cumulative total would be about `0.4224`, within
+  O-009's two-hour session limit.
+- One job, no array/DDP/retry/requeue/resubmission/follow-on.
+- Deterministic synthetic points only; no mini/trainval/ZIP/cache/checkpoint,
+  optimizer/parameter update, model step, metric, profile, seed comparison, or
+  scientific run.
+- Per-cell timeout 120 seconds; cells are sequential and process-isolated.
+- Snapshot root, currently absent:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/snapshots/s04_lifecycle_bd1fc9af139c_v1`.
+- Output root, currently absent:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s04_lifecycle_bd1fc9af139c_v1`.
+- Logs: `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s04_lifecycle_%j.{out,err}`.
+- Artifacts: execution identity, repo/dependency source lists, complete matrix JSON,
+  diagnostic log, and checksum manifest with `sha256sum -c`.
+
+### Exact preparation/submission template — not authorized
+
+S00 must return the three exact external hashes in a fully expanded command. This
+template is not executable permission:
+
+```bash
+set -euo pipefail
+S04_DIAG_APPROVED_DELIVERY_SHA=<exact S00-approved delivery SHA>
+S04_DIAG_APPROVED_REQUEST_SHA256=<exact S00-approved request SHA-256>
+S04_DIAG_APPROVED_IDENTITY_SHA256=<exact S00-approved identity SHA-256>
+EXEC_SHA=bd1fc9af139cce85240c5908d6704c38425f3c1f
+EXEC_TREE=80b6f5cf5028faffa67b7510454a510e94b72f31
+SOURCE_SHA=d2a5041c5177279f874bd788320053df679c5b8ad060f95d729e29ae0ebfbf63
+DEP_SOURCE_SHA=e7e162a1f10b4e66c42c1bc07fae19248c42a5e198fbee2c546f3dc0a0d43141
+REQUEST=fl_v3/usenix27_orchestra/handoffs/S04/RUN_REQUEST.md
+SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/snapshots/s04_lifecycle_bd1fc9af139c_v1
+OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s04_lifecycle_bd1fc9af139c_v1
+TMP_SNAPSHOT="${SNAPSHOT}.tmp"
+
+test "$(git rev-parse HEAD)" = "${S04_DIAG_APPROVED_DELIVERY_SHA}"
+test "$(git branch --show-current)" = codex/s04-lidar-second
+test -z "$(git status --short)"
+test "$(sha256sum "${REQUEST}" | awk '{print $1}')" = "${S04_DIAG_APPROVED_REQUEST_SHA256}"
+test "$(git rev-parse "${EXEC_SHA}^{tree}")" = "${EXEC_TREE}"
+test ! -e "${SNAPSHOT}"
+test ! -e "${TMP_SNAPSHOT}"
+test ! -e "${OUTPUT}"
+mkdir -p "$(dirname "${SNAPSHOT}")"
+mkdir "${TMP_SNAPSHOT}"
+trap 'chmod -R u+w "${TMP_SNAPSHOT}" 2>/dev/null || true; rm -rf "${TMP_SNAPSHOT}"' EXIT
+git archive "${EXEC_SHA}" | tar -xf - -C "${TMP_SNAPSHOT}"
+install -m 0444 "${REQUEST}" "${TMP_SNAPSHOT}/${REQUEST}"
+printf '%s\n' \
+  'schema=s04.lifecycle-snapshot.v1' \
+  "exec_sha=${EXEC_SHA}" \
+  "exec_tree=${EXEC_TREE}" \
+  "source_sha256=${SOURCE_SHA}" \
+  "dependency_source_sha256=${DEP_SOURCE_SHA}" \
+  "request_sha256=${S04_DIAG_APPROVED_REQUEST_SHA256}" \
+  > "${TMP_SNAPSHOT}/.s04_lifecycle_snapshot_identity"
+test "$(sha256sum "${TMP_SNAPSHOT}/.s04_lifecycle_snapshot_identity" | awk '{print $1}')" = "${S04_DIAG_APPROVED_IDENTITY_SHA256}"
+find "${TMP_SNAPSHOT}" -type f -exec chmod 0444 {} +
+chmod 0555 "${TMP_SNAPSHOT}/fl_v3/usenix27_orchestra/handoffs/S04/run_s04_spconv_lifecycle_diagnostic.sh"
+find "${TMP_SNAPSHOT}" -type d -exec chmod 0555 {} +
+mv "${TMP_SNAPSHOT}" "${SNAPSHOT}"
+trap - EXIT
+(
+  cd "${SNAPSHOT}"
+  sbatch --chdir="${SNAPSHOT}" \
+    --export=ALL,EXPECTED_S04_DIAG_SHA="${EXEC_SHA}",EXPECTED_S04_DIAG_TREE="${EXEC_TREE}",EXPECTED_S04_DIAG_SOURCE_HASH="${SOURCE_SHA}",EXPECTED_S04_DIAG_DEP_SOURCE_HASH="${DEP_SOURCE_SHA}",EXPECTED_S04_DIAG_REQUEST_HASH="${S04_DIAG_APPROVED_REQUEST_SHA256}",EXPECTED_S04_DIAG_IDENTITY_HASH="${S04_DIAG_APPROVED_IDENTITY_SHA256}",S04_DIAG_SNAPSHOT_ROOT="${SNAPSHOT}",S04_DIAG_OUTPUT_ROOT="${OUTPUT}" \
+    "${SNAPSHOT}/fl_v3/usenix27_orchestra/handoffs/S04/run_s04_spconv_lifecycle_diagnostic.sh"
+)
+```
+
+### Acceptance and interpretation
+
+Diagnostic completion requires exact immutable identities, one-GPU allocation,
+all seven subprocess envelopes in fixed order, no subprocess timeout/crash,
+installed dependency versions/source hashes, and artifact checksum verification.
+Individual structured `error` outcomes are accepted observations. The launcher
+must fail on missing/malformed cells, identity drift, wrong allocation, timeout,
+output collision, matrix validation failure, or checksum failure.
+
+Even a scheduler `COMPLETED` result means only that the diagnostic matrix is
+complete. It cannot establish S04 PASS, justify a workaround, or authorize a
+precision change, retry, production integration, full-data run, or scientific
+claim.

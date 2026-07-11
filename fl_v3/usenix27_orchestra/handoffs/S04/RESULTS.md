@@ -312,3 +312,39 @@ resubmission, or follow-on occurred. Allowed evidence is limited to the explicit
 nine passes and preserved failure above; production/S07-B/scientific readiness and
 all model-quality, throughput, convergence, FL, attack/defense, or publication
 claims remain forbidden.
+
+## Source-only diagnosis and pending lifecycle matrix
+
+No compute followed Job `336718`. Inspection of installed spconv 2.3.8 shows a
+specific training/eval divergence rather than a final-BEV cast failure:
+
+- S04 supplies fp16 sparse features whenever its sparse-fp16 path is active.
+- Training routes through `SparseImplicitGemmFunction` with Torch
+  `custom_fwd(cast_inputs=float16)`, so both features and fp32 master filters reach
+  `ops.implicit_gemm` as fp16.
+- Eval bypasses that autograd wrapper, calls `ops.implicit_gemm` directly, leaves
+  filters fp32, and requests filter-dtype fp32 output. Job 336718 therefore asked
+  the tuner for fp16 input / fp32 filter / fp32 output.
+- The generated C++ tuner descriptor/cache key includes all three dtypes. A
+  half/half/half training cache entry cannot satisfy the mixed eval key; the
+  observed `all_profile_res.empty()` means no compatible descriptor was available.
+
+This explains why backward itself is unlikely to be the direct cause, but does not
+yet establish whether fresh eval, occupancy, or process-local order changes the
+outcome. Commit `bd1fc9af139cce85240c5908d6704c38425f3c1f` adds a seven-cell,
+fresh-process synthetic diagnostic that traces exact implicit-GEMM call state. Its
+new request is pending and has not run.
+
+Potential remedies are deliberately not implemented:
+
+- converting an eval model to half may make the kernel tuple half/half/half, but
+  mutates parameter precision and complicates resume/re-entry to training;
+- falling back to fp32 sparse eval preserves fp32 weights but creates a
+  train/eval sparse-precision mismatch;
+- forcing the training autograd path under `no_grad` changes index/memory and
+  framework semantics;
+- patching spconv to cast inference filters requires a maintained dependency fork
+  and changes numerical/runtime behavior.
+
+Each is a material precision/lifecycle choice requiring reviewed diagnostic
+evidence and S00/owner approval. None is an authorized fix or current claim.
