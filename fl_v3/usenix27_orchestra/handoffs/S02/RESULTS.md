@@ -2,16 +2,17 @@
 
 ## Overall result
 
-**Pytest PASS; exact O-009 job gate FAILED after pytest; no retry.** Slurm Job
+**Manual parser remediation PASS; initial failed job preserved.** Initial Slurm Job
 `335565` ran the twelve approved synthetic CPU tensor tests and reported
-`12 passed in 17.31s`, with zero test failures, errors, or skips. The launcher then
-failed closed in its post-pytest JUnit count check because it expected count
-attributes on the XML root, while pytest 9.1.1 wrote a `testsuites` root and one
-child `testsuite` carrying the counts.
+`12 passed in 17.31s`, but failed `1:0` afterward because the launcher misread a
+`testsuites` JUnit root and exited before its final checksum manifest. That job
+remains overall FAILED and its missing artifact is not rewritten.
 
-Accordingly, the test observations are positive code evidence, but the exact job's
-overall acceptance status is negative: scheduler state `FAILED`, exit `1:0`, and no
-final `sha256sums.txt`. S02 submitted no retry/resubmission/follow-on.
+After an explicit new S00 approval, manual parser-remediation Job `335578` ran the
+unchanged twelve tests and scope from executable `840e8bee...`; it completed
+`COMPLETED 0:0`, reported `12 passed in 19.86s`, aggregated JUnit to 12/0/0/0, and
+verified the complete in-job checksum manifest. No retry/requeue/resubmission or
+follow-on occurred after either exact submission.
 
 ## Approved identity and submission
 
@@ -135,18 +136,102 @@ the counts were on its child. The exact request required scheduler `COMPLETED`,
 exit `0:0`, and in-job final checksum verification, so the overall job gate is
 **FAIL** despite twelve passing tests.
 
-Per S00's approval, S02 did not modify the launcher, request another job, or retry.
-Any parser remediation and rerun would require a new exact S00/owner authorization.
+Under the first approval, S02 stopped without modifying or retrying. The separate
+manual remediation below occurred only after a new exact S00 authorization; it is
+not reclassified as an automatic retry.
+
+## Manual parser-remediation Job 335578 — PASS
+
+### Approval and immutable identity
+
+- S00-audited second request SHA-256:
+  `48aa43079bcca7bbc9f9005862149d99968a76b149c6f3f7482f37bd8e125a0b`.
+- Exact executable HEAD:
+  `840e8bee8d1157c71b7752d3937c6cb8e75201e7`.
+- Implementation remained:
+  `65c83c077210469861ba722a285ab1e58e6d719f`.
+- Launcher SHA-256:
+  `35798c3956e1cb4fcf54288f34ead04687d2b22d2dcdff4186b865d5261b452b`.
+- Runtime source state:
+  `2ff7d74246e55332305e92a83dc028a42ce3c1e60993c28c24ece868784e580a`.
+- New output was absent and no S02 job was active before exact-once submission.
+
+The only executable delta from the preserved negative package was the JUnit suite
+aggregator. Model source, tests/nodes, expected count, data scope, resources, and
+CUDA-hidden CPU execution remained unchanged.
+
+### Scheduler and resources
+
+| Field | Value |
+|---|---|
+| job / name | `335578` / `flv3_s02_cpu_tests` |
+| submit / start / end | `2026-07-11T18:20:56` / `18:20:57` / `18:22:30` Europe/Stockholm |
+| node / machine | `n534` / `aarch64` |
+| state / exit | `COMPLETED` / `0:0` |
+| elapsed / limit | `00:01:33` / `00:10:00` |
+| allocation | one node, one `nvidia_gh200_120gb`, four CPUs, 5,836 MiB memory |
+| actual elapsed allocation | about `0.0258` GPU-hours |
+| restarts | `0` |
+| batch MaxRSS / MaxVMSize | `612M` / `6935104K` |
+| batch disk read / write | `65.59M` / `0.23M` |
+| batch TotalCPU | `00:06.434` |
+
+Cumulative S02 elapsed allocation for both exact jobs was about `0.0522`
+GPU-hours. Both hid CUDA before Python/Torch imports and ran no GPU tensor/model
+path.
+
+### Test, JUnit, source, and checksum result
+
+```text
+............                                                             [100%]
+12 passed in 19.86s
+```
+
+Independent JUnit parsing found a `testsuites` root and aggregate counts
+`tests=12, failures=0, errors=0, skipped=0`, with all twelve approved testcase
+nodes present. Execution identity records CPython `3.11.15`, NumPy `1.26.4`,
+pytest `9.1.1`, Torch `2.11.0+cu128`, exact Git/source identities, host `n534`,
+aarch64, Job `335578`, and empty `CUDA_VISIBLE_DEVICES`.
+
+All sixteen source entries verified against the immutable worktree. The final
+in-job checksum manifest exists and `sha256sum -c` passed for every listed
+artifact.
+
+### Raw artifacts and hashes
+
+Output root:
+
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s02_cpu_tests_840e8bee8d11`
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `execution_identity.json` | 747 | `c2663500bbfb63acb25a34eb589da8312f4382ceacec3cbabe0e58ffbeb86d01` |
+| `runtime_source_sha256s.txt` | 1,620 | `2ff7d74246e55332305e92a83dc028a42ce3c1e60993c28c24ece868784e580a` |
+| `pytest.log` | 100 | `8a9822a691fbe40121b9c0412f86f2a2810e58023be05f03cc61e0d6afc482fc` |
+| `pytest.junit.xml` | 1,895 | `21c48e0af6352459b4407ee4cb57b40d773b6d3fcf744690dd0615319770a256` |
+| `sha256sums.txt` | 759 | `ea14f3418876135ad4a1b57b9de4c8897c0c3a2fea39eee0e18c45e549c8383a` |
+
+Logs:
+
+- stdout: 611 bytes, SHA-256
+  `375479797b332715a3d5a49803adbe32b43479428d6b1ca178352cc424333e4a`;
+- stderr: 123 bytes, SHA-256
+  `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57`.
+
+Stderr contains only the normal module-purge notice. Stdout contains the pytest
+PASS plus four in-job checksum `OK` lines.
 
 ## Interpretation limits
 
 Allowed:
 
 - the exact twelve listed CPU tensor tests executed and passed on the recorded
-  aarch64 dependency environment;
+  aarch64 dependency environment in both jobs;
 - JUnit independently confirms 12/0/0/0 and contains every approved testcase;
 - all runtime-source identities match the immutable executable commit;
 - the negative post-pytest parser behavior is fully preserved.
+- the manual parser-only remediation Job 335578 completed `0:0` with final in-job
+  checksum-manifest verification.
 
 Forbidden:
 

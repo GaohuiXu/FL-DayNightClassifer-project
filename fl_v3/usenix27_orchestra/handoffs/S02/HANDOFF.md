@@ -15,9 +15,14 @@
   `60b0b923d527b60a34449ddb7d24678e85e68ca187d453c18809368637ed50c9`.
 - Initial source state:
   `5ff316b81233d4a367ded2928ebacb2f90ae240485003af2f701c54f22c560fa`.
-- Worker self-assessment after Job 335565:
-  **CHANGES-REQUESTED — CODE TESTS 12/12 PASS, EXACT JOB GATE FAILED IN
-  POST-PYTEST JUNIT PARSER, NO RETRY**.
+- Final delivery `WORKER_SHA` is the documentation commit created after the checks
+  below and is reported to S00 in the task response; a commit cannot embed its own
+  SHA without changing that SHA.
+- Worker self-assessment after Job 335565 and the owner-authorized parser-only
+  remediation:
+  **PASS — CODE TESTS 12/12 PASS; INITIAL JOB 335565 FAILED IN POST-PYTEST
+  JUNIT PARSER AND REMAINS PRESERVED; MANUAL PARSER-ONLY JOB 335578 COMPLETED
+  0:0 WITH FINAL CHECKSUM VERIFICATION; INDEPENDENT S02-R PENDING**.
 
 No merge, push, PR, upload, branch/worktree deletion, mini/trainval traversal,
 model/scientific execution, or unapproved follow-on occurred.
@@ -178,7 +183,8 @@ case inventory, and the exact negative interpretation are in `RESULTS.md`.
 | official radius numerical goldens | TEST PASS |
 | exact Gaussian patch/heatmap target | TEST PASS |
 | focused CPU pytest suite | 12/12 TESTS PASS |
-| exact O-009 job acceptance | **FAIL: scheduler 1:0, missing final checksum manifest** |
+| initial exact O-009 job acceptance | **FAIL preserved: Job 335565 scheduler 1:0, missing final checksum manifest** |
+| manual parser-only exact job acceptance | PASS: Job 335578 `COMPLETED 0:0`, 12/0/0/0, final checksums OK |
 | GPU forward/backward | NOT REQUESTED / NOT RUN |
 | independent S02-R | PENDING |
 
@@ -205,12 +211,43 @@ Forbidden:
 ## Remaining risks and requested S00 decisions
 
 1. Preserve Job 335565 as overall FAILED while retaining the positive 12-test
-   evidence and missing-checksum fact.
-2. Decide whether the focused gate requires a separately approved manual
-   remediation of only the handoff-owned JUnit evidence parser. No retry is
-   authorized by this handoff.
-3. After durable delivery, launch independent S02-R from the exact worker SHA;
+   evidence and missing-checksum fact; Job 335578 is a separate manual remediation,
+   not a rewrite of that history.
+2. After durable delivery, launch independent S02-R from the exact worker SHA;
    reviewer must recompute Gaussian fixtures and hostile B>1 cases rather than
    relying only on worker prose.
-4. S07-B must integrate S02 only after independent review and must treat all old
+3. S07-B must integrate S02 only after independent review and must treat all old
    target-trained checkpoints as requiring retraining.
+
+## S00 post-job decision and parser-only remediation preparation
+
+S00 required the first job to remain overall `FAILED 1:0` while preserving the
+positive pytest/JUnit evidence and missing final checksum. That negative package
+was committed independently as `b848a6f` before any launcher edit.
+
+S00 then authorized only a manual evidence-parser remediation preparation. Commit
+`840e8bee8d1157c71b7752d3937c6cb8e75201e7` changes only the JUnit aggregation
+block in the handoff-owned launcher:
+
+- root `testsuite` is counted directly;
+- otherwise every descendant `testsuite` under `testsuites` is aggregated;
+- absence of a suite fails closed;
+- exact count remains `12/0/0/0`.
+
+The parser was checked locally against Job 335565's raw JUnit and synthetic
+single-/multi-suite root shapes. Model files, test files/nodes, expected count,
+resources, data scope, and all scientific boundaries are unchanged.
+
+The new source-state hash is
+`2ff7d74246e55332305e92a83dc028a42ce3c1e60993c28c24ece868784e580a`;
+the new unique output is
+`.../outputs/s02_cpu_tests_840e8bee8d11`. The exact command and stop conditions
+are appended to `RUN_REQUEST.md`.
+
+S00 approved the finalized request hash `48aa4307...`, launcher hash
+`35798c39...`, executable `840e8bee...`, source state `2ff7d742...`, and exact
+unchanged scope once. S02 submitted Job `335578` once. It completed `0:0` on
+`n534` in `00:01:33`, with `Restarts=0`, pytest `12 passed in 19.86s`, JUnit
+12/0/0/0, empty `CUDA_VISIBLE_DEVICES`, all 16 sources verified, and the final
+four-artifact in-job checksum list passing. No retry/requeue/resubmission/follow-on
+occurred. `RESULTS.md` contains full raw hashes and both scheduler histories.

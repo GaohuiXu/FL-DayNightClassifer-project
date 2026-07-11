@@ -2,7 +2,7 @@
 
 ## Approval state and boundary
 
-- **Status:** `EXECUTED_ONCE_FAILED_POST_PYTEST_NO_RETRY`.
+- **Status:** `FIRST_EXECUTION_FAILED_POST_PYTEST_PRESERVED; MANUAL_PARSER_REMEDIATION_EXECUTED_ONCE_COMPLETED_PASS; NO_FURTHER_SUBMISSION_AUTHORIZED`.
 - This is one bounded, non-scientific engineering validation request under the
   O-017 rule for Wave-A workers and the O-009 resource ceiling. O-017 requires S02
   to stop and wait for explicit S00 approval even though the request fits O-009.
@@ -136,3 +136,105 @@ This is a preserved negative gate result. The individual raw artifacts and logs
 were independently hashed after termination, and all 16 runtime sources verified
 against the immutable commit. Exact values are in `RESULTS.md`. The approval is
 consumed; this updated record does not authorize a launcher fix or another job.
+
+## Manual evidence-parser remediation request — PENDING S00 APPROVAL
+
+### Why this is a new manual request
+
+S00 explicitly authorized preparation, but not submission, of one narrowly scoped
+manual remediation after preserving Job 335565 as overall `FAILED 1:0`. This is not
+an automatic retry. The first request/approval is consumed and remains immutable
+historical evidence above.
+
+The only executable change after the negative-evidence commit is in
+`handoffs/S02/run_s02_cpu_tests.sh`: its JUnit checker now uses the project-proven
+S07 aggregation pattern, treating a root `testsuite` as one suite and otherwise
+aggregating every descendant `testsuite` under a `testsuites` root. It still
+requires exactly `(tests, failures, errors, skipped) = (12,0,0,0)`.
+
+No model source, test source/node, expected count, resource, data scope, output
+schema, or scientific boundary changed. Static validation parsed the raw Job
+335565 JUnit as 12/0/0/0 and separately passed synthetic `testsuite`-root and nested
+`testsuites`-root fixtures. `bash -n` and `git diff --check` passed.
+
+### New immutable identity
+
+- Negative-evidence documentation commit:
+  `b848a6f` (`docs(s02): preserve failed CPU gate evidence`).
+- Parser-only remediation commit / exact new executable HEAD:
+  `840e8bee8d1157c71b7752d3937c6cb8e75201e7`.
+- Model/test implementation remains:
+  `65c83c077210469861ba722a285ab1e58e6d719f`.
+- New exact 16-file runtime source-state SHA-256:
+  `2ff7d74246e55332305e92a83dc028a42ce3c1e60993c28c24ece868784e580a`.
+- Runtime source list is unchanged from the first request; only the launcher blob
+  differs.
+- Working tracked diff was empty at the executable commit before editing this
+  request. This request/handoff prose is not an executable input.
+- The finalized request's SHA-256 is intentionally reported to S00 externally
+  after this file is complete; it cannot self-embed its own hash.
+
+Any change to executable SHA, source state/list, model/tests/nodes, expected count,
+command, resources, output, or stop conditions invalidates a future approval.
+
+### Unchanged scope and resources
+
+- Synthetic CPU tensor tests only; no mini/trainval/cache/checkpoint/model step.
+- Exact same twelve pytest nodes as the first request.
+- `CUDA_VISIBLE_DEVICES=""` before Python/Torch imports.
+- One node, one `nvidia_gh200_120gb` allocation, four CPUs, `00:10:00`, maximum
+  `0.167` GPU-hour; one job, no array/DDP/retry/requeue/resubmit/follow-on.
+- New unique output root, confirmed absent during preparation:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s02_cpu_tests_840e8bee8d11`.
+- Logs remain under the launcher-declared unique Slurm `%j` paths:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s02_cpu_tests_%j.{out,err}`.
+
+### Exact pending command — DO NOT SUBMIT WITHOUT NEW S00 APPROVAL
+
+```bash
+test "$(git rev-parse HEAD)" = "840e8bee8d1157c71b7752d3937c6cb8e75201e7" && \
+test "$(git branch --show-current)" = "codex/s02-cl-p0-correctness" && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s02_cpu_tests_840e8bee8d11 && \
+test -z "$(squeue -u "$USER" -h -o '%i %j' | awk '$2 ~ /flv3_s02/ {print}')" && \
+sbatch --export=ALL,EXPECTED_S02_SHA=840e8bee8d1157c71b7752d3937c6cb8e75201e7,EXPECTED_S02_STATE_HASH=2ff7d74246e55332305e92a83dc028a42ce3c1e60993c28c24ece868784e580a,S02_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s02_cpu_tests_840e8bee8d11 \
+  fl_v3/usenix27_orchestra/handoffs/S02/run_s02_cpu_tests.sh
+```
+
+### Acceptance and stop conditions
+
+Acceptance is unchanged: exact in-job identity/source match; execution identity
+with empty `CUDA_VISIBLE_DEVICES`; JUnit exactly 12/0/0/0; pytest 12 passed; in-job
+source and final artifact checksum verification; Slurm `COMPLETED 0:0` within the
+approved resources. Any failure remains a negative result and stops the session.
+There was no standing permission to submit this command; the one-time approval and
+terminal execution are recorded below.
+
+### Exact second S00 approval and terminal execution
+
+S00 approved exactly one manual remediation submission, bound to:
+
+- finalized request SHA-256:
+  `48aa43079bcca7bbc9f9005862149d99968a76b149c6f3f7482f37bd8e125a0b`;
+- executable `840e8bee8d1157c71b7752d3937c6cb8e75201e7`;
+- unchanged implementation `65c83c077210469861ba722a285ab1e58e6d719f`;
+- launcher SHA-256
+  `35798c3956e1cb4fcf54288f34ead04687d2b22d2dcdff4186b865d5261b452b`;
+- runtime source state
+  `2ff7d74246e55332305e92a83dc028a42ce3c1e60993c28c24ece868784e580a`;
+- the exact new output, command, tests, resources, and stop conditions above.
+
+The second preflight matched exact HEAD/branch/request/launcher/source hashes;
+all runtime sources were clean relative to HEAD; the new output was absent; and no
+S02 job was active. S02 submitted exactly once as Job `335578`.
+
+Job `335578` completed `COMPLETED 0:0` on node `n534` in `00:01:33`, with
+`Restarts=0`. Pytest reported `12 passed in 19.86s`; JUnit aggregated to
+12 tests, zero failures/errors/skips; execution identity recorded empty
+`CUDA_VISIBLE_DEVICES`; and the in-job final `sha256sum -c` verified all four
+declared artifacts. Complete scheduler fields, raw hashes, and both-job history are
+in `RESULTS.md`.
+
+The new approval is consumed. Job `335565` remains overall `FAILED 1:0` with its
+missing checksum manifest; Job `335578` does not rewrite that history. No retry,
+requeue, resubmission, or follow-on occurred, and no further submission is
+authorized by this final record.
