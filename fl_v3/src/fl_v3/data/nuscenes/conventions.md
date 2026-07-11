@@ -166,16 +166,21 @@ category↔name slip in T5.
 
 ## 7. Sensors carried
 
-Camera (all 6) + single-keyframe `LIDAR_TOP` only. **Radar, map-expansion, and
-LiDAR sweep accumulation are out of scope for T1** (documented deferral; the schema
-leaves room for them without a breaking change).
+Camera (all 6) + `LIDAR_TOP`. The default remains one keyframe; an info-cache built
+with `n_sweeps>1` may carry previous LiDAR records, ego-motion transforms, and a
+per-point `dt` column. **Radar and map-expansion remain outside the sample schema.**
+
+Sensor bytes may come from an extracted directory or the S01 stored-ZIP backend.
+Both modes use the same immutable bytes decoder. ZIP routing comes from an external
+read-only manifest; no archive is extracted and every payload is length/CRC checked.
 
 ## 8. Determinism notes (see `fl_v3/docs/determinism.md`)
 
 - Samples ordered by `sample_token`; boxes within a sample ordered by `ann_token`.
   Never devkit dict-iteration / `os.listdir` / filesystem order.
-- Image decoder pinned to **PIL `Image.open().convert("RGB")`** (opencv decodes the
-  same JPEG to different pixels). Decoded bytes match a committed per-fixture
+- Image decoder pinned to **PIL `Image.open(BytesIO(payload)).convert("RGB")`**
+  (opencv decodes the same JPEG to different pixels). The payload is byte-identical
+  between directory and ZIP modes; decoded tensors match the committed fixture
   `sha256`.
 - Info-cache content hash is **host-portable**: DATAROOT-relative paths, fixed
   little-endian dtypes, sorted tokens, no `set` iteration, no build timestamps — so

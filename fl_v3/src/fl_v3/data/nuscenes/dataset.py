@@ -19,6 +19,8 @@ per-box tensors is a **T2 deliverable**; T1 does not modify ``training/loop.py``
 from __future__ import annotations
 
 import hashlib
+import os
+from io import BytesIO
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -28,6 +30,7 @@ from torch.utils.data import DataLoader, Dataset
 
 from fl_v3.data.nuscenes import info_cache as IC
 from fl_v3.data.nuscenes import paths as P
+from fl_v3.data.nuscenes.zip_backend import NuScenesBlobStore, canonical_member_path
 from fl_v3.utils.runtime import seeded_worker_init
 
 # Frozen cam order — a test asserts the schema matches this exactly.
@@ -35,26 +38,112 @@ CAM_ORDER = P.CAMERA_CHANNELS
 IMAGE_HW = (900, 1600)  # native nuScenes (H, W)
 
 
-def _decode_image_chw(abs_path: str) -> np.ndarray:
-    """Pinned decoder: PIL RGB → uint8 ``(3,H,W)``. NOT opencv (different pixels)."""
-    with Image.open(abs_path) as im:
+def _decode_image_bytes_chw(payload: bytes) -> np.ndarray:
+    """Pinned decoder over immutable bytes: PIL RGB → uint8 ``(3,H,W)``."""
+    with Image.open(BytesIO(payload)) as im:
         rgb = im.convert("RGB")  # ensure 3-channel, drop any alpha/palette
         arr = np.asarray(rgb, dtype=np.uint8)  # (H,W,3)
     return np.ascontiguousarray(arr.transpose(2, 0, 1))  # (3,H,W)
 
 
-def _load_lidar(abs_path: str) -> np.ndarray:
+_COMPAT_BLOB_STORES: dict[tuple[str, str], NuScenesBlobStore] = {}
+
+
+def _infer_root_and_relative(abs_path: str) -> tuple[str, str]:
+    """Recover ``(dataroot, member)`` from a devkit-style missing blob path.
+
+    This keeps permission-out callers such as ``build_gt_database.py`` working:
+    the devkit still returns ``<module-root>/samples/...`` even though that file
+    exists only inside ZIP.  New code should pass a store explicitly.
+    """
+    absolute = os.path.abspath(abs_path)
+    normalized = absolute.replace(os.sep, "/")
+    for marker in ("/samples/", "/sweeps/"):
+        if marker in normalized:
+            prefix, suffix = normalized.split(marker, 1)
+            return prefix or os.sep, canonical_member_path(marker.strip("/") + "/" + suffix)
+    raise FileNotFoundError(
+        f"cannot infer nuScenes dataroot/member from missing blob path {abs_path!r}"
+    )
+
+
+def _compat_blob_store(dataroot: str) -> NuScenesBlobStore:
+    manifest = P.get_zip_manifest()
+    key = (os.path.abspath(dataroot), manifest)
+    store = _COMPAT_BLOB_STORES.get(key)
+    if store is None:
+        # Let the store ignore a shell-exported module manifest when ``dataroot``
+        # is an extracted mini/local tree; ZIP roots still discover the env value.
+        store = NuScenesBlobStore(key[0])
+        _COMPAT_BLOB_STORES[key] = store
+    return store
+
+
+def _read_blob_bytes(
+    path: str,
+    *,
+    blob_store: NuScenesBlobStore | None = None,
+    dataroot: str | None = None,
+) -> bytes:
+    if blob_store is not None:
+        rel = P.relative_to_dataroot(path, blob_store.dataroot) if os.path.isabs(path) else path
+        return blob_store.read_bytes(rel)
+    if dataroot is not None:
+        rel = P.relative_to_dataroot(path, dataroot) if os.path.isabs(path) else path
+        return _compat_blob_store(dataroot).read_bytes(rel)
+    try:
+        with open(path, "rb") as stream:
+            return stream.read()
+    except FileNotFoundError:
+        root, rel = _infer_root_and_relative(path)
+        return _compat_blob_store(root).read_bytes(rel)
+
+
+def _decode_image_chw(
+    path: str,
+    *,
+    blob_store: NuScenesBlobStore | None = None,
+    dataroot: str | None = None,
+) -> np.ndarray:
+    """Pinned PIL decoder over a directory path or ZIP member."""
+    return _decode_image_bytes_chw(
+        _read_blob_bytes(path, blob_store=blob_store, dataroot=dataroot)
+    )
+
+
+def _load_lidar_bytes(payload: bytes, source: str = "<bytes>") -> np.ndarray:
     """Load ``.pcd.bin`` → ``(P,5)`` float32 = ``x,y,z,intensity,ring`` (LIDAR_TOP).
 
     The devkit ``LidarPointCloud.from_file`` keeps only the first 4 cols (drops
     ``ring``); we carry all 5 as a conscious superset (devkit-parity tests compare
     only cols 0:4).
     """
-    raw = np.fromfile(abs_path, dtype=np.float32)
-    return raw.reshape(-1, 5)
+    if len(payload) % (5 * np.dtype(np.float32).itemsize) != 0:
+        raise ValueError(
+            f"LiDAR blob {source!r} has {len(payload)} bytes, not divisible by 5 float32 columns"
+        )
+    # ``copy`` preserves np.fromfile's writable-array semantics.  A bare
+    # frombuffer(bytes) array is read-only and unsafe to expose through torch.
+    return np.frombuffer(payload, dtype=np.float32).copy().reshape(-1, 5)
 
 
-def _load_multisweep(info: dict, dataroot: str, n_sweeps: int) -> np.ndarray:
+def _load_lidar(
+    path: str,
+    *,
+    blob_store: NuScenesBlobStore | None = None,
+    dataroot: str | None = None,
+) -> np.ndarray:
+    return _load_lidar_bytes(
+        _read_blob_bytes(path, blob_store=blob_store, dataroot=dataroot), source=path
+    )
+
+
+def _load_multisweep(
+    info: dict,
+    dataroot: str,
+    n_sweeps: int,
+    blob_store: NuScenesBlobStore | None = None,
+) -> np.ndarray:
     """Accumulate the keyframe + up to ``n_sweeps-1`` PREV sweeps into the keyframe LIDAR_TOP
     frame → ``(Ptot, 6)`` f32 = ``x,y,z,intensity,ring,dt`` (the keyframe has ``dt=0``).
 
@@ -62,10 +151,14 @@ def _load_multisweep(info: dict, dataroot: str, n_sweeps: int) -> np.ndarray:
     4×4 (devkit ``from_file_multisweep`` convention); intensity/ring are carried as-is and the
     per-point ``dt`` (seconds into the past) is appended as the timestamp channel. Deterministic
     (pure index/matmul; sweep order is the cache's fixed prev-walk order)."""
-    key = _load_lidar(P.abspath_from_relative(info["lidar_rel_path"], dataroot))   # (P0,5)
+    store = blob_store or _compat_blob_store(dataroot)
+    sweeps = info.get("lidar_sweeps", [])[: max(0, n_sweeps - 1)]
+    rel_paths = [info["lidar_rel_path"], *(sw["rel_path"] for sw in sweeps)]
+    payloads = store.read_many(rel_paths)
+    key = _load_lidar_bytes(payloads[0], source=rel_paths[0])                       # (P0,5)
     clouds = [np.concatenate([key, np.zeros((key.shape[0], 1), np.float32)], axis=1)]  # (P0,6), dt=0
-    for sw in info.get("lidar_sweeps", [])[: max(0, n_sweeps - 1)]:
-        p = _load_lidar(P.abspath_from_relative(sw["rel_path"], dataroot))          # (Pi,5)
+    for sw, payload in zip(sweeps, payloads[1:]):
+        p = _load_lidar_bytes(payload, source=sw["rel_path"])                       # (Pi,5)
         m = sw["sweep2keylidar"].astype(np.float32)                                # (4,4)
         xyz1 = np.concatenate([p[:, :3], np.ones((p.shape[0], 1), np.float32)], axis=1)  # (Pi,4)
         xyz_key = (xyz1 @ m.T)[:, :3]                                               # (Pi,3) in key frame
@@ -85,6 +178,7 @@ class NuScenesMultimodalDataset(Dataset):
         n_sweeps: int = 1,
         augment: Optional[dict] = None,
         gtpaste: Optional[dict] = None,
+        zip_manifest: Optional[str] = None,
     ):
         """``info_list`` from :mod:`info_cache`. If ``sample_tokens`` is given, the
         dataset is restricted to (and ordered by) those tokens — this is how a
@@ -99,11 +193,15 @@ class NuScenesMultimodalDataset(Dataset):
         :mod:`augment`); when set, each ``__getitem__`` applies a seeded GlobalRotScaleTrans+flip to the
         points/boxes/velocity/lidar2img. **TRAIN-ONLY** — pass it ONLY for the training dataset; eval
         leaves it ``None`` (clean). Default ``None`` ⇒ byte-identical to the un-augmented path.
+
+        ``zip_manifest`` is normally discovered from ``NUSCENES_ZIP_MANIFEST``;
+        passing it explicitly is useful for data-only tools and tests.
         """
         self.dataroot = dataroot
         self.n_sweeps = int(n_sweeps)
         self.augment = augment
         self.gtpaste = gtpaste
+        self.blob_store = NuScenesBlobStore(dataroot, manifest_path=zip_manifest)
         by_token = {i["sample_token"]: i for i in info_list}
         if sample_tokens is None:
             order = sorted(by_token)
@@ -113,7 +211,9 @@ class NuScenesMultimodalDataset(Dataset):
                 raise KeyError(f"{len(missing)} sample_tokens not in info_list (e.g. {missing[:3]})")
             order = list(sample_tokens)  # caller-controlled, already deterministic
         self._infos = [by_token[t] for t in order]
-        if self.n_sweeps > 1 and self._infos and "lidar_sweeps" not in self._infos[0]:
+        if self.n_sweeps > 1 and self._infos and not any(
+            "lidar_sweeps" in info for info in self._infos
+        ):
             raise KeyError(
                 f"n_sweeps={self.n_sweeps} but this info cache has no 'lidar_sweeps' (built "
                 "single-sweep). Rebuild the cache with n_sweeps>1 (see build_msweep_cache).")
@@ -128,15 +228,13 @@ class NuScenesMultimodalDataset(Dataset):
     def __getitem__(self, idx: int) -> Dict[str, object]:
         info = self._infos[idx]
         # --- images (6,3,900,1600) uint8, row i ↔ cam_order[i] ---
-        imgs = np.stack([
-            _decode_image_chw(P.abspath_from_relative(rel, self.dataroot))
-            for rel in info["cam_rel_paths"]
-        ])  # (6,3,H,W)
+        image_payloads = self.blob_store.read_many(info["cam_rel_paths"])
+        imgs = np.stack([_decode_image_bytes_chw(payload) for payload in image_payloads])  # (6,3,H,W)
         # --- lidar: (P,5) single keyframe, or (P,6) accumulated multi-sweep (+dt channel) ---
         if self.n_sweeps > 1:
-            pts = _load_multisweep(info, self.dataroot, self.n_sweeps)
+            pts = _load_multisweep(info, self.dataroot, self.n_sweeps, self.blob_store)
         else:
-            pts = _load_lidar(P.abspath_from_relative(info["lidar_rel_path"], self.dataroot))
+            pts = _load_lidar(info["lidar_rel_path"], blob_store=self.blob_store)
 
         M = int(info["gt_boxes"].shape[0])
         sample = {
@@ -180,6 +278,13 @@ class NuScenesMultimodalDataset(Dataset):
             sample = augment_sample(sample, self.augment)
         return sample
 
+    @property
+    def blob_backend(self) -> str:
+        return self.blob_store.mode
+
+    def close(self) -> None:
+        self.blob_store.close()
+
 
 def sample_image_sha256(sample: Dict[str, object]) -> str:
     """sha256 of the decoded image tensor bytes — for the pinned-decoder gate."""
@@ -196,6 +301,7 @@ def make_loader(
     collate_fn=None,
     sampler=None,
     drop_last: bool = False,
+    multiprocessing_context=None,
 ) -> DataLoader:
     """DataLoader with the seeded worker init (determinism harness).
 
@@ -221,6 +327,8 @@ def make_loader(
     extra = {}
     if int(num_workers) > 0:
         extra.update(persistent_workers=True, prefetch_factor=4)
+        if multiprocessing_context is not None:
+            extra["multiprocessing_context"] = multiprocessing_context
     return DataLoader(
         dataset,
         batch_size=batch_size,

@@ -146,12 +146,22 @@ access verification. The module directory contains trainval metadata, ten stored
 `trainvalXX_blobs.zip` archives, and test data. The access check found the camera
 samples, `LIDAR_TOP` keyframes, and sweeps needed by the model.
 
-The production loader is not yet ZIP-aware: it still expects ordinary filesystem
-paths for `Image.open` and `np.fromfile`. Do not describe full-data training as ready
-until the ZIP backend, complete member-coverage manifest, directory/ZIP parity, and
-multi-worker behavior pass the S01 gates. Do not extract or duplicate the full
-dataset into project storage without explicit owner permission. The old
+The S01 implementation provides a read-only stored-ZIP backend: a one-time external
+SQLite member manifest routes sensor paths to `trainval01` through `trainval10`, and
+each DataLoader process lazily opens its own read-only archive descriptors for
+offset/CRC-checked reads. Directory mode remains the mini/local backend. This code
+does **not** by itself make full-data training ready: the exhaustive shared member
+scan, 100% train/val six-camera/key-LiDAR/10-sweep coverage, decoded parity,
+multi-worker behavior, and full-data throughput still require the S01 gate evidence
+and independent S01-R review. Do not extract or duplicate the full dataset into
+project storage without explicit owner permission. The old
 `/mimer/NOBACKUP/Datasets/NuScenes_v1.0` path is not an Arrhenius data path.
+
+The module root is discovered from `NUSCENES_DATA_DIR` after explicit config and
+the legacy dataroot environment overrides. ZIP runs additionally require
+`NUSCENES_ZIP_MANIFEST` (or `ARRHENIUS_NUSCENES_ZIP_MANIFEST`) pointing outside
+the shared read-only dataset. Building that manifest on shared trainval is an
+exhaustive full-data scan and therefore needs an approved S01 `RUN_REQUEST.md`.
 
 The currently accessible mini dataset is:
 

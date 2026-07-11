@@ -12,4 +12,5 @@ from fl_v3.data.nuscenes import (  # noqa: F401
     partition,
     paths,
     transforms,
+    zip_backend,
 )

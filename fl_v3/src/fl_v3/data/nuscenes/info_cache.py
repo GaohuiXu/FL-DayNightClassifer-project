@@ -35,6 +35,7 @@ from fl_v3.data.nuscenes.class_map import (
     NAME_TO_ID,
     category_to_detection_name,
 )
+from fl_v3.data.nuscenes.zip_backend import canonical_member_path
 
 CACHE_FORMAT_VERSION = "t1.v1"
 
@@ -47,6 +48,19 @@ def _sensor_records(nusc, sample, channel: str):
     cs = nusc.get("calibrated_sensor", sd["calibrated_sensor_token"])
     ep = nusc.get("ego_pose", sd["ego_pose_token"])
     return sd, cs, ep
+
+
+def _sample_data_rel_path(sample_data: dict) -> str:
+    """Canonical blob member from metadata only (never probes/extracts payload).
+
+    Official ``sample_data.filename`` is already DATAROOT-relative.  Reading it
+    directly lets the info-cache build against the Arrhenius metadata+ZIP layout
+    even though ``dataroot/filename`` is not an extracted file.
+    """
+    try:
+        return canonical_member_path(sample_data["filename"])
+    except KeyError as exc:
+        raise KeyError(f"sample_data {sample_data.get('token', '<unknown>')!r} has no filename") from exc
 
 
 def _attr_name(nusc, attribute_tokens) -> str:
@@ -76,7 +90,7 @@ def build_keyframe_info(nusc, sample, dataroot: str, n_sweeps: int = 1) -> dict:
 
     # --- LiDAR (canonical frame anchor) ---
     sd_l, cs_l, ep_l = _sensor_records(nusc, sample, P.LIDAR_CHANNEL)
-    lidar_rel = P.relative_to_dataroot(nusc.get_sample_data_path(sample["data"][P.LIDAR_CHANNEL]), dataroot)
+    lidar_rel = _sample_data_rel_path(sd_l)
     lidar2ego = T.transform_matrix(cs_l["translation"], cs_l["rotation"], inverse=False)
     ego2global_lidar = T.transform_matrix(ep_l["translation"], ep_l["rotation"], inverse=False)
     # global -> lidar (for box centers): inverse chain.
@@ -108,7 +122,7 @@ def build_keyframe_info(nusc, sample, dataroot: str, n_sweeps: int = 1) -> dict:
                 @ T.transform_matrix(cs_s["translation"], cs_s["rotation"], inverse=False)
             )
             sweep2keylidar = (global2lidar @ lidar2global_sweep).astype(np.float64)  # (4,4)
-            rel_s = P.relative_to_dataroot(nusc.get_sample_data_path(sd_cur["token"]), dataroot)
+            rel_s = _sample_data_rel_path(sd_cur)
             dt = (key_ts - int(sd_cur["timestamp"])) * 1e-6  # seconds into the past (>=0)
             lidar_sweeps.append({
                 "rel_path": rel_s,
@@ -128,7 +142,7 @@ def build_keyframe_info(nusc, sample, dataroot: str, n_sweeps: int = 1) -> dict:
     cam_raw = []  # raw records, for the host-portable hash
     for i, ch in enumerate(P.CAMERA_CHANNELS):
         sd_c, cs_c, ep_c = _sensor_records(nusc, sample, ch)
-        rel = P.relative_to_dataroot(nusc.get_sample_data_path(sample["data"][ch]), dataroot)
+        rel = _sample_data_rel_path(sd_c)
         cam_rel_paths.append(rel)
         K = np.asarray(cs_c["camera_intrinsic"], dtype=np.float64)
         cam_intrinsics[i] = K
@@ -232,8 +246,11 @@ def build_keyframe_info(nusc, sample, dataroot: str, n_sweeps: int = 1) -> dict:
         "_lidar_raw": (lidar_rel, cs_l["translation"], cs_l["rotation"],
                        ep_l["translation"], ep_l["rotation"]),
     }
-    # Additive: only present for an n_sweeps>1 build ⇒ the n_sweeps=1 schema + hash are unchanged.
-    if lidar_sweeps:
+    # Additive: present for every sample in an n_sweeps>1 build, including scene
+    # starts with an empty history.  This prevents a valid cache from being
+    # mistaken for single-sweep merely because its first token starts a scene.
+    # n_sweeps=1 remains byte-identical to the pre-lever schema/hash.
+    if int(n_sweeps) > 1:
         info["lidar_sweeps"] = lidar_sweeps
     return info
 
