@@ -70,7 +70,7 @@ runtime_source_files() {
       fl_v3/pyproject.toml \
       fl_v3/requirements.txt \
       fl_v3/requirements.lock.txt
-  } | sort -u
+  } | LC_ALL=C sort -u
 }
 S07A_STATE_HASH="$(runtime_source_files | while IFS= read -r path; do
   sha256sum "${path}"
