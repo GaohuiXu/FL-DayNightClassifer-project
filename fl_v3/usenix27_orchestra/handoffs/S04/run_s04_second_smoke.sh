@@ -11,7 +11,13 @@
 #SBATCH --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s04_second_%j.err
 set -euo pipefail
 
-required=(EXPECTED_S04_SHA EXPECTED_S04_REF EXPECTED_S04_SOURCE_HASH S04_OUTPUT_ROOT)
+required=(
+  EXPECTED_S04_SHA
+  EXPECTED_S04_REF
+  EXPECTED_S04_SOURCE_HASH
+  EXPECTED_S04_REQUEST_HASH
+  S04_OUTPUT_ROOT
+)
 for name in "${required[@]}"; do
   if [ -z "${!name:-}" ]; then
     echo "${name} is required" >&2
@@ -35,8 +41,16 @@ if [ "${ACTUAL_REF:-detached}" != "${EXPECTED_S04_REF}" ]; then
   echo "ref mismatch: expected=${EXPECTED_S04_REF} actual=${ACTUAL_REF:-detached}" >&2
   exit 2
 fi
-if [ -n "$(git status --short)" ]; then
-  echo "S04 execution requires a clean worktree" >&2
+REQUEST_PATH="fl_v3/usenix27_orchestra/handoffs/S04/RUN_REQUEST.md"
+EXPECTED_STATUS="?? ${REQUEST_PATH}"
+ACTUAL_STATUS="$(git status --short)"
+if [ "${ACTUAL_STATUS}" != "${EXPECTED_STATUS}" ]; then
+  echo "worktree mismatch: expected only '${EXPECTED_STATUS}', got '${ACTUAL_STATUS}'" >&2
+  exit 2
+fi
+ACTUAL_REQUEST_HASH="$(sha256sum "${REQUEST_PATH}" | awk '{print $1}')"
+if [ "${ACTUAL_REQUEST_HASH}" != "${EXPECTED_S04_REQUEST_HASH}" ]; then
+  echo "request hash mismatch: expected=${EXPECTED_S04_REQUEST_HASH} actual=${ACTUAL_REQUEST_HASH}" >&2
   exit 2
 fi
 
@@ -88,7 +102,8 @@ JUNIT_XML="${S04_OUTPUT_ROOT}/pytest.junit.xml"
 runtime_source_files | while IFS= read -r path; do sha256sum "${path}"; done > "${SOURCE_HASHES}"
 test "$(sha256sum "${SOURCE_HASHES}" | awk '{print $1}')" = "${S04_SOURCE_HASH}"
 
-python - "${EXECUTION_JSON}" "${ACTUAL_SHA}" "${ACTUAL_REF:-detached}" "${S04_SOURCE_HASH}" <<'PY'
+python - "${EXECUTION_JSON}" "${ACTUAL_SHA}" "${ACTUAL_REF:-detached}" \
+  "${S04_SOURCE_HASH}" "${ACTUAL_REQUEST_HASH}" <<'PY'
 import importlib.metadata
 import json
 import os
@@ -96,12 +111,13 @@ import platform
 import socket
 import sys
 
-output, git_sha, git_ref, source_hash = sys.argv[1:]
+output, git_sha, git_ref, source_hash, request_hash = sys.argv[1:]
 record = {
     "schema": "s04.second-synthetic-gh200.v1",
     "git_sha": git_sha,
     "git_ref": git_ref,
     "runtime_source_sha256": source_hash,
+    "run_request_sha256": request_hash,
     "slurm_job_id": os.environ.get("SLURM_JOB_ID", ""),
     "host": socket.gethostname(),
     "machine": platform.machine(),
@@ -120,7 +136,7 @@ with open(output, "w", encoding="utf-8") as stream:
 PY
 
 echo "[S04] host=$(hostname) arch=$(uname -m) job=${SLURM_JOB_ID:-unset}"
-echo "[S04] sha=${ACTUAL_SHA} ref=${ACTUAL_REF:-detached} source=${S04_SOURCE_HASH}"
+echo "[S04] sha=${ACTUAL_SHA} ref=${ACTUAL_REF:-detached} source=${S04_SOURCE_HASH} request=${ACTUAL_REQUEST_HASH}"
 echo "[S04] output=${S04_OUTPUT_ROOT} data=synthetic-only"
 
 set +e
