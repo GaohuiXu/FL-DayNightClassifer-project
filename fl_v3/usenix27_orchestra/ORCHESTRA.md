@@ -1,8 +1,14 @@
 # USENIX Security '27 Orchestra — strong CL backbone to federated multimodal security
 
-> **Status:** active; Protocol B and the collaboration/review process were approved
-> by the owner on 2026-07-10. Remaining architecture cells and run requests still
-> require their own approvals.
+> **Status:** active. The owner designated the pinned S00 task at
+> `detached@f262f6bea037580065a8505008773c04fdd259f5` as the sole canonical writer
+> on 2026-07-10. S01 is independently reviewed PASS and accepted as an S07
+> dependency at worker SHA `abe5c58b174dbbe1f7045ce91c8b15168d97b87b`; review
+> artifact SHA `7cf7fcc4b17d43806f1a134cf8c8a7b6868aa5bc` remains a separate
+> review-only commit. No S01 merge or push has occurred. S12 has delivered its
+> evidence/proposal-only handoff for completeness/review and used no compute.
+> Remaining architecture choices, cells, and run requests still require their own
+> approvals.
 > **Venue target:** USENIX Security '27 first submission cycle (registration 2026-08-18 AoE;
 > submission 2026-08-25 AoE).
 > **Canonical companions:** [`SESSIONS.md`](SESSIONS.md) and
@@ -79,9 +85,13 @@ improves over the stronger branch.
    fall back to pillar (`training/tasks.py:363-426`).
 6. **No production single-modality topology.** Mini diagnostics can mask branches,
    but production training/evaluation always constructs and executes both branches.
-7. **ZIP data backend missing.** The shared trainval is available as stored ZIP
-   archives, while the dataset uses filesystem paths with `Image.open` and
-   `np.fromfile` (`data/nuscenes/dataset.py:38-54`).
+7. **ZIP backend accepted but not yet integrated/frozen.** S01/S01-R passed at
+   `abe5c58`; historical job `332651` proves ten-archive member coverage and loader
+   determinism, while remediation job `333206` proves `t1.v2` depth binding plus
+   real-mini directory/ZIP and fork/spawn parity. Before training, S07-A must land
+   the reviewed implementation/review artifact, migrate `build_gt_database.py`
+   away from hardcoded `t1.v1`, generate and freeze full trainval `t1.v2` caches,
+   and preserve the exact manifest/cache hashes in provenance.
 
 ### Capability limitations to resolve during architecture freeze
 
@@ -425,7 +435,7 @@ copy-ready worker and independent-review startup prompts are in
 1. The Orchestra session is the sole writer of these three canonical documents.
    Worker sessions write their durable handoff package under
    `handoffs/Sxx/` and do not edit the canonical files concurrently.
-2. Every implementation session uses an owner/UI-provisioned isolated
+2. Every implementation session uses an owner-approved, Codex-provisioned isolated
    worktree/branch and declares its file ownership before editing. Integration is
    performed only after review. S00 must instantiate the exact `Sxx` and `Sxx-R`
    prompts from `KICKOFFS.md`, including the pinned base/worker SHA, expected branch,
@@ -444,9 +454,34 @@ copy-ready worker and independent-review startup prompts are in
    scientific-result changes. A merge requires objective gate evidence.
 7. The Orchestra, not workers, decides whether a negative result kills a candidate,
    requests a rerun, or changes the paper claim.
-8. No session may submit a Slurm full run, matrix, multi-seed campaign, automatic
-   resubmission, remote upload, or publication action without explicit owner
-   permission scoped to the exact action. Preparing a request is not permission.
+8. The standing O-009 policy authorizes only bounded, non-scientific engineering
+   smoke jobs. No session may submit a full-data gate, full run/evaluation, matrix,
+   multi-seed campaign, automatic resubmission, remote upload, or publication
+   action without explicit owner permission scoped to the exact action.
+
+### Reasoning effort and standing short-smoke policy
+
+- S00 explicitly passes `xhigh` when creating every new worker/reviewer task; it
+  must not silently inherit a host default of `ultra`.
+- `ultra` is reserved for a task whose exact envelope contains a recorded reason:
+  unusually complex implementation/review or unusually broad, difficult research.
+  Ordinary implementation, review, orchestration, and evidence work use `xhigh`.
+- Owner decision O-009 is standing authorization for a **short engineering smoke**
+  on an Arrhenius compute node. It is non-scientific and must satisfy all of:
+  one node, at most one GPU, at most 60 minutes requested walltime per job, at most
+  one active job for the session, and at most two cumulative GPU-hours before a new
+  owner decision. Job arrays, multi-node/DDP, multiple seeds/cells, full epochs,
+  full trainval coverage/profile/evaluation, 100/1000-step gates, and automatic
+  resubmission are outside this authorization.
+- Before submission the session writes `RUN_REQUEST.md` as an audit record with the
+  exact HEAD plus working-tree diff hash, command, bounded data/sample scope,
+  resources, output path, and stop criteria, and cites `O-009`. It may then submit
+  without waiting for another approval. Every job ID, log, exit status, retry, and
+  negative result is recorded in `HANDOFF.md`/`RESULTS.md` as applicable.
+- Reaching a boundary above, repeating the same failure twice, or seeking a result
+  used for a gate/table/metric returns to S00/owner for exact approval. Full tests,
+  full-data runs, profiles, scientific metrics, matrices, seeds, reruns, and spare-
+  GPU expansion always require owner review.
 
 ### Evidence-driven Orchestra refinement
 
@@ -458,8 +493,8 @@ review accepts the evidence. For each completed worker session, S00 follows this
 order:
 
 1. inspect the actual diff/artifacts and check that the handoff package is complete;
-2. prepare the independent `Sxx-R` envelope from the exact worker SHA/diff and ask
-   the owner to create that review task in the UI;
+2. prepare and show the independent `Sxx-R` launch packet from the exact worker
+   SHA/diff; after owner authorization, create that review task through Codex;
 3. resolve blocking findings or record an accepted review verdict;
 4. update the status and decision ledgers;
 5. refine the plans and kickoff envelopes of sessions that have not started;
@@ -473,9 +508,12 @@ new kickoff is issued.
 
 S00 may draft from a worker handoff and may immediately delay/return work because
 of a blocking review finding. It may not treat a delivered technical contract as
-an accepted dependency until review approves it. S00 creates a new worker/reviewer
-task only when the owner explicitly asks it to; otherwise it supplies the filled UI
-kickoff envelope to the owner.
+an accepted dependency until review approves it. Before creating any new Sxx or
+Sxx-R task, S00 presents a launch packet containing the relevant upstream handoffs,
+reviews, SHAs/diffs/artifact status, unresolved conflicts, and the complete filled
+kickoff envelope/prompt including reasoning and compute scope. The owner reviews
+that packet and explicitly authorizes launch; only then may S00 create the isolated
+task directly through Codex. There is no automatic downstream or reviewer launch.
 
 The following are **material or locked changes** and remain owner decisions:
 
@@ -508,10 +546,13 @@ SESSION_ID:
 BASE_SHA:
 SOURCE_BRANCH: v3-ad-perception
 EXPECTED_REF_MODE: detached@BASE_SHA, or exact owner-created branch
-WORKTREE_PROVISIONED_BY: owner / Codex task UI
+WORKTREE_PROVISIONED_BY: S00 through Codex after owner launch approval, or owner UI
 FILE_OWNERSHIP:
 UPSTREAM_HANDOFFS_AND_SHAS:
-APPROVED_COMPUTE: none, unless an exact RUN_REQUEST approval is attached
+WORKER_SHA: pending for Sxx, or exact worker commit for Sxx-R
+DELIVERY_REF: pending owner authorization for Sxx, or exact review source ref
+REASONING_EFFORT: xhigh, or ultra with the recorded task-specific reason
+APPROVED_COMPUTE: none | standing short-smoke policy O-009 | exact approved request
 ```
 
 The session verifies its repository root, HEAD, branch/detached state, and status
@@ -529,6 +570,13 @@ review branch is used only when the owner authorizes preserving `REVIEW.md` as a
 commit. S07 alone receives a dedicated integration worktree based on the approved
 integration SHA and integrates only accepted worker commits. Execution sessions
 start from the exact frozen candidate commit named in their approved request.
+
+A commit made in an Sxx worktree advances only that worktree's detached HEAD or its
+owner-authorized scoped branch. It does not modify S00's working tree, move
+`v3-ad-perception`, or integrate itself. Git objects are shared by the repository,
+but the worker version becomes a review baseline only after it has a durable
+`WORKER_SHA` and branch/ref. S00 keeps canonical-document changes in its own
+worktree; S07 later integrates only independently accepted worker commits.
 
 The canonical Orchestra documents must be committed/landed on the source branch
 before S00 or worker worktrees are spawned. Although Codex can apply selected local
@@ -550,10 +598,13 @@ Every worker session creates
   semantic changes, references/equations, tests/jobs and raw outputs, gate-by-gate
   evidence, artifacts/hashes, negative results, scientific claims allowed and
   forbidden, unresolved risks, and requested Orchestra decisions.
-- **`RUN_REQUEST.md` (mandatory before material compute):** exact commit, resolved
-  config hash, data/split manifest, cells, seeds, GPU/count/time budget, command,
-  output path, stop criteria, and owner-approval status. A changed commit/config/
-  matrix invalidates the approval.
+- **`RUN_REQUEST.md` (mandatory before material compute):** for an O-009 smoke,
+  record exact HEAD plus working-tree diff hash, bounded data scope, resources,
+  command/output, stop criteria, and the standing-authorization citation. For full
+  tests/scientific work, record the immutable commit, resolved config hash,
+  data/split manifest, cells, seeds, GPU/count/time budget, command, output path,
+  stop criteria, and exact owner-approval status. A changed approved scope
+  invalidates full-test/scientific approval.
 - **`RESULTS.md` (mandatory for execution sessions):** job IDs, exit status, raw
   artifact paths/checksums, metric and performance tables, missing/failed cells,
   and interpretation limits. Never replace or hide a negative/failed cell.
@@ -627,9 +678,13 @@ No historical evidence or executable file is deleted. The consolidation is logic
   camera samples, `LIDAR_TOP` keyframes, and sweeps required by the current model.
 - A fresh login may be needed for normal group membership; `sg
   arrhpc-dataset-nuscenes` was the temporary verification path.
-- `AGENTS.md` now records the confirmed module/access state and the still-missing
-  ZIP backend. S01 updates active `docs/env.md` and this workspace after the backend
-  and canonical module command are verified end to end; the read-only
+- Reviewed S01 worker `abe5c58` implements the read-only ZIP backend. Job `332651`
+  indexed all ten archives and resolved `538,695/538,695` declared train/val
+  references with zero missing; job `333206` ran 56 focused GH200 tests with zero
+  failures/errors/skips against remediation implementation `54a48f9`. The full
+  `t1.v1` caches from job `332651` are historical evidence only and are forbidden
+  production inputs. S07-A owns current-format caller migration and full trainval
+  `t1.v2` cache materialization/freeze. The read-only
   `collab/arrhenius_migration.md` remains historical evidence.
 
 ## 10. Owner decision gates
@@ -645,8 +700,9 @@ now.
 - [x] USENIX '27 sprint scope and overlapping calendar (owner-approved).
 - [x] Protocol B is the primary security setting; Protocol A is the clean
       optimization/control setting (owner-approved 2026-07-10).
-- [x] Per-session `RUN_REQUEST.md` approval process; no plan-level blanket compute
-      permission (owner-approved).
+- [x] Per-session `RUN_REQUEST.md` audit process; bounded non-scientific smoke may
+      self-submit under O-009, while full tests/runs/metrics/matrices require exact
+      owner approval (owner-approved 2026-07-10).
 - [x] Fifteen-session split, dependencies, file ownership, and independent review
       process in `SESSIONS.md` (owner-approved).
 - [x] Copy-ready S00, S01-S15, and S01-R-S15-R kickoff registry in `KICKOFFS.md`.
@@ -683,3 +739,11 @@ evidence that caused it; material entries remain `PENDING` until the owner appro
 | O-003 | 2026-07-10 | owner decision | S00 may refine unstarted work from accepted handoffs/reviews within the operational boundary | operational authority | approved |
 | O-004 | 2026-07-10 | Codex managed-worktree contract and owner decision | task UI creates detached managed worktrees; kickoff pins SHA/ref; S00 permanent/pinned; local handoff commit needs exact permission | workspace policy | approved |
 | O-005 | 2026-07-10 | owner decision on staged review | architecture, capability gates, matrix, split details, and thesis are decided at explicit latest freeze points rather than before all Wave-A work | scientific process | approved |
+| O-006 | 2026-07-10 | owner approval in active S00 task | pin `/home/gaohui/.codex/worktrees/bb67/fl_weather_project` as the sole S00 canonical writer; archive the idle `/home/gaohui/.codex/worktrees/90d4/fl_weather_project` task without deleting its worktree or branch | workspace coordination | approved and executed |
+| O-007 | 2026-07-10 | owner approval in active S00 task | issue S01 ZIP-backend implementation and S12 evidence/proposal-only kickoffs from `f262f6bea037580065a8505008773c04fdd259f5`; exact ownership is recorded in `SESSIONS.md`; both had `APPROVED_COMPUTE: none` at issuance | operational launch | approved and active; S01 later amended by O-009 |
+| O-008 | 2026-07-10 | owner reasoning-budget decision | S00 must explicitly create future Sxx/Sxx-R tasks at `xhigh`; use `ultra` only for a recorded unusually complex implementation/review or broad difficult research task | resource policy | approved; applies to future tasks; S01 follow-up amended to xhigh |
+| O-009 | 2026-07-10 | owner compute-policy decision and direct S01 smoke approval | allow bounded non-scientific Slurm smoke without per-job waiting, subject to the standing limits and preflight record above; retain exact owner review for full tests, full-data/profile/metrics, matrices, seeds, and reruns; active S01 must acknowledge amendment in its durable package | compute policy | approved and acknowledged in `RUN_REQUEST.md`; job `330409` running |
+| O-010 | 2026-07-10 | owner clarification request | replace ambiguous worker-kickoff `WORKER_SHA: n/a` with `pending`; record that worker SHA/ref is produced only after S00 completeness checking and owner-authorized delivery commit, and is then consumed by Sxx-R | kickoff schema clarification | approved operational clarification |
+| O-011 | 2026-07-11 | owner workflow clarification | before S00 directly creates any Sxx/Sxx-R, present upstream handoff/review/diff status and the complete filled kickoff for owner review and explicit launch authorization; worker sessions never launch their own reviewer; S07 remains the sole code-integration session | launch/integration workflow | approved |
+| O-012 | 2026-07-11 | S01 worker `abe5c58`, review `7cf7fcc`, jobs `332651`/`333206`, and S00 raw-artifact audit | accept S01 as a reviewed dependency for S07 only: full manifest/checksums and scheduler records match; 56/56 focused tests and all listed remediation-source hashes match. Do not merge the review branch as implementation; do not use historical `t1.v1` caches or claim model/scientific readiness | integration evidence | accepted dependency; no merge/push |
+| O-013 | 2026-07-11 | accepted S01/S01-R evidence and `build_gt_database.py` audit | split S07 into phase S07-A data-foundation integration and later S07-B full-stack integration. S07-A lands exact worker history plus review artifact, fixes the `t1.v1` caller and active-doc status, hardens future test attestation, and prepares a separately approved full `t1.v2` cache gate; S06 must bind `n_sweeps` and cache/manifest hashes explicitly | operational dependency refinement | requirements approved; task launch and Git operations pending owner authorization |

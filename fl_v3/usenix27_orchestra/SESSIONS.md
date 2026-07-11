@@ -1,8 +1,12 @@
 # USENIX Security '27 Orchestra — session contracts
 
-> **Status:** the 15-session delivery/review model is owner-approved. Each technical
-> session is `PLANNED` but inactive until S00 issues its exact kickoff; compute still
-> requires a separate owner-approved `RUN_REQUEST.md`.
+> **Status:** the 15-session delivery/review model is owner-approved. S01/S01-R is
+> accepted as a reviewed S07 dependency at `abe5c58`/`7cf7fcc`; it is not merged.
+> S12 delivered its evidence/proposal-
+> only `HANDOFF.md` and awaits S00 completeness checking plus S12-R; it has no
+> integration/scientific PASS. All other technical sessions remain `PLANNED` and
+> inactive. Full tests, full-data/profile/metric work, matrices, seeds, and reruns
+> still require a separately owner-approved `RUN_REQUEST.md`.
 > **Canonical objective/gates:** [`ORCHESTRA.md`](ORCHESTRA.md).
 > **Copy-ready worker/reviewer prompts:** [`KICKOFFS.md`](KICKOFFS.md).
 > **Rule:** worker sessions do not edit either canonical file; each writes a
@@ -24,13 +28,13 @@ decision proposal.
 ## 1. Work graph
 
 ```text
-                           ┌─ S03 camera modules ─┐
-S01 ZIP data ──────────────┤                     │
-S02 P0 correctness ────────┼─ S07 integration ──┼─ S08 camera runs ─┐
-S04 LiDAR SECOND ──────────┤                     └─ S09 LiDAR runs ──┼─ S10 fusion/recipe
-S05 head/decode ───────────┤                                           │
-S06 production runtime ────┘                                           ├─ CL-PILOT ─ S13 clean FL/attack
-                                                                      │
+S01 ZIP ─ S01-R ─ S07-A data foundation ─┬─ S06 production runtime ─┐
+                                         │                          │
+S02 P0 correctness ──────────────────────┼─ S07-B full integration ┼─ S08 camera runs ─┐
+S03 camera modules ──────────────────────┤                          └─ S09 LiDAR runs ──┼─ S10 fusion/recipe
+S04 LiDAR SECOND ────────────────────────┤                                                │
+S05 head/decode ─────────────────────────┘                                                ├─ CL-PILOT ─ S13 clean FL/attack
+                                                                                        │
 S12 FL protocol/tail split/security framing ───────────────────────────┘
 
 S10 ── S11 final CL seeds/freeze ── CL-FREEZE ───────────────┐
@@ -42,8 +46,9 @@ S12 protocol + paper skeleton ────────────────�
 
 | Wave | Sessions | Parallelism and boundary |
 |---|---|---|
-| A | S01-S06, S12 | run concurrently in isolated worktrees; module sessions do not edit integration files |
-| B | S07 | sole integration owner; merges/rebases only owner-approved worker results |
+| A0 | S01, S12 | S01 reviewed/accepted as dependency; S12 handoff awaits review |
+| A1 | S07-A, S02-S05 | S07-A builds the reviewed data foundation while independent module work proceeds from an owner-approved pinned base |
+| B | S06, S07-B | S06 consumes the accepted data/cache contract; S07 remains sole integration owner and lands only reviewed results |
 | C | S08, S09 | camera and LiDAR scientific jobs run concurrently on the integrated commit |
 | D | S10 | fusion/recipe selection; produces `CL-PILOT` |
 | E | S11 and S13 | final CL seeds and preliminary FL/attack run concurrently after `CL-PILOT` |
@@ -61,8 +66,9 @@ logs, metrics, failed cells, and checkpoint/config hashes.
 ### Evidence-driven refinement convention
 
 Completion of a worker does not freeze the original downstream plan. S00 first
-checks `HANDOFF.md` and the actual diff/artifacts, prepares the independent `Sxx-R`
-envelope for the owner to open in the task UI, and accepts or returns that review.
+checks `HANDOFF.md` and the actual diff/artifacts, then shows the complete independent
+`Sxx-R` launch packet. After explicit owner launch authorization, S00 creates the
+review task through Codex and later accepts or returns that review.
 It may then refine not-yet-started
 sessions' ordering, dependencies, required reading, file ownership, evidence
 requirements, review focus, and kickoff wording. Every refinement cites the
@@ -77,9 +83,10 @@ reviewed where semantics changed.
 
 ### Worktree convention
 
-The recommended default is that the owner selects `Worktree` and the starting
-branch in the Codex task-creation UI from the SHA named by S00. The kickoff prompt
-does not ask the new session to create its own worktree. It carries `BASE_SHA`,
+The recommended default is that S00 shows the complete launch packet and the owner
+approves the exact task; S00 may then create the `Worktree` task through Codex from
+the named SHA. The owner may instead provision it manually in the task UI. The
+kickoff prompt does not ask the new session to create its own worktree. It carries `BASE_SHA`,
 `SOURCE_BRANCH`, `EXPECTED_REF_MODE`, file ownership, and upstream handoff SHAs.
 Codex-managed tasks normally start detached at `BASE_SHA`; this is valid. The
 session verifies root/HEAD/ref/status and stops on a real mismatch; it does not add,
@@ -102,19 +109,19 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 
 | ID | Session | Depends on | Primary output | Status |
 |---|---|---|---|---|
-| S00 | Orchestra/owner decisions | — | approved contracts and status ledger | approved; fresh session pending |
-| S01 | Shared nuScenes ZIP backend | S00 kickoff | data backend, manifest, parity/coverage tests | planned |
+| S00 | Orchestra/owner decisions | — | approved contracts and status ledger | active; sole pinned canonical writer |
+| S01 | Shared nuScenes ZIP backend | S00 kickoff | data backend, manifest, parity/coverage tests | reviewed PASS; accepted S07 dependency at `abe5c58`; not merged |
 | S02 | CL P0 correctness | S00 kickoff | pillar/Gaussian fixes and invariance tests | planned |
 | S03 | Camera branch architecture | S00 kickoff | corrected stride-8 independent camera modules | planned |
 | S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | planned |
 | S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | planned |
-| S06 | Production modes/runtime | S00 kickoff | C/L/F modes, config, resume, loader, eval | planned |
-| S07 | Integrated engineering gate | S01-S06 PASS | one resolved candidate stack and 100/1000-step evidence | planned |
+| S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | planned; must consume explicit `t1.v2` depth/hash contract |
+| S07 | Integrated engineering gate | phase A: S01 PASS; phase B: S01-S06 PASS | staged data foundation, then one resolved candidate stack and 100/1000-step evidence | S07-A launch packet ready; no Git/compute authorization |
 | S08 | Camera scientific run | S07 PASS | `C-STR8` full-val result/checkpoint | planned |
 | S09 | LiDAR scientific runs | S07 PASS | `L-P020` and `L-S075` results/checkpoints | planned |
 | S10 | Fusion and recipe selection | S08, S09 | `F-U`/`F-CBGS`, optional init A/B, `CL-PILOT` | planned |
 | S11 | Final CL capability freeze | S10 `CL-PILOT` | C/L/F x3 seeds, frozen architecture/config schema | planned |
-| S12 | FL protocols, tail split, and security thesis | S00 kickoff | Protocol A/B contract, split/client design, claims/evidence map | planned |
+| S12 | FL protocols, tail split, and security thesis | S00 kickoff | Protocol A/B contract, split/client design, claims/evidence map | handoff delivered; completeness/S12-R pending; not accepted |
 | S13 | Clean FL baselines and modality-localized attack | S07 API + S10 `CL-PILOT` + S12 | clean Protocol-B adaptation, Protocol-A control, viable attack/mechanism | planned |
 | S14 | Defense, adaptive attack, generalization | S13 viable | structure-aware defense and adaptive evaluation | planned |
 | S15 | USENIX '27 paper and artifact | S12; rolling inputs | registered/submitted paper and reproducible artifact | planned |
@@ -159,6 +166,17 @@ behavior and prove byte/array parity.”
 the final environment/data-status documentation update. It does not edit model,
 trainer, or experiment configs.
 
+**Issued envelope (2026-07-10).** `BASE_SHA` is
+`f262f6bea037580065a8505008773c04fdd259f5`; the verified detached worktree is
+`/home/gaohui/.codex/worktrees/1ab2/fl_weather_project`. Writable scope is narrowed
+to `AGENTS.md`, `fl_v3/docs/env.md`, `fl_v3/src/fl_v3/data/nuscenes/**`,
+`fl_v3/scripts/build_nuscenes_cache.py`, new S01-prefixed ZIP scripts, the existing
+nuScenes dataset/info-cache/path tests plus new S01 ZIP tests, and
+`handoffs/S01/**`. Everything else is read-only. O-009 now permits a bounded
+compute-node ZIP read/decode smoke after the exact preflight is recorded in
+`RUN_REQUEST.md`; full member coverage, full-data throughput/profile, or any larger
+run still requires exact owner approval.
+
 **Deliverables.**
 
 - canonical module discovery and `NUSCENES_DATA_DIR` handling;
@@ -183,6 +201,14 @@ trainer, or experiment configs.
 **Handoff risk to call out.** Python `ZipFile` central-directory/handle contention,
 worker fork/spawn semantics, random-read amplification, and whether metadata live
 outside versus inside the blob archives.
+
+**Reviewed outcome (2026-07-11).** Worker
+`abe5c58b174dbbe1f7045ce91c8b15168d97b87b` and independent review artifact
+`7cf7fcc4b17d43806f1a134cf8c8a7b6868aa5bc` are accepted as an S07 dependency.
+Historical job `332651` supplies checksummed ten-archive coverage/loader evidence;
+job `333206` supplies checksummed real-mini parity, fork/spawn, cache-depth, and
+integrity remediation evidence. This is not a merge, production-cache freeze,
+model-readiness result, or scientific PASS.
 
 ---
 
@@ -323,6 +349,9 @@ final module wiring to S07.
 - unused modality is neither loaded nor executed; evaluation submission metadata
   records actual modality;
 - fail-closed architecture enums and a canonical resolved-config hash;
+- every production cache load passes the resolved `n_sweeps` explicitly and records
+  the exact `t1.v2` cache hash plus ZIP manifest hash; scientific entry points may
+  not rely on single-file cache-depth autodiscovery;
 - gradient accumulation with schedules defined by executed optimizer steps;
 - persistent loader/sampler across epochs with deterministic `set_epoch` behavior;
 - correct non-finite skip semantics and optimizer/scheduler/EMA synchronization;
@@ -346,6 +375,27 @@ close shape/dtype/geometry contracts, and prove the stack is ready for full runs
 candidate configs, and the full engineering verification. No new architecture idea
 is introduced here.
 
+**Phase S07-A — reviewed data foundation.** This phase may start after S01 PASS;
+it does not wait for S02-S06. It must:
+
+- preserve the exact S01 implementation history through worker SHA `abe5c58` and
+  add review commit `7cf7fcc` only as the durable `REVIEW.md` artifact;
+- never merge the review branch as implementation, because its parent is the old
+  review baseline `ce2e772` and it does not contain remediation commit `54a48f9`;
+- migrate `fl_v3/scripts/build_gt_database.py` from hardcoded `t1.v1` filenames to
+  `info_cache.load_cache(..., n_sweeps=...)` with sidecar/hash/depth validation;
+- update active `AGENTS.md`/`docs/env.md` from “re-review pending” to accepted S01
+  status while preserving historical limits and O-009 compute wording;
+- include `fl_v3/tests/conftest.py` and effective pytest configuration/dependency
+  inputs in future focused-launcher source-state attestation;
+- prepare, but not submit without exact owner approval, a full trainval `t1.v2`
+  cache request using the accepted manifest; freeze cache/sidecar/manifest hashes
+  and reject every historical `t1.v1` production input;
+- return a durable `INT-A_SHA` for future S06 and data-dependent integration work.
+
+S07-A does not integrate unreviewed S02-S06 code, run a model, waive later full-
+stack gates, or merge/push `v3-ad-perception`.
+
 **Deliverables.**
 
 - one integrated commit and resolved configs for `C-STR8`, `L-P020`, `L-S075`,
@@ -361,8 +411,9 @@ is introduced here.
 **Gate.** Every pre-full-run gate in `ORCHESTRA.md` passes. A failed gate returns to
 the owning worker session; S07 does not waive it.
 
-**Compute authorization.** S07 may prepare capped/full-data profiling requests but
-does not submit Slurm jobs until the exact `RUN_REQUEST.md` is owner-approved.
+**Compute authorization.** S07 may self-submit only a bounded non-scientific smoke
+under O-009 after recording it. Capped 100/1000-step and full-data profiling jobs
+require an exact owner-approved `RUN_REQUEST.md`.
 
 ---
 
@@ -485,6 +536,16 @@ table, and paper skeleton—without claiming CL engineering as novelty.”
 draft paper structure. It may build read-only split statistics/proposals, but it
 does not train models or submit jobs.
 
+**Issued envelope (2026-07-10).** `BASE_SHA` is
+`f262f6bea037580065a8505008773c04fdd259f5`; the verified detached worktree is
+`/home/gaohui/.codex/worktrees/aada/fl_weather_project`. Writable scope is only
+`handoffs/S12/**`. All source, partition/data/eval code, canonical documents,
+paper/protocol source files, and `fl_v3/collab/` are read-only. The session may
+produce evidence and explicit proposals but may not freeze or materialize a split,
+client assignment, threat-model parameter, metric, or claim. `APPROVED_COMPUTE` is
+`none`; a large trainval statistics scan requires an exact approved
+`RUN_REQUEST.md`.
+
 **Required decisions.**
 
 - attacker visibility/capability, data versus model poisoning, malicious fraction,
@@ -593,12 +654,15 @@ manually verified.
 
 ## 4. Suggested launch order after owner review
 
-1. Launch S01-S05 and S12 immediately in separate sessions/worktrees.
-2. Launch S06 once S00 approves the model-mode and resolved-config interfaces.
-3. Open review sessions S01-R through S06-R as workers return; do not wait for all
-   workers before reviewing completed ones.
-4. Launch S07 as the sole integration session after approved diffs are available.
-5. Submit S08 and S09 jobs concurrently after S07 passes.
+1. S01/S01-R is complete and accepted as a dependency; launch S07-A only after the
+   owner reviews its exact Git/file/compute packet.
+2. Launch S02-S05 from the owner-approved pinned base as their scientific choices
+   are frozen; use `INT-A_SHA` when it is available before kickoff.
+3. Launch S06 from reviewed `INT-A_SHA` and approved model-mode/resolved-config
+   interfaces; require explicit `t1.v2` depth/hash provenance.
+4. Open S02-R through S06-R as workers return, then continue S07-B as the sole
+   full-stack integration phase after approved diffs are available.
+5. Submit S08 and S09 jobs concurrently after S07-B/S07-R passes.
 6. Launch S10 as soon as the selected branch checkpoints arrive.
 7. Finish S12's protocol/split review; on `CL-PILOT`, start S13's clean baselines
    while S11 finishes remaining CL seeds.
@@ -612,7 +676,7 @@ Every worker writes to
 | File | When | Required content |
 |---|---|---|
 | `HANDOFF.md` | every session completion | base/branch/commit, exact files/semantics, references, tests, gates, hashes, negative findings, allowed/forbidden claims, residual risks |
-| `RUN_REQUEST.md` | before any Slurm/material compute | exact immutable commit/config/data manifest, cells, seeds, GPU/time budget, command/output, stop criteria, explicit owner approval state |
+| `RUN_REQUEST.md` | before any Slurm/material compute | O-009 smoke: HEAD + diff hash, bounded data scope, resources, command/output, stop criteria, standing-policy citation; full/scientific work: immutable commit/config/data manifest, cells, seeds, GPU/time budget, command/output, stop criteria, exact owner approval |
 | `RESULTS.md` | every execution session | all job IDs/statuses, raw artifact paths/checksums, full result/performance table including failures, interpretation limits |
 | `REVIEW.md` | independent `Sxx-R` session | severity-ordered findings, code/data/metric trace, adversarial checks, gate verdict, residual risk, integration/scientific-use decision |
 
@@ -633,21 +697,28 @@ Every review explicitly covers:
 - shortcuts or hidden behavior that could inflate clean performance, fusion gain,
   ASR, or defense effectiveness.
 
-Any changed commit, config, split, cell, seed, resource request, or command after
-approval invalidates `RUN_REQUEST.md` and requires new owner permission. There is no
-automatic resubmission or opportunistic filling of spare GPUs.
+For O-009 smoke, update the audit record before submission whenever HEAD/diff,
+command, data scope, or resources change; crossing the standing boundary requires
+owner permission. For full/scientific work, any changed commit, config, split,
+cell, seed, resource request, or command after approval invalidates
+`RUN_REQUEST.md`. There is no automatic resubmission or opportunistic filling of
+spare GPUs.
 
 The durable completion sequence is:
 
 1. worker writes the complete handoff package and reports its exact SHA/diff;
 2. S00 performs a completeness/provenance check;
-3. the owner explicitly authorizes any local handoff commit/branch required to
-   produce a durable `WORKER_SHA`; this does not authorize merge or push;
-4. the owner creates an independent UI `Sxx-R` task to review that exact version;
+3. the owner explicitly authorizes a local commit in that worker's own detached
+   worktree and a scoped branch/ref to preserve it; the resulting commit is the
+   durable `WORKER_SHA` and this does not authorize merge or push;
+4. S00 presents the exact Sxx-R launch packet; after explicit owner authorization,
+   S00 creates the independent review task at that `WORKER_SHA`;
 5. findings are fixed/re-reviewed or the review is accepted;
 6. S00 updates status and the change-control ledger;
-7. S00 refines affected unstarted session plans/kickoffs within its authority;
-8. the owner approves any material/locked change before the revised kickoff.
+7. S00 refines affected unstarted session plans/kickoffs within its authority and
+   presents each complete launch packet before creating another task;
+8. the owner approves any material/locked change and every task launch before the
+   revised kickoff is issued.
 
 ## 6. Worker kickoff checklist
 
@@ -664,12 +735,16 @@ ownership; return integration needs instead of editing another session's files.
 Preserve unrelated dirty work. Mini is engineering-only.
 
 Create handoffs/Sxx/HANDOFF.md. Before any Slurm/material compute, create
-RUN_REQUEST.md and stop until the owner explicitly approves the exact request.
-Never infer full-run/matrix/upload permission from approval of a design or session.
+RUN_REQUEST.md. A bounded non-scientific smoke that satisfies O-009 may proceed
+after recording its exact preflight; full tests, full-data/profile/metric work,
+matrices, seeds, and reruns stop until the owner approves the exact request. Never
+infer full-run/matrix/upload permission from approval of a design or session.
 
 Your kickoff must provide BASE_SHA, SOURCE_BRANCH, EXPECTED_REF_MODE, FILE_OWNERSHIP,
-and UPSTREAM_HANDOFFS_AND_SHAS. Do not create, switch, move, remove, or prune a
-worktree/branch. A Codex-managed detached HEAD is valid if it equals BASE_SHA.
+UPSTREAM_HANDOFFS_AND_SHAS, REASONING_EFFORT, and APPROVED_COMPUTE. Default to
+`xhigh`; `ultra` requires a recorded task-specific complexity reason. Do not create,
+switch, move, remove, or prune a worktree/branch. A Codex-managed detached HEAD is
+valid if it equals BASE_SHA.
 Before editing, verify and report repository root, HEAD, ref mode, git status, exact
 intended files, and any contract ambiguity; stop on a real mismatch.
 After editing: run focused CPU checks and the smallest relevant owner-authorized

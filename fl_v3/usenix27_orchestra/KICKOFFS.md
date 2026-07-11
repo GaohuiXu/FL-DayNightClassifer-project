@@ -17,16 +17,21 @@
    acting.
 4. `fl_v3/collab/` is read-only historical evidence. New work records go only to
    `fl_v3/usenix27_orchestra/handoffs/Sxx/`.
-5. No prompt authorizes Slurm, a full run, matrix, seed expansion, upload, push,
-   merge, or publication. The exact owner-approved `RUN_REQUEST.md` remains the only
-   compute authorization record.
+5. A prompt may grant `APPROVED_COMPUTE: standing short-smoke policy O-009` for a
+   bounded, non-scientific engineering smoke after its exact preflight is recorded.
+   O-009 is the owner's explicit exception to older per-job-only language in
+   `AGENTS.md`; every other compute/publication restriction remains in force.
+   No prompt authorizes a full test/run/evaluation, full-data profile, metric,
+   matrix, seed expansion, rerun, upload, push, merge, or publication without exact
+   owner approval.
 6. Worker self-review is required, but worker `PASS` is only a self-assessment.
    Scientific/integration PASS requires the independent reviewer plus S00/owner.
 7. If required context, a reference, a worker commit, a split manifest, or raw
    artifacts are missing, stop and report the precise blocker. Do not fill gaps by
    silently inventing defaults.
-8. The owner selects `Worktree` and the pinned starting branch in the Codex
-   task-creation UI before sending the prompt. Codex-managed tasks normally start
+8. S00 shows the complete launch packet and the owner explicitly approves it. S00
+   may then create the `Worktree` task directly through Codex; the owner may instead
+   provision it manually in the task UI. Codex-managed tasks normally start
    detached at the selected branch's HEAD; that is expected. Sessions verify the
    pinned topology; they do not run `git worktree add`, `move`, `remove`, or
    `prune`, switch branches, or delete worktrees/branches.
@@ -38,11 +43,13 @@ SESSION_ID: Sxx or Sxx-R
 BASE_SHA: exact 40-character Git SHA
 SOURCE_BRANCH: v3-ad-perception (or exact approved source)
 EXPECTED_REF_MODE: detached@BASE_SHA, or exact owner-created scoped branch
-WORKTREE_PROVISIONED_BY: owner / Codex task UI
+WORKTREE_PROVISIONED_BY: S00 through Codex after owner launch approval, or owner UI
 FILE_OWNERSHIP: exact paths/globs
 UPSTREAM_HANDOFFS_AND_SHAS: exact list, or none
-WORKER_SHA: exact worker SHA for Sxx-R, otherwise n/a
-APPROVED_COMPUTE: none, unless an exact approved RUN_REQUEST is attached
+WORKER_SHA: pending until this worker's authorized delivery commit (Sxx), or exact worker SHA (Sxx-R)
+DELIVERY_REF: pending owner authorization for Sxx, or exact review source ref for Sxx-R
+REASONING_EFFORT: xhigh, or ultra plus the task-specific complexity reason
+APPROVED_COMPUTE: none | standing short-smoke policy O-009 | exact approved request
 DECISION_SCOPE: evidence/proposal only, or exact owner-approved implementation choices
 ```
 
@@ -51,6 +58,20 @@ DECISION_SCOPE: evidence/proposal only, or exact owner-approved implementation c
     The kickoff lists the exact choices that are frozen for that session. A
     scientific execution session stops before `RUN_REQUEST.md` approval if the
     metric/gate that will judge its outcome is still unset.
+11. S00 passes `thinking: xhigh` explicitly when it creates a task. `ultra` is an
+    exception for unusually complex implementation/review or broad difficult
+    research, and the envelope records why it is justified. Do not inherit the host
+    default reasoning effort silently.
+12. `WORKER_SHA` is an output of an Sxx worker, not an input available at kickoff.
+    `SOURCE_BRANCH` selects the starting base only; it is not the delivery target.
+    After S00 checks the uncommitted handoff, the owner may authorize a commit in
+    that worker's detached worktree plus a scoped branch/ref that preserves it.
+    The resulting commit becomes `WORKER_SHA` and is then placed in Sxx-R's envelope.
+13. Before directly creating any Sxx or Sxx-R task, S00 shows the owner a launch
+    packet with relevant upstream handoffs/reviews, exact SHAs/diffs/artifact state,
+    conflicts, and the complete filled kickoff including reasoning and compute.
+    Creation occurs only after explicit owner authorization. A worker never launches
+    its own reviewer, and acceptance of a handoff never auto-launches downstream work.
 
 Before editing or reviewing, every task runs/reports `git rev-parse --show-toplevel`,
 `git rev-parse HEAD`, `git branch --show-current`, and `git status --short`. An empty
@@ -78,9 +99,10 @@ Before acting, read completely:
 6. the current git status/worktree list and every existing handoffs/Sxx package.
 
 Binding decisions: Protocol B is the primary security protocol; Protocol A is the
-clean optimization control. fl_v3/collab/ is read-only legacy evidence. No Slurm,
-full run, matrix, rerun, upload, push, merge, or submission occurs without exact
-owner permission.
+clean optimization control. fl_v3/collab/ is read-only legacy evidence. Only the
+bounded non-scientific smoke class in O-009 has standing Slurm authorization; no
+full test/run, profile/metric, matrix, seed, rerun, upload, push, merge, or
+submission occurs without exact owner permission.
 
 Your duties:
 - maintain the canonical status/decision ledger in ORCHESTRA.md and SESSIONS.md;
@@ -137,10 +159,12 @@ docs/env.md, and handoffs/S01/. Do not edit model/trainer code, canonical Orches
 files, or anything under read-only fl_v3/collab/.
 
 Before edits, report worktree/branch/status, intended files, backend design, archive
-handle lifecycle, and uncertainties. Write handoffs/S01/HANDOFF.md. Before any
-Slurm/material compute, write RUN_REQUEST.md and stop for exact owner approval.
-Return exact tests, coverage counts, throughput evidence, hashes, negative results,
-and claims that remain forbidden. Do not commit/merge/push without authorization.
+handle lifecycle, and uncertainties. Write handoffs/S01/HANDOFF.md. A bounded
+compute-node ZIP read/decode smoke may proceed under O-009 after its exact preflight
+is recorded in RUN_REQUEST.md. Full member coverage, full-data throughput/profile,
+or any larger test stops for exact owner approval. Return exact tests, coverage
+counts, throughput evidence, hashes, negative results, and claims that remain
+forbidden. Do not commit/merge/push without authorization.
 ```
 
 ### S02 — CL P0 correctness
@@ -163,8 +187,9 @@ tests. Do not redesign sparse SECOND, camera, head, trainer, or scientific recip
 Before editing, state which Gaussian reference/equation is approved; if it is not
 recorded, stop for S00/owner. Own only the focused modules/tests and handoffs/S02/.
 Write HANDOFF.md with migration impact on old checkpoints. Any GPU/Slurm check needs
-an approved RUN_REQUEST.md. Return exact equations, fixtures, tests, residual risks,
-and forbidden interpretations. Do not commit/merge/push without authorization.
+a RUN_REQUEST.md; only a bounded non-scientific smoke may self-submit under O-009.
+Return exact equations, fixtures, tests, residual risks, and forbidden
+interpretations. Do not commit/merge/push without authorization.
 ```
 
 ### S03 — camera branch architecture
@@ -188,9 +213,10 @@ LiDAR-conditioned input in the primary branch.
 Own camera-specific modules/tests and handoffs/S03/. Do not wire detector.py or
 tasks.py; return the exact integration shape/dtype/config contract to S07. Before
 editing, report intended files and geometry assumptions. Write HANDOFF.md. Any
-Slurm/profile requires approved RUN_REQUEST.md. Return projection residuals,
-gradient/invariance/tiny-overfit evidence, memory implications, negative results,
-and unresolved design choices. Do not commit/merge/push without authorization.
+bounded smoke may use O-009 after recording RUN_REQUEST.md; profiles and larger
+tests require exact owner approval. Return projection residuals, gradient/
+invariance/tiny-overfit evidence, memory implications, negative results, and
+unresolved design choices. Do not commit/merge/push without authorization.
 ```
 
 ### S04 — LiDAR SECOND architecture
@@ -213,9 +239,10 @@ supports approved fp16/fp32 behavior and train/eval voxel caps, and never create
 Own LiDAR sparse modules/tests and handoffs/S04/. Do not wire detector/tasks/trainer.
 Before editing, report coordinate order, spatial shapes, stride/receptive-field
 contract, intended files, and reference mapping. Write HANDOFF.md. Any GH200/Slurm
-test requires approved RUN_REQUEST.md. Return shape/metric-coordinate fixtures,
-empty/over-cap/batch tests, dtype/gradient/memory evidence, negative findings, and
-integration requirements. Do not commit/merge/push without authorization.
+test needs RUN_REQUEST.md; only a bounded non-scientific smoke may self-submit under
+O-009. Return shape/metric-coordinate fixtures, empty/over-cap/batch tests, dtype/
+gradient/memory evidence, negative findings, and integration requirements. Do not
+commit/merge/push without authorization.
 ```
 
 ### S05 — detection head and decode
@@ -237,9 +264,10 @@ NMS. Preserve canonical dimensions/yaw/velocity and official nuScenes conversion
 Own head/loss-interface/decode-NMS modules and tests, but do not wire the production
 detector; S07 integrates. Before editing, declare task groups, thresholds, top-K/NMS
 semantics, reference equations, and files. Write handoffs/S05/HANDOFF.md. Any
-material compute needs RUN_REQUEST approval. Return reference fixtures, permutation
-stability, tail-class candidate behavior, duplicate-box checks, eval round-trip,
-negative results, and risks. Do not commit/merge/push without authorization.
+material compute needs RUN_REQUEST.md; only a bounded non-scientific smoke may
+self-submit under O-009. Return reference fixtures, permutation stability,
+tail-class candidate behavior, duplicate-box checks, eval round-trip, negative
+results, and risks. Do not commit/merge/push without authorization.
 ```
 
 ### S06 — production modes, config, and runtime
@@ -258,14 +286,63 @@ Objective: make camera_only, lidar_only, and fusion first-class fail-closed
 production topologies; skip unused modality I/O/compute; provide canonical resolved
 config hashing, gradient accumulation by executed optimizer steps, persistent
 loader/sampler behavior, nonfinite handling, complete resume (including EMA/scaler/
-scheduler), provenance, eval autocast, and performance instrumentation.
+scheduler), provenance, eval autocast, and performance instrumentation. Every
+production cache load must pass the resolved `n_sweeps` explicitly and bind the
+exact accepted `t1.v2` cache plus ZIP-manifest hashes into config/provenance;
+scientific entry points may not rely on cache-depth autodiscovery.
 
 Own production integration seams/runtime tests and handoffs/S06/, but integrate only
 against declared module contracts; S07 owns final cross-session wiring. Report
 intended files/interfaces before editing. Write HANDOFF.md. Any Slurm test requires
-approved RUN_REQUEST.md. Return branch-execution proof, continuous/resume evidence,
-step/exposure accounting, config rejection tests, negative results, and risks. Do
-not commit/merge/push without authorization.
+RUN_REQUEST.md; only a bounded non-scientific smoke may self-submit under O-009.
+Return branch-execution proof, continuous/resume evidence, step/exposure accounting,
+config rejection tests, negative results, and risks. Do not commit/merge/push
+without authorization.
+```
+
+### S07-A — reviewed S01 data-foundation integration phase
+
+```text
+You are worker S07, phase S07-A: reviewed data-foundation integration. This is an
+early phase of the existing S07 session contract, not an additional scientific
+worker or permission to integrate unreviewed model modules.
+
+Read completely before acting:
+- repository AGENTS.md and all canonical Orchestra documents;
+- S01 HANDOFF/RUN_REQUEST/RESULTS at worker SHA
+  abe5c58b174dbbe1f7045ce91c8b15168d97b87b;
+- S01 REVIEW at review-only commit
+  7cf7fcc4b17d43806f1a134cf8c8a7b6868aa5bc;
+- the actual f262f6b..abe5c58 implementation diff and ce2e772..7cf7fcc review diff;
+- raw artifact manifests/logs for jobs 332651 and 333206;
+- build_gt_database.py, info_cache.py, dataset.py, ZIP launchers/tests, AGENTS.md,
+  and docs/env.md.
+
+Binding topology: the S01 worker branch contains remediation commit 54a48f9 and is
+the implementation source. The review branch is based on old baseline ce2e772 and
+contains only REVIEW.md; never merge that branch as implementation. Preserve the
+worker history exactly, and add review commit 7cf7fcc only as a review artifact.
+
+Objective:
+1. integrate the reviewed S01 worker history into a dedicated S07-A branch without
+   modifying v3-ad-perception;
+2. migrate build_gt_database.py from hardcoded t1.v1 to an explicit
+   info_cache.load_cache(..., n_sweeps=...) contract with sidecar/hash/depth checks;
+3. update active AGENTS.md/docs/env.md to S01-R PASS while preserving historical
+   t1.v1 and scientific-interpretation limits plus O-009 compute policy;
+4. include tests/conftest.py and effective pytest configuration/dependency inputs
+   in future focused-test source attestation;
+5. add focused fail-closed tests for GT-database cache depth/provenance;
+6. prepare an exact RUN_REQUEST for a full trainval t1.v2 cache using the accepted
+   manifest, but do not submit it without separate owner approval;
+7. return a durable INT-A_SHA and exact cache/manifest/provenance contract for S06.
+
+Do not edit canonical Orchestra files, integrate S02-S06, run a model, reuse the
+historical t1.v1 caches as production inputs, merge/push, or submit the full cache
+gate without exact authorization. A bounded non-scientific smoke may use O-009 only
+after recording its exact preflight. Write handoffs/S07/HANDOFF.md and any required
+RUN_REQUEST.md; report every Git operation, test, artifact/hash, negative result,
+and remaining S07-B gate.
 ```
 
 ### S07 — integrated engineering gate
@@ -276,7 +353,8 @@ You are worker S07: sole CL integration and engineering-gate owner.
 Read completely before editing:
 - repository AGENTS.md;
 - all fl_v3/usenix27_orchestra canonical documents, especially S07;
-- S01-S06 HANDOFF.md and REVIEW.md, plus approved worker commits/diffs;
+- accepted S07-A `INT-A_SHA`, then S02-S06 HANDOFF.md and REVIEW.md plus approved
+  worker commits/diffs for the later S07-B phase;
 - fl_v3/docs/env.md and all affected source/config/launcher/tests.
 
 Objective: integrate only independently reviewed S01-S06 outputs into one resolved
@@ -287,10 +365,11 @@ batch invariance, branch modes, gradients, precision, resume, official eval,
 
 Do not invent new architecture or waive a failed owner gate. Return failures to the
 owning session. S07 may edit integration files only after reporting the merge plan
-and conflicts. Write handoffs/S07/HANDOFF.md. Create RUN_REQUEST.md and stop before
-any Slurm/capped/full-data profile. Return the exact integrated commit/config hashes,
-all gates including failures, cost estimates, and readiness verdict. Do not
-commit/merge/push without authorization.
+and conflicts. Write handoffs/S07/HANDOFF.md. A minimal bounded smoke may use O-009
+after recording RUN_REQUEST.md; capped 100/1000-step runs and every full-data profile
+stop for exact owner approval. Return the exact integrated commit/config hashes, all
+gates including failures, cost estimates, and readiness verdict. Do not commit/
+merge/push without authorization.
 ```
 
 ### S08 — camera-only scientific execution
@@ -498,8 +577,9 @@ For every review below, S00 must prepend the completed kickoff envelope with
 `BASE_SHA = WORKER_SHA`, `EXPECTED_REF_MODE = detached@WORKER_SHA`, and the exact
 worker handoff paths. After S00 checks the handoff, the owner explicitly authorizes
 the local handoff commit/branch that creates `WORKER_SHA`; that permission does not
-authorize merge or push. The owner then creates a new review worktree in the task
-UI. The reviewer never reuses the worker session or manages worktrees itself.
+authorize merge or push. S00 then shows the complete Sxx-R launch packet and creates
+the new review worktree only after a second explicit owner launch authorization.
+The reviewer never reuses the worker session or manages worktrees itself.
 
 ### S01-R — ZIP backend review
 
