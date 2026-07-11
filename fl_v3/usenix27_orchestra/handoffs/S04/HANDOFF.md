@@ -11,8 +11,9 @@
 - Failed-job executable: `49efb05dd341dbfbcc2d373508772e5b214aa726`.
 - Manual sparse-composition remediation: `2b5cf2f` (full SHA is in Git history and
   the returned session report).
-- Scoped final-output dtype remediation executable:
-  `72184e9ed3d2a9ea4fcd9f1a8dc473312a09a52d`.
+- Scoped final-output dtype code/tests: `72184e9ed3d2a9ea4fcd9f1a8dc473312a09a52d`.
+- Attested immutable-snapshot executable:
+  `2729f45144053e1b554a0bf04640b8bbc1ff43e4`.
 - Final request-delivery HEAD is returned after its commit; a commit cannot embed
   its own SHA without changing it.
 - Worker self-assessment: **REMEDIATION IMPLEMENTED / RUNTIME VALIDATION PENDING**.
@@ -87,7 +88,9 @@ Commit history:
   forward/backward-only scope remediation;
 - `2b5cf2f`: manual sparse residual composition fix after Job 335566.
 - `72184e9`: explicit active sparse-AMP BEV output dtype contract, dtype tracing,
-  retained assertions, and immutable-snapshot/fail-closed launcher.
+  and retained assertions.
+- `2729f45`: verify actual snapshot working/submit directories and immutable
+  identity content/hash binding executable SHA/tree plus source/request hashes.
 
 No `lidar_encoder.py`, `lidar_backbone.py`, `bev_grid.py`, `detector.py`,
 `training/tasks.py`, canonical Orchestra file, `fl_v3/collab/`, or `fl_v2/` file
@@ -139,8 +142,11 @@ reference unchanged. Existing ten tests retain their dtype assertions and now
 also assert the pre-cast/output trace and empty/non-empty consistency. Local
 `py_compile`, `bash -n`, exact ten-test inventory, and `git diff --check` pass;
 login-node pytest was unavailable (`/usr/bin/python3` has no pytest), so this is
-not runtime evidence. `RUN_REQUEST.md` proposes the same ten synthetic tests from
-an immutable `/nobackup` snapshot and awaits exact S00 approval.
+not runtime evidence. After S00 found that `--chdir` alone does not guarantee
+`SLURM_SUBMIT_DIR`, commit `2729f45` additionally binds both actual directories and
+an immutable SHA/tree/source/request identity file. `RUN_REQUEST.md` proposes the
+same ten synthetic tests from that `/nobackup` snapshot and awaits exact S00
+approval.
 
 ## Gate checklist
 

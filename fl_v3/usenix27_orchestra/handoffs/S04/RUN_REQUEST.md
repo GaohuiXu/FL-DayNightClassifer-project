@@ -27,19 +27,20 @@ Complete scheduler fields, raw hashes, and interpretation limits remain in
 
 - Session/ref: `S04` / `codex/s04-lidar-second`.
 - Approved wave base: `372de9398ae435f82b83367a922fd302c0635738`.
-- Exact remediation executable commit:
-  `72184e9ed3d2a9ea4fcd9f1a8dc473312a09a52d`.
+- Exact remediation executable commit (dtype code/tests plus attested snapshot
+  launcher): `2729f45144053e1b554a0bf04640b8bbc1ff43e4`.
 - Exact executable tree:
-  `c205d2c53571afc16f2246c14ae01a85653b2af7`.
+  `2fdb42c97995112b3defc7e78ea148daa6ee7786`.
 - Exact runtime source-state SHA-256 over the 17 locale-sorted files enumerated
   by the launcher:
-  `600ea36bf5d147fa1a2ed9da8db98740a0c711d412ecc53f834d99c8df194032`.
+  `a9b6fd7f6a5d72cc7691cb6118b001ac4221d6d5cffe4b6799d75ef32fa58c06`.
 - Launcher SHA-256:
-  `9c758395a6588882003616487cbae9a46319bdd6b6b693d60a20c6960949b0af`.
+  `6486d8d42c56a4a91d02110b426e4df4a5b5b0357d01e0ac2d2dd5dede0eda9a`.
 - The request-delivery commit and this request file's SHA-256 are intentionally
   supplied by S00 as `S04_APPROVED_DELIVERY_SHA` and
-  `S04_APPROVED_REQUEST_SHA256`; a file cannot contain its own content hash or its
-  enclosing commit SHA without changing them.
+  `S04_APPROVED_REQUEST_SHA256`; the derived immutable identity-file hash is
+  supplied as `S04_APPROVED_IDENTITY_SHA256`. A file cannot contain its own
+  content hash or enclosing commit SHA without changing them.
 
 The remediation is deliberately narrow. After the existing low-resolution
 `to_bev` projection, it records the pre-contract dtype and casts only the active
@@ -56,10 +57,12 @@ invalidates approval.
 ## Immutable execution snapshot
 
 The compute job does not execute from `/home` or query a Git worktree. The exact
-command first archives executable `72184e9...` into a unique shared `/nobackup`
+command first archives executable `2729f45...` into a unique shared `/nobackup`
 snapshot, replaces only the archived request with the S00-approved request bytes,
-then removes all write bits. The launcher fails unless its working directory is
-that immutable snapshot and its source/request hashes match. Python bytecode and
+adds `.s04_snapshot_identity` containing the exact executable SHA/tree and
+source/request hashes, then removes all write bits. The launcher fails unless its
+actual working directory and `SLURM_SUBMIT_DIR` both equal that immutable snapshot,
+and the identity/source/request hashes and contents match. Python bytecode and
 pytest cache writes are disabled; all temporary/output writes go to the unique
 output root.
 
@@ -123,8 +126,10 @@ authorized command is:
 set -euo pipefail
 S04_APPROVED_DELIVERY_SHA=<exact S00-approved 40-character delivery SHA>
 S04_APPROVED_REQUEST_SHA256=<exact S00-approved request SHA-256>
-EXEC_SHA=72184e9ed3d2a9ea4fcd9f1a8dc473312a09a52d
-EXEC_SOURCE_SHA256=600ea36bf5d147fa1a2ed9da8db98740a0c711d412ecc53f834d99c8df194032
+S04_APPROVED_IDENTITY_SHA256=<exact S00-approved snapshot-identity SHA-256>
+EXEC_SHA=2729f45144053e1b554a0bf04640b8bbc1ff43e4
+EXEC_TREE=2fdb42c97995112b3defc7e78ea148daa6ee7786
+EXEC_SOURCE_SHA256=a9b6fd7f6a5d72cc7691cb6118b001ac4221d6d5cffe4b6799d75ef32fa58c06
 REQUEST=fl_v3/usenix27_orchestra/handoffs/S04/RUN_REQUEST.md
 SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/snapshots/s04_72184e9ed3d2_fp16remediation_v1
 OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s04_second_72184e9ed3d2_fp16remediation_v1
@@ -134,6 +139,7 @@ test "$(git rev-parse HEAD)" = "${S04_APPROVED_DELIVERY_SHA}"
 test "$(git branch --show-current)" = codex/s04-lidar-second
 test -z "$(git status --short)"
 test "$(sha256sum "${REQUEST}" | awk '{print $1}')" = "${S04_APPROVED_REQUEST_SHA256}"
+test "$(git rev-parse "${EXEC_SHA}^{tree}")" = "${EXEC_TREE}"
 test ! -e "${SNAPSHOT}"
 test ! -e "${TMP_SNAPSHOT}"
 test ! -e "${OUTPUT}"
@@ -142,19 +148,31 @@ mkdir "${TMP_SNAPSHOT}"
 trap 'chmod -R u+w "${TMP_SNAPSHOT}" 2>/dev/null || true; rm -rf "${TMP_SNAPSHOT}"' EXIT
 git archive "${EXEC_SHA}" | tar -xf - -C "${TMP_SNAPSHOT}"
 install -m 0444 "${REQUEST}" "${TMP_SNAPSHOT}/${REQUEST}"
+printf '%s\n' \
+  'schema=s04.snapshot.v1' \
+  "exec_sha=${EXEC_SHA}" \
+  "exec_tree=${EXEC_TREE}" \
+  "source_sha256=${EXEC_SOURCE_SHA256}" \
+  "request_sha256=${S04_APPROVED_REQUEST_SHA256}" \
+  > "${TMP_SNAPSHOT}/.s04_snapshot_identity"
+test "$(sha256sum "${TMP_SNAPSHOT}/.s04_snapshot_identity" | awk '{print $1}')" = "${S04_APPROVED_IDENTITY_SHA256}"
 find "${TMP_SNAPSHOT}" -type f -exec chmod 0444 {} +
 chmod 0555 "${TMP_SNAPSHOT}/fl_v3/usenix27_orchestra/handoffs/S04/run_s04_second_smoke.sh"
 find "${TMP_SNAPSHOT}" -type d -exec chmod 0555 {} +
 mv "${TMP_SNAPSHOT}" "${SNAPSHOT}"
 trap - EXIT
 
-sbatch --chdir="${SNAPSHOT}" \
-  --export=ALL,EXPECTED_S04_SHA="${EXEC_SHA}",EXPECTED_S04_SOURCE_HASH="${EXEC_SOURCE_SHA256}",EXPECTED_S04_REQUEST_HASH="${S04_APPROVED_REQUEST_SHA256}",S04_SNAPSHOT_ROOT="${SNAPSHOT}",S04_OUTPUT_ROOT="${OUTPUT}" \
-  "${SNAPSHOT}/fl_v3/usenix27_orchestra/handoffs/S04/run_s04_second_smoke.sh"
+(
+  cd "${SNAPSHOT}"
+  sbatch --chdir="${SNAPSHOT}" \
+    --export=ALL,EXPECTED_S04_SHA="${EXEC_SHA}",EXPECTED_S04_TREE="${EXEC_TREE}",EXPECTED_S04_SOURCE_HASH="${EXEC_SOURCE_SHA256}",EXPECTED_S04_REQUEST_HASH="${S04_APPROVED_REQUEST_SHA256}",EXPECTED_S04_IDENTITY_HASH="${S04_APPROVED_IDENTITY_SHA256}",S04_SNAPSHOT_ROOT="${SNAPSHOT}",S04_OUTPUT_ROOT="${OUTPUT}" \
+    "${SNAPSHOT}/fl_v3/usenix27_orchestra/handoffs/S04/run_s04_second_smoke.sh"
+)
 ```
 
-The two `<exact ...>` values are not executable placeholders and must be replaced
-verbatim by the S00-approved tuple. S04 must report the returned job ID and stop;
+The three `<exact ...>` values are not executable placeholders and must be replaced
+verbatim by the S00-approved tuple. S00 returns a fully expanded, placeholder-free
+command when approving. S04 must report the returned job ID and stop;
 it must not retry or modify the snapshot/request after submission.
 
 ## Acceptance and stop conditions

@@ -208,11 +208,19 @@ Forbidden:
 ## Scoped fp16-output remediation — prepared, not executed
 
 S00 returned S04 for the one remaining implementation defect without authorizing
-compute. Executable `72184e9ed3d2a9ea4fcd9f1a8dc473312a09a52d` explicitly
+compute. Code/test commit `72184e9ed3d2a9ea4fcd9f1a8dc473312a09a52d` explicitly
 casts the active sparse-AMP output to fp16 only after the low-resolution
 projection, records pre-contract/output dtype, preserves the fp32 reference path,
 and extends the existing tests without deleting or weakening any dtype assertion.
 The exact test inventory remains ten.
+
+S00's request audit then identified a fail-closed provenance flaw before any
+submission: `sbatch --chdir` does not itself guarantee snapshot-valued
+`SLURM_SUBMIT_DIR`. Executable `2729f45144053e1b554a0bf04640b8bbc1ff43e4`
+corrects the launcher/request so submission occurs from inside the immutable
+snapshot and the job validates actual `pwd`, `SLURM_SUBMIT_DIR`, and a read-only
+identity binding executable SHA/tree plus source/request hashes. No job consumed
+the flawed request.
 
 Local preparation evidence: Python compilation PASS; launcher `bash -n` PASS;
 exact test-function count 10; `git diff --check` PASS. The login-node system Python
