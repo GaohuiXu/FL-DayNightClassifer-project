@@ -321,6 +321,15 @@ class SparseVoxelEncoder(nn.Module):
         with stage("low_resolution_projection"):
             with bev_ctx:
                 out = self.to_bev(dense)
+        # GroupNorm is intentionally kept in its numerically stable fp32 path,
+        # which means the low-resolution projection can leave autocast as fp32.
+        # The frozen S04 interface is nevertheless fp16 for the active sparse-AMP
+        # path (matching the empty-input return) and fp32 for the reference path.
+        # Make that boundary explicit after all projection math; this preserves
+        # autograd while preventing empty/non-empty dtype drift.
+        projected_dtype = out.dtype
+        if sparse_amp and out.dtype != torch.float16:
+            out = out.to(torch.float16)
         self._record_meta(
             B=B,
             cap=cap,
@@ -328,6 +337,9 @@ class SparseVoxelEncoder(nn.Module):
             point_grouping=point_grouping,
             indices=indices,
             dense_shape=dense_shape,
+            dense_dtype=dense.dtype,
+            projected_dtype=projected_dtype,
+            output_dtype=out.dtype,
         )
         if self.record_profile:
             self.last_profile_times = dict(profile_times)
@@ -342,6 +354,9 @@ class SparseVoxelEncoder(nn.Module):
         point_grouping: str,
         indices: torch.Tensor | None,
         dense_shape: tuple[int, ...] | None,
+        dense_dtype: torch.dtype | None = None,
+        projected_dtype: torch.dtype | None = None,
+        output_dtype: torch.dtype | None = None,
     ) -> None:
         if not self.record_debug:
             self.last_sparse_meta = None
@@ -351,6 +366,12 @@ class SparseVoxelEncoder(nn.Module):
             "spatial_shape_zyx": self.contract.input_zyx,
             "stage_shapes_zyx": self.contract.stage_shapes_zyx,
             "dense_shape": dense_shape,
+            "dense_dtype": None if dense_dtype is None else str(dense_dtype),
+            "projected_dtype_before_contract_cast": (
+                None if projected_dtype is None else str(projected_dtype)
+            ),
+            "bev_output_dtype": None if output_dtype is None else str(output_dtype),
+            "bev_output_contract": "float16" if sparse_amp else "float32",
             "bev_shape": (B, self.out_channels, *self.output_hw),
             "voxel_size_xyz": self.contract.voxel_xyz,
             "output_stride_xy": self.output_stride,

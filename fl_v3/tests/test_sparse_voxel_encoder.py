@@ -197,3 +197,13 @@ def test_fp32_and_fp16_sparse_paths_have_finite_outputs_and_gradients():
     for model in (fp32, fp16):
         grads = [p.grad for p in model.parameters() if p.requires_grad]
         assert grads and all(g is not None and torch.isfinite(g).all() for g in grads)
+
+    fp16.eval()
+    fp16.record_debug = True
+    nonempty = fp16(pts, B=2)
+    nonempty_meta = fp16.last_sparse_meta or {}
+    empty = fp16(pts[:0], B=2)
+    assert nonempty.dtype == empty.dtype == torch.float16
+    assert nonempty_meta["projected_dtype_before_contract_cast"] == "torch.float32"
+    assert nonempty_meta["bev_output_dtype"] == "torch.float16"
+    assert nonempty_meta["bev_output_contract"] == "float16"

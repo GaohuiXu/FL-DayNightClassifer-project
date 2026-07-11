@@ -70,6 +70,9 @@ def test_s04_reference_b4_fp16_forward_backward_memory_bound():
     assert meta["stage_shapes_zyx"][-1] == (2, 180, 180)
     assert encoder.last_voxel_stats is not None
     assert torch.equal(encoder.last_voxel_stats[:, 4], torch.zeros(4, device=dev, dtype=torch.int64))
+    assert meta["projected_dtype_before_contract_cast"] == "torch.float32"
+    assert meta["bev_output_dtype"] == "torch.float16"
+    assert meta["bev_output_contract"] == "float16"
 
     peak_allocated = torch.cuda.max_memory_allocated(dev)
     peak_reserved = torch.cuda.max_memory_reserved(dev)
