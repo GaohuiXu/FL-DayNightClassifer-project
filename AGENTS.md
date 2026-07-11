@@ -87,6 +87,13 @@ Every material-compute session records its request and approval state in
 `fl_v3/usenix27_orchestra/handoffs/Sxx/RUN_REQUEST.md`. Preparing or editing
 that file does not grant approval.
 
+Standing owner decision `O-009` is the only exception for bounded engineering
+smoke: at most one node/one GPU, 60 minutes per job, one concurrent job, and two
+cumulative GPU-hours for the session, after the exact HEAD/diff, command, bounded
+data scope, resources, output, and stop conditions are recorded in `RUN_REQUEST.md`.
+It never covers full trainval cache generation/coverage/profile, model steps,
+scientific metrics, matrices, seeds, reruns, arrays, DDP, or automatic retry.
+
 ## Active Runtime: Arrhenius GH200
 
 Arrhenius GH200 is the active runtime target. The validated environment is a
@@ -153,17 +160,19 @@ offset/CRC-checked reads. Directory mode remains the mini/local backend. Approve
 v2 gate job `332651` indexed all ten archives, resolved all 538,695 official
 train/val six-camera/key-LiDAR/10-sweep references with zero missing paths, read a
 CRC-checked payload sentinel from every archive, and measured deterministic
-0/2/4/8-worker loader throughput. Independent S01-R review subsequently requested
-changes: execute dependency-backed real-mini directory/ZIP decoded parity and
-spawn lifecycle checks, bind cache identity to `n_sweeps`, validate local-header
-member names, address exact-archive duplicate sentinels, and add in-job source
-attestation. The remediation candidate uses cache format `t1.v2`, whose filename,
-metadata, records, and content hash all bind the requested sweep depth; historical
-job `332651` `t1.v1` caches remain coverage evidence but are not production inputs
-to the remediated loader. Focused GH200 job `333206` subsequently passed all 56
-dependency-backed mini parity, fork/spawn lifecycle, cache-depth, and ZIP-integrity
-tests with zero skips. Full-data training readiness still requires independent
-S01-R re-review and downstream migration of permission-out `t1.v1` callers. Do not
+0/2/4/8-worker loader throughput. Independent S01-R ultimately accepted worker
+`abe5c58b174dbbe1f7045ce91c8b15168d97b87b` as **PASS** in review artifact
+`7cf7fcc4b17d43806f1a134cf8c8a7b6868aa5bc` after remediation bound cache identity
+to `n_sweeps`, validated local-header member names, fixed exact-archive duplicate
+sentinels, and added future in-job source attestation. Cache format `t1.v2` binds
+the filename, metadata, every record, and content hash to the requested sweep
+depth. Focused GH200 job `333206` passed all 56 dependency-backed real-mini parity,
+fork/spawn lifecycle, cache-depth, and ZIP-integrity tests with zero skips.
+Historical job `332651` `t1.v1` caches remain coverage evidence only and are
+forbidden production inputs; it does not gain retroactive source attestation.
+S07-A has migrated `build_gt_database.py` to explicit depth/cache/manifest
+provenance, but full trainval `t1.v2` cache materialization remains pending exact
+owner approval and is still required before model/full-data readiness. Do not
 extract or duplicate the full dataset into project storage without explicit owner
 permission. The old
 `/mimer/NOBACKUP/Datasets/NuScenes_v1.0` path is not an Arrhenius data path.

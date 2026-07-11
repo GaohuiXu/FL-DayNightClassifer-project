@@ -439,6 +439,7 @@ def load_cache(
     version: str,
     split: str,
     n_sweeps: int | None = None,
+    expected_cache_hash: str | None = None,
 ) -> tuple[List[dict], dict]:
     if n_sweeps is None:
         pkl_path, meta_path = _discover_cache_path(cache_dir, version, split)
@@ -462,6 +463,18 @@ def load_cache(
         raise ValueError(
             f"nuScenes cache hash mismatch: metadata={meta.get('cache_hash')!r}, actual={actual_hash}"
         )
+    if expected_cache_hash is not None:
+        expected = str(expected_cache_hash).strip().lower()
+        if len(expected) != 64 or any(ch not in "0123456789abcdef" for ch in expected):
+            raise ValueError(
+                f"expected_cache_hash must be a 64-character SHA-256 hex digest, got "
+                f"{expected_cache_hash!r}"
+            )
+        if actual_hash != expected:
+            raise ValueError(
+                f"nuScenes cache does not match frozen expected hash: "
+                f"expected={expected}, actual={actual_hash}"
+            )
     return info_list, meta
 
 

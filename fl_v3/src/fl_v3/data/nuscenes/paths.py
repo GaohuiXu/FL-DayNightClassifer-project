@@ -21,8 +21,6 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Iterable
-
 # ---------------------------------------------------------------------------
 # The staged dataset (read-only). Prefer an explicit run config key; otherwise
 # set NUSCENES_DATAROOT or ARRHENIUS_NUSCENES_DATAROOT in the Slurm launcher.
@@ -189,10 +187,6 @@ def samples_dir(dataroot: str | None = None) -> str:
     return os.path.join(_root_or_raise(dataroot), "samples")
 
 
-def sweeps_dir(dataroot: str | None = None) -> str:
-    return os.path.join(_root_or_raise(dataroot), "sweeps")
-
-
 def abspath_from_relative(rel_path: str, dataroot: str | None = None) -> str:
     """Resolve a DATAROOT-relative path (as stored in the info-cache) to absolute.
 
@@ -326,9 +320,3 @@ def resolve_writable(path: str, dataroot: str | None = None) -> str:
             f"resolves under {root!r}. Write to nuscenes-cache-dir / fl_outputs instead."
         )
     return target
-
-
-def iter_required_sensor_dirs(dataroot: str | None = None) -> Iterable[str]:
-    sdir = samples_dir(dataroot)
-    for ch in (*CAMERA_CHANNELS, LIDAR_CHANNEL):
-        yield os.path.join(sdir, ch)

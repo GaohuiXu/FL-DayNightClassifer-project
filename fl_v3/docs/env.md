@@ -151,15 +151,22 @@ Approved v2 full gate `332651` completed the exhaustive shared manifest scan, 10
 train/val path-coverage audit, ten-archive payload sentinels, and deterministic
 0/2/4/8-worker loader profile. This is an engineering data-path result, not model or
 scientific readiness. Independent S01-R requested changes. The remediation
-candidate binds every cache to its exact `n_sweeps` under cache format `t1.v2`,
+binds every cache to its exact `n_sweeps` under cache format `t1.v2`,
 validates the local-header member name, reads duplicate sentinels from their exact
 archive occurrence, and makes future launchers attest the Git/source state inside
 the job. Job `332651`'s `t1.v1` caches remain valid historical coverage evidence
 but must not be consumed by the remediated loader. Dependency-backed real-mini
 directory/ZIP decoded parity and fork/spawn lifecycle execution passed in focused
-GH200 job `333206` (`56 passed`, zero skipped). S01-R re-review and downstream
-permission-out caller migration remain required. Do not extract/duplicate the dataset or
-submit further jobs without exact permission.
+GH200 job `333206` (`56 passed`, zero skipped). S01-R then returned **PASS** for
+worker `abe5c58b174dbbe1f7045ce91c8b15168d97b87b`; the separate review artifact is
+`7cf7fcc4b17d43806f1a134cf8c8a7b6868aa5bc`. S07-A migrated the permission-out GT
+database caller to explicit `t1.v2` depth/cache/manifest validation. Full trainval
+`t1.v2` cache materialization is still pending exact owner approval, so this is not
+model/full-data readiness. Do not extract/duplicate the dataset or submit further
+full-data jobs without exact permission. O-009 covers only a recorded bounded
+engineering smoke (one node/GPU, at most 60 minutes/job, one concurrent job, two
+cumulative GPU-hours); it does not authorize this cache materialization, full-data
+coverage/profile, model steps, metrics, matrices, reruns, arrays, DDP, or retries.
 
 A bounded one-archive GH200 engineering smoke (`Slurm 330409`, 2026-07-10) passed:
 module/table discovery, four real samples with all six cameras plus keyframe and
@@ -233,7 +240,12 @@ python fl_v3/scripts/build_nuscenes_cache.py \
 The cache builder adapts the module's `trainval/` metadata directory to the
 official devkit version name and reads `sample_data.filename` from metadata. It
 does not open or extract image/LiDAR payloads. For the production 10-sweep cache,
-use a dedicated cache directory and `--n-sweeps 10`.
+use a dedicated cache directory and `--n-sweeps 10`. Production consumers must
+call `info_cache.load_cache(..., n_sweeps=10, expected_cache_hash=...)`; ZIP-backed
+consumers also bind the accepted logical manifest hash and SQLite file SHA-256.
+The pending immutable materialization request and exact launcher are
+`usenix27_orchestra/handoffs/S07/RUN_REQUEST.md` and
+`scripts/run_s07a_nuscenes_cache_t1v2.sh`.
 
 Mini real-data smoke validated on 2026-07-01:
 
@@ -261,6 +273,9 @@ Mini remains engineering smoke only. Scientific results require trainval.
   coverage, and loader-profile evidence tools.
 - `fl_v3/scripts/run_s01_nuscenes_zip_full_gate.sh` - prepared S01 full-data gate;
   it is not execution authorization.
+- `fl_v3/scripts/run_s07a_nuscenes_cache_t1v2.sh` - pending-approval full trainval
+  `t1.v2` cache materialization against the accepted S01 manifest; it is not
+  execution authorization.
 - `fl_v3/requirements.txt` - direct dependency manifest used by the builder.
 - `fl_v3/requirements.lock.txt` - Arrhenius audit snapshot, not a standalone reinstall recipe.
 - `fl_v3/collab/arrhenius_migration.md` - read-only historical job/version evidence.

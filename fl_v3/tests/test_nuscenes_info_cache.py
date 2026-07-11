@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import copy
 import json
+import os
+import pickle
 
 import numpy as np
 import pytest
@@ -152,6 +154,72 @@ def test_load_cache_rejects_ambiguous_depth_and_sidecar_drift(
     with open(sidecar, "w", encoding="utf-8") as stream:
         json.dump(meta, stream)
     with pytest.raises(ValueError, match="sidecar differs"):
+        IC.load_cache(cache_dir, "v1.0-mini", "mini_val", n_sweeps=2)
+
+
+def test_load_cache_rejects_format_content_hash_and_missing_sidecar(
+    nusc_mini, dataroot, tmp_path
+):
+    cache_dir = str(tmp_path / "tampered_cache")
+    tokens = IC.split_sample_tokens(nusc_mini, "mini_val")[:2]
+    infos = IC.build_info_list(nusc_mini, tokens, dataroot, n_sweeps=2)
+    meta = IC.save_cache(
+        infos,
+        cache_dir,
+        "v1.0-mini",
+        "mini_val",
+        "mini-smoke",
+        dataroot,
+        n_sweeps=2,
+    )
+    pkl_path, sidecar_path = IC.cache_paths(
+        cache_dir, "v1.0-mini", "mini_val", 2
+    )
+
+    with open(pkl_path, "rb") as stream:
+        blob = pickle.load(stream)
+    blob["meta"]["format_version"] = "t1.v1"
+    with open(pkl_path, "wb") as stream:
+        pickle.dump(blob, stream, protocol=4)
+    with open(sidecar_path, "w", encoding="utf-8") as stream:
+        json.dump(blob["meta"], stream, sort_keys=True)
+    with pytest.raises(ValueError, match="unsupported nuScenes cache format"):
+        IC.load_cache(cache_dir, "v1.0-mini", "mini_val", n_sweeps=2)
+
+    IC.save_cache(
+        infos,
+        cache_dir,
+        "v1.0-mini",
+        "mini_val",
+        "mini-smoke",
+        dataroot,
+        n_sweeps=2,
+    )
+    with open(pkl_path, "rb") as stream:
+        blob = pickle.load(stream)
+    blob["info_list"][0]["sample_token"] += "-mutated"
+    with open(pkl_path, "wb") as stream:
+        pickle.dump(blob, stream, protocol=4)
+    with pytest.raises(ValueError, match="cache hash mismatch"):
+        IC.load_cache(
+            cache_dir,
+            "v1.0-mini",
+            "mini_val",
+            n_sweeps=2,
+            expected_cache_hash=meta["cache_hash"],
+        )
+
+    IC.save_cache(
+        infos,
+        cache_dir,
+        "v1.0-mini",
+        "mini_val",
+        "mini-smoke",
+        dataroot,
+        n_sweeps=2,
+    )
+    os.unlink(sidecar_path)
+    with pytest.raises(FileNotFoundError):
         IC.load_cache(cache_dir, "v1.0-mini", "mini_val", n_sweeps=2)
 
 

@@ -28,7 +28,6 @@ import torch
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 
-from fl_v3.data.nuscenes import info_cache as IC
 from fl_v3.data.nuscenes import paths as P
 from fl_v3.data.nuscenes.zip_backend import NuScenesBlobStore, canonical_member_path
 from fl_v3.utils.runtime import seeded_worker_init
@@ -97,18 +96,6 @@ def _read_blob_bytes(
     except FileNotFoundError:
         root, rel = _infer_root_and_relative(path)
         return _compat_blob_store(root).read_bytes(rel)
-
-
-def _decode_image_chw(
-    path: str,
-    *,
-    blob_store: NuScenesBlobStore | None = None,
-    dataroot: str | None = None,
-) -> np.ndarray:
-    """Pinned PIL decoder over a directory path or ZIP member."""
-    return _decode_image_bytes_chw(
-        _read_blob_bytes(path, blob_store=blob_store, dataroot=dataroot)
-    )
 
 
 def _load_lidar_bytes(payload: bytes, source: str = "<bytes>") -> np.ndarray:

@@ -32,10 +32,16 @@ runtime_source_files() {
   {
     find fl_v3/src/fl_v3/data/nuscenes -type f ! -path '*/__pycache__/*'
     printf '%s\n' \
+      fl_v3/scripts/build_gt_database.py \
+      fl_v3/tests/conftest.py \
+      fl_v3/tests/test_build_gt_database.py \
       fl_v3/tests/test_nuscenes_zip_backend.py \
       fl_v3/tests/test_nuscenes_zip_dataset.py \
       fl_v3/tests/test_nuscenes_zip_info_cache.py \
       fl_v3/tests/test_nuscenes_info_cache.py \
+      fl_v3/pyproject.toml \
+      fl_v3/requirements.txt \
+      fl_v3/requirements.lock.txt \
       fl_v3/scripts/run_s01_nuscenes_zip_tests.sh
   } | sort -u
 }
@@ -55,6 +61,8 @@ arrhenius_activate_env
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
+export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
+unset PYTEST_ADDOPTS
 export NUSCENES_DATAROOT="${S01_MINI_DATAROOT}"
 export ARRHENIUS_NUSCENES_DATAROOT="${S01_MINI_DATAROOT}"
 unset NUSCENES_ZIP_MANIFEST ARRHENIUS_NUSCENES_ZIP_MANIFEST NUSCENES_DATA_DIR
@@ -76,6 +84,7 @@ done > "${SOURCE_HASHES}"
 test "$(sha256sum "${SOURCE_HASHES}" | awk '{print $1}')" = "${S01_STATE_HASH}"
 python - "${EXECUTION_JSON}" "${ACTUAL_SHA}" "${S01_STATE_HASH}" "${S01_MINI_DATAROOT}" <<'PY'
 import json
+import importlib.metadata
 import os
 import platform
 import socket
@@ -83,7 +92,7 @@ import sys
 
 output, git_sha, source_hash, dataroot = sys.argv[1:]
 record = {
-    "schema": "s01.nuscenes-zip-focused-tests.v1",
+    "schema": "s07a.nuscenes-data-foundation-focused-tests.v1",
     "git_sha": git_sha,
     "runtime_source_sha256": source_hash,
     "runtime_source_list": "runtime_source_sha256s.txt",
@@ -91,6 +100,12 @@ record = {
     "host": socket.gethostname(),
     "machine": platform.machine(),
     "mini_dataroot": os.path.abspath(dataroot),
+    "pytest_disable_plugin_autoload": os.environ.get("PYTEST_DISABLE_PLUGIN_AUTOLOAD", ""),
+    "pytest_addopts": os.environ.get("PYTEST_ADDOPTS", ""),
+    "dependency_versions": {
+        name: importlib.metadata.version(name)
+        for name in ("numpy", "nuscenes-devkit", "pillow", "pytest", "torch")
+    },
 }
 with open(output, "w", encoding="utf-8") as stream:
     json.dump(record, stream, indent=2, sort_keys=True)
@@ -103,6 +118,7 @@ echo "[S01 tests] mini=${S01_MINI_DATAROOT} output=${S01_OUTPUT_ROOT}"
 
 set +e
 python -m pytest -q -ra \
+  fl_v3/tests/test_build_gt_database.py \
   fl_v3/tests/test_nuscenes_zip_backend.py \
   fl_v3/tests/test_nuscenes_zip_dataset.py \
   fl_v3/tests/test_nuscenes_zip_info_cache.py \
