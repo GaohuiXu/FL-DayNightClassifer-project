@@ -3103,3 +3103,111 @@ S00另行冻结并批准全新bounded runtime request；本review不授权comput
 **CHANGES-REQUESTED for S07-B delivery
 `34f07994a4b3de62c7c1331d98ff03dbba98de2e` / code candidate
 `26cffb02ced50b07f93021bc48310efb68b178a9`.**
+
+---
+
+# S07-B-R14 独立复审 — O-079 R13 harness-evidence remediation
+
+## Findings（按严重性排序）
+
+### P3 — exact delivery 再次把已提交的三份 durable docs 写成“pending/requires delivery”
+
+O-079 documentation delivery 已经是 exact commit
+`e3122dbccdd252a6d89f1a4fe339b9043fe19884`，其唯一parent是code
+`56c74de5bdf5463fdd6ab1a623ab0f92a35871ae`，且只修改
+`HANDOFF.md`、`RUN_REQUEST.md`、`RESULTS.md`。但这三份已提交文件仍分别称：
+
+- `HANDOFF.md:2431-2433`：lifecycle update “remains a documentation diff pending
+  delivery”；
+- `RESULTS.md:721-723`：lifecycle update “still requires delivery”；
+- `RUN_REQUEST.md:1351-1353`：在当前delivery中仍要求“A documentation delivery”。
+
+这不是历史段落对旧candidate的准确陈述，而是O-079新段落对自身当前状态的陈述；因此exact
+delivery一创建就使其不可复现。它直接复现R13第三项finding，只是从旧delivery
+`34f07994...`迁移到了新delivery `e3122db...`。请追加一个durable docs-only commit，明确记录
+O-079 code SHA、exact delivery SHA/parent、三条delivery-owned路径，以及“本delivery已提交、
+R14 review-only且未合并、仍需新的independent acceptance/runtime request”；不要再次把同一份
+已提交文档称作uncommitted/pending delivery。该修复无需改code、launcher或test，也不授权
+runtime。
+
+### 无 P0/P1/P2 finding；R13前两项在authored/static范围内关闭
+
+1. **exact SIGKILL wait-status predicate — CLOSED STATICALLY/AUTHORED。**
+   leader-exit cleanup从exact `(pid,starttime)` key取得raw `waitpid` status，并记录raw与
+   decoded signal；hostile明确要求`os.WIFSIGNALED(reaped_status)`及
+   `os.WTERMSIG(reaped_status) == signal.SIGKILL`
+   (`test_nuscenes_zip_dataset.py:1399-1407`)。static checker也锁定这两个谓词。没有把普通
+   exit status、其他signal或仅“status >= 0”误当SIGKILL证据。
+
+2. **五launcher cleanup observability/status — CLOSED STATICALLY/AUTHORED。**
+   五个EXIT trap对`path_pattern/dirname/symlink/directory/stat/device_inode/rm`各有唯一固定
+   `S07B_TMP_CLEANUP_FAILURE:<launcher> reason=<reason>` stderr token；message不含temp path，
+   `stat`与`rm`原始stderr均被抑制。每个trap保存entry `$?`，仅当primary为0且cleanup失败时
+   将状态改为1；primary非零时保留原值。实际脚本与contract checker一致，未发现纯predicate
+   mismatch继续静默、cleanup覆盖primary或primary成功时cleanup失败仍返回0。
+
+3. **short temp / identity / rebind — RETAINED STATICALLY。**
+   五launcher继续使用numeric job ID、12-hex executable prefix、随机短`/tmp` mode-0700目录、
+   anchored regex、exact parent、no-symlink与captured device:inode；trap仍在assertions之前安装，
+   environment activation之后重新export `TMPDIR/TMP/TEMP`。formal output仍与job temp分离。
+
+4. **subreaper/reap/exception semantics — RETAINED STATICALLY。**
+   O-079未改nearest-subreaper的enable/restore控制流、exact starttime+PPID adoption、bounded
+   `waitpid(exact_pid,WNOHANG)`、TERM/KILL顺序、primary exception与additive cleanup notes；
+   文件中不存在`waitpid(-1)`。文档已正确降级为“restore is attempted on every controlled
+   path”，passing hostile才可证明该次restore成功。
+
+5. **Job 352105 negative与compute boundary — RETAINED。**
+   O-079没有改生产source、旧executable/artifact或Job 352105的2 PASS / 2 FAIL / 5 timeout
+   negative解释，也没有冻结新command或批准compute。short-TMP/subreaper与本轮predicate仍只有
+   authored/static evidence。
+
+## Review identity、prefix、topology 与 ownership
+
+- Session：`S07-B-R14`；`APPROVED_COMPUTE: none`。
+- Exact O-079 code：`56c74de5bdf5463fdd6ab1a623ab0f92a35871ae`，parent exact
+  `34f07994a4b3de62c7c1331d98ff03dbba98de2e`。
+- Exact delivery：`e3122dbccdd252a6d89f1a4fe339b9043fe19884`，parent exact为code。
+- Review startup/import：`4891fb59397275a88211b9ed4100e3e85144ed35`，parent exact为
+  delivery，branch `codex/s07-b-r14-runtime-harness-review`，startup clean。
+- 追加前R13 prefix：Git blob
+  `a5ac4a62e31e431d0cf5f5729ac439f205ead4c8`、size `207926`、SHA-256
+  `a6b4de09ad5fcecd8442167e8455f41294160347c67bed9480ae485480dd4140`；R14仅追加在
+  这些exact bytes之后。
+
+`34f0799..56c74de`精确七个test/launcher路径、`163/59`，无production source；七个Git
+blob与SHA-256逐项匹配三份delivery表。`56c74de..e3122db`精确三份S07 durable docs、
+`143/12`。`git diff --check 34f0799..e3122db`无warning。review commit与R13历史均未合并进
+implementation lineage。
+
+## Checks actually run 与 explicit NOT RUN
+
+实际执行：startup branch/HEAD/parent/clean；R13 prefix blob/size/SHA-256；ancestry、commit
+parents、name-status/numstat；七个candidate blob/SHA-256；逐行读取changed test、五launcher、
+static checker与三份delivery docs；六个相关shell `bash -n`；launcher-contract-only checker
+（`short TMPDIR contract: 5 launchers OK`）；changed-test source-text `compile()`；
+`shellcheck -S error`；`git diff --check`；以及waitpid/source-text与stale-delivery wording搜索。
+所有检查后review tree仍clean。
+
+明确 **NOT RUN / NO IMPLIED PASS**：project/package import、pytest、pycompile、任何
+multiprocessing/fork/spawn runtime、Torch/NumPy/CUDA/spconv/cumm、data/cache/model/checkpoint、
+Slurm/srun/GPU、full `t1.v2`、full trainval、100/1000 steps、profile、metrics、DDP、matrix、
+seed/rerun、FL/attack/defense/scientific cell。未merge、push、upload或publication。
+
+## Interpretation、residual risk 与 final verdict
+
+允许解释：R13的SIGKILL wait-status与cleanup-observability findings在exact O-079 code的
+static/authored层关闭；short-temp、post-env rebind、exact subreaper/reap、primary-error与历史
+negative evidence未回归。
+
+禁止解释：durable delivery state尚不准确；没有corrected pytest/multiprocessing/GH200 runtime、
+integrated suite、production/full-data/checkpoint/performance/scientific PASS。不得从本review推导
+任何新的compute、merge、push、upload或科学结论。
+
+请仅修复三份durable docs的当前delivery状态后，从exact new docs-only delivery SHA进行独立
+复审。即使后续static review PASS，也必须由S00另行冻结并批准exact bounded runtime request。
+
+**CHANGES-REQUESTED for S07-B delivery
+`e3122dbccdd252a6d89f1a4fe339b9043fe19884`; O-079 code candidate
+`56c74de5bdf5463fdd6ab1a623ab0f92a35871ae` is accepted only at
+code-level/static-authored scope.**
