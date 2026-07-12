@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import copy
+import errno
 import gc
 import multiprocessing
 import os
 import signal
+import time
+import traceback
 import zipfile
 
 import numpy as np
@@ -256,7 +259,20 @@ def test_legacy_absolute_lidar_and_multisweep_paths_use_zip_backend(
     assert np.array_equal(actual_sweeps, expected_sweeps)
 
 
-def _persistent_lifecycle(zip_root, manifest, base_info, start_method):
+def _add_cleanup_notes(primary, cleanup_errors):
+    for label, error in cleanup_errors:
+        primary.add_note(f"cleanup failure [{label}]: {error!r}")
+
+
+def _persistent_lifecycle(
+    zip_root,
+    manifest,
+    base_info,
+    start_method,
+    *,
+    force_lifecycle_error=False,
+    force_cleanup_evidence=False,
+):
     infos = []
     for index in range(4):
         info = copy.deepcopy(base_info)
@@ -276,10 +292,14 @@ def _persistent_lifecycle(zip_root, manifest, base_info, start_method):
         seed=123,
         multiprocessing_context=start_method,
     )
+    primary = None
+    primary_traceback = None
+    workers = []
+    cleanup_errors = []
     try:
         epochs = []
         lifecycle_epochs = []
-        for _ in range(2):
+        for epoch_index in range(2):
             epoch = []
             lifecycle = {}
             for batch in loader:
@@ -294,6 +314,8 @@ def _persistent_lifecycle(zip_root, manifest, base_info, start_method):
                         sample["lidar_points"].numpy().tobytes(),
                     )
                 )
+                if force_lifecycle_error and epoch_index == 0:
+                    raise RuntimeError("forced post-ACK lifecycle error")
             epochs.append(epoch)
             lifecycle_epochs.append(lifecycle)
         assert epochs[0] == epochs[1]
@@ -306,37 +328,181 @@ def _persistent_lifecycle(zip_root, manifest, base_info, start_method):
             assert second["read_count"] > first["read_count"]
             assert set(second["open_archives"]) == set(first["open_archives"])
         assert torch.equal(parent_sample["images"], dataset[0]["images"])
+    except BaseException as exc:
+        primary = exc
+        primary_traceback = exc.__traceback__
     finally:
-        iterator = getattr(loader, "_iterator", None)
-        workers = list(getattr(iterator, "_workers", ())) if iterator is not None else []
+        iterator = None
+        try:
+            iterator = getattr(loader, "_iterator", None)
+        except BaseException as exc:
+            cleanup_errors.append(("iterator_discovery", exc))
+        try:
+            workers = (
+                list(getattr(iterator, "_workers", ()))
+                if iterator is not None
+                else []
+            )
+        except BaseException as exc:
+            cleanup_errors.append(("worker_discovery", exc))
+            workers = []
         if iterator is not None:
-            iterator._shutdown_workers()
+            try:
+                iterator._shutdown_workers()
+            except BaseException as exc:
+                cleanup_errors.append(("shutdown_workers", exc))
         for worker in workers:
-            worker.join(5)
-        assert not any(worker.is_alive() for worker in workers), (
-            "persistent DataLoader workers survived explicit shutdown"
+            try:
+                worker.join(5)
+            except BaseException as exc:
+                cleanup_errors.append((f"worker_join:{worker.pid}", exc))
+        live_workers = []
+        for worker in workers:
+            try:
+                if worker.is_alive():
+                    live_workers.append(worker.pid)
+            except BaseException as exc:
+                cleanup_errors.append((f"worker_liveness:{worker.pid}", exc))
+        if live_workers:
+            cleanup_errors.append(
+                (
+                    "worker_liveness",
+                    RuntimeError(
+                        "persistent DataLoader workers survived explicit shutdown: "
+                        f"{live_workers}"
+                    ),
+                )
+            )
+        try:
+            del loader
+        except BaseException as exc:
+            cleanup_errors.append(("delete_loader", exc))
+        try:
+            dataset.close()
+        except BaseException as exc:
+            cleanup_errors.append(("dataset_close", exc))
+        try:
+            gc.collect()
+        except BaseException as exc:
+            cleanup_errors.append(("gc_collect", exc))
+        if force_cleanup_evidence:
+            cleanup_errors.append(
+                (
+                    "forced_after_real_cleanup",
+                    RuntimeError("forced cleanup evidence after real worker cleanup"),
+                )
+            )
+    if primary is not None:
+        try:
+            primary._s07_worker_pids = tuple(worker.pid for worker in workers)
+            primary._s07_live_worker_pids_after_cleanup = tuple(live_workers)
+        except BaseException as exc:
+            cleanup_errors.append(("primary_evidence_attachment", exc))
+        _add_cleanup_notes(primary, cleanup_errors)
+        raise primary.with_traceback(primary_traceback)
+    if cleanup_errors:
+        raise BaseExceptionGroup(
+            "persistent lifecycle cleanup failed",
+            [error for _label, error in cleanup_errors],
         )
-        del loader
-        dataset.close()
-        gc.collect()
     return [worker.pid for worker in workers]
 
 
-def _fresh_spawn_then_fork(zip_root, manifest, base_info, result_queue):
+def _hang_with_forked_descendant(result_queue):
+    descendant_pid = os.fork()
+    if descendant_pid == 0:
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        while True:
+            signal.pause()
+
+    def _reap_descendant(_signum, _frame):
+        try:
+            os.waitpid(descendant_pid, 0)
+        except ChildProcessError:
+            pass
+
+    # A group SIGTERM must reach and terminate the real forked descendant, while
+    # the helper deliberately remains alive so parent cleanup must escalate to
+    # a verified-group SIGKILL for the session/process-group leader.
+    signal.signal(signal.SIGTERM, _reap_descendant)
+    result_queue.put(("descendant", descendant_pid))
+    while True:
+        signal.pause()
+
+
+def _fresh_spawn_then_fork(
+    zip_root, manifest, base_info, control_connection, result_queue, mode
+):
     os.setsid()
-    result_queue.put(("ready", os.getpid(), os.getsid(0), os.getpgrp()))
+    pid = os.getpid()
+    ready = (
+        "ready",
+        pid,
+        os.getsid(0),
+        os.getpgrp(),
+        tuple(
+            child.pid
+            for child in multiprocessing.active_children()
+            if child.is_alive()
+        ),
+    )
     try:
+        # Connection.send is synchronous with the pipe transport. Unlike
+        # Queue.put, the helper cannot pass this point and fork until the exact
+        # parent ACK arrives over the same duplex control channel.
+        control_connection.send(ready)
+        acknowledgement = control_connection.recv()
+        assert acknowledgement == ("ack", pid, pid, pid)
         assert torch.cuda.is_available() is False
-        worker_pids = _persistent_lifecycle(zip_root, manifest, base_info, "fork")
+        if mode == "forced_hang":
+            _hang_with_forked_descendant(result_queue)
+        worker_pids = _persistent_lifecycle(
+            zip_root,
+            manifest,
+            base_info,
+            "fork",
+            force_lifecycle_error=mode == "forced_error",
+            force_cleanup_evidence=mode == "forced_error",
+        )
         live_children = [
             child.pid for child in multiprocessing.active_children() if child.is_alive()
         ]
-        result_queue.put(("result", None, worker_pids, live_children))
+        result_queue.put(
+            {
+                "kind": "result",
+                "status": "ok",
+                "worker_pids": worker_pids,
+                "live_children": live_children,
+            }
+        )
     except BaseException as exc:
         live_children = [
             child.pid for child in multiprocessing.active_children() if child.is_alive()
         ]
-        result_queue.put(("result", repr(exc), [], live_children))
+        result_queue.put(
+            {
+                "kind": "result",
+                "status": "error",
+                "error": repr(exc),
+                "traceback": traceback.format_exc(),
+                "notes": tuple(getattr(exc, "__notes__", ())),
+                "worker_pids": tuple(getattr(exc, "_s07_worker_pids", ())),
+                "live_worker_pids_after_cleanup": tuple(
+                    getattr(exc, "_s07_live_worker_pids_after_cleanup", ())
+                ),
+                "live_children": live_children,
+            }
+        )
+    finally:
+        control_connection.close()
+        result_queue.close()
+        result_queue.join_thread()
+
+
+class _ForkHelperFailure(AssertionError):
+    def __init__(self, message, report):
+        super().__init__(message)
+        self.report = report
 
 
 def _kill_process_group(group_id, sig):
@@ -344,6 +510,371 @@ def _kill_process_group(group_id, sig):
         os.killpg(group_id, sig)
     except ProcessLookupError:
         pass
+
+
+def _process_group_exists(group_id):
+    try:
+        os.killpg(group_id, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _cleanup_process_alive(process, cleanup_errors, label):
+    try:
+        return process.is_alive()
+    except BaseException as exc:
+        cleanup_errors.append((f"{label}_process_probe", exc))
+        return True
+
+
+def _cleanup_group_exists(group_id, cleanup_errors, label):
+    try:
+        return _process_group_exists(group_id)
+    except BaseException as exc:
+        cleanup_errors.append((f"{label}_group_probe", exc))
+        return True
+
+
+def _fd_is_closed(fd):
+    try:
+        os.fstat(fd)
+    except OSError as exc:
+        return exc.errno == errno.EBADF
+    return False
+
+
+def _validate_ready_record(process, ready, parent_pid, parent_sid, parent_group):
+    assert isinstance(ready, tuple) and len(ready) == 5
+    tag, helper_pid, helper_sid, helper_group, initial_children = ready
+    assert tag == "ready"
+    assert helper_pid == process.pid
+    assert helper_pid not in {parent_pid, parent_sid, parent_group}
+    assert helper_pid == helper_sid == helper_group
+    assert initial_children == ()
+    # Cross-check the child-supplied tuple against live kernel state before the
+    # value is eligible to arm killpg or the ACK is sent.
+    assert os.getsid(helper_pid) == helper_pid
+    assert os.getpgid(helper_pid) == helper_pid
+    return helper_pid
+
+
+def _run_fresh_spawn_fork_helper(
+    zip_root,
+    manifest,
+    base_info,
+    *,
+    mode="normal",
+    ready_timeout=10,
+    run_timeout=90,
+):
+    assert mode in {"normal", "pre_ack_failure", "forced_error", "forced_hang"}
+    parent_pid = os.getpid()
+    parent_sid = os.getsid(0)
+    parent_group = os.getpgrp()
+    report = {
+        "mode": mode,
+        "parent_pid": parent_pid,
+        "parent_sid": parent_sid,
+        "parent_group": parent_group,
+        "ack_sent": False,
+        "armed_group": None,
+        "descendant_pid": None,
+        "worker_pids": (),
+        "cleanup_signals": [],
+        "closed_fds": {},
+    }
+    ctx = multiprocessing.get_context("spawn")
+    parent_control, child_control = ctx.Pipe(duplex=True)
+    result_queue = ctx.Queue()
+    process = ctx.Process(
+        target=_fresh_spawn_then_fork,
+        args=(
+            str(zip_root),
+            str(manifest),
+            base_info,
+            child_control,
+            result_queue,
+            mode,
+        ),
+    )
+    tracked_fds = {
+        "parent_control": parent_control.fileno(),
+        "child_control": child_control.fileno(),
+        "result_reader": result_queue._reader.fileno(),
+        "result_writer": result_queue._writer.fileno(),
+    }
+    primary = None
+    primary_traceback = None
+    cleanup_errors = []
+    armed_group = None
+    try:
+        process.start()
+        tracked_fds["process_sentinel"] = process.sentinel
+        child_control.close()
+        assert parent_control.poll(ready_timeout), "helper ready record timed out"
+        ready = parent_control.recv()
+        report["ready"] = ready
+        verified_group = _validate_ready_record(
+            process, ready, parent_pid, parent_sid, parent_group
+        )
+        # Assignment is deliberately after every tuple and kernel-state check.
+        armed_group = verified_group
+        report["armed_group"] = armed_group
+        if mode == "pre_ack_failure":
+            raise _ForkHelperFailure(
+                "forced ready-window failure before ACK", report
+            )
+        parent_control.send(("ack", process.pid, armed_group, armed_group))
+        report["ack_sent"] = True
+
+        if mode == "forced_hang":
+            event = result_queue.get(timeout=5)
+            assert event[0] == "descendant"
+            report["descendant_pid"] = event[1]
+
+        process.join(run_timeout)
+        if process.is_alive():
+            raise _ForkHelperFailure(
+                "fresh spawn helper timed out during explicit fork lifecycle", report
+            )
+        outcome = result_queue.get(timeout=5)
+        report["outcome"] = outcome
+        report["worker_pids"] = tuple(outcome.get("worker_pids", ()))
+        assert outcome["kind"] == "result"
+        if outcome["status"] != "ok":
+            failure = _ForkHelperFailure(
+                "fresh spawn helper lifecycle failed: "
+                f"{outcome['error']}\n{outcome['traceback']}",
+                report,
+            )
+            for note in outcome["notes"]:
+                failure.add_note(f"child cleanup evidence: {note}")
+            if process.exitcode != 0:
+                failure.add_note(
+                    f"helper exitcode after reporting primary: {process.exitcode}"
+                )
+            raise failure
+        assert process.exitcode == 0
+        assert outcome["worker_pids"], "fork lifecycle did not report worker PIDs"
+        assert outcome["live_children"] == [], (
+            f"forked descendants survived normal cleanup: {outcome['live_children']}"
+        )
+    except BaseException as exc:
+        primary = exc
+        primary_traceback = exc.__traceback__
+    finally:
+        if not child_control.closed:
+            try:
+                child_control.close()
+            except BaseException as exc:
+                cleanup_errors.append(("child_control_close", exc))
+
+        if process.pid is not None:
+            group_needs_cleanup = (
+                armed_group is not None
+                and _cleanup_group_exists(
+                    armed_group, cleanup_errors, "initial_cleanup"
+                )
+            )
+            helper_alive = _cleanup_process_alive(
+                process, cleanup_errors, "initial_cleanup"
+            )
+            if armed_group is not None and (helper_alive or group_needs_cleanup):
+                group_safe = (
+                    armed_group == process.pid
+                    and armed_group not in {parent_pid, parent_sid, parent_group}
+                )
+                if not group_safe:
+                    cleanup_errors.append(
+                        (
+                            "verified_group_identity",
+                            RuntimeError("armed helper group lost its safety invariant"),
+                        )
+                    )
+                else:
+                    try:
+                        _kill_process_group(armed_group, signal.SIGTERM)
+                        report["cleanup_signals"].append("SIGTERM")
+                    except BaseException as exc:
+                        cleanup_errors.append(("verified_group_sigterm", exc))
+                try:
+                    process.join(2)
+                except BaseException as exc:
+                    cleanup_errors.append(("verified_group_term_join", exc))
+                if group_safe and (
+                    _cleanup_process_alive(process, cleanup_errors, "post_sigterm")
+                    or _cleanup_group_exists(
+                        armed_group, cleanup_errors, "post_sigterm"
+                    )
+                ):
+                    try:
+                        _kill_process_group(armed_group, signal.SIGKILL)
+                        report["cleanup_signals"].append("SIGKILL")
+                    except BaseException as exc:
+                        cleanup_errors.append(("verified_group_sigkill", exc))
+                    try:
+                        process.join(5)
+                    except BaseException as exc:
+                        cleanup_errors.append(("verified_group_kill_join", exc))
+                if _cleanup_process_alive(process, cleanup_errors, "post_sigkill"):
+                    try:
+                        process.kill()
+                        process.join(5)
+                    except BaseException as exc:
+                        cleanup_errors.append(("verified_helper_direct_kill", exc))
+            elif armed_group is None and helper_alive:
+                try:
+                    process.terminate()
+                    process.join(5)
+                except BaseException as exc:
+                    cleanup_errors.append(("unarmed_helper_termination", exc))
+                if _cleanup_process_alive(process, cleanup_errors, "unarmed_post_term"):
+                    try:
+                        process.kill()
+                        process.join(5)
+                    except BaseException as exc:
+                        cleanup_errors.append(("unarmed_helper_direct_kill", exc))
+
+        if process.pid is not None and _cleanup_process_alive(
+            process, cleanup_errors, "final"
+        ):
+            cleanup_errors.append(
+                ("helper_liveness", RuntimeError("fresh spawn helper survived cleanup"))
+            )
+        if armed_group is not None:
+            report["group_alive_after_cleanup"] = _cleanup_group_exists(
+                armed_group, cleanup_errors, "final"
+            )
+            if report["group_alive_after_cleanup"]:
+                cleanup_errors.append(
+                    (
+                        "group_liveness",
+                        RuntimeError(
+                            f"verified helper process group {armed_group} survived cleanup"
+                        ),
+                    )
+                )
+
+        descendant_pid = report["descendant_pid"]
+        if descendant_pid is not None:
+            deadline = time.monotonic() + 2
+            while True:
+                try:
+                    os.kill(descendant_pid, 0)
+                except ProcessLookupError:
+                    report["descendant_alive_after_cleanup"] = False
+                    break
+                except BaseException as exc:
+                    cleanup_errors.append(("descendant_liveness_audit", exc))
+                    break
+                if time.monotonic() >= deadline:
+                    report["descendant_alive_after_cleanup"] = True
+                    cleanup_errors.append(
+                        (
+                            "descendant_liveness",
+                            RuntimeError(
+                                f"forked descendant {descendant_pid} survived group cleanup"
+                            ),
+                        )
+                    )
+                    break
+                time.sleep(0.01)
+
+        report["worker_alive_after_cleanup"] = {}
+        for worker_pid in report["worker_pids"]:
+            try:
+                os.kill(worker_pid, 0)
+            except ProcessLookupError:
+                report["worker_alive_after_cleanup"][worker_pid] = False
+            except BaseException as exc:
+                cleanup_errors.append((f"worker_pid_audit:{worker_pid}", exc))
+            else:
+                report["worker_alive_after_cleanup"][worker_pid] = True
+                cleanup_errors.append(
+                    (
+                        "worker_pid_liveness",
+                        RuntimeError(
+                            f"forked DataLoader worker {worker_pid} survived cleanup"
+                        ),
+                    )
+                )
+
+        for label, resource in (
+            ("parent_control", parent_control),
+            ("result_queue", result_queue),
+        ):
+            try:
+                resource.close()
+            except BaseException as exc:
+                cleanup_errors.append((f"{label}_close", exc))
+        try:
+            result_queue.join_thread()
+        except BaseException as exc:
+            cleanup_errors.append(("result_queue_join_thread", exc))
+        # A Queue that is get-only in this parent never starts its feeder
+        # thread, so Queue.close() has no `_close` finalizer on CPython 3.11.
+        # Explicitly close both parent-owned pipe endpoints; child-side copies
+        # are closed by its normal finally or by process exit on forced kill.
+        for endpoint_label, endpoint in (
+            ("result_reader", result_queue._reader),
+            ("result_writer", result_queue._writer),
+        ):
+            try:
+                endpoint.close()
+            except BaseException as exc:
+                cleanup_errors.append((f"{endpoint_label}_close", exc))
+
+        process_alive = process.pid is not None and _cleanup_process_alive(
+            process, cleanup_errors, "pre_close"
+        )
+        if process.pid is not None and not process_alive:
+            try:
+                process.close()
+                report["process_closed"] = True
+            except BaseException as exc:
+                cleanup_errors.append(("process_close", exc))
+        else:
+            report["process_closed"] = False
+
+        for label, fd in tracked_fds.items():
+            report["closed_fds"][label] = _fd_is_closed(fd)
+            if not report["closed_fds"][label]:
+                cleanup_errors.append(
+                    ("fd_close", RuntimeError(f"{label} fd {fd} remained open"))
+                )
+
+        try:
+            report["parent_identity_after_cleanup"] = (
+                os.getpid(),
+                os.getsid(0),
+                os.getpgrp(),
+            )
+        except BaseException as exc:
+            cleanup_errors.append(("parent_identity_probe", exc))
+            report["parent_identity_after_cleanup"] = None
+        if report["parent_identity_after_cleanup"] != (
+            parent_pid,
+            parent_sid,
+            parent_group,
+        ):
+            cleanup_errors.append(
+                ("parent_identity", RuntimeError("pytest parent session/group changed"))
+            )
+
+    if primary is not None:
+        if isinstance(primary, _ForkHelperFailure):
+            primary.report = report
+        _add_cleanup_notes(primary, cleanup_errors)
+        raise primary.with_traceback(primary_traceback)
+    if cleanup_errors:
+        raise BaseExceptionGroup(
+            "fresh spawn helper cleanup failed",
+            [error for _label, error in cleanup_errors],
+        )
+    return report
 
 
 @pytest.mark.parametrize("start_method", ["fork", "spawn"])
@@ -358,59 +889,93 @@ def test_repeated_persistent_multiworker_reads_are_deterministic(
     # Explicit fork is lifecycle evidence only. Enter it from a fresh spawned,
     # CUDA-hidden interpreter so no CUDA/threaded pytest state is inherited.
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
-    ctx = multiprocessing.get_context("spawn")
-    result_queue = ctx.Queue()
-    process = ctx.Process(
-        target=_fresh_spawn_then_fork,
-        args=(str(zip_root), str(manifest), base_info, result_queue),
-    )
-    group_id = None
-    success = False
-    try:
-        process.start()
-        ready = result_queue.get(timeout=10)
-        assert ready[0] == "ready"
-        assert ready[1] == process.pid
-        group_id = ready[3]
-        assert ready[2] == process.pid
-        assert group_id == process.pid
+    report = _run_fresh_spawn_fork_helper(zip_root, manifest, base_info)
+    assert report["outcome"]["status"] == "ok"
+    assert report["process_closed"] is True
+    assert report["group_alive_after_cleanup"] is False
+    assert all(report["closed_fds"].values())
 
-        process.join(90)
-        if process.is_alive():
-            process.terminate()
-            process.join(10)
-            # The helper is a POSIX session/process-group leader. Kill the whole
-            # group even if terminate already reaped the leader, so forked
-            # DataLoader descendants cannot survive the timeout path.
-            _kill_process_group(group_id, signal.SIGKILL)
-            if process.is_alive():
-                process.kill()
-            process.join(10)
-            assert not process.is_alive(), "fresh spawn helper survived kill+join"
-            pytest.fail("fresh spawn helper timed out during explicit fork lifecycle")
 
-        assert process.exitcode == 0
-        outcome = result_queue.get(timeout=5)
-        assert outcome[0] == "result"
-        assert outcome[1] is None
-        assert outcome[2], "fork lifecycle did not report worker PIDs"
-        assert outcome[3] == [], f"forked descendants survived normal cleanup: {outcome[3]}"
-        success = True
-    finally:
-        if process.is_alive():
-            process.terminate()
-            process.join(10)
-        if not success and group_id is not None:
-            _kill_process_group(group_id, signal.SIGKILL)
-        if process.is_alive():
-            process.kill()
-            process.join(10)
-        still_alive = process.is_alive()
-        result_queue.close()
-        result_queue.join_thread()
-        if not still_alive:
-            process.close()
-        assert not still_alive, "fresh spawn helper survived final cleanup"
+def test_explicit_fork_pre_ack_failure_never_forks_or_touches_parent_group(
+    directory_and_zip, monkeypatch
+):
+    _directory_root, zip_root, manifest, base_info, _paths = directory_and_zip
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
+    parent_identity = (os.getpid(), os.getsid(0), os.getpgrp())
+    with pytest.raises(_ForkHelperFailure, match="ready-window") as caught:
+        _run_fresh_spawn_fork_helper(
+            zip_root,
+            manifest,
+            base_info,
+            mode="pre_ack_failure",
+            ready_timeout=5,
+            run_timeout=1,
+        )
+    report = caught.value.report
+    assert report["ready"][4] == ()
+    assert report["ack_sent"] is False
+    assert report["descendant_pid"] is None
+    assert report["armed_group"] == report["ready"][1]
+    assert report["armed_group"] not in parent_identity
+    assert report["group_alive_after_cleanup"] is False
+    assert report["parent_identity_after_cleanup"] == parent_identity
+    assert report["process_closed"] is True
+    assert all(report["closed_fds"].values())
+
+
+def test_explicit_fork_post_ack_error_preserves_primary_and_cleanup_evidence(
+    directory_and_zip, monkeypatch
+):
+    _directory_root, zip_root, manifest, base_info, _paths = directory_and_zip
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
+    with pytest.raises(_ForkHelperFailure, match="forced post-ACK lifecycle error") as caught:
+        _run_fresh_spawn_fork_helper(
+            zip_root,
+            manifest,
+            base_info,
+            mode="forced_error",
+            ready_timeout=5,
+            run_timeout=20,
+        )
+    report = caught.value.report
+    outcome = report["outcome"]
+    assert report["ack_sent"] is True
+    assert "forced post-ACK lifecycle error" in outcome["error"]
+    assert "raise RuntimeError" in outcome["traceback"]
+    assert any("forced cleanup evidence" in note for note in outcome["notes"])
+    assert any("child cleanup evidence" in note for note in caught.value.__notes__)
+    assert outcome["worker_pids"]
+    assert outcome["live_worker_pids_after_cleanup"] == ()
+    assert set(report["worker_alive_after_cleanup"]) == set(outcome["worker_pids"])
+    assert not any(report["worker_alive_after_cleanup"].values())
+    assert outcome["live_children"] == []
+    assert report["group_alive_after_cleanup"] is False
+    assert report["process_closed"] is True
+    assert all(report["closed_fds"].values())
+
+
+def test_explicit_fork_post_ack_hang_kills_verified_group_and_descendant(
+    directory_and_zip, monkeypatch
+):
+    _directory_root, zip_root, manifest, base_info, _paths = directory_and_zip
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
+    with pytest.raises(_ForkHelperFailure, match="timed out") as caught:
+        _run_fresh_spawn_fork_helper(
+            zip_root,
+            manifest,
+            base_info,
+            mode="forced_hang",
+            ready_timeout=5,
+            run_timeout=0.25,
+        )
+    report = caught.value.report
+    assert report["ack_sent"] is True
+    assert report["descendant_pid"] is not None
+    assert report["cleanup_signals"] == ["SIGTERM", "SIGKILL"]
+    assert report["descendant_alive_after_cleanup"] is False
+    assert report["group_alive_after_cleanup"] is False
+    assert report["process_closed"] is True
+    assert all(report["closed_fds"].values())
 
 
 def test_default_loader_context_is_spawn(directory_and_zip):
