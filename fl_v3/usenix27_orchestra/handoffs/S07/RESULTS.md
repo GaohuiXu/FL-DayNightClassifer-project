@@ -267,3 +267,94 @@ production/full-trainval/cache readiness; throughput/memory performance; mAP/NDS
 model quality or fusion gain; 100/1000-step training; FL, attack/defense,
 generalization, seed/matrix or publication evidence. O-052 is consumed and this
 result authorizes no retry, diagnostic execution, merge, push or follow-on.
+
+---
+
+## Job 348818 — diagnostic harness COMPLETE, suite FAIL
+
+### Scheduler and immutable identity
+
+- Canonical O-058: `348f29c3c68243ae6010ea0d017e16850081c43c`.
+- Scheduler state/exit: `COMPLETED 0:0`; this means harness completion only.
+- Submit/Start/End: `2026-07-12T13:40:45+02:00` /
+  `2026-07-12T13:40:46+02:00` / `2026-07-12T13:57:16+02:00`.
+- Elapsed `00:16:30`; node `n412`; one GH200, eight CPUs, 64 GiB;
+  `MaxRSS=10539927K`, `TotalCPU=05:05.306`, `Restarts=0`.
+- Exact `L`: `fd142dc1c247ed527dbf5ddb823576c817dc415a`.
+- Launcher/list/state SHA-256:
+  `d8d7686eb727d4973591cf20186615f6bf2f3bc71ba020dec815c9b6d2d0dc1b` /
+  `40c364201bda63386be614fca3710f62111e6964f9b7fdc1beffef69cb5f05d8` /
+  `56ddfdc66045548899cdde1ad08f7e394c300a8fc27a6c0aaf6551a8178533b2`.
+- Identity records the literal mini root, NVIDIA GH200 120GB,
+  `spconv==2.3.8`, `cumm==0.7.13`, and parent Job 348557 negative commit
+  `d7888a9fef615c83c8d36161bfa6d581a3dc4f0f`.
+
+O-056 was consumed by this one attempt. No retry, requeue, replacement or
+follow-on is authorized.
+
+### Authoritative diagnostic summary
+
+`diagnostic_complete=true` and `suite_pass=false`. All 25 isolated files were
+attempted. Their JUnit aggregate is exactly 251 tests, 3 failures, 94 errors and
+0 skips.
+
+Ninety errors are diagnostic-launcher noise, not independently established code
+failures: the unique basetemp was nested under a missing
+`$JOB_TMP/isolated` parent, so pytest setup raised `FileNotFoundError` across
+seven files (20+11+16+23+2+6+12 = 90 errors). Four additional real execution
+errors in `test_model_task.py` are `PermissionError: [Errno 13]` for
+`./fl_outputs` because the archive snapshot is read-only:
+
+- `test_num_clients_iid_is_requested`;
+- `test_client_data_materializes_dict_batch`;
+- `test_generalized_loop_trains_detection_batch`;
+- `test_loader_determinism_num_workers`.
+
+The three genuine isolated failures are:
+
+1. `test_multitask_loss_rejects_legacy_single_head_output`: expected regex
+   `six task`, but actual message was
+   `multi-task CenterHead must return 6 task dictionaries`.
+2. `test_default_off_byte_identical`: expected the legacy 62-tensor trainable
+   layout, but observed 230 (`OFF must keep the 62-tensor trainable layout`).
+3. `test_dummy_regression_byte_identity_golden`: actual SHA-256
+   `4fa46307bab67f2a836102b23b1ad2abc331702e83d16c65e11a09330c3d9edb`
+   differed from golden
+   `d2d819fee9a54fc302a9d6c9d0ac4e4d875629a0a16e75f2328f28b7f63cd7cc`.
+
+The combined probe exited `124` and produced no JUnit. Its verbose log and
+60-second faulthandler formally identify
+`test_repeated_persistent_multiworker_reads_are_deterministic[fork]` as the hang:
+the main thread waits in `queue.get` through Torch DataLoader `_try_get_data` /
+`_get_data` / `_next_data`, while multiprocessing queue feeder and pin-memory
+threads wait. This upgrades Job 348557's basetemp hint to a formal diagnostic
+location, but does not by itself prove the underlying code root cause.
+
+### Checksums and preserved artifacts
+
+The sorted manifest contains 110 records and independent
+`sha256sum -c sha256sums.txt` verification passed all 110. Key SHA-256 values:
+
+| Artifact/log | SHA-256 |
+|---|---|
+| `diagnostic_summary.json` | `892d335d528c8ea29c671a5152bbf919398882a622b6ade17e2d25b6334de9ff` |
+| `execution_identity.json` | `d1653ea9fa92504df2c2327a88db6003316f6a65af1401cf972adde74904cbe9` |
+| `isolated_attempts.tsv` | `63d615c1dd0bb25e84b4f75ce117a69f405bc6752a44166e0189b0d45b6b8dd0` |
+| `sha256sums.txt` | `b794336a825b7a44eb8d22033bf4684fa43a93b7999f24a597b90d8d5999c835` |
+| `combined/pytest.log` | `ba4472f81a8f8b37f1e768f614c0a6d47f50271d7450a56e1bf18ebfbe0ec76d` |
+| `combined/pytest.exitcode` | `ca2ebdf97d7469496b1f4b78958f9dc8447efdcb623953fee7b6996b762f6fff` |
+| `config_sha256s.txt` | `4a7b425b9078c8d16035aa501382787bb161f7d435d16e3d56d07b1221b671aa` |
+| `runtime_source_files.txt` | `40c364201bda63386be614fca3710f62111e6964f9b7fdc1beffef69cb5f05d8` |
+| `runtime_source_sha256s.txt` | `56ddfdc66045548899cdde1ad08f7e394c300a8fc27a6c0aaf6551a8178533b2` |
+| `selected_test_files.txt` | `c9305627d222dcaf0575e4006c81be797f2eb8e7cc21a13285fe59325840dfd5` |
+| Slurm stdout | `39077092bfc314567c9ed2fc94e47ed412cfa0fbf525072171ae69f5d973bef8` |
+| Slurm stderr | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+### Interpretation boundary
+
+Allowed: the diagnostic harness completed and attributed the observed failures,
+launcher noise, read-only-output errors and fork DataLoader hang as stated above.
+Forbidden: calling this suite PASS; treating 90 launcher-noise errors as product
+failures; claiming the four output-path errors or hang root cause are remediated;
+production/full-data/scientific readiness, metrics, training, FL, attack/defense
+or publication claims. This result grants no remediation or compute authority.

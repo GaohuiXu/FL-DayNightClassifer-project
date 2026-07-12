@@ -1686,7 +1686,7 @@ reproduced the 124-file list and aggregate hashes. The five candidate config
 hashes and exact ordered 25 test files remain unchanged and are checked in-job.
 
 The request is
-`SUBMITTED_ONCE_JOB_348818_APPROVAL_CONSUMED_ACTIVE`.
+`EXECUTED_ONCE_JOB_348818_DIAGNOSTIC_COMPLETE_SUITE_FAIL_APPROVAL_CONSUMED_NO_RETRY`.
 Canonical O-056 at exact Orchestra commit
 `07ec16f37cbe0816be6ce102350036e8c7511e1e` records S00's independent audit and
 approves exactly one submission under the owner's delegated S07-B diagnostic
@@ -1708,8 +1708,12 @@ fresh snapshot/output
 one node/task/GH200, eight CPUs, 64 GiB and 30 minutes, and the exact Section E
 preflight/exports/`sbatch --no-requeue` command.
 
-Job `348818` is ACTIVE. The one submission attempt consumed approval regardless
-of outcome. Any tuple drift invalidates approval; no retry, requeue,
+Job `348818` completed its harness but failed the suite. Under canonical O-058
+`348f29c3c68243ae6010ea0d017e16850081c43c`, scheduler state was `COMPLETED 0:0`
+at `2026-07-12T13:57:16+02:00`, elapsed `00:16:30`, node `n412`, one GH200/eight
+CPUs/64 GiB, `MaxRSS=10539927K`, `TotalCPU=05:05.306`, `Restarts=0`.
+The one submission attempt consumed approval regardless of outcome. Any tuple
+drift invalidates approval; no retry, requeue,
 replacement, alternate invocation, follow-on or spare job is authorized. A
 completed diagnostic harness is not suite PASS: `diagnostic_complete` remains
 separate from `suite_pass`. The approved request uses
@@ -1752,6 +1756,10 @@ Explicitly not run: `sbatch`, `srun`, pytest, pycompile, project/package import,
 Torch/spconv/cumm, data/model/CUDA/GPU, cache, model step, profile/metric, DDP,
 matrix, retry or scientific cell. No fresh diagnostic output/snapshot/log exists.
 No RESULTS, production source, tests, runtime launcher or canonical doc changed.
-No merge, push, upload or publication occurred. O-057 records the exact submitted
-tuple and consumed approval; no retry, replacement, intervention or follow-on is
-authorized. S00 alone monitors the result.
+No merge, push, upload or publication occurred. Job 348818 ended with
+`diagnostic_complete=true`, `suite_pass=false`: 251 isolated tests yielded 3
+failures/94 errors/0 skips, including 90 missing-basetemp-parent launcher errors,
+four read-only `./fl_outputs` errors, three genuine failures, and a combined exit
+124/no-JUnit fork DataLoader queue hang. All 110 checksum records passed. Exact
+details and hashes are preserved in `RESULTS.md`. O-056 is consumed; no retry,
+replacement, intervention or follow-on is authorized.

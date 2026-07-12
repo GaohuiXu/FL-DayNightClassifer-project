@@ -557,12 +557,12 @@ interpretation is available from this execution.
 
 ---
 
-## E. S07-B failure/hang diagnostic attribution — SUBMITTED ONCE / ACTIVE
+## E. S07-B failure/hang diagnostic attribution — EXECUTED ONCE / DIAGNOSTIC COMPLETE / SUITE FAIL
 
 ### Approval state and immutable identity
 
 - **Status:**
-  `SUBMITTED_ONCE_JOB_348818_APPROVAL_CONSUMED_ACTIVE`.
+  `EXECUTED_ONCE_JOB_348818_DIAGNOSTIC_COMPLETE_SUITE_FAIL_APPROVAL_CONSUMED_NO_RETRY`.
 - Canonical O-055 at exact Orchestra commit
   `d56e01d3b80a7dae41f90211c0be9ff565861b85` authorized preparation only.
   Canonical O-056 at exact Orchestra commit
@@ -771,6 +771,24 @@ This exact command was submitted once as Job `348818` at
 or followed automatically. Any Git,
 hash, file list/order, test command/timeout, data, resource, path, environment,
 summary, acceptance or stop-rule drift invalidates approval.
+
+### Executed result — harness COMPLETE, suite FAIL
+
+Canonical O-058 at `348f29c3c68243ae6010ea0d017e16850081c43c`
+records Job `348818` as scheduler `COMPLETED 0:0` at
+`2026-07-12T13:57:16+02:00` after `00:16:30` on `n412` with one GH200/eight
+CPUs/64 GiB, `MaxRSS=10539927K`, `TotalCPU=05:05.306`, `Restarts=0`.
+
+This is harness completion only: `diagnostic_complete=true` and
+`suite_pass=false`. Isolated JUnit aggregate is 251 tests / 3 failures / 94
+errors / 0 skips. Ninety errors are the missing `$JOB_TMP/isolated` parent;
+four are read-only `./fl_outputs` PermissionErrors; three exact failures and the
+combined fork DataLoader hang are recorded in `RESULTS.md`. Combined pytest exit
+is `124`, JUnit is absent, and faulthandler formally locates the queue wait at
+`test_repeated_persistent_multiworker_reads_are_deterministic[fork]`.
+
+All 110 sorted artifact checksum records verified. O-056 remains consumed; no
+retry, replacement, remediation execution or follow-on is approved.
 
 ### Interpretation limits
 
