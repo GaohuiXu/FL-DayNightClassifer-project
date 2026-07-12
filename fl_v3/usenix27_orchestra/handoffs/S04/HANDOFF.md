@@ -1,0 +1,301 @@
+# S04 HANDOFF — LiDAR SECOND architecture
+
+## Session identity and current verdict
+
+- Session: `S04`.
+- Base: `372de9398ae435f82b83367a922fd302c0635738`.
+- Source branch: `codex/s00-orchestra-ledger`; verified kickoff was clean detached
+  at the exact base.
+- Worker branch: `codex/s04-lidar-second` (owner-authorized by O-017).
+- Initial implementation: `20d11e284f20fced3dbc33e7ac105c845da708a5`.
+- Failed-job executable: `49efb05dd341dbfbcc2d373508772e5b214aa726`.
+- Manual sparse-composition remediation: `2b5cf2f` (full SHA is in Git history and
+  the returned session report).
+- Scoped final-output dtype code/tests: `72184e9ed3d2a9ea4fcd9f1a8dc473312a09a52d`.
+- Attested immutable-snapshot executable:
+  `2729f45144053e1b554a0bf04640b8bbc1ff43e4`.
+- Pending source-diagnostic executable:
+  `bd1fc9af139cce85240c5908d6704c38425f3c1f`.
+- Owner-approved O-025 option-A executable:
+  `84985970f0f4b4acb8704ddbbd6ae9b2bf94ca9f`.
+- Final request-delivery HEAD is returned after its commit; a commit cannot embed
+  its own SHA without changing it.
+- Job-336718 evidence delivery is returned after the docs commit.
+- Worker self-assessment: **IMPLEMENTATION AND BOUNDED GH200 GATES PASS;
+  INDEPENDENT S04-R PENDING; NOT AN ORCHESTRA PASS**.
+
+This is not an integration PASS. Jobs `335566`, `335579`, and `336718` all remain
+visible failed negatives. Job `336718` validated the original fp16 output assertion
+and the complete B=4 dtype/forward/backward/memory case, but the added same-model
+train/backward-to-eval non-empty reuse sub-check failed inside the spconv tuner.
+No retry is authorized. Independent S04-R plus Orchestra disposition remain
+required.
+
+## O-025 acknowledgment and scoped remediation
+
+The worker read the complete canonical S00 diffs at
+`f413b837f07846a667f91b265016448771e4f99b` and
+`04569c6fe26e5f0737777c3bb4bca8c8a1f4e6a6` without merging or cherry-picking
+them, and acknowledges O-025 plus its clarified validation boundary: the exact
+one-shot synthetic forward/backward lifecycle fixtures are permitted, while
+optimizer/GradScaler/parameter updates and iterative training are forbidden.
+Executable `84985970f0f4b4acb8704ddbbd6ae9b2bf94ca9f` implements exactly option A:
+
+- exact `spconv==2.3.8` fail-closed validation occurs before even an empty fp16
+  eval can return;
+- fp16 eval requires `torch.no_grad()` and keeps the encoder, active eval voxel
+  cap, GroupNorm, and every non-spconv module in eval;
+- only each spconv `SparseConvolution` leaf's dispatch flag is temporarily set,
+  selecting the installed training/custom-fwd coherent-half feature/filter path;
+- `finally` restores every prior convolution flag, including on exceptions;
+- no dependency patch, fp32 eval fallback, secondary weights, training-semantic,
+  geometry, cap, architecture, or precision-interface change was made.
+
+New tests preserve the prior train/backward-to-eval failure sequence under its
+now-locked `no_grad` inference contract and add version/empty fail-closed,
+fresh-small/large, before/after lifecycle, mode restoration, no-grad/no-gradient,
+FP32 master/full-state hash, training-dispatch parity, fp32 control, and B=4 eval
+memory coverage. Local `python3 -m py_compile`, launcher `bash -n`, and
+`git diff --check` pass; the login runtime has neither torch nor pytest, so no
+runtime test was represented as locally executed. `RUN_REQUEST.md` now requests
+one exact synthetic GH200 job. S00 approved that immutable tuple once and Job
+`341695` consumed it successfully as recorded below.
+
+### O-025 Job 341695 bounded validation
+
+Job `341695` completed `0:0` on exact executable `84985970`, one shared GH200 and
+eight CPUs, with `15 passed / 0 failed / 0 errors / 0 skipped` in `78.71s` and all
+identity/source/request/checksum gates passing. The exact runtime was CPython
+`3.11.15`, Torch `2.11.0+cu128`, spconv `2.3.8`, cumm `0.7.13`, NumPy `1.26.4`,
+and pytest `9.1.1`.
+
+The focused evidence closes the O-025 worker gates: unsupported and empty-input
+version checks fail closed; fresh 6/256-voxel and same-model before/after-backward
+fp16 eval pass; encoder/GroupNorm remain eval while all 21 sparse convolutions use
+and then restore the temporary dispatch; eval leaves all parameter gradients
+absent and fp32 master/full-state hashes unchanged; training-dispatch parity and
+fresh fp32 control pass. B=4 fp16 eval returned finite `[4,256,180,180]`, dense
+`[4,128,2,180,180]`, with allocated/reserved peaks `371,167,232` / `411,041,792`
+bytes. The separately retained B=4 train/backward peak was `962,274,304` /
+`1,069,547,520` bytes.
+
+This bounded validation does not erase Jobs `335566`, `335579`, or `336718`, nor
+the six fp16-eval error cells in diagnostic Job `336728`; those remain the causal
+negative history for the remediations. It is not full-data, production integration,
+throughput/profile, metric, convergence, or scientific evidence. Independent
+S04-R and S00 disposition remain required.
+
+## Delivered architecture contract
+
+- Canonical point frame: `LIDAR_TOP`, metres; sparse indices `(b,z,y,x)` and
+  spatial shape `(z,y,x)`; dense BEV `[B,C,H=y,W=x]`.
+- Primary voxel/range: `(0.075,0.075,0.2)m`,
+  `[-54,-54,-5,54,54,3]`, input shape `(41,1440,1440)` including one z padding
+  bin.
+- Sparse flow:
+  - stem `(41,1440,1440)`;
+  - stage 1 stride `(2,2,2)` -> `(21,720,720)`;
+  - stage 2 stride `(2,2,2)` -> `(11,360,360)`;
+  - stage 3 stride `(2,2,2)`, padding `(0,1,1)` -> `(5,180,180)`;
+  - stage 4 remains `(5,180,180)`;
+  - z-only `(3,1,1)/(2,1,1)` -> `(2,180,180)`.
+- Densification occurs exactly once after the last sparse stage at
+  `[B,128,2,180,180]`; z collapses to `[B,256,180,180]`. The sparse backbone has
+  no `.dense()` call, and reduced occupancy also returns `180x180`.
+- Output stride/cell: XY stride 8, `0.6m` output cells, origin `(-54,-54)`,
+  `H->y/W->x`; S07 camera-fusion integration must use this exact mapping.
+- Theoretical receptive field: `(z,y,x)=(153,137,137)` fine voxels; XY is
+  `10.275m x 10.275m`.
+- Per-sample canonical voxelization; separate default train/eval caps
+  `120000/160000`; observable fields include input/valid/unique-before-cap/kept/
+  dropped voxels and point-cap drops.
+- Voxelization/mean VFE stays fp32. Sparse fp16 is CUDA-only and opt-in;
+  fp32 reference remains available; bf16 remains rejected by precision policy.
+
+## Official reference mapping and intentional deviations
+
+Primary references:
+
+- MIT BEVFusion `voxelnet_0p075.yaml`:
+  <https://github.com/mit-han-lab/bevfusion/blob/main/configs/nuscenes/det/transfusion/secfpn/lidar/voxelnet_0p075.yaml>;
+- MIT BEVFusion/OpenMMLab `SparseEncoder`:
+  <https://github.com/mit-han-lab/bevfusion/blob/main/mmdet3d/models/backbones/sparse_encoder.py>.
+
+Mapped fields are voxel/range, `[120000,160000]` caps, channel groups
+`[[16,16,32],[32,32,64],[64,64,128],[128,128]]`, three sparse XY reductions,
+stage-3 z padding, 128-channel z-collapse output, and dense z-to-channel collapse.
+
+Intentional framework-independent differences: no mmdet3d/mmcv dependency; spconv
+2.3.8 modules directly; per-voxel GroupNorm avoids cross-sample BatchNorm coupling;
+per-sample canonical hard voxelization exposes exact truncation. After Job 335566,
+custom sparse residuals are explicitly forwarded rather than embedded as arbitrary
+modules in `spconv.SparseSequential`.
+
+## Files and commits
+
+Changed/added within S04 ownership:
+
+- `fl_v3/src/fl_v3/models/fusion/second_sparse_backbone.py`;
+- `fl_v3/src/fl_v3/models/fusion/sparse_voxel_encoder.py`;
+- `fl_v3/tests/test_sparse_voxel_encoder.py`;
+- `fl_v3/tests/test_s04_second_contract.py`;
+- `fl_v3/tests/test_s04_second_smoke.py`;
+- `fl_v3/tests/test_s04_fp16_eval_dispatch.py`;
+- `fl_v3/usenix27_orchestra/handoffs/S04/{run_s04_second_smoke.sh,RUN_REQUEST.md,RESULTS.md,HANDOFF.md}`.
+- `fl_v3/usenix27_orchestra/handoffs/S04/run_s04_option_a_validation.sh`.
+
+Commit history:
+
+- `20d11e2`: implementation and tests;
+- `a201245`, `5676ff6`, `49efb05`: bounded launcher/request-binding and
+  forward/backward-only scope remediation;
+- `2b5cf2f`: manual sparse residual composition fix after Job 335566.
+- `72184e9`: explicit active sparse-AMP BEV output dtype contract, dtype tracing,
+  and retained assertions.
+- `2729f45`: verify actual snapshot working/submit directories and immutable
+  identity content/hash binding executable SHA/tree plus source/request hashes.
+- `bd1fc9a`: seven subprocess-isolated sparse-fp16 lifecycle cells plus an
+  immutable diagnostic launcher; no production workaround.
+
+No `lidar_encoder.py`, `lidar_backbone.py`, `bev_grid.py`, `detector.py`,
+`training/tasks.py`, canonical Orchestra file, `fl_v3/collab/`, or `fl_v2/` file
+was modified. No merge, push, PR, upload, or publication occurred.
+
+## Verification and negative result
+
+Local/static pre-job checks passed: Python compile, shell syntax, diff whitespace,
+fusion AST ban/stable-sort audit, and exact ten-test inventory.
+
+Exact-once O-009 job `335566`:
+
+- identity and artifact checksum gates PASS;
+- scheduler `FAILED 1:0`, elapsed `00:01:41`, one GH200/eight CPUs, restarts 0;
+- JUnit `10 tests / 5 failures / 0 errors / 0 skips`;
+- five CPU/static tests PASS;
+- every real spconv test FAILS with the same `_SparseResidualBlock` Tensor versus
+  SparseConvTensor composition bug;
+- B=4 never reaches a completed output/backward/memory record;
+- no retry/follow-on is authorized or performed.
+
+Complete scheduler fields, failed cases, artifact/log hashes and interpretation
+limits are in `RESULTS.md`. The approved request hash was
+`00aea9398736471b3a68a1e1fade00fb7e639457795109cc8d9ad6971c956b7c`;
+stdout/stderr hashes are `a8bd2475...18c7` / `ae633085...b57`.
+
+Post-job remediation is local/static only. It explicitly forwards sparse residual
+stages and adds a structural regression inside the first real-spconv fixture.
+
+Exact-once remediation Job `335579` then validated that correction but found the
+next blocker:
+
+- scheduler `FAILED 1:0`, elapsed `00:00:46`, restarts 0;
+- JUnit `10 tests / 2 failures / 0 errors / 0 skips`;
+- eight passed, including real spconv shape/backward, per-sample caps/extreme
+  occupancy, empty input and sample/batch isolation;
+- two failures because `sparse_conv_fp16=True` returns final BEV
+  `torch.float32`, not required `torch.float16`;
+- B=4 reached correct `[4,256,180,180]`, loss/backward and finite gradients, but
+  failed before recording peak CUDA memory.
+
+At that stage no third job, retry, requeue, resubmission, or follow-on had occurred.
+Full Job 335579 scheduler/artifact hashes are in `RESULTS.md`.
+
+S00 then authorized implementation/request preparation only. Commit `72184e9`
+records the fp32 projection boundary and converts only the active sparse-AMP final
+BEV to fp16, matching the existing empty-input path while leaving the fp32
+reference unchanged. Existing ten tests retain their dtype assertions and now
+also assert the pre-cast/output trace and empty/non-empty consistency. Local
+`py_compile`, `bash -n`, exact ten-test inventory, and `git diff --check` pass;
+login-node pytest was unavailable (`/usr/bin/python3` has no pytest), so this is
+not runtime evidence. After S00 found that `--chdir` alone does not guarantee
+`SLURM_SUBMIT_DIR`, commit `2729f45` additionally binds both actual directories and
+an immutable SHA/tree/source/request identity file. `RUN_REQUEST.md` proposed the
+same ten synthetic tests from that `/nobackup` snapshot; S00 later approved and
+consumed that exact request once as recorded below.
+
+Exact-once Job `336718` then ran from the attested read-only snapshot:
+
+- scheduler `FAILED 1:0`, `00:02:53`, node `n593`, restarts 0;
+- actual allocation exactly one GH200, eight CPUs, one node;
+- JUnit `10 tests / 1 failure / 0 errors / 0 skips`, `9 passed`;
+- original fp32/fp16 output assertions passed;
+- B=4 passed output/dense shapes, fp16 dtype, loss/backward, finite gradients and
+  memory bounds; peak allocated/reserved were `1,017,576,960` / `1,109,393,408`
+  bytes on a `102,005,473,280`-byte device;
+- the sole failure was the added second non-empty fp16 inference after reusing the
+  train/backward model in eval mode; spconv `ConvTunerSimple` reported no suitable
+  algorithm for the six-voxel SubMConv input before empty/non-empty comparison;
+- execution/source/request/snapshot identity and all artifact checksums passed.
+
+No retry, requeue, resubmission, modification, or follow-on occurred. Full raw
+hashes and interpretation limits are in `RESULTS.md`.
+
+Source-only follow-up identifies a concrete mixed-dtype framework seam. spconv's
+training path uses a custom-fwd wrapper that casts fp32 filters alongside fp16
+features, while eval bypasses that wrapper and requests fp32 output from fp16
+features plus fp32 filters. Its generated tuner/cache keys include this dtype
+triple, so training cache state cannot directly satisfy eval. Commit `bd1fc9a`
+prepares seven fresh-process cells covering fresh/same-model eval, before/after
+backward, larger occupancy, fp32 control, and order/cache dependence. It does not
+change encoder code or precision semantics and had no compute approval at that
+preparation point; the exact job was subsequently approved and consumed below.
+
+Exact-once diagnostic Job `336728` completed the matrix with all identities and
+checksums intact. All six cells that attempted current fp16 eval failed at the
+first stem SubMConv with fp16 features, fp32 filters and requested fp32 output:
+fresh six-voxel eval, train→eval before backward, train→eval after backward, fresh
+256-voxel eval, fp32-cache→fp16 eval, and fp16-training-cache→fresh fp16 eval.
+Fresh fp32 eval succeeded through all 21 sparse calls. The failure is therefore
+not caused by backward, same-model reuse, low occupancy, or available training/fp32
+cache order; it is the current eval dispatch's unsupported mixed-dtype tuple.
+
+## Gate checklist
+
+| S04 item | Worker status | Evidence / limit |
+|---|---|---|
+| coordinate/shape/stride/RF declaration | PASS static | exact golden fixtures passed |
+| no fine-grid densification | PASS static | one encoder `.dense()` after `(2,180,180)`; none in sparse backbone |
+| train/eval per-sample caps and truncation | PASS bounded synthetic runtime | Job 335579 |
+| empty/extreme occupancy | PASS bounded synthetic runtime | Job 335579 |
+| metric/camera-fusion mapping | PASS static | 0.6m, 180x180 golden |
+| sample/batch isolation | PASS bounded synthetic runtime | Job 335579 |
+| fp32/fp16 behavior | PASS bounded synthetic runtime | Job 341695 exact option-A lifecycle, parity, fp32 control and state/mode gates; old failures preserved |
+| B=4 forward/backward | PASS bounded synthetic runtime | Jobs 336718 and 341695, correct shape/fp16/loss/backward/finite grads |
+| B=4 bounded memory | PASS bounded observation | Job 341695 records separate train/backward and option-A eval allocated/reserved bytes |
+| sparse composition remediation | PASS bounded synthetic runtime | explicit forwarding + Job 335579 |
+| independent S04-R | NOT STARTED | required before Orchestra integration decision |
+
+## Allowed and forbidden interpretations
+
+Allowed:
+
+- the design/static contract and exact negative result may be cited as engineering
+  evidence;
+- Job 335566 identified a concrete spconv composition incompatibility;
+- the manual fix preserves sparse tensor flow and reduced-resolution densification
+  at source level;
+- Job 336718 provides bounded evidence for the exact original fp16-output and B=4
+  dtype/shape/backward/memory cases listed above, while preserving its later
+  lifecycle failure;
+- Job 341695 provides bounded synthetic engineering evidence that exact option A
+  closes the tested fp16-eval lifecycle blocker on attested spconv 2.3.8.
+
+Forbidden:
+
+- Orchestra/integration PASS before independent S04-R;
+- extrapolating Job 341695 beyond executable `84985970`, spconv 2.3.8, its exact
+  synthetic cases, or the stated bounded engineering gates;
+- production detector/model/full-data readiness, mAP/NDS, model superiority,
+  voxel-size selection, throughput/profile, convergence, fusion gain, FL,
+  attack/defense, generalization, or publication claim.
+
+## Remaining actions for S00/owner
+
+1. Preserve Jobs 335566 (composition), 335579 (fp16 output dtype), and 336718
+   (same-model eval reuse spconv tuning) as failed negatives.
+2. Treat the exact O-025 approval as consumed by Job `341695`; do not retry or
+   launch follow-on compute.
+3. Independently review executable `84985970`, Job `341695` raw artifacts, all
+   historical negatives, mode/state/version guarantees, and interpretation limits.
+4. Only after reviewed remediation and independent S04-R may S07-B consider this
+   module for integration.

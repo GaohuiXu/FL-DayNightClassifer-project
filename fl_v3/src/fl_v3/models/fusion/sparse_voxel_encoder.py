@@ -1,132 +1,195 @@
-"""Sparse 3D-voxel LiDAR encoder (SECOND/CenterPoint-voxel style) — the Rule#2-relaxed spconv path.
+"""Per-sample hard voxelization plus a low-resolution SECOND sparse encoder.
 
-The pillar PFN collapses z into ONE bin (its documented ceiling vs SOTA — see the structural audit). This
-encoder gives the LiDAR branch real **z-resolution**: voxelize the point cloud, a mean-VFE, a sparse 3D conv
-backbone that **keeps xy at the shared fine grid (SubM convs) and downsamples only z**, then collapses the thin
-residual z into channels → a dense ``[B, out_channels, ny, nx]`` BEV. It is a **drop-in replacement for
-``PointPillarsEncoder``** (same call/return), so the existing ``LidarBackbone2D`` + ``ConvFuser`` + head are
-unchanged and the comparison isolates pillars→voxels at the matched grid.
-
-Rule #2 relaxation (owner, 2026-06-28; Phase 0A de-risked spconv on Arrhenius): spconv kernels are **non-
-deterministic** (fine under D16's seed-variance regime, NOT the strict byte-id dev tool) and direct sparse
-**bf16** is unsupported. The default reference sparse stack stays fp32; ``det-sparse-conv-fp16=true`` is the
-Arrhenius fp16-AMP training path for the sparse conv backbone only. Voxelization/VFE remain fp32. Requires
-source-built cumm/spconv from the Arrhenius env. Gated by ``det-lidar-encoder=voxel``.
+The only dense conversion occurs after three sparse XY downsampling stages and a
+z-only collapse convolution.  Under the frozen 0.075 m contract the conversion is
+``[B,128,2,180,180]``; no ``1440x1440`` dense or fusion tensor is constructed.
 """
 from __future__ import annotations
 
 import time
 from contextlib import contextmanager, nullcontext
+from importlib import metadata
 
 import torch
 import torch.nn as nn
 
-from fl_v3.models.fusion.bev_grid import BEVConfig, flat_index, in_grid_mask, metric_to_grid
+from fl_v3.models.fusion.bev_grid import flat_index, in_grid_mask, metric_to_grid
+from fl_v3.models.fusion.second_sparse_backbone import (
+    SECONDShapeContract,
+    SECONDSparseBackbone,
+    _gn,
+)
 
 
-def _gn(channels: int, max_groups: int = 8) -> nn.GroupNorm:
-    # >=2 channels per group. A 1-channel-per-group GroupNorm on a NO-SPATIAL tensor (the per-point VFE +
-    # the sparse [V,C] features) normalizes each channel over its single value => 0 (collapse, the voxel-0.26
-    # bug). Capping g at channels//2 guarantees >=2 channels/group, so normalization is well-defined.
-    g = min(max_groups, max(1, channels // 2))
-    while channels % g != 0:
-        g -= 1
-    return nn.GroupNorm(g, channels)
+VOXEL_STAT_FIELDS = (
+    "input_points",
+    "valid_in_range_points",
+    "unique_voxels_before_cap",
+    "voxels_kept",
+    "voxels_dropped",
+    "points_dropped_by_voxel_point_cap",
+)
+
+SPCONV_FP16_EVAL_VERSION = "2.3.8"
+
+
+def _require_supported_spconv_fp16_eval() -> str:
+    """Fail closed unless the audited option-A spconv runtime is installed."""
+    try:
+        installed = metadata.version("spconv")
+    except metadata.PackageNotFoundError as exc:
+        raise RuntimeError("spconv is required for sparse fp16 evaluation") from exc
+    if installed != SPCONV_FP16_EVAL_VERSION:
+        raise RuntimeError(
+            "sparse fp16 evaluation training-dispatch workaround is audited only for "
+            f"spconv=={SPCONV_FP16_EVAL_VERSION}; found {installed}"
+        )
+    return installed
+
+
+@contextmanager
+def _spconv_training_dispatch_for_fp16_eval(backbone: nn.Module, installed: str):
+    """Temporarily select spconv's coherent-half training dispatch in eval.
+
+    The containing encoder, GroupNorm layers, and every other module remain in
+    eval mode.  This is deliberately a narrow spconv-2.3.8 compatibility seam,
+    not a dependency patch or a general inference-mode override.
+    """
+    if torch.is_grad_enabled():
+        raise RuntimeError("sparse fp16 evaluation requires torch.no_grad()")
+    if installed != SPCONV_FP16_EVAL_VERSION:
+        raise RuntimeError("spconv fp16 eval dispatch received an unattested version")
+    from spconv.pytorch.conv import SparseConvolution
+
+    convolutions = [m for m in backbone.modules() if isinstance(m, SparseConvolution)]
+    if not convolutions:
+        raise RuntimeError("SECOND backbone contains no spconv SparseConvolution modules")
+    previous = [bool(module.training) for module in convolutions]
+    if any(previous):
+        raise RuntimeError("spconv fp16 eval dispatch requires all sparse convolutions in eval")
+    try:
+        for module in convolutions:
+            # Assign only the leaf dispatch flag.  Calling train() would recurse
+            # and could alter normalization or other surrounding eval semantics.
+            module.training = True
+        yield installed, len(convolutions)
+    finally:
+        for module, was_training in zip(convolutions, previous, strict=True):
+            module.training = was_training
 
 
 class SparseVoxelEncoder(nn.Module):
-    """Voxelize → mean-VFE → sparse 3D backbone (z-downsampling) → collapse-z → ``[B, out_channels, ny, nx]``."""
+    """Points to ``[B,C,H/8,W/8]`` via per-sample voxelization and SECOND."""
 
-    def __init__(self, out_channels: int = 64, cfg: BEVConfig = BEVConfig(), use_timestamp: bool = False,
-                 vfe_channels: int = 16, z_voxel: float | None = None,
-                 sparse_z_size: int | None = None, max_voxels: int = 120000,
-                 max_points_per_voxel: int = 10, sparse_conv_fp16: bool = False):
+    def __init__(
+        self,
+        out_channels: int = 256,
+        cfg=None,
+        use_timestamp: bool = False,
+        z_voxel: float | None = 0.2,
+        sparse_z_size: int | None = None,
+        max_voxels: int | None = None,
+        max_voxels_train: int = 120000,
+        max_voxels_eval: int = 160000,
+        max_points_per_voxel: int = 10,
+        sparse_conv_fp16: bool = False,
+    ):
         super().__init__()
-        import spconv.pytorch as spconv          # import-gated: only when this encoder is actually built
-        # NOTE: do NOT store the spconv MODULE on self — it is not deep-copyable, and centralized EMA
-        # (AveragedModel) deep-copies the model ("cannot pickle 'module' object"). Re-import locally in forward.
+        if cfg is None:
+            from fl_v3.models.fusion.bev_grid import BEVConfig
+
+            cfg = BEVConfig(
+                point_cloud_range=(-54.0, -54.0, -5.0, 54.0, 54.0, 3.0),
+                bev_voxel=(0.075, 0.075),
+                out_size_factor=8,
+            )
         self.cfg = cfg
         self.out_channels = int(out_channels)
         self.use_timestamp = bool(use_timestamp)
-        self.n_pt_feat = 5 if use_timestamp else 4          # x,y,z,intensity (+dt)
-        self.vx, self.vy = cfg.vx, cfg.vy
-        self.vz = float(z_voxel) if z_voxel else cfg.vx     # cubic voxels by default (z-res = xy-res)
-        computed_nz = int(round((cfg.z_max - cfg.z_min) / self.vz))
-        self.nz = int(sparse_z_size) if sparse_z_size is not None else computed_nz
-        if self.nz < computed_nz:
+        self.n_pt_feat = 5 if use_timestamp else 4
+        self.vx, self.vy = float(cfg.vx), float(cfg.vy)
+        self.vz = 0.2 if z_voxel is None else float(z_voxel)
+        if self.vz <= 0:
+            raise ValueError(f"z_voxel must be positive, got {self.vz}")
+        self.nx, self.ny = int(cfg.nx), int(cfg.ny)
+        self.computed_nz = int(round((cfg.z_max - cfg.z_min) / self.vz))
+        # Official BEVFusion adds one sparse z padding bin: 40 physical bins -> shape 41.
+        self.nz = self.computed_nz + 1 if sparse_z_size is None else int(sparse_z_size)
+        if self.nz < self.computed_nz:
             raise ValueError(
-                f"sparse_z_size={self.nz} is smaller than the voxelized z extent {computed_nz}"
+                f"sparse_z_size={self.nz} is smaller than physical z bins {self.computed_nz}"
             )
-        self.computed_nz = computed_nz
-        self.nx, self.ny = cfg.nx, cfg.ny
-        self.max_voxels = int(max_voxels)
+        if max_voxels is not None:
+            if max_voxels_train != 120000 or max_voxels_eval != 160000:
+                raise ValueError("max_voxels alias cannot be combined with separate train/eval caps")
+            max_voxels_train = max_voxels_eval = int(max_voxels)
+        self.max_voxels_train = int(max_voxels_train)
+        self.max_voxels_eval = int(max_voxels_eval)
         self.max_pts = int(max_points_per_voxel)
+        if min(self.max_voxels_train, self.max_voxels_eval, self.max_pts) <= 0:
+            raise ValueError("voxel and point caps must be positive")
         self.sparse_conv_fp16 = bool(sparse_conv_fp16)
-        self._voxelizer = None                              # built lazily (device-bound)
-        self.record_debug = False                           # opt-in only; keeps the hot path sync-free
+
+        self.contract = SECONDShapeContract(
+            input_zyx=(self.nz, self.ny, self.nx),
+            voxel_xyz=(self.vx, self.vy, self.vz),
+            range_xyzxyz=tuple(float(v) for v in cfg.point_cloud_range),
+        )
+        self.backbone = SECONDSparseBackbone(self.n_pt_feat, self.contract)
+        collapsed = self.contract.collapsed_channels
+        self.to_bev = (
+            nn.Identity()
+            if collapsed == self.out_channels
+            else nn.Sequential(
+                nn.Conv2d(collapsed, self.out_channels, 1, bias=False),
+                _gn(self.out_channels),
+                nn.ReLU(inplace=True),
+            )
+        )
+
+        self._voxelizers: dict[tuple[str, int | None, int], object] = {}
+        self.record_debug = False
         self.last_sparse_meta: dict | None = None
-        self.record_profile = False                         # opt-in synchronized timing for profiling only
+        self.last_voxel_stats: torch.Tensor | None = None
+        self.record_profile = False
         self.last_profile_times: dict | None = None
 
-        # PFN-style per-point VFE: per-point [abs xyz, intensity(+dt), voxel-center-relative xyz] → Linear → GN →
-        # ReLU → masked max-pool per voxel. (The earlier naive mean-VFE collapsed each voxel to ~[center,
-        # mean-intensity] — info-free; the relative offsets + max-pool are what make the LiDAR features useful,
-        # matching the proven PointPillarsEncoder.)
-        self.vfe_point = nn.Sequential(nn.Linear(self.n_pt_feat + 3, vfe_channels), _gn(vfe_channels),
-                                       nn.ReLU(inplace=True))
+    @property
+    def output_stride(self) -> int:
+        return self.contract.output_stride_xy
 
-        # sparse 3D backbone: SubM (keep res) + z-downsampling SparseConv (stride (2,1,1) on the z axis only).
-        sp = spconv
+    @property
+    def output_hw(self) -> tuple[int, int]:
+        return self.contract.bev_hw
 
-        def subm(cin, cout, key):
-            return sp.SparseSequential(sp.SubMConv3d(cin, cout, 3, padding=1, bias=False, indice_key=key),
-                                       _gn(cout), nn.ReLU(inplace=True))
+    @property
+    def active_max_voxels(self) -> int:
+        return self.max_voxels_train if self.training else self.max_voxels_eval
 
-        def down_z(cin, cout):
-            return sp.SparseSequential(sp.SparseConv3d(cin, cout, 3, stride=(2, 1, 1), padding=1, bias=False),
-                                       _gn(cout), nn.ReLU(inplace=True))
-
-        ch_schedule = [32, 64, 64, 64, 64, 64, 64]          # channels after each z-downsample (capped)
-        layers = [subm(vfe_channels, 16, "sub_in"), subm(16, 16, "sub_in")]
-        ch, z, stage = 16, self.nz, 0
-        while z > 2 and stage < len(ch_schedule):
-            cout = ch_schedule[stage]
-            layers.append(down_z(ch, cout))
-            ch = cout
-            layers.append(subm(ch, ch, f"sub{stage}"))
-            z = (z - 1) // 2 + 1                             # stride-2, pad-1, kernel-3 output length
-            stage += 1
-        self.backbone = sp.SparseSequential(*layers)
-        self.z_final, self.ch_final = z, ch
-
-        # collapse the residual z into channels, conv to out_channels (runs in the outer autocast).
-        self.to_bev = nn.Sequential(nn.Conv2d(ch * z, out_channels, 1, bias=False),
-                                    _gn(out_channels), nn.ReLU(inplace=True))
-
-    def _build_voxelizer(self, device: torch.device) -> None:
+    def _voxelizer_for(self, device: torch.device, cap: int):
         from spconv.pytorch.utils import PointToVoxel
-        c = self.cfg
-        self._voxelizer = PointToVoxel(
-            vsize_xyz=[self.vx, self.vy, self.vz],
-            coors_range_xyz=[c.x_min, c.y_min, c.z_min, c.x_max, c.y_max, c.z_max],
-            num_point_features=self.n_pt_feat, max_num_voxels=self.max_voxels,
-            max_num_points_per_voxel=self.max_pts, device=device)
+
+        key = (device.type, device.index, int(cap))
+        voxelizer = self._voxelizers.get(key)
+        if voxelizer is None:
+            c = self.cfg
+            voxelizer = PointToVoxel(
+                vsize_xyz=[self.vx, self.vy, self.vz],
+                coors_range_xyz=[c.x_min, c.y_min, c.z_min, c.x_max, c.y_max, c.z_max],
+                num_point_features=self.n_pt_feat,
+                max_num_voxels=int(cap),
+                max_num_points_per_voxel=self.max_pts,
+                device=device,
+            )
+            self._voxelizers[key] = voxelizer
+        return voxelizer
 
     def _use_sparse_conv_fp16(self, device: torch.device) -> bool:
         return bool(self.sparse_conv_fp16 and device.type == "cuda")
 
     def _group_points_by_batch(self, points: torch.Tensor, bidx: torch.Tensor, B: int):
-        """Return points grouped by batch plus per-batch counts.
-
-        The collate contract already concatenates samples in batch order, so the
-        hot path only needs one bincount and contiguous slices. External/synthetic
-        callers may pass interleaved batch ids; stable sorting preserves the old
-        ``points[bidx == b]`` per-batch order in that fallback.
-        """
-        if B <= 0:
-            return points[:0], [], "empty"
-        if points.shape[0] == 0:
-            return points, [0] * int(B), "empty"
+        if B <= 0 or points.shape[0] == 0:
+            return points, [0] * max(0, int(B)), "empty"
         grouped_points = points
         grouped_bidx = bidx
         mode = "contiguous"
@@ -136,12 +199,52 @@ class SparseVoxelEncoder(nn.Module):
             grouped_bidx = bidx.index_select(0, order)
             mode = "sorted"
         counts = torch.bincount(grouped_bidx, minlength=int(B))
-        if counts.numel() > int(B):
-            counts = counts[: int(B)]
+        if counts.numel() != int(B):
+            raise ValueError(f"batch indices must lie in [0,{B}), got bincount length {counts.numel()}")
         return grouped_points, [int(v) for v in counts.detach().cpu().tolist()], mode
 
+    def _canonical_sample(self, pf: torch.Tensor):
+        """Filter and canonically order one sample; return exact occupancy statistics."""
+        c = self.cfg
+        finite = torch.isfinite(pf).all(dim=1)
+        valid = (
+            finite
+            & (pf[:, 0] >= c.x_min)
+            & (pf[:, 0] < c.x_max)
+            & (pf[:, 1] >= c.y_min)
+            & (pf[:, 1] < c.y_max)
+            & (pf[:, 2] >= c.z_min)
+            & (pf[:, 2] < c.z_max)
+        )
+        pf = pf[valid]
+        if pf.shape[0] == 0:
+            zero = torch.zeros((), dtype=torch.int64, device=pf.device)
+            return pf, zero, zero
+        col = torch.floor((pf[:, 0] - c.x_min) / self.vx).to(torch.int64)
+        row = torch.floor((pf[:, 1] - c.y_min) / self.vy).to(torch.int64)
+        zidx = torch.floor((pf[:, 2] - c.z_min) / self.vz).to(torch.int64)
+        voxel_key = (zidx * self.ny + row) * self.nx + col
+
+        # Stable least-to-most-significant sorting makes both voxel selection and
+        # max-points truncation independent of incoming point order.
+        order = torch.arange(pf.shape[0], device=pf.device)
+        for sort_key in [pf[:, i] for i in reversed(range(pf.shape[1]))] + [voxel_key]:
+            order = order[torch.argsort(sort_key[order], stable=True)]
+        pf = pf.index_select(0, order)
+        key_sorted = voxel_key.index_select(0, order)
+        _, counts = torch.unique_consecutive(key_sorted, return_counts=True)
+        unique_voxels = torch.tensor(counts.numel(), dtype=torch.int64, device=pf.device)
+        point_drops = torch.clamp(counts - self.max_pts, min=0).sum().to(torch.int64)
+        return pf, unique_voxels, point_drops
+
     def forward(self, points: torch.Tensor, B: int) -> torch.Tensor:
-        """``points`` ``[TotalP, 1+W]`` (col0 batch, col1:4 xyz, col4 intensity, col6 dt) → ``[B, out, ny, nx]``."""
+        """Encode batched points; output is ``[B,out,H/8,W/8]``."""
+        if B < 0:
+            raise ValueError(f"B must be non-negative, got {B}")
+        if points.ndim != 2 or points.shape[1] < (7 if self.use_timestamp else 5):
+            raise ValueError(f"unexpected point tensor shape {tuple(points.shape)}")
+        if B == 0 and points.shape[0] != 0:
+            raise ValueError("non-empty points require B > 0")
         dev = points.device
         profile_times: dict[str, float] = {}
 
@@ -156,170 +259,245 @@ class SparseVoxelEncoder(nn.Module):
             else:
                 yield
 
-        if self._voxelizer is None:
-            with stage("voxelizer_init"):
-                self._build_voxelizer(dev)
-        import spconv.pytorch as sp              # local (not stored on self — see __init__ note re: EMA deepcopy)
+        import spconv.pytorch as spconv
+
         feat_cols = [1, 2, 3, 4] + ([6] if self.use_timestamp else [])
         bidx = points[:, 0].to(torch.int64)
+        if bidx.numel():
+            integral = points[:, 0] == bidx.to(points.dtype)
+            in_batch = (bidx >= 0) & (bidx < B)
+            if not bool((integral & in_batch).all().detach().cpu()):
+                raise ValueError(f"batch indices must be integral and lie in [0,{B})")
         sparse_amp = self._use_sparse_conv_fp16(dev)
+        fp16_eval_dispatch = bool(sparse_amp and not self.training)
+        # Option A is an inference-only contract.  Refuse an eval forward with
+        # autograd enabled rather than silently building a training-dispatch graph.
+        if fp16_eval_dispatch and torch.is_grad_enabled():
+            raise RuntimeError("sparse fp16 evaluation requires torch.no_grad()")
+        # Validate before the empty-input early return as well: an empty batch
+        # must not make an unsupported runtime appear accepted.
+        dispatch_version = (
+            _require_supported_spconv_fp16_eval() if fp16_eval_dispatch else None
+        )
+        dispatch_count = 0
+        cap = self.active_max_voxels
         with stage("batch_point_grouping"):
-            grouped_points, batch_counts, point_grouping = self._group_points_by_batch(points, bidx, B)
-        # Voxelization/VFE: fp32, autocast OFF. The optional fp16 path starts at the sparse conv tensor input.
+            grouped_points, batch_counts, point_grouping = self._group_points_by_batch(
+                points, bidx, B
+            )
+
+        vfeats: list[torch.Tensor] = []
+        coords_b: list[torch.Tensor] = []
+        stats: list[torch.Tensor] = []
+        start = 0
         with torch.autocast(device_type=dev.type, enabled=False):
-            with stage("voxelize_vfe"):
-                vfeats, coords_b = [], []
-                vfe_valid_points = 0
-                vfe_total_slots = 0
-                start = 0
+            with stage("voxelize_mean_vfe"):
+                voxelizer = self._voxelizer_for(dev, cap)
                 for b, n_points in enumerate(batch_counts):
-                    if n_points <= 0:
-                        continue
                     stop = start + n_points
-                    pf = grouped_points[start:stop, feat_cols].to(torch.float32)  # [P,F], xyz first 3
+                    pf_raw = grouped_points[start:stop, feat_cols].to(torch.float32)
                     start = stop
-                    voxels, coords, num_p = self._voxelizer(pf)                 # [V,P,F], [V,3]=(z,y,x), [V]
-                    V, P = voxels.shape[0], voxels.shape[1]
-                    if V == 0:
+                    pf, unique_before, point_drops = self._canonical_sample(pf_raw)
+                    valid_count = torch.tensor(pf.shape[0], dtype=torch.int64, device=dev)
+                    input_count = torch.tensor(n_points, dtype=torch.int64, device=dev)
+                    if pf.shape[0] == 0:
+                        zero = torch.zeros((), dtype=torch.int64, device=dev)
+                        stats.append(torch.stack((input_count, zero, zero, zero, zero, zero)))
                         continue
-                    if self.record_debug:
-                        vfe_valid_points += int(num_p.detach().sum().cpu())
-                        vfe_total_slots += int(V * P)
-                    # voxel center (x,y,z) from coords (z,y,x) → per-point voxel-center-relative offset
-                    xc = (coords[:, 2].float() + 0.5) * self.vx + self.cfg.x_min
-                    yc = (coords[:, 1].float() + 0.5) * self.vy + self.cfg.y_min
-                    zc = (coords[:, 0].float() + 0.5) * self.vz + self.cfg.z_min
-                    rel = voxels[:, :, :3] - torch.stack([xc, yc, zc], dim=1).view(V, 1, 3)  # [V,P,3]
-                    ppf = torch.cat([voxels, rel], dim=2)                        # [V,P,F+3] abs+intensity(+dt)+rel
-                    valid = torch.arange(P, device=dev).view(1, P) < num_p.view(V, 1)       # [V,P] mask padded
-                    ppf_valid = ppf[valid]                                      # [sum(num_p), F+3]
-                    fp_valid = self.vfe_point(ppf_valid)                        # [sum(num_p), C] per valid point
-                    vidx = torch.arange(V, device=dev).view(V, 1).expand(V, P)[valid]
-                    pooled = fp_valid.new_full((V, fp_valid.shape[1]), float("-inf"))
-                    pooled.scatter_reduce_(
-                        0,
-                        vidx.view(-1, 1).expand(-1, fp_valid.shape[1]),
-                        fp_valid,
-                        reduce="amax",
-                        include_self=True,
+                    voxels, coords, num_p = voxelizer(pf)
+                    kept = torch.tensor(coords.shape[0], dtype=torch.int64, device=dev)
+                    dropped = torch.clamp(unique_before - kept, min=0)
+                    stats.append(
+                        torch.stack(
+                            (input_count, valid_count, unique_before, kept, dropped, point_drops)
+                        )
                     )
-                    vfeats.append(torch.nan_to_num(pooled, neginf=0.0))          # [V,C] masked max-pool
+                    if coords.shape[0] == 0:
+                        continue
+                    slots = torch.arange(voxels.shape[1], device=dev).view(1, -1)
+                    valid_slots = slots < num_p.view(-1, 1)
+                    mean = (voxels * valid_slots.unsqueeze(-1)).sum(dim=1)
+                    mean = mean / num_p.clamp_min(1).to(torch.float32).unsqueeze(1)
+                    vfeats.append(mean.to(torch.float32))
                     bcol = torch.full((coords.shape[0], 1), b, dtype=coords.dtype, device=dev)
-                    coords_b.append(torch.cat([bcol, coords], dim=1))           # [V,4]=(b,z,y,x)
-            if not vfeats:
-                if self.record_debug:
-                    self.last_sparse_meta = {
-                        "coord_order": "bzyx",
-                        "indices_shape": (0, 4),
-                        "indices_dtype": "torch.int32",
-                        "features_shape": (0, self.vfe_point[0].out_features),
-                        "features_dtype": "torch.float16" if sparse_amp else "torch.float32",
-                        "vfe_features_dtype": "torch.float32",
-                        "sparse_conv_fp16_requested": bool(self.sparse_conv_fp16),
-                        "sparse_conv_fp16_active": bool(sparse_amp),
-                        "point_grouping": point_grouping,
-                        "vfe_mode": "valid_only",
-                        "vfe_valid_points": int(vfe_valid_points),
-                        "vfe_total_slots": int(vfe_total_slots),
-                        "spatial_shape": (self.nz, self.ny, self.nx),
-                        "bevfusion_sparse_shape_order_xyz": (self.nx, self.ny, self.nz),
-                        "voxel_size_xyz": (self.vx, self.vy, self.vz),
-                        "computed_z_bins": int(self.computed_nz),
-                        "sparse_z_size": int(self.nz),
-                        "batch_size": int(B),
-                        "num_voxels": 0,
-                    }
-                if self.record_profile:
-                    self.last_profile_times = dict(profile_times)
-                return self._empty_bev(points, B)
-            with stage("sparse_tensor_inputs"):
-                features_fp32 = torch.cat(vfeats, 0).to(torch.float32)
-                features = features_fp32.to(torch.float16) if sparse_amp else features_fp32
-                indices = torch.cat(coords_b, 0).to(torch.int32)
+                    coords_b.append(torch.cat((bcol, coords), dim=1).to(torch.int32))
+
+        self.last_voxel_stats = (
+            torch.stack(stats, dim=0)
+            if stats
+            else torch.zeros((B, len(VOXEL_STAT_FIELDS)), dtype=torch.int64, device=dev)
+        )
+        if not vfeats:
+            self._record_meta(
+                B=B,
+                cap=cap,
+                sparse_amp=sparse_amp,
+                point_grouping=point_grouping,
+                indices=None,
+                dense_shape=None,
+                fp16_eval_dispatch=fp16_eval_dispatch,
+                fp16_eval_dispatch_version=dispatch_version,
+                fp16_eval_dispatch_count=0,
+            )
+            if self.record_profile:
+                self.last_profile_times = dict(profile_times)
+            return self._empty_bev(points, B, sparse_amp)
+
+        with stage("sparse_tensor_inputs"):
+            features_fp32 = torch.cat(vfeats, dim=0)
+            features = features_fp32.to(torch.float16) if sparse_amp else features_fp32
+            indices = torch.cat(coords_b, dim=0)
 
         sparse_ctx = (
             torch.autocast(device_type=dev.type, dtype=torch.float16)
-            if sparse_amp else torch.autocast(device_type=dev.type, enabled=False)
+            if sparse_amp
+            else torch.autocast(device_type=dev.type, enabled=False)
         )
         with sparse_ctx:
             with stage("sparse_tensor_construct"):
-                x = sp.SparseConvTensor(features, indices, spatial_shape=[self.nz, self.ny, self.nx], batch_size=B)
-            with stage("spconv_backbone"):
-                x = self.backbone(x)
-                backbone_features_dtype = str(x.features.dtype)
-            with stage("dense_collapse"):
-                dense = x.dense()                                               # [B, ch, z_final, ny, nx]
-                dense_dtype = str(dense.dtype)
-                dense = dense.reshape(B, self.ch_final * self.z_final, self.ny, self.nx)
+                x = spconv.SparseConvTensor(
+                    features,
+                    indices,
+                    spatial_shape=list(self.contract.input_zyx),
+                    batch_size=B,
+                )
+            with stage("second_sparse_backbone"):
+                dispatch_ctx = (
+                    _spconv_training_dispatch_for_fp16_eval(
+                        self.backbone, dispatch_version
+                    )
+                    if fp16_eval_dispatch
+                    else nullcontext((None, 0))
+                )
+                with dispatch_ctx as (dispatch_version, dispatch_count):
+                    x = self.backbone(x)
+            with stage("reduced_dense_collapse"):
+                dense = x.dense()
+                dense_shape = tuple(int(v) for v in dense.shape)
+                expected = (
+                    B,
+                    self.contract.sparse_output_channels,
+                    *self.contract.sparse_output_zyx,
+                )
+                if dense_shape != expected:
+                    raise RuntimeError(f"dense shape drift: got {dense_shape}, expected {expected}")
+                dense = dense.reshape(B, self.contract.collapsed_channels, *self.output_hw)
 
-        if self.record_debug:
-            self.last_sparse_meta = {
-                "coord_order": "bzyx",
-                "indices_shape": tuple(indices.shape),
-                "indices_dtype": str(indices.dtype),
-                "features_shape": tuple(features.shape),
-                "features_dtype": str(features.dtype),
-                "vfe_features_dtype": str(features_fp32.dtype),
-                "backbone_features_dtype": backbone_features_dtype,
-                "dense_dtype": dense_dtype,
-                "sparse_conv_fp16_requested": bool(self.sparse_conv_fp16),
-                "sparse_conv_fp16_active": bool(sparse_amp),
-                "point_grouping": point_grouping,
-                "vfe_mode": "valid_only",
-                "vfe_valid_points": int(vfe_valid_points),
-                "vfe_total_slots": int(vfe_total_slots),
-                "spatial_shape": (self.nz, self.ny, self.nx),
-                "bevfusion_sparse_shape_order_xyz": (self.nx, self.ny, self.nz),
-                "voxel_size_xyz": (self.vx, self.vy, self.vz),
-                "computed_z_bins": int(self.computed_nz),
-                "sparse_z_size": int(self.nz),
-                "batch_size": int(B),
-                "num_voxels": int(indices.shape[0]),
-                "batch_index_min": int(indices[:, 0].min().item()),
-                "batch_index_max": int(indices[:, 0].max().item()),
-                "z_min": int(indices[:, 1].min().item()),
-                "z_max": int(indices[:, 1].max().item()),
-                "y_min": int(indices[:, 2].min().item()),
-                "y_max": int(indices[:, 2].max().item()),
-                "x_min": int(indices[:, 3].min().item()),
-                "x_max": int(indices[:, 3].max().item()),
-            }
-
-        bev_ctx = torch.autocast(device_type=dev.type, dtype=torch.float16) if sparse_amp else nullcontext()
-        with stage("to_bev"):
+        bev_ctx = (
+            torch.autocast(device_type=dev.type, dtype=torch.float16)
+            if sparse_amp
+            else nullcontext()
+        )
+        with stage("low_resolution_projection"):
             with bev_ctx:
-                out = self.to_bev(dense)                                        # outer autocast casts to model dtype
+                out = self.to_bev(dense)
+        # GroupNorm is intentionally kept in its numerically stable fp32 path,
+        # which means the low-resolution projection can leave autocast as fp32.
+        # The frozen S04 interface is nevertheless fp16 for the active sparse-AMP
+        # path (matching the empty-input return) and fp32 for the reference path.
+        # Make that boundary explicit after all projection math; this preserves
+        # autograd while preventing empty/non-empty dtype drift.
+        projected_dtype = out.dtype
+        if sparse_amp and out.dtype != torch.float16:
+            out = out.to(torch.float16)
+        self._record_meta(
+            B=B,
+            cap=cap,
+            sparse_amp=sparse_amp,
+            point_grouping=point_grouping,
+            indices=indices,
+            dense_shape=dense_shape,
+            dense_dtype=dense.dtype,
+            projected_dtype=projected_dtype,
+            output_dtype=out.dtype,
+            fp16_eval_dispatch=fp16_eval_dispatch,
+            fp16_eval_dispatch_version=dispatch_version,
+            fp16_eval_dispatch_count=dispatch_count,
+        )
         if self.record_profile:
             self.last_profile_times = dict(profile_times)
         return out
 
-    def _empty_bev(self, points: torch.Tensor, B: int) -> torch.Tensor:
-        """Zero BEV for all-empty batches, with a zero-gradient anchor for DDP safety."""
-        out = points.new_zeros((B, self.out_channels, self.ny, self.nx))
+    def _record_meta(
+        self,
+        *,
+        B: int,
+        cap: int,
+        sparse_amp: bool,
+        point_grouping: str,
+        indices: torch.Tensor | None,
+        dense_shape: tuple[int, ...] | None,
+        dense_dtype: torch.dtype | None = None,
+        projected_dtype: torch.dtype | None = None,
+        output_dtype: torch.dtype | None = None,
+        fp16_eval_dispatch: bool = False,
+        fp16_eval_dispatch_version: str | None = None,
+        fp16_eval_dispatch_count: int = 0,
+    ) -> None:
+        if not self.record_debug:
+            self.last_sparse_meta = None
+            return
+        self.last_sparse_meta = {
+            "coord_order": "bzyx",
+            "spatial_shape_zyx": self.contract.input_zyx,
+            "stage_shapes_zyx": self.contract.stage_shapes_zyx,
+            "dense_shape": dense_shape,
+            "dense_dtype": None if dense_dtype is None else str(dense_dtype),
+            "projected_dtype_before_contract_cast": (
+                None if projected_dtype is None else str(projected_dtype)
+            ),
+            "bev_output_dtype": None if output_dtype is None else str(output_dtype),
+            "bev_output_contract": "float16" if sparse_amp else "float32",
+            "bev_shape": (B, self.out_channels, *self.output_hw),
+            "voxel_size_xyz": self.contract.voxel_xyz,
+            "output_stride_xy": self.output_stride,
+            "output_cell_xy": self.contract.output_cell_xy,
+            "receptive_field_voxels_zyx": self.contract.receptive_field_voxels_zyx,
+            "batch_size": int(B),
+            "active_max_voxels_per_sample": int(cap),
+            "max_voxels_train": self.max_voxels_train,
+            "max_voxels_eval": self.max_voxels_eval,
+            "sparse_conv_fp16_requested": self.sparse_conv_fp16,
+            "sparse_conv_fp16_active": sparse_amp,
+            "fp16_eval_dispatch_active": bool(fp16_eval_dispatch),
+            "fp16_eval_dispatch_version": fp16_eval_dispatch_version,
+            "fp16_eval_dispatch_count": int(fp16_eval_dispatch_count),
+            "point_grouping": point_grouping,
+            "voxel_stat_fields": VOXEL_STAT_FIELDS,
+            "num_voxels": 0 if indices is None else int(indices.shape[0]),
+            "indices_shape": (0, 4) if indices is None else tuple(indices.shape),
+            "indices_dtype": "torch.int32" if indices is None else str(indices.dtype),
+        }
+
+    def _empty_bev(self, points: torch.Tensor, B: int, sparse_amp: bool) -> torch.Tensor:
+        dtype = torch.float16 if sparse_amp else torch.float32
+        out = torch.zeros((B, self.out_channels, *self.output_hw), device=points.device, dtype=dtype)
         if not self.training:
             return out
         anchor = None
-        for p in self.parameters():
-            term = p.float().sum() * 0.0
+        for parameter in self.parameters():
+            term = parameter.float().sum() * 0.0
             anchor = term if anchor is None else anchor + term
         return out if anchor is None else out + anchor.to(dtype=out.dtype)
 
     def occupancy(self, points: torch.Tensor, B: int) -> torch.Tensor:
-        """Per-cell in-range LiDAR point count ``[B, ny, nx]`` for sparse-encoder viz/smoke.
-
-        This mirrors :meth:`PointPillarsEncoder.occupancy` at the BEV-cell level so
-        V2 diagnostics do not silently assume the dense pillar implementation.
-        """
-        cfg = self.cfg
+        """Reduced-grid point occupancy ``[B,H/8,W/8]``; never allocates fine BEV."""
         b = points[:, 0].to(torch.int64)
         x, y, z = points[:, 1], points[:, 2], points[:, 3]
-        col, row = metric_to_grid(x, y, cfg.x_min, cfg.y_min, cfg.vx, cfg.vy)
-        keep = in_grid_mask(col, row, cfg.nx, cfg.ny) & (z >= cfg.z_min) & (z < cfg.z_max)
-        occ = points.new_zeros((B * cfg.ny * cfg.nx,))
-        if keep.sum() == 0:
-            return occ.view(B, cfg.ny, cfg.nx)
-        key = b[keep] * (cfg.nx * cfg.ny) + flat_index(col[keep], row[keep], cfg.nx)
+        sx, sy = self.contract.output_cell_xy
+        col, row = metric_to_grid(x, y, self.cfg.x_min, self.cfg.y_min, sx, sy)
+        out_h, out_w = self.output_hw
+        keep = (
+            in_grid_mask(col, row, out_w, out_h)
+            & (z >= self.cfg.z_min)
+            & (z < self.cfg.z_max)
+            & torch.isfinite(points[:, 1:5]).all(dim=1)
+        )
+        occ = points.new_zeros((B * out_h * out_w,))
+        if not bool(keep.any().detach().cpu()):
+            return occ.view(B, out_h, out_w)
+        key = b[keep] * (out_h * out_w) + flat_index(col[keep], row[keep], out_w)
         key_s = key[torch.argsort(key, stable=True)]
         uniq, counts = torch.unique_consecutive(key_s, return_counts=True)
         occ.index_copy_(0, uniq, counts.to(occ.dtype))
-        return occ.view(B, cfg.ny, cfg.nx)
+        return occ.view(B, out_h, out_w)
