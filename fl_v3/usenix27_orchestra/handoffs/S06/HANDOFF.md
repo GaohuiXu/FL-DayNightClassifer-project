@@ -192,8 +192,9 @@ the epoch or report success. No pending gradients are serialized.
 Hostile fixtures place nonfinite loss at positions 1/2/3 of a three-microbatch
 window, inject overflow, exercise known and unknown remainders, reject a
 non-boundary `max_steps`, prove no extra fetch after update budget, and reject a
-short final microbatch. They are authored but dependency-backed execution remains
-pending exact S00 approval.
+short final microbatch. These fixtures are not runnable in the login-node Python
+because Torch/pytest are absent; all declared dependency-backed fixed-window
+fixtures executed and passed in exact bounded Job `342014`.
 
 ## Checkpoint and resume boundary
 
@@ -232,7 +233,9 @@ unchanged. A no-alias fixture checks every snapshot tensor is detached and on CP
 the requested GH200 inventory also exercises exact rollback of live CUDA
 model/optimizer/GradScaler/EMA from CPU snapshots. The positive continuous versus
 interrupted/resumed AdamW fixture guards against over-strict rejection of a legal
-resume state. These PyTorch fixtures are authored, not locally run.
+resume state. These fixtures are not runnable in the login-node Python because
+Torch/pytest are absent; all declared CPU and live-CUDA checkpoint/rollback
+fixtures executed and passed in exact bounded Job `342014`.
 
 ## Persistent loader/sampler contract
 
