@@ -2492,7 +2492,17 @@ when submitted regardless of scheduler, harness, or node outcome; no retry,
 requeue, replacement, alternate invocation, automatic resubmission, or
 follow-on is authorized.
 
+Canonical O-085 at exact Orchestra commit
+`6e2461dc3f20a082f6bafa0227456bf129fa342a` records that the unchanged exact
+Section I command was submitted once as Slurm Job `352354`, started at
+`2026-07-12T17:23:29+02:00`, and is active on node `n559`. O-084 was
+consumed immediately at submission regardless of eventual scheduler, harness,
+or node outcome. This execution-state record does not query or interpret
+results and changes no tuple, acceptance, or stop rule.
+
 **Compute status:
-`APPROVED_ONCE_PENDING_PROVISION_AND_SUBMISSION`.** No submission or compute
-has occurred. O-084 grants no full suite/data/cache, 100/1000-step,
-metrics/profile/DDP/matrix, merge, push, upload, or scientific interpretation.
+`EXECUTED_ONCE_JOB_352354_ACTIVE_APPROVAL_CONSUMED_NO_RETRY`.** No retry,
+requeue, replacement, alternate invocation, automatic resubmission, or
+follow-on is authorized. O-084/O-085 grant no full suite/data/cache,
+100/1000-step, metrics/profile/DDP/matrix, merge, push, upload, or scientific
+interpretation.

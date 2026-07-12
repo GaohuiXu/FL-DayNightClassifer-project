@@ -1365,7 +1365,8 @@ frozen exact request are required before any runtime action.
 
 ### Approval state and exact purpose
 
-- **Compute status:** `APPROVED_ONCE_PENDING_PROVISION_AND_SUBMISSION`.
+- **Compute status:**
+  `EXECUTED_ONCE_JOB_352354_ACTIVE_APPROVAL_CONSUMED_NO_RETRY`.
 - O-083 authorizes request preparation and pure Git/hash/static/preflight only.
   It does not authorize `sbatch`, `srun`, allocation, compute, retry, requeue,
   replacement, resubmission, or follow-on.
@@ -1378,6 +1379,12 @@ frozen exact request are required before any runtime action.
   submission. The one attempt consumes O-084 when submitted regardless of
   scheduler, harness, or node outcome; no retry, requeue, alternate invocation,
   replacement, automatic resubmission, or follow-on is authorized.
+- Canonical O-085 at exact Orchestra commit
+  `6e2461dc3f20a082f6bafa0227456bf129fa342a` records that the unchanged exact
+  approved command was submitted once as Slurm Job `352354`, started at
+  `2026-07-12T17:23:29+02:00`, and is active on node `n559`. O-084 was
+  consumed immediately. This is execution state only: it does not query or
+  interpret results, change the tuple, or authorize any retry/follow-on.
 - Independent R15 review
   `bc587790ff3b2dfb65b12fa4469c1f5b79aea5fc` is review-only/not merged and
   gives docs/static-authored `PASS` for corrected delivery
@@ -1570,9 +1577,9 @@ the approved output root.
   `--no-requeue`; at most one-third GPU-hour. One attempt only; no array, DDP,
   retry, replacement, resubmission, or follow-on.
 
-The exact proposed command is approved **once only** under O-084 after the
-stated detached worktree is provisioned and every unchanged preflight predicate
-passes. It has not been run:
+The exact command below was submitted **once only** under O-084 as Job
+`352354` after the stated detached worktree and unchanged preflight passed.
+It must not be submitted again:
 
 ```bash
 cd /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_worktrees/s07b_mw_runtime_65881c5628a7 && \
