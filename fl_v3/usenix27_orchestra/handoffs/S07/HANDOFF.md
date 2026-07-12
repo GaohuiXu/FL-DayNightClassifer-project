@@ -1466,3 +1466,76 @@ static/helper level and returns a new immutable candidate for independent review
 It is not worker/code-level PASS, runtime readiness, production/full-data evidence
 or scientific evidence. No O-009 request should be prepared until an independent
 reviewer accepts the exact final delivery SHA.
+
+### S07-B-R7 test-only real publisher-race remediation
+
+Independent S07-B-R7 reviewed exact parent
+`35a0bdca8af61172722428261024d034ecc97a50` and returned
+`CHANGES-REQUESTED` at durable review commit
+`e4fa439a5c09447bd8b413682772e81f9998f027`. The R7 REVIEW blob is
+`b27655cf7e0cec994aada87010eae0065c5746ce`, size 134,348 bytes, SHA-256
+`28164c0f692523ee4920d516ba3030052be8380b2b4cc7d96de036935bfe6f6b`.
+R7 found no P0-P2 production defect. Its sole P3 was authored reachability: the
+then-current bind-race test replaced the entire publisher helper, performed one
+real successful publish and fabricated a `False` return instead of running two
+publishers through the real hard-link loser path.
+
+S00 authorized O-049 as test-only remediation. Exact test commit
+`dd60326fd424d263ab2733fbb8353fb6a6cbb45a` changes only
+`fl_v3/tests/test_s07_b_integration.py`; its committed SHA-256 is
+`4349e4734c6161f0ae7bd6b6dc28450d8c9475c9b8fcc6a37462fd948f0ea551`.
+No production source changed: `fl_v3/scripts/t5_attack_eval.py` remains exact
+SHA-256
+`19bcc9ccbea89ba363d6a6bee47449448339b1b519f792e6fdfcf99e3d08034d`.
+
+#### Authored race now uses two real bind callers
+
+- Exact-winner and different-winner cases each launch two real concurrent
+  `_bind_run_manifest()` calls against one fresh run directory. Neither test
+  replaces `_atomic_publish_json_at()` nor fabricates its return value.
+- The only scheduling wrapper calls the real `_write_all()` to completion first,
+  records the publisher-owned temp name from its live descriptor, and then waits
+  at two barriers. Before either link is released, both callers prove that two
+  distinct real publisher temps simultaneously exist as files in the run.
+- After both writes, a recording wrapper is installed only around `os.link`; it
+  calls the original real hard-link operation unchanged, records actual success
+  or `FileExistsError`, and returns/re-raises the real result. Both callers have
+  already passed the production Linux-dirfd capability check before this link-only
+  observation window.
+- The exact-identity race observes one real link winner and one real
+  `FileExistsError` loser; both complete bind callers accept the same whole
+  manifest. The different-identity race likewise observes one actual winner and
+  loser; exactly one caller succeeds and the loser rejects the preserved winner at
+  the production different-identity equality check.
+- After each race, the final manifest is loaded through the real held-dirfd reader,
+  both caller-owned private temps are absent, and no temp ending in `.tmp` remains.
+
+All other R6 subdirectory/artifact symlink, guard-count, target-order and live-temp
+non-interference hostiles are retained unchanged. The production publication,
+guard, artifact, metric, model, protocol and data semantics are unchanged.
+
+The new test is authored but was not run with pytest. Checks actually run:
+
+- stdlib AST parse of the changed test file: `AST_OK=1`;
+- `git diff --check`: PASS;
+- `bash -n fl_v3/scripts/run_s07_b_static_checks.sh`: PASS;
+- AST-extracted stdlib execution of the exact production bind/publication helpers
+  repeated both two-thread races: exact identity produced two successful callers;
+  different identity produced one success and one rejection; each observed one
+  hard-link success, one real loser and zero final temps:
+  `STDLIB_REAL_BIND_RACES_OK`.
+
+Explicitly **NOT RUN / NO IMPLIED PASS**: pytest; `py_compile`; the full static
+launcher or production-package import; Torch/NumPy/spconv/cumm; checkpoint,
+cache/data/model; directory/ZIP workers; any T5 task/devkit/model/GPU action;
+Slurm; full cache; 100/1000 steps; profile/metrics/DDP; retry/rerun or scientific
+cell. The two previously authorized generated-pyc paths remained absent throughout
+O-049; no new pyc cleanup was needed. No RUN_REQUEST/RESULTS, canonical, review,
+collab, production source, model/head/NMS/metric/protocol file changed, and no
+merge to `v3-ad-perception`, push, upload or publication occurred.
+
+This closes the exact R7 authored no-mock-bypass finding and returns a new
+immutable test-only candidate for independent review. It is not worker/code-level
+PASS, runtime readiness, production/full-data evidence or scientific evidence. No
+O-009 request should be prepared until an independent reviewer accepts the exact
+final delivery SHA.
