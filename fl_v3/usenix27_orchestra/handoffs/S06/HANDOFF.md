@@ -21,13 +21,14 @@
   `c330c72f4060348768c63fb1b7855ca56baffb95`.
 - Final documentation delivery SHA is returned to S00 after committing this
   package; a commit cannot embed its own SHA without changing itself.
-- Worker self-assessment: **JOB 341997 REMAINS FAILED; REMEDIATION-2 STATIC PASS,
-  DEPENDENCY-BACKED TESTS NOT RUN; NEW REQUEST PENDING S00 AUDIT.** This is not an independent,
+- Worker self-assessment: **JOB 342014 BOUNDED SYNTHETIC PASS (66/66), PENDING
+  S00 COMPLETENESS AUDIT; JOB 341997 REMAINS FAILED NEGATIVE EVIDENCE.** This is not an independent,
   integration, model-readiness, full-data, or scientific PASS.
 
-Other than the one approved failed synthetic job `341997`, no Slurm job/srun,
-mini/trainval traversal, cache materialization, model campaign, metric, profile,
-merge, push, PR, upload, or reviewer launch occurred.
+Only the separately approved bounded synthetic jobs `341997` and `342014` ran;
+neither was retried or resubmitted. No srun, mini/trainval traversal, cache
+materialization, model campaign, metric, profile, merge, push, PR, upload, or
+reviewer launch occurred.
 During approval-record auditing, shell interpolation accidentally invoked bare
 `sbatch`; Slurm rejected the empty script before job creation with
 `Batch script is empty!`. This negative control-plane event has no Job ID,
@@ -60,7 +61,8 @@ opaque while known-length preflight remains; checkpoint save uses a same-directo
 non-hidden `.pt` temporary path with target-preserving cleanup fixtures; and eval
 retains an explicit six-camera calibration requirement. The launcher now disables
 the read-only cache provider and always writes/verifies its final artifact manifest
-before returning the original pytest status. No remediation-2 compute has run.
+before returning the original pytest status. Exact job `342014` subsequently
+validated this remediation path with 66/66 passing tests.
 
 ## Scope and files
 
@@ -295,8 +297,8 @@ of `ResolvedConfig.to_run_config()` additionally proved nested cache identities
 are plain JSON-serializable dictionaries, preserve the resolved hash, and keep
 the committed synthetic canonical hash
 `1f06f07fc16d64e10624e98e0cad120cff63131c838244177f2e0688517ac813`.
-Torch/pytest remain unavailable locally, so no remediation-2 runtime result is
-claimed.
+Torch/pytest remain unavailable locally; dependency-backed remediation-2 evidence
+comes only from exact job `342014`, not from the login-node checks.
 
 Final local dependency probe:
 
@@ -319,7 +321,7 @@ python3 -m pytest -q fl_v3/tests/test_s06_resolved_config.py \
 It stopped immediately with `No module named pytest`; no test body executed. This
 is preserved as an environment limitation, not a test failure or PASS.
 
-## Failed execution and new pending validation
+## Failed remediation-1 and completed remediation-2 validation
 
 S00 approved exactly one remediation-1 submission. Job `341997` ended
 `FAILED 1:0` after `00:01:47`: `45 passed, 17 failed, 0 errors, 0 skipped`.
@@ -334,35 +336,37 @@ The new remediation-2 `RUN_REQUEST.md` binds executable
 launcher `146f55797ec8191083f8347bcecae858785e3c64c08fc798079fa1ac53edde2d`
 and request SHA-256
 `9479538201ec398b1617847c5265d0dbeae8ec0db084fc6b867a435ffb5020a9`.
-Its `s06_runtime_remediation2_c330c72f4060` roots are confirmed absent. Status is
-`APPROVED_BY_S00_ONE_SUBMISSION_PENDING`; no remediation-2 job exists yet. S00
-approved exactly one submission bound to request delivery `cae0ff59...` and the
-full tuple above. Retry/requeue/resubmit, a second job, reviewer and tuple mutation
-remain forbidden.
+S00 approved exactly one submission bound to request delivery `cae0ff59...` and
+that full tuple. Job `342014` completed `0:0` in `00:00:16`; JUnit records
+`66 passed, 0 failures/errors/skips`, including the executed CUDA rollback test.
+`pytest.exitcode=0`, source attestation matches, and the in-job final checksum
+manifest verifies. `RESULTS.md` records raw hashes and sacct. Status is
+`EXECUTED_ONCE_COMPLETED_NO_FURTHER_JOB`; reviewer and all further compute remain
+forbidden pending S00 completeness audit.
 
 ## Gate status
 
 | Gate | Worker evidence/status |
 |---|---|
-| exact mode enum / alias rejection | STATIC PASS; runtime tests AUTHORED NOT RUN |
-| mode-specific construction/transfer/forward | IMPLEMENTED; hostile runtime tests AUTHORED NOT RUN |
+| exact mode enum / alias rejection | 342014 BOUNDED SYNTHETIC PASS |
+| mode-specific construction/transfer/forward | 342014 BOUNDED SYNTHETIC PASS |
 | disabled raw payload decode | FAIL-CLOSED SEAM; S07-B must add dataset API |
-| canonical config/hash and fail-closed identities | 341997 NEGATIVE mappingproxy; remediation-2 STDLIB PASS, gate NOT RUN |
+| canonical config/hash and fail-closed identities | 341997 NEGATIVE preserved; 342014 BOUNDED SYNTHETIC PASS |
 | separate train/val t1.v2 and manifest identities | IMPLEMENTED/STDLIB PASS; real artifacts absent |
-| spconv 2.3.8 and same-instance serialization | IMPLEMENTED; Arrhenius dependency/concurrency tests NOT RUN |
-| fixed-window accounting/effective batch | 341997 fixture invalid; true opaque remediation fixture AUTHORED NOT RUN |
-| fail-atomic strict checkpoint/resume | 341997 BLOCKED before assertions; legal temp/atomic fixtures AUTHORED NOT RUN |
-| persistent loader/set_epoch/no duplicate/omission | IMPLEMENTED; runtime test AUTHORED NOT RUN |
+| spconv 2.3.8 and same-instance serialization | 342014 dependency attestation + synthetic tests PASS |
+| fixed-window accounting/effective batch | 341997 fixture negative preserved; 342014 BOUNDED SYNTHETIC PASS |
+| fail-atomic strict checkpoint/resume | 341997 blocked evidence preserved; 342014 CPU/CUDA hostile tests PASS |
+| persistent loader/set_epoch/no duplicate/omission | 342014 BOUNDED SYNTHETIC PASS |
 | real ZIP handle lifecycle across resume | NOT RUN; S07-B integrated mini gate required |
-| eval autocast/single-pass/timing neutrality/metadata | 341997 fixture failed; strict six-camera fixtures AUTHORED NOT RUN |
+| eval autocast/single-pass/timing neutrality/metadata | 341997 fixture negative preserved; 342014 BOUNDED SYNTHETIC PASS |
 | 100/1000-step/full profile/metrics | FORBIDDEN / NOT RUN |
 | independent S06-R | NOT STARTED; worker must not launch reviewer |
 
 ## Negative results and limitations
 
-1. Job `341997` is dependency-backed negative evidence. Remediation-2 tests are
-   not run because the login runtime lacks torch/numpy/pytest and no new compute
-   is approved.
+1. Job `341997` remains dependency-backed negative evidence. Job `342014` passed
+   remediation-2's bounded synthetic suite; the login runtime itself still lacks
+   torch/numpy/pytest.
 2. Full trainval `t1.v2` does not exist; committed hashes are synthetic sentinels.
 3. The production CLI deliberately fails before disabled-modality data decode
    until S07-B integrates a mode-aware S01 dataset API and epoch sampler.
@@ -378,9 +382,9 @@ remain forbidden.
    historical callers is not claimed, and world-size/ DDP remains fail-closed.
 9. No real checkpoint, throughput, memory, convergence, metric or scientific
    evidence was produced.
-10. Job `341997` is a failed engineering gate, not a partial PASS. Remediation-2
-    fixes for its four failure families are static/authored only and require the
-    new exact request plus S00 approval before they can change gate status.
+10. Job `341997` is a failed engineering gate, not a partial PASS. Job `342014`
+    supplies separate passing remediation-2 evidence and does not erase that
+    historical negative result.
 
 ## Explicit S07-B integration seams
 
@@ -400,24 +404,24 @@ remain forbidden.
    test mode-transition contention, exception restoration and resume-to-eval.
 6. Materialize/freeze real train and val `t1.v2` hashes only under separately
    approved S07-A request; replace no synthetic identity post hoc.
-7. Never retry remediation-1/job `341997`. Audit the fresh remediation-2 request;
-   only a later explicit approval may authorize its one exact bounded job. S06
-   must not launch a reviewer; later production-shape/100/1000/full-data gates
-   require separate scope.
+7. Never retry remediation-1/job `341997` or rerun completed remediation-2 job
+   `342014`. S06 must not launch a reviewer; later production-shape/100/1000/
+   full-data gates require separate scope.
 
 ## Interpretation boundary
 
 Allowed:
 
 - S06 provides an independently reviewable fail-closed runtime/config/checkpoint/
-  eval implementation and an exact pending synthetic validation request;
-- the listed stdlib/static checks passed on exact committed source;
+  eval implementation and a bounded synthetic 66/66 result pending S00 audit;
+- the listed static and exact job-342014 checks passed on bound source;
 - the CLI refuses unintegrated raw-modality I/O and DDP rather than silently
   violating the contract.
 
 Forbidden:
 
-- S06 runtime PASS before dependency-backed execution and S06-R;
+- independent-review, integration, production or scientific PASS from this worker
+  bounded result;
 - S07-B/full-stack/model/full-data/training readiness;
 - real cache, ZIP-resume, sparse fp16, performance, 100/1000-step, mAP/NDS,
   fusion gain, FL, attack/defense, generalization, scientific, or publication

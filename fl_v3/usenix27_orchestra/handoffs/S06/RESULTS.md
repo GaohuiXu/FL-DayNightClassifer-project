@@ -1,6 +1,82 @@
-# S06 remediation-1 RESULTS — negative bounded validation
+# S06 RESULTS — remediation-1 negative and remediation-2 bounded PASS
 
-## Verdict
+## Current bounded-gate verdict
+
+- `RESULT_STATUS: REMEDIATION2_BOUNDED_SYNTHETIC_PASS_PENDING_S00_AUDIT`.
+- Job `342014` is the one and only remediation-2 exact approved submission.
+- Slurm: `COMPLETED`, exit `0:0`, no restart/requeue, elapsed `00:00:16`.
+- Pytest/JUnit: `66` tests, `66` passed, `0` failures/errors/skips.
+- The CUDA live-object rollback fixture executed and did not skip.
+- `pytest.exitcode` is `0`; the final in-job `sha256sums.txt` exists and
+  `sha256sum -c` verifies all six bound artifacts.
+- No retry, resubmit, second job, data access, reviewer or follow-on occurred.
+
+This is a bounded synthetic engineering PASS only. It is not an independent
+review, S07-B integration, production detector, full-data or scientific PASS.
+Job `341997` remains permanent negative evidence and is not overwritten.
+
+## Remediation-2 immutable execution identity
+
+- request delivery: `cae0ff59ce3e215ba950be6a76167d2dd716c940`;
+- approval-record commit: `57b745a275636aa2c23c2f7aee0aa140c6195975`;
+- executable: `c330c72f4060348768c63fb1b7855ca56baffb95`;
+- executable tree: `7ce589685d15fb42c057154c3329679ada934f4b`;
+- pre-approval RUN_REQUEST SHA-256:
+  `9479538201ec398b1617847c5265d0dbeae8ec0db084fc6b867a435ffb5020a9`;
+- base diff: `6f196001c8144806ff5b71c52b87154bdd7ecbe704b21bce2f1e770df3c09963`;
+- source aggregate:
+  `bc19c139f773592dc085b47b3b83b1721f3c5ca0abeeeb1c6485e9e2d8f533dc`;
+- launcher SHA-256:
+  `146f55797ec8191083f8347bcecae858785e3c64c08fc798079fa1ac53edde2d`;
+- request generation: `remediation-2`; synthetic-only: `true`.
+
+In-job identity records job `342014`, host `n405`, `aarch64`, Python `3.11.15`,
+Torch `2.11.0+cu128`, spconv `2.3.8`, and `CUDA_VISIBLE_DEVICES=0`.
+
+## Remediation-2 scheduler/JUnit evidence
+
+```text
+Submit  2026-07-12T05:39:37+02:00
+Start   2026-07-12T05:39:38+02:00
+End     2026-07-12T05:39:54+02:00
+State   COMPLETED
+Exit    0:0
+Elapsed 00:00:16
+Node    n405
+Alloc   1 node, 8 CPU, 16 GiB, 1×nvidia_gh200_120gb
+Batch MaxRSS 36M
+Requeue/restarts 0/0
+JUnit  tests=66 failures=0 errors=0 skipped=0 time=2.930 host=n405
+```
+
+## Remediation-2 raw artifacts and checksums
+
+Output root:
+
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s06_runtime_remediation2_c330c72f4060`
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `execution_identity.json` | 370 | `a50e90238efb73d56fc615995b0d911b9a91c619aa984c73c0240bee17c30109` |
+| `pytest.exitcode` | 2 | `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa` |
+| `pytest.junit.xml` | 8793 | `76ecb32b065a23af69bdbfafde194881131b601246d9e497267ab4d779c930b4` |
+| `pytest.log` | 99 | `4b4e01abc3f54015297a6c57ae37a4ddb966a7e6aceb5fd8d83df15d045bea42` |
+| `runtime_source_files.txt` | 893 | `9afd0ce020f63ff215dd9eca7f5f70bbe16e53dac5aa72b89787905d6a1c010e` |
+| `runtime_source_sha256s.txt` | 2543 | `bc19c139f773592dc085b47b3b83b1721f3c5ca0abeeeb1c6485e9e2d8f533dc` |
+| `sha256sums.txt` | 1206 | `2429764a33ff574b5de2623da137c816500889c8afa20e421464edeab155997b` |
+
+Slurm logs:
+
+| Artifact | SHA-256 |
+|---|---|
+| `logs/s06_runtime_r2_342014.out` | `a83fd398d95d9ff8f3ecbb0df6705464135946a3b9c52a7a42e1c429b5e6a886` |
+| `logs/s06_runtime_r2_342014.err` | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+The in-job final manifest binds and verifies execution identity, both source
+attestation files, pytest log, JUnit and pytest exit code. The 25-entry source
+hash list itself hashes to the approved source aggregate.
+
+## Remediation-1 terminal verdict
 
 - `RESULT_STATUS: FAILED_STOP_NO_RETRY`.
 - Job `341997` is the one and only exact approved submission.
@@ -111,21 +187,21 @@ The launcher verified the 25-file aggregate before pytest, and a post-job
 `sha256s.txt` was **not produced**. The per-artifact checksums above were computed
 post-job and are not mislabeled as the missing in-job final manifest.
 
-## Interpretation boundary
+## Remediation-1 interpretation boundary
 
 Allowed: this exact bounded run is durable negative engineering evidence; source
 identity, environment, allocation, zero-skip collection and the listed 45 passing
 tests are recorded.
 
-Forbidden: S06 runtime PASS, checkpoint/resume atomicity proof, CUDA rollback
+Forbidden from job 341997: S06 runtime PASS, checkpoint/resume atomicity proof, CUDA rollback
 proof, eval timing-neutrality proof, integration/model/full-data/scientific claims,
 or treating any passing subset as acceptance. No fix or rerun is part of this
 delivery.
 
 ## Post-result remediation status
 
-S00 later authorized code-only remediation within the original S06 ownership.
-Executable `c330c72f4060348768c63fb1b7855ca56baffb95` addresses the four root-cause
-families and artifact-preservation defect, but has only static/stdlib evidence.
-It does not alter this RESULTS verdict or retroactively pass any job-341997 gate.
-Its separate remediation-2 request is pending S00 audit; no new job exists.
+S00 later authorized remediation-2 executable
+`c330c72f4060348768c63fb1b7855ca56baffb95` and exactly one bounded job.
+Job `342014` passed all 66 tests and artifact checks above. This provides the
+current bounded synthetic PASS but does not alter or erase job `341997`'s
+historical negative verdict. No further compute or reviewer is authorized.

@@ -2,7 +2,7 @@
 
 ## Approval state and immutable negative history
 
-- `APPROVAL_STATUS: APPROVED_BY_S00_ONE_SUBMISSION_PENDING`.
+- `APPROVAL_STATUS: EXECUTED_ONCE_COMPLETED_NO_FURTHER_JOB`.
 - S00 exact-compute approval was received on 2026-07-12 for pre-approval request
   delivery `cae0ff59ce3e215ba950be6a76167d2dd716c940` and request SHA-256
   `9479538201ec398b1617847c5265d0dbeae8ec0db084fc6b867a435ffb5020a9`.
@@ -15,7 +15,9 @@
   `146f55797ec8191083f8347bcecae858785e3c64c08fc798079fa1ac53edde2d`.
 - Exactly one submission of the command below is approved. Retry, requeue,
   resubmit, a second job or any tuple change is forbidden.
-- No remediation-2 `sbatch`/`srun` has yet been invoked.
+- The exact command was submitted once as job `342014`. It completed `0:0` in
+  `00:00:16` with `66 passed, 0 failed/errors/skipped`, `pytest.exitcode=0`, and
+  a verified in-job final checksum manifest. No further job is authorized.
 - Remediation-1 executable `6696984a6ebd4ec398d9fbfa172fb118e84e7af8`,
   delivery `5bbb12cd452fcf805e3687f5a7aa00d952393526`, request snapshot
   `e42fd06051fc8fa7ce1531fb8151d150c2395d2ea89aaf7a6249257f2aeddf08`
