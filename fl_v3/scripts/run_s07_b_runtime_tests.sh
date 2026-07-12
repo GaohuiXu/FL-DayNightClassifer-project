@@ -108,8 +108,9 @@ test "${SLURM_NTASKS:-1}" = "1"
 test "${SLURM_CPUS_PER_TASK:-8}" = "8"
 test "$(uname -m)" = "aarch64"
 
-readonly SNAPSHOT="${SNAPSHOT_BASE}/s07b_integrated_${EXPECTED_S07B_EXECUTABLE_SHA:0:12}"
-readonly EXPECTED_OUTPUT_ROOT="/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_integrated_${EXPECTED_S07B_EXECUTABLE_SHA:0:12}"
+readonly SHORT_EXECUTABLE="${EXPECTED_S07B_EXECUTABLE_SHA:0:12}"
+readonly SNAPSHOT="${SNAPSHOT_BASE}/s07b_integrated_${SHORT_EXECUTABLE}"
+readonly EXPECTED_OUTPUT_ROOT="/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_integrated_${SHORT_EXECUTABLE}"
 test "${S07B_OUTPUT_ROOT}" = "${EXPECTED_OUTPUT_ROOT}"
 test ! -e "${S07B_OUTPUT_ROOT}"
 test ! -e "${SNAPSHOT}"
@@ -135,8 +136,47 @@ test "${ACTUAL_SOURCE_SHA256}" = "${EXPECTED_S07B_SOURCE_SHA256}"
 
 chmod -R a-w "${SNAPSHOT}"
 mkdir "${S07B_OUTPUT_ROOT}"
-readonly JOB_TMP="${S07B_OUTPUT_ROOT}/tmp"
-mkdir "${JOB_TMP}"
+[[ "${SLURM_JOB_ID:-}" =~ ^[0-9]+$ ]]
+[[ "${SHORT_EXECUTABLE}" =~ ^[0-9a-f]{12}$ ]]
+JOB_TMP_PREVIOUS_UMASK="$(umask)"
+readonly JOB_TMP_PREVIOUS_UMASK
+umask 077
+JOB_TMP="$(mktemp -d -p /tmp "flv3-s07b-${SLURM_JOB_ID}-${SHORT_EXECUTABLE}.XXXXXX")"
+umask "${JOB_TMP_PREVIOUS_UMASK}"
+readonly JOB_TMP
+JOB_TMP_IDENTITY="$(stat -c '%d:%i' "${JOB_TMP}")"
+readonly JOB_TMP_IDENTITY
+readonly JOB_TMP_PATTERN="^/tmp/flv3-s07b-${SLURM_JOB_ID}-${SHORT_EXECUTABLE}\\.[A-Za-z0-9]{6}$"
+cleanup_job_tmp() {
+  local status=$?
+  local cleanup_status=0
+  local current_identity=""
+  trap - EXIT
+  if [[ "${JOB_TMP}" =~ ${JOB_TMP_PATTERN} ]] &&
+    [ "$(dirname -- "${JOB_TMP}")" = "/tmp" ] &&
+    test -d "${JOB_TMP}" && test ! -L "${JOB_TMP}"; then
+    current_identity="$(stat -c '%d:%i' "${JOB_TMP}")" || cleanup_status=$?
+    if [ "${cleanup_status}" -eq 0 ] &&
+      [ "${current_identity}" = "${JOB_TMP_IDENTITY}" ]; then
+      rm -rf -- "${JOB_TMP}" || cleanup_status=$?
+    else
+      cleanup_status=1
+    fi
+  else
+    cleanup_status=1
+  fi
+  if [ "${status}" -eq 0 ] && [ "${cleanup_status}" -ne 0 ]; then
+    status="${cleanup_status}"
+  fi
+  exit "${status}"
+}
+trap cleanup_job_tmp EXIT
+test "${#JOB_TMP}" -le 48
+[[ "${JOB_TMP}" =~ ${JOB_TMP_PATTERN} ]]
+test "$(dirname -- "${JOB_TMP}")" = "/tmp"
+test -d "${JOB_TMP}"
+test ! -L "${JOB_TMP}"
+test "$(stat -c '%a' "${JOB_TMP}")" = "700"
 
 # shellcheck disable=SC1091
 source fl_v3/scripts/arrhenius_env.sh
@@ -202,6 +242,8 @@ record = {
     "launcher_sha256": os.environ["EXPECTED_S07B_LAUNCHER_SHA256"],
     "runtime_source_sha256": os.environ["EXPECTED_S07B_SOURCE_SHA256"],
     "runtime_source_list_sha256": os.environ["EXPECTED_S07B_SOURCE_LIST_SHA256"],
+    "tmpdir": os.environ["TMPDIR"],
+    "tmpdir_bytes": len(os.fsencode(os.environ["TMPDIR"])),
     "slurm_job_id": os.environ.get("SLURM_JOB_ID", ""),
     "slurm_job_name": os.environ.get("SLURM_JOB_NAME", ""),
     "slurm_nnodes": os.environ.get("SLURM_NNODES", ""),

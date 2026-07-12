@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import ctypes
 import errno
 import gc
 import multiprocessing
@@ -430,6 +431,75 @@ def _proc_starttime(pid):
     return _parse_proc_starttime(stat, pid)
 
 
+def _proc_ppid(pid):
+    """Return Linux procfs PPid, or None once PID is gone."""
+    try:
+        with open(f"/proc/{pid}/status", "r", encoding="ascii") as stream:
+            for line in stream:
+                if line.startswith("PPid:"):
+                    return int(line.split(":", 1)[1])
+    except (FileNotFoundError, ProcessLookupError):
+        return None
+    raise RuntimeError(f"malformed /proc/{pid}/status: missing PPid")
+
+
+_PR_SET_CHILD_SUBREAPER = 36
+_PR_GET_CHILD_SUBREAPER = 37
+
+
+def _child_subreaper_enabled():
+    value = ctypes.c_int()
+    libc = ctypes.CDLL(None, use_errno=True)
+    prctl = libc.prctl
+    prctl.argtypes = (
+        ctypes.c_int,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+    )
+    prctl.restype = ctypes.c_int
+    value_pointer = ctypes.cast(ctypes.byref(value), ctypes.c_void_p).value
+    if value_pointer is None:
+        raise RuntimeError("could not obtain child-subreaper state pointer")
+    result = prctl(
+        ctypes.c_int(_PR_GET_CHILD_SUBREAPER),
+        ctypes.c_ulong(value_pointer),
+        ctypes.c_ulong(0),
+        ctypes.c_ulong(0),
+        ctypes.c_ulong(0),
+    )
+    if result != 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error), "prctl(PR_GET_CHILD_SUBREAPER)")
+    if value.value not in {0, 1}:
+        raise RuntimeError(f"unexpected child-subreaper state: {value.value}")
+    return bool(value.value)
+
+
+def _set_child_subreaper(enabled):
+    libc = ctypes.CDLL(None, use_errno=True)
+    prctl = libc.prctl
+    prctl.argtypes = (
+        ctypes.c_int,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+    )
+    prctl.restype = ctypes.c_int
+    result = prctl(
+        ctypes.c_int(_PR_SET_CHILD_SUBREAPER),
+        ctypes.c_ulong(int(bool(enabled))),
+        ctypes.c_ulong(0),
+        ctypes.c_ulong(0),
+        ctypes.c_ulong(0),
+    )
+    if result != 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error), "prctl(PR_SET_CHILD_SUBREAPER)")
+
+
 def _parse_proc_starttime(stat, pid):
     # comm is parenthesized and may itself contain spaces or parentheses. The
     # final ')' precedes field 3; starttime is index 19 in the remaining fields.
@@ -454,9 +524,34 @@ def _identity_alive(identity):
     return _proc_starttime(pid) == expected_starttime
 
 
-def _wait_for_cleanup(group_id, identities, timeout):
+def _reap_verified_child(identity):
+    """Reap only this exact, verified child instance without blocking."""
+    if identity is None or not _identity_alive(identity):
+        return None
+    pid, _starttime = identity
+    if _proc_ppid(pid) != os.getpid():
+        return None
+    try:
+        reaped_pid, status = os.waitpid(pid, os.WNOHANG)
+    except ChildProcessError:
+        return None
+    if reaped_pid == 0:
+        return None
+    if reaped_pid != pid:
+        raise RuntimeError(f"waitpid({pid}) unexpectedly returned {reaped_pid}")
+    return status
+
+
+def _wait_for_cleanup(group_id, identities, timeout, *, reap_identities=()):
     deadline = time.monotonic() + timeout
+    reaped = {}
     while True:
+        for identity in reap_identities:
+            if identity in reaped:
+                continue
+            status = _reap_verified_child(identity)
+            if status is not None:
+                reaped[identity] = status
         state = {
             "group_alive": (
                 _process_group_exists(group_id) if group_id is not None else False
@@ -464,6 +559,7 @@ def _wait_for_cleanup(group_id, identities, timeout):
             "identities_alive": {
                 identity: _identity_alive(identity) for identity in identities
             },
+            "reaped_identities": dict(reaped),
         }
         if not state["group_alive"] and not any(state["identities_alive"].values()):
             return state
@@ -694,14 +790,28 @@ def _cleanup_group_exists(group_id, cleanup_errors, label):
         return True
 
 
-def _cleanup_wait_for_targets(group_id, identities, timeout, cleanup_errors, label):
+def _cleanup_wait_for_targets(
+    group_id,
+    identities,
+    timeout,
+    cleanup_errors,
+    label,
+    *,
+    reap_identities=(),
+):
     try:
-        return _wait_for_cleanup(group_id, identities, timeout)
+        return _wait_for_cleanup(
+            group_id,
+            identities,
+            timeout,
+            reap_identities=reap_identities,
+        )
     except BaseException as exc:
         cleanup_errors.append((f"{label}_target_wait", exc))
         return {
             "group_alive": True,
             "identities_alive": {identity: True for identity in identities},
+            "reaped_identities": {},
         }
 
 
@@ -776,6 +886,10 @@ def _run_fresh_spawn_fork_helper(
         "worker_identities": (),
         "cleanup_signals": [],
         "closed_fds": {},
+        "subreaper_original": None,
+        "subreaper_enabled_for_helper": None,
+        "subreaper_restored": None,
+        "descendant_adopted_ppid": None,
     }
     ctx = multiprocessing.get_context("spawn")
     parent_control, child_control = ctx.Pipe(duplex=True)
@@ -802,7 +916,16 @@ def _run_fresh_spawn_fork_helper(
     cleanup_errors = []
     armed_group = None
     helper_identity = None
+    subreaper_changed = False
     try:
+        if mode == "post_ack_leader_exit":
+            subreaper_original = _child_subreaper_enabled()
+            report["subreaper_original"] = subreaper_original
+            if not subreaper_original:
+                _set_child_subreaper(True)
+                subreaper_changed = True
+            report["subreaper_enabled_for_helper"] = _child_subreaper_enabled()
+            assert report["subreaper_enabled_for_helper"] is True
         process.start()
         tracked_fds["process_sentinel"] = process.sentinel
         child_control.close()
@@ -869,6 +992,9 @@ def _run_fresh_spawn_fork_helper(
             descendant_pid = outcome["descendant_pid"]
             descendant_record = outcome["descendant_record"]
             assert _identity_alive(descendant_identity)
+            descendant_adopted_ppid = _proc_ppid(descendant_pid)
+            assert descendant_adopted_ppid == parent_pid
+            report["descendant_adopted_ppid"] = descendant_adopted_ppid
             assert descendant_identity[0] == descendant_pid
             assert os.getsid(descendant_pid) == armed_group
             assert os.getpgid(descendant_pid) == armed_group
@@ -993,6 +1119,11 @@ def _run_fresh_spawn_fork_helper(
                         5,
                         cleanup_errors,
                         "post_sigkill",
+                        reap_identities=(
+                            (report.get("descendant_identity"),)
+                            if mode == "post_ack_leader_exit"
+                            else ()
+                        ),
                     )
                     report["post_sigkill_state"] = kill_state
                 try:
@@ -1111,6 +1242,18 @@ def _run_fresh_spawn_fork_helper(
                 ("parent_identity", RuntimeError("pytest parent session/group changed"))
             )
 
+        if mode == "post_ack_leader_exit":
+            try:
+                if subreaper_changed:
+                    _set_child_subreaper(report["subreaper_original"])
+                report["subreaper_restored"] = (
+                    _child_subreaper_enabled() == report["subreaper_original"]
+                )
+                if not report["subreaper_restored"]:
+                    raise RuntimeError("pytest parent child-subreaper state was not restored")
+            except BaseException as exc:
+                cleanup_errors.append(("child_subreaper_restore", exc))
+
     if primary is not None:
         if isinstance(primary, _ForkHelperFailure):
             primary.report = report
@@ -1223,6 +1366,8 @@ def test_explicit_fork_post_ack_leader_exit_cleans_verified_orphan_group(
     assert report["leader_exited_before_cleanup"] is True
     assert report["group_alive_after_leader_exit"] is True
     assert report["descendant_alive_after_leader_exit"] is True
+    assert report["subreaper_enabled_for_helper"] is True
+    assert report["descendant_adopted_ppid"] == os.getpid()
     assert report["descendant_identity"][0] == report["descendant_pid"]
     assert report["descendant_record"] == (
         report["descendant_pid"],
@@ -1239,9 +1384,13 @@ def test_explicit_fork_post_ack_leader_exit_cleans_verified_orphan_group(
     assert report["post_sigkill_state"]["identities_alive"][
         report["descendant_identity"]
     ] is False
+    assert report["post_sigkill_state"]["reaped_identities"][
+        report["descendant_identity"]
+    ] >= 0
     assert report["descendant_alive_after_cleanup"] is False
     assert report["group_alive_after_cleanup"] is False
     assert report["process_closed"] is True
+    assert report["subreaper_restored"] is True
     assert all(report["closed_fds"].values())
 
 

@@ -135,10 +135,50 @@ test "$(sha256sum fl_v3/scripts/run_s07_b_postremediation_focused.sh | awk '{pri
 
 chmod -R a-w "${SNAPSHOT}"
 mkdir "${S07B_FOCUSED_OUTPUT_ROOT}"
-readonly JOB_TMP="${S07B_FOCUSED_OUTPUT_ROOT}/tmp"
 readonly TEST_ROOT="${S07B_FOCUSED_OUTPUT_ROOT}/tests"
 readonly WORK_CWD="${S07B_FOCUSED_OUTPUT_ROOT}/work"
-mkdir "${JOB_TMP}" "${TEST_ROOT}" "${WORK_CWD}"
+mkdir "${TEST_ROOT}" "${WORK_CWD}"
+[[ "${SLURM_JOB_ID:-}" =~ ^[0-9]+$ ]]
+[[ "${SHORT_EXECUTABLE}" =~ ^[0-9a-f]{12}$ ]]
+JOB_TMP_PREVIOUS_UMASK="$(umask)"
+readonly JOB_TMP_PREVIOUS_UMASK
+umask 077
+JOB_TMP="$(mktemp -d -p /tmp "flv3-s07b-${SLURM_JOB_ID}-${SHORT_EXECUTABLE}.XXXXXX")"
+umask "${JOB_TMP_PREVIOUS_UMASK}"
+readonly JOB_TMP
+JOB_TMP_IDENTITY="$(stat -c '%d:%i' "${JOB_TMP}")"
+readonly JOB_TMP_IDENTITY
+readonly JOB_TMP_PATTERN="^/tmp/flv3-s07b-${SLURM_JOB_ID}-${SHORT_EXECUTABLE}\\.[A-Za-z0-9]{6}$"
+cleanup_job_tmp() {
+  local status=$?
+  local cleanup_status=0
+  local current_identity=""
+  trap - EXIT
+  if [[ "${JOB_TMP}" =~ ${JOB_TMP_PATTERN} ]] &&
+    [ "$(dirname -- "${JOB_TMP}")" = "/tmp" ] &&
+    test -d "${JOB_TMP}" && test ! -L "${JOB_TMP}"; then
+    current_identity="$(stat -c '%d:%i' "${JOB_TMP}")" || cleanup_status=$?
+    if [ "${cleanup_status}" -eq 0 ] &&
+      [ "${current_identity}" = "${JOB_TMP_IDENTITY}" ]; then
+      rm -rf -- "${JOB_TMP}" || cleanup_status=$?
+    else
+      cleanup_status=1
+    fi
+  else
+    cleanup_status=1
+  fi
+  if [ "${status}" -eq 0 ] && [ "${cleanup_status}" -ne 0 ]; then
+    status="${cleanup_status}"
+  fi
+  exit "${status}"
+}
+trap cleanup_job_tmp EXIT
+test "${#JOB_TMP}" -le 48
+[[ "${JOB_TMP}" =~ ${JOB_TMP_PATTERN} ]]
+test "$(dirname -- "${JOB_TMP}")" = "/tmp"
+test -d "${JOB_TMP}"
+test ! -L "${JOB_TMP}"
+test "$(stat -c '%a' "${JOB_TMP}")" = "700"
 
 # shellcheck disable=SC1091
 source "${SNAPSHOT}/fl_v3/scripts/arrhenius_env.sh"
@@ -231,6 +271,8 @@ record = {
     "selected_pytest_entries": selections,
     "mini_dataroot": os.environ["S07B_FOCUSED_MINI_DATAROOT"],
     "output_root": os.environ["S07B_FOCUSED_OUTPUT_ROOT"],
+    "tmpdir": os.environ["TMPDIR"],
+    "tmpdir_bytes": len(os.fsencode(os.environ["TMPDIR"])),
     "slurm": {
         "job_id": os.environ.get("SLURM_JOB_ID", ""),
         "job_name": os.environ.get("SLURM_JOB_NAME", ""),

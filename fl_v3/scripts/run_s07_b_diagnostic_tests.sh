@@ -124,8 +124,9 @@ test "${SLURM_NTASKS:-1}" = "1"
 test "${SLURM_CPUS_PER_TASK:-8}" = "8"
 test "$(uname -m)" = "aarch64"
 
-readonly SNAPSHOT="${SNAPSHOT_BASE}/s07b_diagnostic_${EXPECTED_S07B_DIAGNOSTIC_SHA:0:12}"
-readonly EXPECTED_OUTPUT_ROOT="/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_diagnostic_${EXPECTED_S07B_DIAGNOSTIC_SHA:0:12}"
+readonly SHORT_EXECUTABLE="${EXPECTED_S07B_DIAGNOSTIC_SHA:0:12}"
+readonly SNAPSHOT="${SNAPSHOT_BASE}/s07b_diagnostic_${SHORT_EXECUTABLE}"
+readonly EXPECTED_OUTPUT_ROOT="/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_diagnostic_${SHORT_EXECUTABLE}"
 test "${S07B_DIAGNOSTIC_OUTPUT_ROOT}" = "${EXPECTED_OUTPUT_ROOT}"
 test ! -e "${S07B_DIAGNOSTIC_OUTPUT_ROOT}"
 test ! -e "${SNAPSHOT}"
@@ -153,10 +154,50 @@ test "$(sha256sum fl_v3/scripts/run_s07_b_runtime_tests.sh | awk '{print $1}')" 
 
 chmod -R a-w "${SNAPSHOT}"
 mkdir "${S07B_DIAGNOSTIC_OUTPUT_ROOT}"
-readonly JOB_TMP="${S07B_DIAGNOSTIC_OUTPUT_ROOT}/tmp"
 readonly ISOLATED_ROOT="${S07B_DIAGNOSTIC_OUTPUT_ROOT}/isolated"
 readonly COMBINED_ROOT="${S07B_DIAGNOSTIC_OUTPUT_ROOT}/combined"
-mkdir "${JOB_TMP}" "${ISOLATED_ROOT}" "${COMBINED_ROOT}"
+mkdir "${ISOLATED_ROOT}" "${COMBINED_ROOT}"
+[[ "${SLURM_JOB_ID:-}" =~ ^[0-9]+$ ]]
+[[ "${SHORT_EXECUTABLE}" =~ ^[0-9a-f]{12}$ ]]
+JOB_TMP_PREVIOUS_UMASK="$(umask)"
+readonly JOB_TMP_PREVIOUS_UMASK
+umask 077
+JOB_TMP="$(mktemp -d -p /tmp "flv3-s07b-${SLURM_JOB_ID}-${SHORT_EXECUTABLE}.XXXXXX")"
+umask "${JOB_TMP_PREVIOUS_UMASK}"
+readonly JOB_TMP
+JOB_TMP_IDENTITY="$(stat -c '%d:%i' "${JOB_TMP}")"
+readonly JOB_TMP_IDENTITY
+readonly JOB_TMP_PATTERN="^/tmp/flv3-s07b-${SLURM_JOB_ID}-${SHORT_EXECUTABLE}\\.[A-Za-z0-9]{6}$"
+cleanup_job_tmp() {
+  local status=$?
+  local cleanup_status=0
+  local current_identity=""
+  trap - EXIT
+  if [[ "${JOB_TMP}" =~ ${JOB_TMP_PATTERN} ]] &&
+    [ "$(dirname -- "${JOB_TMP}")" = "/tmp" ] &&
+    test -d "${JOB_TMP}" && test ! -L "${JOB_TMP}"; then
+    current_identity="$(stat -c '%d:%i' "${JOB_TMP}")" || cleanup_status=$?
+    if [ "${cleanup_status}" -eq 0 ] &&
+      [ "${current_identity}" = "${JOB_TMP_IDENTITY}" ]; then
+      rm -rf -- "${JOB_TMP}" || cleanup_status=$?
+    else
+      cleanup_status=1
+    fi
+  else
+    cleanup_status=1
+  fi
+  if [ "${status}" -eq 0 ] && [ "${cleanup_status}" -ne 0 ]; then
+    status="${cleanup_status}"
+  fi
+  exit "${status}"
+}
+trap cleanup_job_tmp EXIT
+test "${#JOB_TMP}" -le 48
+[[ "${JOB_TMP}" =~ ${JOB_TMP_PATTERN} ]]
+test "$(dirname -- "${JOB_TMP}")" = "/tmp"
+test -d "${JOB_TMP}"
+test ! -L "${JOB_TMP}"
+test "$(stat -c '%a' "${JOB_TMP}")" = "700"
 mkdir "${JOB_TMP}/isolated"
 test -d "${JOB_TMP}/isolated" -a -w "${JOB_TMP}/isolated"
 
@@ -224,6 +265,8 @@ record = {
     "diagnostic_launcher_sha256": os.environ["EXPECTED_S07B_DIAGNOSTIC_LAUNCHER_SHA256"],
     "runtime_source_sha256": os.environ["EXPECTED_S07B_DIAGNOSTIC_SOURCE_SHA256"],
     "runtime_source_list_sha256": os.environ["EXPECTED_S07B_DIAGNOSTIC_SOURCE_LIST_SHA256"],
+    "tmpdir": os.environ["TMPDIR"],
+    "tmpdir_bytes": len(os.fsencode(os.environ["TMPDIR"])),
     "parent_runtime_launcher_sha256": "1b1c45d33b113d0c7d649e51b2ddf98a2d7822eab38d708d4bb0e223b8c334c0",
     "parent_negative_evidence": {
         "job_id": "348557",

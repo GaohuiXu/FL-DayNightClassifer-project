@@ -4,6 +4,62 @@ set -euo pipefail
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "${REPO}"
 
+readonly -a S07_B_RUNTIME_LAUNCHERS=(
+  fl_v3/scripts/run_s07_b_runtime_tests.sh
+  fl_v3/scripts/run_s07_b_diagnostic_tests.sh
+  fl_v3/scripts/run_s07_b_dummy_attribution.sh
+  fl_v3/scripts/run_s07_b_postremediation_focused.sh
+  fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh
+)
+for launcher in "${S07_B_RUNTIME_LAUNCHERS[@]}"; do
+  bash -n "${launcher}"
+done
+
+python3 - "${S07_B_RUNTIME_LAUNCHERS[@]}" <<'PY'
+from pathlib import Path
+import sys
+
+required = (
+    '[[ "${SLURM_JOB_ID:-}" =~ ^[0-9]+$ ]]',
+    '[[ "${SHORT_EXECUTABLE}" =~ ^[0-9a-f]{12}$ ]]',
+    'JOB_TMP_PREVIOUS_UMASK="$(umask)"',
+    'readonly JOB_TMP_PREVIOUS_UMASK',
+    'mktemp -d -p /tmp "flv3-s07b-${SLURM_JOB_ID}-${SHORT_EXECUTABLE}.XXXXXX"',
+    'umask "${JOB_TMP_PREVIOUS_UMASK}"',
+    'readonly JOB_TMP_PATTERN="^/tmp/flv3-s07b-${SLURM_JOB_ID}-${SHORT_EXECUTABLE}\\\\.[A-Za-z0-9]{6}$"',
+    'JOB_TMP_IDENTITY="$(stat -c \'%d:%i\' "${JOB_TMP}")"',
+    'readonly JOB_TMP_IDENTITY',
+    'trap cleanup_job_tmp EXIT',
+    'test "${#JOB_TMP}" -le 48',
+    '[[ "${JOB_TMP}" =~ ${JOB_TMP_PATTERN} ]]',
+    'test "$(dirname -- "${JOB_TMP}")" = "/tmp"',
+    'test ! -L "${JOB_TMP}"',
+    'test "$(stat -c \'%a\' "${JOB_TMP}")" = "700"',
+    '[ "${current_identity}" = "${JOB_TMP_IDENTITY}" ]',
+    'rm -rf -- "${JOB_TMP}"',
+    'export TMPDIR="${JOB_TMP}"',
+    'export TMP="${JOB_TMP}"',
+    'export TEMP="${JOB_TMP}"',
+)
+for name in sys.argv[1:]:
+    text = Path(name).read_text(encoding="utf-8")
+    missing = [token for token in required if token not in text]
+    assert not missing, (name, missing)
+    identity = text.index("JOB_TMP_IDENTITY=")
+    trap = text.index("trap cleanup_job_tmp EXIT")
+    assertions = text.index('test "${#JOB_TMP}" -le 48')
+    activate = text.index("arrhenius_activate_env")
+    export = text.index('export TMPDIR="${JOB_TMP}"')
+    assert identity < trap < assertions, name
+    assert activate < export, name
+    assert '/outputs/' not in text[text.index('JOB_TMP="$(mktemp'):trap], name
+print(f"short TMPDIR contract: {len(sys.argv) - 1} launchers OK")
+PY
+
+if [ "${1:-}" = "--launcher-contract-only" ]; then
+  exit 0
+fi
+
 python3 -m py_compile \
   fl_v3/src/fl_v3/config/resolved.py \
   fl_v3/src/fl_v3/data/nuscenes/dataset.py \

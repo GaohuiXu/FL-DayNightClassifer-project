@@ -69,9 +69,10 @@ test "${SLURM_NTASKS:-1}" = "1"
 test "${SLURM_CPUS_PER_TASK:-4}" = "4"
 test "$(uname -m)" = "aarch64"
 
-readonly EXPECTED_OUTPUT_ROOT="/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_dummy_attr_${EXPECTED_S07B_ATTR_EXECUTABLE_SHA:0:12}"
-readonly PRE_SNAPSHOT="${SNAPSHOT_BASE}/s07b_dummy_attr_${EXPECTED_S07B_ATTR_EXECUTABLE_SHA:0:12}_pre"
-readonly CURRENT_SNAPSHOT="${SNAPSHOT_BASE}/s07b_dummy_attr_${EXPECTED_S07B_ATTR_EXECUTABLE_SHA:0:12}_current"
+readonly SHORT_EXECUTABLE="${EXPECTED_S07B_ATTR_EXECUTABLE_SHA:0:12}"
+readonly EXPECTED_OUTPUT_ROOT="/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_dummy_attr_${SHORT_EXECUTABLE}"
+readonly PRE_SNAPSHOT="${SNAPSHOT_BASE}/s07b_dummy_attr_${SHORT_EXECUTABLE}_pre"
+readonly CURRENT_SNAPSHOT="${SNAPSHOT_BASE}/s07b_dummy_attr_${SHORT_EXECUTABLE}_current"
 test "${S07B_ATTR_OUTPUT_ROOT}" = "${EXPECTED_OUTPUT_ROOT}"
 test ! -e "${S07B_ATTR_OUTPUT_ROOT}"
 test ! -e "${PRE_SNAPSHOT}"
@@ -84,6 +85,47 @@ mkdir "${PRE_SNAPSHOT}" "${CURRENT_SNAPSHOT}"
 git -C "${REPO}" archive "${PRE_SHA}" | tar -x -C "${PRE_SNAPSHOT}"
 git -C "${REPO}" archive "${CURRENT_SHA}" | tar -x -C "${CURRENT_SNAPSHOT}"
 mkdir "${S07B_ATTR_OUTPUT_ROOT}"
+[[ "${SLURM_JOB_ID:-}" =~ ^[0-9]+$ ]]
+[[ "${SHORT_EXECUTABLE}" =~ ^[0-9a-f]{12}$ ]]
+JOB_TMP_PREVIOUS_UMASK="$(umask)"
+readonly JOB_TMP_PREVIOUS_UMASK
+umask 077
+JOB_TMP="$(mktemp -d -p /tmp "flv3-s07b-${SLURM_JOB_ID}-${SHORT_EXECUTABLE}.XXXXXX")"
+umask "${JOB_TMP_PREVIOUS_UMASK}"
+readonly JOB_TMP
+JOB_TMP_IDENTITY="$(stat -c '%d:%i' "${JOB_TMP}")"
+readonly JOB_TMP_IDENTITY
+readonly JOB_TMP_PATTERN="^/tmp/flv3-s07b-${SLURM_JOB_ID}-${SHORT_EXECUTABLE}\\.[A-Za-z0-9]{6}$"
+cleanup_job_tmp() {
+  local status=$?
+  local cleanup_status=0
+  local current_identity=""
+  trap - EXIT
+  if [[ "${JOB_TMP}" =~ ${JOB_TMP_PATTERN} ]] &&
+    [ "$(dirname -- "${JOB_TMP}")" = "/tmp" ] &&
+    test -d "${JOB_TMP}" && test ! -L "${JOB_TMP}"; then
+    current_identity="$(stat -c '%d:%i' "${JOB_TMP}")" || cleanup_status=$?
+    if [ "${cleanup_status}" -eq 0 ] &&
+      [ "${current_identity}" = "${JOB_TMP_IDENTITY}" ]; then
+      rm -rf -- "${JOB_TMP}" || cleanup_status=$?
+    else
+      cleanup_status=1
+    fi
+  else
+    cleanup_status=1
+  fi
+  if [ "${status}" -eq 0 ] && [ "${cleanup_status}" -ne 0 ]; then
+    status="${cleanup_status}"
+  fi
+  exit "${status}"
+}
+trap cleanup_job_tmp EXIT
+test "${#JOB_TMP}" -le 48
+[[ "${JOB_TMP}" =~ ${JOB_TMP_PATTERN} ]]
+test "$(dirname -- "${JOB_TMP}")" = "/tmp"
+test -d "${JOB_TMP}"
+test ! -L "${JOB_TMP}"
+test "$(stat -c '%a' "${JOB_TMP}")" = "700"
 
 verify_snapshot() {
   local label="$1"
@@ -134,6 +176,9 @@ export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 export WORLD_SIZE=1
+export TMPDIR="${JOB_TMP}"
+export TMP="${JOB_TMP}"
+export TEMP="${JOB_TMP}"
 unset NUSCENES_DATAROOT ARRHENIUS_NUSCENES_DATAROOT NUSCENES_DATA_DIR
 unset NUSCENES_ZIP_MANIFEST ARRHENIUS_NUSCENES_ZIP_MANIFEST
 
@@ -183,6 +228,8 @@ record = {
     "python_implementation": platform.python_implementation(),
     "python_version": platform.python_version(),
     "dependencies": versions,
+    "tmpdir": os.environ["TMPDIR"],
+    "tmpdir_bytes": len(os.fsencode(os.environ["TMPDIR"])),
     "slurm": {
         key: os.environ.get(key)
         for key in (
