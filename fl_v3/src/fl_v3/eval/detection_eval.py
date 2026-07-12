@@ -185,8 +185,10 @@ def build_results_dict(
     mode = str(rc.get("model-mode", "fusion"))
     submission: Dict[str, object] = {"meta": submission_meta(mode), "results": results}
     identity_keys = (
-        "resolved-config-sha256", "checkpoint-sha256", "nuscenes-cache-logical-sha256",
-        "nuscenes-cache-pickle-sha256", "nuscenes-cache-sidecar-sha256",
+        "resolved-config-sha256", "checkpoint-sha256",
+        "nuscenes-train-cache-logical-sha256", "nuscenes-train-cache-pickle-sha256",
+        "nuscenes-train-cache-sidecar-sha256", "nuscenes-val-cache-logical-sha256",
+        "nuscenes-val-cache-pickle-sha256", "nuscenes-val-cache-sidecar-sha256",
         "nuscenes-zip-manifest-logical-sha256", "nuscenes-zip-manifest-file-sha256",
     )
     if any(k in rc for k in identity_keys):

@@ -26,9 +26,13 @@ def valid_config(tmp_path=None):
                      "max_epochs": 3, "num_workers": 0, "ema_decay": 0.9},
         "data": {"dataroot": root, "version": "v1.0-mini", "train_split": "mini_train",
                  "val_split": "mini_val", "n_sweeps": 10,
-                 "cache": {"format": "t1.v2", "path": root + "/cache.pkl",
-                           "sidecar_path": root + "/cache.pkl.meta.json",
-                           "logical_sha256": H, "pickle_sha256": H, "sidecar_sha256": H},
+                 "caches": {
+                     "train": {"format": "t1.v2", "path": root + "/train.pkl",
+                               "sidecar_path": root + "/train.meta.json",
+                               "logical_sha256": H, "pickle_sha256": H, "sidecar_sha256": H},
+                     "val": {"format": "t1.v2", "path": root + "/val.pkl",
+                             "sidecar_path": root + "/val.meta.json",
+                             "logical_sha256": H, "pickle_sha256": H, "sidecar_sha256": H}},
                  "zip_manifest": {"path": root + "/manifest.sqlite",
                                   "logical_sha256": H, "file_sha256": H}},
         "dependencies": {"torch": "2.11.0+cu128", "spconv": None,
@@ -43,14 +47,16 @@ def test_config_hash_is_order_stable_and_roundtrips(tmp_path):
     a, b = resolve_config(raw), resolve_config(reverse)
     assert a.sha256 == b.sha256
     assert a.as_dict() == b.as_dict()
+    assert a.data_identities["train_cache_format"] == "t1.v2"
+    assert a.data_identities["val_cache_format"] == "t1.v2"
     assert a.to_run_config()["resolved-config-sha256"] == a.sha256
 
 
 @pytest.mark.parametrize("mutation", [
     lambda c: c.update(extra=1),
     lambda c: c["model"].update(mode="camera"),
-    lambda c: c["data"]["cache"].update(format="t1.v1"),
-    lambda c: c["data"]["cache"].pop("logical_sha256"),
+    lambda c: c["data"]["caches"]["train"].update(format="t1.v1"),
+    lambda c: c["data"]["caches"]["train"].pop("logical_sha256"),
     lambda c: c["training"].update(effective_global_batch=3),
 ])
 def test_config_rejects_unknown_alias_legacy_missing_and_batch_drift(tmp_path, mutation):
@@ -74,16 +80,21 @@ def test_lidar_pins_exact_spconv(tmp_path):
 def test_physical_identities_reject_drift(tmp_path):
     raw = valid_config(tmp_path)
     payloads = {
-        tmp_path / "cache.pkl": b"pickle",
-        tmp_path / "cache.pkl.meta.json": b"sidecar",
+        tmp_path / "train.pkl": b"train-pickle",
+        tmp_path / "train.meta.json": b"train-sidecar",
+        tmp_path / "val.pkl": b"val-pickle",
+        tmp_path / "val.meta.json": b"val-sidecar",
         tmp_path / "manifest.sqlite": b"manifest",
     }
     for path, payload in payloads.items():
         path.write_bytes(payload)
-    raw["data"]["cache"]["pickle_sha256"] = hashlib.sha256(b"pickle").hexdigest()
-    raw["data"]["cache"]["sidecar_sha256"] = hashlib.sha256(b"sidecar").hexdigest()
+    for role in ("train", "val"):
+        raw["data"]["caches"][role]["pickle_sha256"] = hashlib.sha256(
+            payloads[tmp_path / f"{role}.pkl"]).hexdigest()
+        raw["data"]["caches"][role]["sidecar_sha256"] = hashlib.sha256(
+            payloads[tmp_path / f"{role}.meta.json"]).hexdigest()
     raw["data"]["zip_manifest"]["file_sha256"] = hashlib.sha256(b"manifest").hexdigest()
     cfg = resolve_config(raw); verify_physical_data_identities(cfg)
-    (tmp_path / "cache.pkl").write_bytes(b"drift")
+    (tmp_path / "train.pkl").write_bytes(b"drift")
     with pytest.raises(ConfigError, match="identity drift"):
         verify_physical_data_identities(cfg)

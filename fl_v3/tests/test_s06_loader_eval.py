@@ -79,8 +79,10 @@ def test_submission_metadata_records_actual_mode():
 
 def test_submission_binds_config_checkpoint_and_data_identities():
     keys = ("resolved-config-sha256", "checkpoint-sha256",
-            "nuscenes-cache-logical-sha256", "nuscenes-cache-pickle-sha256",
-            "nuscenes-cache-sidecar-sha256", "nuscenes-zip-manifest-logical-sha256",
+            "nuscenes-train-cache-logical-sha256", "nuscenes-train-cache-pickle-sha256",
+            "nuscenes-train-cache-sidecar-sha256", "nuscenes-val-cache-logical-sha256",
+            "nuscenes-val-cache-pickle-sha256", "nuscenes-val-cache-sidecar-sha256",
+            "nuscenes-zip-manifest-logical-sha256",
             "nuscenes-zip-manifest-file-sha256")
     cfg = {"model-mode": "camera_only", **{k: "a" * 64 for k in keys}}
     submission = build_results_dict([], [], ["tok"], run_config=cfg)

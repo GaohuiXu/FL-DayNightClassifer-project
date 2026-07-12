@@ -580,31 +580,38 @@ class NuScenesDetectionTask(Task):
         # the pickle once. (Memory-only; the result is read-only and identical across calls.)
         production = bool(run_config.get("s06-production-runtime", False))
         if production:
-            required = ("det-lidar-sweeps", "nuscenes-cache-logical-sha256",
-                        "nuscenes-cache-path", "nuscenes-cache-sidecar-path",
-                        "nuscenes-cache-pickle-sha256", "nuscenes-cache-sidecar-sha256",
+            required = ("det-lidar-sweeps", "nuscenes-cache-identities",
                         "nuscenes-zip-manifest", "nuscenes-zip-manifest-logical-sha256",
                         "nuscenes-zip-manifest-file-sha256")
             missing = [k for k in required if not run_config.get(k)]
             if missing:
                 raise ValueError(f"S06 production cache/manifest identity fields missing: {missing}")
         n_sweeps = int(run_config["det-lidar-sweeps"]) if production else None
-        expected_hash = run_config.get("nuscenes-cache-logical-sha256") if production else None
-        ck = (cache_dir, version, split, n_sweeps, expected_hash)
+        cache_identity = None
+        if production:
+            if split == str(run_config["nuscenes-train-split"]):
+                cache_identity = run_config["nuscenes-cache-identities"]["train"]
+            elif split == str(run_config["nuscenes-val-split"]):
+                cache_identity = run_config["nuscenes-cache-identities"]["val"]
+            else:
+                raise ValueError(f"split {split!r} is not the resolved train or val split")
+        expected_hash = cache_identity["logical_sha256"] if cache_identity else None
+        ck = (cache_dir, version, split, n_sweeps, expected_hash,
+              run_config.get("resolved-config-sha256") if production else None)
         cached = self._info_cache.get(ck)
         if cached is not None:
             return cached
         try:
             if production:
                 actual_pickle, actual_sidecar = IC.cache_paths(cache_dir, version, split, n_sweeps)
-                declared = (os.path.abspath(str(run_config["nuscenes-cache-path"])),
-                            os.path.abspath(str(run_config["nuscenes-cache-sidecar-path"])))
+                declared = (os.path.abspath(str(cache_identity["path"])),
+                            os.path.abspath(str(cache_identity["sidecar_path"])))
                 actual = (os.path.abspath(actual_pickle), os.path.abspath(actual_sidecar))
                 if actual != declared:
                     raise ValueError(f"canonical/physical cache path drift: declared={declared}, actual={actual}")
                 checks = (
-                    (actual_pickle, run_config["nuscenes-cache-pickle-sha256"], "cache pickle"),
-                    (actual_sidecar, run_config["nuscenes-cache-sidecar-sha256"], "cache sidecar"),
+                    (actual_pickle, cache_identity["pickle_sha256"], "cache pickle"),
+                    (actual_sidecar, cache_identity["sidecar_sha256"], "cache sidecar"),
                     (run_config["nuscenes-zip-manifest"],
                      run_config["nuscenes-zip-manifest-file-sha256"], "ZIP manifest"),
                 )

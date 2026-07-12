@@ -38,8 +38,9 @@ _TRAIN = frozenset({
     "effective_global_batch", "seed", "max_epochs", "num_workers", "ema_decay",
 })
 _DATA = frozenset({
-    "dataroot", "version", "train_split", "val_split", "n_sweeps", "cache", "zip_manifest",
+    "dataroot", "version", "train_split", "val_split", "n_sweeps", "caches", "zip_manifest",
 })
+_CACHES = frozenset({"train", "val"})
 _CACHE = frozenset({
     "format", "path", "sidecar_path", "logical_sha256", "pickle_sha256", "sidecar_sha256",
 })
@@ -133,15 +134,18 @@ class ResolvedConfig:
     @property
     def data_identities(self) -> dict[str, Any]:
         d = self.data["data"]
-        return {
+        out = {
             "n_sweeps": d["n_sweeps"],
-            "cache_format": d["cache"]["format"],
-            "cache_logical_sha256": d["cache"]["logical_sha256"],
-            "cache_pickle_sha256": d["cache"]["pickle_sha256"],
-            "cache_sidecar_sha256": d["cache"]["sidecar_sha256"],
             "zip_manifest_logical_sha256": d["zip_manifest"]["logical_sha256"],
             "zip_manifest_file_sha256": d["zip_manifest"]["file_sha256"],
         }
+        for role in ("train", "val"):
+            cache = d["caches"][role]
+            out[f"{role}_cache_format"] = cache["format"]
+            out[f"{role}_cache_logical_sha256"] = cache["logical_sha256"]
+            out[f"{role}_cache_pickle_sha256"] = cache["pickle_sha256"]
+            out[f"{role}_cache_sidecar_sha256"] = cache["sidecar_sha256"]
+        return out
 
     def as_dict(self) -> dict[str, Any]:
         return json.loads(self.canonical_bytes.decode("utf-8"))
@@ -149,7 +153,7 @@ class ResolvedConfig:
     def to_run_config(self) -> dict[str, Any]:
         """Bridge to current task interfaces; S07-B owns final module enum wiring."""
         d, m, t, o = self.data["data"], self.data["model"], self.data["training"], self.data["optimizer"]
-        return {
+        out = {
             "s06-production-runtime": True,
             "resolved-config-sha256": self.sha256,
             "model-mode": m["mode"],
@@ -173,17 +177,19 @@ class ResolvedConfig:
             "nuscenes-version": d["version"],
             "nuscenes-train-split": d["train_split"],
             "nuscenes-val-split": d["val_split"],
-            "nuscenes-cache-dir": str(Path(d["cache"]["path"]).parent),
-            "nuscenes-cache-path": d["cache"]["path"],
-            "nuscenes-cache-sidecar-path": d["cache"]["sidecar_path"],
+            "nuscenes-cache-dir": str(Path(d["caches"]["train"]["path"]).parent),
+            "nuscenes-cache-identities": json.loads(canonical_json(d["caches"]).decode("utf-8")),
             "det-lidar-sweeps": d["n_sweeps"],
-            "nuscenes-cache-logical-sha256": d["cache"]["logical_sha256"],
-            "nuscenes-cache-pickle-sha256": d["cache"]["pickle_sha256"],
-            "nuscenes-cache-sidecar-sha256": d["cache"]["sidecar_sha256"],
             "nuscenes-zip-manifest": d["zip_manifest"]["path"],
             "nuscenes-zip-manifest-logical-sha256": d["zip_manifest"]["logical_sha256"],
             "nuscenes-zip-manifest-file-sha256": d["zip_manifest"]["file_sha256"],
         }
+        for role in ("train", "val"):
+            cache = d["caches"][role]
+            out[f"nuscenes-{role}-cache-logical-sha256"] = cache["logical_sha256"]
+            out[f"nuscenes-{role}-cache-pickle-sha256"] = cache["pickle_sha256"]
+            out[f"nuscenes-{role}-cache-sidecar-sha256"] = cache["sidecar_sha256"]
+        return out
 
 
 def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
@@ -234,13 +240,20 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
     for key in ("dataroot", "version", "train_split", "val_split"):
         _path(data[key], f"data.{key}")
     _integer(data["n_sweeps"], "data.n_sweeps")
-    cache = _mapping(data["cache"], "data.cache"); _keys(cache, _CACHE, "data.cache")
-    if cache["format"] != "t1.v2":
-        raise ConfigError("data.cache.format must be exactly 't1.v2'; t1.v1 is forbidden")
-    _path(cache["path"], "data.cache.path")
-    _path(cache["sidecar_path"], "data.cache.sidecar_path")
-    for key in ("logical_sha256", "pickle_sha256", "sidecar_sha256"):
-        _sha(cache[key], f"data.cache.{key}")
+    caches = _mapping(data["caches"], "data.caches"); _keys(caches, _CACHES, "data.caches")
+    cache_parents = set()
+    for role in ("train", "val"):
+        cache = _mapping(caches[role], f"data.caches.{role}")
+        _keys(cache, _CACHE, f"data.caches.{role}")
+        if cache["format"] != "t1.v2":
+            raise ConfigError(f"data.caches.{role}.format must be exactly 't1.v2'; t1.v1 is forbidden")
+        _path(cache["path"], f"data.caches.{role}.path")
+        _path(cache["sidecar_path"], f"data.caches.{role}.sidecar_path")
+        cache_parents.add(str(Path(cache["path"]).parent))
+        for key in ("logical_sha256", "pickle_sha256", "sidecar_sha256"):
+            _sha(cache[key], f"data.caches.{role}.{key}")
+    if len(cache_parents) != 1:
+        raise ConfigError("train/val caches must share one explicit cache directory")
     manifest = _mapping(data["zip_manifest"], "data.zip_manifest")
     _keys(manifest, _MANIFEST, "data.zip_manifest")
     _path(manifest["path"], "data.zip_manifest.path")
@@ -282,11 +295,12 @@ def load_resolved_config(path: str | Path) -> ResolvedConfig:
 def verify_physical_data_identities(config: ResolvedConfig) -> None:
     """Hash the exact cache pickle/sidecar/manifest files before construction."""
     data = config.data["data"]
-    checks = (
-        (data["cache"]["path"], data["cache"]["pickle_sha256"], "cache pickle"),
-        (data["cache"]["sidecar_path"], data["cache"]["sidecar_sha256"], "cache sidecar"),
-        (data["zip_manifest"]["path"], data["zip_manifest"]["file_sha256"], "ZIP manifest"),
-    )
+    checks = []
+    for role in ("train", "val"):
+        cache = data["caches"][role]
+        checks.extend(((cache["path"], cache["pickle_sha256"], f"{role} cache pickle"),
+                       (cache["sidecar_path"], cache["sidecar_sha256"], f"{role} cache sidecar")))
+    checks.append((data["zip_manifest"]["path"], data["zip_manifest"]["file_sha256"], "ZIP manifest"))
     for path, expected, label in checks:
         digest = hashlib.sha256()
         try:
