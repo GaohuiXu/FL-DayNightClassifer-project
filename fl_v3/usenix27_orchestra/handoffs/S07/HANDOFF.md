@@ -593,7 +593,9 @@ paths, then committed as provenance import
   dataset; the S06 synthetic raw-I/O fail seam was removed only after the real
   mode-aware implementation existed.
 - `test_nuscenes_zip_dataset.py` adds hostile missing-disabled-payload directory
-  and ZIP cases at sweep depths 1/10 with read-counter and metadata assertions.
+  and ZIP cases at depth 10 for camera-only/LiDAR-only. This original statement is
+  intentionally narrowed by the remediation matrix below; the pre-review suite did
+  not cover depth 1, fusion, or the full backend/mode cross-product.
 
 ### `e6ec980463b1e0aa1743df1aaedb78557ea3c65e` — reviewed detector stack
 
@@ -678,11 +680,11 @@ or model construction. File-byte SHA-256 values are:
 
 | Candidate | File SHA-256 |
 |---|---|
-| C-STR8 `s07_b_c_str8.json` | `e818ee30bb8d105303284088423b66f19bb1d4db5ee738fccaac38b82439078a` |
-| L-P020 `s07_b_l_p020.json` | `6e71e1367b89f19fa927a39859a3e1d9087753f4b05d11ff3abfae9f13907598` |
-| L-S075 `s07_b_l_s075.json` | `061541ecc3f0c5630e987f60d3d3c8b0225536ebad2e7ab887e8450206376f3a` |
-| F-U `s07_b_f_u.json` | `665de74ff5f725e484b4f196480d0381b4e0283fdd0689793e1a5c6a16a9bb13` |
-| F-CBGS `s07_b_f_cbgs.json` | `8b3762bbf0aca525d18c5002f6f722dac7e28ea78231b9e3fec86bf794706398` |
+| C-STR8 `s07_b_c_str8.json` | `d2eaa46c800ebea5927359398acd88b38d90219c2f1f3841a4b1897ed05f8cc6` |
+| L-P020 `s07_b_l_p020.json` | `625242234a03314010860e6026b0fbb88b774a9aeec12c7f7fe870203da07421` |
+| L-S075 `s07_b_l_s075.json` | `1658cd5ec0e9c1b8945646d2e23a8db4419d16c2f644ca5a99b94c3477dcce1d` |
+| F-U `s07_b_f_u.json` | `df7f36fe28e0d0c6c8275b293318cf7fae2e3c71fe3c60b7a7b81c26af69fa2e` |
+| F-CBGS `s07_b_f_cbgs.json` | `bd8c57e84b34f835f3eaafe71f259a0c4131748bb27a62edf83bcd7f44bb54f0` |
 
 The explicit blocker to a real resolved candidate is unchanged: full trainval
 `t1.v2` train/val cache artifacts and their logical/pickle/sidecar identities are
@@ -779,3 +781,125 @@ attack/defense, generalization, scientific or publication evidence.
 Next action is S00 completeness audit followed by an independent S07-B-R from the
 exact returned worker SHA. The reviewer must inspect actual diffs/topology and may
 not substitute this worker self-assessment for a verdict.
+
+---
+
+## S07-B-R scoped remediation after `bcffdece`
+
+Independent S07-B-R reviewed delivery
+`df13025bc6582b9b436d1df065de75c03e92782d` and returned
+`CHANGES-REQUESTED` in review commit
+`bcffdece226e73207509ca86540443e7640fb6c5`. The implementation/test remediation
+commit is `edc12d87b4e00e11cfdac52a7bbaab02d600bcae`. This section supersedes only
+claims explicitly corrected below; the original topology, imported review bytes,
+negative results, and NOT-RUN boundaries remain unchanged.
+
+### Finding-to-remediation map
+
+1. **P1 strict official-evaluation caller — remediated in owned scope.**
+   `centralized_train.py` now re-loads the exact completed checkpoint through
+   `load_checkpoint()` before evaluation, requires a hash-bound `raw`/`ema`
+   checkpoint policy, constructs the complete resolved validation token set, calls
+   `decode_eval_set` exactly once, rejects missing/duplicate tokens and decoded
+   counts above the official 500-box cap, and then calls the official
+   `DetectionEval.evaluate()` seam through `run_detection_eval`. The submission
+   binds the physical checkpoint SHA-256, resolved config, train/val cache,
+   manifest, actual model mode, checkpoint policy, and canonical runtime-dependency
+   manifest identity. `evaluation.timing` is carried by `to_run_config()` and is
+   therefore part of the canonical config hash; it controls only timing collection.
+   Caller-level hostiles cover single traversal, token completeness, duplicate
+   tokens, cap rejection, exact load invocation and provenance injection. No metric
+   or model execution was performed.
+
+2. **P1 six-task caller inventory — owned callers remediated; out-of-scope callers
+   remain an explicit integration blocker.** The strict caller and owned
+   `training/tasks.py`/`detection_eval.py` paths consume the six-task decode without
+   a legacy `max_objects` override. A repository inventory still finds the following
+   reachable, unowned paths and they were not edited:
+
+   - `fl_v3/src/fl_v3/attacks/fusion_ablation.py`: passes `max_objects` to the
+     six-task decoder and reads legacy top-level head fields;
+   - `fl_v3/scripts/arrhenius_mini_matrix.py`: calls dict `.get()`/`.items()` on the
+     six-task list;
+   - `fl_v3/scripts/t4_readiness_eval.py` and
+     `fl_v3/scripts/t5_attack_eval.py`: load complete S06 checkpoints as bare model
+     state and T5 also reaches `fusion_ablation.py`;
+   - `fl_v3/scripts/_t4_fd_diagnose.py`,
+     `fl_v3/scripts/t3_trainval_reeval_fullval.py`,
+     `fl_v3/scripts/p3_crt_probe.py`, and
+     `fl_v3/scripts/p3_grad_conflict.py`: historical direct-checkpoint consumers
+     requiring a separate live/dead and checkpoint-contract audit.
+
+   **Exact ownership-expansion proposal:** authorize a follow-up commit over the
+   four primary paths `fusion_ablation.py`, `arrhenius_mini_matrix.py`,
+   `t4_readiness_eval.py`, and `t5_attack_eval.py`, plus focused
+   `test_s07_b_*.py`, to remove `max_objects`, consume `task_outputs`, use the S06
+   raw/EMA checkpoint loader, and add real six-task mini-telemetry/T5-condition
+   tests. Separately authorize inventory-only inspection followed by either explicit
+   fail-closed retirement or migration of the four historical diagnostic/P3 paths.
+   Until that expansion and independent review, T4/T5/mini-matrix readiness remains
+   **NOT ESTABLISHED**; no comment or handoff wording declares those callers dead.
+
+3. **P1 executable dependency identity — remediated structurally, actual GH200
+   identity NOT RUN.** `s06.v1` now requires Torch executable-build SHA-256 and
+   exact source Git SHA in addition to the version. Runtime identity binds
+   `torch.version.git_version`, CUDA/build config, and a per-file executable
+   artifact manifest. Torch/spconv/cumm manifests include stable sorted Python,
+   native and generated executable suffixes (`.py`, `.so`, `.pyd`, `.dll`,
+   `.dylib`, `.cubin`, `.fatbin`, `.ptx`), exclude interpreter bytecode/cache and
+   unrelated data, and record every path/size/SHA-256 plus actually loaded module
+   origins. spconv/cumm explicitly import their production submodules, require
+   pre/post-import file-set/hash equality, preserve exact clean source identity,
+   and fail if loaded Python/native code is outside attested roots. A real temporary
+   distribution fixture proves file mutation changes the digest and an injected
+   outside-root native origin fails closed; the older fully mocked comparison test
+   is retained only as schema-drift coverage. Candidate templates contain explicit
+   invalid Torch/build/policy sentinels pending an approved GH200 attestation.
+
+4. **P2 PID fallback — remediated.** Registered after-fork and PID-change fallback
+   now share `_reset_after_process_change`, which forgets inherited SQLite/native
+   descriptors without invoking inherited SQLite state and resets locks, archive
+   names, location cache, aggregate counters and modality counters. A raw
+   `os.fork()` hostile bypasses the multiprocessing hook and asserts child-local
+   zero counters/cache while parent counters remain unchanged.
+
+5. **P2 disabled-modality augmentation — fail closed before iteration.** Dataset
+   construction rejects camera-only plus LiDAR GT-paste, camera-only plus the
+   LiDAR-scene BEV augmentation, and LiDAR-only plus nonzero image flip. Fusion and
+   LiDAR-only scene/GT-paste combinations retain their existing compatible
+   semantics. Hostile tests construct no sample before rejection. `augment.py` and
+   `gt_paste.py` were not edited.
+
+6. **P3 coverage/wording — corrected.** New
+   `test_s07_b_data_lifecycle.py` explicitly enumerates
+   `depth={1,10} × backend={directory,ZIP} × mode={camera_only,lidar_only,fusion}`
+   and checks enabled/disabled payload presence and exact camera/LiDAR counters.
+   The raw-fork lifecycle and construction-failure hostiles are separate, explicit
+   cases. Existing S01 depth-10 fork/spawn worker tests remain historical evidence;
+   no claim is made that every new cross-product case has been executed under every
+   worker start method.
+
+### Remediation checks and immutable negative boundary
+
+Actually run locally after the implementation commit, with no Torch import, data,
+model, CUDA or pytest execution:
+
+- `git diff --check`: PASS for remediation-authored changes;
+- `python3 -m py_compile`: PASS for all changed Python source and tests;
+- `bash -n fl_v3/scripts/run_s07_b_static_checks.sh`: PASS;
+- `python3 -m json.tool` on all five candidate templates: PASS;
+- `run_s07_b_static_checks.sh`: PASS (compile, JSON, fail-closed template loading,
+  candidate hashes only).
+
+Explicitly **NOT RUN**: pytest; actual raw fork test; directory/ZIP/depth/mode test
+matrix; Torch/spconv/cumm import or native/build identity on GH200; checkpoint
+load/model construction; official devkit round trip; any Slurm/GPU/model/data
+execution; full cache; 100/1000-step; profiling/metrics/DDP; rerun or scientific
+cell. No `RUN_REQUEST.md` was created or changed, and no compute, merge to
+`v3-ad-perception`, push or upload occurred.
+
+The remediation is ready for S00 completeness review and a fresh independent
+S07-B re-review. It is not a worker PASS. In particular, the ownership-expansion
+caller block and actual GH200/runtime gate remain open; production/full-data,
+metric, model-quality, fusion, FL, attack/defense and publication interpretations
+remain forbidden.
