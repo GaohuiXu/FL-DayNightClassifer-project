@@ -2428,6 +2428,14 @@ Exact committed-tree checks were: six shell `bash -n` checks PASS;
 `short TMPDIR contract: 5 launchers OK`; changed-test source compile PASS;
 all 19 embedded Python heredocs compile PASS; `shellcheck -S error` PASS; and
 `git diff --check` PASS. No project import, pytest, multiprocessing,
-Torch/CUDA/data/model or Slurm evidence exists for O-079. The code is durable;
-this lifecycle update remains a documentation diff pending delivery and new
-independent review. Current compute remains `NOT_APPROVED_DO_NOT_SUBMIT`.
+Torch/CUDA/data/model or Slurm evidence exists for O-079. The code is durable,
+and its already-submitted durable delivery is exact
+`e3122dbccdd252a6d89f1a4fe339b9043fe19884`, whose sole parent is code
+`56c74de5bdf5463fdd6ab1a623ab0f92a35871ae` and whose only changed paths are
+this `HANDOFF.md`, `RUN_REQUEST.md`, and `RESULTS.md`. Independent R14
+review `9645148d3441a66a373091766c0186ea10243336` is review-only and not
+merged; it accepts O-079 code at code-level/static-authored scope and requests
+only this delivery-state correction. Corrected multiprocessing/GH200 runtime
+remains unverified, and fresh independent acceptance is required before S00
+may freeze any new exact runtime request. Current compute remains
+`NOT_APPROVED_DO_NOT_SUBMIT`.

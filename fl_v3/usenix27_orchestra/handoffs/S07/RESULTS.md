@@ -719,5 +719,12 @@ heredocs compile PASS; `shellcheck -S error` PASS; and `git diff --check` PASS.
 They are not pytest, multiprocessing, Torch/CUDA/data/model, Slurm, production,
 or scientific evidence. Job 352105's exact negative artifacts/hashes above are
 unchanged and must not be reclassified. O-079 code is durable, while this
-lifecycle update still requires delivery and new independent review; compute
+exact lifecycle delivery is also already submitted and durable at
+`e3122dbccdd252a6d89f1a4fe339b9043fe19884`, sole parent
+`56c74de5bdf5463fdd6ab1a623ab0f92a35871ae`, with only `HANDOFF.md`,
+`RUN_REQUEST.md`, and this `RESULTS.md` changed. Review-only, unmerged R14
+`9645148d3441a66a373091766c0186ea10243336` accepts O-079 code at
+code-level/static-authored scope and requests only the delivery-state
+correction. Corrected runtime remains unverified; fresh independent acceptance
+and a separately frozen exact runtime request are still required. Compute
 remains `NOT_APPROVED_DO_NOT_SUBMIT`.

@@ -1349,6 +1349,12 @@ The static checker locks these exact test/trap/status/observability predicates.
 Six shell syntax checks, the five-launcher contract, changed-test source
 compile, all 19 embedded Python heredocs, `shellcheck -S error`, and
 `git diff --check` passed on the exact committed tree. This section freezes no
-runtime command and grants no submission. A documentation delivery, new
-independent review, and exact request are required before any runtime action.
+runtime command and grants no submission. The already-submitted durable
+delivery is exact `e3122dbccdd252a6d89f1a4fe339b9043fe19884`, sole parent
+`56c74de5bdf5463fdd6ab1a623ab0f92a35871ae`, and changes only
+`HANDOFF.md`, this `RUN_REQUEST.md`, and `RESULTS.md`. R14 review
+`9645148d3441a66a373091766c0186ea10243336` is review-only/not merged and
+accepts the O-079 code only at static-authored scope while requesting this
+delivery-state correction. Fresh independent acceptance and a separately
+frozen exact request are required before any runtime action.
 **Current compute status remains `NOT_APPROVED_DO_NOT_SUBMIT`; do not submit.**
