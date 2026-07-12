@@ -4,14 +4,18 @@ Builds the dense target on the **head grid** via the single :mod:`bev_grid` conv
 then a Gaussian-penalty focal loss on the heatmap and an L1 on the regression channels at
 the matched GT-center cells.
 
-## The corrected ``gaussian_radius`` (NOT the CenterNet ``/2`` bug)
+## Official CenterPoint / MIT BEVFusion ``gaussian_radius`` semantics
 
-The radius of the target Gaussian solves three IOU-overlap quadratics; each root is
-``(b + sqrt(b² − 4·a·c)) / (2·a)`` with ``a1=1, a2=4, a3=4·min_overlap`` (``min_overlap
-=0.1``). The **historical CenterNet bug divides by a constant ``2`` instead of ``2·a``**
-for the ``a2``/``a3`` cases — which *halves* the radius, shrinks every target Gaussian, and
-**stalls the overfit** (the SPEC failure mode). We use the corrected ``/(2·a)`` form and
-``radius = max(0, int(min(r1, r2, r3)))``.
+The target exactly follows the published upstream implementations, including their
+constant ``/2`` denominator for all three candidate roots (not an alternative geometric
+``/(2*a)`` derivation). The nuScenes configuration pins ``min_overlap=0.1`` and
+``min_radius=2``; conversion is ``max(min_radius, int(min(r1, r2, r3)))``. The Gaussian
+patch likewise follows upstream NumPy-float64 generation, float32 conversion, clipping,
+and maximum overlay.
+
+This changes target tensors relative to every old fl_v3 checkpoint trained with the mixed
+denominator implementation. Those checkpoints are incompatible with the new targets and
+must be retrained; this is not a resume-compatible loss change.
 
 Target rendering is **RNG-free + atomic-free**: a precomputed 2-D Gaussian patch written
 with ``torch.maximum`` overlay (overlapping objects take the max, never a summed scatter)
@@ -25,6 +29,7 @@ import math
 from functools import lru_cache
 from typing import Dict, List
 
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -32,42 +37,44 @@ from fl_v3.models.fusion.bev_grid import BEVConfig
 
 # CenterPoint code weights (velocity down-weighted): reg(2) z(1) dim(3) rot(2) vel(2)
 DEFAULT_CODE_WEIGHTS = (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2)
+OFFICIAL_GAUSSIAN_OVERLAP = 0.1
+OFFICIAL_MIN_RADIUS = 2
 
 
-def gaussian_radius(det_size, min_overlap: float = 0.1) -> float:
-    """Corrected 3-case Gaussian radius (denominators ``2·a``; NOT the ``/2`` bug)."""
+def gaussian_radius(det_size, min_overlap: float = OFFICIAL_GAUSSIAN_OVERLAP) -> float:
+    """Official CenterPoint/BEVFusion three-case radius (constant ``/2`` roots)."""
     height, width = float(det_size[0]), float(det_size[1])
 
     a1 = 1.0
     b1 = height + width
     c1 = width * height * (1.0 - min_overlap) / (1.0 + min_overlap)
-    sq1 = math.sqrt(max(b1 * b1 - 4.0 * a1 * c1, 0.0))
-    r1 = (b1 + sq1) / (2.0 * a1)
+    sq1 = math.sqrt(b1 * b1 - 4.0 * a1 * c1)
+    r1 = (b1 + sq1) / 2.0
 
     a2 = 4.0
     b2 = 2.0 * (height + width)
     c2 = (1.0 - min_overlap) * width * height
-    sq2 = math.sqrt(max(b2 * b2 - 4.0 * a2 * c2, 0.0))
-    r2 = (b2 + sq2) / (2.0 * a2)
+    sq2 = math.sqrt(b2 * b2 - 4.0 * a2 * c2)
+    r2 = (b2 + sq2) / 2.0
 
     a3 = 4.0 * min_overlap
     b3 = -2.0 * min_overlap * (height + width)
     c3 = (min_overlap - 1.0) * width * height
-    sq3 = math.sqrt(max(b3 * b3 - 4.0 * a3 * c3, 0.0))
-    r3 = (b3 + sq3) / (2.0 * a3)
+    sq3 = math.sqrt(b3 * b3 - 4.0 * a3 * c3)
+    r3 = (b3 + sq3) / 2.0
 
     return min(r1, r2, r3)
 
 
-def gaussian_2d(radius: int, sigma_scale: float = 6.0) -> torch.Tensor:
-    """``(2r+1, 2r+1)`` Gaussian patch, peak 1 at center (the umich/CenterNet patch)."""
+def gaussian_2d(radius: int) -> torch.Tensor:
+    """Official ``(2r+1)²`` NumPy-generated patch converted to float32."""
     diameter = 2 * radius + 1
-    sigma = diameter / sigma_scale
-    ax = torch.arange(-radius, radius + 1, dtype=torch.float32)
-    yy, xx = torch.meshgrid(ax, ax, indexing="ij")
-    g = torch.exp(-(xx * xx + yy * yy) / (2.0 * sigma * sigma))
-    g[g < torch.finfo(g.dtype).eps * g.max()] = 0.0
-    return g
+    sigma = diameter / 6.0
+    center = (diameter - 1.0) / 2.0
+    yy, xx = np.ogrid[-center : center + 1, -center : center + 1]
+    gaussian = np.exp(-(xx * xx + yy * yy) / (2.0 * sigma * sigma))
+    gaussian[gaussian < np.finfo(gaussian.dtype).eps * gaussian.max()] = 0.0
+    return torch.from_numpy(gaussian).to(torch.float32)
 
 
 @lru_cache(maxsize=128)
@@ -112,7 +119,7 @@ class CenterPointLoss(nn.Module):
         reg_weight: float = 0.25,
         focal_alpha: float = 2.0,
         focal_gamma: float = 4.0,
-        min_radius: int = 2,
+        min_radius: int = OFFICIAL_MIN_RADIUS,
         code_weights=DEFAULT_CODE_WEIGHTS,
         class_weights=None,
         reg_class_weights=None,
@@ -124,6 +131,7 @@ class CenterPointLoss(nn.Module):
         self.alpha = float(focal_alpha)
         self.gamma = float(focal_gamma)
         self.min_radius = int(min_radius)
+        self.gaussian_overlap = OFFICIAL_GAUSSIAN_OVERLAP
         self.register_buffer("code_weights", torch.tensor(code_weights, dtype=torch.float32), persistent=False)
         # MCR P1: optional per-class heatmap weight (rebalance the rare/stuck classes — trailer/construction
         # the convergence teardown flagged). Normalized to mean 1 so the overall heatmap-vs-reg scale is
@@ -239,7 +247,15 @@ class CenterPointLoss(nn.Module):
         icells = torch.stack([coli, rowi, labels_k, bidx_k], dim=1).cpu().tolist()         # [G,4] int
         for k in range(len(icells)):
             col_k, row_k, cls_k, b_k = icells[k]
-            radius = max(self.min_radius, int(gaussian_radius((fcells[k][0], fcells[k][1]))))
+            radius = max(
+                self.min_radius,
+                int(
+                    gaussian_radius(
+                        (fcells[k][0], fcells[k][1]),
+                        min_overlap=self.gaussian_overlap,
+                    )
+                ),
+            )
             draw_gaussian(heatmap[b_k, cls_k], col_k, row_k, radius)
 
         return heatmap, bidx_t, cells_t, reg_target, labels_k
