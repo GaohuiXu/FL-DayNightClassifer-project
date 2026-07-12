@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Iterator
+from typing import Any
 
 import torch
 from torch.utils.data import Sampler
@@ -10,20 +10,51 @@ from torch.utils.data import Sampler
 
 @dataclass
 class TrainingState:
-    """Only successful optimizer updates advance update/exposure counters."""
+    """Cumulative fixed-window accounting; every evaluated sample reconciles."""
 
     epoch: int = 0
     optimizer_step: int = 0
     exposure_samples: int = 0
+    attempted_microbatches: int = 0
+    attempted_samples: int = 0
+    loss_evaluated_samples: int = 0
+    attempted_windows: int = 0
+    successful_windows: int = 0
+    invalid_windows: int = 0
+    invalid_samples: int = 0
     accumulation_phase: int = 0
     pending_samples: int = 0
     nonfinite_windows: int = 0
     overflow_windows: int = 0
-    discarded_partial_windows: int = 0
+    discarded_windows: int = 0
+    discarded_samples: int = 0
+
+    def validate(self, *, checkpoint_boundary: bool) -> None:
+        for name in self.__dataclass_fields__:
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise RuntimeError(f"training state {name} must be a non-negative integer")
+        if checkpoint_boundary and (self.accumulation_phase or self.pending_samples):
+            raise RuntimeError("checkpoint contains an unsupported pending-gradient phase")
+        if self.loss_evaluated_samples != self.attempted_samples:
+            raise RuntimeError("training state loss/attempted sample accounting mismatch")
+        if self.attempted_samples != (
+            self.exposure_samples + self.invalid_samples + self.discarded_samples
+        ):
+            raise RuntimeError("training state attempted sample accounting mismatch")
+        if self.attempted_windows != (
+            self.successful_windows + self.invalid_windows + self.discarded_windows
+        ):
+            raise RuntimeError("training state attempted window accounting mismatch")
+        if self.optimizer_step != self.successful_windows:
+            raise RuntimeError("training state optimizer/successful-window accounting mismatch")
+        if self.invalid_windows != self.nonfinite_windows + self.overflow_windows:
+            raise RuntimeError("training state invalid-window cause accounting mismatch")
+        if (self.discarded_windows == 0) != (self.discarded_samples == 0):
+            raise RuntimeError("training state discarded window/sample accounting mismatch")
 
     def checkpoint_dict(self) -> dict[str, int]:
-        if self.accumulation_phase != 0 or self.pending_samples != 0:
-            raise RuntimeError("checkpoint requires an optimizer-update boundary (no pending gradients)")
+        self.validate(checkpoint_boundary=True)
         return asdict(self)
 
     @classmethod
@@ -34,9 +65,10 @@ class TrainingState:
                 f"training state fields mismatch: missing={sorted(expected-set(raw))}, "
                 f"unknown={sorted(set(raw)-expected)}"
             )
-        state = cls(**{k: int(v) for k, v in raw.items()})
-        if state.accumulation_phase or state.pending_samples:
-            raise RuntimeError("checkpoint contains an unsupported pending-gradient phase")
+        if any(isinstance(v, bool) or not isinstance(v, int) for v in raw.values()):
+            raise RuntimeError("training state values must be integers")
+        state = cls(**raw)
+        state.validate(checkpoint_boundary=True)
         return state
 
 
@@ -53,12 +85,12 @@ class PersistentEpochIterator:
             )
         self.loader_identity = id(loader)
 
-    def batches(self, epoch: int) -> Iterator[Any]:
+    def batches(self, epoch: int) -> Any:
         if id(self.loader) != self.loader_identity:
             raise RuntimeError("persistent loader identity drift")
         if self.sampler is not None and hasattr(self.sampler, "set_epoch"):
             self.sampler.set_epoch(int(epoch))
-        return iter(self.loader)
+        return self.loader
 
 
 class EpochPermutationSampler(Sampler[int]):

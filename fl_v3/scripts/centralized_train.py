@@ -106,7 +106,7 @@ def main() -> None:
             raise RuntimeError(f"--resume requested but checkpoint is missing: {checkpoint}")
         state, _ = load_checkpoint(
             str(checkpoint), model=model, optimizer=optimizer, scheduler=scheduler,
-            grad_scaler=scaler, ema=ema, config=config, map_location=device,
+            grad_scaler=scaler, ema=ema, config=config, map_location="cpu",
         )
     elif checkpoint.exists():
         raise RuntimeError(f"output checkpoint already exists; use --resume or a new output: {checkpoint}")
@@ -122,6 +122,9 @@ def main() -> None:
                 grad_scaler=scaler, accumulation_steps=int(train_spec["accumulation_steps"]),
                 runtime_state=state, max_optimizer_steps=max_updates,
                 model_mode=config.model_mode, exposure_multiplier=actual_world,
+                expected_global_microbatch_samples=(
+                    int(train_spec["micro_batch_size"]) * actual_world
+                ),
             )
         else:
             with mode_context:
@@ -131,6 +134,9 @@ def main() -> None:
                     grad_scaler=scaler, accumulation_steps=int(train_spec["accumulation_steps"]),
                     runtime_state=state, max_optimizer_steps=max_updates,
                     model_mode=config.model_mode, exposure_multiplier=actual_world,
+                    expected_global_microbatch_samples=(
+                        int(train_spec["micro_batch_size"]) * actual_world
+                    ),
                 )
         state.epoch += 1
         save_checkpoint(
