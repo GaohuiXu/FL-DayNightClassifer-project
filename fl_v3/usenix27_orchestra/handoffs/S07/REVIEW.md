@@ -2851,3 +2851,150 @@ join，再从exact new SHA独立复审；之后才可讨论任何新的bounded r
 `8469eb4944f164f5bd2fa1aa833ea4df0acf04b3`.**
 
 本 verdict 不授权任何 runtime proposal、compute、merge、push、upload 或科学解释。
+
+---
+
+# S07-B-R12 独立复审 — O-069 synchronous-result / leader-dead identity remediation
+
+## Findings（按严重性排序）
+
+### 无 P0/P1/P2/P3 finding
+
+本轮没有根据 HANDOFF 总结直接给 PASS，而是逐行核对 exact candidate
+`c53117a889987c3070b60817e52bdb4aac4c9098` 的 Pipe 方向、每种 mode 的
+send/recv/join 顺序、leader-dead 与 live-leader 控制流、Linux procfs identity、
+TERM/KILL deadlines、endpoint/sentinel ownership 和 exception preservation。未确认新的
+correctness、liveness、identity、cleanup、evidence-reachability 或权限 finding；R11 的
+两项 P2 与一项 P3 均在当前候选的静态/authored 范围内关闭。
+
+1. **Queue backpressure P2 — CLOSED STATICALLY/AUTHORED，未执行 runtime。**
+   child-produced `Queue`、feeder、`join_thread()` 和 private queue endpoints 已完全移除。
+   冻结 CPython 3.11 POSIX `Pipe(False)` 的第一端只读、第二端只写；candidate 正确赋予
+   parent `result_receiver` 与 child `result_sender`
+   (`fl_v3/tests/test_nuscenes_zip_dataset.py:780-799`)。ACK 后 parent 严格执行
+   `poll → recv complete frame → join producer` (`:835-862`)。normal/error/hang/
+   leader-exit 各只有一条同步 result frame；raw descendant 关闭继承的 result/control
+   connection，不依赖 EOF 区分消息。forced-error 同步发送 2 MiB padding，test 要求完整
+   length/content、primary traceback、cleanup notes、exact worker identities 和无 live child
+   (`:630-652,1173-1207`)。旧 producer-join/feeder-backpressure 等待环不存在。
+
+2. **leader-dead remaining-group P2 — CLOSED STATICALLY/AUTHORED，未执行 runtime。**
+   resistant path 在 `fork()` 前安装 `SIG_IGN`，child 从创建时即继承，parent branch随后
+   恢复原 disposition (`:483-512`)。helper 发送 `(pid,starttime,pgid,sid)` 后关闭
+   endpoints，以 `os._exit(0)` 退出且不 `waitpid` descendant (`:547-571`)。parent 先完整
+   recv，再 join/probe/reap direct helper，证明 helper exact identity gone、group 与 exact
+   descendant仍 live且SID/PGID均为 armed group (`:858-885`)。finally 将 direct-child reap
+   与 group wait 分离：TERM 后 bounded join，再独立 poll group+all exact identities；仅在
+   TERM deadline 后仍存在目标才 KILL，KILL 后再 bounded poll五秒，最后才关闭 Process
+   (`:924-1007`)。leader-dead hostile要求TERM不足、KILL后group/descendant original
+   instance均gone；existing live-leader hostile继续要求TERM后helper exact identity live、
+   KILL后gone (`:1209-1291`)。
+
+3. **bare PID / PID reuse P3 — CLOSED FOR ORIGINAL INSTANCES。**
+   `/proc/<pid>/stat` parser 使用最后一个 `)` 结束可能含空格/括号的 `comm`；其后
+   `remaining[0]` 是field 3，因此field 22 `starttime` 位于index 19 (`:423-454`)。
+   hostile含嵌套括号并得到exact field-22值 (`:1246-1253`)。helper在ready/ACK前、
+   DataLoader workers在live/shutdown前、raw descendant在record前捕获 `(pid,starttime)`；
+   final audit和deadline poll均比较exact tuple。ESRCH或同PID不同starttime都表示original
+   instance gone；同starttime zombie则保守地保持alive直到被reap，不会false PASS。
+
+4. **FD、exception 与 retained gates — CLOSED STATICALLY/AUTHORED。**
+   parent在`Process.start()`后立即关闭child-control/result-sender copies；raw descendant
+   与helper各自关闭继承/拥有的connection (`:475-501,653-655,805-809`)。parent finally
+   关闭control/result receiver，仅在child不alive后`Process.close()`，并检查四个Pipe FD
+   与Process sentinel均EBADF (`:1069-1094`)；未发现方向反转、double-close或cleanup
+   masking。parent cleanup errors仍作为notes附到primary；child traceback/notes/worker
+   identities完整进入forced-error report。ready/ACK full-validation-before-arm、pre-ACK
+   no-fork、parent PID/SID/PGID不变、normal fork/spawn两完整persistent epochs、reopen/
+   read/archive assertions与explicit worker shutdown均保留。
+
+## Review identity、prefix、topology 与 ownership
+
+- Session：`S07-B-R12`；`APPROVED_COMPUTE: none`。
+- Remediation base：`8469eb4944f164f5bd2fa1aa833ea4df0acf04b3`。
+- Candidate：`c53117a889987c3070b60817e52bdb4aac4c9098`。
+- Test commit：`2497ac11e807e5b223bfa0eaa2537fcbde1aec88`，parent exact为base，
+  只改`fl_v3/tests/test_nuscenes_zip_dataset.py`。
+- Handoff-only commit：`c53117a...`，parent exact为test commit。
+- Startup/import HEAD：`8e294576d624abc2c0681c44657e000ccbf62f3f`，branch
+  `codex/s07-b-r12-integrated-cl-stack-review`，startup clean。
+- 权威 canonical：`4026fe4dfe0bb93f59852f4b7d604ce6e2f7aef9`（O-070）。
+
+Candidate之后到startup的四个commit仅修改`S07/REVIEW.md`；candidate是startup ancestor，
+其余tree一致。追加R12前exact R11 prefix为Git blob
+`4e0226718109e193bb09993db085422106b1dccc`、size `191368`、SHA-256
+`cc8922192125b054280e5b11760f801997adbb201ea2f7bd6e2564b55e0c1104`；本段只追加在
+这些bytes末尾。
+
+`8469eb4..c53117a`精确两路径：test为`419/106`、blob
+`f8d4f0ee7a9ca834cbf1105562cf0c8fccb5ec38`、SHA-256
+`07c4c2159efbdf4fb18a95960d4ff7d8d17ac823c88f14d9184eb1cc041e3f09`；HANDOFF只追加
+O-069 record，SHA-256
+`59c2e190e3ceaefff927a371d170c62ffb7ed8c1c7d8e2715475792ae8bdb741`。
+`git diff --check`无warning。Forbidden blobs在base/candidate相同：
+`training/loop.py=881c070b...`、`training/tasks.py=86ab9d05...`、
+`dataset.py=afd2707d...`、`RUN_REQUEST.md=efa5ce78...`、
+`RESULTS.md=b3b80625...`、runtime launcher=`1e182ebc...`。
+
+## Gate matrix
+
+| R11/O-069 requirement | R12 verdict |
+|---|---|
+| one-way result Pipe direction/ownership | **CLOSED STATICALLY** |
+| complete 2 MiB result recv before join | **CLOSED STATICALLY/AUTHORED** |
+| all authored modes无send block/错序/EOF依赖 | **CLOSED STATICALLY** |
+| real leader-dead SIGTERM-resistant orphan | **CLOSED STATICALLY/AUTHORED** |
+| TERM insufficient，KILL+deadline gone | **CLOSED STATICALLY/AUTHORED** |
+| existing live-leader forced-hang | **RETAINED** |
+| final-`)` field22 parser与PID reuse | **CLOSED STATICALLY/AUTHORED** |
+| zombie/orphan semantics | **CONSERVATIVE / ACCEPTABLE** |
+| direct reap与group/identity deadlines分离 | **CLOSED STATICALLY** |
+| Pipe/control/Process/sentinel closure | **CLOSED STATICALLY/AUTHORED** |
+| primary traceback/notes/worker identities | **CLOSED STATICALLY/AUTHORED** |
+| ready/ACK、pre-ACK、normal two epochs | **RETAINED** |
+| exact two paths/forbidden evidence | **PASS** |
+
+## Checks actually run 与 explicit NOT RUN
+
+实际只执行Git/hash/text/static/artifact读取：startup/ancestry/review-only topology、prefix
+blob/size/hash、AGENTS/env/三份canonical/O-070、完整S07 HANDOFF/REVIEW、actual diff、
+冻结CPython 3.11 multiprocessing source、candidate blobs/hashes、forbidden blobs和
+`git diff --check`；逐行trace上述transport/process/group/identity/FD/exception路径。
+
+为定位stdlib source，曾执行一次`python3 -c 'import sysconfig; ...'`；它只导入宿主
+Python 3.9 stdlib `sysconfig`，没有导入project、Torch、NumPy或数据/模型代码。冻结
+Arrhenius CPython 3.11 source随后均直接按文件读取。此命令不是candidate runtime evidence，
+也不应被误报为完全零import。
+
+明确 **NOT RUN / NO IMPLIED PASS**：pytest、pycompile、AST/source-text execution、project/
+package import、Torch/NumPy/CUDA/spconv/cumm、data/cache/model/checkpoint、任何worker/fork/
+spawn runtime、Slurm/srun/GPU、full `t1.v2`、100/1000 steps、profile、mAP/NDS、DDP、
+matrix、seed/rerun、FL/attack/defense/scientific cell。未merge到`v3-ad-perception`、push、
+upload或publication。
+
+## Residual risk、interpretation 与 final verdict
+
+全部新hostile仍只是authored/static evidence。leader-dead test绑定Linux `/proc`、`fork`、
+`setsid`、`killpg`及外部init/subreaper在五秒内回收被KILL的orphan zombie；raw-fork
+descendant可能继承冻结CPython spawn内部sentinel writer，使timeout join保守等到deadline，
+随后由`is_alive()`/`waitpid` probe回收leader，但当前bounded路径不会因此死锁或误判。
+DataLoader worker发现和`_shutdown_workers`仍绑定当前PyTorch private lifecycle。numeric PGID
+在liveness probe与signal间理论上仍有极窄reuse TOCTOU；当前leader-dead/live-leader/
+pre-ACK authored paths在实际signal时至少有一个verified original identity存活，所以本轮
+未确认误杀，但不能外推为任意Linux/PID压力下的形式化无误杀证明。
+
+允许解释：R11的Queue backpressure、leader-dead remaining-group与bare-PID findings已在
+candidate静态/authored层关闭；ready/ACK、live-leader、forced-error、normal two epochs和
+exact ownership未回归。S07-B重新达到**code-level/static-review PASS**，S00可决定是否
+准备一个新的、独立、immutable、bounded runtime proposal。
+
+禁止解释：没有runtime proposal获批/执行，没有pytest/integrated GH200、production、
+full-cache/full-trainval、checkpoint、performance或scientific PASS；不得声称100/1000、
+mAP/NDS、fusion gain、FL、attack/defense、generalization或publication evidence。本verdict
+不授权compute、merge、push、upload或publication。
+
+**PASS at code-level/static-review scope for S07-B candidate
+`c53117a889987c3070b60817e52bdb4aac4c9098`.**
+
+该PASS只关闭exact O-069/R11 test-harness findings并保留上述Linux/CPython/runtime residual；
+它不是post-O-059 integrated runtime PASS，也不自动允许任何后续job。
