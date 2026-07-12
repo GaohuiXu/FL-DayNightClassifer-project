@@ -802,11 +802,11 @@ invoked. Preparation authorizes no compute, retry, merge, push or upload.
 
 ---
 
-## F. S07-B two-snapshot dummy checksum attribution — EXECUTED ONCE / JOB 349653 ACTIVE / APPROVAL CONSUMED
+## F. S07-B two-snapshot dummy checksum attribution — EXECUTED ONCE / ATTRIBUTION PASS / APPROVAL CONSUMED
 
 ### Approval state and exact purpose
 
-- **Status:** `EXECUTED_ONCE_JOB_349653_ACTIVE_APPROVAL_CONSUMED_NO_RETRY`.
+- **Status:** `EXECUTED_ONCE_JOB_349653_COMPLETED_ATTRIBUTION_PASS_APPROVAL_CONSUMED_NO_RETRY`.
 - Canonical O-060 is
   `34ee1f9672df5c907881b5c6335b6be6e204c156`. It authorizes preparation only;
   it did not authorize `sbatch`, `srun`, a retry, or any other compute.
@@ -825,8 +825,13 @@ invoked. Preparation authorizes no compute, retry, merge, push or upload.
   Section F command was submitted once as Slurm Job `349653` at
   `2026-07-12T14:23:08+02:00`, started at `2026-07-12T14:23:09+02:00`, and is
   active on node `n530`. This single submission consumed O-061 immediately.
-  Terminal scheduler state and runtime artifacts have not yet been read or
-  interpreted in this record. No retry, requeue, replacement, alternate
+- Canonical O-063 at exact Orchestra commit
+  `fe22ecca9bfc455c5d63ea3c9c2f4f00907a7609` records the terminal audit: Job
+  `349653` completed `0:0` in `00:01:26` on `n530`; all four subprocesses exited
+  zero with exact checksum
+  `4fa46307bab67f2a836102b23b1ad2abc331702e83d16c65e11a09330c3d9edb`;
+  classification is `stable_equal_current`; and all 25 manifest checksums
+  verified. O-061 remains consumed. No retry, requeue, replacement, alternate
   invocation, automatic resubmission or follow-on is authorized.
 - This is a bounded engineering attribution of the dummy-regression checksum,
   not a retry of Jobs 348557/348818 and not a scientific matrix. It compares

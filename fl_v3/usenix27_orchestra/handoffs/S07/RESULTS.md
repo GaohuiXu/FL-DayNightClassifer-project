@@ -358,3 +358,121 @@ Forbidden: calling this suite PASS; treating 90 launcher-noise errors as product
 failures; claiming the four output-path errors or hang root cause are remediated;
 production/full-data/scientific readiness, metrics, training, FL, attack/defense
 or publication claims. This result grants no remediation or compute authority.
+
+---
+
+## Job 349653 — two-snapshot dummy attribution PASS
+
+### Immutable request and scheduler record
+
+- Canonical terminal decision: O-063 at exact Orchestra commit
+  `fe22ecca9bfc455c5d63ea3c9c2f4f00907a7609`.
+- Exact detached executable `L`:
+  `a9d657aebfb0f64d271fa74e312d6054eca57e1d`.
+- Launcher Git blob/SHA-256:
+  `295610fd422f3b371b8fd85e54785919903dc332` /
+  `bbc1293a42034540327402a5df6c1f172b76afacca7906b4f0b71f5290b5968a`.
+- Pre-S06/current snapshots:
+  `968d81583c87ba76b7dbbb722760f8eb8eb6cd39` /
+  `c69befe5e8dd6397059c4d3fe1cbf906a9646836`.
+- Pre source list/state SHA-256:
+  `0ec5e43e98ee6b98c949d6c3187c4484fb47842443fd3ffe54fcb61e4d777ae0` /
+  `dc2144cc522d20035eeff81269e45973312c10f908ddc6808bc3c2611b38c93d`.
+- Current source list/state SHA-256:
+  `104a647441ce712e83c20d32372944e48777913cf746ae19ee124894ca927e41` /
+  `0f2995fca7d323421e46326493b2f9cc5d0032ca3d794d422779fc10c626ee32`.
+- Job/name/node: `349653` / `flv3_s07b_dummy_attr` / `n530` (`aarch64`).
+- Submit/start: `2026-07-12T14:23:08+02:00` /
+  `2026-07-12T14:23:09+02:00`.
+- Scheduler state/exit/elapsed: `COMPLETED` / `0:0` / `00:01:26`.
+- Allocation: one node/task/GH200, four CPUs, 32 GiB, ten-minute limit;
+  batch `MaxRSS=540M`, `TotalCPU=00:14.815`.
+- O-061 authorized and was consumed by this single attempt. No retry, requeue,
+  replacement, alternate invocation, automatic resubmission or follow-on is
+  authorized.
+
+### Exact runtime and attribution result
+
+The execution identity records host `n530`, Linux aarch64, CPython `3.11.15`,
+NumPy `1.26.4`, SciPy `1.13.1`, Torch `2.11.0+cu128`, torchvision
+`0.26.0+cu128`, spconv `2.3.8`, cumm `0.7.13`, nuscenes-devkit `1.1.11`,
+pyquaternion `0.9.9`, and Pillow `12.2.0`. The exact interpreter is
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/envs/pt311-cu128-spconv/bin/python`.
+
+All four independent subprocesses exited zero:
+
+| Snapshot | Repetition | Checksum |
+|---|---:|---|
+| pre-S06 `968d815...` | 1 | `4fa46307bab67f2a836102b23b1ad2abc331702e83d16c65e11a09330c3d9edb` |
+| pre-S06 `968d815...` | 2 | `4fa46307bab67f2a836102b23b1ad2abc331702e83d16c65e11a09330c3d9edb` |
+| current `c69befe...` | 1 | `4fa46307bab67f2a836102b23b1ad2abc331702e83d16c65e11a09330c3d9edb` |
+| current `c69befe...` | 2 | `4fa46307bab67f2a836102b23b1ad2abc331702e83d16c65e11a09330c3d9edb` |
+
+The authoritative summary has `diagnostic_complete=true`, classification
+`stable_equal_current`, and `automatic_code_or_golden_change_authorized=false`.
+Thus the S06/current changes did not introduce the Job 348818 checksum drift in
+this frozen runtime: the pre-S06 snapshot produces the same value. Historical
+`d2d819fee9a54fc302a9d6c9d0ac4e4d875629a0a16e75f2328f28b7f63cd7cc`
+is retained as old-environment evidence, not an Arrhenius-portable checksum.
+
+### Raw artifact paths and SHA-256
+
+Output root:
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_dummy_attr_a9d657aebfb0`.
+
+| Relative artifact | SHA-256 |
+|---|---|
+| `attempts.tsv` | `dfa41729753866671852071bddfc7539c44408b294c16058aeeb846fd3b15467` |
+| `attribution_summary.json` | `806afbfd41eabad3d2181c7c829a74f4ded34cef91636b5bdb7018b5fbbc36fc` |
+| `current_source_files.txt` | `104a647441ce712e83c20d32372944e48777913cf746ae19ee124894ca927e41` |
+| `current_source_identity.txt` | `8d8a802f8fa76e7970649104167fa30afb3071f25d598741fcf1e6c166fa7b57` |
+| `current_source_sha256s.txt` | `0f2995fca7d323421e46326493b2f9cc5d0032ca3d794d422779fc10c626ee32` |
+| `execution_identity.json` | `b66bbc7400aa1acdfbaf059caea44faf3ac7bfb165b3172898a8e4d84462e9e9` |
+| `pre_source_files.txt` | `0ec5e43e98ee6b98c949d6c3187c4484fb47842443fd3ffe54fcb61e4d777ae0` |
+| `pre_source_identity.txt` | `a2cd149b5478b12f00b58ba603413878e83108dbc36992e9da20bdbdba4cacc0` |
+| `pre_source_sha256s.txt` | `dc2144cc522d20035eeff81269e45973312c10f908ddc6808bc3c2611b38c93d` |
+| `runs/current_1/exit.txt` | `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa` |
+| `runs/current_1/result.json` | `12441e87915f64ca6c278c4b7d1cc65394b3b3037c79d01e07a54e930ba62c50` |
+| `runs/current_1/stderr.log` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `runs/current_1/stdout.log` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `runs/current_2/exit.txt` | `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa` |
+| `runs/current_2/result.json` | `418178d21e4251f1dd9cfef6559a7a5b31c2c78d05d4c60bf3da34d3c39ccfd4` |
+| `runs/current_2/stderr.log` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `runs/current_2/stdout.log` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `runs/pre_1/exit.txt` | `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa` |
+| `runs/pre_1/result.json` | `2762770819182a81d4fba235a67610fed02b9ff817265196f14c2ff4accdeea6` |
+| `runs/pre_1/stderr.log` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `runs/pre_1/stdout.log` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `runs/pre_2/exit.txt` | `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa` |
+| `runs/pre_2/result.json` | `11acaa2023f6d67f116c6b19e02727b19e4a706ad806b6ee8ede53a80905ef62` |
+| `runs/pre_2/stderr.log` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `runs/pre_2/stdout.log` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+
+The manifest itself is
+`sha256sums.txt` =
+`0c74aae4067bab74619269c16b38c8724ce38d56018d6dea035066e78528341c`.
+All 25 entries passed in-job `sha256sum -c` and were independently read back.
+
+Scheduler logs:
+
+| Log | SHA-256 |
+|---|---|
+| `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07b_dummy_attr_349653.out` | `48f6a06c4ca6c84cd6c0d31ae5b4369c6b6f63e37dfaba1827e662e0ad3268fb` |
+| `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07b_dummy_attr_349653.err` | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+### Interpretation boundary and required follow-up
+
+Allowed: on the exact frozen Arrhenius identity, both pre-S06 and current source
+snapshots repeat stably at `4fa46307...`; the current drift from historical
+`d2d819...` is therefore not attributable to S06/current source changes.
+
+Forbidden: claiming a universal cross-platform checksum; silently replacing or
+deleting the historical value; changing `training/loop.py`; calling the prior
+integrated suite PASS; production/full-cache/trainval readiness; throughput or
+memory performance; mAP/NDS, model quality, fusion gain, FL, attack/defense,
+generalization, matrix/seed or publication evidence.
+
+O-063 authorizes only a runtime-aware test contract plus this evidence update.
+That test change still requires independent review and focused execution before
+it can contribute to S07-B runtime readiness. Job 349653 grants no retry, merge,
+push, upload or additional compute authority.
