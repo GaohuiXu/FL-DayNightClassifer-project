@@ -335,7 +335,10 @@ launcher `146f55797ec8191083f8347bcecae858785e3c64c08fc798079fa1ac53edde2d`
 and request SHA-256
 `9479538201ec398b1617847c5265d0dbeae8ec0db084fc6b867a435ffb5020a9`.
 Its `s06_runtime_remediation2_c330c72f4060` roots are confirmed absent. Status is
-`PENDING_S00_EXACT_APPROVAL_DO_NOT_SUBMIT`; no remediation-2 job exists.
+`APPROVED_BY_S00_ONE_SUBMISSION_PENDING`; no remediation-2 job exists yet. S00
+approved exactly one submission bound to request delivery `cae0ff59...` and the
+full tuple above. Retry/requeue/resubmit, a second job, reviewer and tuple mutation
+remain forbidden.
 
 ## Gate status
 

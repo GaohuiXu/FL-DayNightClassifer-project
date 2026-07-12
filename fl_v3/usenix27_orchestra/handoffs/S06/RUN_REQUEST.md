@@ -2,10 +2,20 @@
 
 ## Approval state and immutable negative history
 
-- `APPROVAL_STATUS: PENDING_S00_EXACT_APPROVAL_DO_NOT_SUBMIT`.
-- No remediation-2 `sbatch`/`srun` has been invoked. S06 will not self-submit.
-- S00 must audit and explicitly approve this entirely new immutable tuple before
-  any execution. Any change invalidates approval.
+- `APPROVAL_STATUS: APPROVED_BY_S00_ONE_SUBMISSION_PENDING`.
+- S00 exact-compute approval was received on 2026-07-12 for pre-approval request
+  delivery `cae0ff59ce3e215ba950be6a76167d2dd716c940` and request SHA-256
+  `9479538201ec398b1617847c5265d0dbeae8ec0db084fc6b867a435ffb5020a9`.
+- Approval binds executable `c330c72f4060348768c63fb1b7855ca56baffb95`,
+  tree `7ce589685d15fb42c057154c3329679ada934f4b`, base diff
+  `6f196001c8144806ff5b71c52b87154bdd7ecbe704b21bce2f1e770df3c09963`,
+  25-file source aggregate
+  `bc19c139f773592dc085b47b3b83b1721f3c5ca0abeeeb1c6485e9e2d8f533dc`
+  and launcher
+  `146f55797ec8191083f8347bcecae858785e3c64c08fc798079fa1ac53edde2d`.
+- Exactly one submission of the command below is approved. Retry, requeue,
+  resubmit, a second job or any tuple change is forbidden.
+- No remediation-2 `sbatch`/`srun` has yet been invoked.
 - Remediation-1 executable `6696984a6ebd4ec398d9fbfa172fb118e84e7af8`,
   delivery `5bbb12cd452fcf805e3687f5a7aa00d952393526`, request snapshot
   `e42fd06051fc8fa7ce1531fb8151d150c2395d2ea89aaf7a6249257f2aeddf08`
