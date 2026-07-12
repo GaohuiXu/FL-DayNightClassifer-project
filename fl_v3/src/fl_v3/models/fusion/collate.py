@@ -1,15 +1,15 @@
 """Detection collate (fl_v3 T2) — RNG-free batching of the T1 canonical schema.
 
 Stacks the fixed-shape per-camera tensors ``[B,6,…]`` and the per-keyframe ``[B,4,4]``
-calibration; **concatenates the LiDAR points with a leading batch-index column** →
-``lidar_points`` ``[TotalP, 6]`` = ``(batch_idx, x, y, z, intensity, ring)`` (the format
-:class:`PointPillarsEncoder` consumes); keeps the **ragged per-box GT as per-sample
-lists** (boxes/labels/velocity/names/…). Purely deterministic — no RNG, no sort that
-could reorder, preserves the dataset's sample order.
+calibration; when LiDAR is enabled, **concatenates points with a leading batch-index
+column**. Single-sweep rows are ``(batch_idx,x,y,z,intensity,ring)`` and multi-sweep
+rows append ``dt``. Camera-only batches contain no LiDAR payload and LiDAR-only
+batches contain no image payload. Ragged per-box GT remains in per-sample lists.
+The operation is RNG-free and preserves dataset order.
 
 > **Declared contract (T2↔T3):** LiDAR points are the **batch-index-column** form, NOT a
-> list of ``[P_i,5]``. Column 0 is the 0-based batch index; columns 1:6 are the T1
-> ``(x,y,z,intensity,ring)`` in LIDAR_TOP.
+> list of per-sample arrays. Column 0 is the 0-based batch index; the remaining
+> columns are the T1 LIDAR_TOP features, including ``dt`` when sweeps are enabled.
 """
 from __future__ import annotations
 

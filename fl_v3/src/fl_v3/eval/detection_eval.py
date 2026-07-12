@@ -112,9 +112,11 @@ def _six_camera_lidar2img(value: object) -> np.ndarray:
 def decode_eval_set(model, eval_loader, device, run_config, timing: Optional[dict] = None) -> List[SampleDecode]:
     """Run the model over the eval loader ONCE, returning per-sample decode records.
 
-    Uses ``model.decode`` (the single decode) at the production ``det-score-threshold`` and
-    ``det-max-objects`` — no re-decode, no second threshold. Deterministic order (the loader
-    is ``shuffle=False`` over token-sorted samples).
+    Uses ``model.decode`` (the single decode) at the production
+    ``det-score-threshold``.  The reviewed multi-task decoder owns its fixed
+    per-class/NMS budgets; evaluation supplies no legacy global top-K override.
+    There is no re-decode or second threshold. Deterministic order comes from the
+    token-sorted, non-shuffled loader and the reviewed content order.
     """
     thr = float(run_config.get("det-score-threshold", 0.1))
     model.eval()
