@@ -2198,5 +2198,13 @@ three embedded Python heredocs; exact five-entry/source-list enumeration;
 launcher/source/bootstrap hashes; launcher-only parent/diff and owned-path
 audit; `git diff --check`. Not run: project/package import, pytest, pycompile,
 Torch/NumPy/CUDA/spconv/cumm, data/cache/model workload, Slurm/GPU/compute.
-Section G remains `PREPARED_NOT_APPROVED_DO_NOT_SUBMIT`; no approval, submit,
-retry, merge, push, upload, publication, or scientific interpretation occurred.
+Canonical O-072 at exact Orchestra commit
+`bcb45b34246ad52a45f89f6552832b3d3318b292` changes only Section G's
+approval state to `APPROVED_ONCE_PENDING_SUBMISSION`. It approves exactly one
+submission of the unchanged candidate/executable/launcher/source/dependency/
+selection/data/path/resource/artifact/acceptance/stop-rule/command tuple frozen
+in RUN_REQUEST Section G. Any drift voids approval before submission. One
+attempt consumes O-072 regardless of scheduler or suite outcome; no retry,
+requeue, alternate invocation, replacement, automatic resubmission, or
+follow-on is approved. This docs-only approval record performs no submission,
+compute, merge, push, upload, publication, or scientific interpretation.

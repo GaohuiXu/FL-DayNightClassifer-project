@@ -943,16 +943,27 @@ change follows any outcome.
 
 ---
 
-## G. S07-B post-remediation focused GH200 validation — PREPARED / NOT APPROVED
+## G. S07-B post-remediation focused GH200 validation — APPROVED ONCE / PENDING SUBMISSION
 
 ### Approval state and exact purpose
 
-- **Status:** `PREPARED_NOT_APPROVED_DO_NOT_SUBMIT`.
+- **Status:** `APPROVED_ONCE_PENDING_SUBMISSION`.
 - Canonical O-071 is
   `bf7fd65f4b58b6981b0604647489595b4903beaf`. It authorizes request
   preparation only; it does not authorize `sbatch`, `srun`, compute, retry,
   requeue, replacement, or follow-on execution. S00 must independently audit
   the exact tuple below before any one-time approval.
+- Canonical O-072 at exact Orchestra commit
+  `bcb45b34246ad52a45f89f6552832b3d3318b292` records that independent S00
+  audit and approves exactly one submission of the unchanged Section G tuple:
+  candidate/executable/parent/transport diff, launcher blob/SHA, 93-file source
+  list/state, locked dependencies, exact five selections/order, pytest flags
+  and timeouts, literal mini root and cleared overrides, fresh snapshot/output/
+  logs, resources, artifacts, acceptance/stop rules, and the exact command
+  below. Any drift voids approval before submission. The single attempt
+  consumes O-072 regardless of scheduler or suite outcome; no retry, requeue,
+  alternate invocation, replacement, automatic resubmission, or follow-on is
+  approved.
 - This is one bounded engineering validation of the code-level/static-review
   PASS candidate `c53117a889987c3070b60817e52bdb4aac4c9098`. It tests only
   the remediated ZIP lifecycle/hostiles, production spawn and zero-worker
