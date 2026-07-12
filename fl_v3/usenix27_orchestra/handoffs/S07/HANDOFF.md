@@ -1832,7 +1832,16 @@ and
 Each snapshot executes the exact seed-42 CPU dummy clean round twice in fresh
 independent Python subprocesses under one locked GH200 dependency environment.
 
-The request is `PREPARED_NOT_APPROVED_DO_NOT_SUBMIT`: one node/task/GH200, four
+Canonical O-061 at exact Orchestra commit
+`7ee0b040787bef1c26c1c3d15b0983824d42770e` changes only the approval state to
+`APPROVED_ONCE_PENDING_SUBMISSION`. It approves exactly one submission of the
+unchanged Section F tuple. Executable/snapshot/source/launcher/bootstrap/
+dependency/workload/repetition/command/resource/path/artifact/classification or
+stop-rule drift voids approval. One attempt consumes O-061 regardless of outcome;
+no retry, requeue, alternate invocation, replacement, automatic resubmission or
+follow-on is approved.
+
+The exact approved request uses one node/task/GH200, four
 CPUs, 32 GiB, ten minutes, no requeue/retry. It opens no data and performs no
 pytest, full cache/trainval, 100/1000-step campaign, metric, profile, DDP, matrix,
 or scientific cell. Summary classification is restricted to

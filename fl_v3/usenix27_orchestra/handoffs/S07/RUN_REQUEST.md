@@ -802,14 +802,24 @@ invoked. Preparation authorizes no compute, retry, merge, push or upload.
 
 ---
 
-## F. S07-B two-snapshot dummy checksum attribution — PREPARED / NOT APPROVED
+## F. S07-B two-snapshot dummy checksum attribution — APPROVED ONCE / PENDING SUBMISSION
 
 ### Approval state and exact purpose
 
-- **Status:** `PREPARED_NOT_APPROVED_DO_NOT_SUBMIT`.
+- **Status:** `APPROVED_ONCE_PENDING_SUBMISSION`.
 - Canonical O-060 is
   `34ee1f9672df5c907881b5c6335b6be6e204c156`. It authorizes preparation only;
-  it does not authorize `sbatch`, `srun`, a retry, or any other compute.
+  it did not authorize `sbatch`, `srun`, a retry, or any other compute.
+- Canonical O-061 at exact Orchestra commit
+  `7ee0b040787bef1c26c1c3d15b0983824d42770e` independently audits Section F
+  and approves exactly one submission of the unchanged exact tuple below. The
+  approval is bound to executable `L`, both snapshot SHAs and source identities,
+  launcher/bootstrap/dependency identities, exact workload/repetitions, command,
+  resources, fresh paths, artifacts, classification and stop conditions already
+  frozen in this section. Any drift voids O-061 before submission. The single
+  attempt consumes approval regardless of scheduler or harness outcome; no
+  retry, requeue, alternate invocation, replacement, automatic resubmission or
+  follow-on is approved.
 - This is a bounded engineering attribution of the dummy-regression checksum,
   not a retry of Jobs 348557/348818 and not a scientific matrix. It compares
   exactly the pre-S06 snapshot
@@ -871,7 +881,7 @@ invoked. Preparation authorizes no compute, retry, merge, push or upload.
   `weight-decay=0.0`, `num-workers=0`, `loss=mse`, `defense=none`, and
   `server_round=1`.
 
-### Exact command — not approved, do not submit
+### Exact command — approved once by O-061, pending submission
 
 ```bash
 test -z "$(git branch --show-current)" && \
