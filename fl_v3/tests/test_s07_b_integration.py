@@ -100,8 +100,10 @@ def test_runtime_sparse_identity_binds_torch_packages_sources_and_imports(monkey
     run.update({
         "dependency-torch": torch.__version__,
         "dependency-spconv": "2.3.8",
+        "dependency-spconv-build-sha256": "a" * 64,
         "dependency-spconv-source-sha": "2" * 40,
         "dependency-cumm": "0.7.13",
+        "dependency-cumm-build-sha256": "b" * 64,
         "dependency-cumm-source-sha": "3" * 40,
     })
     versions = {"spconv": "2.3.8", "cumm": "0.7.13"}
@@ -109,9 +111,14 @@ def test_runtime_sparse_identity_binds_torch_packages_sources_and_imports(monkey
                "cumm": ("3" * 40, "/src/cumm/cumm/__init__.py")}
     monkeypatch.setattr(runtime.importlib.metadata, "version", lambda name: versions[name])
     monkeypatch.setattr(runtime, "_source_checkout_identity", lambda dist, _imp: sources[dist])
+    monkeypatch.setattr(
+        runtime, "_runtime_package_sha256",
+        lambda name: {"spconv": "a" * 64, "cumm": "b" * 64}[name],
+    )
     identity = runtime.verify_runtime_dependency_identity(run)
     assert identity["spconv_source_sha"] == "2" * 40
     assert identity["cumm_source_sha"] == "3" * 40
+    assert identity["spconv_build_sha256"] == "a" * 64
     assert identity["torch"] == torch.__version__
     run["dependency-spconv-source-sha"] = "4" * 40
     with pytest.raises(RuntimeError, match="source identity drift"):

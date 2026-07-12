@@ -48,7 +48,10 @@ _CACHE = frozenset({
     "format", "path", "sidecar_path", "logical_sha256", "pickle_sha256", "sidecar_sha256",
 })
 _MANIFEST = frozenset({"path", "logical_sha256", "file_sha256"})
-_DEPS = frozenset({"torch", "spconv", "spconv_source_sha", "cumm", "cumm_source_sha"})
+_DEPS = frozenset({
+    "torch", "spconv", "spconv_build_sha256", "spconv_source_sha",
+    "cumm", "cumm_build_sha256", "cumm_source_sha",
+})
 _EVAL = frozenset({"timing"})
 
 
@@ -177,8 +180,10 @@ class ResolvedConfig:
             "precision": self.data["precision"],
             "dependency-torch": self.data["dependencies"]["torch"],
             "dependency-spconv": self.data["dependencies"]["spconv"],
+            "dependency-spconv-build-sha256": self.data["dependencies"]["spconv_build_sha256"],
             "dependency-spconv-source-sha": self.data["dependencies"]["spconv_source_sha"],
             "dependency-cumm": self.data["dependencies"]["cumm"],
+            "dependency-cumm-build-sha256": self.data["dependencies"]["cumm_build_sha256"],
             "dependency-cumm-source-sha": self.data["dependencies"]["cumm_source_sha"],
             "seed": t["seed"],
             "batch-size": t["micro_batch_size"],
@@ -302,11 +307,16 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
             raise ConfigError("lidar/fusion requires dependencies.spconv exactly '2.3.8'")
         if deps["cumm"] != "0.7.13":
             raise ConfigError("lidar/fusion requires dependencies.cumm exactly '0.7.13'")
+        for key in ("spconv_build_sha256", "cumm_build_sha256"):
+            _sha(deps[key], f"dependencies.{key}")
         for key in ("spconv_source_sha", "cumm_source_sha"):
             value = deps[key]
             if not isinstance(value, str) or len(value) != 40 or any(c not in _HEX for c in value):
                 raise ConfigError(f"dependencies.{key} must be an exact lowercase 40-character Git SHA")
-    elif any(deps[k] is not None for k in ("spconv", "spconv_source_sha", "cumm", "cumm_source_sha")):
+    elif any(deps[k] is not None for k in (
+        "spconv", "spconv_build_sha256", "spconv_source_sha",
+        "cumm", "cumm_build_sha256", "cumm_source_sha",
+    )):
         raise ConfigError("non-SECOND modes must set spconv/cumm dependency fields to null")
 
     evaluation = _mapping(root["evaluation"], "evaluation"); _keys(evaluation, _EVAL, "evaluation")

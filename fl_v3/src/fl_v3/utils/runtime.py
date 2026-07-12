@@ -136,6 +136,34 @@ def _source_checkout_identity(distribution: str, import_name: str) -> tuple[str,
     return head, origin
 
 
+def _runtime_package_sha256(import_name: str) -> str:
+    """Content hash the active import package, excluding interpreter bytecode caches."""
+    spec = importlib.util.find_spec(import_name)
+    roots = list(spec.submodule_search_locations or ()) if spec is not None else []
+    if not roots:
+        raise RuntimeError(f"cannot resolve package tree for {import_name}")
+    digest = hashlib.sha256()
+    files: list[tuple[str, Path]] = []
+    for root_text in roots:
+        root = Path(root_text).resolve()
+        for path in root.rglob("*"):
+            if not path.is_file() or "__pycache__" in path.parts or path.suffix == ".pyc":
+                continue
+            files.append((f"{root.name}/{path.relative_to(root).as_posix()}", path))
+    if not files:
+        raise RuntimeError(f"active package tree for {import_name} is empty")
+    for relative, path in sorted(files, key=lambda item: item[0]):
+        name = relative.encode("utf-8")
+        digest.update(len(name).to_bytes(8, "big"))
+        digest.update(name)
+        size = path.stat().st_size
+        digest.update(size.to_bytes(8, "big"))
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+    return digest.hexdigest()
+
+
 def verify_runtime_dependency_identity(run_config: dict) -> dict[str, str]:
     """Fail before construction on Torch and sparse package/source identity drift.
 
@@ -154,14 +182,18 @@ def verify_runtime_dependency_identity(run_config: dict) -> dict[str, str]:
     expected = {
         "spconv": (
             "spconv", "spconv", str(run_config.get("dependency-spconv", "")),
+            str(run_config.get("dependency-spconv-build-sha256", "")),
             str(run_config.get("dependency-spconv-source-sha", "")),
         ),
         "cumm": (
             "cumm", "cumm", str(run_config.get("dependency-cumm", "")),
+            str(run_config.get("dependency-cumm-build-sha256", "")),
             str(run_config.get("dependency-cumm-source-sha", "")),
         ),
     }
-    for label, (distribution, import_name, expected_version, expected_head) in expected.items():
+    for label, (
+        distribution, import_name, expected_version, expected_build, expected_head,
+    ) in expected.items():
         try:
             actual_version = importlib.metadata.version(distribution)
         except importlib.metadata.PackageNotFoundError as exc:
@@ -172,11 +204,18 @@ def verify_runtime_dependency_identity(run_config: dict) -> dict[str, str]:
                 f"actual={actual_version!r}"
             )
         actual_head, origin = _source_checkout_identity(distribution, import_name)
+        actual_build = _runtime_package_sha256(import_name)
+        if actual_build != expected_build:
+            raise RuntimeError(
+                f"{label} build identity drift: expected={expected_build!r}, "
+                f"actual={actual_build!r}"
+            )
         if actual_head != expected_head:
             raise RuntimeError(
                 f"{label} source identity drift: expected={expected_head!r}, actual={actual_head!r}"
             )
         result[f"{label}_version"] = actual_version
+        result[f"{label}_build_sha256"] = actual_build
         result[f"{label}_source_sha"] = actual_head
         result[f"{label}_import_origin"] = origin
     return result

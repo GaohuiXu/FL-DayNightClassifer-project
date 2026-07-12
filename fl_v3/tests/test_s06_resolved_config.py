@@ -38,7 +38,9 @@ def valid_config(tmp_path=None):
                  "zip_manifest": {"path": root + "/manifest.sqlite",
                                   "logical_sha256": H, "file_sha256": H}},
         "dependencies": {"torch": "2.11.0+cu128", "spconv": None,
-                         "spconv_source_sha": None, "cumm": None, "cumm_source_sha": None},
+                         "spconv_build_sha256": None, "spconv_source_sha": None,
+                         "cumm": None, "cumm_build_sha256": None,
+                         "cumm_source_sha": None},
         "evaluation": {"timing": False},
     }
 
@@ -84,8 +86,10 @@ def test_lidar_pins_exact_spconv(tmp_path):
     with pytest.raises(ConfigError, match="spconv"):
         resolve_config(raw)
     raw["dependencies"]["spconv"] = "2.3.8"
+    raw["dependencies"]["spconv_build_sha256"] = H
     raw["dependencies"]["spconv_source_sha"] = "2" * 40
     raw["dependencies"]["cumm"] = "0.7.13"
+    raw["dependencies"]["cumm_build_sha256"] = H
     raw["dependencies"]["cumm_source_sha"] = "3" * 40
     assert resolve_config(raw).model_mode == "lidar_only"
 
@@ -107,8 +111,8 @@ def test_fusion_cbgs_is_hash_bound_and_disables_loss_weights(tmp_path):
         mode="fusion", lidar_arch="second_075", fusion_arch="conv_fuser_256"
     )
     raw["dependencies"].update(
-        spconv="2.3.8", spconv_source_sha="2" * 40,
-        cumm="0.7.13", cumm_source_sha="3" * 40,
+        spconv="2.3.8", spconv_build_sha256=H, spconv_source_sha="2" * 40,
+        cumm="0.7.13", cumm_build_sha256=H, cumm_source_sha="3" * 40,
     )
     uniform = resolve_config(raw)
     raw["training"]["sampling"] = "cbgs"

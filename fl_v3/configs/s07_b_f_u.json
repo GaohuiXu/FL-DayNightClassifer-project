@@ -14,6 +14,6 @@
     },
     "zip_manifest": {"path": "REQUIRES_APPROVED_MANIFEST/manifest.sqlite", "logical_sha256": "APPROVED_MANIFEST_IDENTITY_REQUIRED", "file_sha256": "APPROVED_MANIFEST_IDENTITY_REQUIRED"}
   },
-  "dependencies": {"torch": "2.11.0+cu128", "spconv": "2.3.8", "spconv_source_sha": "263d6b47425ef843c82f997b12d8b714013d216c", "cumm": "0.7.13", "cumm_source_sha": "4dedaf43ff801e417c60c6bd7536a29d83d29ee0"},
+  "dependencies": {"torch": "2.11.0+cu128", "spconv": "2.3.8", "spconv_build_sha256": "ACTUAL_SPCONV_BUILD_SHA256_REQUIRED", "spconv_source_sha": "263d6b47425ef843c82f997b12d8b714013d216c", "cumm": "0.7.13", "cumm_build_sha256": "ACTUAL_CUMM_BUILD_SHA256_REQUIRED", "cumm_source_sha": "4dedaf43ff801e417c60c6bd7536a29d83d29ee0"},
   "evaluation": {"timing": false}
 }
