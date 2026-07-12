@@ -2,7 +2,7 @@
 
 ## Approval state and permanently rejected predecessors
 
-- `APPROVAL_STATUS: APPROVED_BY_S00_ONE_SUBMISSION_PENDING`.
+- `APPROVAL_STATUS: EXECUTED_ONCE_FAILED_NO_RETRY`.
 - S00 exact-compute approval was received on 2026-07-12 for the immutable
   pre-approval request snapshot SHA-256
   `e42fd06051fc8fa7ce1531fb8151d150c2395d2ea89aaf7a6249257f2aeddf08`.
@@ -19,6 +19,9 @@
   `Batch script is empty!`; it created no Job ID/job/resource allocation and did
   not touch either root. This negative control-plane event was not the approved
   command. The exact approved command below has not yet been submitted.
+- The exact command was subsequently submitted once as job `341997`. It ended
+  `FAILED 1:0` after `00:01:47` with `45 passed, 17 failed, 0 skipped`.
+  The stop condition is active: no retry/resubmit/replacement/follow-on.
 - S00 explicitly set `REJECTED_BY_S00_NEVER_EXECUTE` for both predecessor
   executables `a95816b607d1ced5f07bd1136b23f36f58357a14` and
   `7d733e9b08454b059822015fcaf3eea53e8c2e56`.

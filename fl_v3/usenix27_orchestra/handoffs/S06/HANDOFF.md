@@ -19,7 +19,7 @@
 - Final documentation delivery SHA is returned to S00 after committing this
   package; a commit cannot embed its own SHA without changing itself.
 - Worker self-assessment: **STATIC/SCHEMA PASS; DEPENDENCY-BACKED RUNTIME GATE NOT
-  RUN; EXACT ONE-SHOT REQUEST APPROVED BY S00, NOT YET SUBMITTED.** This is not an independent,
+  PASS — JOB 341997 FAILED 17/62 TESTS; STOPPED WITHOUT RETRY.** This is not an independent,
   integration, model-readiness, full-data, or scientific PASS.
 
 No Slurm job creation, srun, mini/trainval traversal, cache materialization, model
@@ -319,6 +319,12 @@ snapshot `e42fd060...`, bound to delivery `5bbb12c...`, executable `6696984a...`
 tree `c504a5f...`, source aggregate `7be6c0c...` and launcher `2e261bf...`.
 No retry/requeue/resubmit or tuple mutation is authorized.
 
+That submission became job `341997` and ended `FAILED 1:0` after `00:01:47`:
+`45 passed, 17 failed, 0 errors, 0 skipped`. The source identity and allocation
+matched, but acceptance failed. `RESULTS.md` records every failure group, raw
+artifact/checksum, missing final in-job checksum manifest, and interpretation
+limit. No retry or replacement job occurred.
+
 ## Gate status
 
 | Gate | Worker evidence/status |
@@ -329,11 +335,11 @@ No retry/requeue/resubmit or tuple mutation is authorized.
 | canonical config/hash and fail-closed identities | STDLIB PASS; PyTorch integration NOT RUN |
 | separate train/val t1.v2 and manifest identities | IMPLEMENTED/STDLIB PASS; real artifacts absent |
 | spconv 2.3.8 and same-instance serialization | IMPLEMENTED; Arrhenius dependency/concurrency tests NOT RUN |
-| fixed-window accounting/effective batch | REMEDIATED; hostile runtime tests AUTHORED NOT RUN |
-| fail-atomic strict checkpoint/resume | REMEDIATED; CPU/CUDA rollback tests AUTHORED NOT RUN |
+| fixed-window accounting/effective batch | NEGATIVE: one opaque-tail fixture was not actually length-opaque |
+| fail-atomic strict checkpoint/resume | BLOCKED: 14 tests failed at hidden temp filename before assertions |
 | persistent loader/set_epoch/no duplicate/omission | IMPLEMENTED; runtime test AUTHORED NOT RUN |
 | real ZIP handle lifecycle across resume | NOT RUN; S07-B integrated mini gate required |
-| eval autocast/single-pass/timing neutrality/metadata | IMPLEMENTED; runtime tests AUTHORED NOT RUN |
+| eval autocast/single-pass/timing neutrality/metadata | NEGATIVE: timing fixture calibration shape failed before assertions |
 | 100/1000-step/full profile/metrics | FORBIDDEN / NOT RUN |
 | independent S06-R | NOT STARTED; worker must not launch reviewer |
 
@@ -356,6 +362,9 @@ No retry/requeue/resubmit or tuple mutation is authorized.
    historical callers is not claimed, and world-size/ DDP remains fail-closed.
 9. No real checkpoint, throughput, memory, convergence, metric or scientific
    evidence was produced.
+10. Job `341997` is a failed engineering gate, not a partial PASS: config bridge
+    serialization, checkpoint temp-file creation, one tail fixture, and one eval
+    fixture all require future owner-scoped remediation before any new request.
 
 ## Explicit S07-B integration seams
 
