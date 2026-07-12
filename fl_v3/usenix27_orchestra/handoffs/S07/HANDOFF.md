@@ -2073,3 +2073,92 @@ config/launcher/canonical/scientific contract changed; no compute, merge, push,
 upload or publication occurred. This is a static test candidate for independent
 review only; it is not a post-O-059 integrated runtime PASS and authorizes no
 runtime proposal or scientific interpretation.
+
+### O-069 S07-B R11 synchronous-result and leader-dead identity remediation
+
+Canonical O-069 at exact Orchestra commit
+`4caf02ad949887b804b875fff972ebdb2c6d7fe6` returned the R11 candidate for a
+two-path, test/evidence-only remediation. The implementation worktree preflight
+was clean branch `codex/s07-b-integrated-cl-stack` at exact parent
+`8469eb4944f164f5bd2fa1aa833ea4df0acf04b3`. Test-only commit `T` is
+`2497ac11e807e5b223bfa0eaa2537fcbde1aec88`, with that exact parent and only
+`fl_v3/tests/test_nuscenes_zip_dataset.py` changed (`419` insertions, `106`
+deletions).
+
+The independent R11 review commit is
+`52e05ac0f500f1f671818125dc72caded9c1b4b8`; its `REVIEW.md` Git blob is
+`4e0226718109e193bb09993db085422106b1dccc`, size `191368` bytes, SHA-256
+`cc8922192125b054280e5b11760f801997adbb201ea2f7bd6e2564b55e0c1104`,
+with final verdict `CHANGES-REQUESTED` for candidate `8469eb4...`. The reviewer
+commit is not merged or cherry-picked into this implementation branch.
+
+R11 findings are remediated as follows, subject to fresh independent review and
+later explicitly approved runtime evidence:
+
+- The child-produced result `Queue`, feeder thread and private queue endpoints
+  are removed. Control remains a duplex `Pipe`; results use a separate one-way
+  `Pipe`/`Connection`. The parent polls and synchronously receives the complete
+  result before joining its producer. The forced-error result carries a 2 MiB
+  padding payload, and its hostile requires the exact full length/content,
+  primary traceback and cleanup notes, so a pipe-capacity producer/join
+  deadlock cannot satisfy the test.
+- Linux process identity is exact `(PID, /proc starttime)`. The parser uses the
+  final `)` terminating `/proc/<pid>/stat` `comm`, and a hostile covers embedded
+  spaces and parentheses. Helper readiness binds starttime before ACK. Real
+  DataLoader worker identities are captured while alive, returned across the
+  process boundary, and audited by `(PID,starttime)`; PID reuse therefore means
+  the original instance is gone rather than falsely live.
+- A new post-ACK leader-exit hostile raw-forks a descendant whose transmitted
+  record contains PID, starttime, process group and session. The descendant
+  inherits `SIGTERM` ignore from before `fork`, eliminating a readiness race;
+  the helper restores its handler, sends the complete record synchronously and
+  exits via `os._exit(0)` without `waitpid`. The parent first receives the
+  record and joins/reaps the leader, then proves the exact leader identity gone
+  while the verified group and exact descendant identity remain. Group TERM is
+  proven insufficient and group KILL is proven, by bounded polling, to remove
+  both the group and original descendant instance.
+- The existing live-leader forced-hang path remains. Its raw-fork descendant is
+  reported synchronously; TERM removes/reaps the descendant while the helper
+  leader remains, so the bounded identity/group state forces KILL. The hostile
+  requires the exact helper instance and group to be live after TERM and gone
+  after KILL.
+- Armed-group TERM and KILL are followed by bounded cleanup, not one-shot PID
+  probes. After TERM the direct helper is first given a bounded join so a
+  reaped zombie cannot cause a false KILL escalation; the remaining deadline
+  polls group existence and every exact identity. After KILL the helper is
+  reaped and a five-second bounded poll proves group/identity absence. Cleanup
+  probe failures are collected as notes/aggregate evidence and cannot mask the
+  original exception.
+- All parent control/result endpoints, parent copies of child endpoints, the
+  `Process` and its sentinel are explicitly closed and their file descriptors
+  checked closed. The ready/ACK validation and arm ordering, pre-ACK hostile,
+  forced-error primary preservation, normal two deterministic persistent-worker
+  epochs, explicit worker shutdown and CUDA-hidden explicit-fork boundary are
+  retained.
+
+The exact post-`T` SHA-256 of
+`fl_v3/tests/test_nuscenes_zip_dataset.py` is
+`07c4c2159efbdf4fb18a95960d4ff7d8d17ac823c88f14d9184eb1cc041e3f09`;
+its Git blob is `f8d4f0ee7a9ca834cbf1105562cf0c8fccb5ec38`.
+
+Actually run: stdlib AST parse and source-text `compile()` of the changed test;
+result-transport/private-endpoint text audit; exact ready/ACK, large-payload,
+leader-dead, live-leader, starttime, bounded-cleanup and FD token audits;
+one-path ownership/parent checks; `git diff --check`; Git-blob and forbidden-
+path checks: PASS. Explicitly **NOT RUN**: pytest, pycompile, project/package
+import, Torch/NumPy/CUDA/spconv/cumm, data/cache/model workload, any spawn/fork
+runtime, Slurm/GPU/compute. These hostiles are authored static evidence only,
+not runtime PASS evidence.
+
+Forbidden blobs remain exact across O-069 remediation: `training/loop.py`
+`881c070b1ef8affd350144cce33e508a241cf839`; `training/tasks.py`
+`86ab9d0563e1636d6c4cde06986470d2559f19f7`; nuScenes `dataset.py`
+`afd2707d3939d2d76205996fe94d29fcfc4ed5f3`; `RUN_REQUEST.md`
+`efa5ce78eac121f2dd3e70ea75ef414023d45d13`; `RESULTS.md`
+`b3b80625ef6c38e4d9382e11ded5c8534b5556ae`; local `REVIEW.md`
+`cd0e0795402c2892fe199691a6a01f483d6a457f`; runtime launcher
+`1e182ebc1fe883ad59702bfeb1b3db110bbf54c1`. No production/training-loop/
+config/launcher/canonical/scientific contract changed; no compute, merge, push,
+upload or publication occurred. This remains a static test candidate for fresh
+independent review; it is not a post-O-059 integrated runtime PASS and
+authorizes no runtime proposal or scientific interpretation.
