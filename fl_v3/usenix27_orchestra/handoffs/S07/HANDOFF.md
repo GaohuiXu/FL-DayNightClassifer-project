@@ -1866,3 +1866,49 @@ and `git diff --check`: PASS. Not run: project/package import, pytest, pycompile
 Torch/CUDA/spconv/cumm, data/model workload, Slurm/GPU/compute. No RESULTS,
 production/test/golden/training-loop/config/canonical file changed; no submit,
 merge, push or upload occurred.
+
+### O-063 Job 349653 attribution and runtime-aware test remediation
+
+Canonical O-063
+`fe22ecca9bfc455c5d63ea3c9c2f4f00907a7609` accepts the exact Job 349653
+attribution and authorizes only the scoped test/evidence remediation recorded
+here. Results/request commit `R` is
+`79be43d3920aead5068cbe90dc998c075be98a6e`; test commit `T` is
+`8e2c31b0e220b30c2a0417b7da46e14b03038c08`.
+
+Job `349653` completed `0:0` in `00:01:26` on `n530` with one GH200/four CPUs/
+32 GiB, batch `MaxRSS=540M` and `TotalCPU=00:14.815`. All four exact independent
+subprocesses—two at pre-S06
+`968d81583c87ba76b7dbbb722760f8eb8eb6cd39` and two at current
+`c69befe5e8dd6397059c4d3fe1cbf906a9646836`—returned
+`4fa46307bab67f2a836102b23b1ad2abc331702e83d16c65e11a09330c3d9edb`.
+The authoritative classification is `stable_equal_current`; all 25 artifact
+checksums passed. Summary/identity/attempts/manifest SHA-256 values are
+`806afbfd41eabad3d2181c7c829a74f4ded34cef91636b5bdb7018b5fbbc36fc`,
+`b66bbc7400aa1acdfbaf059caea44faf3ac7bfb165b3172898a8e4d84462e9e9`,
+`dfa41729753866671852071bddfc7539c44408b294c16058aeeb846fd3b15467`,
+and `0c74aae4067bab74619269c16b38c8724ce38d56018d6dea035066e78528341c`.
+Full raw paths, all 25 artifact hashes, scheduler-log hashes, runtime identity,
+and interpretation limits are in RESULTS.
+
+The result attributes the historical/current mismatch to runtime portability,
+not S06/current source changes: pre-S06 and current agree under the same frozen
+Arrhenius aarch64/CPython 3.11.15/Torch 2.11.0+cu128/NumPy 1.26.4 identity.
+Historical `d2d819...` remains an explicit old-environment evidence constant.
+The revised test always executes two fresh `run_clean_round` calls, requires two
+valid 64-hex checksums and exact same-runtime equality, and additionally requires
+exact `4fa463...` only when the full frozen Arrhenius identity matches. Unknown
+runtimes are not skipped and cannot be presented as Arrhenius-golden evidence.
+The test file SHA-256 is
+`b74122011c5f3a06655473d9176611f2a5ab14dd1750f3c1593266fd1d801d52`.
+
+`training/loop.py` retains exact Git blob
+`881c070b1ef8affd350144cce33e508a241cf839`; all production files, launchers,
+configs, canonical ledgers, REVIEW and unrelated tests are unchanged. Actually
+run for remediation: stdlib
+source-text compile of `test_model_task.py`, raw-artifact read/hash audit and
+`git diff --check`: PASS. Not run: project/package import, pytest, pycompile,
+Torch/CUDA/spconv/cumm, data/model workload, Slurm/GPU/compute. Job 349653 is
+terminal and O-061 consumed; no retry, requeue, replacement, alternate
+invocation, follow-on, merge, push or upload is authorized. The revised test and
+evidence require independent review before any focused validation proposal.
