@@ -15,8 +15,9 @@ requested.
 ### O-025 implementation and immutable execution identity
 
 - Worker branch: `codex/s04-lidar-second`.
-- Approved canonical decision source read and acknowledged without cherry-pick:
-  S00 commit `f413b837f07846a667f91b265016448771e4f99b`, O-025 in
+- Approved canonical decision sources read and acknowledged without cherry-pick:
+  S00 commits `f413b837f07846a667f91b265016448771e4f99b` and
+  `04569c6fe26e5f0737777c3bb4bca8c8a1f4e6a6`, O-025 in
   `ORCHESTRA.md` and the corresponding active S04 row/order in `SESSIONS.md`.
 - Exact executable commit:
   `84985970f0f4b4acb8704ddbbd6ae9b2bf94ca9f`.
@@ -67,9 +68,11 @@ B=4 fp16 eval dtype/finite/memory case. The pre-O-025 failing lifecycle fixture 
 retained as the same train/backward-to-eval sequence, now correctly executed under
 the locked `no_grad` inference contract.
 
-The job reads no mini/trainval/ZIP/cache/checkpoint/model artifact. It performs no
-optimizer/GradScaler/parameter update, data loading, model step, metric, profile,
-matrix, seed campaign, array, DDP, retry, resubmission, or follow-on action.
+The job reads no mini/trainval/ZIP/cache/checkpoint/model artifact. O-025 permits
+the listed one-shot synthetic forward/backward lifecycle validations, including
+the B=4 forward/backward fixture, but no optimizer/GradScaler/parameter update,
+iterative training, data loading, metric, profile, matrix, seed campaign, array,
+DDP, retry, resubmission, or follow-on action.
 
 ### Resources, roots, and stop conditions
 
@@ -250,9 +253,10 @@ backward, finite intended gradients, and peak CUDA allocation/reservation captur
 using 4,096 generated points per sample.
 
 The job reads no nuScenes mini/trainval/ZIP/cache/checkpoint or external model
-artifact. It performs no optimizer/GradScaler/parameter step, scheduler/EMA action,
-model step, metric, profile, 100/1000-step gate, epoch, matrix, seed comparison,
-DDP, or scientific execution.
+artifact. Its owner-approved synthetic fixtures included bounded forward/backward
+lifecycle validation, but no optimizer/GradScaler/parameter step, scheduler/EMA
+action, iterative training, metric, profile, 100/1000-step gate, epoch, matrix,
+seed comparison, DDP, or scientific execution.
 
 ## Resources and budget
 
@@ -432,9 +436,9 @@ inference, patch spconv, or weaken the eval case.
   `0.0890` GPU-hours; maximum cumulative total would be about `0.4224`, within
   O-009's two-hour session limit.
 - One job, no array/DDP/retry/requeue/resubmission/follow-on.
-- Deterministic synthetic points only; no mini/trainval/ZIP/cache/checkpoint,
-  optimizer/parameter update, model step, metric, profile, seed comparison, or
-  scientific run.
+- Deterministic synthetic points only; bounded forward/backward lifecycle cells
+  but no mini/trainval/ZIP/cache/checkpoint, optimizer/parameter update, iterative
+  training, metric, profile, seed comparison, or scientific run.
 - Per-cell timeout 120 seconds; cells are sequential and process-isolated.
 - Snapshot root, absent before submission and now preserved read-only:
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/snapshots/s04_lifecycle_bd1fc9af139c_v1`.

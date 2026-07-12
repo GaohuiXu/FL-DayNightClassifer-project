@@ -33,10 +33,13 @@ required.
 
 ## O-025 acknowledgment and scoped remediation
 
-The worker read the complete canonical S00 diff at
-`f413b837f07846a667f91b265016448771e4f99b` without merging or cherry-picking it,
-and acknowledges O-025 plus the updated S04 scheduling/acceptance text. Executable
-`84985970f0f4b4acb8704ddbbd6ae9b2bf94ca9f` implements exactly option A:
+The worker read the complete canonical S00 diffs at
+`f413b837f07846a667f91b265016448771e4f99b` and
+`04569c6fe26e5f0737777c3bb4bca8c8a1f4e6a6` without merging or cherry-picking
+them, and acknowledges O-025 plus its clarified validation boundary: the exact
+one-shot synthetic forward/backward lifecycle fixtures are permitted, while
+optimizer/GradScaler/parameter updates and iterative training are forbidden.
+Executable `84985970f0f4b4acb8704ddbbd6ae9b2bf94ca9f` implements exactly option A:
 
 - exact `spconv==2.3.8` fail-closed validation occurs before even an empty fp16
   eval can return;
