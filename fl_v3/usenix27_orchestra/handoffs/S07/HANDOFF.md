@@ -2283,3 +2283,14 @@ regardless of scheduler, harness, or node outcome; no retry, requeue, alternate
 invocation, replacement, automatic resubmission, or follow-on is approved.
 This docs-only record performs no submission, RESULTS change, compute, merge,
 push, upload, publication, or scientific interpretation.
+
+Canonical O-076 at exact Orchestra commit
+`8505ceee86e160cdac26055f728f2b8215a4134e` records that the unchanged exact
+Section H command was submitted once as Slurm Job `352105` at
+`2026-07-12T16:23:21+02:00`, started at `2026-07-12T16:23:23+02:00`, and is
+active on node `n424`. Status is
+`EXECUTED_ONCE_JOB_352105_ACTIVE_APPROVAL_CONSUMED_NO_RETRY`; O-075 was
+consumed immediately regardless of eventual scheduler, harness, or node
+outcome. No retry, requeue, alternate invocation, replacement, automatic
+resubmission, or follow-on is authorized. This docs-only record does not query
+or interpret runtime results and changes none of the exact approved tuple.
