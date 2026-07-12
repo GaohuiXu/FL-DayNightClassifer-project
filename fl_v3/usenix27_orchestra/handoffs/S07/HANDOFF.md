@@ -1240,3 +1240,119 @@ new immutable candidate for independent review. It is not worker/code-level PASS
 runtime readiness, production/full-data evidence or scientific evidence. No O-009
 request should be prepared until an independent reviewer accepts the exact new
 delivery SHA.
+
+### S07-B-R5 guard-plan, atomic-publication and contained-run remediation
+
+Independent S07-B-R5 reviewed exact parent
+`464281defc8c30f3099aa5e5e827fc907049255b` and returned
+`CHANGES-REQUESTED` at durable review commit
+`2176e8d2e8185af26f27d67a45838528e4390543`. The R5 REVIEW blob is
+`78c05b9a1c060c82f3bff59ba2159c4675a3c9a0`, size 105,234 bytes, SHA-256
+`30034cc8f649a31d3ad51fc52d1055bfc48cca8449f41fe9c3e5c5daf6d70dd2`.
+R5 retained the R4 checkpoint/subset sibling, viz task-matrix and canonical shard-
+set closures, but found that the existing guard sample prefix was not frozen in
+the plan, manifest naming preceded complete publication, and a pre-existing run-
+directory symlink could escape the output root.
+
+S00 returned those findings under O-045 without changing the existing scientific
+control. Exact implementation/test commit
+`fcf36dd159bf881df300805e0934ce0ca30ea237` changes only
+`fl_v3/scripts/t5_attack_eval.py` and
+`fl_v3/tests/test_s07_b_integration.py`. Their exact committed SHA-256 values are
+respectively
+`9aad253918ef7fc47239a7d6570778ba2829302324e557ec4ee0af631ebead52`
+and
+`f72ed4f42c0e322e36f8f00d053a7d8476ca43066fb2b72516a6c8462b75547e`.
+
+#### Existing guard semantics are now immutable evidence identity
+
+- The guard scientific meaning is unchanged: the declared `--guard-samples`
+  count defaults to 40 and selects the lexically sorted prefix of unique sample
+  tokens in the frozen subset; all frozen targets belonging to that prefix retain
+  their original frozen order. No threshold, recall definition, LiDAR-invariance
+  operation, metric, model, head, NMS or protocol field changed.
+- Run-manifest schema `s07b.t5.run.v2` now binds the positive declared count, exact
+  selected sample-token list, exact selected `(sample_token, ann_token)` list and
+  the canonical selection SHA-256. Counts at or below zero and counts exceeding
+  the frozen available sample count fail before output. Every sibling invocation,
+  including aggregate, must reproduce the exact same guard plan; a one-sample or
+  different-prefix invocation cannot reuse the run.
+- Guard schema `s07b.t5.guards.v2` carries that exact selection in addition to the
+  current poison/run/manifest/whole-subset identities. Aggregate exact-matches the
+  full selection before metrics and requires the invariance-check count to equal
+  the selected sample count and the recall denominator to equal the exact selected
+  target count. Old v1, reordered prefixes, changed target identities, smaller
+  favorable slices, unknown fields or mismatched counts fail closed.
+
+#### Complete-before-publish manifest and no stale replacement
+
+- Manifest bytes are serialized into a random mode-0600 private file in the
+  already validated run directory, written completely, flushed and `fsync`ed.
+  A same-directory hard-link operation then publishes the final manifest name as
+  an atomic no-replace claim; the directory is `fsync`ed after publication and
+  cleanup. A reader therefore sees either no final name or complete immutable
+  bytes, never the creator's partial final file.
+- A lost publisher race reads the complete winner and proceeds only on exact
+  manifest equality. A different winner fails; no path overwrites it. Handled
+  write/link failures remove the private temporary. A later successful publisher
+  also removes abandoned matching private temporaries; concurrent losers whose
+  temporary was removed recognize the already published final as a lost race and
+  still exact-match it. A pre-existing partial final remains invalid and is never
+  replaced.
+- A directory with no complete manifest may be initialized only when it contains
+  no non-private run artifacts. Old favorable sibling/shard/output content is
+  rejected as a stale mixed root rather than adopted by a new manifest.
+
+#### Dirfd/no-follow containment for every run artifact
+
+- Non-null tasks retain the lexical safe-run-ID requirement. The declared output
+  root must itself be a real directory rather than a symlink. It and the direct
+  run child are opened with Linux `O_DIRECTORY|O_NOFOLLOW`; the open run descriptor
+  is verified as a directory and its `/proc/self/fd` resolved parent must equal
+  the validated output root.
+- All manifest, shard, stealth, guard and aggregate reads/writes now use direct-
+  child names relative to that held run descriptor. Ablation, stealth-eval and viz
+  subdirectories are likewise opened with no-follow dirfd operations. External
+  devkit/viz writers receive the held `/proc/self/fd/<dirfd>` directory, so a later
+  pathname substitution cannot redirect them.
+- Missing poison-only roots, symlinked output/run/subdirectories, unsafe or missing
+  run IDs, path traversal, pre-existing stale output directories and symlinked
+  artifact names fail before artifact consumption or creation outside the declared
+  root.
+
+#### Authored hostiles and checks actually run
+
+Focused authored tests now cover: declared guard count 40 versus 1; zero and above-
+available counts; exact prefix, reordered sample list and changed target identity;
+v1 guard rejection and metric count equality; a partial private writer followed by
+an exception; interleaved reader before atomic publication; complete publication;
+different lost-race winner/no overwrite; abandoned-private cleanup; output-root and
+run-root symlinks; missing/unsafe/traversal run IDs; missing poison-only root;
+partial final manifest; and favorable stale root content. These tests are authored
+but were not executed with pytest.
+
+Actually run after the exact implementation:
+
+- `python3 -m py_compile` on the two changed Python/test files: PASS;
+- stdlib AST parse of both changed files: `AST_OK=2`;
+- `git diff --check`: PASS;
+- `bash -n fl_v3/scripts/run_s07_b_static_checks.sh`: PASS;
+- an AST-extracted stdlib-only execution of the exact directory/publication/
+  selection helpers exercised real dirfd creation, complete publish/read,
+  no-replace winner preservation, abandoned-temp cleanup, run-symlink rejection
+  and sorted-prefix target identity: `STDLIB_HELPERS_OK`.
+
+Explicitly **NOT RUN / NO IMPLIED PASS**: pytest or any authored hostile; the full
+static launcher or production-package import; Torch/spconv/cumm; checkpoint parse
+or raw/EMA load; cache/manifest/data/model; directory/ZIP workers; T5 shard/
+aggregate/stealth/guards/viz; official devkit; CUDA/Slurm/GPU; full cache;
+100/1000 steps; profile/metrics/DDP; retry/rerun or scientific cell. No
+RUN_REQUEST/RESULTS, canonical, review, collab, model/head/NMS/metric/protocol file
+was changed, and no merge to `v3-ad-perception`, push, upload or publication
+occurred.
+
+This closes the exact R5 findings at static/helper level and returns a new
+immutable candidate for independent review. It is not worker/code-level PASS,
+runtime readiness, production/full-data evidence or scientific evidence. No O-009
+request should be prepared until an independent reviewer accepts the exact final
+delivery SHA.
