@@ -2,13 +2,21 @@
 
 ## Overall result
 
-All three exact S04 jobs are preserved **FAILED** engineering results. Job `335566`
-found the sparse composition bug (`5 passed / 5 failed`); Job `335579` closed that
-bug but found a final fp16-output mismatch (`8 passed / 2 failed`); Job `336718`
-closed the exercised dtype/B=4 cases but exposed a same-model train/backward-to-eval
-spconv tuner failure (`9 passed / 1 failed`). No retry, requeue, resubmission, or
-follow-on occurred. Worker status remains **CHANGES-REQUESTED**, not runtime or
-integration PASS.
+Five executions form the complete current S04 evidence chain. The first three are
+preserved **FAILED** engineering gates: Job `335566` found the sparse-composition
+bug (`5 passed / 5 failed`); Job `335579` closed that bug but found a final
+fp16-output mismatch (`8 passed / 2 failed`); and Job `336718` closed the exercised
+dtype/B=4 cases but exposed the native same-model train/backward-to-eval spconv
+tuner failure (`9 passed / 1 failed`). Job `336728` then **COMPLETED** the seven-cell
+mechanism diagnostic, recording six native fp16-eval errors and one fp32 success;
+its scheduler completion was diagnostic completeness, not a correctness PASS.
+
+After owner decision O-025 selected the version-guarded option-A dispatch, exact
+Job `341695` passed the bounded remediation gate (`15 passed / 0 failed / 0 errors /
+0 skipped`). Worker implementation and bounded validation are therefore complete.
+Independent S04-R and Orchestra acceptance remain pending: this is not yet an
+integration, production, full-data, metric, or scientific PASS. No execution was
+retried or automatically expanded, and no follow-on compute is authorized.
 
 Job `335566` is a preserved **FAILED** engineering result: scheduler state
 `FAILED`, exit `1:0`, with exactly `10` collected tests, `5 passed`, `5 failed`,
@@ -313,7 +321,7 @@ nine passes and preserved failure above; production/S07-B/scientific readiness a
 all model-quality, throughput, convergence, FL, attack/defense, or publication
 claims remain forbidden.
 
-## Source-only diagnosis and lifecycle-matrix preparation
+## Historical source-only diagnosis and lifecycle-matrix preparation
 
 No compute followed Job `336718`. Inspection of installed spconv 2.3.8 shows a
 specific training/eval divergence rather than a final-BEV cast failure:
@@ -336,7 +344,7 @@ fresh-process synthetic diagnostic that traces exact implicit-GEMM call state. A
 that delivery its request was pending; Job `336728` subsequently executed it as
 recorded below.
 
-Potential remedies are deliberately not implemented:
+At this pre-O-025 point, potential remedies were deliberately not implemented:
 
 - converting an eval model to half may make the kernel tuple half/half/half, but
   mutates parameter precision and complicates resume/re-entry to training;
@@ -347,10 +355,11 @@ Potential remedies are deliberately not implemented:
 - patching spconv to cast inference filters requires a maintained dependency fork
   and changes numerical/runtime behavior.
 
-Each is a material precision/lifecycle choice requiring reviewed diagnostic
-evidence and S00/owner approval. None is an authorized fix or current claim.
+Each was a material precision/lifecycle choice requiring reviewed diagnostic
+evidence and S00/owner approval. None was authorized at that point; O-025 later
+selected the narrowly scoped first-dispatch option.
 
-## Lifecycle diagnostic Job 336728 — COMPLETED matrix, S04 still blocked
+## Lifecycle diagnostic Job 336728 — COMPLETED matrix, blocked at that point
 
 ### Exact outcome and mechanism evidence
 
