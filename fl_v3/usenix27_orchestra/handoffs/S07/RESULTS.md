@@ -1,4 +1,4 @@
-# S07-A RESULTS — reviewed data-foundation integration
+# S07 RESULTS — data-foundation and integrated engineering gates
 
 ## Overall result
 
@@ -7,7 +7,12 @@ S07-A-R physical-cache provenance remediation gate at Job 335280. Full trainval 
 cache materialization was **not submitted** and remains
 `PENDING_OWNER_APPROVAL_DO_NOT_SUBMIT` in `RUN_REQUEST.md`. No model, training,
 evaluation, profile, metric, matrix, seed, attack, defense, upload, or publication
-action occurred.
+action occurred in those S07-A jobs.
+
+The later S07-B one-time bounded integrated runtime Job 348557 **FAILED** by
+internal timeout after recording three failure glyphs and four error glyphs. It
+does not establish integrated-runtime PASS. O-052 is consumed and no retry or
+follow-on is authorized.
 
 ## Job 333477 — focused data-foundation tests PASS
 
@@ -150,3 +155,115 @@ Pillow `12.2.0`, pytest `9.1.1`, and Torch `2.11.0+cu128`. It also records empty
   passes on the declared GH200 runtime.
 - Forbidden: model/full-data readiness, mAP/NDS, model quality, FL,
   attack/defense, generalization, or publication claims.
+
+---
+
+## Job 348557 — S07-B bounded integrated runtime FAILED
+
+### Immutable execution and scheduler record
+
+- Canonical decision: O-054 at exact Orchestra commit
+  `91526456ee4d4c9d63835868b055b537d0d6655c`.
+- Exact executable/archive commit `L`:
+  `05b733997968b8217e1fc6dd27c3a4add34f6c98`.
+- Launcher SHA-256:
+  `1b1c45d33b113d0c7d649e51b2ddf98a2d7822eab38d708d4bb0e223b8c334c0`.
+- Exact 123-file source-list SHA-256:
+  `be3b9157e213b942094d290d403306aa714e82157e36ba92847e32cfef71419a`.
+- Exact aggregate source-state SHA-256:
+  `d8c6cc0e20ed0c8ded5a4e13dd3ae52f32a62ebbcfafd2f9cbcd469fc5b87acd`.
+- Literal mini root:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini`.
+- Job/name/node: `348557` / `flv3_s07b_integrated` / `n30` (`aarch64`).
+- Scheduler state/exit: `FAILED 1:0`.
+- Submit/Start/End, Europe/Stockholm CEST:
+  `2026-07-12T12:33:41+02:00` / `2026-07-12T12:33:42+02:00` /
+  `2026-07-12T13:18:02+02:00`.
+- Elapsed: `00:44:20`; scheduler restarts: `0`.
+- Allocation: one node, one task, one NVIDIA GH200 120GB, eight CPUs and 64 GiB
+  (`67108864K`) memory.
+- Batch `MaxRSS=10573756K`; `TotalCPU=01:35.363`.
+- O-052 authorized exactly one attempt and was consumed at submission. There is
+  no retry, requeue, replacement or follow-on authority.
+
+Independent post-job `sacct` inspection reproduced the scheduler rows above. The
+execution identity reproduced the exact Git, launcher, list and aggregate hashes,
+one visible `NVIDIA GH200 120GB`, mini root, `spconv==2.3.8` and `cumm==0.7.13`.
+Thus launch/source/runtime attestation passed; test acceptance did not.
+
+### Pytest outcome and failed acceptance
+
+- `pytest.exitcode` contains exactly `124`, the GNU `timeout` status from the
+  launcher's internal 42-minute guard.
+- The shared stdout/pytest log contains progress through the displayed `[86%]`
+  line and then ends without a newline at `.........F..EEEE............`.
+  Across the complete log there are exactly three `F` glyphs and four `E`
+  glyphs before the hang/timeout.
+- There is no pytest summary, traceback, finalized per-test identity, JUnit XML
+  or authoritative collected/pass/fail/error/skip count.
+- Required `pytest.junit.xml`, `pytest_junit_counts.json` and final
+  `sha256sums.txt` are absent. Because the launcher stops at the missing JUnit
+  check, no final artifact checksum verification or JUnit acceptance executes.
+- The exact gate therefore **FAILS**: pytest exit was nonzero, at least `3F+4E`
+  were observed, the suite did not finish, required artifacts are missing, and
+  zero-failure/error/skip acceptance cannot be established.
+
+The output-local pytest basetemp contains
+`test_repeated_persistent_multi0` and a
+`test_repeated_persistent_multicurrent` symlink pointing to it; both are among
+the latest timestamped basetemp entries. Exact `L` maps that truncated name to
+`test_repeated_persistent_multiworker_reads_are_deterministic`. This is a
+**high-confidence diagnostic inference** about the hang location only. It is
+not a formal attribution or root-cause finding because `-q`, timeout, absent summary
+and absent JUnit leave no finalized current-test record. The identities of all
+three failures and four errors are likewise unknown from this run.
+
+### Preserved artifacts and independently recomputed SHA-256
+
+Output root:
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_integrated_05b733997968`.
+
+| Existing artifact | SHA-256 |
+|---|---|
+| `config_sha256s.txt` | `4a7b425b9078c8d16035aa501382787bb161f7d435d16e3d56d07b1221b671aa` |
+| `execution_identity.json` | `af7a7ea953d56b1c909cb395c86075e5f23219411945490341dc804dcab4a69f` |
+| `pytest.exitcode` | `ca2ebdf97d7469496b1f4b78958f9dc8447efdcb623953fee7b6996b762f6fff` |
+| `pytest.log` | `eceba3ae66efdb901626eac108200bc9f50108229a290dad39dec64bd8abad2c` |
+| `runtime_source_files.txt` | `be3b9157e213b942094d290d403306aa714e82157e36ba92847e32cfef71419a` |
+| `runtime_source_sha256s.txt` | `d8c6cc0e20ed0c8ded5a4e13dd3ae52f32a62ebbcfafd2f9cbcd469fc5b87acd` |
+| `selected_test_files.txt` | `c9305627d222dcaf0575e4006c81be797f2eb8e7cc21a13285fe59325840dfd5` |
+
+All 123 records inside `runtime_source_sha256s.txt` independently verify against
+the immutable snapshot. The following required artifacts are missing:
+
+- `pytest.junit.xml`;
+- `pytest_junit_counts.json`;
+- `sha256sums.txt`.
+
+Logs and independently recomputed hashes:
+
+| Log | SHA-256 |
+|---|---|
+| `s07b_integrated_348557.out` | `eceba3ae66efdb901626eac108200bc9f50108229a290dad39dec64bd8abad2c` |
+| `s07b_integrated_348557.err` | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+Stdout is byte-identical to `pytest.log`. Stderr contains only the normal module
+purge notice; it does not identify the failures, errors or hang.
+
+### Negative evidence and interpretation boundary
+
+Preserved negative result: exact source/runtime identity and environment setup
+succeeded, but the selected integrated suite produced at least three failures,
+four errors and a hang before timing out. This is S07-B integrated-runtime
+**FAIL**, not an infrastructure-neutral PASS and not a partial module PASS.
+
+Allowed interpretation: exact Job 348557 launched the attested 25-file mini plus
+synthetic suite on one GH200 and exposed unresolved integrated test failures,
+errors and a likely persistent-worker hang location requiring separate diagnosis.
+
+Forbidden interpretation: which named tests caused the `3F+4E`; a proven root
+cause for the hang; any S02-S07 component-level PASS inferred from progress dots;
+production/full-trainval/cache readiness; throughput/memory performance; mAP/NDS,
+model quality or fusion gain; 100/1000-step training; FL, attack/defense,
+generalization, seed/matrix or publication evidence. O-052 is consumed and this
+result authorizes no retry, diagnostic execution, merge, push or follow-on.

@@ -1569,7 +1569,7 @@ the only path changed in `L`; this subsequent delivery commit changes only
 after commit because it cannot embed its own identity.
 
 The request now has status
-`SUBMITTED_ONCE_JOB_348557_APPROVAL_CONSUMED_ACTIVE`.
+`EXECUTED_ONCE_JOB_348557_FAILED_TIMEOUT_APPROVAL_CONSUMED_NO_RETRY`.
 Canonical O-052 at exact Orchestra commit
 `e71274b1a169c1af92fe638608785a6e479d2b3a` records S00's audit and the owner's
 delegated S07-B validation authority. This is explicitly not generic O-009. It
@@ -1602,17 +1602,28 @@ acceptance/stop-rule drift invalidates approval and requires a new canonical
 decision. The one submission attempt consumed the approval regardless of outcome.
 
 The exact Section D preflight/resources/exports/launcher command was submitted
-once and unchanged. Job `348557` is ACTIVE. It creates a fresh read-only archive
-snapshot and fresh output, activates the persistent Arrhenius environment, uses
-only the literal existing mini root plus output-local synthetic temporary
-fixtures, and clears shared-trainval/ZIP-manifest overrides. S07-B now waits for
-S00 to preserve and audit the result; this worker performs no job query, cancel,
-retry or follow-on.
+once and unchanged. Under canonical O-054 at exact Orchestra commit
+`91526456ee4d4c9d63835868b055b537d0d6655c`, Job `348557` is terminal
+`FAILED 1:0`: Submit/Start/End `2026-07-12T12:33:41+02:00` /
+`2026-07-12T12:33:42+02:00` / `2026-07-12T13:18:02+02:00`, elapsed `00:44:20`,
+node `n30`, one GH200/eight CPUs/64 GiB, `MaxRSS=10573756K`,
+`TotalCPU=01:35.363`, `Restarts=0`.
+
+Exact source/runtime identity passed, including `L`, launcher/list/state hashes,
+literal mini root, GH200, `spconv==2.3.8` and `cumm==0.7.13`. Pytest emitted
+exactly `3F+4E`, hung without summary and exited `124` under the internal timeout.
+JUnit, finalized counts and final `sha256sums.txt` are missing, so acceptance is
+**FAIL**. Basetemp points to the truncated persistent-multiworker test name only
+as a high-confidence hang-location inference, not a formal attribution. Exact
+artifact/log hashes, missing evidence and interpretation limits are in
+`RESULTS.md`. O-052 is consumed; no retry, replacement, diagnostic execution or
+follow-on is authorized.
 
 The exact launcher selects 25 named test files: the required S02 Gaussian/GPU,
 S03 camera, S04 SECOND/fp16, S05 CenterHead/eval/NMS, five S06, two S07-B and nine
 shared contract modules. Static AST inventory estimates 177 test functions / 249
-collected cases; a future JUnit record is authoritative. Bounded GPU
+collected cases; Job 348557 produced no finalized JUnit, so this estimate is not
+an executed test count. Bounded GPU
 forward/backward and bounded unit-level optimizer-state/step checks are preserved,
 but no trainer, optimizer campaign, 100/1000-step run, full cache, trainval metric
 or scientific cell is launched.
@@ -1620,10 +1631,11 @@ or scientific cell is launched.
 The launcher records full source/config/runtime/dependency identity, disables
 plugin autoload and cacheprovider, clears `PYTEST_ADDOPTS`, constrains the pytest
 subprocess to 42 minutes, and requires positive JUnit count with zero failure/
-error/skip. It emits log/JUnit/exit/source/config/execution artifacts, generates
-`sha256sums.txt`, and verifies it with `sha256sum -c`. Any collision, identity,
-hash, resource, CUDA/package, pytest, skip, timeout or artifact failure stops with
-no retry.
+error/skip. It is designed to emit log/JUnit/exit/source/config/execution
+artifacts, generate `sha256sums.txt`, and verify it with `sha256sum -c`. This
+attempt stopped before JUnit/counts/final checksums; the exact present/missing set
+is recorded in `RESULTS.md`. Any collision, identity, hash, resource,
+CUDA/package, pytest, skip, timeout or artifact failure stops with no retry.
 
 Preparation checks actually run, without project import or compute:
 
@@ -1634,14 +1646,13 @@ Preparation checks actually run, without project import or compute:
 - exact archive and immutable-Git-blob list/state hashes matched;
 - `git diff --check`: PASS.
 
-Explicitly **NOT RUN / NO IMPLIED PASS**: `sbatch`, `srun`, pytest, pycompile,
-project/package import, Torch/spconv/cumm, data/model, CUDA/GPU, official devkit,
-cache generation, model step, profile/metric, DDP, matrix, retry or scientific
-cell. No output/snapshot/log path was created by request preparation. RESULTS,
-canonical docs, production source, tests and configs remained read-only. No merge,
-push, upload or publication occurred.
+Those preparation checks did not run project imports or compute. The later exact
+Job `348557` did run the selected pytest suite with Torch/spconv/cumm and one
+GH200, producing the preserved failure above. It did not run a trainer, full
+cache/trainval scan, 100/1000-step campaign, profile/metric, DDP, matrix, retry or
+scientific cell. No merge, push, upload or publication occurred.
 
 The exact command, resources, tests, artifacts, acceptance/stop conditions and
-interpretation limits are frozen in RUN_REQUEST Section D. S00 must audit the
-final docs commit and the owner must separately approve the exact tuple before any
-submission.
+terminal negative result are frozen in RUN_REQUEST Section D and `RESULTS.md`.
+O-052 is consumed. Any diagnostic proposal is a distinct future request and has
+no execution authority from O-054 or this handoff.

@@ -323,12 +323,12 @@ No retry or downstream action follows automatically.
 
 ---
 
-## D. S07-B bounded integrated GH200 validation — SUBMITTED ONCE / ACTIVE
+## D. S07-B bounded integrated GH200 validation — EXECUTED ONCE / FAILED / APPROVAL CONSUMED
 
 ### Approval state and immutable scope
 
 - **Status:**
-  `SUBMITTED_ONCE_JOB_348557_APPROVAL_CONSUMED_ACTIVE`.
+  `EXECUTED_ONCE_JOB_348557_FAILED_TIMEOUT_APPROVAL_CONSUMED_NO_RETRY`.
 - Canonical approval is O-052 at exact Orchestra commit
   `e71274b1a169c1af92fe638608785a6e479d2b3a`. S00 independently audited the
   complete tuple below under the owner's delegated S07-B validation authority.
@@ -500,6 +500,29 @@ This exact command was submitted once as Job `348557` at
 `2026-07-12T12:33:41+02:00`; O-052 is consumed. It must not be submitted again.
 No alternate invocation, retry, replacement or follow-on is approved.
 
+### Executed result — FAILED / approval consumed
+
+Canonical O-054 at exact Orchestra commit
+`91526456ee4d4c9d63835868b055b537d0d6655c` records the terminal result. Job
+`348557` was `FAILED 1:0`: Submit/Start/End
+`2026-07-12T12:33:41+02:00` / `2026-07-12T12:33:42+02:00` /
+`2026-07-12T13:18:02+02:00`, elapsed `00:44:20`, node `n30`, one GH200/eight
+CPUs/64 GiB, batch `MaxRSS=10573756K`, `TotalCPU=01:35.363`, `Restarts=0`.
+
+Exact Git/launcher/list/state/mini/runtime identities passed. Pytest then emitted
+exactly three `F` and four `E` progress glyphs, hung without a summary and was
+terminated by the internal timeout with exit `124`. Required JUnit,
+`pytest_junit_counts.json` and final `sha256sums.txt` were not produced; therefore
+the zero-failure/error/skip and checksum acceptance gate is **FAIL**. The latest
+basetemp symlink/directory points to the truncated name for
+`test_repeated_persistent_multiworker_reads_are_deterministic`, which is only a
+high-confidence hang-location inference, not a formal attribution without JUnit
+or summary. Exact raw-artifact hashes and interpretation limits are preserved in
+`RESULTS.md`.
+
+O-052 is consumed. No retry, requeue, replacement, diagnostic execution or
+follow-on is approved by this record.
+
 ### Runtime identity, artifacts, acceptance and stop conditions
 
 `execution_identity.json` records exact Git/source/list/scope identity; Slurm job,
@@ -529,3 +552,5 @@ Arrhenius GH200 with real mini plus synthetic temporary fixtures. Forbidden:
 production/full-trainval readiness, cache readiness, throughput/memory claims,
 mAP/NDS or other scientific metrics, model-quality/fusion-gain, 100/1000-step
 training, FL, attack/defense, generalization, seed/matrix or publication evidence.
+Job 348557 did not meet the conditional PASS gate; none of the allowed PASS
+interpretation is available from this execution.
