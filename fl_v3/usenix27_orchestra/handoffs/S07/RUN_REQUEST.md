@@ -554,3 +554,189 @@ mAP/NDS or other scientific metrics, model-quality/fusion-gain, 100/1000-step
 training, FL, attack/defense, generalization, seed/matrix or publication evidence.
 Job 348557 did not meet the conditional PASS gate; none of the allowed PASS
 interpretation is available from this execution.
+
+---
+
+## E. S07-B failure/hang diagnostic attribution — PREPARED ONLY
+
+### Approval state and immutable identity
+
+- **Status:** `PREPARED_PENDING_S00_AUDIT_DO_NOT_SUBMIT`.
+- Canonical O-055 at exact Orchestra commit
+  `d56e01d3b80a7dae41f90211c0be9ff565861b85` authorizes preparation only. It
+  does not approve `sbatch`, `srun`, pytest, retry, replacement or follow-on.
+- This is a distinct diagnostic proposal after the durable Job 348557 negative
+  record at `d7888a9fef615c83c8d36161bfa6d581a3dc4f0f`. It is not an O-052 retry and
+  cannot change or overwrite the old output.
+- Immutable diagnostic launcher/archive commit (`L`):
+  `fd142dc1c247ed527dbf5ddb823576c817dc415a`.
+- Launcher path, Git blob and SHA-256:
+  `fl_v3/scripts/run_s07_b_diagnostic_tests.sh` /
+  `e41e97d31ff0a4e5555a548a63ac04d656565538` /
+  `d8d7686eb727d4973591cf20186615f6bf2f3bc71ba020dec815c9b6d2d0dc1b`.
+- Exact C-locale source file count: 124.
+- Exact source-list SHA-256:
+  `40c364201bda63386be614fca3710f62111e6964f9b7fdc1beffef69cb5f05d8`.
+- Exact aggregate source-state SHA-256:
+  `56ddfdc66045548899cdde1ad08f7e394c300a8fc27a6c0aaf6551a8178533b2`.
+- Exact parent runtime launcher SHA-256, checked separately in-job:
+  `1b1c45d33b113d0c7d649e51b2ddf98a2d7822eab38d708d4bb0e223b8c334c0`.
+
+The 124-file state is the exact prior 123-file runtime set plus only the new
+diagnostic launcher. It contains all tracked `fl_v3/src/fl_v3/**/*.py`, both
+S07-B launchers, the Arrhenius bootstrap, centralized/mini/T4/T5 scripts,
+`tests/conftest.py`, the 25 tests below, five S07-B configs, pyproject and both
+requirements manifests. Both list/state hashes were independently reproduced
+from `git archive L` and ordered immutable Git blobs.
+
+Exact config SHA-256 identities remain:
+
+| Config | SHA-256 |
+|---|---|
+| `s07_b_c_str8.json` | `d2eaa46c800ebea5927359398acd88b38d90219c2f1f3841a4b1897ed05f8cc6` |
+| `s07_b_f_cbgs.json` | `bd8c57e84b34f835f3eaafe71f259a0c4131748bb27a62edf83bcd7f44bb54f0` |
+| `s07_b_f_u.json` | `df7f36fe28e0d0c6c8275b293318cf7fae2e3c71fe3c60b7a7b81c26af69fa2e` |
+| `s07_b_l_p020.json` | `625242234a03314010860e6026b0fbb88b774a9aeec12c7f7fe870203da07421` |
+| `s07_b_l_s075.json` | `1658cd5ec0e9c1b8945646d2e23a8db4419d16c2f644ca5a99b94c3477dcce1d` |
+
+### Resources, data, snapshot and outputs
+
+- One job, one node, one task, one NVIDIA GH200 120GB, eight CPUs, 64 GiB and
+  at most `00:30:00`; no array, DDP, requeue, retry, automatic follow-on or
+  spare-GPU job.
+- Fresh immutable archive snapshot only:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_diagnostic_fd142dc1c247`.
+- Fresh output only:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_diagnostic_fd142dc1c247`.
+- Slurm logs:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07b_diagnostic_%j.{out,err}`.
+- Existing literal mini input only:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini`.
+  The launcher requires equal literal path and realpath, clears
+  `NUSCENES_DATA_DIR` and both ZIP-manifest overrides, and confines synthetic
+  pytest scratch state to the new output-local `tmp/`.
+- The Job 348557 output
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_integrated_05b733997968`
+  is read-only negative evidence and is never reused or modified by this request.
+
+The launcher archives exact `L`, validates launcher/runtime/config/list/state
+identities, removes snapshot write permission, activates the persistent Arrhenius
+environment, requires one visible CUDA device and records full Python/Torch/CUDA/
+GH200/spconv/cumm/dependency identity. The identity embeds Job 348557's exact
+negative evidence and `d7888a9...` RESULTS parent.
+
+### Exact tests and two diagnostic stages
+
+The exact ordered 25-file list is unchanged:
+
+1. `fl_v3/tests/test_s02_p0_correctness.py`
+2. `fl_v3/tests/test_s02_gpu_forward_backward.py`
+3. `fl_v3/tests/test_s03_camera_contract.py`
+4. `fl_v3/tests/test_s04_second_contract.py`
+5. `fl_v3/tests/test_s04_second_smoke.py`
+6. `fl_v3/tests/test_s04_fp16_eval_dispatch.py`
+7. `fl_v3/tests/test_s05_centerhead_decode.py`
+8. `fl_v3/tests/test_s05_eval_roundtrip.py`
+9. `fl_v3/tests/test_s05_nms.py`
+10. `fl_v3/tests/test_s06_checkpoint_resume.py`
+11. `fl_v3/tests/test_s06_loader_eval.py`
+12. `fl_v3/tests/test_s06_model_modes.py`
+13. `fl_v3/tests/test_s06_resolved_config.py`
+14. `fl_v3/tests/test_s06_training_runtime.py`
+15. `fl_v3/tests/test_s07_b_data_lifecycle.py`
+16. `fl_v3/tests/test_s07_b_integration.py`
+17. `fl_v3/tests/test_sparse_voxel_encoder.py`
+18. `fl_v3/tests/test_lidar_backbone.py`
+19. `fl_v3/tests/test_head_capacity.py`
+20. `fl_v3/tests/test_eval_box_to_global.py`
+21. `fl_v3/tests/test_eval_detection_eval.py`
+22. `fl_v3/tests/test_eval_provenance.py`
+23. `fl_v3/tests/test_model_task.py`
+24. `fl_v3/tests/test_profiling_neutral.py`
+25. `fl_v3/tests/test_nuscenes_zip_dataset.py`
+
+Stage 1 runs each file, in that order, in a distinct subprocess with a unique
+output directory, basetemp, verbose log, optional JUnit and explicit pytest/tee
+exit files. The exact command form is:
+
+```bash
+timeout --signal=TERM --kill-after=15s 120s \
+  python -m pytest -vv -ra --tb=long -p no:cacheprovider \
+  -o faulthandler_timeout=60 \
+  --basetemp="UNIQUE_BASETEMP" --junitxml="UNIQUE_JUNIT" "ONE_TEST_FILE"
+```
+
+Every isolated failure, error or timeout is recorded and then execution continues
+to the next file. A nonzero pytest exit is diagnostic evidence, not a harness
+failure.
+
+Stage 2 performs one separate verbose combined probe over the same ordered list:
+
+```bash
+timeout --signal=TERM --kill-after=15s 600s \
+  python -m pytest -vv -ra --tb=short -p no:cacheprovider \
+  -o faulthandler_timeout=60 \
+  --basetemp="COMBINED_BASETEMP" --junitxml="COMBINED_JUNIT" \
+  "THE_SAME_25_TEST_FILES_IN_ORDER"
+```
+
+Its independent log/JUnit/exit files retain verbose current-test and prior
+FAILED/ERROR names even if the probe times out. The 30-minute Slurm walltime is
+absolute: if the 25 isolated attempts plus combined probe do not finish, the
+diagnostic harness is incomplete and fails; no retry follows.
+
+### Summary, artifacts and diagnostic acceptance
+
+`diagnostic_summary.json` lists all 25 isolated attempts with exact test path,
+pytest and tee exits, log/JUnit presence, JUnit counts or parse error, plus the
+combined probe's equivalent status. It contains separate booleans:
+
+- `diagnostic_complete`: identities passed, all 25 isolated subprocesses and the
+  combined subprocess were attempted, logs/exits were captured and both tee
+  exits were zero;
+- `suite_pass`: every isolated and combined pytest exit was zero and every JUnit
+  existed, parsed, had a positive test count and zero failures/errors/skips.
+
+`diagnostic_complete` does **not** imply `suite_pass`. Expected diagnostic
+failures/timeouts may yield a Slurm `COMPLETED 0:0` only when the diagnostic
+harness and artifacts complete; the summary must still report
+`suite_pass=false`. Harness nonzero is reserved for identity/setup failure,
+failure to attempt the full required probes, summary/artifact-capture failure or
+checksum failure—not for captured pytest failures/timeouts themselves.
+
+Formal output artifacts include execution/source/config/test identities,
+`isolated_attempts.tsv`, every existing isolated and combined log/JUnit/exit
+file, and `diagnostic_summary.json`. After both stages, the launcher C-locale
+sorts every preceding existing formal output file outside scratch `tmp/` into
+`sha256sums.txt` and requires `sha256sum -c` success; the checksum manifest
+cannot recursively contain itself. Scratch fixtures are not formal evidence.
+Scheduler stdout/stderr remain separately preserved for S00 to hash after the
+job closes.
+
+### Exact proposed command — DO NOT SUBMIT
+
+```bash
+test "$(git hash-object fl_v3/scripts/run_s07_b_diagnostic_tests.sh)" = "e41e97d31ff0a4e5555a548a63ac04d656565538" && \
+git cat-file -e fd142dc1c247ed527dbf5ddb823576c817dc415a^{commit} && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_diagnostic_fd142dc1c247 && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_diagnostic_fd142dc1c247 && \
+test -z "$(squeue -u "$USER" -h -o '%i %j' | awk '$2 == "flv3_s07b_diagnostic" {print}')" && \
+sbatch --nodes=1 --ntasks=1 --gpus-per-node=nvidia_gh200_120gb:1 \
+  --cpus-per-task=8 --mem=64G --time=00:30:00 --no-requeue \
+  --export=ALL,EXPECTED_S07B_DIAGNOSTIC_SHA=fd142dc1c247ed527dbf5ddb823576c817dc415a,EXPECTED_S07B_DIAGNOSTIC_LAUNCHER_SHA256=d8d7686eb727d4973591cf20186615f6bf2f3bc71ba020dec815c9b6d2d0dc1b,EXPECTED_S07B_DIAGNOSTIC_SOURCE_SHA256=56ddfdc66045548899cdde1ad08f7e394c300a8fc27a6c0aaf6551a8178533b2,EXPECTED_S07B_DIAGNOSTIC_SOURCE_LIST_SHA256=40c364201bda63386be614fca3710f62111e6964f9b7fdc1beffef69cb5f05d8,S07B_DIAGNOSTIC_APPROVAL_SCOPE=s07b-diagnostic-attribution-only,S07B_DIAGNOSTIC_MINI_DATAROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini,S07B_DIAGNOSTIC_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_diagnostic_fd142dc1c247 \
+  fl_v3/scripts/run_s07_b_diagnostic_tests.sh
+```
+
+This command is frozen text for S00 audit only. It was not executed. Any Git,
+hash, file list/order, test command/timeout, data, resource, path, environment,
+summary, acceptance or stop-rule drift invalidates the tuple.
+
+### Interpretation limits
+
+The only purpose is to recover exact failure/error names, long per-file
+tracebacks and a bounded high-confidence hang location for Job 348557 follow-up.
+It is engineering diagnostics only: no production/full-data/cache readiness,
+throughput/memory, mAP/NDS, model-quality/fusion-gain, 100/1000-step training,
+FL, attack/defense, generalization, matrix/seed or publication claim is allowed.
+No trainer, full trainval/cache scan, profile, metric, DDP or scientific cell is
+invoked. Preparation authorizes no compute, retry, merge, push or upload.

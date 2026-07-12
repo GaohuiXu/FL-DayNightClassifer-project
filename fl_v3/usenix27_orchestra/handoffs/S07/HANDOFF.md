@@ -1656,3 +1656,76 @@ The exact command, resources, tests, artifacts, acceptance/stop conditions and
 terminal negative result are frozen in RUN_REQUEST Section D and `RESULTS.md`.
 O-052 is consumed. Any diagnostic proposal is a distinct future request and has
 no execution authority from O-054 or this handoff.
+
+### O-055 S07-B diagnostic request preparation
+
+Canonical O-055 at exact Orchestra commit
+`d56e01d3b80a7dae41f90211c0be9ff565861b85` accepts the durable Job 348557
+negative record and permits diagnostic preparation only. It does not approve a
+job. This proposal is a distinct attribution harness, not an O-052 retry.
+
+Launcher-only `L` is frozen at
+`fd142dc1c247ed527dbf5ddb823576c817dc415a`, parent exact
+`d7888a9fef615c83c8d36161bfa6d581a3dc4f0f`, with only new mode-100755 path
+`fl_v3/scripts/run_s07_b_diagnostic_tests.sh`. Exact identities are:
+
+- diagnostic launcher Git blob:
+  `e41e97d31ff0a4e5555a548a63ac04d656565538`;
+- diagnostic launcher SHA-256:
+  `d8d7686eb727d4973591cf20186615f6bf2f3bc71ba020dec815c9b6d2d0dc1b`;
+- 124-file C-locale source-list SHA-256:
+  `40c364201bda63386be614fca3710f62111e6964f9b7fdc1beffef69cb5f05d8`;
+- aggregate source-state SHA-256:
+  `56ddfdc66045548899cdde1ad08f7e394c300a8fc27a6c0aaf6551a8178533b2`;
+- parent runtime launcher SHA-256:
+  `1b1c45d33b113d0c7d649e51b2ddf98a2d7822eab38d708d4bb0e223b8c334c0`.
+
+The source set is the prior exact 123-file runtime state plus only the diagnostic
+launcher. Archive extraction and ordered immutable Git blobs independently
+reproduced the 124-file list and aggregate hashes. The five candidate config
+hashes and exact ordered 25 test files remain unchanged and are checked in-job.
+
+The request is
+`PREPARED_PENDING_S00_AUDIT_DO_NOT_SUBMIT`. It proposes only one node/task/GH200,
+eight CPUs, 64 GiB and 30 minutes, no array/DDP/requeue/retry/follow-on. It uses
+the same literal mini root plus output-local synthetic scratch, clears full-data
+and ZIP overrides, and creates only fresh
+`s07b_diagnostic_fd142dc1c247` snapshot/output paths. The old Job 348557 output
+remains untouched negative evidence.
+
+The first stage runs the same 25 files in order as isolated verbose subprocesses,
+each with a 120-second GNU timeout, long traceback, 60-second faulthandler,
+unique basetemp/log/JUnit/exit artifacts and continue-on-failure/timeout. The
+second stage runs the same ordered list once with verbose short tracebacks and a
+600-second timeout. Its log preserves the current test and prior FAILED/ERROR
+names if it hangs.
+
+The checksummed JSON summary records every isolated attempt and the combined
+status. `diagnostic_complete` is separate from `suite_pass`: captured pytest
+failures/timeouts do not fail the harness, while identity, missing attempts,
+summary/artifact-capture or checksum failures do. Every existing formal output
+artifact outside scratch is C-locale sorted into `sha256sums.txt` and verified
+with `sha256sum -c`.
+
+Preparation checks actually run, without pytest/project import/compute:
+
+- `bash -n`: PASS;
+- embedded stdlib Python heredoc AST: `EMBEDDED_AST_OK=3`;
+- five JSON configs parsed: `JSON_OK=5`;
+- exact ordered tests: 25;
+- static source paths: 124, all present;
+- archive and independent Git-blob list/state reproduction: PASS;
+- `git diff --check`: PASS.
+
+`shellcheck -x` reported only SC2034 for the readonly shell constant
+`PARENT_NEGATIVE_RESULTS_COMMIT`; the same exact SHA is embedded in the execution
+identity and the full launcher is source-hash bound. This is a nonfunctional
+unused-metadata warning, not a runtime or tuple ambiguity; no other shellcheck
+finding occurred. Because `L` is frozen, it was recorded rather than amended.
+
+Explicitly not run: `sbatch`, `srun`, pytest, pycompile, project/package import,
+Torch/spconv/cumm, data/model/CUDA/GPU, cache, model step, profile/metric, DDP,
+matrix, retry or scientific cell. No fresh diagnostic output/snapshot/log exists.
+No RESULTS, production source, tests, runtime launcher or canonical doc changed.
+No merge, push, upload or publication occurred. S00 must audit the exact Section
+E tuple and obtain separate one-time approval before any diagnostic submission.
