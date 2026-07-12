@@ -974,3 +974,75 @@ The code-level caller ownership blocker is closed for re-review, but this remain
 a static candidate only. Independent review and an exact future O-009 request are
 still required before runtime evidence; all production/scientific interpretations
 remain forbidden.
+
+### S07-B-R2 sole-P1 remediation — authoritative T5 preflight
+
+Independent S07-B-R2 reviewed exact parent
+`ee5210016b072041db4956f26834ecfdffcbc206` and returned
+`CHANGES-REQUESTED` at review commit
+`afb81f51cdf311de215d351e92e2bf5ac6c3bd43`. Its appended review blob is
+`40618498861484178a77b9096f8c0e2e79eab550`, SHA-256
+`e93daac54472c568a41f06c069cc85216e8cec1914e94be48c5e33dff3c46f8b`;
+S00 independently verified its exact parent, sole REVIEW path and preserved prior
+47,254-byte prefix. The sole blocking finding was T5 caller ordering: `task_shard`
+could seed and construct compatibility data before the complete checkpoint supplied
+authoritative precision/depth/mode/cache/manifest identity.
+
+S00 returned this exact P1 within existing O-037 ownership. Implementation commit
+`2c6203c02f118678dcfb71e3b67ddc703dbd2f8a` changes only
+`fl_v3/scripts/t5_attack_eval.py` and
+`fl_v3/tests/test_s07_b_integration.py`:
+
+- `main()` now parses the compatibility/attack-only config and, for every executable
+  task except the already fail-closed legacy `null-verify`, completes poisoned and
+  optional clean checkpoint preflight before output creation or task dispatch.
+- Preflight requires the exact complete S06 field set and schema, resolves and
+  canonicalizes the embedded `ResolvedConfig`, verifies duplicated config SHA,
+  model mode, precision, data identities and checkpoint identity, checks component
+  mapping/EMA presence, hashes the physical checkpoint, verifies physical
+  cache/sidecar/manifest identities and obtains actual dependency identity. No
+  `_device`, `_seed`, val-info/dataset, model or optimizer construction occurs in
+  this phase.
+- Missing strict fields in the existing compatibility `t5_attack.json`, including
+  `precision`, `det-lidar-sweeps`, `model-mode`, manifest/cache identities and
+  `s06-production-runtime`, are filled from the authoritative checkpoint config.
+  Any overlapping scientific field outside the explicit
+  `batch-size`/`num-workers`/`det-eval-limit` override allowlist must match exactly.
+  T5 then forces its already-frozen batch-size-one and full-eval-limit contracts;
+  attack-only fields remain separate from S06 model/data identity.
+- Poisoned and optional clean checkpoints are both fully preflighted before config
+  mutation. They must have identical resolved SHA, raw/EMA policy and runtime
+  dependency identity. Failure leaves no registered preflight and no authoritative
+  config mutation.
+- Every `shard`, `aggregate`, `stealth`, `guards` and `viz` task entry requires the
+  registered exact checkpoint preflight before `_device`, `_seed`, data or model.
+  `_load_model` consumes that immutable preflight rather than establishing config;
+  it rejects post-preflight config mutation and checkpoint byte drift before model
+  construction, loads through S06 `load_checkpoint`, applies the bound raw/EMA
+  policy and rehashes the checkpoint after load.
+- V5/V3 visualization now consumes `model.cfg.bev` from the authoritative model
+  rather than a legacy 0.4-m default, without changing model/head/NMS/metric or
+  attack thresholds.
+
+New caller-level hostile tests are authored but **NOT RUN**. They start from the
+actual compatibility `fl_v3/configs/t5_attack.json` and a synthetic structurally
+complete checkpoint, drive the real `main → task_shard` order with only external
+runtime/data/model seams mocked, and assert parse/physical/dependency preflight
+precedes device, fp32-filled seed, val-info, dataset and model. Separate cases cover
+missing checkpoint, legacy/bare payload, caller/config drift, embedded metadata
+drift, physical checkpoint mutation after preflight and clean/poison resolved
+identity mismatch with no partial config/registry state.
+
+Actually run after the implementation: `python3 -m py_compile` for the two changed
+Python/test files, `bash -n run_s07_b_static_checks.sh`, `git diff --check`, and the
+committed static launcher; all PASS. Explicitly **NOT RUN**: pytest or any authored
+hostile, Torch/spconv/cumm actual import gate, physical cache/data/model/checkpoint
+load, raw/EMA execution, directory/ZIP reads, T5 condition decode, official devkit,
+Slurm/GPU, profile/metrics, full cache, 100/1000-step, DDP, rerun or scientific cell.
+No RUN_REQUEST/RESULTS, canonical, review, collab or protocol/scientific field was
+edited; no merge/push/upload occurred.
+
+This closes the R2 ordering P1 at static code level only and returns the exact new
+delivery for another independent review. It is not runtime, production or
+scientific PASS, and no O-009 request should be prepared until that review accepts
+the code.
