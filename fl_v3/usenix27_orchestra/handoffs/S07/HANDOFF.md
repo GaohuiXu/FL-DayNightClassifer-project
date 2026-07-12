@@ -724,8 +724,17 @@ PASS local/static only:
    supplying an explicit `camera_pretrained=False`, and substituting syntactically
    valid fake hashes; this validates enum/schema consistency only, not identity or
    run readiness;
-9. `git diff --check` after every integration stage;
+9. `git diff --check` on every S07-B-authored working/staged diff after each
+   integration stage;
 10. candidate file hashes reproduced by the committed static script.
+
+The final whole-history check
+`git diff --check c9c84f8...HEAD` intentionally does not report a global PASS: it
+finds one blank line at EOF in the exact imported S03 `REVIEW.md` bytes and trailing
+spaces in two immutable S03 Job 336708 raw text artifacts (`scontrol.txt` and
+`stdout.txt`). Those are pre-existing reviewed/raw-evidence bytes introduced by
+the exact S03 worker merge. Editing them would violate history/review/artifact
+preservation, so they remain recorded warnings rather than S07-B changes.
 
 NOT RUN, with no implied PASS:
 
