@@ -14,7 +14,11 @@ from fl_v3.eval.provenance import (
     build_provenance,
     check_d10,
     verify_d10_provenance,
+    build_s06_provenance,
+    verify_s06_provenance,
 )
+from fl_v3.config import resolve_config
+from test_s06_resolved_config import valid_config
 
 _D10_CFG = {
     "task-type": "nuscenes_detection",
@@ -91,3 +95,17 @@ def test_verify_refuses_checksum_mismatch(tmp_path):
     ckpt = _write(tmp_path, build_provenance(_D10_CFG, "ck"))
     with pytest.raises(RuntimeError, match="INVALID"):
         verify_d10_provenance(ckpt, "DIFFERENT_CHECKSUM")
+
+
+def test_s06_provenance_binds_mode_config_checkpoint_and_data(tmp_path):
+    config = resolve_config(valid_config(tmp_path))
+    source = "1" * 40; checkpoint = "2" * 64
+    prov = build_s06_provenance(config, checkpoint_sha256=checkpoint, source_sha=source)
+    assert verify_s06_provenance(
+        prov, config, checkpoint_sha256=checkpoint, source_sha=source,
+    )["_verified"]
+    drift = dict(prov); drift["model_mode"] = "fusion"
+    with pytest.raises(RuntimeError, match="identity drift"):
+        verify_s06_provenance(
+            drift, config, checkpoint_sha256=checkpoint, source_sha=source,
+        )

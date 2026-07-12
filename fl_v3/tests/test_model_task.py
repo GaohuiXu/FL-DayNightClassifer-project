@@ -58,6 +58,13 @@ def test_detection_task_registered():
     assert get_task("nuscenes_detection").name == "nuscenes_detection"
 
 
+def test_detection_config_rejects_legacy_model_mode_alias():
+    from fl_v3.training.tasks import _det_config_from_run
+
+    with pytest.raises(ValueError, match="model-mode"):
+        _det_config_from_run({**_DET_CFG, "model-mode": "camera"})
+
+
 def test_num_clients_iid_is_requested(mini_cache_dir):
     from fl_v3.training.tasks import get_task
 

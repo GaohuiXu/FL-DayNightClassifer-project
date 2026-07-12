@@ -20,6 +20,8 @@ offset and **NO** ``(l,w,h)`` swap (the encode→decode golden pins it).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from contextlib import contextmanager
+import threading
 from typing import Dict, List, Optional
 
 import torch
@@ -36,12 +38,15 @@ from fl_v3.models.fusion.lidar_backbone import LidarBackbone2D
 from fl_v3.models.fusion.fusion import ConvFuser
 from fl_v3.models.fusion.bev_neck import SecondFPNNeck
 from fl_v3.models.fusion.head import CenterPointHead
+from fl_v3.utils.runtime import normalize_model_mode, require_spconv_238
 
 
 @dataclass
 class DetectorConfig:
     """All architecture knobs (config-injected from run_config)."""
 
+    model_mode: str = "fusion"
+    required_spconv_version: str | None = None
     camera_backbone: str = "swin_t"      # swin_t | resnet18
     freeze_camera_backbone: bool = True  # D1
     pretrained_backbone: bool = True
@@ -82,26 +87,39 @@ class BEVFusionDetector(nn.Module):
         super().__init__()
         self.cfg = cfg or DetectorConfig()
         c = self.cfg
-        self.preprocess = ImagePreprocessor(image_hw=c.image_hw)
-        self.camera_backbone = CameraBackbone(
-            c.camera_backbone, frozen=c.freeze_camera_backbone, pretrained=c.pretrained_backbone,
-            activation_checkpoint=c.activation_checkpoint, sdpa_attention=c.swin_sdpa,
-        )
-        self.camera_neck = GeneralizedLSSFPN(
-            in_channels=self.camera_backbone.out_channels,
-            in_strides=self.camera_backbone.strides,
-            out_channels=c.neck_channels,
-            out_stride=c.feat_stride,
-        )
-        self.view_transform = DepthLSSTransform(
-            in_channels=c.neck_channels,
-            context_channels=c.context_channels,
-            depth_bins=c.depth_bins,
-            image_hw=c.image_hw,
-            feat_stride=c.feat_stride,
-            cfg=c.bev,
-        )
-        if c.lidar_encoder == "voxel":   # Rule#2-relaxed sparse 3D-voxel encoder (spconv); drop-in BEV for the PFN
+        self.model_mode = normalize_model_mode(c.model_mode)
+        self._runtime_lock = threading.RLock()
+        use_camera = self.model_mode in {"camera_only", "fusion"}
+        use_lidar = self.model_mode in {"lidar_only", "fusion"}
+        if use_lidar and c.required_spconv_version is not None:
+            if c.required_spconv_version != "2.3.8":
+                raise ValueError("required_spconv_version must be exactly '2.3.8'")
+            require_spconv_238()
+
+        if use_camera:
+            self.preprocess = ImagePreprocessor(image_hw=c.image_hw)
+            self.camera_backbone = CameraBackbone(
+                c.camera_backbone, frozen=c.freeze_camera_backbone, pretrained=c.pretrained_backbone,
+                activation_checkpoint=c.activation_checkpoint, sdpa_attention=c.swin_sdpa,
+            )
+            self.camera_neck = GeneralizedLSSFPN(
+                in_channels=self.camera_backbone.out_channels,
+                in_strides=self.camera_backbone.strides,
+                out_channels=c.neck_channels,
+                out_stride=c.feat_stride,
+            )
+            self.view_transform = DepthLSSTransform(
+                in_channels=c.neck_channels,
+                context_channels=c.context_channels,
+                depth_bins=c.depth_bins,
+                image_hw=c.image_hw,
+                feat_stride=c.feat_stride,
+                cfg=c.bev,
+            )
+        else:
+            self.preprocess = self.camera_backbone = self.camera_neck = self.view_transform = None
+
+        if use_lidar and c.lidar_encoder == "voxel":
             from fl_v3.models.fusion.sparse_voxel_encoder import SparseVoxelEncoder
             self.lidar_encoder = SparseVoxelEncoder(
                 out_channels=c.lidar_channels, cfg=c.bev, use_timestamp=(c.lidar_sweeps > 1),
@@ -109,7 +127,7 @@ class BEVFusionDetector(nn.Module):
                 z_voxel=c.lidar_z_voxel, sparse_z_size=c.lidar_sparse_z_size,
                 sparse_conv_fp16=c.sparse_conv_fp16,
             )
-        else:
+        elif use_lidar:
             self.lidar_encoder = PointPillarsEncoder(
                 out_channels=c.lidar_channels,
                 max_points=c.max_points_per_pillar,
@@ -117,20 +135,30 @@ class BEVFusionDetector(nn.Module):
                 cfg=c.bev,
                 use_timestamp=(c.lidar_sweeps > 1),
             )
+        else:
+            self.lidar_encoder = None
         # MCR P1 capacity lever (default OFF ⇒ None ⇒ byte-identical): dense 2D conv backbone on the
         # scattered pillar BEV BEFORE fusion — gives the LiDAR branch the receptive field the PFN lacks.
         self.lidar_backbone = (
             LidarBackbone2D(in_channels=c.lidar_channels, out_channels=c.lidar_backbone_out,
                             activation_checkpoint=c.lidar_backbone_checkpoint,
                             num_stages=c.lidar_backbone_stages)
-            if c.lidar_backbone else None)
+            if use_lidar and c.lidar_backbone else None)
         # When the backbone is ON it widens the LiDAR feature into the fuser; OFF keeps lidar_channels=64
         # ⇒ ConvFuser in_channels unchanged ⇒ fusion byte-identical to the pre-backbone baseline.
-        self.fusion = ConvFuser(
-            camera_channels=c.context_channels,
-            lidar_channels=(c.lidar_backbone_out if c.lidar_backbone else c.lidar_channels),
-            out_channels=c.fusion_channels,
-        )
+        lidar_out = c.lidar_backbone_out if c.lidar_backbone else c.lidar_channels
+        self.fusion = None
+        self.camera_adapter = None
+        self.lidar_adapter = None
+        if self.model_mode == "fusion":
+            self.fusion = ConvFuser(
+                camera_channels=c.context_channels, lidar_channels=lidar_out,
+                out_channels=c.fusion_channels,
+            )
+        elif self.model_mode == "camera_only":
+            self.camera_adapter = nn.Conv2d(c.context_channels, c.fusion_channels, kernel_size=1)
+        else:
+            self.lidar_adapter = nn.Conv2d(lidar_out, c.fusion_channels, kernel_size=1)
         self.bev_neck = SecondFPNNeck(
             in_channels=c.fusion_channels,
             out_channels=c.bev_neck_channels,
@@ -143,30 +171,76 @@ class BEVFusionDetector(nn.Module):
             conv_layers=c.head_conv_layers,
         )
 
+    def __getstate__(self):
+        """Locks are runtime-only; allow EMA/deepcopy to create its own instance lock."""
+        state = self.__dict__.copy()
+        state.pop("_runtime_lock", None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._runtime_lock = threading.RLock()
+
     # --- forward ---
-    def forward(self, batch: dict, return_intermediates: bool = False) -> Dict[str, torch.Tensor]:
+    def train(self, mode: bool = True):
+        """Serialize mode transitions with forward for the instance's sparse path."""
+        with self._runtime_lock:
+            return super().train(mode)
+
+    @contextmanager
+    def serialized_mode(self, training: bool):
+        """Hold the instance lock across a complete train/eval traversal."""
+        with self._runtime_lock:
+            super().train(bool(training))
+            yield self
+
+    def _forward_locked(self, batch: dict, return_intermediates: bool) -> Dict[str, torch.Tensor]:
         c = self.cfg
-        pre = self.preprocess(batch["images"], batch["lidar2img"], batch["cam_intrinsics"])
-        imgs = pre["images"]                       # [B,6,3,H,W]
-        B, N = imgs.shape[0], imgs.shape[1]
-        feats = self.camera_backbone(imgs.reshape(B * N, *imgs.shape[2:]))
-        camfeat = self.camera_neck(feats)          # [B*N, C, fH, fW]
-        vt = self.view_transform(camfeat, pre["lidar2img"], B, N)
-        camera_bev = vt["bev"]                     # [B, Cc, ny, nx]
-        lidar_bev = self.lidar_encoder(batch["lidar_points"], B)  # [B, Cl, ny, nx]
-        if self.lidar_backbone is not None:                       # MCR P1: dense pre-fusion LiDAR conv backbone
-            lidar_bev = self.lidar_backbone(lidar_bev)            # [B, Cout, ny, nx]
-        fused = self.fusion(camera_bev, lidar_bev)
+        camera_bev = lidar_bev = vt = None
+        if self.model_mode in {"camera_only", "fusion"}:
+            for key in ("images", "lidar2img", "cam_intrinsics"):
+                if key not in batch:
+                    raise KeyError(f"{self.model_mode} forward requires batch[{key!r}]")
+            pre = self.preprocess(batch["images"], batch["lidar2img"], batch["cam_intrinsics"])
+            imgs = pre["images"]
+            B, N = imgs.shape[0], imgs.shape[1]
+            feats = self.camera_backbone(imgs.reshape(B * N, *imgs.shape[2:]))
+            camfeat = self.camera_neck(feats)
+            vt = self.view_transform(camfeat, pre["lidar2img"], B, N)
+            camera_bev = vt["bev"]
+        else:
+            B = int(batch.get("batch_size", len(batch.get("gt_boxes", ()))))
+            if B <= 0:
+                raise ValueError("lidar_only forward requires positive batch_size or gt_boxes length")
+        if self.model_mode in {"lidar_only", "fusion"}:
+            if "lidar_points" not in batch:
+                raise KeyError(f"{self.model_mode} forward requires batch['lidar_points']")
+            lidar_bev = self.lidar_encoder(batch["lidar_points"], B)
+            if self.lidar_backbone is not None:
+                lidar_bev = self.lidar_backbone(lidar_bev)
+        if self.model_mode == "fusion":
+            fused = self.fusion(camera_bev, lidar_bev)
+        elif self.model_mode == "camera_only":
+            fused = self.camera_adapter(camera_bev)
+        else:
+            fused = self.lidar_adapter(lidar_bev)
         neck = self.bev_neck(fused)
         out = self.head(neck)
         if return_intermediates:
             out = dict(out)
-            out["_camera_bev"] = camera_bev
-            out["_lidar_bev"] = lidar_bev
+            if camera_bev is not None:
+                out["_camera_bev"] = camera_bev
+            if lidar_bev is not None:
+                out["_lidar_bev"] = lidar_bev
             out["_fused_bev"] = fused
-            out["_depth_prob"] = vt["depth_prob"]
-            out["_camera_context"] = vt["context"]
+            if vt is not None:
+                out["_depth_prob"] = vt["depth_prob"]
+                out["_camera_context"] = vt["context"]
         return out
+
+    def forward(self, batch: dict, return_intermediates: bool = False) -> Dict[str, torch.Tensor]:
+        with self._runtime_lock:
+            return self._forward_locked(batch, return_intermediates)
 
     # --- deterministic decode ---
     @torch.no_grad()
@@ -220,15 +294,14 @@ class BEVFusionDetector(nn.Module):
     # --- per-module parameter accounting (the Q2-dilution seed) ---
     def param_table(self) -> Dict[str, dict]:
         modules = {
-            "preprocess": self.preprocess,
-            "camera_backbone": self.camera_backbone,
-            "camera_neck": self.camera_neck,
-            "view_transform": self.view_transform,
-            "lidar_encoder": self.lidar_encoder,
-            "fusion": self.fusion,
             "bev_neck": self.bev_neck,
             "head": self.head,
         }
+        for name in ("preprocess", "camera_backbone", "camera_neck", "view_transform",
+                     "lidar_encoder", "fusion", "camera_adapter", "lidar_adapter"):
+            module = getattr(self, name, None)
+            if module is not None:
+                modules[name] = module
         if self.lidar_backbone is not None:           # guarded: keeps Q2-dilution accounting complete when ON
             modules["lidar_backbone"] = self.lidar_backbone
         table = {}

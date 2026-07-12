@@ -25,6 +25,7 @@ from fl_v3.utils.runtime import (
     normalize_precision,
     precision_autocast_context,
 )
+from fl_v3.training.runtime_state import TrainingState, project_batch_for_mode
 
 # A criterion maps (model_output, target) → scalar loss. ``target`` may be a tensor
 # (the regression/classification tasks) OR the multimodal detection batch dict (the AD
@@ -99,6 +100,13 @@ def _grad_norm(model: nn.Module) -> float:
     return float(torch.linalg.vector_norm(torch.stack(norms), 2).detach().cpu())
 
 
+def _gradients_finite(model: nn.Module) -> bool:
+    return all(
+        bool(torch.isfinite(p.grad).all().item())
+        for p in model.parameters() if p.requires_grad and p.grad is not None
+    )
+
+
 def evaluate(
     model: nn.Module,
     dataloader: DataLoader,
@@ -136,6 +144,12 @@ def train_one_epoch(
     precision: Optional[str] = None,
     grad_scaler: Optional[Any] = None,
     telemetry_interval: int = 0,
+    accumulation_steps: int = 1,
+    runtime_state: Optional[TrainingState] = None,
+    max_optimizer_steps: int = 0,
+    model_mode: Optional[str] = None,
+    exposure_multiplier: int = 1,
+    expected_global_microbatch_samples: int = 0,
 ) -> Dict[str, float]:
     """One epoch of training with the injected criterion (tensor or dict batch).
 
@@ -149,6 +163,46 @@ def train_one_epoch(
     (if given) steps PER OPTIMIZER STEP (warmup+cosine over total steps); ``ema_model`` (an
     ``swa_utils.AveragedModel``) is updated after each step. None of these fire unless passed, so
     ``train_local`` / the determinism gate are unchanged."""
+    if accumulation_steps < 1:
+        raise ValueError("accumulation_steps must be >= 1")
+    if exposure_multiplier < 1:
+        raise ValueError("exposure_multiplier must be >= 1")
+    if max_steps < 0 or max_optimizer_steps < 0:
+        raise ValueError("step limits must be non-negative")
+    if expected_global_microbatch_samples < 0:
+        raise ValueError("expected_global_microbatch_samples must be non-negative")
+    if max_steps and max_steps % accumulation_steps:
+        raise ValueError("max_steps must stop at a complete accumulation-window boundary")
+    state = runtime_state if runtime_state is not None else TrainingState()
+    state.validate(checkpoint_boundary=True)
+    if state.discarded_windows:
+        raise RuntimeError("training state contains a prior fail-closed discarded window")
+    if max_optimizer_steps and max_optimizer_steps < state.optimizer_step:
+        raise ValueError("max_optimizer_steps is behind the already executed optimizer step")
+    try:
+        known_batches = len(dataloader)
+    except (TypeError, AttributeError):
+        known_batches = None
+    if known_batches is not None:
+        planned_batches = min(known_batches, max_steps) if max_steps else known_batches
+        if planned_batches % accumulation_steps:
+            raise ValueError(
+                f"loader/limit yields {planned_batches} microbatches, not divisible by "
+                f"accumulation_steps={accumulation_steps}"
+            )
+    if expected_global_microbatch_samples:
+        if expected_global_microbatch_samples % exposure_multiplier:
+            raise ValueError(
+                "expected global microbatch samples are not divisible by exposure_multiplier"
+            )
+        declared_local_batch = expected_global_microbatch_samples // exposure_multiplier
+        loader_batch_size = getattr(dataloader, "batch_size", None)
+        if loader_batch_size is not None and int(loader_batch_size) != declared_local_batch:
+            raise ValueError(
+                "loader batch_size differs from the resolved effective-batch identity: "
+                f"expected={declared_local_batch}, actual={loader_batch_size}"
+            )
+
     model.train()
     precision = normalize_precision(precision or current_precision())
     scaler = grad_scaler if grad_scaler is not None else make_grad_scaler(device, precision)
@@ -159,19 +213,50 @@ def train_one_epoch(
     nonfinite_loss_count = torch.zeros((), device=device, dtype=torch.float64)
     total_n = 0
     step_count = 0
-    optimizer_steps = 0
+    optimizer_steps_at_start = state.optimizer_step
     scaler_skips = 0
     last_grad_norm = 0.0
+    window_invalid = False
+    window_nonfinite = False
+    window_accounted = False
+    fixed_microbatch_samples = (
+        int(expected_global_microbatch_samples) if expected_global_microbatch_samples else None
+    )
     _missing = object()
     old_record_terms = getattr(criterion, "record_terms", _missing)
+
+    def clear_window(*, discarded: bool = False) -> None:
+        nonlocal window_invalid, window_nonfinite, window_accounted
+        if discarded and state.pending_samples:
+            state.discarded_windows += 1
+            state.discarded_samples += state.pending_samples
+        state.accumulation_phase = 0
+        state.pending_samples = 0
+        window_invalid = False
+        window_nonfinite = False
+        window_accounted = False
+        optimizer.zero_grad(set_to_none=True)
+
+    optimizer.zero_grad(set_to_none=True)
+    completed_normally = False
     try:
-        for batch in dataloader:
+        batch_iterator = iter(dataloader)
+        while True:
+            if max_optimizer_steps and state.optimizer_step >= max_optimizer_steps:
+                break
+            if max_steps and step_count >= max_steps:
+                break
+            try:
+                batch = next(batch_iterator)
+            except StopIteration:
+                break
             next_step = step_count + 1
             record_step = bool(telemetry_interval and next_step % telemetry_interval == 0)
             if old_record_terms is not _missing:
                 criterion.record_terms = record_step
+            if model_mode is not None:
+                batch = project_batch_for_mode(batch, model_mode)
             inputs, targets = _unpack_batch(batch, device)
-            optimizer.zero_grad(set_to_none=True)
             if use_amp:
                 with precision_autocast_context(precision, device):
                     out = model(inputs)
@@ -179,10 +264,49 @@ def train_one_epoch(
             else:
                 out = model(inputs)
             loss = criterion(out, targets)
-            nonfinite_loss_count += (~torch.isfinite(loss.detach())).to(torch.float64)
-            if scaler.is_enabled():
+            bs = _batch_size(targets)
+            global_bs = int(bs) * int(exposure_multiplier)
+            if state.accumulation_phase == 0:
+                state.attempted_windows += 1
+            state.attempted_microbatches += 1
+            state.attempted_samples += global_bs
+            state.loss_evaluated_samples += global_bs
+            state.accumulation_phase += 1
+            state.pending_samples += global_bs
+            if fixed_microbatch_samples is None:
+                fixed_microbatch_samples = global_bs
+            if global_bs != fixed_microbatch_samples:
+                raise RuntimeError(
+                    "microbatch sample count drift would change the effective update batch: "
+                    f"expected={fixed_microbatch_samples}, actual={global_bs}"
+                )
+            finite_loss = bool(torch.isfinite(loss.detach()).item())
+            if not finite_loss:
+                nonfinite_loss_count += 1
+                window_invalid = True
+                window_nonfinite = True
+                optimizer.zero_grad(set_to_none=True)
+            else:
+                loss_sum += loss.detach().double() * bs
+                total_n += int(bs)
+                if not window_invalid:
+                    scaled_loss = loss / float(accumulation_steps)
+                    if scaler.is_enabled():
+                        scaler.scale(scaled_loss).backward()
+                    else:
+                        scaled_loss.backward()
+            step_count += 1
+            if state.accumulation_phase < accumulation_steps:
+                continue
+
+            if state.accumulation_phase != accumulation_steps:
+                raise RuntimeError("accumulation phase exceeded its fixed window")
+            successful = not window_invalid
+            overflow = False
+            if window_invalid:
+                pass
+            elif scaler.is_enabled():
                 scale_before = float(scaler.get_scale())
-                scaler.scale(loss).backward()
                 scaler.unscale_(optimizer)
                 if do_clip:
                     grad_norm_t = torch.nn.utils.clip_grad_norm_(
@@ -195,14 +319,16 @@ def train_one_epoch(
                 scaler.update()
                 skipped = float(scaler.get_scale()) < scale_before
                 scaler_skips += int(skipped)
-                if not skipped:
-                    optimizer_steps += 1
-                    if scheduler is not None:
-                        scheduler.step()
-                    if ema_model is not None:
-                        ema_model.update_parameters(model)
+                successful = not skipped
+                if skipped:
+                    overflow = True
             else:
-                loss.backward()
+                if not _gradients_finite(model):
+                    nonfinite_loss_count += 1
+                    window_nonfinite = True
+                    successful = False
+                else:
+                    successful = True
                 if do_clip:
                     grad_norm_t = torch.nn.utils.clip_grad_norm_(
                         [p for p in model.parameters() if p.requires_grad], grad_clip_norm)
@@ -210,26 +336,58 @@ def train_one_epoch(
                         last_grad_norm = float(grad_norm_t.detach().cpu())
                 elif record_step:
                     last_grad_norm = _grad_norm(model)
-                optimizer.step()
-                optimizer_steps += 1
+                if successful:
+                    optimizer.step()
+            if successful:
+                state.optimizer_step += 1
+                state.successful_windows += 1
+                state.exposure_samples += state.pending_samples
+                window_accounted = True
                 if scheduler is not None:
                     scheduler.step()
                 if ema_model is not None:
                     ema_model.update_parameters(model)
-            bs = _batch_size(targets)
-            loss_sum += loss.detach().double() * bs
-            total_n += int(bs)
-            step_count += 1
-            if max_steps and step_count >= max_steps:
-                break                              # smoke cap (default 0 = full epoch ⇒ byte-identical)
+            else:
+                state.invalid_windows += 1
+                state.invalid_samples += state.pending_samples
+                if window_nonfinite:
+                    state.nonfinite_windows += 1
+                elif overflow:
+                    state.overflow_windows += 1
+                else:
+                    raise RuntimeError("invalid accumulation window has no recorded cause")
+                window_accounted = True
+            clear_window()
+        completed_normally = True
     finally:
+        had_partial = bool(state.accumulation_phase or state.pending_samples)
+        if had_partial:
+            clear_window(discarded=not window_accounted)
         if old_record_terms is not _missing:
             criterion.record_terms = old_record_terms
+    if had_partial and completed_normally:
+        state.validate(checkpoint_boundary=True)
+        raise RuntimeError(
+            "epoch/limit ended with a partial accumulation window; gradients were cleared and "
+            "the epoch must not be marked successful"
+        )
+    state.validate(checkpoint_boundary=True)
     return {
         "loss": float(loss_sum.item()) / total_n if total_n else 0.0,
         "num_samples": float(total_n),
         "steps": float(step_count),
-        "optimizer_steps": float(optimizer_steps),
+        "optimizer_steps": float(state.optimizer_step - optimizer_steps_at_start),
+        "optimizer_steps_total": float(state.optimizer_step),
+        "exposure_samples": float(state.exposure_samples),
+        "attempted_microbatches": float(state.attempted_microbatches),
+        "attempted_samples": float(state.attempted_samples),
+        "loss_evaluated_samples": float(state.loss_evaluated_samples),
+        "attempted_windows": float(state.attempted_windows),
+        "successful_windows": float(state.successful_windows),
+        "invalid_windows": float(state.invalid_windows),
+        "invalid_samples": float(state.invalid_samples),
+        "discarded_windows": float(state.discarded_windows),
+        "discarded_samples": float(state.discarded_samples),
         "precision": precision,
         "grad_scaler_enabled": float(scaler.is_enabled()),
         "grad_scaler_scale": float(scaler.get_scale()),

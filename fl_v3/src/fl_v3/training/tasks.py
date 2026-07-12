@@ -17,6 +17,8 @@ from __future__ import annotations
 import abc
 from collections import OrderedDict
 from dataclasses import dataclass
+import hashlib
+import os
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
@@ -30,6 +32,7 @@ from fl_v3.utils.runtime import (
     current_precision,
     derive_seed,
     precision_autocast_context,
+    normalize_model_mode,
     seeded_worker_init,
     truthy,
     validate_sparse_precision,
@@ -373,6 +376,7 @@ def _det_config_from_run(run_config: dict):
         bev_kwargs["point_cloud_range"] = tuple(float(v) for v in pcr)
     bev = BEVConfig(**bev_kwargs)
     lidar_encoder = str(run_config.get("det-lidar-encoder", "pillar"))
+    model_mode = normalize_model_mode(str(run_config.get("model-mode", "fusion")))
     precision = str(run_config.get("precision", "fp32")).strip().lower()
     validate_sparse_precision(precision, lidar_encoder)
     sparse_conv_fp16 = truthy(run_config.get("det-sparse-conv-fp16", False))
@@ -381,6 +385,8 @@ def _det_config_from_run(run_config: dict):
     if sparse_conv_fp16 and precision != "fp16":
         raise ValueError("det-sparse-conv-fp16=true requires precision='fp16' (fp32 reference must stay fp32)")
     return DetectorConfig(
+        model_mode=model_mode,
+        required_spconv_version=run_config.get("dependency-spconv"),
         camera_backbone=str(run_config.get("det-camera-backbone", "swin_t")),
         freeze_camera_backbone=truthy(run_config.get("det-freeze-backbone", True)),
         pretrained_backbone=truthy(run_config.get("det-pretrained-backbone", True)),
@@ -572,12 +578,58 @@ class NuScenesDetectionTask(Task):
         # the ~580 MB trainval info-cache is re-unpickled on EVERY client invocation (~5 s × 25 × R of pure
         # I/O). The cache lives on the Task instance, which persists per Ray-actor process ⇒ each actor reads
         # the pickle once. (Memory-only; the result is read-only and identical across calls.)
-        ck = (cache_dir, version, split)
+        production = bool(run_config.get("s06-production-runtime", False))
+        if production:
+            required = ("det-lidar-sweeps", "nuscenes-cache-identities",
+                        "nuscenes-zip-manifest", "nuscenes-zip-manifest-logical-sha256",
+                        "nuscenes-zip-manifest-file-sha256")
+            missing = [k for k in required if not run_config.get(k)]
+            if missing:
+                raise ValueError(f"S06 production cache/manifest identity fields missing: {missing}")
+        n_sweeps = int(run_config["det-lidar-sweeps"]) if production else None
+        cache_identity = None
+        if production:
+            if split == str(run_config["nuscenes-train-split"]):
+                cache_identity = run_config["nuscenes-cache-identities"]["train"]
+            elif split == str(run_config["nuscenes-val-split"]):
+                cache_identity = run_config["nuscenes-cache-identities"]["val"]
+            else:
+                raise ValueError(f"split {split!r} is not the resolved train or val split")
+        expected_hash = cache_identity["logical_sha256"] if cache_identity else None
+        ck = (cache_dir, version, split, n_sweeps, expected_hash,
+              run_config.get("resolved-config-sha256") if production else None)
         cached = self._info_cache.get(ck)
         if cached is not None:
             return cached
         try:
-            info_list, meta = IC.load_cache(cache_dir, version, split)
+            if production:
+                actual_pickle, actual_sidecar = IC.cache_paths(cache_dir, version, split, n_sweeps)
+                declared = (os.path.abspath(str(cache_identity["path"])),
+                            os.path.abspath(str(cache_identity["sidecar_path"])))
+                actual = (os.path.abspath(actual_pickle), os.path.abspath(actual_sidecar))
+                if actual != declared:
+                    raise ValueError(f"canonical/physical cache path drift: declared={declared}, actual={actual}")
+                checks = (
+                    (actual_pickle, cache_identity["pickle_sha256"], "cache pickle"),
+                    (actual_sidecar, cache_identity["sidecar_sha256"], "cache sidecar"),
+                    (run_config["nuscenes-zip-manifest"],
+                     run_config["nuscenes-zip-manifest-file-sha256"], "ZIP manifest"),
+                )
+                for path, expected, label in checks:
+                    digest = hashlib.sha256()
+                    with open(path, "rb") as stream:
+                        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                            digest.update(chunk)
+                    if digest.hexdigest() != expected:
+                        raise ValueError(f"{label} physical identity drift")
+                from fl_v3.data.nuscenes.zip_backend import manifest_summary
+                manifest = manifest_summary(str(run_config["nuscenes-zip-manifest"]))
+                if manifest["manifest_hash"] != run_config["nuscenes-zip-manifest-logical-sha256"]:
+                    raise ValueError("ZIP manifest logical identity drift")
+            info_list, meta = IC.load_cache(
+                cache_dir, version, split, n_sweeps=n_sweeps,
+                expected_cache_hash=expected_hash,
+            )
             self._info_cache[ck] = (info_list, meta)
         except FileNotFoundError as e:
             raise FileNotFoundError(
@@ -635,6 +687,15 @@ class NuScenesDetectionTask(Task):
         from fl_v3.models.fusion.collate import detection_collate_fn
 
         dataroot = P.get_dataroot(run_config)
+        production = bool(run_config.get("s06-production-runtime", False))
+        if production:
+            # S01's accepted dataset currently decodes both modalities.  Silently
+            # decoding then dropping one violates the S06 mode contract; S07-B is
+            # the sole owner allowed to integrate a modality-aware dataset API.
+            raise RuntimeError(
+                "S07-B integration required: NuScenesMultimodalDataset has no reviewed "
+                "model_mode I/O contract; refusing production decode of a disabled modality"
+            )
         ds = NuScenesMultimodalDataset(info_list, dataroot, sample_tokens=tokens,
                                        n_sweeps=int(run_config.get("det-lidar-sweeps", 1)),
                                        augment=augment)

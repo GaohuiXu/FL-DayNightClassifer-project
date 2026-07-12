@@ -15,6 +15,8 @@ import json
 import os
 from typing import Dict, List, Optional
 
+from fl_v3.config import ResolvedConfig
+
 # Exact-match keys a checkpoint's provenance MUST satisfy to host a valid trainval readiness verdict.
 D10_REQUIRED: Dict[str, str] = {
     "task-type": "nuscenes_detection",
@@ -35,6 +37,47 @@ PROVENANCE_KEYS = (
     "nuscenes-partition-mode", "fraction-train", "defense-type", "nuscenes-num-clients",
     "num-server-rounds", "seed", "det-camera-backbone", "numeric-mode",
 )
+
+
+def build_s06_provenance(
+    config: ResolvedConfig,
+    *,
+    checkpoint_sha256: str,
+    source_sha: str,
+) -> dict:
+    """Identity record shared by production train/resume/eval and later FL."""
+    if len(checkpoint_sha256) != 64 or len(source_sha) != 40:
+        raise ValueError("checkpoint SHA-256/source Git SHA identities are required")
+    return {
+        "schema": "s06.provenance.v1",
+        "resolved_config_sha256": config.sha256,
+        "resolved_config": config.as_dict(),
+        "model_mode": config.model_mode,
+        "precision": config.precision,
+        "data_identities": config.data_identities,
+        "checkpoint_sha256": checkpoint_sha256,
+        "source_sha": source_sha,
+    }
+
+
+def verify_s06_provenance(
+    provenance: dict,
+    config: ResolvedConfig,
+    *,
+    checkpoint_sha256: str,
+    source_sha: str,
+) -> dict:
+    """Reject legacy/partial or identity-drifted production provenance."""
+    expected = build_s06_provenance(
+        config, checkpoint_sha256=checkpoint_sha256,
+        source_sha=source_sha,
+    )
+    if set(provenance) != set(expected):
+        raise RuntimeError("legacy/partial S06 provenance refused")
+    drift = [k for k, value in expected.items() if provenance.get(k) != value]
+    if drift:
+        raise RuntimeError(f"S06 provenance identity drift: {drift}")
+    return {**provenance, "_verified": True}
 
 
 # MCR P3 (D17): the FL recipe fields recorded for an HONEST regime label (NOT part of D10 validation —

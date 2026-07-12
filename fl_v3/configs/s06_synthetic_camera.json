@@ -1,0 +1,67 @@
+{
+  "schema_version": "s06.v1",
+  "model": {
+    "mode": "camera_only",
+    "camera_arch": "swin_t_stride8",
+    "lidar_arch": "none",
+    "fusion_arch": "none",
+    "head_arch": "centerhead_multitask"
+  },
+  "precision": "fp32",
+  "optimizer": {
+    "name": "adamw",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.01
+  },
+  "training": {
+    "max_optimizer_steps": 4,
+    "micro_batch_size": 1,
+    "world_size": 1,
+    "accumulation_steps": 4,
+    "effective_global_batch": 4,
+    "seed": 20260712,
+    "max_epochs": 2,
+    "num_workers": 0,
+    "ema_decay": 0.999
+  },
+  "data": {
+    "dataroot": "/synthetic/s06/not-a-production-dataset",
+    "version": "v1.0-mini",
+    "train_split": "mini_train",
+    "val_split": "mini_val",
+    "n_sweeps": 10,
+    "caches": {
+      "train": {
+        "format": "t1.v2",
+        "path": "/synthetic/s06/nuscenes_info_v1.0-mini_mini_train_t1.v2_nsweeps10.pkl",
+        "sidecar_path": "/synthetic/s06/nuscenes_info_v1.0-mini_mini_train_t1.v2_nsweeps10.meta.json",
+        "logical_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "pickle_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "sidecar_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "val": {
+        "format": "t1.v2",
+        "path": "/synthetic/s06/nuscenes_info_v1.0-mini_mini_val_t1.v2_nsweeps10.pkl",
+        "sidecar_path": "/synthetic/s06/nuscenes_info_v1.0-mini_mini_val_t1.v2_nsweeps10.meta.json",
+        "logical_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "pickle_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "sidecar_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    },
+    "zip_manifest": {
+      "path": "/synthetic/s06/manifest.sqlite",
+      "logical_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "file_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  },
+  "dependencies": {
+    "torch": "2.11.0+cu128",
+    "spconv": null,
+    "spconv_source_sha": null,
+    "cumm": null,
+    "cumm_source_sha": null
+  },
+  "evaluation": {
+    "timing": false
+  }
+}
