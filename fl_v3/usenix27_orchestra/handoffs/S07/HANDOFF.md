@@ -1763,3 +1763,46 @@ four read-only `./fl_outputs` errors, three genuine failures, and a combined exi
 124/no-JUnit fork DataLoader queue hang. All 110 checksum records passed. Exact
 details and hashes are preserved in `RESULTS.md`. O-056 is consumed; no retry,
 replacement, intervention or follow-on is authorized.
+
+### O-059 scoped runtime remediation delivery
+
+Canonical O-059 `87080fd2306ab7f0961f2e23e405c3c166c49262` authorized the
+scoped remediation only. Implementation/test commit `C` is
+`bf480ea77ccf9ae8417c3ea58e933701dbc7222a`.
+
+- Production/default `num_workers>0` loaders are source-attested `spawn`: both
+  nuScenes `make_loader` default and detection/dummy task loaders enforce it;
+  zero-worker loaders pass no multiprocessing context. Explicit `fork` remains
+  only a low-level test hook and has no production config surface.
+- The ZIP fork lifecycle now enters explicit fork only inside a fresh spawned,
+  CUDA-hidden helper, retains two epochs/persistent workers/owner-PID/reopen/read
+  assertions, and fails closed on helper timeout/exit. Default loader policy has
+  an explicit spawn assertion.
+- Session mini cache uses `tmp_path_factory`; model-task configs inject that exact
+  path, generic multiprocessing exceptions are no longer skipped, spawn is
+  asserted, and a changed-CWD hostile asserts no `./fl_outputs` write. A single
+  GH200 hostile explicitly initializes CUDA in-process, then asserts the
+  production loader is spawn+persistent and reads across two epochs.
+- Legacy message matching now uses exact `6 task dictionaries`. LiDAR OFF locks
+  the approved six-task 230-tensor topology, including the named 183-head count
+  (legacy 15 plus 168), while preserving no LiDAR-backbone params, fuser width
+  144, and the ON-minus-OFF 30-tensor invariant.
+- Diagnostic launcher creates and verifies writable `$JOB_TMP/isolated` before
+  attempts. This does not retroactively repair Job 348818 evidence.
+- Dummy golden `d2d819...` and `training/loop.py` are unchanged. The dummy hash
+  drift remains pending fresh GH200 attribution; no golden refresh is allowed.
+
+Exact SHA-256 values: diagnostic launcher `663a98a57f3b66fbaec787b5c710ef180f2c8b0b0b4cc4ed2364dcaeb7e43e4c`;
+dataset `719ebf749f777571fffd8a9f8eadfe124792c82cdc8932717c2b1be79c880ca6`;
+tasks `b81e3ca2ac4c2b2ba543a5ce83822c59e7e423f70b1211da0de3e51edca80e99`;
+conftest `fdaaa3bcd009c37927fef824610f6513c1abfc0b30ecd48f15025abbc58818b0`;
+model-task test `c346838ded10b4f5ce523e84e1846ad7666be19f84ec78453a86d39ec00fac2b`;
+integration test `2a820847579c5c145693f09f819113f539753c7f30d67c20683e17ba42776e55`;
+LiDAR test `7a8c2909712790cb1181539be4f4bab3666c362d39981d280e62c5596064cde3`;
+ZIP test `3a24613ede41cec47e5197374e2a7f0c4dc0dbd4335c9dbaef9c401c70c223d7`.
+
+Actually run: stdlib AST parse for seven changed Python files, diagnostic
+launcher `bash -n`, `git diff --check`, owned-path/source audit: PASS. Explicitly
+NOT RUN: pytest, pycompile, project/package import, Torch/CUDA/spconv/data/model,
+Slurm/GPU/compute. No RUN_REQUEST/RESULTS/runtime launcher/config/canonical or
+forbidden production file changed. No compute, merge, push or upload occurred.
