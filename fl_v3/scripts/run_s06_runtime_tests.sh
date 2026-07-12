@@ -1,24 +1,26 @@
 #!/usr/bin/env bash
-# Prepared S06 bounded synthetic validation.  RUN_REQUEST approval is mandatory.
+# Prepared S06 remediation-1 bounded synthetic validation. Approval is mandatory.
 #SBATCH -A naiss2025-22-1113-gpu
 #SBATCH -p gpu
 #SBATCH --gpus-per-node=nvidia_gh200_120gb:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=16G
 #SBATCH --time=00:15:00
-#SBATCH -J flv3_s06_runtime
-#SBATCH -o /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s06_runtime_%j.out
-#SBATCH -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s06_runtime_%j.err
+#SBATCH -J flv3_s06_runtime_r1
+#SBATCH -o /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s06_runtime_r1_%j.out
+#SBATCH -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s06_runtime_r1_%j.err
 
 set -euo pipefail
 
 : "${EXPECTED_S06_EXECUTABLE_SHA:?required}"
 : "${EXPECTED_S06_SOURCE_SHA256:?required}"
 : "${S06_OUTPUT_ROOT:?required}"
+: "${S06_REQUEST_GENERATION:?required}"
+test "${S06_REQUEST_GENERATION}" = "remediation-1"
 
 REPO=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project
 SNAPSHOT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots
-SNAPSHOT="${SNAPSHOT_ROOT}/s06_runtime_${EXPECTED_S06_EXECUTABLE_SHA:0:12}"
+SNAPSHOT="${SNAPSHOT_ROOT}/s06_runtime_remediation1_${EXPECTED_S06_EXECUTABLE_SHA:0:12}"
 test ! -e "${S06_OUTPUT_ROOT}"
 test ! -e "${SNAPSHOT}"
 mkdir -p "${SNAPSHOT_ROOT}" "${S06_OUTPUT_ROOT}" "${SNAPSHOT}"
@@ -63,6 +65,7 @@ import importlib.metadata, json, os, platform, torch
 print(json.dumps({
   "git_sha": os.environ["EXPECTED_S06_EXECUTABLE_SHA"],
   "runtime_source_sha256": os.environ["EXPECTED_S06_SOURCE_SHA256"],
+  "request_generation": os.environ["S06_REQUEST_GENERATION"],
   "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
   "host": platform.node(), "machine": platform.machine(),
   "python": platform.python_version(), "torch": torch.__version__,
