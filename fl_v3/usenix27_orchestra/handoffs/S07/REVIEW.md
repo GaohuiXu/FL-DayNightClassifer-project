@@ -314,3 +314,358 @@ Full-cache Section B execution 仍是未批准、未执行、需独立 review �
 完整 S07/S07-B model readiness 仍是之后由 S02-S06 reviewed outputs、S06 consumer
 migration、model gates/profile/eval 共同决定的另一 separate gate。本 verdict 不授权
 任何计算、merge、push、upload 或 scientific claim。
+
+---
+
+# S07-B-R 独立审查 — reviewed CL stack integration
+
+## Findings（按严重性排序）
+
+### P1 — 严格 centralized entry 没有接入 val/official evaluation，当前不能产出候选比较所需的单遍 decode、mAP/NDS 或完整 provenance
+
+`fl_v3/scripts/centralized_train.py:68-115` 解析 config、验证 dependency/data identity、
+构建 train loader/model/optimizer 并可 resume；`119-163` 只训练、保存 checkpoint 及三个
+identity 文件后退出。该入口没有构建 val loader，没有调用
+`decode_eval_set`/`run_detection_eval`，也没有把实际 checkpoint file SHA-256 注入
+`build_results_dict`。同时，严格 schema 虽接受 `evaluation.timing`
+(`fl_v3/src/fl_v3/config/resolved.py:322-324`)，`to_run_config()` 在
+`168-222` 完全丢弃该字段。于是 `detection_eval.py:111-173` 的一次遍历、autocast、
+forced-FP32 decode 和 timing-neutrality，以及 `176-221` 的 actual-mode/完整 identity
+provenance，只是孤立库能力，不是严格 CL executable path。
+
+这不是可由静态 schema test 代替的缺口。现存 S06 test 只用 synthetic `EvalModel`
+直接调用库函数 (`fl_v3/tests/test_s06_loader_eval.py:41-73`)；没有测试从 strict config、
+完整 checkpoint、真实 task/val loader 一直走到 official devkit submission。并且历史
+`t4_readiness_eval.py:137-139` 仍把 `torch.load()` 返回值直接传给
+`model.load_state_dict`，而新的 S06 checkpoint 是含 `model/optimizer/scheduler/scaler/ema/...`
+的完整 payload (`fl_v3/src/fl_v3/training/checkpoint.py:291-319`)，因此它不能作为这条
+缺失生产路径的替代。
+
+**Required remediation:** 在 strict resolved entry（或一个同样只接受 `s06.v1` 的
+strict eval entry）中使用 `load_checkpoint()` 语义加载 exact model/EMA policy，构建
+token-complete val loader，只调用一次 `decode_eval_set`，把实际 checkpoint file hash、
+resolved/data/dependency identities 和 actual mode 注入 submission，再调用 official
+`DetectionEval.evaluate()`；`evaluation.timing` 必须 hash-bound 地决定 timing 收集而不改变
+输出。必须有一个从 strict config 到结果/provenance 的 caller-level hostile test，证明无
+第二 decode/threshold、无缺 token/重复 token、每样本 `<=500`、且 timing on/off 输出相同。
+
+### P1 — 六任务 CenterHead 已替换真实 head contract，但多个仍可达的历史 caller 没有迁移；“legacy decoder retained for inventoried callers”在当前模型上不可达
+
+`CenterPointHead.forward()` 现在无条件返回六个 task dict 的 list
+(`fl_v3/src/fl_v3/models/fusion/head.py:147-197`)；detector 的 intermediate path 只把它放在
+`task_outputs` (`detector.py:249-260`)，且 multi-task decode 明确拒绝 `max_objects`
+(`detector.py:274-286`)。但相关 caller 仍按旧单头字典运行：
+
+- `fl_v3/src/fl_v3/attacks/fusion_ablation.py:110-125` 向 multi-task decode 传
+  `max_objects`，并从 intermediate result 顶层读取 `heatmap/reg/...`；前者必定
+  `ValueError`，后者必定 `KeyError`。
+- `fl_v3/scripts/arrhenius_mini_matrix.py:345-359` 对 list 调用 `.get()`/`.items()`，第一
+  次 head telemetry 即 `AttributeError`。
+- `fl_v3/scripts/t4_readiness_eval.py:137-139` 还有上一 finding 所述完整 checkpoint
+  incompatibility；T5 通过上述 fusion-ablation helper 消费模型，也未形成新 contract 的
+  可运行端到端证据。
+
+这些路径没有被证明为 dead；其中 T4/T5 是后续 clean readiness/attack scientific contract
+的直接 consumer，mini matrix 还是已列出的工程门。`detector.py:10-14` 与 S07-B handoff
+`613-616,695-708` 所称的旧 single-head decoder “retained for inventoried
+non-production callers”并不能解决问题，因为当前 `CenterPointHead` 没有产生 legacy dict
+的构造选项。严格 config 确实不能选旧 head，这是正确的 fail-closed 行为；但保留损坏 caller
+不能算完成迁移。
+
+**Required remediation:** 逐个列出并迁移所有仍授权保留的 caller 到
+`task_outputs`/reviewed no-starvation decode，删除 `max_objects` override 和旧顶层 field
+访问；若某路径确实废弃，需以调用/launcher inventory 证明 dead 后显式 fail closed 或移除，
+不能靠注释宣告。至少为 strict official eval、mini matrix 的 head telemetry 和 T5 condition
+decode 各加一个真实六任务 contract test。
+
+### P1 — dependency identity 不能证明 kickoff 要求的 Torch build/source 或实际执行的 spconv/cumm native/generated code
+
+严格 schema 对 Torch 只有一个 version string (`fl_v3/src/fl_v3/config/resolved.py:51-54`)；
+runtime 也只比较 `torch.__version__` (`fl_v3/src/fl_v3/utils/runtime.py:174-180`)。两套二进制
+内容不同但都报告 `2.11.0+cu128` 的 Torch 安装会得到完全相同的 attestation，故当前实现
+从结构上无法完成 “Torch build/source attestation”。
+
+对 spconv/cumm，`_source_checkout_identity()` 只绑定 top-level import origin 与 clean tracked
+Git checkout (`runtime.py:96-136`)，`_runtime_package_sha256()` 只递归散列
+`find_spec(import_name).submodule_search_locations` 下的普通文件 (`139-164`)。它没有 import/
+枚举实际 `spconv.pytorch`、`cumm` native extension origins，也没有绑定 package root 外的
+generated/JIT/cache/native artifact。对 editable、wheel、namespace/multi-root 或 generated
+native layout，top-level `__init__.py` tree 相同而实际加载 `.so`/生成 kernel 不同的情形不能
+被该 hash 区分；相反，如果 runtime 首次 import 会在 package root 内生成文件，pre-import
+hash 又可能在 import 后漂移。当前结果因此不能跨这些 installed layouts 被信任。
+
+S07-B 新 test 名称声称绑定 packages/sources/imports，但在
+`fl_v3/tests/test_s07_b_integration.py:98-125` 把 version、source identity 和整个 package-hash
+函数全部 mock 掉，只验证预制字符串比较，无法发现上述遗漏。S07-B handoff 自己也正确记录
+actual GH200 attestation **NOT RUN** (`739-750`)；该负面边界必须保留。
+
+**Required remediation:** schema/manifest 必须绑定 Torch 的可重算 executable/build identity
+（以及可获得的 source/build provenance）；对 spconv/cumm 必须在 import 后记录并散列实际
+Python 与 native module origins、distribution-owned/generated executable artifact set，并定义
+稳定的 include/exclude 规则。应做 pre/post-import equality、editable/wheel/native-outside-root
+hostile fixtures和 GH200 实际路径清单，不得仅 mock helper 返回值。
+
+### P2 — PID fallback 没有恢复 process-local counter/cache 语义，mandatory lifecycle contract 只在 registered hook 恰好执行时成立
+
+registered `_after_fork` 会清空 location cache、总计数和 modality 计数
+(`fl_v3/src/fl_v3/data/nuscenes/zip_backend.py:477-497`)；但注释明确作为 hook 未执行时兜底的
+`_ensure_process()` (`514-533`) 只丢弃 connection/FD/name，保留父进程继承的
+`_locations`、`_read_count/_byte_count` 和 modality counters。用 raw fork、禁用/绕过
+`multiprocessing.util` hook 后首次 `read_many()` 即可复现：child 的 debug counters 从 parent
+值继续增长，而不是 process-local 从零开始；location cache 也不是文档所称的 child-local
+重新建立。
+
+现有 persistent fork/spawn test (`fl_v3/tests/test_nuscenes_zip_dataset.py:257-315`) 只覆盖
+正常 multiprocessing hook，并没有强制 fallback；它也不检查 parent counters 没被继承或
+camera/LiDAR counters 的 lifecycle。应让两条 reset path 共享同一 reset primitive，并增加
+hook-skipped PID-change hostile test。
+
+### P2 — 保留的 compatibility data path 对 disabled modality 不闭合：camera-only 的 GT-paste/BEV augmentation 会访问不存在的 LiDAR payload
+
+dataset 正确地在 `camera_only` 不读取/构造 `lidar_points` (`dataset.py:231-279`)，但随后仍
+无条件执行 configured GT-paste 与 BEV augmentation (`280-288`)。`paste_sample()` 第一条
+有效路径直接取 `sample["lidar_points"]` (`gt_paste.py:41-49`)；`augment_sample()` 同样在
+`augment.py:107-119` 无条件变换 points，且 LiDAR-only 若 `img_flip>0` 又访问不存在的
+`images`。旧 flat config branch仍允许 `_aug_from_run`/`_gtpaste_from_run`
+(`training/tasks.py:583-615`)，所以 retained compatibility caller 可复现 `KeyError`。
+
+五个 strict S07-B 模板/schema 当前不暴露这些字段，故这不是五模板 fail-before-construction
+性质的反例，也不证明 strict candidate 已运行；它是“保留兼容路径但没有完成 mode-aware
+迁移”的独立缺陷。修复应按 mode 明确定义 GT-only scene transform、camera appearance
+transform 与 LiDAR-only GT-paste 行为，或对不支持组合在 config resolution 时 fail closed，
+并加入 directory/ZIP 两 backend 的 hostile test。
+
+### P3 — authored tests/worker handoff 对 mode-depth 与 build attestation 的表述超过实际覆盖
+
+- S07-B handoff `595-596` 称新增 disabled-payload test 覆盖 sweep depths 1/10；实际 test
+  只有 backend×C/L 参数化，dataset 固定 `n_sweeps=10`
+  (`fl_v3/tests/test_nuscenes_zip_dataset.py:342-373`)。它没有 fusion、depth=1、fork/spawn/
+  persistent lifecycle 与 mode counter 的笛卡尔 hostile cases。
+- sparse identity test 如 P1 所述完整 mock 掉 hash/source实现；它不是 build-tree soundness
+  evidence。
+- S07-B suite 没有从 `centralized_train.py` 到 official eval 的测试，也没有遍历上述旧 caller。
+
+这些不把未运行测试变成失败测试，但会导致未来只跑现有 suite 时产生 false confidence。
+应修正 handoff/测试矩阵，且 gate 报告必须逐项写实际参数与 skip，而不是只报总数。
+
+### 无 P0 finding
+
+未发现数据泄漏、静默修改 canonical Oracle 文件、未授权 compute/外部动作或把历史失败改写为
+PASS 的 P0 证据。上述 P1 已足以阻止静态 PASS、production readiness 和 scientific use。
+
+## 审查身份、startup 与权限边界
+
+- Session: `S07-B-R`。
+- Kickoff `BASE_SHA=WORKER_SHA`:
+  `df13025bc6582b9b436d1df065de75c03e92782d`。
+- Reviewed integration base:
+  `c9c84f8b2caebea14adc1d79d6d706695be0f50f`。
+- Source branch: `codex/s07-b-integrated-cl-stack`；owner-authorized delivery branch:
+  `codex/s07-b-r-integrated-cl-stack-review`。
+- `APPROVED_COMPUTE: none`。本 review 未运行 Slurm/GPU/data/model/pytest，未编辑
+  implementation/canonical docs，未 merge/push/upload/manage worktree。
+
+行动前 startup 原样为：
+
+```text
+git rev-parse --show-toplevel
+/home/gaohui/.codex/worktrees/44c9/fl_weather_project
+git rev-parse HEAD
+df13025bc6582b9b436d1df065de75c03e92782d
+git branch --show-current
+
+git status --short
+
+```
+
+HEAD exact、branch empty、status clean 后，只创建了 kickoff 授权的
+`codex/s07-b-r-integrated-cl-stack-review`。审查前 `S07/REVIEW.md` 为 22,715 bytes，
+SHA-256 `d9bbc63c9b5c52963ad4e8cbdd9af248aac5f371c43bd6e7627a20d87bda9952`；本段仅追加于
+其后，旧 S07-A-R2 前缀必须以该 byte count/hash 独立复核。
+
+## 五路 non-FF topology 与 review blob 独立核验
+
+从 integration base 沿 first parent 的五个 merge 顺序与 parent 精确为：
+
+| 顺序 | Worker second parent | Merge SHA | First parent |
+|---|---|---|---|
+| S02 | `3aebf2dc1d19473f29260df279421047d216d70e` | `062ee1c5596db3e77203d9d5869bc988b5beb0ed` | `c9c84f8b2caebea14adc1d79d6d706695be0f50f` |
+| S03 | `50893839c45cd3e2ef1b72b98db6668df7030f2a` | `21d822d7ec7ff993b079f0d572bc9215164946a8` | `062ee1c5596db3e77203d9d5869bc988b5beb0ed` |
+| S04 | `483e149b95ec891b675df825d924a96bb225b7dd` | `10fc657bbf3a3067695db4cb5c5b44c913ab0b6a` | `21d822d7ec7ff993b079f0d572bc9215164946a8` |
+| S05 | `a9c801fdee378906e54d06314d0c772b6559901a` | `5f186d079a1b39133010096477b2adda8e9eeb66` | `10fc657bbf3a3067695db4cb5c5b44c913ab0b6a` |
+| S06 | `6b7ef29b49c23f206c07ea60c2f15e3ffd9aeef7` | `9fb1a9a9a448c90a60d75850f8146d2d4da06b80` | `5f186d079a1b39133010096477b2adda8e9eeb66` |
+
+五个 worker second parent 均为 `WORKER_SHA` ancestor，顺序吻合 kickoff。reviewer branch
+tip 均不是 `WORKER_SHA` ancestor（`merge-base --is-ancestor` exit 1）：
+
+| Review | Reviewer tip | merge-base with WORKER_SHA | Imported blob | SHA-256 |
+|---|---|---|---|---|
+| S02 | `df142dc9a391b87d05bd7becaba59459e9659f88` | `7ad396ebe535ca468337ed44065d39354707e08b` | `f882a7e223ccc88084d283269ac5ba2516a482f0` | `8bb56cafc22a38dfd7b4ef4d755f1531ab081b0371fe18585d744307f5640474` |
+| S03 | `2f62e570c9c24ef1e18a483888c3f28ad56a415e` | `50893839c45cd3e2ef1b72b98db6668df7030f2a` | `09d1beb66cec07e769c3650dd9e09a942bceb674` | `01dea6fd81f14bee8ee1cdf9e4dc66488e7253075459821b2e63947fde7566c1` |
+| S04 | `a0763c2e0b322d4ca53a92f9f69c90d9b231bbff` | `483e149b95ec891b675df825d924a96bb225b7dd` | `1caa6d01d83792736ebacbc6eecdf6b42bdadb2e` | `8673672793235ae0226d9109c73cd39577d5f40e846b17425178a7011300ea2a` |
+| S05 | `1c440843bb2b6d72f10310ff11fcde0d7d1e885c` | `705216de097ae9eeb1813de6dcdc916e2844fcde` | `d3fc2bec71fbb3206de50b3baeb3ad7db6dc9ef7` | `67b58c8e9d1d1622d1af49a2c052cbadd66580500dbf988fc1184f2d0df6736e` |
+| S06 | `ca7bbd7e49e91ac2f214f39f62d5e416dd736383` | `6b7ef29b49c23f206c07ea60c2f15e3ffd9aeef7` | `6df4171c0e85b4a63270af91ca18004c7db3a2e4` | `96d1996562bae4b5e2d1204cb6b51d276ad5c50dd7a75e928137b52b41ae0a59` |
+
+每个 reviewer tip 的 `REVIEW.md` blob 与 `WORKER_SHA` 对应路径 blob 完全相同；import commit
+`588e9f42a3bf9aa1341fd57c5ce8a838f0e299e0` 为单亲提交，只新增五个 `REVIEW.md`，没有
+合并/cherry-pick reviewer history。其后的 S07-B semantic commits依次为
+`f629462`（mode I/O）、`e6ec980`（detector）、`8e78b64`（eval audit）、`2944386`
+（runtime/config）、`9e5a3e3`（handoff）、`e3cedfa`（sparse hash）、`6b1a6be`
+（handoff closure）、`df13025`（whitespace evidence）。
+
+Reviewed diff `c9c84f8..df13025` 为 94 files、16,537 insertions、1,077 deletions。
+`git diff --check` 的三项输出只来自 exact imported S03 review/raw artifacts：S03
+`REVIEW.md` EOF blank line，以及 Job 336708 `scontrol.txt`/`stdout.txt` trailing spaces；它们
+与 worker handoff 记录一致，未被本 reviewer 改写。
+
+## Adversarial contract audit（除 findings 外）
+
+### Mode-aware directory/ZIP I/O 与 t1.v2
+
+- Dataset 的 primary C/L/F branch 在 raw read/decode 前分流，disabled payload 不进入
+  `read_many`；calibration/pose/GT 保留。collate 拒绝 mixed mode、missing enabled payload
+  和 unexpected disabled payload。此静态主路径成立。
+- `n_sweeps` 仍由 constructor 对每条 `_cache_n_sweeps`、presence/maximum sweep list fail
+  closed；production `_load_info` 继续验证 canonical/physical t1.v2 cache 与 manifest
+  identities。没有发现把历史 t1.v1 重新合法化的路径。
+- fork/spawn hook、spawn pickle reset 与 persistent loader 的已有实现未被静态发现破坏；但
+  P2 fallback 与所有 actual runtime cross-product 仍未验证。
+
+### C/L/F construction、geometry、loss/head 与 batch contract
+
+- Strict enum mapping把 C-STR8 固定到 Swin-T trainable backbone、all-level stride-8 FPN、
+  0.5 m depth bins与 reference camera geometry；L-S075 使用 0.075 m input/XY stride 8 输出
+  180x180，L-P020 保持 0.2 m/512 grid与 dense backbone；F 使用同一 selected BEV config，
+  shape mismatch在 concat前失败。未发现第二套 x/y row/col 或 yaw/dimension swap。
+- `MultiTaskCenterPointLoss` 按 name map `(0),(1,4),(2,3),(9),(6,7),(5,8)` 分离 GT，复用
+  reviewed S02 Gaussian/focal/regression字段并对六任务求和；F-CBGS 与 class/reg weights
+  fail closed，不叠加。S05 decode保留 per-class K=500、task-wide NMS、post=83，六任务上限
+  498，forced-FP32 在 sigmoid/threshold/top-K/regression/NMS 前完成。
+- 以上是 static wiring，不是实际 construction/forward/backward evidence。B=1/4/16、dtype、
+  gradients、batch permutation/invariance 和真实 sparse empty/cap path全部 NOT RUN。
+
+### Evaluation reconciliation
+
+- `detection_eval.py` 本身拒绝 duplicate decoded/eval tokens，构造完整 token key set，使用
+  deterministic content order、global conversion、actual mode，默认不做第二 threshold；timing
+  包围 forward+decode且 timing dict 不影响 decode内容。official per-sample cap由 six-task
+  `6*83=498` 与 conversion guard双重约束。
+- 仅发现一次 `model.decode()` 的库内 traversal，没有第二 decoder overwrite；但 P1 表明
+  strict caller没有消费该实现，历史 T4/T5 caller又与新 checkpoint/head contract不兼容。
+
+### Runtime/checkpoint/exposure
+
+- Dependency check在 strict entry 中先于 physical data与 model；DDP 对实际/声明 world-size
+  drift及 `world_size != 1` 均 fail closed。
+- `TrainingState` 对 attempted/loss-evaluated/success/invalid/discarded sample/window reconciliation
+  fail closed；scheduler/EMA 只在 successful update后推进，GradScaler overflow记为 invalid
+  window；persistent sampler由 epoch寻址，checkpoint只在 accumulation boundary写入。
+- Checkpoint preflight验证 full field/config/data/model/optimizer/scheduler/scaler/EMA/RNG
+  structure；late load failure有 snapshot/rollback实现。新增 real model/optimizer mutation test是
+  合理 hostile case，但本 reviewer 环境没有 Torch，故未执行；真实 live model/optimizer、CUDA
+  rollback与 host-memory cost仍不得标 PASS。
+
+### 五个 candidate templates
+
+五个 `s07_b_*.json` 均含 strict root 不允许的 `template_only`，所以在 data/model前失败；
+C/F 的 camera initialization 为 `null`，SECOND build hash使用非 64-hex sentinel，cache/
+manifest identity也为不可通过 placeholder。只删除一个 marker不会把 placeholder误认为 actual
+identity。它们是有意 non-runnable architecture templates，不是 resolved run configs；没有
+运行、批准或生成任何真实 identity。
+
+## Tests/checks actually run 与明确 NOT RUN
+
+本 reviewer 只运行无 Torch/数据/GPU 的 read-only checks：
+
+1. startup ref/branch/status/top-level：PASS；
+2. first-parent/parent/ancestor topology、review branch non-ancestry、五个 blob 与 SHA-256：PASS；
+3. `git diff --shortstat/name-only` 与 `git diff --check`：PASS with the three preserved S03
+   whitespace warnings described above；
+4. `bash -n fl_v3/scripts/run_s07_b_static_checks.sh`：PASS；
+5. stdlib AST parse 11 个 S07-B核心 Python 文件、stdlib JSON parse五个模板：PASS；
+6. runtime availability probe：`ModuleNotFoundError: No module named 'torch'`。因此没有运行
+   `run_s07_b_static_checks.sh` 的 `py_compile`/strict-loader段，也没有运行 pytest；probe后
+   worktree仍 clean。
+
+以下全部 **NOT RUN / NO IMPLIED PASS**，与 worker negative list合并保留：
+
+- integrated tree 上所有 S02-S06 focused tests 与 S07-B pytest suite；
+- actual directory/ZIP disabled-payload/decode parity、depth 1/10、counter、fork/spawn/
+  persistent-worker lifecycle；
+- GH200 上实际 Torch/spconv/cumm import、native/build/source pre/post-import attestation；
+- S04 actual fp16 train/eval/no-grad/concurrency/EMA/deepcopy lifecycle；
+- C/L/F construction，B=1/4/16 forward/backward，grid/dtype/gradient/batch invariance；
+- real live model/optimizer late-load injection、CUDA rollback与 host-memory gate；
+- strict caller到 official devkit round trip、GT-as-pred、single traversal、provenance与
+  worst-case CPU float64 rotate-NMS profile；
+- mini model steps、full t1.v2 cache materialization、100/1000 steps、production/full-data
+  profile、mAP/NDS、DDP、matrix、seed/rerun/automatic retry。
+
+历史 negative/positive evidence不变：S06 Job 341997 `45/62` failure 与 bare-sbatch no-op
+保留；Job 342014 `66/66` 仅 bounded synthetic；S05 Job 336731 `43/44` failure 与 336738
+`44/44` bounded pass并存；S04 的 335566/335579/336718 failures、336728 diagnostic six-error
+negative与 O-025 Job 341695 `15/15` option-A pass均保留；S03 335630 failure 与 336708
+10-test pass、S01 332648/332651/333206 的各自边界均未扩张。mini/synthetic evidence不是
+production/scientific evidence。
+
+## O-009 后续 bounded engineering request 建议（当前不批准、不得提交）
+
+由于存在以上静态 P1/P2，不能为 `df13025` 准备一个用运行来“验收”缺陷的请求。先在 scoped
+S07-B remediation 中修复 caller/eval/attestation/lifecycle并完成独立 code review；随后 S00
+才可把下列内容写成 **一个 exact immutable** `RUN_REQUEST.md` 并请求 owner 审批：
+
+- HEAD/source diff：修复后的 exact SHA，clean worktree，列出从 `df13025` 的 exact diff；
+- command：一个 committed、`bash -n` 通过、无 retry/array/follow-on 的 S07-B gate launcher；
+- resources：one node、one GH200、one concurrent job、8 CPUs、`00:60:00` hard limit、最多
+  1.0 GPU-hour，output root唯一且预先声明；
+- data：仅现有 real-mini directory和由测试临时构造的 stored-ZIP fixture；不得扫描/build
+  full trainval manifest/cache，不得 materialize full data；
+- gates：integrated S02-S06 focused suites + S07-B suite；actual C/L/F fp16 lifecycle；
+  production constructors的 B=1/4/16 分阶段 forward/backward（每阶段显式 VRAM/time stop，OOM
+  记失败不自动降 batch）；disabled-payload directory/ZIP depth1/10 fork/spawn/persistent cases；
+  Torch/spconv/cumm实际 module/native origin及 pre/post-import hash；CPU+CUDA rollback injection；
+  mini official devkit round trip与 declared worst-case rotate-NMS profile；
+- stop：任一 identity/config/source mismatch、unexpected skip、nonfinite、OOM、timeout、第二
+  traversal、payload counter或rollback mismatch立即非零退出；不自动修改 config、降 batch、
+  rerun或提交后续 job。
+
+该建议不是 approval。full t1.v2 cache、100/1000 steps、production/full-data profile、metrics、
+DDP、scientific matrix/seeds仍超出 O-009，必须另行 exact owner approval。
+
+## Gate verdict、allowed/forbidden interpretation 与 residual risk
+
+| Layer | Verdict |
+|---|---|
+| exact worker topology/order + imported review bytes | **PASS** |
+| S02-S06 reviewed component history preservation | **PASS WITH EACH REVIEW'S ORIGINAL BOUNDARY** |
+| S07-B local/static syntax/config inventory | **PASS, STATIC ONLY** |
+| S07-B implementation completeness | **CHANGES-REQUESTED (P1/P2 above)** |
+| integrated runtime/GH200 engineering evidence | **NOT RUN / NOT ESTABLISHED** |
+| production/full-data readiness | **NOT ESTABLISHED** |
+| scientific capability/metric/FL/attack-defense evidence | **ABSENT / FORBIDDEN** |
+
+允许解释：五路 worker merge topology与五个最终 review blob provenance精确；核心 C/L/F、
+multi-task loss/decode、S06 runtime/checkpoint代码已经以可审查形式集成；五个 candidate只是
+fail-closed templates；历史 reviewed component evidence可继续在各自边界内引用。
+
+禁止解释：不得称 strict centralized CL stack可完成 official evaluation，不得称 T4/T5/mini
+caller已迁移，不得称 Torch/spconv/cumm executable identity已证明，不得把 authored/mocked
+tests当实际 GH200 evidence；不得声称 production ready、full trainval ready、100/1000-step、
+mAP/NDS、fusion gain、FL、attack/defense、generalization或publication claim。不得提交
+O-009、full-cache/model job、merge/push/upload。
+
+Residual risks包括：full trainval t1.v2仍不存在；real native package layout/first-import hash
+行为未知；S04 fp16 option-A尚未在integrated detector lifecycle中执行；真实 batch/gradient/
+memory/rotate-NMS性能未知；strict official evaluator与完整 checkpoint/EMA policy未冻结；
+Protocol-B split/client ownership仍未进入本 CL capability候选。
+
+## Final verdict
+
+**CHANGES-REQUESTED for S07-B at
+`df13025bc6582b9b436d1df065de75c03e92782d`.**
+
+Topology/review provenance可以接受，但 P1 的 strict official-eval缺口、六任务 caller迁移断点
+和不可充分重算的 executable dependency identity阻止 static PASS；P2 lifecycle/mode
+compatibility也必须修复。当前不应提交工程计算来绕过这些代码问题。修复后的 exact SHA需
+重新独立 review，之后才可按上节冻结并请求一次 bounded O-009 gate；所有 material/full-data/
+scientific execution继续需要独立 owner approval。
