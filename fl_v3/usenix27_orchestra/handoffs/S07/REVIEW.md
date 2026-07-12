@@ -3290,3 +3290,113 @@ resource/output/stop conditions 并形成 fresh approved request，才可启动�
 **PASS at docs/static-authored scope for corrected S07-B delivery
 `65881c5628a737eaeaf4742ab7b11a63b9d3cbc2` and O-079 code candidate
 `56c74de5bdf5463fdd6ab1a623ab0f92a35871ae`. Runtime remains unverified.**
+
+---
+
+# S07-B-R16 独立复审 — O-086 warning-fatal gate remediation
+
+## Findings（按严重性排序）
+
+**无 P0/P1/P2/P3 finding。** Exact code `7a3a15a13d19be87c5269966afc5fd6b1054d660`
+关闭了 Job 352354 暴露的 unraisable DataLoader shutdown 盲点；delivery
+`764aab2390940746f4409ee52a3437b5cf1d341f` 对 raw evidence、formal result 与
+strict-readiness FAIL 的记载准确。本 verdict 只接受 code/test/launcher/docs 的
+static-authored scope，不是 corrected runtime PASS。
+
+## Warning-contaminated negative evidence 与 remediation 核验
+
+1. **Job 352354 的 formal 与 strict verdict 被正确分离。** Reviewer 直接对 output root
+   `s07b_mw_diag_65881c5628a7` 执行 root manifest 校验，51/51 records 均为 `OK`。
+   Raw summary 确实记录 `diagnostic_complete=true`、`artifact_complete=true`、
+   `suite_pass=true`、expected/observed `9/9`、JUnit aggregate `9/0/0/0`，且九个 node
+   均为 return code 0、无 timeout/intervention、`cleanup_ok=true`。但 node 8 原始日志
+   SHA-256 `fb50d32d...` 同时明确包含
+   `PytestUnraisableExceptionWarning`、`_MultiProcessingDataLoaderIter.__del__` 与
+   `RuntimeError: DataLoader worker ... is killed by signal: Aborted`，结尾为
+   `1 passed, 1 warning`。Executed run config 没有 warning-fatal filter。因此 docs 保留
+   formal 9/9、同时判 strict readiness **FAIL**，没有把 scheduler/formal success 冒充
+   clean lifecycle readiness。
+2. **Detection determinism test 显式拥有并清理 multiprocessing iterator。** workers=2
+   路径将 `iter(loader2)` 保存在 `iterator2`，消费 first batch 后在 `finally` 唯一调用
+   `iterator2._shutdown_workers()`；没有 `except`、context suppression 或手工清空
+   `loader._iterator`。shutdown exception 会作为普通 test exception 传播。workers=0
+   iterator 不带 multiprocessing context，不需要 worker shutdown；batch equality 三项仍保留。
+3. **CUDA persistent-worker test 保留两 epoch 的 first-batch 语义。** Test 在 CUDA 初始化后
+   第一次 `iter(loader)`/`next(iterator)`，随后第二次 `iter(loader)`，明确断言
+   `second_iterator is iterator`，再用 `next(second_iterator)` 取得新 epoch first batch并比较；
+   最终在 `finally` 对 cached iterator 显式 shutdown。第二次 `iter`、两个 `next`、identity
+   assertion 与唯一 finally-shutdown 均在 exact AST/source 中存在，shutdown error 未捕获或隐藏。
+4. **Warning-fatal policy 覆盖真实九-node command builder。** Diagnostic launcher 对唯一的
+   per-node `command` list 加入 exact
+   `-W error::pytest.PytestUnraisableExceptionWarning`；该 builder 在 frozen nine-node loop 中
+   为每个 pytest subprocess 使用。Run config 与 summary 均记录
+   `pytest_unraisable_exception_warning_is_fatal=true`。Literal filter/policy 各精确出现两次，
+   没有只写 config 而漏掉实际命令的分叉。
+5. **Static contract 与 compile boundary 一致。** `run_s07_b_static_checks.sh` AST 检查锁定两个
+   target function 的 named iterator/finally `_shutdown_workers()`、禁止临时
+   `next(iter(...))`，并锁定 CUDA cached-iterator identity assertion；changed test 被加入
+   source compile。Reviewer 额外逐 AST 确认 detection `next(iterator2)`、CUDA
+   `next(iterator)`/`next(second_iterator)`、两次 named `iter` assignment 及 finally 无 handler。
+6. **无 production drift，delivery state 准确。** `b36bfa9..7a3a15a` 只修改
+   `test_model_task.py`、multiworker diagnostic launcher 与 static checker，numstat `100/6`；
+   没有 `fl_v3/src/fl_v3/**` 变化。`7a3a15a..764aab2` 只修改三份 S07 lifecycle docs，
+   numstat `250/2`。Docs 中列出的三个 code blob/SHA-256、Job principal hashes、node-8
+   hashes、51-record manifest 与 raw artifacts 逐项一致；没有 retroactively 改写
+   Job 352105/352354 或产生新的 compute authorization。
+
+## Review identity、prefix、topology 与 ownership
+
+- Session：`S07-B-R16`；`APPROVED_COMPUTE: none`。
+- Exact code：`7a3a15a13d19be87c5269966afc5fd6b1054d660`，sole parent exact
+  `b36bfa93da5e1b0691ad94d6ab5840a2fbd0f723`。
+- Exact delivery：`764aab2390940746f4409ee52a3437b5cf1d341f`，sole parent exact 为 code。
+- Review startup/import：`adae8e4b3724b8b0c0ae99e06dd8cb0a187dc05a`，sole parent exact 为
+  delivery，branch `codex/s07-b-r16-warning-gate-review`，startup clean；import commit 只修改
+  `REVIEW.md`。
+- 追加前 R15 prefix：Git blob
+  `1589e3d3a2db8193b0ffd191cc5f001167975f35`、size `219261`、SHA-256
+  `ddac8da093045f6ba96534c7867ff3c67117744b6356b702024d1d0a3ada7f30`；R16 只追加在
+  这些 exact bytes 之后。
+
+`b36bfa9..764aab2` 精确六路径：三条 test/launcher/static 与三份 S07 durable docs；
+无 production source。Exact code blobs/SHA-256 分别为：
+`test_model_task.py` `9e8b19d...` / `36abc1d4...`，diagnostic launcher
+`90e477e...` / `8cb97121...`，static checker `f8dda51...` / `f62c5725...`。
+`git diff --check b36bfa9..764aab2` 无 warning；review tree 在追加前保持 clean。
+
+## Checks actually run 与 explicit NOT RUN
+
+实际执行：startup branch/HEAD/parent/clean；R15 prefix blob/size/SHA-256；commit parent、
+ancestry、name-status/numstat；六路径 current blob/SHA-256；逐行审读 exact code diff 与三份
+delivery docs；两份 changed shell `bash -n`；changed-test stdlib source `compile()`；diagnostic
+launcher 四个 Python heredoc stdlib `compile()`；launcher-contract-only checker（
+`short TMPDIR contract: 5 launchers OK`）；独立 AST structural assertions；
+`git diff --check`；Job 352354 root `sha256sum -c` 51/51；raw summary、identity、config、九个
+supervisor result 与 node logs 的直接读取和 warning 搜索。
+
+明确 **NOT RUN / NO IMPLIED PASS**：project/package import、pytest、pycompile、任何
+multiprocessing/fork/spawn runtime、Torch/NumPy/CUDA/spconv/cumm、data/cache/model/checkpoint、
+Slurm/srun/GPU、full `t1.v2`、full trainval、100/1000 steps、profile、metrics、DDP、matrix、
+seed/rerun、FL/attack/defense/scientific cell。未 merge、push、upload 或 publication。
+
+## Interpretation、residual risk 与 final verdict
+
+允许解释：Job 352354 是 artifact-complete/formal 9-of-9、但 node-8 warning-contaminated 的
+strict-readiness FAIL；exact O-086 code 在 authored/static 层显式化 iterator lifecycle，并使未来
+九-node launcher 对 `PytestUnraisableExceptionWarning` fail closed。无 production behavior
+变化。
+
+禁止解释：warning-fatal flag、显式 shutdown 与 CUDA two-epoch path 尚未在 corrected exact tree
+上执行；不得称 multiprocessing/GH200 runtime、integrated suite、production/full-data/
+checkpoint/performance/scientific gate PASS，也不得从本 review 推导 compute、retry、merge、push、
+upload 或科学授权。Private `_shutdown_workers()` 仍是 PyTorch-version-bound test harness API；
+其 exact runtime behavior 必须由另行冻结、批准的 bounded validation 证明。
+
+S00 如需推进，只能在本 static acceptance 之后冻结新的 exact executable、source/launcher hash、
+九-node warning-fatal command、mini scope、resource/output/stop conditions，并取得独立 compute
+approval；Job 352354 的已消费 approval 不可复用。
+
+**PASS at code/test/launcher/docs static-authored scope for S07-B delivery
+`764aab2390940746f4409ee52a3437b5cf1d341f` and O-086 code
+`7a3a15a13d19be87c5269966afc5fd6b1054d660`. Corrected runtime remains
+unverified.**
