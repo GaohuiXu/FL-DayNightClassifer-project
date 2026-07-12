@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import time
 from contextlib import contextmanager, nullcontext
+from importlib import metadata
 
 import torch
 import torch.nn as nn
@@ -28,6 +29,53 @@ VOXEL_STAT_FIELDS = (
     "voxels_dropped",
     "points_dropped_by_voxel_point_cap",
 )
+
+SPCONV_FP16_EVAL_VERSION = "2.3.8"
+
+
+def _require_supported_spconv_fp16_eval() -> str:
+    """Fail closed unless the audited option-A spconv runtime is installed."""
+    try:
+        installed = metadata.version("spconv")
+    except metadata.PackageNotFoundError as exc:
+        raise RuntimeError("spconv is required for sparse fp16 evaluation") from exc
+    if installed != SPCONV_FP16_EVAL_VERSION:
+        raise RuntimeError(
+            "sparse fp16 evaluation training-dispatch workaround is audited only for "
+            f"spconv=={SPCONV_FP16_EVAL_VERSION}; found {installed}"
+        )
+    return installed
+
+
+@contextmanager
+def _spconv_training_dispatch_for_fp16_eval(backbone: nn.Module, installed: str):
+    """Temporarily select spconv's coherent-half training dispatch in eval.
+
+    The containing encoder, GroupNorm layers, and every other module remain in
+    eval mode.  This is deliberately a narrow spconv-2.3.8 compatibility seam,
+    not a dependency patch or a general inference-mode override.
+    """
+    if torch.is_grad_enabled():
+        raise RuntimeError("sparse fp16 evaluation requires torch.no_grad()")
+    if installed != SPCONV_FP16_EVAL_VERSION:
+        raise RuntimeError("spconv fp16 eval dispatch received an unattested version")
+    from spconv.pytorch.conv import SparseConvolution
+
+    convolutions = [m for m in backbone.modules() if isinstance(m, SparseConvolution)]
+    if not convolutions:
+        raise RuntimeError("SECOND backbone contains no spconv SparseConvolution modules")
+    previous = [bool(module.training) for module in convolutions]
+    if any(previous):
+        raise RuntimeError("spconv fp16 eval dispatch requires all sparse convolutions in eval")
+    try:
+        for module in convolutions:
+            # Assign only the leaf dispatch flag.  Calling train() would recurse
+            # and could alter normalization or other surrounding eval semantics.
+            module.training = True
+        yield installed, len(convolutions)
+    finally:
+        for module, was_training in zip(convolutions, previous, strict=True):
+            module.training = was_training
 
 
 class SparseVoxelEncoder(nn.Module):
@@ -221,6 +269,17 @@ class SparseVoxelEncoder(nn.Module):
             if not bool((integral & in_batch).all().detach().cpu()):
                 raise ValueError(f"batch indices must be integral and lie in [0,{B})")
         sparse_amp = self._use_sparse_conv_fp16(dev)
+        fp16_eval_dispatch = bool(sparse_amp and not self.training)
+        # Option A is an inference-only contract.  Refuse an eval forward with
+        # autograd enabled rather than silently building a training-dispatch graph.
+        if fp16_eval_dispatch and torch.is_grad_enabled():
+            raise RuntimeError("sparse fp16 evaluation requires torch.no_grad()")
+        # Validate before the empty-input early return as well: an empty batch
+        # must not make an unsupported runtime appear accepted.
+        dispatch_version = (
+            _require_supported_spconv_fp16_eval() if fp16_eval_dispatch else None
+        )
+        dispatch_count = 0
         cap = self.active_max_voxels
         with stage("batch_point_grouping"):
             grouped_points, batch_counts, point_grouping = self._group_points_by_batch(
@@ -276,6 +335,9 @@ class SparseVoxelEncoder(nn.Module):
                 point_grouping=point_grouping,
                 indices=None,
                 dense_shape=None,
+                fp16_eval_dispatch=fp16_eval_dispatch,
+                fp16_eval_dispatch_version=dispatch_version,
+                fp16_eval_dispatch_count=0,
             )
             if self.record_profile:
                 self.last_profile_times = dict(profile_times)
@@ -300,7 +362,15 @@ class SparseVoxelEncoder(nn.Module):
                     batch_size=B,
                 )
             with stage("second_sparse_backbone"):
-                x = self.backbone(x)
+                dispatch_ctx = (
+                    _spconv_training_dispatch_for_fp16_eval(
+                        self.backbone, dispatch_version
+                    )
+                    if fp16_eval_dispatch
+                    else nullcontext((None, 0))
+                )
+                with dispatch_ctx as (dispatch_version, dispatch_count):
+                    x = self.backbone(x)
             with stage("reduced_dense_collapse"):
                 dense = x.dense()
                 dense_shape = tuple(int(v) for v in dense.shape)
@@ -340,6 +410,9 @@ class SparseVoxelEncoder(nn.Module):
             dense_dtype=dense.dtype,
             projected_dtype=projected_dtype,
             output_dtype=out.dtype,
+            fp16_eval_dispatch=fp16_eval_dispatch,
+            fp16_eval_dispatch_version=dispatch_version,
+            fp16_eval_dispatch_count=dispatch_count,
         )
         if self.record_profile:
             self.last_profile_times = dict(profile_times)
@@ -357,6 +430,9 @@ class SparseVoxelEncoder(nn.Module):
         dense_dtype: torch.dtype | None = None,
         projected_dtype: torch.dtype | None = None,
         output_dtype: torch.dtype | None = None,
+        fp16_eval_dispatch: bool = False,
+        fp16_eval_dispatch_version: str | None = None,
+        fp16_eval_dispatch_count: int = 0,
     ) -> None:
         if not self.record_debug:
             self.last_sparse_meta = None
@@ -383,6 +459,9 @@ class SparseVoxelEncoder(nn.Module):
             "max_voxels_eval": self.max_voxels_eval,
             "sparse_conv_fp16_requested": self.sparse_conv_fp16,
             "sparse_conv_fp16_active": sparse_amp,
+            "fp16_eval_dispatch_active": bool(fp16_eval_dispatch),
+            "fp16_eval_dispatch_version": fp16_eval_dispatch_version,
+            "fp16_eval_dispatch_count": int(fp16_eval_dispatch_count),
             "point_grouping": point_grouping,
             "voxel_stat_fields": VOXEL_STAT_FIELDS,
             "num_voxels": 0 if indices is None else int(indices.shape[0]),

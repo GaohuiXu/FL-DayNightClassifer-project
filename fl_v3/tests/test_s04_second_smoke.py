@@ -92,3 +92,54 @@ def test_s04_reference_b4_fp16_forward_backward_memory_bound():
         "optimizer_or_parameter_update": False,
     }
     print("S04_B4_EVIDENCE=" + json.dumps(evidence, sort_keys=True))
+
+
+def test_s04_reference_b4_fp16_eval_memory_bound():
+    SparseVoxelEncoder = _encoder_or_skip()
+    dev = torch.device("cuda:0")
+    encoder = SparseVoxelEncoder(
+        out_channels=256,
+        use_timestamp=True,
+        max_voxels_train=120000,
+        max_voxels_eval=160000,
+        max_points_per_voxel=10,
+        sparse_conv_fp16=True,
+    ).to(dev).eval()
+    encoder.record_debug = True
+    points = _reference_points(dev)
+
+    torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats(dev)
+    with torch.no_grad():
+        output = encoder(points, B=4)
+    meta = encoder.last_sparse_meta or {}
+    assert output.shape == (4, 256, 180, 180)
+    assert output.dtype == torch.float16 and torch.isfinite(output).all()
+    assert meta["dense_shape"] == (4, 128, 2, 180, 180)
+    assert meta["fp16_eval_dispatch_active"] is True
+    assert meta["fp16_eval_dispatch_version"] == "2.3.8"
+    assert meta["fp16_eval_dispatch_count"] > 0
+    assert not encoder.training
+    assert all(parameter.grad is None for parameter in encoder.parameters())
+    assert all(parameter.dtype == torch.float32 for parameter in encoder.parameters())
+
+    peak_allocated = torch.cuda.max_memory_allocated(dev)
+    peak_reserved = torch.cuda.max_memory_reserved(dev)
+    device_total = torch.cuda.get_device_properties(dev).total_memory
+    assert 0 < peak_allocated <= peak_reserved <= device_total
+    evidence = {
+        "batch_size": 4,
+        "points_per_sample": 4096,
+        "output_shape": list(output.shape),
+        "output_dtype": str(output.dtype),
+        "dense_shape": list(meta["dense_shape"]),
+        "fp16_eval_dispatch_version": meta["fp16_eval_dispatch_version"],
+        "fp16_eval_dispatch_count": meta["fp16_eval_dispatch_count"],
+        "peak_allocated_bytes": peak_allocated,
+        "peak_reserved_bytes": peak_reserved,
+        "device_total_bytes": device_total,
+        "all_parameter_grads_absent": True,
+        "all_master_parameters_fp32": True,
+        "optimizer_or_parameter_update": False,
+    }
+    print("S04_B4_EVAL_EVIDENCE=" + json.dumps(evidence, sort_keys=True))
