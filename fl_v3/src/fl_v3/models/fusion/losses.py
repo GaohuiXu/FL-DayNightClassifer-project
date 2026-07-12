@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import math
 from functools import lru_cache
-from typing import Dict, List
+from typing import Dict, List, Sequence
 
 import numpy as np
 import torch
@@ -309,4 +309,85 @@ class CenterPointLoss(nn.Module):
             }
         else:
             self.last_terms = {"n_gt": int(reg_target.shape[0])}
+        return total
+
+
+class MultiTaskCenterPointLoss(nn.Module):
+    """Apply the reviewed S02 target/loss to each reviewed S05 task head.
+
+    Global nuScenes labels are mapped to task-local labels by class name.  The
+    six task losses are summed, matching the independent official task-head
+    objective while retaining S02's exact Gaussian implementation.
+    """
+
+    def __init__(
+        self,
+        cfg: BEVConfig = BEVConfig(),
+        *,
+        reg_weight: float = 0.25,
+        class_weights=None,
+        reg_class_weights=None,
+    ) -> None:
+        super().__init__()
+        from fl_v3.models.fusion.centerhead_decode import task_local_to_global_ids
+
+        self.global_ids = task_local_to_global_ids()
+        self.losses = nn.ModuleList()
+        for ids in self.global_ids:
+            heat_weights = None if class_weights is None else [class_weights[i] for i in ids]
+            box_weights = (
+                None if reg_class_weights is None else [reg_class_weights[i] for i in ids]
+            )
+            self.losses.append(
+                CenterPointLoss(
+                    cfg=cfg,
+                    n_classes=len(ids),
+                    reg_weight=reg_weight,
+                    class_weights=heat_weights,
+                    reg_class_weights=box_weights,
+                )
+            )
+        self.last_terms: Dict[str, float] = {}
+
+    @staticmethod
+    def _task_batch(batch: dict, global_ids: Sequence[int]) -> dict:
+        mapping = {int(global_id): local for local, global_id in enumerate(global_ids)}
+        result = dict(batch)
+        boxes_out, labels_out, velocity_out = [], [], []
+        velocities = batch.get("gt_velocity")
+        for index, (boxes, labels) in enumerate(zip(batch["gt_boxes"], batch["gt_labels"], strict=True)):
+            labels_long = labels.to(torch.int64)
+            keep = torch.zeros_like(labels_long, dtype=torch.bool)
+            local = torch.full_like(labels_long, -1)
+            for global_id, local_id in mapping.items():
+                selected = labels_long == global_id
+                keep |= selected
+                local[selected] = local_id
+            boxes_out.append(boxes[keep])
+            labels_out.append(local[keep])
+            if velocities is not None:
+                velocity_out.append(velocities[index][keep])
+        result["gt_boxes"] = boxes_out
+        result["gt_labels"] = labels_out
+        if velocities is not None:
+            result["gt_velocity"] = velocity_out
+        return result
+
+    def forward(self, pred, batch: dict) -> torch.Tensor:
+        if isinstance(pred, dict) and "task_outputs" in pred:
+            pred = pred["task_outputs"]
+        if not isinstance(pred, (list, tuple)) or len(pred) != len(self.losses):
+            raise ValueError(
+                f"multi-task CenterHead must return {len(self.losses)} task dictionaries"
+            )
+        terms = []
+        aggregate = {"hm_loss": 0.0, "reg_loss": 0.0, "n_gt": 0}
+        for output, criterion, global_ids in zip(pred, self.losses, self.global_ids, strict=True):
+            value = criterion(output, self._task_batch(batch, global_ids))
+            terms.append(value)
+            aggregate["hm_loss"] += criterion.last_terms.get("hm_loss", 0.0)
+            aggregate["reg_loss"] += criterion.last_terms.get("reg_loss", 0.0)
+            aggregate["n_gt"] += criterion.last_terms.get("n_gt", 0)
+        total = torch.stack(terms).sum()
+        self.last_terms = {"loss": float(total.detach().item()), **aggregate}
         return total

@@ -368,6 +368,115 @@ def _det_config_from_run(run_config: dict):
     from fl_v3.models.fusion.bev_grid import BEVConfig
     from fl_v3.models.fusion.detector import DetectorConfig
 
+    production = bool(run_config.get("s06-production-runtime", False))
+    if production:
+        required_arch = {
+            "det-camera-arch", "det-camera-pretrained", "det-lidar-arch",
+            "det-fusion-arch", "det-head-arch",
+        }
+        missing = sorted(required_arch - set(run_config))
+        if missing:
+            raise ValueError(f"resolved architecture mapping fields missing: {missing}")
+        camera_arch = str(run_config["det-camera-arch"])
+        lidar_arch = str(run_config["det-lidar-arch"])
+        fusion_arch = str(run_config["det-fusion-arch"])
+        head_arch = str(run_config["det-head-arch"])
+        if camera_arch not in {"swin_t_stride8", "none"}:
+            raise ValueError(f"unknown resolved camera architecture {camera_arch!r}")
+        if lidar_arch not in {"second_075", "pillar_020", "none"}:
+            raise ValueError(f"unknown resolved LiDAR architecture {lidar_arch!r}")
+        if fusion_arch not in {"conv_fuser_256", "none"}:
+            raise ValueError(f"unknown resolved fusion architecture {fusion_arch!r}")
+        if head_arch != "centerhead_multitask":
+            raise ValueError(f"unknown resolved head architecture {head_arch!r}")
+        mode = normalize_model_mode(str(run_config["model-mode"]))
+        architecture_matches_mode = {
+            "camera_only": (
+                camera_arch == "swin_t_stride8"
+                and lidar_arch == "none"
+                and fusion_arch == "none"
+            ),
+            "lidar_only": (
+                camera_arch == "none"
+                and lidar_arch in {"second_075", "pillar_020"}
+                and fusion_arch == "none"
+            ),
+            "fusion": (
+                camera_arch == "swin_t_stride8"
+                and lidar_arch in {"second_075", "pillar_020"}
+                and fusion_arch == "conv_fuser_256"
+            ),
+        }
+        if not architecture_matches_mode[mode]:
+            raise ValueError(
+                "resolved architecture fields are inconsistent with "
+                f"model-mode={mode!r}"
+            )
+        if lidar_arch == "second_075":
+            bev = BEVConfig(
+                point_cloud_range=(-54.0, -54.0, -5.0, 54.0, 54.0, 3.0),
+                bev_voxel=(0.6, 0.6),
+                out_size_factor=1,
+            )
+            lidar_input_bev = BEVConfig(
+                point_cloud_range=(-54.0, -54.0, -5.0, 54.0, 54.0, 3.0),
+                bev_voxel=(0.075, 0.075),
+                out_size_factor=8,
+            )
+        elif lidar_arch == "pillar_020":
+            bev = BEVConfig(
+                point_cloud_range=(-51.2, -51.2, -5.0, 51.2, 51.2, 3.0),
+                bev_voxel=(0.2, 0.2),
+                out_size_factor=2,
+            )
+            lidar_input_bev = None
+        else:
+            bev = BEVConfig(
+                point_cloud_range=(-54.0, -54.0, -5.0, 54.0, 54.0, 3.0),
+                bev_voxel=(0.6, 0.6),
+                out_size_factor=1,
+            )
+            lidar_input_bev = None
+        precision = str(run_config["precision"]).strip().lower()
+        sparse_conv_fp16 = lidar_arch == "second_075" and precision == "fp16"
+        return DetectorConfig(
+            model_mode=mode,
+            required_spconv_version=("2.3.8" if lidar_arch == "second_075" else None),
+            camera_backbone="swin_t",
+            freeze_camera_backbone=False,
+            pretrained_backbone=bool(run_config["det-camera-pretrained"]),
+            activation_checkpoint=True,
+            image_hw=(256, 704),
+            feat_stride=8,
+            neck_channels=128,
+            context_channels=80,
+            depth_bins=(1.0, 60.0, 0.5),
+            reference_camera=camera_arch == "swin_t_stride8",
+            camera_bev_output_dtype="input",
+            lidar_channels=(256 if lidar_arch == "second_075" else 64),
+            max_points_per_pillar=(10 if lidar_arch == "second_075" else 32),
+            max_pillars=(120000 if lidar_arch == "pillar_020" else 30000),
+            lidar_sweeps=int(run_config["det-lidar-sweeps"]),
+            lidar_encoder=("voxel" if lidar_arch == "second_075" else "pillar"),
+            lidar_z_voxel=(0.2 if lidar_arch == "second_075" else None),
+            lidar_sparse_z_size=(41 if lidar_arch == "second_075" else None),
+            sparse_conv_fp16=sparse_conv_fp16,
+            lidar_input_bev=lidar_input_bev,
+            max_voxels_train=120000,
+            max_voxels_eval=160000,
+            lidar_backbone=lidar_arch == "pillar_020",
+            lidar_backbone_out=(128 if lidar_arch == "pillar_020" else 256),
+            lidar_backbone_checkpoint=lidar_arch == "pillar_020",
+            lidar_backbone_stages=4,
+            fusion_channels=256,
+            bev_neck_channels=256,
+            head_channels=64,
+            head_conv_layers=2,
+            n_classes=10,
+            score_threshold=0.1,
+            bev=bev,
+        )
+
     pcr = run_config.get("det-pc-range", None)
     voxel = float(run_config.get("det-bev-voxel", 0.4))
     osf = int(run_config.get("det-out-size-factor", 2))
@@ -424,12 +533,51 @@ def _det_config_from_run(run_config: dict):
         fusion_channels=int(run_config.get("det-fusion-channels", 128)),
         bev_neck_channels=int(run_config.get("det-bev-neck-channels", 256)),
         head_channels=int(run_config.get("det-head-channels", 64)),
-        head_conv_layers=int(run_config.get("det-head-conv-layers", 1)),
+        head_conv_layers=int(run_config.get("det-head-conv-layers", 2)),
         n_classes=int(run_config.get("det-n-classes", 10)),
         max_objects=int(run_config.get("det-max-objects", 200)),
         score_threshold=float(run_config.get("det-score-threshold", 0.1)),
         bev=bev,
     )
+
+
+def _apply_production_sampling(dataset, run_config: dict, *, shuffle: bool):
+    """Apply the one resolved sampling recipe before DataLoader construction."""
+    if not (
+        bool(run_config.get("s06-production-runtime", False))
+        and shuffle
+        and bool(run_config.get("det-cbgs", False))
+    ):
+        return dataset
+    if run_config.get("det-class-weights") is not None or run_config.get(
+        "det-reg-class-weights"
+    ) is not None:
+        raise ValueError("F-CBGS replaces rather than stacks with class/regression weights")
+    from fl_v3.data.nuscenes.cbgs import (
+        CBGSWrapper,
+        build_cbgs_indices,
+        dataset_inrange_classes,
+    )
+
+    indices, stats = build_cbgs_indices(
+        dataset_inrange_classes(dataset),
+        n_classes=10,
+        thresh=float(run_config["det-cbgs-thresh"]),
+        seed=int(run_config["seed"]),
+        max_repeat=float(run_config["det-cbgs-max-repeat"]),
+    )
+    wrapped = CBGSWrapper(dataset, indices)
+    wrapped.stats = stats
+    return wrapped
+
+
+def _production_sampler(dataset, run_config: dict, *, shuffle: bool):
+    """Return the epoch-addressable sampler required by the production trainer."""
+    if not (bool(run_config.get("s06-production-runtime", False)) and shuffle):
+        return None
+    from fl_v3.training.runtime_state import EpochPermutationSampler
+
+    return EpochPermutationSampler(dataset, seed=int(run_config["seed"]))
 
 
 def _aug_from_run(run_config: dict):
@@ -560,13 +708,15 @@ class NuScenesDetectionTask(Task):
         return BEVFusionDetector(_det_config_from_run(run_config))
 
     def build_criterion(self, run_config: dict) -> Criterion:
-        from fl_v3.models.fusion.losses import CenterPointLoss
+        from fl_v3.models.fusion.losses import MultiTaskCenterPointLoss
 
         c = _det_config_from_run(run_config)
-        return CenterPointLoss(cfg=c.bev, n_classes=c.n_classes,
-                               reg_weight=float(run_config.get("det-reg-weight", 0.25)),
-                               class_weights=_normalize_weights(run_config.get("det-class-weights")),
-                               reg_class_weights=_normalize_weights(run_config.get("det-reg-class-weights")))
+        return MultiTaskCenterPointLoss(
+            cfg=c.bev,
+            reg_weight=float(run_config.get("det-reg-weight", 0.25)),
+            class_weights=_normalize_weights(run_config.get("det-class-weights")),
+            reg_class_weights=_normalize_weights(run_config.get("det-reg-class-weights")),
+        )
 
     # --- data ---
     def _load_info(self, run_config: dict, split: str):
@@ -696,6 +846,7 @@ class NuScenesDetectionTask(Task):
                                        zip_manifest=(str(run_config["nuscenes-zip-manifest"])
                                                      if production else None),
                                        model_mode=model_mode)
+        ds = _apply_production_sampling(ds, run_config, shuffle=shuffle)
         # T5 routing (additive): for a malicious-roster CLIENT train shard, wrap with the
         # poisoning dataset. ``client_id is None`` (the eval/val loader) or attack-disabled /
         # poison_rate=0 / honest client ⇒ ``ds`` is returned UNCHANGED (byte-identical clean).
@@ -703,6 +854,7 @@ class NuScenesDetectionTask(Task):
             from fl_v3.attacks.poisoned_client import maybe_wrap_for_client
             n = int(num_clients) if num_clients is not None else self.num_clients(run_config)
             ds = maybe_wrap_for_client(ds, int(client_id), run_config, n)
+        sampler = _production_sampler(ds, run_config, shuffle=shuffle)
         return make_loader(
             ds,
             batch_size=int(run_config.get("batch-size", 1)),
@@ -710,6 +862,7 @@ class NuScenesDetectionTask(Task):
             num_workers=int(run_config.get("num-workers", 0)),
             seed=int(run_config.get("seed", 42)),
             collate_fn=detection_collate_fn,
+            sampler=sampler,
         )
 
     def client_data(self, client_id: int, run_config: dict) -> ClientData:

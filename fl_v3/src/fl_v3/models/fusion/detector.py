@@ -1,21 +1,17 @@
-"""BEVFusion-class detector wiring + deterministic decode (fl_v3 T2).
+"""Resolved BEVFusion-class detector wiring and decode.
 
 Wires preprocess → frozen camera backbone → LSS-FPN neck → LSS view transform
 (camera-BEV) ⊕ PointPillars (LiDAR-BEV) → ``ConvFuser`` → SECOND-FPN neck →
 CenterPoint head, all on the single :mod:`bev_grid` convention. ``forward(batch)``
-returns the head dict (+ intermediate BEV features for V2/V3 when requested);
-``decode(head_out)`` returns 3D boxes+scores in the **T1 canonical** convention.
+returns the reviewed six-task CenterHead list (+ intermediate BEV features when
+requested); ``decode(head_out)`` returns boxes and scores in the **T1 canonical**
+convention.
 
-## Deterministic decode (SPEC §0 + detector bullet)
-
-``torch.topk`` has **no ``stable`` kwarg** and its CUDA tie order is not reproducible, so
-peak extraction is: (1) a fixed **3×3 ``max_pool2d`` local-max mask** (``keep = (hmax ==
-heat)``) zeroes non-peak cells; (2) the surviving scores are ranked with
-**``torch.sort(stable=True)``** (descending) and sliced to ``max_objects`` — a canonical,
-reproducible tie order (ascending flat index among ties). **No post-decode box NMS**
-(CenterPoint is NMS-free; circle/rotated NMS is non-deterministic and banned). The box is
-``(cx,cy,cz,dx=l,dy=w,dz=h,yaw)`` with ``yaw = atan2(sin,cos)`` — **NO** mmdet3d ``-π/2``
-offset and **NO** ``(l,w,h)`` swap (the encode→decode golden pins it).
+Production decode delegates to the reviewed S05 reference-faithful no-starvation
+path: forced-FP32 fields, per-class K=500, deterministic global-class/spatial tie
+order, official task-wide circle/rotate NMS, and post=83.  The older single-head
+stable-sort decoder remains only for inventoried non-production callers and is
+unreachable from the strict ``centerhead_multitask`` constructor.
 """
 from __future__ import annotations
 
@@ -29,7 +25,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from fl_v3.models.fusion.bev_grid import BEVConfig, flat_to_colrow, head_decode_to_metric
-from fl_v3.models.fusion.preprocess import ImagePreprocessor, DEFAULT_IMAGE_HW
+from fl_v3.models.fusion.preprocess import (
+    ImageAugmentationConfig,
+    ImagePreprocessor,
+    DEFAULT_IMAGE_HW,
+)
 from fl_v3.models.fusion.camera_backbone import CameraBackbone
 from fl_v3.models.fusion.camera_neck import GeneralizedLSSFPN
 from fl_v3.models.fusion.view_transform import DepthLSSTransform
@@ -38,6 +38,10 @@ from fl_v3.models.fusion.lidar_backbone import LidarBackbone2D
 from fl_v3.models.fusion.fusion import ConvFuser
 from fl_v3.models.fusion.bev_neck import SecondFPNNeck
 from fl_v3.models.fusion.head import CenterPointHead
+from fl_v3.models.fusion.centerhead_decode import (
+    CenterHeadDecodeConfig,
+    decode_centerhead,
+)
 from fl_v3.utils.runtime import normalize_model_mode, require_spconv_238
 
 
@@ -57,6 +61,8 @@ class DetectorConfig:
     neck_channels: int = 128
     context_channels: int = 80           # camera-BEV channels
     depth_bins: tuple = (1.0, 60.0, 1.0)
+    reference_camera: bool = False
+    camera_bev_output_dtype: str = "float32"
     lidar_channels: int = 64
     max_points_per_pillar: int = 32
     max_pillars: int = 30000
@@ -65,14 +71,17 @@ class DetectorConfig:
     lidar_z_voxel: float | None = None     # voxel only: z voxel size; None keeps historical cubic xyz voxels
     lidar_sparse_z_size: int | None = None # voxel only: optional sparse z shape override for parity probes
     sparse_conv_fp16: bool = False         # voxel only: fp16 AMP sparse conv backbone; VFE/voxelization stay fp32
+    lidar_input_bev: BEVConfig | None = None
+    max_voxels_train: int = 120000
+    max_voxels_eval: int = 160000
     lidar_backbone: bool = False          # MCR P1 capacity lever: dense 2D conv LiDAR backbone (default OFF)
     lidar_backbone_out: int = 128         # backbone Cout → widens ConvFuser.lidar_channels when ON
     lidar_backbone_checkpoint: bool = False  # activation-checkpoint the stages (for the 0.2m/512² leg)
     lidar_backbone_stages: int = 3        # down-stages; 4 adds an H/8 level (large-object RF at 0.2m)
-    fusion_channels: int = 128
+    fusion_channels: int = 256
     bev_neck_channels: int = 256
     head_channels: int = 64
-    head_conv_layers: int = 1             # MCR P1: shared pre-head tower depth (1 ⇒ byte-identical baseline)
+    head_conv_layers: int = 2
     n_classes: int = 10
     bev: BEVConfig = field(default_factory=BEVConfig)
     # decode
@@ -97,7 +106,10 @@ class BEVFusionDetector(nn.Module):
             require_spconv_238()
 
         if use_camera:
-            self.preprocess = ImagePreprocessor(image_hw=c.image_hw)
+            self.preprocess = ImagePreprocessor(
+                image_hw=c.image_hw,
+                augmentation=(ImageAugmentationConfig() if c.reference_camera else None),
+            )
             self.camera_backbone = CameraBackbone(
                 c.camera_backbone, frozen=c.freeze_camera_backbone, pretrained=c.pretrained_backbone,
                 activation_checkpoint=c.activation_checkpoint, sdpa_attention=c.swin_sdpa,
@@ -115,6 +127,7 @@ class BEVFusionDetector(nn.Module):
                 image_hw=c.image_hw,
                 feat_stride=c.feat_stride,
                 cfg=c.bev,
+                bev_output_dtype=c.camera_bev_output_dtype,
             )
         else:
             self.preprocess = self.camera_backbone = self.camera_neck = self.view_transform = None
@@ -122,8 +135,11 @@ class BEVFusionDetector(nn.Module):
         if use_lidar and c.lidar_encoder == "voxel":
             from fl_v3.models.fusion.sparse_voxel_encoder import SparseVoxelEncoder
             self.lidar_encoder = SparseVoxelEncoder(
-                out_channels=c.lidar_channels, cfg=c.bev, use_timestamp=(c.lidar_sweeps > 1),
-                max_voxels=c.max_pillars, max_points_per_voxel=c.max_points_per_pillar,
+                out_channels=c.lidar_channels, cfg=(c.lidar_input_bev or c.bev),
+                use_timestamp=(c.lidar_sweeps > 1),
+                max_voxels_train=c.max_voxels_train,
+                max_voxels_eval=c.max_voxels_eval,
+                max_points_per_voxel=c.max_points_per_pillar,
                 z_voxel=c.lidar_z_voxel, sparse_z_size=c.lidar_sparse_z_size,
                 sparse_conv_fp16=c.sparse_conv_fp16,
             )
@@ -194,7 +210,7 @@ class BEVFusionDetector(nn.Module):
             super().train(bool(training))
             yield self
 
-    def _forward_locked(self, batch: dict, return_intermediates: bool) -> Dict[str, torch.Tensor]:
+    def _forward_locked(self, batch: dict, return_intermediates: bool):
         c = self.cfg
         camera_bev = lidar_bev = vt = None
         if self.model_mode in {"camera_only", "fusion"}:
@@ -219,6 +235,11 @@ class BEVFusionDetector(nn.Module):
             if self.lidar_backbone is not None:
                 lidar_bev = self.lidar_backbone(lidar_bev)
         if self.model_mode == "fusion":
+            if camera_bev.shape[-2:] != lidar_bev.shape[-2:]:
+                raise RuntimeError(
+                    "camera/LiDAR BEV geometry mismatch: "
+                    f"camera={tuple(camera_bev.shape[-2:])}, lidar={tuple(lidar_bev.shape[-2:])}"
+                )
             fused = self.fusion(camera_bev, lidar_bev)
         elif self.model_mode == "camera_only":
             fused = self.camera_adapter(camera_bev)
@@ -227,7 +248,7 @@ class BEVFusionDetector(nn.Module):
         neck = self.bev_neck(fused)
         out = self.head(neck)
         if return_intermediates:
-            out = dict(out)
+            out = {"task_outputs": out} if isinstance(out, list) else dict(out)
             if camera_bev is not None:
                 out["_camera_bev"] = camera_bev
             if lidar_bev is not None:
@@ -238,18 +259,33 @@ class BEVFusionDetector(nn.Module):
                 out["_camera_context"] = vt["context"]
         return out
 
-    def forward(self, batch: dict, return_intermediates: bool = False) -> Dict[str, torch.Tensor]:
+    def forward(self, batch: dict, return_intermediates: bool = False):
         with self._runtime_lock:
             return self._forward_locked(batch, return_intermediates)
 
     # --- deterministic decode ---
     @torch.no_grad()
     def decode(
-        self, head_out: Dict[str, torch.Tensor], score_threshold: Optional[float] = None,
+        self, head_out, score_threshold: Optional[float] = None,
         max_objects: Optional[int] = None,
     ) -> List[dict]:
         cfg = self.cfg.bev
         thr = self.cfg.score_threshold if score_threshold is None else score_threshold
+        if isinstance(head_out, dict) and "task_outputs" in head_out:
+            head_out = head_out["task_outputs"]
+        if isinstance(head_out, (list, tuple)):
+            if max_objects is not None:
+                raise ValueError(
+                    "multi-task CenterHead uses the frozen per-class/NMS budgets; "
+                    "max_objects is a legacy single-head override"
+                )
+            return decode_centerhead(
+                head_out,
+                bev=cfg,
+                config=CenterHeadDecodeConfig(score_threshold=float(thr)),
+            )
+        if not isinstance(head_out, dict):
+            raise TypeError("head_out must be six task dictionaries or a legacy head dictionary")
         K = self.cfg.max_objects if max_objects is None else max_objects
         heat = head_out["heatmap"].sigmoid()              # [B, C, H, W]
         B, C, H, W = heat.shape
