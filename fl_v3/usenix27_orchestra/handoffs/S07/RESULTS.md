@@ -476,3 +476,102 @@ O-063 authorizes only a runtime-aware test contract plus this evidence update.
 That test change still requires independent review and focused execution before
 it can contribute to S07-B runtime readiness. Job 349653 grants no retry, merge,
 push, upload or additional compute authority.
+
+---
+
+## Job 351903 — post-remediation focused gate FAILED / preserved negative result
+
+### Scheduler, immutable identity, and approval consumption
+
+- Canonical terminal decision: O-074 at exact Orchestra commit
+  `e18984ac286c7d61170a77d122149ce51de8b57a`.
+- Exact code/test candidate:
+  `c53117a889987c3070b60817e52bdb4aac4c9098`; launcher-only executable `L`:
+  `c36555fd9c233198b703d73741382960edcb4159`.
+- Launcher blob/SHA-256:
+  `717ec0869d5c1207bd946fd5f5034390c208623b` /
+  `b32f78b76f14b8f12957d0132d8739e2ef37691c72684a022688752bb8ff185a`.
+- Exact 93-file source-list/state SHA-256:
+  `a0b585b40ebfef2167ad6a9e66f3b59ca719e607b01c933b33310d716a6e08a6` /
+  `0d519ea46dd388f80a41ed96d350e47db837f6be7976e2e583448a2975915861`.
+- Job/name/node: `351903` / `flv3_s07b_postrem_focus` / `n424` (`aarch64`).
+- Submit/start/end: `2026-07-12T15:56:43+02:00` /
+  `2026-07-12T15:56:44+02:00` / `2026-07-12T16:05:55+02:00`.
+- Scheduler state/exit/elapsed: `FAILED` / `1:0` / `00:09:11`; limit
+  `00:25:00`; one node/task/GH200, eight CPUs, 64 GiB; batch
+  `MaxRSS=2239040K`, `TotalCPU=01:21.077`, `Restarts=0`.
+- O-072 was consumed by this single exact attempt. No retry, requeue,
+  replacement, alternate invocation, automatic resubmission, or follow-on of
+  the five-entry focused gate is authorized.
+
+The runtime identity matches the frozen request: CPython `3.11.15`, NumPy
+`1.26.4`, SciPy `1.13.1`, pytest `9.1.1`, Torch `2.11.0+cu128`, torchvision
+`0.26.0+cu128`, spconv `2.3.8`, cumm `0.7.13`, nuscenes-devkit `1.1.11`,
+pyquaternion `0.9.9`, Pillow `12.2.0`, CUDA `12.8`, one visible GH200, literal
+mini root, and cleared ZIP/full-data overrides.
+
+### Exact five-entry outcome
+
+The authoritative summary has `observed_selection_entries=5`,
+`all_entries_collected_and_executed_positive=false`, and `suite_pass=false`.
+
+| Selection | Exit/JUnit | Preserved outcome |
+|---|---|---|
+| `test_nuscenes_zip_dataset.py` | `124`; no JUnit | Collected 18. Verbose log shows the first five tests passed, explicit persistent `fork` reported `FAILED`, and explicit persistent `spawn` started before the 180-second timeout. No finalized traceback/JUnit exists, so neither the prefix nor the file is a formal PASS. |
+| `test_model_task.py` | `124`; no JUnit | Collected 14. Runtime-bound dummy checksum test passed, then `test_dummy_multiworker_loader_is_spawn_and_consumes_batch` started and the selection timed out. No finalized traceback/JUnit exists; the file is not PASS. |
+| `test_lidar_backbone.py` | `0`; JUnit 6/0/0/0 | Six tests passed, including approved six-task topology and ON-path wiring, in 35.07 s. |
+| `test_model_viz.py` | `0`; JUnit 1/0/0/0 | Read-only-cache visualization consumer passed in 14.95 s. |
+| exact legacy-loss node | `0`; JUnit 1/0/0/0 | `test_multitask_loss_rejects_legacy_single_head_output` passed in 0.18 s. |
+
+The summary's formal JUnit totals are therefore eight tests, zero failures,
+zero errors, and zero skips from the three completed entries only. The five
+textually displayed ZIP prefix passes and one displayed model-task pass are not
+added to those formal totals because both JUnit files are absent. The three
+completed entries cannot be extrapolated to a focused runtime PASS, production
+readiness, or resolution of either multiworker failure/hang.
+
+### Raw artifacts and SHA-256
+
+Output root:
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_postrem_focus_c36555fd9c23`.
+The snapshot at the matching execution-snapshot path is read-only. In-job and
+independent `sha256sum -c sha256sums.txt` checks verified all 25 produced formal
+artifact records, including the intentionally missing-JUnit negative shape.
+
+| Artifact | SHA-256 |
+|---|---|
+| `execution_identity.json` | `a87264a7f66b437fdf46d88081ae69d3b6212c9fa90662ddbbcdefe1a367a296` |
+| `focused_run_config.json` | `47048d577aae83d08c540b9cc6d121916b9219fa76d7a2b521396e429e1cf80e` |
+| `focused_summary.json` | `458d4a55b730cc375c15608d5b253752bd67454f6853e532a2d4ac66bad5a7e4` |
+| `runtime_source_files.txt` | `a0b585b40ebfef2167ad6a9e66f3b59ca719e607b01c933b33310d716a6e08a6` |
+| `runtime_source_sha256s.txt` | `0d519ea46dd388f80a41ed96d350e47db837f6be7976e2e583448a2975915861` |
+| `selected_pytest_entries.tsv` | `ba1a5295f7652055c95db8ad3fabc6ffd6d250fe886d6ee94f9e09036a5287c9` |
+| `sha256sums.txt` (25 records) | `d0d8ab44fde39f9b0149d3b1e21d375713b0fcb29da0018cba22e792a0582c3f` |
+| ZIP `pytest.log` / exit / per-entry manifest | `d6677592a44fd74db9b446699f0659152d338e07dca3fe88038a7a709c1f2f7f` / `ca2ebdf97d7469496b1f4b78958f9dc8447efdcb623953fee7b6996b762f6fff` / `5ca62eb1d59ef184a95cee1872dd655558c936b117988400a5e960b60560efc1` |
+| model-task `pytest.log` / exit / per-entry manifest | `294f94d217f7b40b49a8e3b5bf96a814115239c18ab4ecb9f86a2c8ff8aed07f` / `ca2ebdf97d7469496b1f4b78958f9dc8447efdcb623953fee7b6996b762f6fff` / `3e4e9964ee410e55dce148cb7e41168915472b97fe5cccad41354e307ad0f75c` |
+| LiDAR JUnit / log | `c18886178f937d4712ac1e2fe9482e11ab4af3cb7b49be6e2453577ccf7994f7` / `850f595f8ad2fecbd11626dc1bdca1980e4503beb184b182768a5e10f95eaad4` |
+| visualization JUnit / log | `a425efac6cfa5ae6aaa6c7ec6e3dd149a64d7eae8f15056b55a18001d293b231` / `534526152e9171c41f72192f1e6669ac74e67529e3b117e1a2937c3d4735cf81` |
+| legacy-loss JUnit / log | `ade390d3d6b4eb5c7f8abcb6a3ee79f190753f5f41917084720f598d1625a0b7` / `27fed8064aaf9ac4da69e531492a276eec2970ac94a16e4dea933b76aa740d20` |
+
+Scheduler logs:
+
+| Log | SHA-256 |
+|---|---|
+| `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07b_postrem_focus_351903.out` | `9af84f00e8ec9f7a5dfb2aa5a441fe923d58afbc965d7c25dd1e34da6b24c6dc` |
+| `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07b_postrem_focus_351903.err` | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+### Interpretation boundary
+
+Allowed: exact runtime identity and source transport passed; three isolated
+entries completed as stated; the ZIP file exposed a finalized `fork` failure
+followed by a `spawn`-phase timeout; the model-task file timed out at its real
+dummy multiworker loader; and all produced artifacts are checksum-verifiable.
+
+Forbidden: calling the five-entry gate PASS; converting textual prefix progress
+into finalized JUnit results; assuming the fork failure traceback, spawn hang,
+or dummy multiworker root cause; treating the three completed entries as proof
+of complete focused/production/full-data/model readiness; throughput/memory or
+quality claims; mAP/NDS, 100/1000-step training, FL, attack/defense,
+generalization, matrix/seed, or publication evidence. O-074 authorizes only a
+distinct diagnostic request preparation after this durable negative record; it
+does not authorize compute, retry, merge, push, or upload.

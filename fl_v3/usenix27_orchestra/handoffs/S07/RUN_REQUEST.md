@@ -943,11 +943,11 @@ change follows any outcome.
 
 ---
 
-## G. S07-B post-remediation focused GH200 validation — EXECUTED ONCE / ACTIVE / APPROVAL CONSUMED
+## G. S07-B post-remediation focused GH200 validation — EXECUTED ONCE / SUITE FAIL / APPROVAL CONSUMED
 
 ### Approval state and exact purpose
 
-- **Status:** `EXECUTED_ONCE_JOB_351903_ACTIVE_APPROVAL_CONSUMED_NO_RETRY`.
+- **Status:** `EXECUTED_ONCE_JOB_351903_FAILED_FOCUSED_SUITE_FAIL_APPROVAL_CONSUMED_NO_RETRY`.
 - Canonical O-071 is
   `bf7fd65f4b58b6981b0604647489595b4903beaf`. It authorizes request
   preparation only; it does not authorize `sbatch`, `srun`, compute, retry,
@@ -972,6 +972,17 @@ change follows any outcome.
   of eventual scheduler or suite outcome. No retry, requeue, alternate
   invocation, replacement, automatic resubmission, or follow-on is authorized.
   This record does not query or interpret scheduler/runtime results.
+- Canonical O-074 at exact Orchestra commit
+  `e18984ac286c7d61170a77d122149ce51de8b57a` records the terminal raw-artifact
+  audit. Job `351903` ended scheduler `FAILED 1:0` at
+  `2026-07-12T16:05:55+02:00` after `00:09:11`; harness summary has
+  `suite_pass=false`. ZIP and model-task selections each exited `124` without
+  JUnit, while LiDAR, model visualization, and the exact legacy-loss node
+  completed 6/6, 1/1, and 1/1 with zero failure/error/skip. These three
+  complete entries do not make the five-entry focused gate PASS. All 25
+  produced formal-artifact checksum records verified. O-072 remains consumed;
+  no retry, requeue, replacement, automatic resubmission, or follow-on of
+  Section G is authorized. Full raw evidence is in `RESULTS.md`.
 - This is one bounded engineering validation of the code-level/static-review
   PASS candidate `c53117a889987c3070b60817e52bdb4aac4c9098`. It tests only
   the remediated ZIP lifecycle/hostiles, production spawn and zero-worker

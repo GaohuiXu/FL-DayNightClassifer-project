@@ -2219,3 +2219,23 @@ consumed immediately regardless of eventual scheduler or suite outcome. No
 retry, requeue, alternate invocation, replacement, automatic resubmission, or
 follow-on is authorized. This docs-only record does not query or interpret
 runtime results and changes none of the exact approved tuple.
+
+### O-074 Job 351903 negative result
+
+Canonical O-074 at exact Orchestra commit
+`e18984ac286c7d61170a77d122149ce51de8b57a` accepts the terminal raw-artifact
+audit as a preserved negative result. Job `351903` ended `FAILED 1:0` after
+`00:09:11` on `n424`; exact source/dependency/mini identity and all 25 produced
+artifact checksums matched. The ZIP selection exited `124` after five displayed
+passes, a finalized persistent-`fork` failure, and entry into persistent
+`spawn`; the model-task selection exited `124` after its runtime-bound dummy
+checksum PASS and entry into the real dummy multiworker loader. Neither emitted
+JUnit or a finalized traceback/summary. LiDAR, visualization, and the exact
+legacy-loss node completed 6/6, 1/1, and 1/1 with zero failure/error/skip.
+
+The authoritative summary is `suite_pass=false`; the three completed entries
+must not be extrapolated into a focused runtime PASS. Full scheduler, identity,
+per-entry, artifact/hash, and interpretation evidence is in RESULTS. O-072 is
+consumed with no retry/requeue/replacement/follow-on. O-074 authorizes only
+preparation of a distinct nine-node multiworker diagnostic request; it does not
+authorize that compute or any code/test/config/result interpretation change.
