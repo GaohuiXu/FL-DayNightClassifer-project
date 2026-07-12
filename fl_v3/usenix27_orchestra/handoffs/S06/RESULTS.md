@@ -121,3 +121,11 @@ Forbidden: S06 runtime PASS, checkpoint/resume atomicity proof, CUDA rollback
 proof, eval timing-neutrality proof, integration/model/full-data/scientific claims,
 or treating any passing subset as acceptance. No fix or rerun is part of this
 delivery.
+
+## Post-result remediation status
+
+S00 later authorized code-only remediation within the original S06 ownership.
+Executable `c330c72f4060348768c63fb1b7855ca56baffb95` addresses the four root-cause
+families and artifact-preservation defect, but has only static/stdlib evidence.
+It does not alter this RESULTS verdict or retroactively pass any job-341997 gate.
+Its separate remediation-2 request is pending S00 audit; no new job exists.
