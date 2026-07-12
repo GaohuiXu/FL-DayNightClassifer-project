@@ -1993,3 +1993,83 @@ Forbidden blobs remain exact across O-065 remediation: `training/loop.py`
 candidate evidence only: it is not a post-O-059 integrated runtime PASS, does
 not authorize a Slurm job, and establishes no full-data, production or
 scientific result.
+
+### O-067 S07-B R10 ready/ACK and all-path cleanup remediation
+
+Canonical O-067 at exact Orchestra commit
+`cc1cbdfea8c7f0682b19c155f6c4d7bba15ffa1f` returned the R10 candidate for
+a two-path, test/evidence-only remediation. The implementation worktree
+preflight was clean branch `codex/s07-b-integrated-cl-stack` at exact parent
+`97588f7ad556fe1ce1a5f7bd76cee19e79d16d31`. Test-only commit `T` is
+`6782fa19ca2e4c021ac5215c3e85dd939f4296f9`, with that exact parent and only
+`fl_v3/tests/test_nuscenes_zip_dataset.py` changed (`633` insertions, `68`
+deletions).
+
+The independent R10 review commit is
+`786e31dc81a88f8250f2b5176617f1375f2afcee`; its `REVIEW.md` Git blob is
+`b100c30123104063b3c1f88a6909008f3b2b888d`, size `175932` bytes, SHA-256
+`1f755af1e8811253b0fec332680f06ae43dcc899cd640f4cf147d70f9863900d`,
+with final verdict `CHANGES-REQUESTED` for candidate `97588f7...`. The reviewer
+commit is not merged or cherry-picked into this implementation branch.
+
+R10 findings are remediated as follows, subject to fresh independent review and
+later explicitly approved runtime evidence:
+
+- The fresh-spawn helper calls `setsid()`, synchronously sends exact
+  `(PID, SID, PGID, initial_children)` readiness over a duplex `Pipe`, then
+  blocks on the matching ACK. The parent validates the complete tuple, proves
+  `PID == SID == PGID` again from live kernel state, proves it is distinct from
+  the pytest parent identity, and only then assigns the armed process-group ID
+  and sends ACK. No unvalidated/OS-only fallback may arm `killpg`; without ACK
+  the child cannot enter any fork/DataLoader path.
+- Cleanup no longer depends on the helper leader remaining alive: every armed
+  group is probed and sent TERM then KILL as needed, joined and audited absent.
+  An unarmed pre-ACK helper is terminated/killed only through its exact
+  `Process`, which is safe because the ACK barrier forbids descendants. The
+  control endpoints, parent get-only Queue endpoints, Queue thread and Process
+  sentinel are closed and checked as closed; the reaped Process is explicitly
+  closed. Parent PID/SID/PGID identity is checked unchanged.
+- `_persistent_lifecycle` preserves the original exception and traceback while
+  collecting iterator discovery, worker shutdown/join/liveness, dataset-close
+  and GC failures as notes/aggregate evidence. The forced-error result retains
+  the primary traceback, cleanup notes and exact real DataLoader worker PIDs;
+  the parent independently proves each PID and the final helper group absent.
+- Three executable authored hostiles were added without replacing the real
+  spawn/fork/group/cleanup path. The pre-ACK ready-window failure proves no
+  initial or later descendant, no ACK, no parent-group signal and complete
+  resource closure. The post-ACK lifecycle failure enters a real two-worker
+  fork DataLoader, preserves the forced primary failure plus forced cleanup
+  evidence after real cleanup, and proves all worker PIDs gone. The post-ACK
+  hang creates a real raw-fork descendant; group TERM reaps that descendant,
+  group KILL removes the deliberately hanging leader, and final PID/group/FD
+  audits prove no contamination.
+- The normal explicit-fork contract remains two complete persistent-worker
+  epochs with deterministic payload equality, worker-local owner/PID,
+  reopen/read-count and archive assertions, explicit worker shutdown and no
+  surviving active child.
+
+The exact post-`T` SHA-256 of
+`fl_v3/tests/test_nuscenes_zip_dataset.py` is
+`0c5a4e65403ec37329503aff95c0d07bcc9c5b2dd811c9a0e598c4b4d9e2cca8`.
+
+Actually run: stdlib AST parse and source-text `compile()` of the one changed
+test; source-order checks proving full ready validation precedes arm and ACK;
+required control/cleanup/hostile token audits; exact one-path ownership and
+parent checks; `git diff --check`; Git blob and forbidden-path checks: PASS.
+Explicitly **NOT RUN**: pytest, pycompile, project/package import,
+Torch/NumPy/CUDA/spconv/cumm, data/cache/model workload, any spawn/fork runtime,
+Slurm/GPU/compute. The three new hostiles are authored static evidence only,
+not runtime PASS evidence.
+
+Forbidden blobs remain exact across O-067 remediation: `training/loop.py`
+`881c070b1ef8affd350144cce33e508a241cf839`; `training/tasks.py`
+`86ab9d0563e1636d6c4cde06986470d2559f19f7`; nuScenes `dataset.py`
+`afd2707d3939d2d76205996fe94d29fcfc4ed5f3`; `RUN_REQUEST.md`
+`efa5ce78eac121f2dd3e70ea75ef414023d45d13`; `RESULTS.md`
+`b3b80625ef6c38e4d9382e11ded5c8534b5556ae`; local `REVIEW.md`
+`cd0e0795402c2892fe199691a6a01f483d6a457f`; runtime launcher
+`1e182ebc1fe883ad59702bfeb1b3db110bbf54c1`. No production/training-loop/
+config/launcher/canonical/scientific contract changed; no compute, merge, push,
+upload or publication occurred. This is a static test candidate for independent
+review only; it is not a post-O-059 integrated runtime PASS and authorizes no
+runtime proposal or scientific interpretation.
