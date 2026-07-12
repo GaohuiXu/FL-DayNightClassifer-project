@@ -540,8 +540,8 @@ scientific, or publication claims.
   `/home/gaohui/.codex/worktrees/d5e7/fl_weather_project`.
 - Owner-authorized delivery branch:
   `codex/s07-b-integrated-cl-stack`; no other branch or worktree operation occurred.
-- Code/config integration candidate before this handoff-only commit:
-  `2944386de19ab7d25b3ec09c77b6951dd34cea8d`.
+- Final code/config integration candidate before the closing handoff-only commit:
+  `e3cedfa984c48bc4ae28539971f5f0526ce7d916`.
 - Worker self-assessment: **IMPLEMENTATION CANDIDATE DELIVERED; RUNTIME/FULL-STACK
   GATES NOT RUN; NOT PRODUCTION OR SCIENTIFIC PASS**. The final handoff commit SHA
   is returned to S00 after commit because a commit cannot embed its own SHA.
@@ -655,6 +655,18 @@ integrated contract documentation so evaluation cannot suggest a legacy global
 - `run_s07_b_static_checks.sh` is the local reproducible static-only check. It
   contains no pytest, data, CUDA, model step, Slurm or retry action.
 
+### `e3cedfa984c48bc4ae28539971f5f0526ce7d916` — sparse build identity closure
+
+- Strict SECOND configs additionally require exact SHA-256 identities for the
+  active spconv and cumm import package trees. Python source, generated/native
+  artifacts and metadata under the import package roots are content-hashed in a
+  locale-independent relative-path order; `__pycache__`/`.pyc` interpreter caches
+  are excluded.
+- Runtime compares both build hashes before data/model construction, in addition
+  to exact versions, active import roots and clean source Git HEADs. Candidate
+  templates carry explicit invalid build-hash sentinels until an approved
+  Arrhenius attestation supplies real values.
+
 ## Candidate config files and explicit blocker
 
 The five candidate files name the requested architecture/precision/head/sampling
@@ -666,16 +678,17 @@ or model construction. File-byte SHA-256 values are:
 
 | Candidate | File SHA-256 |
 |---|---|
-| C-STR8 `s07_b_c_str8.json` | `9952a15cf5afeeb1aa058f1b48a59487cadad32451de7546d5d6bc84996a09ea` |
-| L-P020 `s07_b_l_p020.json` | `c737ae2cbd26757603753c872a217d5ab1ddc99f757404ab792e60e1fdea35ad` |
-| L-S075 `s07_b_l_s075.json` | `dfd7fd027b86144bd011c31c75ef3154b1aecd5af1526a52225088ba03e7f260` |
-| F-U `s07_b_f_u.json` | `bad2f7ae7134b1fc2e8182bb773404822658754ab61e03b6aaa0c59b5823ccb7` |
-| F-CBGS `s07_b_f_cbgs.json` | `ed3c479da0fb6ae3afe69772a97c3ec34e5b40bac5d710e6725ba25e5ac36358` |
+| C-STR8 `s07_b_c_str8.json` | `e818ee30bb8d105303284088423b66f19bb1d4db5ee738fccaac38b82439078a` |
+| L-P020 `s07_b_l_p020.json` | `6e71e1367b89f19fa927a39859a3e1d9087753f4b05d11ff3abfae9f13907598` |
+| L-S075 `s07_b_l_s075.json` | `061541ecc3f0c5630e987f60d3d3c8b0225536ebad2e7ab887e8450206376f3a` |
+| F-U `s07_b_f_u.json` | `665de74ff5f725e484b4f196480d0381b4e0283fdd0689793e1a5c6a16a9bb13` |
+| F-CBGS `s07_b_f_cbgs.json` | `8b3762bbf0aca525d18c5002f6f722dac7e28ea78231b9e3fec86bf794706398` |
 
 The explicit blocker to a real resolved candidate is unchanged: full trainval
 `t1.v2` train/val cache artifacts and their logical/pickle/sidecar identities are
 absent; exact module dataroot/manifest identities, budget, seed, camera
-initialization and CBGS-adjusted schedule are not owner-frozen. Synthetic all-`a`
+initialization and CBGS-adjusted schedule are not owner-frozen; real spconv/cumm
+build-tree hashes have not been attested on Arrhenius. Synthetic all-`a`
 hashes were used only in an in-memory schema reachability check and are not written,
 reported as config identities, or permitted as production inputs.
 
@@ -745,7 +758,7 @@ S07 `REVIEW.md`, `fl_v3/collab`, `fl_v3/docs`, `fl_v2`, historical configs/scrip
 outside ownership and S07-A request/results remain untouched by S07-B direct edits.
 
 Allowed interpretation: exact reviewed worker histories and final review bytes are
-integrated; one code-level C/L/F stack candidate exists at `2944386...`; static
+integrated; one code-level C/L/F stack candidate exists at `e3cedfa...`; static
 syntax/schema/template-fail-closed checks pass; actual runtime gates are explicitly
 assembled but unexecuted.
 
