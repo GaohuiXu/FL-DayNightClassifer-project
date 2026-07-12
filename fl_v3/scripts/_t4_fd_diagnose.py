@@ -12,6 +12,12 @@ import json, sys
 import numpy as np
 import torch
 
+raise RuntimeError(
+    "_t4_fd_diagnose.py is a frozen historical batch-invariance diagnostic for legacy bare "
+    "checkpoints. It is not compatible with S06 complete checkpoints or the six-task head; "
+    "use the reviewed T4/S07-B strict evaluation path. Historical results remain in collab evidence."
+)
+
 CFG = "fl_v3/configs/t4_reference.json"
 CKPT = "fl_outputs/nuscenes/experiments/cycle_04/t4_reference/t4_reference/final_model.pt"
 SUBSET = "fl_outputs/nuscenes/experiments/cycle_04/t4_reference/readiness/frozen_asr_subset.json"

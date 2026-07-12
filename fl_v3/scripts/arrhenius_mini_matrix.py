@@ -205,20 +205,40 @@ def _shape_list(xs) -> List[tuple]:
     return [tuple(x.shape) for x in xs]
 
 
-def _head_delta_stats(pred: dict, ref: dict) -> Dict[str, Any]:
+def _six_task_outputs(pred) -> List[dict]:
+    if not isinstance(pred, (list, tuple)) or len(pred) != 6:
+        raise RuntimeError("mini matrix requires the reviewed six-task CenterHead output")
+    for index, task in enumerate(pred):
+        if not isinstance(task, dict) or set(HEAD_KEYS) - set(task):
+            raise RuntimeError(f"CenterHead task {index} lacks reviewed branch fields")
+    return list(pred)
+
+
+def _head_task_stats(pred) -> List[Dict[str, Any]]:
+    return [
+        {"task_index": index, "heatmap": tensor_stats(task["heatmap"])}
+        for index, task in enumerate(_six_task_outputs(pred))
+    ]
+
+
+def _head_delta_stats(pred, ref) -> Dict[str, Any]:
     import torch
 
     out: Dict[str, Any] = {}
-    for key in HEAD_KEYS:
-        a, b = pred.get(key), ref.get(key)
-        if not (torch.is_tensor(a) and torch.is_tensor(b)):
-            continue
-        d = (a.detach().float() - b.detach().float()).abs()
-        out[key] = {
-            "max_abs": float(d.max().cpu()) if d.numel() else 0.0,
-            "mean_abs": float(d.mean().cpu()) if d.numel() else 0.0,
-            "nonzero": int((d > 0).sum().cpu()) if d.numel() else 0,
-        }
+    pred_tasks, ref_tasks = _six_task_outputs(pred), _six_task_outputs(ref)
+    for index, (pred_task, ref_task) in enumerate(zip(pred_tasks, ref_tasks, strict=True)):
+        task_stats = {}
+        for key in HEAD_KEYS:
+            a, b = pred_task[key], ref_task[key]
+            if not (torch.is_tensor(a) and torch.is_tensor(b)):
+                raise RuntimeError(f"task {index} branch {key} is not a tensor")
+            d = (a.detach().float() - b.detach().float()).abs()
+            task_stats[key] = {
+                "max_abs": float(d.max().cpu()) if d.numel() else 0.0,
+                "mean_abs": float(d.mean().cpu()) if d.numel() else 0.0,
+                "nonzero": int((d > 0).sum().cpu()) if d.numel() else 0,
+            }
+        out[f"task_{index}"] = task_stats
     return out
 
 
@@ -351,10 +371,13 @@ def _branch_delta_sanity(model, criterion, batch: dict, precision: str, device) 
                 "finite": bool(torch.isfinite(loss.detach()).item()),
                 "seconds": time.perf_counter() - t0,
                 "branch_metrics": branch_stats,
-                "head_heatmap": tensor_stats(pred.get("heatmap")),
+                "head_tasks": _head_task_stats(pred),
             }
             if mode_name == "full_fusion":
-                ref_pred = {k: v.detach().clone() for k, v in pred.items() if k in HEAD_KEYS}
+                ref_pred = [
+                    {key: value.detach().clone() for key, value in task.items() if key in HEAD_KEYS}
+                    for task in _six_task_outputs(pred)
+                ]
             elif ref_pred is not None:
                 rec["head_delta_from_full_fusion"] = _head_delta_stats(pred, ref_pred)
             out[mode_name] = rec

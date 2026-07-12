@@ -20,6 +20,7 @@ A ``mini_val`` (2-scene) verdict is ``scale=mini`` and is explicitly NOT a go/no
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -64,6 +65,77 @@ def _trainable_checksum(model) -> str:
     return numpy_state_checksum(arrs)
 
 
+def _sha256_file(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _load_s06_eval_model(caller_cfg: dict, checkpoint: str, device):
+    """Load only a complete S06 checkpoint and apply its hash-bound raw/EMA policy."""
+    from fl_v3.config import resolve_config, verify_physical_data_identities
+    from fl_v3.training.checkpoint import CHECKPOINT_SCHEMA, load_checkpoint
+    from fl_v3.training.tasks import get_task
+    from fl_v3.utils.runtime import make_grad_scaler, verify_runtime_dependency_identity
+
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    if not isinstance(payload, dict) or payload.get("schema") != CHECKPOINT_SCHEMA:
+        raise RuntimeError("T4 refuses legacy/bare checkpoints; a complete S06 checkpoint is required")
+    resolved = resolve_config(payload.get("resolved_config", {}))
+    strict = resolved.to_run_config()
+    allowed_eval_overrides = {"batch-size", "num-workers", "det-eval-limit"}
+    drift = [
+        key for key in strict
+        if key in caller_cfg and key not in allowed_eval_overrides and caller_cfg[key] != strict[key]
+    ]
+    if drift:
+        raise RuntimeError(f"T4 caller/checkpoint resolved-config drift: {sorted(drift)}")
+    preserved = {key: caller_cfg[key] for key in allowed_eval_overrides if key in caller_cfg}
+    caller_cfg.update(strict); caller_cfg.update(preserved)
+    caller_cfg["det-eval-limit"] = 0
+    verify_physical_data_identities(resolved)
+    runtime_identity = verify_runtime_dependency_identity(strict)
+    caller_cfg["runtime-dependencies-sha256"] = hashlib.sha256(
+        json.dumps(runtime_identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    caller_cfg["checkpoint-sha256"] = _sha256_file(checkpoint)
+    caller_cfg["checkpoint-weights"] = strict["evaluation-checkpoint-weights"]
+
+    task = get_task("nuscenes_detection")
+    model = task.build_model(strict).to(device)
+    opt_spec = resolved.data["optimizer"]
+    opt_cls = torch.optim.Adam if opt_spec["name"] == "adam" else torch.optim.AdamW
+    optimizer = opt_cls(
+        [parameter for parameter in model.parameters() if parameter.requires_grad],
+        lr=float(opt_spec["learning_rate"]), weight_decay=float(opt_spec["weight_decay"]),
+    )
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda _step: 1.0)
+    scaler = make_grad_scaler(device, resolved.precision)
+    ema = None
+    decay = resolved.data["training"]["ema_decay"]
+    if decay is not None:
+        from torch.optim.swa_utils import AveragedModel
+        ema = AveragedModel(
+            model,
+            avg_fn=lambda old, new, _count, d=float(decay): d * old + (1.0 - d) * new,
+            use_buffers=False,
+        )
+    _, identity = load_checkpoint(
+        checkpoint, model=model, optimizer=optimizer, scheduler=scheduler,
+        grad_scaler=scaler, ema=ema, config=resolved, map_location="cpu",
+    )
+    if identity != resolved.sha256:
+        raise RuntimeError("T4 checkpoint identity does not equal its resolved-config SHA-256")
+    if caller_cfg["checkpoint-weights"] == "ema":
+        if ema is None:
+            raise RuntimeError("T4 EMA policy requested but checkpoint has no EMA")
+        model.load_state_dict(ema.module.state_dict(), strict=True)
+    model.to(device).eval()
+    return model
+
+
 def _subset_loader(run_config, val_info, tokens):
     """A loader over EXACTLY ``tokens`` (subset re-decode for false-disappearance)."""
     from fl_v3.data.nuscenes.dataset import NuScenesMultimodalDataset, make_loader
@@ -71,7 +143,9 @@ def _subset_loader(run_config, val_info, tokens):
     from fl_v3.models.fusion.collate import detection_collate_fn
 
     ds = NuScenesMultimodalDataset(val_info, P.get_dataroot(run_config), sample_tokens=sorted(tokens),
-                                   n_sweeps=int(run_config.get("det-lidar-sweeps", 1)))
+                                   n_sweeps=int(run_config["det-lidar-sweeps"]),
+                                   zip_manifest=str(run_config["nuscenes-zip-manifest"]),
+                                   model_mode=str(run_config["model-mode"]))
     return make_loader(ds, batch_size=int(run_config.get("batch-size", 16)), shuffle=False,
                        num_workers=int(run_config.get("num-workers", 4)),
                        seed=int(run_config.get("seed", 42)), collate_fn=detection_collate_fn)
@@ -80,7 +154,7 @@ def _subset_loader(run_config, val_info, tokens):
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
-    ap.add_argument("--checkpoint", required=True, help="final_model.pt (self-contained full model)")
+    ap.add_argument("--checkpoint", required=True, help="complete S06 boundary checkpoint")
     ap.add_argument("--output-dir", required=True)
     ap.add_argument("--no-gt-sanity", action="store_true")
     ap.add_argument("--viz-samples", type=int, default=4)
@@ -94,7 +168,7 @@ def main() -> None:
     ap.add_argument("overrides", nargs="*", default=[])
     args = ap.parse_args()
 
-    from fl_v3.data.nuscenes import paths as P, info_cache as IC
+    from fl_v3.data.nuscenes import paths as P
     from fl_v3.data.nuscenes.class_map import DETECTION_NAMES
     from fl_v3.training.tasks import get_task
     from fl_v3.utils.runtime import enforce_determinism, seed_everything, truthy
@@ -134,10 +208,7 @@ def main() -> None:
 
     # --- model + checkpoint ---
     task = get_task("nuscenes_detection")
-    model = task.build_model(cfg).to(device)
-    state = torch.load(args.checkpoint, map_location=device)
-    model.load_state_dict(state, strict=True)
-    model.eval()
+    model = _load_s06_eval_model(cfg, args.checkpoint, device)
     checksum = _trainable_checksum(model)
     ckpt_file = os.path.join(os.path.dirname(args.checkpoint), "trainable_checksum.txt")
     if os.path.isfile(ckpt_file):
@@ -193,8 +264,7 @@ def main() -> None:
                       "reason": f"scale={scale} (not trainval-scientific) — D10 provenance check skipped; NOT a go/no-go"}
 
     # --- single shared decode over the FULL val split ---
-    cache_dir = str(cfg["nuscenes-cache-dir"])
-    val_info, _ = IC.load_cache(cache_dir, version, val_split)
+    val_info, _ = task._load_info(cfg, val_split)
     all_tokens = sorted(i["sample_token"] for i in val_info)
     eval_loader = task.eval_loader(cfg)
     print(f"[t4-readiness] decoding {len(all_tokens)} {eval_set} samples (single shared decode)…", flush=True)
@@ -202,7 +272,7 @@ def main() -> None:
     assert {d.sample_token for d in decodes} == set(all_tokens), "decoded token set != full val split"
 
     # --- 1. official DetectionEval (mAP/NDS/per-class AP/TP errors/car recall) ---
-    nusc = _nusc(version)
+    nusc = _nusc(version, cfg)
     det = run_detection_eval(nusc, decodes, eval_set, version,
                              os.path.join(args.output_dir, "det_eval"), DETECTION_NAMES,
                              all_eval_tokens=all_tokens, run_config=cfg, verbose=False)
@@ -290,7 +360,7 @@ def main() -> None:
         "per_class_mean_ap": det.get("per_class_mean_ap"),
         "label_aps": det.get("label_aps"),
         "decode_score_threshold": float(cfg.get("det-score-threshold", 0.1)),
-        "decode_max_objects": int(cfg.get("det-max-objects", 200)),
+        "decode_budget_contract": "reviewed_centerhead_per_class_k500_task_nms_post83_cap500",
         "eligible_count": eligible_count,
         "pinned_floors": {"N_min": thr.n_min, "recall_floor": thr.recall_floor,
                           "tau_pts": thr.tau_pts, "tau_clean": thr.tau_clean,
@@ -335,10 +405,9 @@ def main() -> None:
     print("=" * 70, flush=True)
 
 
-def _nusc(version: str):
-    from nuscenes import NuScenes
+def _nusc(version: str, cfg: dict):
     from fl_v3.data.nuscenes import paths as P
-    return NuScenes(version=version, dataroot=P.DATAROOT, verbose=False)
+    return P.create_nuscenes(version, P.get_dataroot(cfg), verbose=False)
 
 
 def _render_v4(args, cfg, val_info, subset, decodes, thr) -> None:
@@ -354,7 +423,9 @@ def _render_v4(args, cfg, val_info, subset, decodes, thr) -> None:
             return
         by_token = {d.sample_token: d for d in decodes}
         ds = NuScenesMultimodalDataset(val_info, P.get_dataroot(cfg), sample_tokens=sample_tokens,
-                                       n_sweeps=int(cfg.get("det-lidar-sweeps", 1)))
+                                       n_sweeps=int(cfg["det-lidar-sweeps"]),
+                                       zip_manifest=str(cfg["nuscenes-zip-manifest"]),
+                                       model_mode=str(cfg["model-mode"]))
         writer = VizWriter(args.output_dir)
         for i in range(len(ds)):
             samp = ds[i]

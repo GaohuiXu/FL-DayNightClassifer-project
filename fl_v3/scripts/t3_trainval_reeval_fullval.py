@@ -16,6 +16,10 @@ import torch
 
 
 def main() -> None:
+    raise RuntimeError(
+        "t3_trainval_reeval_fullval.py is frozen historical proxy-recall evidence and refuses "
+        "current S06 complete checkpoints/six-task models; use the reviewed strict official evaluator"
+    )
     from fl_v3.training.tasks import get_task
     from fl_v3.utils.runtime import enforce_determinism, seed_everything
 

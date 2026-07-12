@@ -23,6 +23,10 @@ import torch
 
 
 def main() -> None:
+    raise RuntimeError(
+        "p3_grad_conflict.py is a frozen legacy single-head/bare-checkpoint diagnostic. The "
+        "head.heatmap.weight class-channel analysis is invalid for six independent task heads."
+    )
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
     ap.add_argument("--checkpoint", required=True, help="global snapshot final_model.pt to start every client from")

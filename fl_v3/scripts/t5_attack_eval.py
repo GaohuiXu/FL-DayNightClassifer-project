@@ -11,7 +11,8 @@ Multi-task (``--task``), all bound to the **literal** frozen subset ``2ad8f8da�
   * ``stealth``     — the POISONED model's clean DetectionEval (mAP/NDS + official car recall ≥ floor).
   * ``guards``      — cond-5a LiDAR-invariance + the camera-only clean-recall precondition.
   * ``viz``         — V5 + V3(trigger) for a few subset samples.
-  * ``null-verify`` — recompute a null checkpoint's full-state sha256, diff vs the pinned ``0fe444e3…``.
+  * ``null-verify`` — fail closed: the legacy bare-state null checksum is not reinterpreted as an
+                      S06 complete-checkpoint identity; a replacement protocol must be frozen first.
 
 ``batch_size=1`` is forced (the T4 batch-invariance protocol); the ASR scores on the UNEDITED val GT
 with the subset's BOUND thresholds (§0.C7/§0.5).
@@ -94,15 +95,6 @@ def _device(cfg) -> torch.device:
     return torch.device("cpu")
 
 
-def _full_state_sha256(state_dict) -> str:
-    """Content sha256 over the FULL state-dict tensor bytes (sorted keys) — the §0.C5 null target."""
-    h = hashlib.sha256()
-    for k in sorted(state_dict.keys()):
-        a = np.ascontiguousarray(state_dict[k].detach().cpu().numpy())
-        h.update(k.encode()); h.update(str(a.shape).encode()); h.update(str(a.dtype).encode()); h.update(a.tobytes())
-    return h.hexdigest()
-
-
 def _trainable_checksum(model) -> str:
     from fl_v3.engine.local_runner import numpy_state_checksum
     from fl_v3.training.tasks import trainable_state_dict
@@ -110,13 +102,73 @@ def _trainable_checksum(model) -> str:
 
 
 def _load_model(cfg, checkpoint: str, device):
+    from fl_v3.config import resolve_config, verify_physical_data_identities
+    from fl_v3.training.checkpoint import CHECKPOINT_SCHEMA, load_checkpoint
     from fl_v3.training.tasks import get_task
+    from fl_v3.utils.runtime import make_grad_scaler, verify_runtime_dependency_identity
+
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    if not isinstance(payload, dict) or payload.get("schema") != CHECKPOINT_SCHEMA:
+        raise RuntimeError("T5 refuses legacy/bare checkpoints; a complete S06 checkpoint is required")
+    resolved = resolve_config(payload.get("resolved_config", {}))
+    strict = resolved.to_run_config()
+    allowed_eval_overrides = {"batch-size", "num-workers", "det-eval-limit"}
+    drift = [
+        key for key in strict
+        if key in cfg and key not in allowed_eval_overrides and cfg[key] != strict[key]
+    ]
+    if drift:
+        raise RuntimeError(f"T5 caller/checkpoint resolved-config drift: {sorted(drift)}")
+    preserved = {key: cfg[key] for key in allowed_eval_overrides if key in cfg}
+    cfg.update(strict); cfg.update(preserved)
+    cfg["batch-size"] = 1; cfg["det-eval-limit"] = 0
+    verify_physical_data_identities(resolved)
+    runtime_identity = verify_runtime_dependency_identity(strict)
+    cfg["runtime-dependencies-sha256"] = hashlib.sha256(
+        json.dumps(runtime_identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    cfg["checkpoint-sha256"] = _checkpoint_file_sha256(checkpoint)
+    cfg["checkpoint-weights"] = strict["evaluation-checkpoint-weights"]
+
     task = get_task("nuscenes_detection")
-    model = task.build_model(cfg).to(device)
-    state = torch.load(checkpoint, map_location=device)
-    model.load_state_dict(state, strict=True)
-    model.eval()
+    model = task.build_model(strict).to(device)
+    opt_spec = resolved.data["optimizer"]
+    opt_cls = torch.optim.Adam if opt_spec["name"] == "adam" else torch.optim.AdamW
+    optimizer = opt_cls(
+        [parameter for parameter in model.parameters() if parameter.requires_grad],
+        lr=float(opt_spec["learning_rate"]), weight_decay=float(opt_spec["weight_decay"]),
+    )
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda _step: 1.0)
+    scaler = make_grad_scaler(device, resolved.precision)
+    ema = None
+    decay = resolved.data["training"]["ema_decay"]
+    if decay is not None:
+        from torch.optim.swa_utils import AveragedModel
+        ema = AveragedModel(
+            model,
+            avg_fn=lambda old, new, _count, d=float(decay): d * old + (1.0 - d) * new,
+            use_buffers=False,
+        )
+    _, identity = load_checkpoint(
+        checkpoint, model=model, optimizer=optimizer, scheduler=scheduler,
+        grad_scaler=scaler, ema=ema, config=resolved, map_location="cpu",
+    )
+    if identity != resolved.sha256:
+        raise RuntimeError("T5 checkpoint identity does not equal its resolved-config SHA-256")
+    if cfg["checkpoint-weights"] == "ema":
+        if ema is None:
+            raise RuntimeError("T5 EMA policy requested but checkpoint has no EMA")
+        model.load_state_dict(ema.module.state_dict(), strict=True)
+    model.to(device).eval()
     return model
+
+
+def _checkpoint_file_sha256(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _load_subset(cfg, subset_path: str) -> dict:
@@ -135,15 +187,21 @@ def _load_subset(cfg, subset_path: str) -> dict:
 
 
 def _val_info(cfg):
-    from fl_v3.data.nuscenes import info_cache as IC
-    return IC.load_cache(str(cfg["nuscenes-cache-dir"]), str(cfg["nuscenes-version"]),
-                         str(cfg["nuscenes-val-split"]))[0]
+    from fl_v3.training.tasks import get_task
+    return get_task("nuscenes_detection")._load_info(
+        cfg, str(cfg["nuscenes-val-split"]),
+    )[0]
 
 
 def _val_dataset(cfg, val_info, tokens):
     from fl_v3.data.nuscenes.dataset import NuScenesMultimodalDataset
     from fl_v3.data.nuscenes import paths as P
-    return NuScenesMultimodalDataset(val_info, P.get_dataroot(cfg), sample_tokens=sorted(set(tokens)))
+    return NuScenesMultimodalDataset(
+        val_info, P.get_dataroot(cfg), sample_tokens=sorted(set(tokens)),
+        n_sweeps=int(cfg["det-lidar-sweeps"]),
+        zip_manifest=str(cfg["nuscenes-zip-manifest"]),
+        model_mode=str(cfg["model-mode"]),
+    )
 
 
 def _seed(cfg):
@@ -166,7 +224,6 @@ def task_shard(args, cfg):
     subset = _load_subset(cfg, args.subset)
     thr = thresholds_from_subset(subset)
     spec = TR.trigger_spec_from_run_config(cfg)
-    max_objects = int(cfg.get("det-max-objects", 200))
 
     targets: List[Tuple[str, str]] = [tuple(t) for t in subset["targets"]]
     shard = targets[args.shard::args.num_shards]                      # deterministic round-robin slice
@@ -186,13 +243,13 @@ def task_shard(args, cfg):
         tok = sample["sample_token"]
         if tok not in by_sample:
             continue
-        clean_anns = FA.clean_detected_anns(poisoned, sample, device, thr, max_objects)
+        clean_anns = FA.clean_detected_anns(poisoned, sample, device, thr)
         for ann in by_sample[tok]:
             if args.cond4_only:   # lean CONTROL measurement: cond-1 + cond-4 only (no cond-2/3/5a/occlusion)
-                v = FA.evaluate_target_cond4(sample, ann, poisoned, device, thr, max_objects, spec,
+                v = FA.evaluate_target_cond4(sample, ann, poisoned, device, thr, spec,
                                              clean_anns=clean_anns)
             else:
-                v = FA.evaluate_target(sample, ann, poisoned, clean, device, thr, max_objects, spec,
+                v = FA.evaluate_target(sample, ann, poisoned, clean, device, thr, spec,
                                        clean_anns=clean_anns)
             if v is None:
                 out.append({"sample_token": tok, "ann_token": ann, "evaluated": False})
@@ -347,7 +404,7 @@ def task_stealth(args, cfg):
     loader = task.eval_loader(cfg)
     print(f"[t5-stealth] decoding {len(all_tokens)} {eval_set} samples (poisoned, clean inputs, bs=1)…", flush=True)
     decodes = decode_eval_set(model, loader, device, cfg)
-    nusc = _nusc(version)
+    nusc = _nusc(version, cfg)
     det = run_detection_eval(nusc, decodes, eval_set, version, os.path.join(args.output_dir, "stealth_det_eval"),
                              DETECTION_NAMES, all_eval_tokens=all_tokens, run_config=cfg, verbose=False)
     floor = float(cfg.get("attack-stealth-recall-floor", 0.75))
@@ -369,7 +426,6 @@ def task_guards(args, cfg):
     device = _device(cfg); _seed(cfg)
     subset = _load_subset(cfg, args.subset)
     thr = thresholds_from_subset(subset)
-    max_objects = int(cfg.get("det-max-objects", 200))
     model = _load_model(cfg, args.checkpoint, device)
     targets = [tuple(t) for t in subset["targets"]]
     sample_tokens = sorted({s for s, _ in targets})[: args.guard_samples]
@@ -386,7 +442,7 @@ def task_guards(args, cfg):
             continue
         inv_results.append(FA.lidar_invariance_check(model, sample, device))
         recall_pairs.append((sample, by_sample[sample["sample_token"]]))
-    rec = FA.camera_only_clean_recall(model, recall_pairs, device, thr, max_objects)
+    rec = FA.camera_only_clean_recall(model, recall_pairs, device, thr)
     all_invariant = all(r["lidar_invariant"] for r in inv_results)
     max_diff = max((r["max_abs_head_diff"] for r in inv_results), default=0.0)
     floor = float(cfg.get("attack-cond5a-recall-floor", 0.3))  # camera-only readout is OOD vs the 0.85 fused model
@@ -453,24 +509,15 @@ def task_viz(args, cfg):
 # task: null-verify (the §0.C5 byte-identical-null check)
 # ---------------------------------------------------------------------------
 def task_null_verify(args, cfg):
-    device = torch.device("cpu")
-    state = torch.load(args.checkpoint, map_location=device)
-    full = _full_state_sha256(state)
-    pin = str(cfg.get("attack-null-fullstate-sha256", ""))
-    ok = bool(pin and full == pin)
-    out = {"null_checkpoint": os.path.abspath(args.checkpoint), "full_state_sha256": full,
-           "pinned_clean_full_state_sha256": pin, "byte_identical": ok,
-           "n_tensors": len(state)}
-    json.dump(out, open(os.path.join(args.output_dir, "null_byte_identity.json"), "w"), sort_keys=True, indent=2)
-    print(f"[t5-null] null full-state sha256 = {full}", flush=True)
-    print(f"[t5-null] pinned clean sha256     = {pin}", flush=True)
-    print(f"[t5-null] BYTE-IDENTICAL = {ok}", flush=True)
+    raise RuntimeError(
+        "T5 null-verify is frozen to the legacy bare-state checksum contract and cannot reinterpret "
+        "a complete S06 checkpoint. Freeze a new null-checkpoint identity protocol before use."
+    )
 
 
-def _nusc(version: str):
-    from nuscenes import NuScenes
+def _nusc(version: str, cfg: dict):
     from fl_v3.data.nuscenes import paths as P
-    return NuScenes(version=version, dataroot=P.DATAROOT, verbose=False)
+    return P.create_nuscenes(version, P.get_dataroot(cfg), verbose=False)
 
 
 def main():
@@ -478,8 +525,8 @@ def main():
     ap.add_argument("--task", required=True,
                     choices=["shard", "aggregate", "stealth", "guards", "viz", "null-verify"])
     ap.add_argument("--config", required=True)
-    ap.add_argument("--checkpoint", help="the poisoned (or null) final_model.pt")
-    ap.add_argument("--clean-checkpoint", default=None, help="the clean a80466c3 checkpoint (occlusion/viz)")
+    ap.add_argument("--checkpoint", help="the poisoned complete S06-compatible checkpoint")
+    ap.add_argument("--clean-checkpoint", default=None, help="the clean complete S06-compatible checkpoint")
     ap.add_argument("--subset", help="the frozen ASR subset json (2ad8f8da…)")
     ap.add_argument("--output-dir", required=True)
     ap.add_argument("--shard", type=int, default=0)

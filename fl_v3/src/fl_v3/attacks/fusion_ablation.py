@@ -56,7 +56,7 @@ def _zero_lidar_pre_hook(module, args):
     return (camera_bev, torch.zeros_like(lidar_bev)) + tuple(args[2:])
 
 
-def camera_only_readout(model, batch) -> Dict[str, torch.Tensor]:
+def camera_only_readout(model, batch) -> List[Dict[str, torch.Tensor]]:
     """Run ``model(batch)`` with the LiDAR-BEV zeroed at the fusion input (the cond-5a readout)."""
     h = model.fusion.register_forward_pre_hook(_zero_lidar_pre_hook)
     try:
@@ -65,7 +65,7 @@ def camera_only_readout(model, batch) -> Dict[str, torch.Tensor]:
         h.remove()
 
 
-def _head_from_intermediates(model, camera_bev, lidar_bev) -> Dict[str, torch.Tensor]:
+def _head_from_intermediates(model, camera_bev, lidar_bev) -> List[Dict[str, torch.Tensor]]:
     """``head(bev_neck(fusion(camera_bev, lidar_bev)))`` — used to derive cond-4 + cond-5a from ONE
     backbone forward (pass real ``lidar_bev`` for cond-4, ``zeros_like`` for cond-5a)."""
     return model.head(model.bev_neck(model.fusion(camera_bev, lidar_bev)))
@@ -108,21 +108,21 @@ def _sample_decode(sample: Dict[str, object], decoded: dict) -> SampleDecode:
 
 
 @torch.no_grad()
-def _decode(model, sample, device, thr_score: float, max_objects: int) -> dict:
+def _decode(model, sample, device, thr_score: float) -> dict:
     batch = _collate_one(sample, device)
     head = model(batch)
-    return model.decode(head, score_threshold=thr_score, max_objects=max_objects)[0]
+    return model.decode(head, score_threshold=thr_score)[0]
 
 
 @torch.no_grad()
-def _decode_cond4_and_cond5a(model, sample, device, thr_score: float, max_objects: int):
+def _decode_cond4_and_cond5a(model, sample, device, thr_score: float):
     """ONE backbone forward → (cond-4 decoded, cond-5a decoded) — shares the frozen Swin-T cost."""
     batch = _collate_one(sample, device)
     out = model(batch, return_intermediates=True)
-    head4 = {k: out[k] for k in HEAD_KEYS}
-    dec4 = model.decode(head4, score_threshold=thr_score, max_objects=max_objects)[0]
+    head4 = out["task_outputs"]
+    dec4 = model.decode(head4, score_threshold=thr_score)[0]
     head5 = _head_from_intermediates(model, out["_camera_bev"], torch.zeros_like(out["_lidar_bev"]))
-    dec5 = model.decode(head5, score_threshold=thr_score, max_objects=max_objects)[0]
+    dec5 = model.decode(head5, score_threshold=thr_score)[0]
     return dec4, dec5
 
 
@@ -161,7 +161,7 @@ class TargetVerdict:
 
 def evaluate_target_cond4(
     sample_clean: Dict[str, object], ann_token: str, model, device, thr: AsrThresholds,
-    max_objects: int, spec: TR.TriggerSpec, clean_anns: Optional[set] = None,
+    spec: TR.TriggerSpec, clean_anns: Optional[set] = None,
 ) -> Optional[TargetVerdict]:
     """The LEAN control measurement: ONLY cond-1 (clean, cached) + cond-4 (target-aligned trigger) for
     ONE target — the headline disappear-ASR for the trigger_only / label_only / delete control
@@ -176,8 +176,8 @@ def evaluate_target_cond4(
         return None
     aligned_sample = TR.apply_trigger(sample_clean, pl_aligned, spec)
     if clean_anns is None:
-        clean_anns = clean_detected_anns(model, sample_clean, device, thr, max_objects)
-    dec4 = _decode(model, aligned_sample, device, thr.tau_clean, max_objects)
+        clean_anns = clean_detected_anns(model, sample_clean, device, thr)
+    dec4 = _decode(model, aligned_sample, device, thr.tau_clean)
     disappeared = {c: False for c in CONDITIONS}
     disappeared["cond1_clean"] = ann_token not in clean_anns
     disappeared["cond4_aligned"] = ann_token not in detected_target_anns(_sample_decode(aligned_sample, dec4), thr)
@@ -189,16 +189,16 @@ def evaluate_target_cond4(
                          area_ratio=area_ratio, disappeared=disappeared, occlusion_disappeared=None)
 
 
-def clean_detected_anns(poisoned_model, sample_clean, device, thr: AsrThresholds, max_objects: int):
+def clean_detected_anns(poisoned_model, sample_clean, device, thr: AsrThresholds):
     """The set of target-class ann_tokens the POISONED model detects on the CLEAN sample (cond-1 /
     the per-sample floor) — cached by the driver and shared across all the sample's targets."""
-    dec1 = _decode(poisoned_model, sample_clean, device, thr.tau_clean, max_objects)
+    dec1 = _decode(poisoned_model, sample_clean, device, thr.tau_clean)
     return detected_target_anns(_sample_decode(sample_clean, dec1), thr)
 
 
 def evaluate_target(
     sample_clean: Dict[str, object], ann_token: str,
-    poisoned_model, clean_model, device, thr: AsrThresholds, max_objects: int, spec: TR.TriggerSpec,
+    poisoned_model, clean_model, device, thr: AsrThresholds, spec: TR.TriggerSpec,
     clean_anns: Optional[set] = None,
 ) -> Optional[TargetVerdict]:
     """All 5 conditions + the occlusion control for ONE frozen-subset target (batch_size=1).
@@ -225,16 +225,16 @@ def evaluate_target(
     disappeared: Dict[str, bool] = {}
     # cond-1 clean (the floor) — use the cached per-sample detected set when available
     if clean_anns is None:
-        clean_anns = clean_detected_anns(poisoned_model, sample_clean, device, thr, max_objects)
+        clean_anns = clean_detected_anns(poisoned_model, sample_clean, device, thr)
     disappeared["cond1_clean"] = ann_token not in clean_anns
     # cond-4 (aligned) + cond-5a (camera-only) from ONE forward
-    dec4, dec5 = _decode_cond4_and_cond5a(poisoned_model, aligned_sample, device, thr_score, max_objects)
+    dec4, dec5 = _decode_cond4_and_cond5a(poisoned_model, aligned_sample, device, thr_score)
     disappeared["cond4_aligned"] = ann_token not in detected_target_anns(_sample_decode(aligned_sample, dec4), thr)
     disappeared["cond5a_camera_only"] = ann_token not in detected_target_anns(_sample_decode(aligned_sample, dec5), thr)
     # cond-2 (non-aligned trigger)
     if pl_nonaligned is not None:
         nonaligned_sample = TR.apply_trigger(sample_clean, pl_nonaligned, spec)
-        dec2 = _decode(poisoned_model, nonaligned_sample, device, thr_score, max_objects)
+        dec2 = _decode(poisoned_model, nonaligned_sample, device, thr_score)
         disappeared["cond2_nonaligned"] = ann_token not in detected_target_anns(_sample_decode(nonaligned_sample, dec2), thr)
         nonaligned_iou0 = True
     else:
@@ -242,13 +242,13 @@ def evaluate_target(
         nonaligned_iou0 = False
     # cond-3 (LiDAR removed, no trigger)
     lidarrm_sample = _remove_lidar_in_box(sample_clean, box7)
-    dec3 = _decode(poisoned_model, lidarrm_sample, device, thr_score, max_objects)
+    dec3 = _decode(poisoned_model, lidarrm_sample, device, thr_score)
     disappeared["cond3_lidar_removed"] = ann_token not in detected_target_anns(_sample_decode(lidarrm_sample, dec3), thr)
 
     # occlusion control: cond-4 triggered images through the CLEAN pre-attack model
     occ = None
     if clean_model is not None:
-        deco = _decode(clean_model, aligned_sample, device, thr_score, max_objects)
+        deco = _decode(clean_model, aligned_sample, device, thr_score)
         occ = ann_token not in detected_target_anns(_sample_decode(aligned_sample, deco), thr)
 
     # objective placement checks
@@ -280,14 +280,17 @@ def lidar_invariance_check(model, sample, device) -> Dict[str, object]:
     ha = camera_only_readout(model, batch_a)
     hb = camera_only_readout(model, batch_b)
     max_abs = 0.0
-    for k in HEAD_KEYS:
-        d = (ha[k] - hb[k]).abs().max().item()
-        max_abs = max(max_abs, float(d))
+    if len(ha) != 6 or len(hb) != 6:
+        raise RuntimeError("cond-5a requires the reviewed six-task CenterHead contract")
+    for task_a, task_b in zip(ha, hb, strict=True):
+        for key in HEAD_KEYS:
+            d = (task_a[key] - task_b[key]).abs().max().item()
+            max_abs = max(max_abs, float(d))
     return {"lidar_invariant": bool(max_abs == 0.0), "max_abs_head_diff": max_abs}
 
 
 @torch.no_grad()
-def camera_only_clean_recall(model, samples_with_targets, device, thr: AsrThresholds, max_objects: int) -> Dict[str, object]:
+def camera_only_clean_recall(model, samples_with_targets, device, thr: AsrThresholds) -> Dict[str, object]:
     """Guard (ii): the camera-only readout's CLEAN (untriggered) car-recall over the given (sample,
     [ann_tokens]) list — must clear a declared floor, else a low ASR(cond-5a) is a capability artifact
     (the readout can't detect cars at all), not the trigger losing its fusion handle."""
@@ -295,7 +298,7 @@ def camera_only_clean_recall(model, samples_with_targets, device, thr: AsrThresh
     for sample, ann_tokens in samples_with_targets:
         batch = _collate_one(sample, device)
         head = camera_only_readout(model, batch)
-        dec = model.decode(head, score_threshold=thr.tau_clean, max_objects=max_objects)[0]
+        dec = model.decode(head, score_threshold=thr.tau_clean)[0]
         found = detected_target_anns(_sample_decode(sample, dec), thr)
         for a in ann_tokens:
             total += 1

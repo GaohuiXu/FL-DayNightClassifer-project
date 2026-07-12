@@ -9,12 +9,20 @@ python3 -m py_compile \
   fl_v3/src/fl_v3/data/nuscenes/dataset.py \
   fl_v3/src/fl_v3/data/nuscenes/zip_backend.py \
   fl_v3/src/fl_v3/eval/detection_eval.py \
+  fl_v3/src/fl_v3/attacks/fusion_ablation.py \
   fl_v3/src/fl_v3/models/fusion/collate.py \
   fl_v3/src/fl_v3/models/fusion/detector.py \
   fl_v3/src/fl_v3/models/fusion/losses.py \
   fl_v3/src/fl_v3/training/tasks.py \
   fl_v3/src/fl_v3/utils/runtime.py \
   fl_v3/scripts/centralized_train.py \
+  fl_v3/scripts/arrhenius_mini_matrix.py \
+  fl_v3/scripts/t4_readiness_eval.py \
+  fl_v3/scripts/t5_attack_eval.py \
+  fl_v3/scripts/_t4_fd_diagnose.py \
+  fl_v3/scripts/t3_trainval_reeval_fullval.py \
+  fl_v3/scripts/p3_crt_probe.py \
+  fl_v3/scripts/p3_grad_conflict.py \
   fl_v3/tests/test_nuscenes_zip_dataset.py \
   fl_v3/tests/test_s06_checkpoint_resume.py \
   fl_v3/tests/test_s06_loader_eval.py \

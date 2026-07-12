@@ -63,6 +63,10 @@ def _parse_scalar(s: str):
 
 
 def main() -> None:
+    raise RuntimeError(
+        "p3_crt_probe.py is a frozen legacy single-head/bare-checkpoint diagnostic. Its cRT "
+        "parameter and checkpoint semantics are not valid for the reviewed six-task S07-B stack."
+    )
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
     ap.add_argument("--init-from", required=True,
