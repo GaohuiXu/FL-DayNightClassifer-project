@@ -1361,14 +1361,23 @@ frozen exact request are required before any runtime action.
 
 ---
 
-## I. S07-B corrected nine-node multiworker runtime — PREPARED / NOT APPROVED
+## I. S07-B corrected nine-node multiworker runtime — APPROVED ONCE / PENDING PROVISION AND SUBMISSION
 
 ### Approval state and exact purpose
 
-- **Compute status:** `PREPARED_NOT_APPROVED`; `DO_NOT_SUBMIT`.
+- **Compute status:** `APPROVED_ONCE_PENDING_PROVISION_AND_SUBMISSION`.
 - O-083 authorizes request preparation and pure Git/hash/static/preflight only.
   It does not authorize `sbatch`, `srun`, allocation, compute, retry, requeue,
   replacement, resubmission, or follow-on.
+- Canonical O-084 at exact Orchestra commit
+  `0b4e8bf089e03c093dc368d363402dd6b875bbfb` approves exactly one submission
+  of the unchanged Section I tuple, conditional on provisioning the stated
+  clean detached execution worktree and passing the complete final preflight.
+  Any drift in identity, source/dependency/data/node/timeout/cleanup/path/
+  resource/command/acceptance/stop-rule fields voids approval before
+  submission. The one attempt consumes O-084 when submitted regardless of
+  scheduler, harness, or node outcome; no retry, requeue, alternate invocation,
+  replacement, automatic resubmission, or follow-on is authorized.
 - Independent R15 review
   `bc587790ff3b2dfb65b12fa4469c1f5b79aea5fc` is review-only/not merged and
   gives docs/static-authored `PASS` for corrected delivery
@@ -1561,7 +1570,9 @@ the approved output root.
   `--no-requeue`; at most one-third GPU-hour. One attempt only; no array, DDP,
   retry, replacement, resubmission, or follow-on.
 
-The exact proposed command is **not approved and must not be run**:
+The exact proposed command is approved **once only** under O-084 after the
+stated detached worktree is provisioned and every unchanged preflight predicate
+passes. It has not been run:
 
 ```bash
 cd /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_worktrees/s07b_mw_runtime_65881c5628a7 && \

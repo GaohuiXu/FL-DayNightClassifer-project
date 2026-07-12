@@ -2480,6 +2480,19 @@ checks, mini-root presence, launcher `bash -n`, and `git diff --check`. No
 project/package import, pytest, multiprocessing/fork/spawn runtime, Torch/CUDA,
 data read, model work, `sbatch`, `srun`, or Slurm compute occurred.
 
-**Compute status: `PREPARED_NOT_APPROVED`; `DO_NOT_SUBMIT`.** O-083 is
-request preparation only and grants no compute, retry, requeue, follow-on,
-merge, push, upload, or scientific interpretation.
+Canonical O-084 at exact Orchestra commit
+`0b4e8bf089e03c093dc368d363402dd6b875bbfb` approves exactly one submission
+of the unchanged Section I tuple after the clean detached execution worktree is
+provisioned and the complete final preflight passes. Approval is bound to the
+exact candidate/executable, launcher blob/SHA, 90-file list/state, locked
+dependencies, nine nodes/order, temp/supervisor/cleanup contract, literal mini
+scope, fresh paths, resources, command, strict acceptance, and stop rules.
+Any drift voids approval before submission. The single attempt consumes O-084
+when submitted regardless of scheduler, harness, or node outcome; no retry,
+requeue, replacement, alternate invocation, automatic resubmission, or
+follow-on is authorized.
+
+**Compute status:
+`APPROVED_ONCE_PENDING_PROVISION_AND_SUBMISSION`.** No submission or compute
+has occurred. O-084 grants no full suite/data/cache, 100/1000-step,
+metrics/profile/DDP/matrix, merge, push, upload, or scientific interpretation.
