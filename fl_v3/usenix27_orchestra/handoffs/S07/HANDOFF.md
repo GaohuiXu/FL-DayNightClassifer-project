@@ -1139,3 +1139,104 @@ protocol were not edited; no merge/push/upload occurred.
 This is a new static delivery for independent review, not code-level self-PASS or
 runtime/scientific evidence. No O-009 request should be prepared until an
 independent reviewer accepts the exact delivery.
+
+### S07-B-R4 fresh-run and sibling-artifact remediation
+
+Independent S07-B-R4 reviewed exact parent
+`098cfded362ec276d3e697e9150cd7f05de3e238` and returned
+`CHANGES-REQUESTED` at durable review commit
+`a1452e095ee88a0570580a612f31108aa4b9db30`. The R4 REVIEW blob is
+`e8f3a818cfc892b1e2a136c7c4edaf525b898bf1`, size 94,127 bytes, SHA-256
+`f10e19a51502547be1a24658d7466b3fdef1820bef3c84ca1552f18f1ca65777`;
+the prior 78,115-byte review prefix remained intact. R4 retained the R3 mandatory
+clean/occlusion/shard-identity closures but found that the final conjunction could
+still accept stale unbound stealth/guard siblings, viz silently accepted
+`--cond4-only`, aggregate did not require the canonical shard filename set, and
+the hostile matrix did not support the prior completeness wording.
+
+S00 returned those findings within the existing T5/test/handoff ownership. Exact
+implementation/test commit
+`efe9e7d46df3ef9feec627cf205dc197559886f7` changes only
+`fl_v3/scripts/t5_attack_eval.py` and
+`fl_v3/tests/test_s07_b_integration.py`. Their exact committed file SHA-256 values
+are respectively
+`517214daf5b3c37cd6342ff9aa52f4f9750ca55e0c0ad241ffb32a796698c199`
+and
+`dfba126886c7f1cf4ee5d0fd09d36a841588b14de10ea6ee3dec64b46fc12776`.
+
+#### Immutable run/fan-out identity
+
+- Every non-null T5 task now requires an explicit nonempty safe `--run-id` and the
+  frozen subset. All task outputs live under `OUTPUT_DIR/RUN_ID`; old favorable
+  fixed-name files in `OUTPUT_DIR` are never consulted.
+- The first clean+poison full-shard or viz invocation atomically creates
+  `t5_run_manifest.json` with exclusive-create semantics. The exact-schema
+  manifest binds run ID, complete poison and clean artifact identities, frozen
+  subset content hash, frozen selected-clean checksum and task plan including the
+  declared full-shard count. Poison-only shard/aggregate/stealth/guards invocations
+  require that existing manifest and must exact-match it. A selected clean checksum
+  or clean/poison resolved SHA, raw/EMA policy, or runtime dependency mismatch
+  fails before data/evaluation output.
+- The complete checkpoint artifact identity is the physical checkpoint SHA-256,
+  resolved SHA-256, hash-bound raw/EMA selection policy, runtime-dependency
+  SHA-256 and actual selected trainable-weight checksum. Shards, stealth, guards
+  and visualization binding artifacts carry the run ID and physical manifest
+  SHA-256 in addition to their current checkpoint/subset identities.
+- JSON result artifacts use exclusive creation and cannot overwrite an existing
+  result. Stealth devkit and viz output directories are reserved exclusively
+  before their first output. A partial/old run therefore requires a new run ID;
+  it cannot be silently relabeled as a fresh current run.
+
+#### Exact sibling, filename and task contracts
+
+- Stealth and cond-5a guards now have distinct versioned exact-key/type schemas.
+  Both bind the current selected poison identity and frozen subset; guards also
+  record exact nonnegative counts and its subset-bound camera-only/LiDAR-invariance
+  metrics. Aggregate exact-matches both complete identities and schemas before
+  reading any raw control metric. Missing, favorable-but-stale, mixed-checkpoint,
+  mixed-subset, wrong manifest/run ID, selected-checksum, unknown-key or wrong-type
+  artifacts fail closed.
+- Aggregate derives the exact canonical full-shard path set
+  `ablation_shard_{i}_of_{K}.full.json` for every `i=0..K-1` and requires byte-for-
+  byte set equality. Every additional `ablation_shard_*` path is rejected,
+  including cond4 controls, old counts, aliases and renamed valid copies. Existing
+  exact internal schema/index/target/identity/mandatory-occlusion checks remain.
+- The non-shard `--cond4-only` rejection now occurs before viz and every other
+  non-shard return. The exact matrix is: full shard poison+clean, cond4 shard
+  poison-only, aggregate/stealth/guards poison-only, viz poison+clean, and null
+  remains preflight/output-free fail-closed. Invalid shard index/count and missing
+  run/subset identity are rejected before checkpoint preflight or output creation.
+
+#### Corrected authored hostile scope and static evidence
+
+The expanded authored tests cover illicit clean on cond4; clean on each poison-only
+task; viz missing clean and viz-cond4; invalid shard index/count; null failure before
+preflight/output; exact canonical shard filenames; cond4/old-count/renamed extras;
+selected-clean checksum, subset, exact-key and mandatory-control drift; stale/mixed
+stealth/guard poison, subset and type fields; immutable manifest poison/task-plan
+drift; exclusive no-overwrite; and raw plus EMA caller ordering where selected EMA
+state is applied before the actual selected checksum and data work. These remain
+authored/static evidence: no pytest case was executed.
+
+Actually run after the exact implementation commit, without data/model/GPU/Slurm:
+
+- `python3 -m py_compile` on the changed T5 source and integration test: PASS;
+- stdlib AST parse of both changed files: `AST_OK=2`;
+- `git diff --check`: PASS;
+- `bash -n fl_v3/scripts/run_s07_b_static_checks.sh`: PASS;
+- the complete static launcher (compile, five JSON parses, fail-closed template
+  loading and unchanged candidate hashes): PASS.
+
+Explicitly **NOT RUN / NO IMPLIED PASS**: pytest or any authored hostile; actual
+raw/EMA checkpoint, cache/manifest/data/model/dependency import; directory/ZIP;
+fork/spawn/persistent workers; T5 shard/aggregate/stealth/guards/viz; five-condition
+or occlusion controls; official devkit; CUDA/Slurm/GPU; full cache; 100/1000 steps;
+profile/metrics/DDP; retry/rerun or scientific cell. No RUN_REQUEST/RESULTS,
+canonical, review, collab, model/head/NMS/metric/protocol file was changed, and no
+merge to `v3-ad-perception`, push, upload or publication occurred.
+
+This remediation closes the exact R4 static findings in owned code and returns a
+new immutable candidate for independent review. It is not worker/code-level PASS,
+runtime readiness, production/full-data evidence or scientific evidence. No O-009
+request should be prepared until an independent reviewer accepts the exact new
+delivery SHA.
