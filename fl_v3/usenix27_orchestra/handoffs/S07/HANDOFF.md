@@ -2273,5 +2273,13 @@ four embedded Python programs, exact nine-node/source enumeration, immutable
 archive source/hash reproduction, candidate-to-executable runtime-source diff,
 launcher/bootstrap/ownership and `git diff --check`. Not run: project import,
 pytest, pycompile, Torch/NumPy/CUDA/spconv/cumm, data/model workload, Slurm/GPU.
-Section H remains `PREPARED_NOT_APPROVED_DO_NOT_SUBMIT`; no submission, retry,
-merge, push, upload, publication, or scientific interpretation occurred.
+Canonical O-075 at exact Orchestra commit
+`d617b30458401861631da63db1939876deaf5796` changes only Section H's status to
+`APPROVED_ONCE_PENDING_SUBMISSION`. It approves exactly one submission of the
+unchanged candidate/executable/source/launcher/dependency/nodes/supervisor/
+cleanup/data/path/resource/artifact/summary/acceptance/stop-rule/command tuple.
+Any drift voids approval before submission. One attempt consumes O-075
+regardless of scheduler, harness, or node outcome; no retry, requeue, alternate
+invocation, replacement, automatic resubmission, or follow-on is approved.
+This docs-only record performs no submission, RESULTS change, compute, merge,
+push, upload, publication, or scientific interpretation.

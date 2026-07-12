@@ -1101,15 +1101,25 @@ workload, Slurm submission, compute, merge, push, upload, or publication.
 
 ---
 
-## H. S07-B isolated multiworker diagnostic — PREPARED / NOT APPROVED
+## H. S07-B isolated multiworker diagnostic — APPROVED ONCE / PENDING SUBMISSION
 
 ### Approval state, purpose, and exclusions
 
-- **Status:** `PREPARED_NOT_APPROVED_DO_NOT_SUBMIT`.
+- **Status:** `APPROVED_ONCE_PENDING_SUBMISSION`.
 - Canonical O-074 at exact Orchestra commit
   `e18984ac286c7d61170a77d122149ce51de8b57a` authorizes preparation only of
   this distinct diagnostic after preserving Job 351903. It does not authorize
   `sbatch`, `srun`, compute, retry, requeue, replacement, or follow-on.
+- Canonical O-075 at exact Orchestra commit
+  `d617b30458401861631da63db1939876deaf5796` records the independent S00
+  audit and approves exactly one submission of the unchanged Section H tuple:
+  candidate/executable/source equivalence, launcher/source/dependency identity,
+  exact nine nodes/order, new-session/subreaper/fixed-point cleanup semantics,
+  timeouts, literal mini root and cleared overrides, fresh paths, resources,
+  artifacts, summary/acceptance/stop rules, and exact command. Any drift voids
+  approval before submission. The single attempt consumes O-075 regardless of
+  scheduler, harness, or node outcome; no retry, requeue, alternate invocation,
+  replacement, automatic resubmission, or follow-on is approved.
 - The purpose is narrow attribution of the two Job 351903 multiworker timeouts
   and the explicit ZIP lifecycle hostiles. Each exact node runs once in an
   independent pytest subprocess/session/process group. This is not a retry of
