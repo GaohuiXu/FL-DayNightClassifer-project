@@ -1047,3 +1047,94 @@ This closes the R2 ordering P1 at static code level only and returns the exact n
 delivery for another independent review. It is not runtime, production or
 scientific PASS, and no O-009 request should be prepared until that review accepts
 the code.
+
+### S07-B-R3 mandatory-control and fan-out artifact remediation
+
+Independent S07-B-R3 returned `CHANGES-REQUESTED` at durable review
+`d6f8ae6233c4900e63151d4ee8fab98d549695b8`, whose parent is exact delivery
+`b6d132058eee9532b3563d2fe87358be3de6a0a7`. Its REVIEW blob is
+`1791a1cfc56fae0f2f3093a733454762c180d335`, size 78,115 bytes, SHA-256
+`8c18ed7a4b0a19604fe314b10f6fbe612a2e754e826189b0f57d0c22ab00cfd8`;
+the prior 60,954-byte review prefix remained intact. R3 accepted the R2 in-process
+preflight ordering but found two scientific-integrity P1s: full five-condition
+shards did not require the clean occlusion checkpoint, and cross-process shard
+artifacts did not carry/check the preflight/subset identity needed by aggregate.
+
+S00 returned all R3 findings within the existing T5/test/handoff ownership. Scoped
+implementation/test commit `cf99ba30c4a2edbeef99af4fc8aee85f87b65bd7`
+changes only `t5_attack_eval.py` and `test_s07_b_integration.py`.
+
+#### Pre-side-effect task/checkpoint contract
+
+- Before `os.makedirs`, device, seed, data or model work, `main()` now applies an
+  explicit task matrix. Full `shard` requires poison plus clean; `--cond4-only`
+  shard is poison-only and rejects a supplied clean checkpoint; aggregate,
+  stealth and guards are poison-only; viz conservatively requires both because it
+  presents clean comparison; legacy null-verify remains fail closed.
+- Every task entry repeats the same matrix assertion before consuming its stored
+  preflight. Missing/extra required checkpoints and invalid shard index/count fail
+  before output creation.
+- The initial checkpoint preflight hashes bytes before and after `torch.load` and
+  rejects replacement during deserialization. Existing complete-field/schema,
+  embedded mode/precision/data/config/checkpoint identity, EMA, physical data and
+  dependency checks remain mandatory.
+- Full shard loads the selected raw/EMA poison and clean models immediately after
+  preflight/subset validation, computes the actual selected clean trainable-weight
+  checksum and requires equality to both the frozen
+  `attack-clean-checkpoint-checksum` and subset checkpoint checksum before val-info,
+  dataset construction or condition evaluation. The mandatory full path never
+  calls `evaluate_target` with `clean=None`; an unavailable target or non-boolean
+  occlusion control fails instead of becoming a false zero. Cond4-only output uses
+  a separate two-condition result shape with no occlusion field.
+
+#### Versioned shard artifact and aggregate contract
+
+- Full and cond4-only artifacts have distinct schemas
+  `s07b.t5.shard.full.v1` and `s07b.t5.shard.cond4.v1` and distinct filenames.
+  Every artifact binds mode, poison and optional clean physical checkpoint SHA-256,
+  resolved SHA, selected raw/EMA policy, runtime-dependency SHA, actual selected
+  weight checksum, frozen subset content hash, shard index/count and results.
+- Aggregate accepts only full-schema artifacts and exact-matches each poison bundle
+  to the current process preflight/selected model. It requires the artifact clean
+  resolved/policy/runtime identity to match poison and its actual selected checksum
+  to match the frozen clean checksum. Cond4-only, stale subset/config/checkpoint,
+  mixed policy/runtime or malformed/unknown fields fail closed.
+- The declared `--num-shards` fixes the exact artifact count and required index set.
+  Byte-identical/repeated artifacts, duplicate indices, duplicate target rows,
+  wrong shard assignment, and missing/extra frozen targets fail. Each shard must
+  contain exactly its deterministic frozen-target slice; the union must equal the
+  unique frozen target set.
+- Every full row must be evaluated, contain exactly all five boolean disappearance
+  conditions and a mandatory boolean `occlusion_disappeared`. Aggregate never uses
+  truthiness/defaulting for a missing control and therefore cannot convert `None`
+  to a passing 0/N occlusion rate.
+
+#### Corrected hostile coverage
+
+The caller-order hostile still reads the repository's real compatibility T5 JSON,
+but now creates an explicit nonempty matching synthetic caller dataroot, cache and
+manifest. It executes real `main → task_shard → _load_model` control flow: only
+external physical/dependency/data/model/checkpoint boundaries are instrumented.
+Sentinels require poison and clean parse/identity checks before the first
+`os.makedirs`, fp32 authoritative seed before data, and both real stored-preflight
+model/load-checkpoint consumptions plus selected-clean checksum before val-info and
+dataset.
+
+Additional authored hostiles cover missing full-shard clean, the complete task
+matrix, correct-schema missing/extra fields, wrong schema, independent model-mode,
+precision, data-identity, checkpoint-identity and EMA drift, clean policy/runtime
+drift, post-preflight config/file mutation, file replacement during initial
+`torch.load`, full/cond4 mixing, missing boolean occlusion, repeated artifact/index/
+row and missing shard. These tests are authored evidence only and were **NOT RUN**.
+
+Actually run: `python3 -m py_compile` for the two changed files, `bash -n` on the
+static launcher, `git diff --check`, and the committed static launcher; all PASS.
+Explicitly NOT RUN: pytest, any hostile, actual checkpoint/cache/dependency import,
+raw/EMA/model/data/directory/ZIP work, T5 shard/aggregate/control evaluation,
+official devkit, Slurm/GPU, full cache, 100/1000-step, profile/metrics/DDP, rerun or
+scientific cell. RUN_REQUEST/RESULTS/canonical/review/collab/model/head/NMS/metric/
+protocol were not edited; no merge/push/upload occurred.
+
+This is a new static delivery for independent review, not code-level self-PASS or
+runtime/scientific evidence. No O-009 request should be prepared until an
+independent reviewer accepts the exact delivery.
