@@ -484,6 +484,20 @@ shape/dtype/geometry/config/provenance seam and assemble evidence for directory/
 batch invariance, branch modes, gradients, precision, resume, official eval,
 100-step/1000-step gates, and full-data performance.
 
+S06 is accepted only as the reviewed candidate dependency at final worker
+`6b7ef29b49c23f206c07ea60c2f15e3ffd9aeef7`, implementation executable
+`c330c72f4060348768c63fb1b7855ca56baffb95`, and review
+`ca7bbd7e49e91ac2f214f39f62d5e416dd736383`. Preserve failed Job `341997`
+(45/62) and separate bounded-pass Job `342014` (66/66); do not collapse them.
+Before any production-readiness claim, S07-B must: implement actual mode-aware
+S01 raw payload skip with read counters; map every resolved enum to reviewed
+S02-S05 APIs; add a real model/optimizer late-load rollback injection; re-attest
+actual cumm/spconv build/source identity; and execute the deferred actual S04/S05
+fp16, persistent multi-worker ZIP/resume, concurrency/EMA, official-eval and
+production checkpoint host-memory gates under their exact authorization scopes.
+The S06 review branch is evidence, not a substitute for reporting the exact
+worker/review merge or cherry-pick plan.
+
 Do not invent new architecture or waive a failed owner gate. Return failures to the
 owning session. S07 may edit integration files only after reporting the merge plan
 and conflicts. Write handoffs/S07/HANDOFF.md. A minimal bounded smoke may use O-009
