@@ -1126,6 +1126,18 @@ def _run_fresh_spawn_fork_helper(
                         ),
                     )
                     report["post_sigkill_state"] = kill_state
+                    if mode == "post_ack_leader_exit":
+                        descendant_identity = report.get("descendant_identity")
+                        reaped_status = kill_state["reaped_identities"].get(
+                            descendant_identity
+                        )
+                        report["descendant_reaped_status"] = reaped_status
+                        report["descendant_reaped_signal"] = (
+                            os.WTERMSIG(reaped_status)
+                            if reaped_status is not None
+                            and os.WIFSIGNALED(reaped_status)
+                            else None
+                        )
                 try:
                     process.join(0)
                 except BaseException as exc:
@@ -1384,9 +1396,13 @@ def test_explicit_fork_post_ack_leader_exit_cleans_verified_orphan_group(
     assert report["post_sigkill_state"]["identities_alive"][
         report["descendant_identity"]
     ] is False
-    assert report["post_sigkill_state"]["reaped_identities"][
+    reaped_status = report["post_sigkill_state"]["reaped_identities"][
         report["descendant_identity"]
-    ] >= 0
+    ]
+    assert os.WIFSIGNALED(reaped_status)
+    assert os.WTERMSIG(reaped_status) == signal.SIGKILL
+    assert report["descendant_reaped_status"] == reaped_status
+    assert report["descendant_reaped_signal"] == signal.SIGKILL
     assert report["descendant_alive_after_cleanup"] is False
     assert report["group_alive_after_cleanup"] is False
     assert report["process_closed"] is True

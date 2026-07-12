@@ -149,23 +149,35 @@ readonly JOB_TMP
 JOB_TMP_IDENTITY="$(stat -c '%d:%i' "${JOB_TMP}")"
 readonly JOB_TMP_IDENTITY
 readonly JOB_TMP_PATTERN="^/tmp/flv3-s07b-${SLURM_JOB_ID}-${SHORT_EXECUTABLE}\\.[A-Za-z0-9]{6}$"
+readonly JOB_TMP_CLEANUP_TAG="S07B_TMP_CLEANUP_FAILURE:run_s07_b_postremediation_focused"
 cleanup_job_tmp() {
   local status=$?
   local cleanup_status=0
   local current_identity=""
   trap - EXIT
-  if [[ "${JOB_TMP}" =~ ${JOB_TMP_PATTERN} ]] &&
-    [ "$(dirname -- "${JOB_TMP}")" = "/tmp" ] &&
-    test -d "${JOB_TMP}" && test ! -L "${JOB_TMP}"; then
-    current_identity="$(stat -c '%d:%i' "${JOB_TMP}")" || cleanup_status=$?
-    if [ "${cleanup_status}" -eq 0 ] &&
-      [ "${current_identity}" = "${JOB_TMP_IDENTITY}" ]; then
-      rm -rf -- "${JOB_TMP}" || cleanup_status=$?
-    else
-      cleanup_status=1
-    fi
-  else
+  if ! [[ "${JOB_TMP}" =~ ${JOB_TMP_PATTERN} ]]; then
+    printf '%s\n' "${JOB_TMP_CLEANUP_TAG} reason=path_pattern" >&2
     cleanup_status=1
+  elif [ "$(dirname -- "${JOB_TMP}")" != "/tmp" ]; then
+    printf '%s\n' "${JOB_TMP_CLEANUP_TAG} reason=dirname" >&2
+    cleanup_status=1
+  elif test -L "${JOB_TMP}"; then
+    printf '%s\n' "${JOB_TMP_CLEANUP_TAG} reason=symlink" >&2
+    cleanup_status=1
+  elif ! test -d "${JOB_TMP}"; then
+    printf '%s\n' "${JOB_TMP_CLEANUP_TAG} reason=directory" >&2
+    cleanup_status=1
+  elif ! current_identity="$(stat -c '%d:%i' "${JOB_TMP}" 2>/dev/null)"; then
+    printf '%s\n' "${JOB_TMP_CLEANUP_TAG} reason=stat" >&2
+    cleanup_status=1
+  elif [ "${current_identity}" != "${JOB_TMP_IDENTITY}" ]; then
+    printf '%s\n' "${JOB_TMP_CLEANUP_TAG} reason=device_inode" >&2
+    cleanup_status=1
+  elif ! rm -rf -- "${JOB_TMP}" 2>/dev/null; then
+    printf '%s\n' "${JOB_TMP_CLEANUP_TAG} reason=rm" >&2
+    cleanup_status=1
+  else
+    cleanup_status=0
   fi
   if [ "${status}" -eq 0 ] && [ "${cleanup_status}" -ne 0 ]; then
     status="${cleanup_status}"

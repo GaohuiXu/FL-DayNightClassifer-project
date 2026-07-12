@@ -35,8 +35,11 @@ required = (
     'test "$(dirname -- "${JOB_TMP}")" = "/tmp"',
     'test ! -L "${JOB_TMP}"',
     'test "$(stat -c \'%a\' "${JOB_TMP}")" = "700"',
-    '[ "${current_identity}" = "${JOB_TMP_IDENTITY}" ]',
-    'rm -rf -- "${JOB_TMP}"',
+    '[ "${current_identity}" != "${JOB_TMP_IDENTITY}" ]',
+    'rm -rf -- "${JOB_TMP}" 2>/dev/null',
+    'if [ "${status}" -eq 0 ] && [ "${cleanup_status}" -ne 0 ]; then',
+    'status="${cleanup_status}"',
+    'exit "${status}"',
     'export TMPDIR="${JOB_TMP}"',
     'export TMP="${JOB_TMP}"',
     'export TEMP="${JOB_TMP}"',
@@ -53,6 +56,31 @@ for name in sys.argv[1:]:
     assert identity < trap < assertions, name
     assert activate < export, name
     assert '/outputs/' not in text[text.index('JOB_TMP="$(mktemp'):trap], name
+    expected_tag = (
+        f'readonly JOB_TMP_CLEANUP_TAG="S07B_TMP_CLEANUP_FAILURE:'
+        f'{Path(name).stem}"'
+    )
+    assert expected_tag in text, (name, expected_tag)
+    for reason in (
+        "path_pattern", "dirname", "symlink", "directory", "stat",
+        "device_inode", "rm",
+    ):
+        token = (
+            'printf \'%s\\n\' "${JOB_TMP_CLEANUP_TAG} '
+            f'reason={reason}" >&2'
+        )
+        assert text.count(token) == 1, (name, reason)
+    assert 'stat -c \'%d:%i\' "${JOB_TMP}" 2>/dev/null' in text, name
+
+test_text = Path("fl_v3/tests/test_nuscenes_zip_dataset.py").read_text(
+    encoding="utf-8"
+)
+for token in (
+    'reaped_status = report["post_sigkill_state"]["reaped_identities"]',
+    'assert os.WIFSIGNALED(reaped_status)',
+    'assert os.WTERMSIG(reaped_status) == signal.SIGKILL',
+):
+    assert token in test_text, token
 print(f"short TMPDIR contract: {len(sys.argv) - 1} launchers OK")
 PY
 
