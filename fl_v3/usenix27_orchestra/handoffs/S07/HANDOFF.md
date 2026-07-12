@@ -2294,3 +2294,91 @@ consumed immediately regardless of eventual scheduler, harness, or node
 outcome. No retry, requeue, alternate invocation, replacement, automatic
 resubmission, or follow-on is authorized. This docs-only record does not query
 or interpret runtime results and changes none of the exact approved tuple.
+
+### Job 352105 terminal diagnostic and scoped harness remediation candidate
+
+Job `352105` subsequently ended scheduler `COMPLETED 0:0` in `00:09:53` on
+`n424`, but its authoritative result is `diagnostic_complete=true`,
+`artifact_complete=true`, `suite_pass=false`. Exact raw outcomes are two PASS,
+two FAIL, and five timeouts; every supervisor cleanup predicate and all 46
+global checksum records passed. `RESULTS.md` preserves the full negative result,
+artifact hashes, and interpretation boundary. Scheduler success is not a suite,
+runtime, production, or scientific PASS.
+
+Independent raw-artifact reading established two harness confounds. First, the
+executed launcher exported a 106-byte output-local temp directory. The
+post-ACK-error log directly records four CPython multiprocessing
+`OSError: AF_UNIX path too long` failures; all multiworker nodes shared that
+environment, so their timeout/failure behavior cannot be attributed to the
+candidate. Second, the outer per-node supervisor was itself a Linux subreaper.
+After the leader-exit helper died, its resistant descendant was adopted by that
+outer supervisor rather than the pytest parent. The inner test could kill but
+not reap the adopted zombie, leaving conservative process-group/identity probes
+live until outer cleanup. This is a nested-harness ownership conflict, not a
+confirmed production-code failure.
+
+Under S00's scoped source/test/evidence remediation authority, exact durable
+code candidate `26cffb02ced50b07f93021bc48310efb68b178a9` changes no
+production source. Its sole parent is the previous documentation HEAD
+`f8b781dd919443fab0d9c2e6e28c0207182800d5`; its exact seven-path diff is
+`439` insertions and `18` deletions:
+
+| Path | Git blob | SHA-256 |
+|---|---|---|
+| `fl_v3/tests/test_nuscenes_zip_dataset.py` | `6c1d53e6aa44a3f7a1c8a0e577ead976ec62d953` | `4874b22d575b731099c56aa67ef488f8e51f03c48e076428b7d957873e3730e7` |
+| `fl_v3/scripts/run_s07_b_runtime_tests.sh` | `738219c326bbf81375ecb74a2e132660167b6a43` | `7f60122b4cf84bfd356a957e963d0d73af0a1747b5ee16551a94c455163813d6` |
+| `fl_v3/scripts/run_s07_b_diagnostic_tests.sh` | `53a75c302cfcd896035da8c5d8b37ccc805c4c3c` | `2816fbb42cdef927cd6ae12a7e19364ca94b41c4f4ae525d3282021a2782f510` |
+| `fl_v3/scripts/run_s07_b_dummy_attribution.sh` | `b4d547fd698afb14a63a1e6b1b3380687ca2750b` | `782a7b08d1d2e7755f4f766073dcc10b29119097e91a4546a98e470e30bedbdd` |
+| `fl_v3/scripts/run_s07_b_postremediation_focused.sh` | `02a7e01cca425baa401732d0db6dbd00410a4de6` | `0abb307ca9cb4149388bc6dd6c7fa452eb30158594989149219c9f82bcdd5c20` |
+| `fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh` | `0241bcbbdf0a86e9c0a4aaee7c39e7ad64aa1e3f` | `72c5b683d7aa664463396bf96912e072df4d1f153f72a1eee72b1b24167dfa18` |
+| `fl_v3/scripts/run_s07_b_static_checks.sh` | `83f75d87af477ca503f069f40328d9319693fcee` | `05e233d36128c17354f8497c75f29ecc967d697471b3b51b80f42e888735d617` |
+
+The exact candidate semantics are:
+
+- all five S07-B runtime/diagnostic/attribution launchers use random
+  `mktemp -d -p /tmp` job-unique mode-0700 temp directories capped at 48 bytes,
+  with numeric job ID, exact 12-hex executable prefix, anchored basename,
+  exact `/tmp` parent, no-symlink, and device/inode validation;
+- their EXIT traps preserve the original exit code and recursively remove only
+  the exact successfully acquired temp directory when its path and device/inode
+  still match. Formal artifacts remain under the separately frozen output root;
+- only the leader-exit hostile saves/enables Linux child-subreaper state before
+  helper start, proves the exact descendant was adopted by the pytest parent,
+  and reaps only that verified `(PID,starttime)` with bounded
+  `waitpid(pid,WNOHANG)`. PID reuse, different PPID, or non-child state cannot
+  trigger a reap. The saved state is restored on every path and restore failure
+  remains additive cleanup evidence;
+- static launcher-contract checks cover shell syntax, random short-temp
+  construction, trap-before-assertion order, anchored deletion, device/inode,
+  length, mode, and post-environment TMP/TEMP exports. The leader-exit hostile
+  asserts adoption PPID, exact wait status, and subreaper restoration.
+
+Static checks on the exact committed tree produced:
+
+```text
+bash fl_v3/scripts/run_s07_b_static_checks.sh --launcher-contract-only
+short TMPDIR contract: 5 launchers OK
+
+python3 source-text compile of test_nuscenes_zip_dataset.py
+test source compile: PASS
+
+stdlib compile() of every PY heredoc in run_s07_b_*.sh
+embedded Python heredocs: 19 PASS
+
+git diff --check f8b781dd919443fab0d9c2e6e28c0207182800d5 \
+  26cffb02ced50b07f93021bc48310efb68b178a9
+<empty; PASS>
+```
+
+The one transient launcher-contract assertion observed while declarations and
+the checker were being edited concurrently was an editing-state race; both S00
+and the worker independently reran the stable exact candidate and obtained the
+PASS above. It is not runtime evidence and not a candidate negative result.
+
+Historical executable `4b3c8474...`, candidate `c53117a...`, Job 352105 raw
+artifacts, and all earlier negative evidence remain immutable. This work has not
+run pytest/project import/Torch/CUDA/data/Slurm and has no independent review
+yet. The code SHA is durable, while this updated lifecycle prose remains an
+uncommitted documentation diff. Current compute is
+`NOT_APPROVED_DO_NOT_SUBMIT`; the candidate authorizes no compute, merge, push,
+upload, or scientific interpretation.

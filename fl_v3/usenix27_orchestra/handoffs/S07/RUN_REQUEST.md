@@ -1101,11 +1101,11 @@ workload, Slurm submission, compute, merge, push, upload, or publication.
 
 ---
 
-## H. S07-B isolated multiworker diagnostic — EXECUTED ONCE / ACTIVE / APPROVAL CONSUMED
+## H. S07-B isolated multiworker diagnostic — EXECUTED ONCE / DIAGNOSTIC COMPLETE / SUITE FAIL
 
 ### Approval state, purpose, and exclusions
 
-- **Status:** `EXECUTED_ONCE_JOB_352105_ACTIVE_APPROVAL_CONSUMED_NO_RETRY`.
+- **Status:** `EXECUTED_ONCE_JOB_352105_DIAGNOSTIC_COMPLETE_SUITE_FAIL_HARNESS_CONFOUNDED_APPROVAL_CONSUMED_NO_RETRY`.
 - Canonical O-074 at exact Orchestra commit
   `e18984ac286c7d61170a77d122149ce51de8b57a` authorizes preparation only of
   this distinct diagnostic after preserving Job 351903. It does not authorize
@@ -1251,3 +1251,63 @@ dependency identity, node list/order/count, subprocess/session/supervisor/
 cleanup semantics, timeout, data, resource, path, artifact, summary, acceptance,
 stop rule, or command voids a future approval. This preparation itself runs no
 project import, pytest, Torch/CUDA/data workload, Slurm, merge, push, or upload.
+
+### Terminal execution record and consumed approval
+
+Job `352105` finished scheduler `COMPLETED 0:0` after `00:09:53` on `n424`.
+The scheduler result is harness completion only. Raw summary status is
+`diagnostic_complete=true`, `artifact_complete=true`, `suite_pass=false` with
+two exact PASS nodes, two exact failing nodes, and five timed-out nodes. All
+process-group/exact-identity cleanup predicates passed and all 46 manifest
+records independently verified. Section H/O-075 remains consumed; this
+terminal record authorizes no retry, requeue, alternate invocation,
+replacement, resubmission, or follow-on.
+
+The outcome is harness-confounded. The executable exported a 106-byte output-
+local `TMPDIR`; raw CPython multiprocessing traces prove `AF_UNIX path too long`.
+The outer diagnostic subreaper also adopted the leader-exit orphan, so the inner
+pytest parent could not reap it after group KILL. Exact outcomes, artifacts,
+hashes, and interpretation limits are preserved in `RESULTS.md`.
+
+### Scoped remediation state — source preparation only, no compute approval
+
+S00 subsequently authorized source/test/evidence remediation only. It does not
+approve a new Slurm job. Exact code candidate
+`26cffb02ced50b07f93021bc48310efb68b178a9`, parent
+`f8b781dd919443fab0d9c2e6e28c0207182800d5`, freezes this replacement
+contract:
+
+| Runtime/test input | Git blob | SHA-256 |
+|---|---|---|
+| `tests/test_nuscenes_zip_dataset.py` | `6c1d53e6aa44a3f7a1c8a0e577ead976ec62d953` | `4874b22d575b731099c56aa67ef488f8e51f03c48e076428b7d957873e3730e7` |
+| `scripts/run_s07_b_runtime_tests.sh` | `738219c326bbf81375ecb74a2e132660167b6a43` | `7f60122b4cf84bfd356a957e963d0d73af0a1747b5ee16551a94c455163813d6` |
+| `scripts/run_s07_b_diagnostic_tests.sh` | `53a75c302cfcd896035da8c5d8b37ccc805c4c3c` | `2816fbb42cdef927cd6ae12a7e19364ca94b41c4f4ae525d3282021a2782f510` |
+| `scripts/run_s07_b_dummy_attribution.sh` | `b4d547fd698afb14a63a1e6b1b3380687ca2750b` | `782a7b08d1d2e7755f4f766073dcc10b29119097e91a4546a98e470e30bedbdd` |
+| `scripts/run_s07_b_postremediation_focused.sh` | `02a7e01cca425baa401732d0db6dbd00410a4de6` | `0abb307ca9cb4149388bc6dd6c7fa452eb30158594989149219c9f82bcdd5c20` |
+| `scripts/run_s07_b_multiworker_diagnostic.sh` | `0241bcbbdf0a86e9c0a4aaee7c39e7ad64aa1e3f` | `72c5b683d7aa664463396bf96912e072df4d1f153f72a1eee72b1b24167dfa18` |
+| `scripts/run_s07_b_static_checks.sh` | `83f75d87af477ca503f069f40328d9319693fcee` | `05e233d36128c17354f8497c75f29ecc967d697471b3b51b80f42e888735d617` |
+
+- every S07-B runtime launcher obtains a random, job-unique mode-0700 directory
+  using `mktemp -d -p /tmp`, validates numeric `SLURM_JOB_ID`, exact 12-hex
+  executable prefix, an anchored `/tmp/flv3-s07b-...` basename, exact `/tmp`
+  parent, no symlink, and an absolute path of at most 48 bytes;
+- an EXIT trap preserves the original exit code and deletes only the exact
+  path whose device/inode identity was captured immediately after successful
+  `mktemp`; durable JSON/JUnit/log/checksum artifacts remain under the approved
+  output root;
+- only the leader-exit hostile temporarily makes the pytest parent the nearest
+  Linux child subreaper. It saves `PR_GET_CHILD_SUBREAPER`, enables before
+  helper start, validates orphan adoption to the pytest parent, and performs
+  bounded `waitpid(exact_pid, WNOHANG)` only after rechecking exact procfs
+  starttime and PPID. It never uses `waitpid(-1)` and always attempts to restore
+  the saved subreaper state; failures remain cleanup evidence without masking a
+  primary failure.
+
+The historical Section H executable, source hashes, command, raw output, and
+negative interpretation remain immutable. Candidate `26cffb0` passed five-
+launcher contract checks (`short TMPDIR contract: 5 launchers OK`), source-text
+compile of the changed test, stdlib compile of all 19 embedded Python heredocs,
+six launcher/static-check `bash -n` checks, and `git diff --check` against its
+exact parent. It did not run project import, pytest, multiprocessing, Torch,
+CUDA, data, model, or Slurm. It remains pending independent review and a wholly
+new exact request. **Current compute status is `NOT_APPROVED_DO_NOT_SUBMIT`.**

@@ -575,3 +575,108 @@ quality claims; mAP/NDS, 100/1000-step training, FL, attack/defense,
 generalization, matrix/seed, or publication evidence. O-074 authorizes only a
 distinct diagnostic request preparation after this durable negative record; it
 does not authorize compute, retry, merge, push, or upload.
+
+## Job 352105 — multiworker diagnostic COMPLETE / suite FAIL / harness-confounded
+
+### Scheduler, immutable identity, and artifact completeness
+
+Job `352105` (`flv3_s07b_mw_diag`) completed scheduler `COMPLETED 0:0` on
+`n424` in `00:09:53`, with `Restarts=0`, batch `MaxRSS=1999993K`, and
+`TotalCPU=06:38.907`. Scheduler success means only that the diagnostic harness
+attempted all nine nodes and finalized its evidence. The authoritative summary
+is `diagnostic_complete=true`, `artifact_complete=true`, `suite_pass=false`.
+
+The exact candidate/executable remained
+`c53117a889987c3070b60817e52bdb4aac4c9098` /
+`4b3c8474a4441a083cc4954c489c48698ee2bf2b`. The output root is
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_mw_diag_4b3c8474a444`;
+the matching execution snapshot is read-only. Independent
+`sha256sum -c sha256sums.txt` verified all 46 listed artifacts. Principal
+SHA-256 values are:
+
+| Artifact | SHA-256 |
+|---|---|
+| `diagnostic_summary.json` | `0ea391ad8f85e7567ca3473082dd1d15c3c32383ef591cb77c5d13348d104a9b` |
+| `execution_identity.json` | `49578ac65cf40fe3e11b0dd3676a0256b8a159e713edc857549b8e08bd148c58` |
+| `diagnostic_run_config.json` | `6a74231ec26177ff44fadde407541739fd794e6f6423efb849241a1d06595ec6` |
+| source list / source state | `c9e0a4175725e59d1e4e3e3efbe3421c0d9b8480fd5161cf5147ae9184eb511f` / `f645ae7859d2e3384e805d97bb8256ce6c90cf6540d0ca7538a1518901785d19` |
+| `selected_nodes.tsv` | `b216a6512b5d54d58c1e9acf632ae34b4fac1b930df0cafe83c4ca7b86e6eeca` |
+| `sha256sums.txt` | `00ada336cac0e26f2d60423d425c11439289f96154b1df4e4a6611ea7c59eb6d` |
+| scheduler stdout / stderr | `b487105ba3313bc7ea4d827223fb1979fd240511cd034681dba0df10f337251a` / `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+### Exact node outcomes
+
+| Node | Formal outcome | Interpretation |
+|---|---|---|
+| ZIP persistent fork | timeout, return `-15`, no JUnit | Harness supervisor cleaned the root group and exact/adopted identities. Runtime result is confounded by the job temp-path defect below. |
+| ZIP persistent spawn | timeout, return `-15`, no JUnit | Same boundary; no candidate failure may be inferred. |
+| ZIP pre-ACK | JUnit `1/0/0/0`, return `0` | PASS for this exact hostile. |
+| ZIP post-ACK error | JUnit `1 failure`, return `1` | Raw traceback exposes the AF_UNIX temp-path defect; this is harness failure, not lifecycle attribution. |
+| ZIP leader-exit | JUnit `1 failure`, return `1` | Outer-supervisor subreaper ownership prevents the pytest parent from reaping its killed orphan; this is a nested-harness ownership conflict. |
+| ZIP post-ACK hang | JUnit `1/0/0/0`, return `0` | PASS for this exact hostile. |
+| dummy multiworker | timeout, return `-15`, no JUnit | Temp-path-confounded; no model/task regression attribution. |
+| detection loader determinism | timeout, return `-15`, no JUnit | Temp-path-confounded; no loader regression attribution. |
+| CUDA-initialized production spawn/persistent | timeout, return `-15`, no JUnit | Temp-path-confounded; no production-loader regression attribution. |
+
+All nine supervisor results have `cleanup_ok=true`; the final global predicate
+`all_process_groups_and_identities_cleaned=true` holds. The present JUnit totals
+are four tests, two failures, zero errors, zero skips; missing JUnit for timed-out
+nodes is preserved rather than synthesized.
+
+### Confirmed harness confounds and interpretation limit
+
+The executed launcher exported the exact 106-byte directory
+`.../outputs/s07b_mw_diag_4b3c8474a444/tmp` as `TMPDIR`, `TMP`, and `TEMP`.
+The post-ACK-error raw log contains four direct
+`OSError: AF_UNIX path too long` traces from CPython multiprocessing
+`resource_sharer -> Listener -> SocketListener.bind`. This invalidates runtime
+attribution for every affected multiworker/queue/poll timeout; absence of the
+same printed exception in a blocked parent is not evidence that its workers had
+a different environment.
+
+The diagnostic supervisor itself is a Linux child subreaper. In the leader-exit
+node, raw tracked identity shows the resistant descendant reparented to outer
+supervisor PID `401513` after helper leader exit. The inner pytest parent could
+kill the verified group but could not `waitpid` that adopted zombie; its
+group/identity liveness checks therefore remained conservatively true until the
+outer supervisor reaped it. This invalidates the inner hostile result as a
+production-code failure.
+
+Allowed: Job 352105 completed an artifact- and cleanup-complete diagnostic and
+identified two concrete harness defects. Forbidden: calling the nine-node suite
+PASS; treating any of the five timeouts or two failures as a candidate/runtime/
+production regression; using the two passing hostiles as complete multiworker
+readiness; or making model, full-data, performance, metric, FL, attack/defense,
+or scientific claims. Any corrected launcher/test version requires a new exact
+SHA, independent review, and separately approved request; no retry or follow-on
+compute is authorized by this result.
+
+### Exact post-diagnostic remediation candidate — static evidence only
+
+Code/test remediation is now durable at
+`26cffb02ced50b07f93021bc48310efb68b178a9`, exact parent
+`f8b781dd919443fab0d9c2e6e28c0207182800d5`. It changes exactly seven
+test/launcher paths and no production source:
+
+| Path | Git blob | SHA-256 |
+|---|---|---|
+| `tests/test_nuscenes_zip_dataset.py` | `6c1d53e6aa44a3f7a1c8a0e577ead976ec62d953` | `4874b22d575b731099c56aa67ef488f8e51f03c48e076428b7d957873e3730e7` |
+| `scripts/run_s07_b_runtime_tests.sh` | `738219c326bbf81375ecb74a2e132660167b6a43` | `7f60122b4cf84bfd356a957e963d0d73af0a1747b5ee16551a94c455163813d6` |
+| `scripts/run_s07_b_diagnostic_tests.sh` | `53a75c302cfcd896035da8c5d8b37ccc805c4c3c` | `2816fbb42cdef927cd6ae12a7e19364ca94b41c4f4ae525d3282021a2782f510` |
+| `scripts/run_s07_b_dummy_attribution.sh` | `b4d547fd698afb14a63a1e6b1b3380687ca2750b` | `782a7b08d1d2e7755f4f766073dcc10b29119097e91a4546a98e470e30bedbdd` |
+| `scripts/run_s07_b_postremediation_focused.sh` | `02a7e01cca425baa401732d0db6dbd00410a4de6` | `0abb307ca9cb4149388bc6dd6c7fa452eb30158594989149219c9f82bcdd5c20` |
+| `scripts/run_s07_b_multiworker_diagnostic.sh` | `0241bcbbdf0a86e9c0a4aaee7c39e7ad64aa1e3f` | `72c5b683d7aa664463396bf96912e072df4d1f153f72a1eee72b1b24167dfa18` |
+| `scripts/run_s07_b_static_checks.sh` | `83f75d87af477ca503f069f40328d9319693fcee` | `05e233d36128c17354f8497c75f29ecc967d697471b3b51b80f42e888735d617` |
+
+Stable-tree static results were: six relevant shell files passed `bash -n`;
+the five-launcher checker printed `short TMPDIR contract: 5 launchers OK`;
+the changed test passed source-text `compile()`; all 19 embedded Python
+heredocs passed stdlib `compile()`; and
+`git diff --check f8b781dd..26cffb02` was empty. No project import, pytest,
+multiprocessing runtime, Torch/CUDA/data/model workload, or Slurm was run.
+
+These static results do not repair or reinterpret Job 352105 retroactively.
+That job's summary/source/log/checksum hashes and 2 PASS / 2 FAIL / 5 timeout
+negative shape above remain exact. Candidate `26cffb0` is pending independent
+review and separately approved runtime evidence. Current compute remains
+`NOT_APPROVED_DO_NOT_SUBMIT`.
