@@ -1356,3 +1356,113 @@ immutable candidate for independent review. It is not worker/code-level PASS,
 runtime readiness, production/full-data evidence or scientific evidence. No O-009
 request should be prepared until an independent reviewer accepts the exact final
 delivery SHA.
+
+### S07-B-R6 publisher-ownership and hostile-reachability remediation
+
+Independent S07-B-R6 reviewed exact parent
+`8cdeceb4e72042874f6ab5aa8a39e84ab67bf934` and returned
+`CHANGES-REQUESTED` at durable review commit
+`ef01d1cad73021acb87b01874726b83da6470e84`. The R6 REVIEW blob is
+`b7a6450ec618dc5a3f40503d12a3605ed4e7c64d`, size 121,397 bytes, SHA-256
+`14dd6749ec63fd473e1818109cd42553127e5e6f10daa9d9407f9c6f132190e1`.
+R6 accepted the guard-plan identity, complete final/no-replace publication and
+dirfd containment bodies statically, but found that the successful publisher's
+wildcard orphan cleanup could unlink another still-live publisher's private temp.
+It also required caller-level reachability for the remaining race, symlink, count
+and interleaved-target hostiles.
+
+S00 returned those findings under O-047. Exact implementation/test commit
+`8a7b60b2dd27b1c7ba72e53ddbe67b278ea2f512` changes only
+`fl_v3/scripts/t5_attack_eval.py` and
+`fl_v3/tests/test_s07_b_integration.py`. Their exact committed SHA-256 values are
+respectively
+`19bcc9ccbea89ba363d6a6bee47449448339b1b519f792e6fdfcf99e3d08034d`
+and
+`3d32ed5bbde9d259ad392133d778f6686253230ca9cac93d407c61060b6f08d5`.
+
+#### Private-temp ownership correction
+
+- Every publisher now unlinks only the exact random private temp name that it
+  created. The same `finally` ownership rule applies after a successful publish,
+  `FileExistsError` lost race, or handled write/link exception. There is no
+  directory-wide wildcard cleanup and no publisher can unlink another live or
+  closed publisher temp.
+- `FileNotFoundError` for a publisher's own temp is no longer reinterpreted as a
+  legitimate lost race. Only the final-name `FileExistsError` produced by the
+  no-replace hard link is a lost-publisher result. The caller then reads the
+  complete final and requires exact whole-manifest equality; a different winner
+  still fails.
+- Existing publication semantics are unchanged: each mode-0600 private temp is
+  written completely and file-`fsync`ed before same-directory hard-link publish;
+  final naming is atomic/no-replace; the run directory is `fsync`ed; a partial
+  final is rejected and never overwritten.
+- The R5 handoff statement that a later publisher automatically removes abandoned
+  matching temps is superseded. A true abrupt process death may conservatively
+  leave an unreferenced private temp. It is never parsed as a manifest or artifact,
+  cannot overwrite the final name, and does not authorize stale run content. Safe
+  orphan reclamation is deliberately left to an explicit maintenance procedure
+  with a separately proven ownership/freshness policy; correctness prefers a
+  harmless retained orphan over interference with a live publisher.
+
+No guard selection, model/head/NMS/metric/control/protocol or data ownership
+semantics changed. Run v2 and guard v2 continue to bind the declared positive
+guard count, exact sorted sample prefix, exact frozen-order selected targets and
+their selection hash; aggregate retains both exact count equalities before metric
+use.
+
+#### Exact authored hostile additions
+
+- A live second-publisher temp remains named and writable through another
+  publisher's handled partial-write failure, successful publish and subsequent
+  lost race. Each tested publisher removes only its own temp; the fixture owner
+  explicitly removes the live temp afterward.
+- Two caller-level cases exercise the real `_bind_run_manifest()`
+  `published=False` branch: an exact complete winner is accepted, while a complete
+  winner with a different selected poison identity is preserved and rejected.
+  The monkeypatch only schedules which real `_atomic_publish_json_at()` call wins;
+  it does not replace manifest loading, equality or the production branch under
+  test.
+- Symlink hostiles reach the production no-follow helpers for `ablation`,
+  `stealth_det_eval` and `viz` subdirectories and for manifest, canonical shard,
+  stealth, guard and aggregate-result artifact names. Each outside target remains
+  unchanged.
+- Guard artifacts with only `n_invariance_checks` changed or only recall `total`
+  changed reach and fail their distinct aggregate validation branches.
+- A six-target fixture interleaves multiple targets from three samples. Selecting
+  the lexically first two samples proves the sample prefix is sorted while the four
+  retained targets preserve their original frozen interleaved order.
+
+These tests are authored but were not executed with pytest.
+
+Actually run after the exact implementation:
+
+- `python3 -m py_compile` on the two changed Python/test files: PASS;
+- stdlib AST parse of both changed files: `AST_OK=2`;
+- `git diff --check`: PASS;
+- `bash -n fl_v3/scripts/run_s07_b_static_checks.sh`: PASS;
+- AST-extracted stdlib execution of the exact production helpers kept another
+  publisher FD open and writable across complete publish and lost race, preserved
+  the exact winner, rejected subdirectory/artifact symlinks and confirmed the
+  multi-sample frozen target order: `STDLIB_HELPERS_OK`.
+
+The `py_compile` check generated exactly
+`fl_v3/scripts/__pycache__/t5_attack_eval.cpython-39.pyc` and
+`fl_v3/tests/__pycache__/test_s07_b_integration.cpython-39.pyc`. After explicit
+S00 authorization, only those two ignored files were deleted; neither cache
+directory nor any other cache/artifact was removed. Final physical inspection
+confirmed that both paths are absent and the worktree has no R6-generated residue.
+
+Explicitly **NOT RUN / NO IMPLIED PASS**: pytest or any authored test; the full
+static launcher or production-package import; Torch/spconv/cumm; checkpoint parse
+or raw/EMA load; cache/manifest/data/model; directory/ZIP workers; T5 shard/
+aggregate/stealth/guards/viz; official devkit; CUDA/Slurm/GPU; full cache;
+100/1000 steps; profile/metrics/DDP; retry/rerun or scientific cell. No
+RUN_REQUEST/RESULTS, canonical, review, collab, model/head/NMS/metric/protocol file
+was changed, and no merge to `v3-ad-perception`, push, upload or publication
+occurred.
+
+This closes the exact R6 cleanup-ownership and authored-reachability findings at
+static/helper level and returns a new immutable candidate for independent review.
+It is not worker/code-level PASS, runtime readiness, production/full-data evidence
+or scientific evidence. No O-009 request should be prepared until an independent
+reviewer accepts the exact final delivery SHA.
