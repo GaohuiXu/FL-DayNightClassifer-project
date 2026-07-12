@@ -943,11 +943,11 @@ change follows any outcome.
 
 ---
 
-## G. S07-B post-remediation focused GH200 validation — APPROVED ONCE / PENDING SUBMISSION
+## G. S07-B post-remediation focused GH200 validation — EXECUTED ONCE / ACTIVE / APPROVAL CONSUMED
 
 ### Approval state and exact purpose
 
-- **Status:** `APPROVED_ONCE_PENDING_SUBMISSION`.
+- **Status:** `EXECUTED_ONCE_JOB_351903_ACTIVE_APPROVAL_CONSUMED_NO_RETRY`.
 - Canonical O-071 is
   `bf7fd65f4b58b6981b0604647489595b4903beaf`. It authorizes request
   preparation only; it does not authorize `sbatch`, `srun`, compute, retry,
@@ -964,6 +964,14 @@ change follows any outcome.
   consumes O-072 regardless of scheduler or suite outcome; no retry, requeue,
   alternate invocation, replacement, automatic resubmission, or follow-on is
   approved.
+- Canonical O-073 at exact Orchestra commit
+  `8e61c05ce19ad7ec4eeb65d63b625f6e79d08ae2` records one unchanged exact
+  Section G submission as Slurm Job `351903`: submitted
+  `2026-07-12T15:56:43+02:00`, started `2026-07-12T15:56:44+02:00`, and active
+  on node `n424`. This single submission consumed O-072 immediately regardless
+  of eventual scheduler or suite outcome. No retry, requeue, alternate
+  invocation, replacement, automatic resubmission, or follow-on is authorized.
+  This record does not query or interpret scheduler/runtime results.
 - This is one bounded engineering validation of the code-level/static-review
   PASS candidate `c53117a889987c3070b60817e52bdb4aac4c9098`. It tests only
   the remediated ZIP lifecycle/hostiles, production spawn and zero-worker

@@ -2208,3 +2208,14 @@ attempt consumes O-072 regardless of scheduler or suite outcome; no retry,
 requeue, alternate invocation, replacement, automatic resubmission, or
 follow-on is approved. This docs-only approval record performs no submission,
 compute, merge, push, upload, publication, or scientific interpretation.
+
+Canonical O-073 at exact Orchestra commit
+`8e61c05ce19ad7ec4eeb65d63b625f6e79d08ae2` records that the unchanged exact
+Section G command was submitted once as Slurm Job `351903` at
+`2026-07-12T15:56:43+02:00`, started at `2026-07-12T15:56:44+02:00`, and is
+active on node `n424`. Status is
+`EXECUTED_ONCE_JOB_351903_ACTIVE_APPROVAL_CONSUMED_NO_RETRY`; O-072 was
+consumed immediately regardless of eventual scheduler or suite outcome. No
+retry, requeue, alternate invocation, replacement, automatic resubmission, or
+follow-on is authorized. This docs-only record does not query or interpret
+runtime results and changes none of the exact approved tuple.
