@@ -2239,3 +2239,39 @@ per-entry, artifact/hash, and interpretation evidence is in RESULTS. O-072 is
 consumed with no retry/requeue/replacement/follow-on. O-074 authorizes only
 preparation of a distinct nine-node multiworker diagnostic request; it does not
 authorize that compute or any code/test/config/result interpretation change.
+
+### O-074 distinct multiworker diagnostic request preparation
+
+On top of the durable Job 351903 negative-results commit
+`0e549ea9c34e8d19d3e55c785ca2c240f475e346`, launcher-only commit `L` is
+`4b3c8474a4441a083cc4954c489c48698ee2bf2b`. Its launcher blob/SHA-256 are
+`9d8dcc98259c2902443a106970665282b70044b0` /
+`b995307e93026c993c3f1b3e4038e637a6a5a9437c0f52fe37b5d483bce81fbe`;
+the exact 90-file source-list/state tuple is
+`c9e0a4175725e59d1e4e3e3efbe3421c0d9b8480fd5161cf5147ae9184eb511f` /
+`f645ae7859d2e3384e805d97bb8256ce6c90cf6540d0ca7538a1518901785d19`.
+Candidate-to-`L` has no source/test/environment/dependency-manifest changes, so
+the diagnostic remains bound to exact code/test candidate `c53117a...`.
+
+RUN_REQUEST Section H freezes nine exact nodes once each: explicit persistent
+fork/spawn, four ready/ACK/error/leader/hang hostiles, dummy multiworker,
+detection multiworker determinism, and CUDA-initialized production
+spawn/persistent. Each runs in a distinct new session/process group under a
+90-second supervisor and 30-second pytest faulthandler. Timeout cleanup is
+whole-group TERM, five-second grace, whole-group KILL if needed, plus exact-
+identity cleanup of escaped-session descendants. A Linux subreaper runs
+fixed-point scan/reap/TERM/KILL cleanup and forbids cross-node survival.
+
+Per-node results preserve failures/timeouts while separately proving log/JUnit/
+exit/identity/cleanup/checksum completeness. `diagnostic_complete` is separate
+from `suite_pass`; scheduler success cannot substitute for either. The request
+is mini-only, one GH200/eight CPUs/64 GiB/20 minutes and excludes overfit/full
+suite/full data/cache/100-1000-step/metrics/profile/DDP/matrix/retry.
+
+Preparation checks actually run: launcher `bash -n`, stdlib AST parse of all
+four embedded Python programs, exact nine-node/source enumeration, immutable
+archive source/hash reproduction, candidate-to-executable runtime-source diff,
+launcher/bootstrap/ownership and `git diff --check`. Not run: project import,
+pytest, pycompile, Torch/NumPy/CUDA/spconv/cumm, data/model workload, Slurm/GPU.
+Section H remains `PREPARED_NOT_APPROVED_DO_NOT_SUBMIT`; no submission, retry,
+merge, push, upload, publication, or scientific interpretation occurred.

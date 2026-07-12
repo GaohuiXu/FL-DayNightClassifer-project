@@ -1098,3 +1098,138 @@ pytest flags/timeouts, mini root, cleared overrides, snapshot/output/log paths,
 resources, artifacts, acceptance, stop rules, or command invalidates a future
 approval. Preparation performed no project import, pytest, Torch/CUDA/data
 workload, Slurm submission, compute, merge, push, upload, or publication.
+
+---
+
+## H. S07-B isolated multiworker diagnostic — PREPARED / NOT APPROVED
+
+### Approval state, purpose, and exclusions
+
+- **Status:** `PREPARED_NOT_APPROVED_DO_NOT_SUBMIT`.
+- Canonical O-074 at exact Orchestra commit
+  `e18984ac286c7d61170a77d122149ce51de8b57a` authorizes preparation only of
+  this distinct diagnostic after preserving Job 351903. It does not authorize
+  `sbatch`, `srun`, compute, retry, requeue, replacement, or follow-on.
+- The purpose is narrow attribution of the two Job 351903 multiworker timeouts
+  and the explicit ZIP lifecycle hostiles. Each exact node runs once in an
+  independent pytest subprocess/session/process group. This is not a retry of
+  Section G and no node is retried inside this harness.
+- Excluded: `test_model_overfit.py`, full suite, full cache/trainval, 100/1000-
+  step work, metrics, profiling, DDP, matrices, seeds, automatic resubmission,
+  and any scientific, quality, throughput, FL, attack/defense, or publication
+  interpretation.
+
+### Immutable candidate, executable, source, and dependency identity
+
+- Exact code/test candidate:
+  `c53117a889987c3070b60817e52bdb4aac4c9098`.
+- Exact launcher-only preparation commit `L`:
+  `4b3c8474a4441a083cc4954c489c48698ee2bf2b`; parent negative-results commit:
+  `0e549ea9c34e8d19d3e55c785ca2c240f475e346`.
+- Candidate-to-`L` has no changes under `fl_v3/src/fl_v3`, `fl_v3/tests`,
+  `fl_v3/scripts/arrhenius_env.sh`, `fl_v3/pyproject.toml`, or either
+  requirements file. Thus the archived executable carries exact candidate
+  code/tests plus later evidence/transport files; the new diagnostic launcher
+  is separately source-attested.
+- Launcher Git blob/SHA-256:
+  `9d8dcc98259c2902443a106970665282b70044b0` /
+  `b995307e93026c993c3f1b3e4038e637a6a5a9437c0f52fe37b5d483bce81fbe`.
+- Exact 90-file C-locale source-list/state SHA-256:
+  `c9e0a4175725e59d1e4e3e3efbe3421c0d9b8480fd5161cf5147ae9184eb511f` /
+  `f645ae7859d2e3384e805d97bb8256ce6c90cf6540d0ca7538a1518901785d19`.
+- The set contains every Python source under `fl_v3/src/fl_v3`, conftest, the
+  two selected test modules, this launcher, Arrhenius environment bootstrap,
+  pyproject, and both requirements files. Bootstrap SHA-256 is
+  `f57befbb5082aaf4d4bb186958a88420ea873e0fdee5c65da1091b73f566c2bf`.
+- Locked runtime identity: Linux aarch64, CPython `3.11.15`, NumPy `1.26.4`,
+  SciPy `1.13.1`, pytest `9.1.1`, Torch `2.11.0+cu128`, torchvision
+  `0.26.0+cu128`, spconv `2.3.8`, cumm `0.7.13`, nuscenes-devkit `1.1.11`,
+  pyquaternion `0.9.9`, Pillow `12.2.0`, and exactly one visible CUDA device.
+
+### Exact nine nodes, once each
+
+1. `test_nuscenes_zip_dataset.py::test_repeated_persistent_multiworker_reads_are_deterministic[fork]`;
+2. `test_nuscenes_zip_dataset.py::test_repeated_persistent_multiworker_reads_are_deterministic[spawn]`;
+3. `test_nuscenes_zip_dataset.py::test_explicit_fork_pre_ack_failure_never_forks_or_touches_parent_group`;
+4. `test_nuscenes_zip_dataset.py::test_explicit_fork_post_ack_error_preserves_primary_and_cleanup_evidence`;
+5. `test_nuscenes_zip_dataset.py::test_explicit_fork_post_ack_leader_exit_cleans_verified_orphan_group`;
+6. `test_nuscenes_zip_dataset.py::test_explicit_fork_post_ack_hang_kills_verified_group_and_descendant`;
+7. `test_model_task.py::test_dummy_multiworker_loader_is_spawn_and_consumes_batch`;
+8. `test_model_task.py::test_loader_determinism_num_workers`;
+9. `test_model_task.py::test_cuda_initialized_production_loader_is_spawn_persistent`.
+
+Every node gets a fresh output/basetemp and one `python -X faulthandler -m
+pytest -vv --tb=long` subprocess with plugin autoload/cacheprovider disabled
+and `faulthandler_timeout=30`. Python `Popen(start_new_session=True)` must yield
+exact `PID == SID == PGID`. A Linux subreaper supervisor samples descendant
+`(PID,/proc starttime,PPID,PGID,SID)` identities and writes pytest directly to
+the durable verbose log, avoiding pipe backpressure.
+
+The supervisor waits at most 90 seconds. On timeout it sends TERM to the exact
+owned whole pytest process group, waits up to five seconds for both leader and
+group disappearance, then sends KILL to that whole group if still present.
+Escaped-session descendants discovered by exact process identity receive
+additional exact-PID TERM/KILL cleanup. After the root is waited, fixed-point
+cleanup repeatedly scans, reaps newly adopted children, signals newly observed
+live exact identities, and requires three stable empty scans. The supervisor
+then verifies the root group and every tracked process instance absent and
+forbids any adopted/cross-node descendant before the next node. Group signalling
+is refused unless a live exact owned identity still binds the group, preventing
+PGID-reuse signalling.
+
+For every node the parent closes/drains the durable verbose log and records
+exit, optional JUnit/counts, command, timestamps, timeout, root and descendant
+identities, TERM/KILL actions, reap evidence, final cleanup predicates, log/
+JUnit hashes, and a verified per-node checksum manifest. All nine nodes are
+attempted once even when an earlier node fails or times out; that continuation
+is diagnostic coverage, not retry.
+
+`diagnostic_complete` and `suite_pass` are separate. Failures/nonzero exits/
+timeouts/missing JUnit are valid preserved node outcomes and may still yield
+`diagnostic_complete=true`. `suite_pass=true` additionally requires every node
+exit zero, positive JUnit count, zero failure/error/skip/timeout, and no
+supervisor cleanup intervention. Identity, environment, source, collision,
+process-isolation/cleanup, required artifact, or checksum failure makes the
+harness itself incomplete/nonzero. Scheduler success can mean only harness
+completion, never suite PASS.
+
+### Data, resources, artifacts, paths, and exact proposed command
+
+- Literal mini root only:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini`.
+  Both supported mini dataroot variables are set exactly and ZIP/full-data
+  overrides are cleared. No shared trainval/full cache is opened.
+- One node/task/GH200, eight CPUs, 64 GiB, `00:20:00`; at most one third
+  GPU-hour. One attempt only, `--no-requeue`; no array/DDP/retry/follow-on.
+- Fresh immutable read-only snapshot:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_mw_diag_4b3c8474a444`.
+- Fresh output root:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_mw_diag_4b3c8474a444`.
+- Scheduler logs:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07b_mw_diag_%j.{out,err}`.
+- Required root artifacts: source list/hashes, exact-node manifest, locked
+  identity, diagnostic config, `diagnostic_summary.json`, and a final
+  C-locale-sorted manifest verified with `sha256sum -c`. Each node requires its
+  verbose log, exit, supervisor result, optional honest JUnit, and verified
+  per-node manifest. Fresh collision or identity/artifact failure stops/fails
+  the harness. There is no automatic code change, retry, or follow-on.
+
+```bash
+test -z "$(git branch --show-current)" && \
+test "$(git rev-parse HEAD)" = "4b3c8474a4441a083cc4954c489c48698ee2bf2b" && \
+test -z "$(git status --short)" && \
+test "$(git hash-object fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh)" = "9d8dcc98259c2902443a106970665282b70044b0" && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_mw_diag_4b3c8474a444 && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_mw_diag_4b3c8474a444 && \
+test -z "$(squeue -u "$USER" -h -o '%i %j' | awk '$2 == "flv3_s07b_mw_diag" {print}')" && \
+sbatch --nodes=1 --ntasks=1 --gpus-per-node=nvidia_gh200_120gb:1 \
+  --cpus-per-task=8 --mem=64G --time=00:20:00 --no-requeue \
+  --export=ALL,EXPECTED_S07B_MW_CANDIDATE_SHA=c53117a889987c3070b60817e52bdb4aac4c9098,EXPECTED_S07B_MW_EXECUTABLE_SHA=4b3c8474a4441a083cc4954c489c48698ee2bf2b,EXPECTED_S07B_MW_LAUNCHER_SHA256=b995307e93026c993c3f1b3e4038e637a6a5a9437c0f52fe37b5d483bce81fbe,EXPECTED_S07B_MW_SOURCE_SHA256=f645ae7859d2e3384e805d97bb8256ce6c90cf6540d0ca7538a1518901785d19,EXPECTED_S07B_MW_SOURCE_LIST_SHA256=c9e0a4175725e59d1e4e3e3efbe3421c0d9b8480fd5161cf5147ae9184eb511f,S07B_MW_APPROVAL_SCOPE=s07b-multiworker-diagnostic-only,S07B_MW_MINI_DATAROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini,S07B_MW_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_mw_diag_4b3c8474a444 \
+  fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh
+```
+
+Any drift in candidate/executable/runtime-source equivalence, launcher/source/
+dependency identity, node list/order/count, subprocess/session/supervisor/
+cleanup semantics, timeout, data, resource, path, artifact, summary, acceptance,
+stop rule, or command voids a future approval. This preparation itself runs no
+project import, pytest, Torch/CUDA/data workload, Slurm, merge, push, or upload.
