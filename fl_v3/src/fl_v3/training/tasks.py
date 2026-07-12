@@ -317,6 +317,7 @@ class DummyRegressionTask(Task):
         num_workers = int(run_config.get("num-workers", 0))
         g = torch.Generator()
         g.manual_seed(int(seed))
+        extra = {"multiprocessing_context": "spawn"} if num_workers > 0 else {}
         return DataLoader(
             TensorDataset(X, y),
             batch_size=batch_size,
@@ -325,6 +326,7 @@ class DummyRegressionTask(Task):
             worker_init_fn=seeded_worker_init,
             generator=g,
             drop_last=False,
+            **extra,
         )
 
     def client_data(self, client_id: int, run_config: dict) -> ClientData:
@@ -855,14 +857,16 @@ class NuScenesDetectionTask(Task):
             n = int(num_clients) if num_clients is not None else self.num_clients(run_config)
             ds = maybe_wrap_for_client(ds, int(client_id), run_config, n)
         sampler = _production_sampler(ds, run_config, shuffle=shuffle)
+        num_workers = int(run_config.get("num-workers", 0))
         return make_loader(
             ds,
             batch_size=int(run_config.get("batch-size", 1)),
             shuffle=shuffle,
-            num_workers=int(run_config.get("num-workers", 0)),
+            num_workers=num_workers,
             seed=int(run_config.get("seed", 42)),
             collate_fn=detection_collate_fn,
             sampler=sampler,
+            multiprocessing_context="spawn" if num_workers > 0 else None,
         )
 
     def client_data(self, client_id: int, run_config: dict) -> ClientData:

@@ -432,7 +432,7 @@ def test_multitask_loss_maps_global_labels_and_reaches_every_task_head():
 
 def test_multitask_loss_rejects_legacy_single_head_output():
     criterion = MultiTaskCenterPointLoss(BEVConfig())
-    with pytest.raises(ValueError, match="six task"):
+    with pytest.raises(ValueError, match="6 task dictionaries"):
         criterion({"heatmap": torch.zeros(1, 10, 1, 1)}, {
             "gt_boxes": [], "gt_labels": [],
         })

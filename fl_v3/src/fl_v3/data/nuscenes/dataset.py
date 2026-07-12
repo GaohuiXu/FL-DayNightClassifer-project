@@ -363,8 +363,12 @@ def make_loader(
     extra = {}
     if int(num_workers) > 0:
         extra.update(persistent_workers=True, prefetch_factor=4)
-        if multiprocessing_context is not None:
-            extra["multiprocessing_context"] = multiprocessing_context
+        # Production/default multi-worker loading is source-attested spawn-only.
+        # Explicit alternatives remain a low-level lifecycle-test hook; no
+        # production config surface exposes them.
+        extra["multiprocessing_context"] = (
+            "spawn" if multiprocessing_context is None else multiprocessing_context
+        )
     return DataLoader(
         dataset,
         batch_size=batch_size,

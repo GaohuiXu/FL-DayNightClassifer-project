@@ -64,15 +64,11 @@ def mini_val_info(nusc_mini):
 
 
 @pytest.fixture(scope="session")
-def mini_cache_dir(nusc_mini):
-    """Ensure the mini info-cache exists at the CWD-relative ``./fl_outputs/...`` path the
-    detection-task config defaults to (T2). Builds it from the devkit if absent — this is
-    TEST infrastructure (allowed to use the devkit), not ``client_data`` (which must raise
-    if the cache is missing). Skips cleanly if the dataset/devkit is unavailable (via the
-    ``nusc_mini`` dependency). Makes the T2 task tests reproducible from ANY pytest CWD."""
+def mini_cache_dir(nusc_mini, tmp_path_factory):
+    """Build the mini cache in session-owned scratch, never the repository CWD."""
     from fl_v3.data.nuscenes import info_cache as IC
 
-    cache_dir = "./fl_outputs/nuscenes/info_cache"
+    cache_dir = str(tmp_path_factory.mktemp("mini-info-cache"))
     for split in ("mini_train", "mini_val"):
         IC.get_or_build_cache(nusc_mini, cache_dir, "v1.0-mini", split, "mini-smoke", _P.DATAROOT)
     return cache_dir

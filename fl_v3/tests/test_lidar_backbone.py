@@ -51,13 +51,17 @@ def test_deep_4stage_backbone():
 
 
 def test_default_off_byte_identical():
-    """Backbone OFF ⇒ no lidar_backbone params, fuser width unchanged (80+64=144), 62-tensor layout intact."""
+    """Backbone OFF preserves six-task head topology and excludes LiDAR backbone."""
     off = BEVFusionDetector(DetectorConfig(pretrained_backbone=False))
     names = [n for n, _ in off.named_parameters()]
     assert not any(n.startswith("lidar_backbone") for n in names), "OFF must not construct lidar_backbone"
     assert off.lidar_backbone is None
     assert _first_conv_in_channels(off.fusion) == 80 + 64, "OFF fuser width must be unchanged (144)"
-    assert len(trainable_state_dict(off)) == 62, "OFF must keep the 62-tensor trainable layout"
+    state = trainable_state_dict(off)
+    assert len(state) == 230
+    head_count = sum(name.startswith("head.") for name in state)
+    assert head_count == 183
+    assert head_count - 15 == 168  # approved six-task increment over legacy head
 
 
 def test_on_path_wiring():

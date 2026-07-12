@@ -157,6 +157,8 @@ readonly JOB_TMP="${S07B_DIAGNOSTIC_OUTPUT_ROOT}/tmp"
 readonly ISOLATED_ROOT="${S07B_DIAGNOSTIC_OUTPUT_ROOT}/isolated"
 readonly COMBINED_ROOT="${S07B_DIAGNOSTIC_OUTPUT_ROOT}/combined"
 mkdir "${JOB_TMP}" "${ISOLATED_ROOT}" "${COMBINED_ROOT}"
+mkdir "${JOB_TMP}/isolated"
+test -d "${JOB_TMP}/isolated" -a -w "${JOB_TMP}/isolated"
 
 # shellcheck disable=SC1091
 source fl_v3/scripts/arrhenius_env.sh
@@ -286,6 +288,7 @@ for test_file in "${SELECTED_TESTS[@]}"; do
   stem="$(basename "${test_file}" .py)"
   attempt_dir="${ISOLATED_ROOT}/${ordinal}_${stem}"
   basetemp="${JOB_TMP}/isolated/${ordinal}_${stem}"
+  test -d "${JOB_TMP}/isolated" -a -w "${JOB_TMP}/isolated"
   log="${attempt_dir}/pytest.log"
   junit="${attempt_dir}/pytest.junit.xml"
   exitcode="${attempt_dir}/pytest.exitcode"

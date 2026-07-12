@@ -51,6 +51,10 @@ _DET_CFG = {
 }
 
 
+def _cfg_with_cache(mini_cache_dir, **overrides):
+    return {**_DET_CFG, "nuscenes-cache-dir": str(mini_cache_dir), **overrides}
+
+
 def test_detection_task_registered():
     from fl_v3.training.tasks import get_task, available_tasks
 
@@ -68,14 +72,14 @@ def test_detection_config_rejects_legacy_model_mode_alias():
 def test_num_clients_iid_is_requested(mini_cache_dir):
     from fl_v3.training.tasks import get_task
 
-    assert get_task("nuscenes_detection").num_clients(dict(_DET_CFG)) == 8
+    assert get_task("nuscenes_detection").num_clients(_cfg_with_cache(mini_cache_dir)) == 8
 
 
 def test_client_data_materializes_dict_batch(mini_cache_dir):
     from fl_v3.training.tasks import get_task
 
     task = get_task("nuscenes_detection")
-    cdata = task.client_data(0, dict(_DET_CFG))
+    cdata = task.client_data(0, _cfg_with_cache(mini_cache_dir))
     assert cdata.num_train > 0
     batch = next(iter(cdata.trainloader))
     assert isinstance(batch, dict)
@@ -93,7 +97,7 @@ def test_generalized_loop_trains_detection_batch(mini_cache_dir):
     enforce_determinism(strict=True); seed_everything(0)
     dev = torch.device("cuda")
     task = get_task("nuscenes_detection")
-    cfg = dict(_DET_CFG)
+    cfg = _cfg_with_cache(mini_cache_dir)
     model = task.build_model(cfg).to(dev)
     crit = task.build_criterion(cfg)
     loader = task.eval_loader(cfg)  # 2-sample shuffle=False loader
@@ -110,14 +114,41 @@ def test_loader_determinism_num_workers(mini_cache_dir):
     from fl_v3.training.tasks import get_task
 
     task = get_task("nuscenes_detection")
-    b0 = next(iter(task.eval_loader(dict(_DET_CFG, **{"num-workers": 0}))))
-    try:
-        b2 = next(iter(task.eval_loader(dict(_DET_CFG, **{"num-workers": 2}))))
-    except Exception as e:  # multiprocessing unavailable in this env
-        pytest.skip(f"num_workers>0 unavailable: {e}")
+    b0 = next(iter(task.eval_loader(_cfg_with_cache(mini_cache_dir, **{"num-workers": 0}))))
+    loader2 = task.eval_loader(_cfg_with_cache(mini_cache_dir, **{"num-workers": 2}))
+    assert loader2.multiprocessing_context.get_start_method() == "spawn"
+    b2 = next(iter(loader2))
     assert torch.equal(b0["images"], b2["images"])
     assert torch.equal(b0["lidar_points"], b2["lidar_points"])
     assert torch.equal(b0["gt_boxes"][0], b2["gt_boxes"][0])
+
+
+@pytest.mark.skipif(not CUDA, reason="GH200 hostile requires CUDA initialization")
+def test_cuda_initialized_production_loader_is_spawn_persistent(mini_cache_dir):
+    """Spawn must remain safe after this exact process initializes CUDA."""
+    from fl_v3.training.tasks import get_task
+
+    marker = torch.ones(1, device="cuda")
+    assert marker.item() == 1
+    loader = get_task("nuscenes_detection").eval_loader(
+        _cfg_with_cache(mini_cache_dir, **{"num-workers": 2})
+    )
+    assert loader.multiprocessing_context.get_start_method() == "spawn"
+    assert loader.persistent_workers is True
+    first = next(iter(loader))
+    second = next(iter(loader))
+    assert torch.equal(first["images"], second["images"])
+    del loader
+
+
+def test_detection_cache_is_explicit_and_readonly_cwd_safe(mini_cache_dir, tmp_path, monkeypatch):
+    from fl_v3.training.tasks import get_task
+
+    monkeypatch.chdir(tmp_path)
+    task = get_task("nuscenes_detection")
+    loader = task.eval_loader(_cfg_with_cache(mini_cache_dir, **{"num-workers": 0}))
+    next(iter(loader))
+    assert not (tmp_path / "fl_outputs").exists()
 
 
 # --- GPU op guards (#76176 + float cumsum). Run on any CUDA (T4 ok); the cross-arch

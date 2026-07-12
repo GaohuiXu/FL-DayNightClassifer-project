@@ -254,13 +254,7 @@ def test_legacy_absolute_lidar_and_multisweep_paths_use_zip_backend(
     assert np.array_equal(actual_sweeps, expected_sweeps)
 
 
-@pytest.mark.parametrize("start_method", ["fork", "spawn"])
-def test_repeated_persistent_multiworker_reads_are_deterministic(
-    directory_and_zip, start_method
-):
-    if start_method not in multiprocessing.get_all_start_methods():
-        pytest.skip(f"{start_method} unavailable")
-    _directory_root, zip_root, manifest, base_info, _paths = directory_and_zip
+def _persistent_lifecycle(zip_root, manifest, base_info, start_method):
     infos = []
     for index in range(4):
         info = copy.deepcopy(base_info)
@@ -314,6 +308,55 @@ def test_repeated_persistent_multiworker_reads_are_deterministic(
         del loader
         dataset.close()
         gc.collect()
+
+
+def _fresh_spawn_then_fork(zip_root, manifest, base_info, result_queue):
+    try:
+        assert torch.cuda.is_available() is False
+        _persistent_lifecycle(zip_root, manifest, base_info, "fork")
+        result_queue.put(None)
+    except BaseException as exc:
+        result_queue.put(repr(exc))
+
+
+@pytest.mark.parametrize("start_method", ["fork", "spawn"])
+def test_repeated_persistent_multiworker_reads_are_deterministic(
+    directory_and_zip, start_method, monkeypatch
+):
+    if start_method not in multiprocessing.get_all_start_methods():
+        pytest.skip(f"{start_method} unavailable")
+    _directory_root, zip_root, manifest, base_info, _paths = directory_and_zip
+    if start_method == "spawn":
+        _persistent_lifecycle(str(zip_root), str(manifest), base_info, "spawn")
+        return
+    # Explicit fork is lifecycle evidence only. Enter it from a fresh spawned,
+    # CUDA-hidden interpreter so no CUDA/threaded pytest state is inherited.
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
+    ctx = multiprocessing.get_context("spawn")
+    result_queue = ctx.Queue()
+    process = ctx.Process(
+        target=_fresh_spawn_then_fork,
+        args=(str(zip_root), str(manifest), base_info, result_queue),
+    )
+    process.start()
+    process.join(90)
+    if process.is_alive():
+        process.terminate()
+        process.join(10)
+        pytest.fail("fresh spawn helper timed out during explicit fork lifecycle")
+    assert process.exitcode == 0
+    assert result_queue.get(timeout=5) is None
+
+
+def test_default_loader_context_is_spawn(directory_and_zip):
+    _directory_root, zip_root, manifest, base_info, _paths = directory_and_zip
+    dataset = DS.NuScenesMultimodalDataset(
+        [base_info], str(zip_root), n_sweeps=10, zip_manifest=str(manifest)
+    )
+    loader = DS.make_loader(dataset, num_workers=1)
+    assert loader.multiprocessing_context.get_start_method() == "spawn"
+    del loader
+    dataset.close()
 
 
 def test_zip_root_without_manifest_fails_before_any_archive_scan(tmp_path):
