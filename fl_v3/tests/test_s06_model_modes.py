@@ -10,6 +10,7 @@ import torch
 from fl_v3.models.fusion.detector import DetectorConfig
 from fl_v3.training.runtime_state import project_batch_for_mode
 from fl_v3.utils.runtime import normalize_model_mode
+from fl_v3.utils.runtime import require_spconv_238
 
 
 @pytest.mark.parametrize("mode", ["camera_only", "lidar_only", "fusion"])
@@ -37,6 +38,10 @@ def test_disabled_modality_is_removed_before_device_transfer():
 
 def test_detector_config_default_is_exact_fusion_name():
     assert DetectorConfig().model_mode == "fusion"
+
+
+def test_reviewed_spconv_dependency_is_exact_in_arrhenius_runtime():
+    require_spconv_238()
 
 
 class _Pre(torch.nn.Module):
