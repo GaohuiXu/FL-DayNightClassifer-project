@@ -1568,14 +1568,37 @@ the only path changed in `L`; this subsequent delivery commit changes only
 `RUN_REQUEST.md` and this handoff. The final docs commit SHA is returned to S00
 after commit because it cannot embed its own identity.
 
-The prepared request has status
-`PREPARED_PENDING_S00_AUDIT_DO_NOT_SUBMIT`. It is explicitly owner-delegated
-S07-B validation scope rather than generic O-009 authority. It requests at most
-one job/one node/one GH200/eight CPUs/64 GiB/45 minutes, with no array, DDP, retry,
-requeue or follow-on. It creates a fresh read-only archive snapshot and fresh
-output, activates the persistent Arrhenius environment, uses only the literal
-existing mini root plus output-local synthetic temporary fixtures, and clears
-shared-trainval/ZIP-manifest overrides.
+The request now has status
+`APPROVED_ONCE_BY_S00_UNDER_OWNER_DELEGATED_S07B_VALIDATION_O-052_2026-07-12_NOT_YET_SUBMITTED`.
+Canonical O-052 at exact Orchestra commit
+`e71274b1a169c1af92fe638608785a6e479d2b3a` records S00's audit and the owner's
+delegated S07-B validation authority. This is explicitly not generic O-009. It
+permits exactly one submission of the exact RUN_REQUEST Section D command and no
+alternate invocation, retry, rerun, requeue, follow-on or spare job.
+
+The immutable approval tuple is executable/archive `L`
+`05b733997968b8217e1fc6dd27c3a4add34f6c98`, launcher SHA-256
+`1b1c45d33b113d0c7d649e51b2ddf98a2d7822eab38d708d4bb0e223b8c334c0`,
+123-file list SHA-256
+`be3b9157e213b942094d290d403306aa714e82157e36ba92847e32cfef71419a`,
+aggregate state SHA-256
+`d8c6cc0e20ed0c8ded5a4e13dd3ae52f32a62ebbcfafd2f9cbcd469fc5b87acd`,
+the 25 exactly named tests in RUN_REQUEST Section D, literal mini input
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini`,
+fresh output
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_integrated_05b733997968`,
+fresh read-only snapshot
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_integrated_05b733997968`,
+and one job/one node/one task/one GH200/eight CPUs/64 GiB/45 minutes. The exact
+approved command is the Section D preflight plus `sbatch --no-requeue` command
+with the recorded exact exports. Any SHA/hash/test/data/path/resource/command or
+acceptance/stop-rule drift invalidates approval and requires a new canonical
+decision. One submission attempt consumes the approval regardless of outcome.
+
+The job remains not yet submitted. It creates a fresh read-only archive snapshot
+and fresh output, activates the persistent Arrhenius environment, uses only the
+literal existing mini root plus output-local synthetic temporary fixtures, and
+clears shared-trainval/ZIP-manifest overrides.
 
 The exact launcher selects 25 named test files: the required S02 Gaussian/GPU,
 S03 camera, S04 SECOND/fp16, S05 CenterHead/eval/NMS, five S06, two S07-B and nine
