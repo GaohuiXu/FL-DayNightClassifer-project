@@ -1122,13 +1122,16 @@ def test_t5_run_manifest_is_immutable_exact_and_poison_only_reuses_it(tmp_path):
         module._guard_selection(subset, 0)
 
 
-def test_t5_manifest_publication_is_complete_noreplace_and_cleans_failures(
+def test_t5_manifest_publication_is_complete_noreplace_and_owns_only_its_temp(
     tmp_path, monkeypatch,
 ):
     module = _script_module("t5_attack_eval.py", "s07b_t5_atomic_manifest")
     args = SimpleNamespace(output_dir=str(tmp_path / "out"), run_id="atomic-run")
     run_fd = module._open_run_directory(args, create=True)
     value = {"schema_version": module._RUN_MANIFEST_SCHEMA, "payload": "x" * 256}
+    other_live = ".t5_run_manifest.json.live-writer.deadbeef.tmp"
+    other_fd = os.open(other_live, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=run_fd)
+    os.write(other_fd, b"live-private-temp")
 
     original_write_all = module._write_all
 
@@ -1139,13 +1142,9 @@ def test_t5_manifest_publication_is_complete_noreplace_and_cleans_failures(
     monkeypatch.setattr(module, "_write_all", partial_then_fail)
     with pytest.raises(RuntimeError, match="simulated creator crash"):
         module._atomic_publish_json_at(run_fd, "t5_run_manifest.json", value)
-    assert os.listdir(run_fd) == []
+    assert os.listdir(run_fd) == [other_live]
 
     monkeypatch.setattr(module, "_write_all", original_write_all)
-    orphan = ".t5_run_manifest.json.crashed-writer.deadbeef.tmp"
-    orphan_fd = os.open(orphan, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=run_fd)
-    os.write(orphan_fd, b"partial-private-temp")
-    os.close(orphan_fd)
     original_link = module.os.link
     observed = []
 
@@ -1160,7 +1159,8 @@ def test_t5_manifest_publication_is_complete_noreplace_and_cleans_failures(
     assert observed == ["reader_saw_no_partial_final"]
     loaded, loaded_sha = module._load_required_json_at(run_fd, "t5_run_manifest.json")
     assert loaded == value and len(loaded_sha) == 64
-    assert orphan not in os.listdir(run_fd)
+    assert other_live in os.listdir(run_fd)
+    os.write(other_fd, b"-still-owned-by-other-publisher")
 
     monkeypatch.setattr(module.os, "link", original_link)
     assert module._atomic_publish_json_at(
@@ -1168,7 +1168,54 @@ def test_t5_manifest_publication_is_complete_noreplace_and_cleans_failures(
     ) is False
     winner, _winner_sha = module._load_required_json_at(run_fd, "t5_run_manifest.json")
     assert winner == value
+    assert other_live in os.listdir(run_fd)
+    os.close(other_fd)
+    os.unlink(other_live, dir_fd=run_fd)
     assert not any(name.endswith(".tmp") for name in os.listdir(run_fd))
+    os.close(run_fd)
+
+
+def test_t5_bind_manifest_real_lost_race_accepts_only_exact_complete_winner(
+    tmp_path, monkeypatch,
+):
+    module = _script_module("t5_attack_eval.py", "s07b_t5_bind_race")
+    subset = {
+        "content_hash": "5" * 64,
+        "targets": [["sample-a", "ann-a"], ["sample-b", "ann-b"]],
+    }
+    cfg = {"attack-clean-checkpoint-checksum": "9" * 64}
+    poison = _t5_identity("8" * 64)
+    clean = _t5_identity("9" * 64, checkpoint_file="4" * 64)
+    original_publish = module._atomic_publish_json_at
+
+    args = SimpleNamespace(
+        output_dir=str(tmp_path / "out"), run_id="exact-winner", num_shards=2,
+        guard_samples=2,
+    )
+
+    def exact_winner_publishes_first(directory_fd, name, expected):
+        assert original_publish(directory_fd, name, expected) is True
+        return False
+
+    monkeypatch.setattr(module, "_atomic_publish_json_at", exact_winner_publishes_first)
+    manifest, manifest_sha, run_fd = module._bind_run_manifest(args, cfg, subset, poison, clean)
+    assert manifest["run_id"] == args.run_id and len(manifest_sha) == 64
+    os.close(run_fd)
+
+    args.run_id = "different-winner"
+
+    def different_winner_publishes_first(directory_fd, name, expected):
+        different = copy.deepcopy(expected)
+        different["poison"]["selected_weights_checksum"] = "7" * 64
+        assert original_publish(directory_fd, name, different) is True
+        return False
+
+    monkeypatch.setattr(module, "_atomic_publish_json_at", different_winner_publishes_first)
+    with pytest.raises(RuntimeError, match="concurrently published.*different identity"):
+        module._bind_run_manifest(args, cfg, subset, poison, clean)
+    run_fd = module._open_run_directory(args, create=False)
+    winner, _winner_sha = module._load_required_json_at(run_fd, "t5_run_manifest.json")
+    assert winner["poison"]["selected_weights_checksum"] == "7" * 64
     os.close(run_fd)
 
 
@@ -1225,6 +1272,73 @@ def test_t5_run_directory_rejects_symlink_traversal_missing_and_stale_root(tmp_p
             _t5_identity("9" * 64, checkpoint_file="4" * 64),
         )
     assert not (mixed_run / "t5_run_manifest.json").exists()
+
+
+def test_t5_subdirectory_and_artifact_symlinks_fail_closed_through_production_helpers(tmp_path):
+    module = _script_module("t5_attack_eval.py", "s07b_t5_nested_symlinks")
+    output = tmp_path / "out"
+    args = SimpleNamespace(
+        output_dir=str(output), run_id="symlink-artifacts", num_shards=1,
+        guard_samples=2, checkpoint=str(tmp_path / "poison.pt"),
+    )
+    run_fd = module._open_run_directory(args, create=True)
+    run_root = output / args.run_id
+    outside = tmp_path / "outside"; outside.mkdir()
+    outside_json = outside / "favorable.json"
+    outside_json.write_text('{"favorable":true}', encoding="utf-8")
+
+    (run_root / "ablation").symlink_to(outside, target_is_directory=True)
+    with pytest.raises(RuntimeError, match="missing, unsafe, or a symlink"):
+        module._open_subdirectory(run_fd, "ablation", create=False)
+    (run_root / "ablation").unlink()
+    for name in ("stealth_det_eval", "viz"):
+        (run_root / name).symlink_to(outside, target_is_directory=True)
+        with pytest.raises(RuntimeError, match="already exists; refusing stale reuse"):
+            module._reserve_subdirectory(run_fd, name)
+        (run_root / name).unlink()
+
+    subset = {
+        "content_hash": "5" * 64,
+        "targets": [["sample-a", "ann-a"], ["sample-b", "ann-b"]],
+    }
+    cfg = {"attack-clean-checkpoint-checksum": "9" * 64}
+    poison = _t5_identity("8" * 64)
+    (run_root / "t5_run_manifest.json").symlink_to(outside_json)
+    with pytest.raises(RuntimeError, match="existing complete run manifest"):
+        module._bind_run_manifest(args, cfg, subset, poison)
+    (run_root / "t5_run_manifest.json").unlink()
+
+    ablation_fd = module._open_subdirectory(run_fd, "ablation", create=True)
+    shard_name = module._shard_artifact_name(0, 1, module._SHARD_MODE_FULL)
+    (run_root / "ablation" / shard_name).symlink_to(outside_json)
+    with pytest.raises(RuntimeError, match="missing or unsafe"):
+        module._load_bound_full_shards(
+            args, cfg, {**subset, "checkpoint_checksum": "9" * 64, "n": 2},
+            "8" * 64, {"clean": _t5_identity("9" * 64, checkpoint_file="4" * 64)},
+            "6" * 64, run_fd,
+        )
+    os.close(ablation_fd)
+
+    for name, loader in (
+        ("stealth.json", lambda: module._load_bound_stealth(
+            args, subset, poison, "6" * 64, run_fd,
+        )),
+        ("cond5a_guards.json", lambda: module._load_bound_guards(
+            args, subset, poison,
+            {"task_plan": {"guard_selection": module._guard_selection(subset, 2)}},
+            "6" * 64, run_fd,
+        )),
+    ):
+        (run_root / name).symlink_to(outside_json)
+        with pytest.raises(RuntimeError, match="missing or unsafe"):
+            loader()
+        (run_root / name).unlink()
+
+    (run_root / "fusion_ablation.json").symlink_to(outside_json)
+    with pytest.raises(FileExistsError):
+        module._write_json_exclusive_at(run_fd, "fusion_ablation.json", {"gate_pass": True})
+    assert outside_json.read_text(encoding="utf-8") == '{"favorable":true}'
+    os.close(run_fd)
 
 
 def test_t5_bound_stealth_and_guards_reject_stale_mixed_and_type_drift(tmp_path):
@@ -1316,7 +1430,40 @@ def test_t5_bound_stealth_and_guards_reject_stale_mixed_and_type_drift(tmp_path)
     guard_path.write_text(json.dumps(wrong_target), encoding="utf-8")
     with pytest.raises(RuntimeError, match="selection differs"):
         module._load_bound_guards(args, subset, poison, manifest, manifest_sha, run_fd)
+    bad_checks = copy.deepcopy(guards)
+    bad_checks["metrics"]["n_invariance_checks"] = 1
+    guard_path.write_text(json.dumps(bad_checks), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="invariant count differs"):
+        module._load_bound_guards(args, subset, poison, manifest, manifest_sha, run_fd)
+    bad_total = copy.deepcopy(guards)
+    bad_total["metrics"]["total"] = 1
+    guard_path.write_text(json.dumps(bad_total), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="target count differs"):
+        module._load_bound_guards(args, subset, poison, manifest, manifest_sha, run_fd)
     os.close(run_fd)
+
+
+def test_t5_guard_selection_preserves_interleaved_frozen_target_order():
+    module = _script_module("t5_attack_eval.py", "s07b_t5_guard_order")
+    subset = {
+        "targets": [
+            ["sample-b", "ann-b1"],
+            ["sample-a", "ann-a1"],
+            ["sample-c", "ann-c1"],
+            ["sample-a", "ann-a2"],
+            ["sample-b", "ann-b2"],
+            ["sample-c", "ann-c2"],
+        ],
+    }
+    selection = module._guard_selection(subset, 2)
+    assert selection["selected_sample_tokens"] == ["sample-a", "sample-b"]
+    assert selection["selected_targets"] == [
+        ["sample-b", "ann-b1"],
+        ["sample-a", "ann-a1"],
+        ["sample-a", "ann-a2"],
+        ["sample-b", "ann-b2"],
+    ]
+    assert len(selection["selection_sha256"]) == 64
 
 
 def test_t5_null_fails_before_preflight_or_output_and_ema_checksum_order(tmp_path, monkeypatch):

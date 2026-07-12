@@ -491,22 +491,6 @@ def _atomic_publish_json_at(directory_fd: int, name: str, value: dict) -> bool:
             )
         except FileExistsError:
             return False
-        except FileNotFoundError:
-            # A completed winner may remove this private loser while publishing.  Treat that
-            # interleaving as a lost race only when the complete final name now exists.
-            try:
-                os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
-            except FileNotFoundError:
-                raise
-            return False
-        os.fsync(directory_fd)
-        prefix = f".{name}."
-        for entry in os.listdir(directory_fd):
-            if entry.startswith(prefix) and entry.endswith(".tmp"):
-                try:
-                    os.unlink(entry, dir_fd=directory_fd)
-                except FileNotFoundError:
-                    pass
         os.fsync(directory_fd)
         return True
     finally:
