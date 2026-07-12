@@ -802,11 +802,11 @@ invoked. Preparation authorizes no compute, retry, merge, push or upload.
 
 ---
 
-## F. S07-B two-snapshot dummy checksum attribution — APPROVED ONCE / PENDING SUBMISSION
+## F. S07-B two-snapshot dummy checksum attribution — EXECUTED ONCE / JOB 349653 ACTIVE / APPROVAL CONSUMED
 
 ### Approval state and exact purpose
 
-- **Status:** `APPROVED_ONCE_PENDING_SUBMISSION`.
+- **Status:** `EXECUTED_ONCE_JOB_349653_ACTIVE_APPROVAL_CONSUMED_NO_RETRY`.
 - Canonical O-060 is
   `34ee1f9672df5c907881b5c6335b6be6e204c156`. It authorizes preparation only;
   it did not authorize `sbatch`, `srun`, a retry, or any other compute.
@@ -820,6 +820,14 @@ invoked. Preparation authorizes no compute, retry, merge, push or upload.
   attempt consumes approval regardless of scheduler or harness outcome; no
   retry, requeue, alternate invocation, replacement, automatic resubmission or
   follow-on is approved.
+- Canonical O-062 at exact Orchestra commit
+  `85798992da9837b86b731eb5b2b11ff71c7aa674` records that the unchanged exact
+  Section F command was submitted once as Slurm Job `349653` at
+  `2026-07-12T14:23:08+02:00`, started at `2026-07-12T14:23:09+02:00`, and is
+  active on node `n530`. This single submission consumed O-061 immediately.
+  Terminal scheduler state and runtime artifacts have not yet been read or
+  interpreted in this record. No retry, requeue, replacement, alternate
+  invocation, automatic resubmission or follow-on is authorized.
 - This is a bounded engineering attribution of the dummy-regression checksum,
   not a retry of Jobs 348557/348818 and not a scientific matrix. It compares
   exactly the pre-S06 snapshot
@@ -881,7 +889,7 @@ invoked. Preparation authorizes no compute, retry, merge, push or upload.
   `weight-decay=0.0`, `num-workers=0`, `loss=mse`, `defense=none`, and
   `server_round=1`.
 
-### Exact command — approved once by O-061, pending submission
+### Exact command — submitted once as Job 349653; O-061 consumed
 
 ```bash
 test -z "$(git branch --show-current)" && \

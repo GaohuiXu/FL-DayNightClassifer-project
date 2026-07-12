@@ -1841,6 +1841,15 @@ stop-rule drift voids approval. One attempt consumes O-061 regardless of outcome
 no retry, requeue, alternate invocation, replacement, automatic resubmission or
 follow-on is approved.
 
+Canonical O-062 at exact Orchestra commit
+`85798992da9837b86b731eb5b2b11ff71c7aa674` records one unchanged exact
+submission as Slurm Job `349653`: submitted `2026-07-12T14:23:08+02:00`, started
+`2026-07-12T14:23:09+02:00`, active on node `n530`. O-061 is consumed regardless
+of eventual outcome. Current status is
+`EXECUTED_ONCE_JOB_349653_ACTIVE_APPROVAL_CONSUMED_NO_RETRY`. This record does
+not query or interpret scheduler/runtime results. No retry, requeue, alternate
+invocation, replacement, automatic resubmission or follow-on is authorized.
+
 The exact approved request uses one node/task/GH200, four
 CPUs, 32 GiB, ten minutes, no requeue/retry. It opens no data and performs no
 pytest, full cache/trainval, 100/1000-step campaign, metric, profile, DDP, matrix,
