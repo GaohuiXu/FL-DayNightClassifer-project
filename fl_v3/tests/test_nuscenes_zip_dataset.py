@@ -295,6 +295,7 @@ def _persistent_lifecycle(
     primary = None
     primary_traceback = None
     workers = []
+    worker_identities = []
     cleanup_errors = []
     try:
         epochs = []
@@ -346,6 +347,16 @@ def _persistent_lifecycle(
         except BaseException as exc:
             cleanup_errors.append(("worker_discovery", exc))
             workers = []
+        for worker in workers:
+            try:
+                identity = _process_identity(worker.pid)
+                if identity is None:
+                    raise RuntimeError(
+                        f"worker {worker.pid} disappeared before identity capture"
+                    )
+                worker_identities.append(identity)
+            except BaseException as exc:
+                cleanup_errors.append((f"worker_identity:{worker.pid}", exc))
         if iterator is not None:
             try:
                 iterator._shutdown_workers()
@@ -395,6 +406,7 @@ def _persistent_lifecycle(
     if primary is not None:
         try:
             primary._s07_worker_pids = tuple(worker.pid for worker in workers)
+            primary._s07_worker_identities = tuple(worker_identities)
             primary._s07_live_worker_pids_after_cleanup = tuple(live_workers)
         except BaseException as exc:
             cleanup_errors.append(("primary_evidence_attachment", exc))
@@ -405,15 +417,105 @@ def _persistent_lifecycle(
             "persistent lifecycle cleanup failed",
             [error for _label, error in cleanup_errors],
         )
-    return [worker.pid for worker in workers]
+    return tuple(worker_identities)
 
 
-def _hang_with_forked_descendant(result_queue):
-    descendant_pid = os.fork()
+def _proc_starttime(pid):
+    """Return Linux procfs starttime (field 22), or None once PID is gone."""
+    try:
+        with open(f"/proc/{pid}/stat", "r", encoding="ascii") as stream:
+            stat = stream.read()
+    except (FileNotFoundError, ProcessLookupError):
+        return None
+    return _parse_proc_starttime(stat, pid)
+
+
+def _parse_proc_starttime(stat, pid):
+    # comm is parenthesized and may itself contain spaces or parentheses. The
+    # final ')' precedes field 3; starttime is index 19 in the remaining fields.
+    close_paren = stat.rfind(")")
+    if close_paren < 0:
+        raise RuntimeError(f"malformed /proc/{pid}/stat: missing comm terminator")
+    remaining = stat[close_paren + 1 :].split()
+    if len(remaining) <= 19:
+        raise RuntimeError(f"malformed /proc/{pid}/stat: missing starttime")
+    return int(remaining[19])
+
+
+def _process_identity(pid):
+    starttime = _proc_starttime(pid)
+    return None if starttime is None else (pid, starttime)
+
+
+def _identity_alive(identity):
+    if identity is None:
+        return False
+    pid, expected_starttime = identity
+    return _proc_starttime(pid) == expected_starttime
+
+
+def _wait_for_cleanup(group_id, identities, timeout):
+    deadline = time.monotonic() + timeout
+    while True:
+        state = {
+            "group_alive": (
+                _process_group_exists(group_id) if group_id is not None else False
+            ),
+            "identities_alive": {
+                identity: _identity_alive(identity) for identity in identities
+            },
+        }
+        if not state["group_alive"] and not any(state["identities_alive"].values()):
+            return state
+        if time.monotonic() >= deadline:
+            return state
+        time.sleep(0.01)
+
+
+def _close_descendant_connections(*connections):
+    for connection in connections:
+        try:
+            connection.close()
+        except BaseException:
+            pass
+
+
+def _fork_descendant(control_connection, result_connection, *, resist_sigterm):
+    previous_sigterm = None
+    if resist_sigterm:
+        # Install before fork so there is no child-startup window in which the
+        # parent can observe/report the descendant before SIGTERM resistance.
+        previous_sigterm = signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    try:
+        descendant_pid = os.fork()
+    except BaseException:
+        if previous_sigterm is not None:
+            signal.signal(signal.SIGTERM, previous_sigterm)
+        raise
     if descendant_pid == 0:
-        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        _close_descendant_connections(control_connection, result_connection)
+        signal.signal(
+            signal.SIGTERM, signal.SIG_IGN if resist_sigterm else signal.SIG_DFL
+        )
         while True:
             signal.pause()
+    if previous_sigterm is not None:
+        signal.signal(signal.SIGTERM, previous_sigterm)
+
+    deadline = time.monotonic() + 2
+    while True:
+        descendant_identity = _process_identity(descendant_pid)
+        if descendant_identity is not None:
+            return descendant_pid, descendant_identity
+        if time.monotonic() >= deadline:
+            raise RuntimeError("forked descendant identity capture timed out")
+        time.sleep(0.01)
+
+
+def _hang_with_forked_descendant(control_connection, result_connection):
+    descendant_pid, descendant_identity = _fork_descendant(
+        control_connection, result_connection, resist_sigterm=False
+    )
 
     def _reap_descendant(_signum, _frame):
         try:
@@ -425,19 +527,59 @@ def _hang_with_forked_descendant(result_queue):
     # the helper deliberately remains alive so parent cleanup must escalate to
     # a verified-group SIGKILL for the session/process-group leader.
     signal.signal(signal.SIGTERM, _reap_descendant)
-    result_queue.put(("descendant", descendant_pid))
+    result_connection.send(
+        {
+            "kind": "descendant",
+            "descendant_identity": descendant_identity,
+            "descendant_pid": descendant_pid,
+            "descendant_record": (
+                descendant_pid,
+                descendant_identity[1],
+                os.getpgid(descendant_pid),
+                os.getsid(descendant_pid),
+            ),
+        }
+    )
     while True:
         signal.pause()
 
 
+def _exit_leader_with_resistant_descendant(control_connection, result_connection):
+    descendant_pid, descendant_identity = _fork_descendant(
+        control_connection, result_connection, resist_sigterm=True
+    )
+    result_connection.send(
+        {
+            "kind": "result",
+            "status": "leader_exit",
+            "worker_identities": (),
+            "descendant_pid": descendant_pid,
+            "descendant_identity": descendant_identity,
+            "descendant_record": (
+                descendant_pid,
+                descendant_identity[1],
+                os.getpgid(descendant_pid),
+                os.getsid(descendant_pid),
+            ),
+            "live_children": (),
+        }
+    )
+    control_connection.close()
+    result_connection.close()
+    # Deliberately do not waitpid: the process-group leader must be gone while
+    # its exact, SIGTERM-resistant descendant instance remains parent-auditable.
+    os._exit(0)
+
+
 def _fresh_spawn_then_fork(
-    zip_root, manifest, base_info, control_connection, result_queue, mode
+    zip_root, manifest, base_info, control_connection, result_connection, mode
 ):
     os.setsid()
     pid = os.getpid()
     ready = (
         "ready",
         pid,
+        _proc_starttime(pid),
         os.getsid(0),
         os.getpgrp(),
         tuple(
@@ -452,11 +594,21 @@ def _fresh_spawn_then_fork(
         # parent ACK arrives over the same duplex control channel.
         control_connection.send(ready)
         acknowledgement = control_connection.recv()
-        assert acknowledgement == ("ack", pid, pid, pid)
+        assert acknowledgement == (
+            "ack",
+            pid,
+            _proc_starttime(pid),
+            pid,
+            pid,
+        )
         assert torch.cuda.is_available() is False
         if mode == "forced_hang":
-            _hang_with_forked_descendant(result_queue)
-        worker_pids = _persistent_lifecycle(
+            _hang_with_forked_descendant(control_connection, result_connection)
+        if mode == "post_ack_leader_exit":
+            _exit_leader_with_resistant_descendant(
+                control_connection, result_connection
+            )
+        worker_identities = _persistent_lifecycle(
             zip_root,
             manifest,
             base_info,
@@ -467,11 +619,11 @@ def _fresh_spawn_then_fork(
         live_children = [
             child.pid for child in multiprocessing.active_children() if child.is_alive()
         ]
-        result_queue.put(
+        result_connection.send(
             {
                 "kind": "result",
                 "status": "ok",
-                "worker_pids": worker_pids,
+                "worker_identities": worker_identities,
                 "live_children": live_children,
             }
         )
@@ -479,24 +631,28 @@ def _fresh_spawn_then_fork(
         live_children = [
             child.pid for child in multiprocessing.active_children() if child.is_alive()
         ]
-        result_queue.put(
+        padding = "R" * (2 * 1024 * 1024) if mode == "forced_error" else ""
+        result_connection.send(
             {
                 "kind": "result",
                 "status": "error",
                 "error": repr(exc),
                 "traceback": traceback.format_exc(),
                 "notes": tuple(getattr(exc, "__notes__", ())),
-                "worker_pids": tuple(getattr(exc, "_s07_worker_pids", ())),
+                "worker_identities": tuple(
+                    getattr(exc, "_s07_worker_identities", ())
+                ),
                 "live_worker_pids_after_cleanup": tuple(
                     getattr(exc, "_s07_live_worker_pids_after_cleanup", ())
                 ),
                 "live_children": live_children,
+                "padding": padding,
+                "padding_length": len(padding),
             }
         )
     finally:
         control_connection.close()
-        result_queue.close()
-        result_queue.join_thread()
+        result_connection.close()
 
 
 class _ForkHelperFailure(AssertionError):
@@ -538,6 +694,25 @@ def _cleanup_group_exists(group_id, cleanup_errors, label):
         return True
 
 
+def _cleanup_wait_for_targets(group_id, identities, timeout, cleanup_errors, label):
+    try:
+        return _wait_for_cleanup(group_id, identities, timeout)
+    except BaseException as exc:
+        cleanup_errors.append((f"{label}_target_wait", exc))
+        return {
+            "group_alive": True,
+            "identities_alive": {identity: True for identity in identities},
+        }
+
+
+def _cleanup_identity_alive(identity, cleanup_errors, label):
+    try:
+        return _identity_alive(identity)
+    except BaseException as exc:
+        cleanup_errors.append((f"{label}_identity_probe", exc))
+        return True
+
+
 def _fd_is_closed(fd):
     try:
         os.fstat(fd)
@@ -547,18 +722,26 @@ def _fd_is_closed(fd):
 
 
 def _validate_ready_record(process, ready, parent_pid, parent_sid, parent_group):
-    assert isinstance(ready, tuple) and len(ready) == 5
-    tag, helper_pid, helper_sid, helper_group, initial_children = ready
+    assert isinstance(ready, tuple) and len(ready) == 6
+    (
+        tag,
+        helper_pid,
+        helper_starttime,
+        helper_sid,
+        helper_group,
+        initial_children,
+    ) = ready
     assert tag == "ready"
     assert helper_pid == process.pid
     assert helper_pid not in {parent_pid, parent_sid, parent_group}
     assert helper_pid == helper_sid == helper_group
+    assert helper_starttime == _proc_starttime(helper_pid)
     assert initial_children == ()
     # Cross-check the child-supplied tuple against live kernel state before the
     # value is eligible to arm killpg or the ACK is sent.
     assert os.getsid(helper_pid) == helper_pid
     assert os.getpgid(helper_pid) == helper_pid
-    return helper_pid
+    return helper_pid, (helper_pid, helper_starttime)
 
 
 def _run_fresh_spawn_fork_helper(
@@ -570,7 +753,13 @@ def _run_fresh_spawn_fork_helper(
     ready_timeout=10,
     run_timeout=90,
 ):
-    assert mode in {"normal", "pre_ack_failure", "forced_error", "forced_hang"}
+    assert mode in {
+        "normal",
+        "pre_ack_failure",
+        "forced_error",
+        "forced_hang",
+        "post_ack_leader_exit",
+    }
     parent_pid = os.getpid()
     parent_sid = os.getsid(0)
     parent_group = os.getpgrp()
@@ -582,13 +771,15 @@ def _run_fresh_spawn_fork_helper(
         "ack_sent": False,
         "armed_group": None,
         "descendant_pid": None,
-        "worker_pids": (),
+        "descendant_identity": None,
+        "descendant_record": None,
+        "worker_identities": (),
         "cleanup_signals": [],
         "closed_fds": {},
     }
     ctx = multiprocessing.get_context("spawn")
     parent_control, child_control = ctx.Pipe(duplex=True)
-    result_queue = ctx.Queue()
+    result_receiver, result_sender = ctx.Pipe(duplex=False)
     process = ctx.Process(
         target=_fresh_spawn_then_fork,
         args=(
@@ -596,28 +787,30 @@ def _run_fresh_spawn_fork_helper(
             str(manifest),
             base_info,
             child_control,
-            result_queue,
+            result_sender,
             mode,
         ),
     )
     tracked_fds = {
         "parent_control": parent_control.fileno(),
         "child_control": child_control.fileno(),
-        "result_reader": result_queue._reader.fileno(),
-        "result_writer": result_queue._writer.fileno(),
+        "result_receiver": result_receiver.fileno(),
+        "result_sender": result_sender.fileno(),
     }
     primary = None
     primary_traceback = None
     cleanup_errors = []
     armed_group = None
+    helper_identity = None
     try:
         process.start()
         tracked_fds["process_sentinel"] = process.sentinel
         child_control.close()
+        result_sender.close()
         assert parent_control.poll(ready_timeout), "helper ready record timed out"
         ready = parent_control.recv()
         report["ready"] = ready
-        verified_group = _validate_ready_record(
+        verified_group, helper_identity = _validate_ready_record(
             process, ready, parent_pid, parent_sid, parent_group
         )
         # Assignment is deliberately after every tuple and kernel-state check.
@@ -627,24 +820,70 @@ def _run_fresh_spawn_fork_helper(
             raise _ForkHelperFailure(
                 "forced ready-window failure before ACK", report
             )
-        parent_control.send(("ack", process.pid, armed_group, armed_group))
+        report["helper_identity"] = helper_identity
+        parent_control.send(
+            (
+                "ack",
+                process.pid,
+                helper_identity[1],
+                armed_group,
+                armed_group,
+            )
+        )
         report["ack_sent"] = True
 
+        # Drain the complete result payload before joining its producer. This is
+        # required for payloads larger than pipe capacity and prevents the classic
+        # producer-join/result-recv deadlock.
+        result_timeout = max(run_timeout, 5) if mode == "forced_hang" else run_timeout
+        assert result_receiver.poll(result_timeout), "helper result record timed out"
+        outcome = result_receiver.recv()
+        report["outcome"] = outcome
+        report["worker_identities"] = tuple(outcome.get("worker_identities", ()))
+        report["descendant_pid"] = outcome.get("descendant_pid")
+        report["descendant_identity"] = outcome.get("descendant_identity")
+        report["descendant_record"] = outcome.get("descendant_record")
         if mode == "forced_hang":
-            event = result_queue.get(timeout=5)
-            assert event[0] == "descendant"
-            report["descendant_pid"] = event[1]
+            assert outcome["kind"] == "descendant"
+            process.join(run_timeout)
+            if process.is_alive():
+                raise _ForkHelperFailure(
+                    "fresh spawn helper timed out during explicit fork lifecycle",
+                    report,
+                )
+            raise _ForkHelperFailure(
+                "forced-hang helper exited unexpectedly", report
+            )
 
         process.join(run_timeout)
         if process.is_alive():
             raise _ForkHelperFailure(
                 "fresh spawn helper timed out during explicit fork lifecycle", report
             )
-        outcome = result_queue.get(timeout=5)
-        report["outcome"] = outcome
-        report["worker_pids"] = tuple(outcome.get("worker_pids", ()))
         assert outcome["kind"] == "result"
-        if outcome["status"] != "ok":
+        if mode == "post_ack_leader_exit":
+            assert outcome["status"] == "leader_exit"
+            assert process.exitcode == 0
+            assert not _identity_alive(helper_identity)
+            descendant_identity = outcome["descendant_identity"]
+            descendant_pid = outcome["descendant_pid"]
+            descendant_record = outcome["descendant_record"]
+            assert _identity_alive(descendant_identity)
+            assert descendant_identity[0] == descendant_pid
+            assert os.getsid(descendant_pid) == armed_group
+            assert os.getpgid(descendant_pid) == armed_group
+            assert descendant_record == (
+                descendant_pid,
+                descendant_identity[1],
+                armed_group,
+                armed_group,
+            )
+            report["leader_exited_before_cleanup"] = True
+            report["group_alive_after_leader_exit"] = _process_group_exists(
+                armed_group
+            )
+            report["descendant_alive_after_leader_exit"] = True
+        elif outcome["status"] != "ok":
             failure = _ForkHelperFailure(
                 "fresh spawn helper lifecycle failed: "
                 f"{outcome['error']}\n{outcome['traceback']}",
@@ -658,8 +897,13 @@ def _run_fresh_spawn_fork_helper(
                 )
             raise failure
         assert process.exitcode == 0
-        assert outcome["worker_pids"], "fork lifecycle did not report worker PIDs"
-        assert outcome["live_children"] == [], (
+        if mode == "post_ack_leader_exit":
+            assert outcome["worker_identities"] == ()
+        else:
+            assert outcome["worker_identities"], (
+                "fork lifecycle did not report worker identities"
+            )
+        assert not outcome["live_children"], (
             f"forked descendants survived normal cleanup: {outcome['live_children']}"
         )
     except BaseException as exc:
@@ -671,6 +915,11 @@ def _run_fresh_spawn_fork_helper(
                 child_control.close()
             except BaseException as exc:
                 cleanup_errors.append(("child_control_close", exc))
+        if not result_sender.closed:
+            try:
+                result_sender.close()
+            except BaseException as exc:
+                cleanup_errors.append(("result_sender_close", exc))
 
         if process.pid is not None:
             group_needs_cleanup = (
@@ -700,15 +949,32 @@ def _run_fresh_spawn_fork_helper(
                         report["cleanup_signals"].append("SIGTERM")
                     except BaseException as exc:
                         cleanup_errors.append(("verified_group_sigterm", exc))
-                try:
-                    process.join(2)
-                except BaseException as exc:
-                    cleanup_errors.append(("verified_group_term_join", exc))
-                if group_safe and (
-                    _cleanup_process_alive(process, cleanup_errors, "post_sigterm")
-                    or _cleanup_group_exists(
-                        armed_group, cleanup_errors, "post_sigterm"
+                tracked_identities = tuple(
+                    identity
+                    for identity in (
+                        helper_identity,
+                        report.get("descendant_identity"),
+                        *report["worker_identities"],
                     )
+                    if identity is not None
+                )
+                try:
+                    # Reap a helper that honored TERM before polling procfs/group
+                    # state; otherwise its zombie PID would force a false KILL.
+                    process.join(1)
+                except BaseException as exc:
+                    cleanup_errors.append(("verified_group_term_reap", exc))
+                term_state = _cleanup_wait_for_targets(
+                    armed_group,
+                    tracked_identities,
+                    1,
+                    cleanup_errors,
+                    "post_sigterm",
+                )
+                report["post_sigterm_state"] = term_state
+                if group_safe and (
+                    term_state["group_alive"]
+                    or any(term_state["identities_alive"].values())
                 ):
                     try:
                         _kill_process_group(armed_group, signal.SIGKILL)
@@ -716,9 +982,23 @@ def _run_fresh_spawn_fork_helper(
                     except BaseException as exc:
                         cleanup_errors.append(("verified_group_sigkill", exc))
                     try:
-                        process.join(5)
+                        # Reap a killed helper leader before auditing whether its
+                        # process group and exact instances disappeared.
+                        process.join(1)
                     except BaseException as exc:
-                        cleanup_errors.append(("verified_group_kill_join", exc))
+                        cleanup_errors.append(("verified_group_kill_reap", exc))
+                    kill_state = _cleanup_wait_for_targets(
+                        armed_group,
+                        tracked_identities,
+                        5,
+                        cleanup_errors,
+                        "post_sigkill",
+                    )
+                    report["post_sigkill_state"] = kill_state
+                try:
+                    process.join(0)
+                except BaseException as exc:
+                    cleanup_errors.append(("verified_group_final_join", exc))
                 if _cleanup_process_alive(process, cleanup_errors, "post_sigkill"):
                     try:
                         process.kill()
@@ -758,79 +1038,46 @@ def _run_fresh_spawn_fork_helper(
                     )
                 )
 
-        descendant_pid = report["descendant_pid"]
-        if descendant_pid is not None:
-            deadline = time.monotonic() + 2
-            while True:
-                try:
-                    os.kill(descendant_pid, 0)
-                except ProcessLookupError:
-                    report["descendant_alive_after_cleanup"] = False
-                    break
-                except BaseException as exc:
-                    cleanup_errors.append(("descendant_liveness_audit", exc))
-                    break
-                if time.monotonic() >= deadline:
-                    report["descendant_alive_after_cleanup"] = True
-                    cleanup_errors.append(
-                        (
-                            "descendant_liveness",
-                            RuntimeError(
-                                f"forked descendant {descendant_pid} survived group cleanup"
-                            ),
-                        )
-                    )
-                    break
-                time.sleep(0.01)
-
-        report["worker_alive_after_cleanup"] = {}
-        for worker_pid in report["worker_pids"]:
-            try:
-                os.kill(worker_pid, 0)
-            except ProcessLookupError:
-                report["worker_alive_after_cleanup"][worker_pid] = False
-            except BaseException as exc:
-                cleanup_errors.append((f"worker_pid_audit:{worker_pid}", exc))
-            else:
-                report["worker_alive_after_cleanup"][worker_pid] = True
-                cleanup_errors.append(
-                    (
-                        "worker_pid_liveness",
-                        RuntimeError(
-                            f"forked DataLoader worker {worker_pid} survived cleanup"
-                        ),
-                    )
+        descendant_identity = report["descendant_identity"]
+        report["descendant_alive_after_cleanup"] = _cleanup_identity_alive(
+            descendant_identity, cleanup_errors, "descendant_final"
+        )
+        if report["descendant_alive_after_cleanup"]:
+            cleanup_errors.append(
+                (
+                    "descendant_liveness",
+                    RuntimeError(
+                        f"forked descendant {descendant_identity} survived cleanup"
+                    ),
                 )
+            )
+
+        report["worker_alive_after_cleanup"] = {
+            identity: _cleanup_identity_alive(
+                identity, cleanup_errors, f"worker_final:{identity[0]}"
+            )
+            for identity in report["worker_identities"]
+        }
+        if any(report["worker_alive_after_cleanup"].values()):
+            cleanup_errors.append(
+                (
+                    "worker_identity_liveness",
+                    RuntimeError("forked DataLoader worker instance survived cleanup"),
+                )
+            )
 
         for label, resource in (
             ("parent_control", parent_control),
-            ("result_queue", result_queue),
+            ("result_receiver", result_receiver),
         ):
             try:
                 resource.close()
             except BaseException as exc:
                 cleanup_errors.append((f"{label}_close", exc))
-        try:
-            result_queue.join_thread()
-        except BaseException as exc:
-            cleanup_errors.append(("result_queue_join_thread", exc))
-        # A Queue that is get-only in this parent never starts its feeder
-        # thread, so Queue.close() has no `_close` finalizer on CPython 3.11.
-        # Explicitly close both parent-owned pipe endpoints; child-side copies
-        # are closed by its normal finally or by process exit on forced kill.
-        for endpoint_label, endpoint in (
-            ("result_reader", result_queue._reader),
-            ("result_writer", result_queue._writer),
-        ):
-            try:
-                endpoint.close()
-            except BaseException as exc:
-                cleanup_errors.append((f"{endpoint_label}_close", exc))
-
         process_alive = process.pid is not None and _cleanup_process_alive(
             process, cleanup_errors, "pre_close"
         )
-        if process.pid is not None and not process_alive:
+        if not process_alive:
             try:
                 process.close()
                 report["process_closed"] = True
@@ -912,7 +1159,7 @@ def test_explicit_fork_pre_ack_failure_never_forks_or_touches_parent_group(
             run_timeout=1,
         )
     report = caught.value.report
-    assert report["ready"][4] == ()
+    assert report["ready"][5] == ()
     assert report["ack_sent"] is False
     assert report["descendant_pid"] is None
     assert report["armed_group"] == report["ready"][1]
@@ -942,16 +1189,68 @@ def test_explicit_fork_post_ack_error_preserves_primary_and_cleanup_evidence(
     assert report["ack_sent"] is True
     assert "forced post-ACK lifecycle error" in outcome["error"]
     assert "raise RuntimeError" in outcome["traceback"]
+    assert outcome["padding_length"] >= 1024 * 1024
+    assert len(outcome["padding"]) == outcome["padding_length"]
+    assert set(outcome["padding"]) == {"R"}
     assert any("forced cleanup evidence" in note for note in outcome["notes"])
     assert any("child cleanup evidence" in note for note in caught.value.__notes__)
-    assert outcome["worker_pids"]
+    assert outcome["worker_identities"]
     assert outcome["live_worker_pids_after_cleanup"] == ()
-    assert set(report["worker_alive_after_cleanup"]) == set(outcome["worker_pids"])
+    assert set(report["worker_alive_after_cleanup"]) == set(
+        outcome["worker_identities"]
+    )
     assert not any(report["worker_alive_after_cleanup"].values())
     assert outcome["live_children"] == []
     assert report["group_alive_after_cleanup"] is False
     assert report["process_closed"] is True
     assert all(report["closed_fds"].values())
+
+
+def test_explicit_fork_post_ack_leader_exit_cleans_verified_orphan_group(
+    directory_and_zip, monkeypatch
+):
+    _directory_root, zip_root, manifest, base_info, _paths = directory_and_zip
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
+    report = _run_fresh_spawn_fork_helper(
+        zip_root,
+        manifest,
+        base_info,
+        mode="post_ack_leader_exit",
+        ready_timeout=5,
+        run_timeout=5,
+    )
+    assert report["ack_sent"] is True
+    assert report["leader_exited_before_cleanup"] is True
+    assert report["group_alive_after_leader_exit"] is True
+    assert report["descendant_alive_after_leader_exit"] is True
+    assert report["descendant_identity"][0] == report["descendant_pid"]
+    assert report["descendant_record"] == (
+        report["descendant_pid"],
+        report["descendant_identity"][1],
+        report["armed_group"],
+        report["armed_group"],
+    )
+    assert report["cleanup_signals"] == ["SIGTERM", "SIGKILL"]
+    assert report["post_sigterm_state"]["group_alive"] is True
+    assert report["post_sigterm_state"]["identities_alive"][
+        report["descendant_identity"]
+    ] is True
+    assert report["post_sigkill_state"]["group_alive"] is False
+    assert report["post_sigkill_state"]["identities_alive"][
+        report["descendant_identity"]
+    ] is False
+    assert report["descendant_alive_after_cleanup"] is False
+    assert report["group_alive_after_cleanup"] is False
+    assert report["process_closed"] is True
+    assert all(report["closed_fds"].values())
+
+
+def test_proc_starttime_parser_uses_final_comm_parenthesis():
+    fields_3_through_21 = ["S", *[str(index) for index in range(4, 22)]]
+    stat = "123 (hostile ) comm ( value) " + " ".join(
+        [*fields_3_through_21, "987654", "0", "0"]
+    )
+    assert _parse_proc_starttime(stat, 123) == 987654
 
 
 def test_explicit_fork_post_ack_hang_kills_verified_group_and_descendant(
@@ -971,7 +1270,21 @@ def test_explicit_fork_post_ack_hang_kills_verified_group_and_descendant(
     report = caught.value.report
     assert report["ack_sent"] is True
     assert report["descendant_pid"] is not None
+    assert report["descendant_record"] == (
+        report["descendant_pid"],
+        report["descendant_identity"][1],
+        report["armed_group"],
+        report["armed_group"],
+    )
     assert report["cleanup_signals"] == ["SIGTERM", "SIGKILL"]
+    assert report["post_sigterm_state"]["group_alive"] is True
+    assert report["post_sigterm_state"]["identities_alive"][
+        report["helper_identity"]
+    ] is True
+    assert report["post_sigkill_state"]["group_alive"] is False
+    assert report["post_sigkill_state"]["identities_alive"][
+        report["helper_identity"]
+    ] is False
     assert report["descendant_alive_after_cleanup"] is False
     assert report["group_alive_after_cleanup"] is False
     assert report["process_closed"] is True
