@@ -833,3 +833,32 @@ verification returned 51 `OK` records. Exactly the six O-086-owned files are
 covered by the scoped work, but exact code identity is the durable three-path
 commit `7a3a15a13d19be87c5269966afc5fd6b1054d660`; these three lifecycle
 documents are delivery records and do not alter that code identity.
+
+## Job 352718 — warning-fatal gate COMPLETE / suite FAIL / no retry
+
+Job `352718` ran exact candidate `7a3a15a` from executable `764aab2` on n64
+and ended scheduler `COMPLETED 0:0` after `00:16:38` (batch MaxRSS
+`1129956K`, TotalCPU `09:37.575`). The authoritative summary is
+`diagnostic_complete=true`, `artifact_complete=true`, `suite_pass=false`:
+five present JUnit tests all failed, four nodes have no JUnit, and seven nodes
+timed out. Every node nevertheless has `cleanup_ok=true`; all root groups,
+tracked identities, and adopted children are absent.
+
+Warning-fatal policy is recorded `true`. No raw node or scheduler log contains
+`PytestUnraisableExceptionWarning`, worker SIGABRT/Aborted,
+`AF_UNIX path too long`, or `S07B_TMP_CLEANUP_FAILURE`. This does not prove the
+Job 352354 warning fixed because nodes 8 and 9 timed out before JUnit. The
+common failure is spawn/helper readiness/execution on n64: helper paths missed
+5/10-second ready deadlines, while ZIP spawn and all three model-loader spawn
+paths hit the 90-second supervisor limit.
+
+All 47 global manifest records verify. SHA-256 values are summary
+`52fb107d7e5b5d9bf8655685d568574abcf95280caea19b522c36758952437d6`,
+identity `0842ee3be28a04252a5bd7109ddd62be0ecd6446caf8d279537449c374ff0e34`,
+config `886536a54f3a9631bdb3a5ada3d3f19cd71d8482405a21b4d5abf996b4683e33`,
+manifest `fd7b9492fd05a5be418a183c42d9d3ea3a530d1c86a4920ae7dcd274e68a2a9e`,
+stdout `40f98e6ff848e1d3f94762af33f49e4e5f874e610f4ac7f21a0b720421d4b574`,
+and stderr `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57`.
+
+Strict S07-B runtime readiness is **FAIL**. Do not infer S02-S05 model failure,
+claim the node-8 warning closed, retry this approval, or make scientific claims.

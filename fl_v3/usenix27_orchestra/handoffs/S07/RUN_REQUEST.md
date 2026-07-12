@@ -1774,3 +1774,12 @@ One submission consumes approval regardless of outcome. Any drift or failed
 predicate is terminal FAIL. No retry, requeue, replacement, alternate command,
 automatic resubmission, or follow-on is approved. PASS establishes only the
 bounded S07-B multiprocessing/runtime gate.
+
+### Section K terminal state
+
+The exact command ran once as Job `352718` and consumed approval. Terminal
+status is `EXECUTED_ONCE_JOB_352718_DIAGNOSTIC_COMPLETE_SUITE_FAIL_NO_RETRY`:
+seven timeouts, five failures among five present JUnit records, and four missing
+JUnit records. `RESULTS.md` preserves exact artifacts and hashes. No retry,
+replacement, alternate invocation, automatic resubmission, or follow-on is
+authorized.

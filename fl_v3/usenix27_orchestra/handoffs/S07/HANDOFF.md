@@ -2602,3 +2602,11 @@ manifest `b216a651...`, one GH200/20 minutes, and fresh paths keyed
 logs must contain no unraisable-warning, worker-abort, or temp-cleanup breach
 token. No full-data, cache, model-step, metric, profile, DDP, matrix,
 scientific, merge, or push scope is authorized.
+
+Job `352718` consumed that approval and is terminal harness-complete but suite
+FAIL. All nine nodes were attempted and all identities cleaned; seven timed
+out, five present JUnit records failed, and four nodes produced no JUnit. The
+warning-fatal policy was active and no warning/SIGABRT/AF_UNIX/temp-breach token
+appeared, but nodes 8/9 timed out, so the prior hidden-warning remediation is
+not runtime-proven. S07-B remains static-reviewed at `764aab2` and runtime-
+blocked. No retry or new subagent is authorized.
