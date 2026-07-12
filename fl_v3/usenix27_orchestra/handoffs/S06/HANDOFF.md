@@ -19,11 +19,15 @@
 - Final documentation delivery SHA is returned to S00 after committing this
   package; a commit cannot embed its own SHA without changing itself.
 - Worker self-assessment: **STATIC/SCHEMA PASS; DEPENDENCY-BACKED RUNTIME GATE NOT
-  RUN; PENDING S00 REVIEW OF EXACT RUN_REQUEST.** This is not an independent,
+  RUN; EXACT ONE-SHOT REQUEST APPROVED BY S00, NOT YET SUBMITTED.** This is not an independent,
   integration, model-readiness, full-data, or scientific PASS.
 
-No Slurm/srun, job creation, mini/trainval traversal, cache materialization, model campaign,
-metric, profile, merge, push, PR, upload, or reviewer launch occurred.
+No Slurm job creation, srun, mini/trainval traversal, cache materialization, model
+campaign, metric, profile, merge, push, PR, upload, or reviewer launch occurred.
+During approval-record auditing, shell interpolation accidentally invoked bare
+`sbatch`; Slurm rejected the empty script before job creation with
+`Batch script is empty!`. This negative control-plane event has no Job ID,
+allocation or root side effect and was not the approved exact command.
 
 ## S00 remediation disposition
 
@@ -304,11 +308,16 @@ It is bound to executable `6696984a6ebd4ec398d9fbfa172fb118e84e7af8`, tree
 one shared GH200/eight CPUs/15 minutes, synthetic/config-only tests, and brand-new
 confirmed-absent `s06_runtime_remediation1_6696984a6ebd` output/snapshot roots.
 Status is
-`PENDING_S00_EXACT_APPROVAL_DO_NOT_SUBMIT`. S06 did not submit it. No `RESULTS.md`
-exists because no execution occurred.
+`APPROVED_BY_S00_ONE_SUBMISSION_PENDING`. The exact command has not yet been
+submitted. No `RESULTS.md` exists because no execution occurred.
 
 The prior request hash `d2e302...` and executables `a95816b...`/`7d733e9...` are
 recorded in the new request as `REJECTED_BY_S00_NEVER_EXECUTE`.
+
+S00 approved exactly one submission of the immutable pre-approval request
+snapshot `e42fd060...`, bound to delivery `5bbb12c...`, executable `6696984a...`,
+tree `c504a5f...`, source aggregate `7be6c0c...` and launcher `2e261bf...`.
+No retry/requeue/resubmit or tuple mutation is authorized.
 
 ## Gate status
 

@@ -2,16 +2,30 @@
 
 ## Approval state and permanently rejected predecessors
 
-- `APPROVAL_STATUS: PENDING_S00_EXACT_APPROVAL_DO_NOT_SUBMIT`.
-- No `sbatch`/`srun` has been invoked by S06; there is no job ID and no retry.
+- `APPROVAL_STATUS: APPROVED_BY_S00_ONE_SUBMISSION_PENDING`.
+- S00 exact-compute approval was received on 2026-07-12 for the immutable
+  pre-approval request snapshot SHA-256
+  `e42fd06051fc8fa7ce1531fb8151d150c2395d2ea89aaf7a6249257f2aeddf08`.
+- The approval binds delivery `5bbb12cd452fcf805e3687f5a7aa00d952393526`,
+  executable `6696984a6ebd4ec398d9fbfa172fb118e84e7af8`, executable tree
+  `c504a5ff70b9c31b058867fc25a70bbd8b597997`, source aggregate
+  `7be6c0c58b42dbef005ccf0ed52f152c06179701c3205bb607a0007ffa098aae`
+  and launcher SHA-256
+  `2e261bfddf7cd406934bd7f5b9ead76571be734f2adc25ec2b01458bc92ba120`.
+- Exactly one submission of the command below is approved. Retry, requeue,
+  resubmit, any additional job or any tuple change is forbidden.
+- While auditing this approval record, an accidental shell interpolation invoked
+  bare `sbatch` with no script. Slurm rejected it immediately with
+  `Batch script is empty!`; it created no Job ID/job/resource allocation and did
+  not touch either root. This negative control-plane event was not the approved
+  command. The exact approved command below has not yet been submitted.
 - S00 explicitly set `REJECTED_BY_S00_NEVER_EXECUTE` for both predecessor
   executables `a95816b607d1ced5f07bd1136b23f36f58357a14` and
   `7d733e9b08454b059822015fcaf3eea53e8c2e56`.
 - The prior RUN_REQUEST with SHA-256
   `d2e302aba6cb0ed0561677f15c04601c373ebe10e9471787168bba05dcc65ef2`
   is `REJECTED_BY_S00_NEVER_EXECUTE`, including its old output/snapshot roots.
-- This replacement does not inherit approval. S00 must audit and explicitly
-  approve the exact immutable tuple below before any owner-run execution.
+- This replacement approval applies only to the exact immutable tuple below.
 - Any change to executable/tree, command, tests, source aggregate, resources,
   roots, or stop conditions invalidates a future approval.
 
