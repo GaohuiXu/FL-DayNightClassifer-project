@@ -2998,3 +2998,108 @@ mAP/NDS、fusion gain、FL、attack/defense、generalization或publication evide
 
 该PASS只关闭exact O-069/R11 test-harness findings并保留上述Linux/CPython/runtime residual；
 它不是post-O-059 integrated runtime PASS，也不自动允许任何后续job。
+
+---
+
+# S07-B-R13 独立复审 — Job 352105 harness-confound remediation
+
+## Findings（按严重性排序）
+
+### P2 — leader-exit hostile没有验证“reaped wait status来自SIGKILL”，交付却宣称已断言exact wait status
+
+`fl_v3/tests/test_nuscenes_zip_dataset.py:1378-1389` 只验证发送记录为
+`[SIGTERM, SIGKILL]`、SIGKILL后group/identity消失，以及`waitpid`返回的raw status
+大于等于零。这个谓词对正常退出status `0`、其他signal或非预期退出同样成立；因此它不能证明
+被reap的exact descendant确实在TERM无效后由预期SIGKILL终止。实现的identity、PPID、
+bounded `waitpid(exact_pid,WNOHANG)`与TERM/KILL/reap顺序在静态路径上是正确的，但hostile
+缺少`os.WIFSIGNALED(status)`及`os.WTERMSIG(status) == signal.SIGKILL`的最终语义断言。
+
+这也使`HANDOFF.md:2354`“asserts ... exact wait status”的交付陈述强于实际test。请保存
+该exact wait status并断言WIFSIGNALED/WTERMSIG；同时让static contract或source-text检查覆盖
+这一谓词。修复只能获得authored/static closure，仍需后续独立runtime evidence。
+
+### P3 — 五个EXIT trap在primary已失败时可静默吞掉path/identity cleanup failure
+
+五个launcher的`cleanup_job_tmp`都在path regex、exact parent、directory/no-symlink或
+device/inode检查失败时仅设置`cleanup_status=1`。当主流程status已经非零时，trap按要求保留
+原status，但没有为这些predicate failures输出确定性stderr或durable record；`if`条件失败本身
+也不打印诊断。因此例如pytest timeout同时发生temp path replacement/removal时，launcher只返回
+原timeout code，cleanup breach可完全不可见。`rm`/`stat`自身报错并不覆盖纯predicate mismatch。
+
+请在所有五个trap中对每个未获准删除的原因至少输出明确stderr（不改变非零primary status；
+primary为零时仍因cleanup failure转为非零），并把该observability token纳入static contract。
+无需将temp内容复制进durable artifacts，但不能静默声称cleanup contract已完成。
+
+### P3 — durable HANDOFF把已经提交的delivery仍写成“uncommitted documentation diff”
+
+`HANDOFF.md:2380-2383`称code SHA durable而“this updated lifecycle prose remains an
+uncommitted documentation diff”。实际delivery commit
+`34f07994a4b3de62c7c1331d98ff03dbba98de2e`正是把HANDOFF/RUN_REQUEST/RESULTS作为
+durable commit提交，review baseline `8089a61...`的parent也精确为该delivery。这是可复现状态
+错误，不是措辞偏好。请改为记录exact delivery SHA/parent与三路径ownership；同时把
+“saved state is restored on every path”改为“restore is attempted on every controlled path”，
+因为restore syscall本身失败时只能保留additive cleanup evidence，不能声称状态已恢复。
+
+## 已确认没有finding的部分
+
+1. 五个launcher均验证numeric job ID与12-hex executable prefix，使用随机
+   `/tmp/flv3-s07b-...XXXXXX`、运行时长度上限48、mode 0700、anchored regex、exact
+   `/tmp` parent、no-symlink及device/inode identity；环境激活后重新export
+   `TMPDIR/TMP/TEMP`，formal artifacts仍位于独立output root。未发现output-local temp
+   回归、非anchored `rm -rf`或source-attestation绕过。
+2. Linux `prctl` constants/ABI在目标aarch64 LP64上匹配；subreaper仅在
+   `post_ack_leader_exit`启用，且在helper start前生效。pytest parent成为nearest
+   subreaper后，代码要求exact `(pid,starttime,PPID)`，只调用
+   `waitpid(pid,WNOHANG)`，未使用`waitpid(-1)`；primary与cleanup exception仍按notes/
+   `BaseExceptionGroup`保留，FD/Process/sentinel与parent SID/PGID predicates未回退。
+3. Job 352105原始证据支持delivery的负面解释：manifest 46/46通过；summary为
+   diagnostic/artifact complete但suite FAIL（2 PASS / 2 FAIL / 5 timeout）；旧路径确为
+   106 bytes；post-ACK log有四条`AF_UNIX path too long`；leader descendant被outer
+   supervisor PID `401513`收养。历史candidate/executable/hash与negative shape没有被改写。
+
+## Review identity、prefix、topology 与 ownership
+
+- Session：`S07-B-R13`；`APPROVED_COMPUTE: none`。
+- Exact code commit：`26cffb02ced50b07f93021bc48310efb68b178a9`，parent
+  `f8b781dd919443fab0d9c2e6e28c0207182800d5`。
+- Delivery：`34f07994a4b3de62c7c1331d98ff03dbba98de2e`，parent exact为code commit。
+- Review startup/import：`8089a61edb6d2a8a61df3c6271cdfb7f9cfe2501`，branch
+  `codex/s07-b-r13-runtime-harness-review`，startup clean。
+- 追加前R12 prefix：Git blob `7fbd6d7f2559ee36eab57295a217b1816655f214`、size
+  `200971`、SHA-256
+  `d457f19bdd87bc8cfbed54f337674b548a3be520bd17003a0dd03bc0fe48f0f1`；
+  R13只追加在这些exact bytes之后。
+
+`f8b781d..26cffb0`精确七路径，`439/18`；无production source。七个blob/SHA-256与
+HANDOFF/RESULTS/RUN_REQUEST表格逐项一致。`26cffb0..34f0799`只改三份S07 durable docs。
+`git diff --check f8b781d..34f0799`无warning。
+
+## Checks actually run 与 explicit NOT RUN
+
+实际执行：startup branch/HEAD/parent/clean与R12 prefix blob/size/SHA-256；commit ancestry、
+name-status/numstat、七个blob及SHA-256；逐行读取test/五launcher/static checker/delivery docs；
+六个相关shell `bash -n`；`python3 -m py_compile`仅针对changed test；launcher-contract-only
+checker（`short TMPDIR contract: 5 launchers OK`）；stdlib `compile()`检查19个shell Python
+heredoc；`git diff --check`；Job 352105全局`sha256sum -c` 46/46、summary/identity/config/
+node logs与supervisor JSON的直接读取。py_compile只生成ignored cache且review tree仍clean。
+
+明确 **NOT RUN / NO IMPLIED PASS**：project/package import、pytest、任何multiprocessing/
+fork/spawn runtime、Torch/NumPy/CUDA/spconv/cumm、data/cache/model/checkpoint、Slurm/srun/GPU、
+full `t1.v2`、full trainval、100/1000 steps、profile、metrics、DDP、matrix、seed/rerun、
+FL/attack/defense/scientific cell。未merge/push/upload/publication。
+
+## Interpretation、residual risk 与 final verdict
+
+允许解释：short-temp与nearest-subreaper remediation方向在static层成立；Job 352105是
+artifact-complete但harness-confounded的negative diagnostic，不能归因production candidate。
+
+禁止解释：不得称leader-exit exact SIGKILL/reap semantics已被hostile完整锁定、所有cleanup
+failure均可观察、durable handoff状态完全准确，亦不得称任何corrected runtime、integrated
+suite、production/full-data/checkpoint/performance/scientific gate PASS。
+
+修复上述三项后应从exact new worker/delivery SHA做独立复审。即使复审static PASS，也只能由
+S00另行冻结并批准全新bounded runtime request；本review不授权compute、merge、push或upload。
+
+**CHANGES-REQUESTED for S07-B delivery
+`34f07994a4b3de62c7c1331d98ff03dbba98de2e` / code candidate
+`26cffb02ced50b07f93021bc48310efb68b178a9`.**
