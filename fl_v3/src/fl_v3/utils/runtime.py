@@ -29,6 +29,7 @@ must fail loudly.
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import os
 import random as _random
 import warnings
@@ -52,6 +53,7 @@ _CUBLAS_WORKSPACE_CONFIG = ":4096:8"
 # by normalize_precision/validate_sparse_precision instead of silently falling back.
 _VALID_PRECISIONS = frozenset({"fp16", "fp32"})
 _CURRENT_PRECISION = "fp32"
+_MODEL_MODES = frozenset({"camera_only", "lidar_only", "fusion"})
 
 
 def normalize_precision(precision: str | None) -> str:
@@ -67,6 +69,23 @@ def normalize_precision(precision: str | None) -> str:
             + extra
         )
     return p
+
+
+def normalize_model_mode(mode: str | None) -> str:
+    """Accept only the three production topology names; aliases are forbidden."""
+    if not isinstance(mode, str) or mode not in _MODEL_MODES:
+        raise ValueError(f"model-mode={mode!r} not in {sorted(_MODEL_MODES)}")
+    return mode
+
+
+def require_spconv_238() -> None:
+    """Fail before sparse model construction unless the reviewed runtime is exact."""
+    try:
+        version = importlib.metadata.version("spconv")
+    except importlib.metadata.PackageNotFoundError as exc:
+        raise RuntimeError("lidar/fusion mode requires installed spconv==2.3.8") from exc
+    if version != "2.3.8":
+        raise RuntimeError(f"lidar/fusion mode requires spconv==2.3.8, found {version!r}")
 
 
 def current_precision() -> str:

@@ -20,6 +20,7 @@ from fl_v3.eval.detection_eval import (
     build_results_dict,
     gt_as_pred_submission,
     run_detection_eval,
+    submission_meta,
 )
 
 
@@ -52,6 +53,13 @@ def test_assert_version_split():
         assert_version_split("v1.0-mini", "val")
     with pytest.raises(AssertionError):
         assert_version_split("v1.0-trainval", "mini_val")
+
+
+def test_submission_meta_uses_actual_mode():
+    assert submission_meta("camera_only")["use_camera"]
+    assert not submission_meta("camera_only")["use_lidar"]
+    assert submission_meta("lidar_only")["use_lidar"]
+    assert not submission_meta("lidar_only")["use_camera"]
 
 
 def test_results_dict_has_all_tokens_as_keys():

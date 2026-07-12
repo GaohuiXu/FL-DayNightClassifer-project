@@ -25,6 +25,7 @@ from fl_v3.utils.runtime import (
     normalize_precision,
     precision_autocast_context,
 )
+from fl_v3.training.runtime_state import TrainingState, project_batch_for_mode
 
 # A criterion maps (model_output, target) → scalar loss. ``target`` may be a tensor
 # (the regression/classification tasks) OR the multimodal detection batch dict (the AD
@@ -99,6 +100,13 @@ def _grad_norm(model: nn.Module) -> float:
     return float(torch.linalg.vector_norm(torch.stack(norms), 2).detach().cpu())
 
 
+def _gradients_finite(model: nn.Module) -> bool:
+    return all(
+        bool(torch.isfinite(p.grad).all().item())
+        for p in model.parameters() if p.requires_grad and p.grad is not None
+    )
+
+
 def evaluate(
     model: nn.Module,
     dataloader: DataLoader,
@@ -136,6 +144,11 @@ def train_one_epoch(
     precision: Optional[str] = None,
     grad_scaler: Optional[Any] = None,
     telemetry_interval: int = 0,
+    accumulation_steps: int = 1,
+    runtime_state: Optional[TrainingState] = None,
+    max_optimizer_steps: int = 0,
+    model_mode: Optional[str] = None,
+    exposure_multiplier: int = 1,
 ) -> Dict[str, float]:
     """One epoch of training with the injected criterion (tensor or dict batch).
 
@@ -150,6 +163,13 @@ def train_one_epoch(
     ``swa_utils.AveragedModel``) is updated after each step. None of these fire unless passed, so
     ``train_local`` / the determinism gate are unchanged."""
     model.train()
+    if accumulation_steps < 1:
+        raise ValueError("accumulation_steps must be >= 1")
+    if exposure_multiplier < 1:
+        raise ValueError("exposure_multiplier must be >= 1")
+    state = runtime_state if runtime_state is not None else TrainingState()
+    if state.accumulation_phase or state.pending_samples:
+        raise RuntimeError("train_one_epoch requires an optimizer-update boundary")
     precision = normalize_precision(precision or current_precision())
     scaler = grad_scaler if grad_scaler is not None else make_grad_scaler(device, precision)
     use_amp = precision == "fp16" and device.type == "cuda"
@@ -159,19 +179,25 @@ def train_one_epoch(
     nonfinite_loss_count = torch.zeros((), device=device, dtype=torch.float64)
     total_n = 0
     step_count = 0
-    optimizer_steps = 0
+    optimizer_steps_at_start = state.optimizer_step
     scaler_skips = 0
     last_grad_norm = 0.0
     _missing = object()
     old_record_terms = getattr(criterion, "record_terms", _missing)
+    optimizer.zero_grad(set_to_none=True)
     try:
         for batch in dataloader:
+            if max_optimizer_steps and state.optimizer_step >= max_optimizer_steps:
+                break
+            if max_steps and step_count >= max_steps:
+                break
             next_step = step_count + 1
             record_step = bool(telemetry_interval and next_step % telemetry_interval == 0)
             if old_record_terms is not _missing:
                 criterion.record_terms = record_step
+            if model_mode is not None:
+                batch = project_batch_for_mode(batch, model_mode)
             inputs, targets = _unpack_batch(batch, device)
-            optimizer.zero_grad(set_to_none=True)
             if use_amp:
                 with precision_autocast_context(precision, device):
                     out = model(inputs)
@@ -179,10 +205,32 @@ def train_one_epoch(
             else:
                 out = model(inputs)
             loss = criterion(out, targets)
-            nonfinite_loss_count += (~torch.isfinite(loss.detach())).to(torch.float64)
+            bs = _batch_size(targets)
+            if not bool(torch.isfinite(loss.detach()).item()):
+                nonfinite_loss_count += 1
+                state.nonfinite_windows += 1
+                state.accumulation_phase = 0
+                state.pending_samples = 0
+                optimizer.zero_grad(set_to_none=True)
+                step_count += 1
+                continue
+
+            state.accumulation_phase += 1
+            state.pending_samples += int(bs) * int(exposure_multiplier)
+            scaled_loss = loss / float(accumulation_steps)
+            if scaler.is_enabled():
+                scaler.scale(scaled_loss).backward()
+            else:
+                scaled_loss.backward()
+            loss_sum += loss.detach().double() * bs
+            total_n += int(bs)
+            step_count += 1
+            if state.accumulation_phase < accumulation_steps:
+                continue
+
+            successful = False
             if scaler.is_enabled():
                 scale_before = float(scaler.get_scale())
-                scaler.scale(loss).backward()
                 scaler.unscale_(optimizer)
                 if do_clip:
                     grad_norm_t = torch.nn.utils.clip_grad_norm_(
@@ -195,14 +243,16 @@ def train_one_epoch(
                 scaler.update()
                 skipped = float(scaler.get_scale()) < scale_before
                 scaler_skips += int(skipped)
-                if not skipped:
-                    optimizer_steps += 1
-                    if scheduler is not None:
-                        scheduler.step()
-                    if ema_model is not None:
-                        ema_model.update_parameters(model)
+                successful = not skipped
+                if skipped:
+                    state.overflow_windows += 1
             else:
-                loss.backward()
+                if not _gradients_finite(model):
+                    state.nonfinite_windows += 1
+                    nonfinite_loss_count += 1
+                    successful = False
+                else:
+                    successful = True
                 if do_clip:
                     grad_norm_t = torch.nn.utils.clip_grad_norm_(
                         [p for p in model.parameters() if p.requires_grad], grad_clip_norm)
@@ -210,26 +260,35 @@ def train_one_epoch(
                         last_grad_norm = float(grad_norm_t.detach().cpu())
                 elif record_step:
                     last_grad_norm = _grad_norm(model)
-                optimizer.step()
-                optimizer_steps += 1
+                if successful:
+                    optimizer.step()
+            if successful:
+                state.optimizer_step += 1
+                state.exposure_samples += state.pending_samples
                 if scheduler is not None:
                     scheduler.step()
                 if ema_model is not None:
                     ema_model.update_parameters(model)
-            bs = _batch_size(targets)
-            loss_sum += loss.detach().double() * bs
-            total_n += int(bs)
-            step_count += 1
+            state.accumulation_phase = 0
+            state.pending_samples = 0
+            optimizer.zero_grad(set_to_none=True)
             if max_steps and step_count >= max_steps:
-                break                              # smoke cap (default 0 = full epoch ⇒ byte-identical)
+                break
     finally:
+        if state.accumulation_phase:
+            state.discarded_partial_windows += 1
+            state.accumulation_phase = 0
+            state.pending_samples = 0
+            optimizer.zero_grad(set_to_none=True)
         if old_record_terms is not _missing:
             criterion.record_terms = old_record_terms
     return {
         "loss": float(loss_sum.item()) / total_n if total_n else 0.0,
         "num_samples": float(total_n),
         "steps": float(step_count),
-        "optimizer_steps": float(optimizer_steps),
+        "optimizer_steps": float(state.optimizer_step - optimizer_steps_at_start),
+        "optimizer_steps_total": float(state.optimizer_step),
+        "exposure_samples": float(state.exposure_samples),
         "precision": precision,
         "grad_scaler_enabled": float(scaler.is_enabled()),
         "grad_scaler_scale": float(scaler.get_scale()),
