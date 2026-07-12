@@ -2641,3 +2641,213 @@ concurrency/EMA/official eval仍无新 runtime evidence。上述 P2 需要先修
 `97588f7ad556fe1ce1a5f7bd76cee19e79d16d31`.**
 
 本 verdict 不授权任何 runtime proposal、compute、merge、push、upload 或科学解释。
+
+---
+
+# S07-B-R11 独立复审 — O-067 ready/ACK 与 all-path cleanup remediation
+
+## Findings（按严重性排序）
+
+### P2 — “leader 已退出、group/descendant 仍存活”路径没有被等待或 hostile 覆盖；当前 cleanup 会把对已退出 leader 的 `join()` 误当成 group 等待
+
+候选正确地把 `armed_group` 的赋值放到完整 ready tuple 与 live kernel
+`getsid/getpgid` 验证之后，并用 ACK 阻止 child 在此之前进入任何 fork/DataLoader
+路径（`fl_v3/tests/test_nuscenes_zip_dataset.py:433-466,549-631`）。但 O-068 明列的
+**leader-dead remaining-group** 分支仍未闭合。
+
+cleanup 在发现 `armed_group` 存在后发送 SIGTERM，随后调用
+`process.join(2)`；若 group 仍存在则发送 SIGKILL，再调用 `process.join(5)`
+（`:675-727`）。这两个 `join()` 只等待 `multiprocessing.Process` 所代表的 helper
+leader，不等待 process group。若 leader 在 ACK 后已经退出、只留下 fork worker/raw
+descendant，它们都会立即返回；代码随后立刻执行最终 `killpg(group, 0)` 检查
+（`:741-759`），没有独立于 leader 的 bounded group-disappearance poll。TERM/KILL 后的
+descendant 尚未被调度退出、正成为 orphan/zombie，或正等待 init/subreaper 回收时，当前
+代码会把短暂存在的原 group 报成 cleanup failure。更重要的是，它没有可执行证据证明
+这一分支最终清除原 descendant。
+
+现有 `forced_hang` 不能覆盖该问题。`_hang_with_forked_descendant()` 给 helper leader
+安装 SIGTERM handler；handler 阻塞 `waitpid(descendant_pid, 0)`，随后 leader 继续
+`signal.pause()`，特意保持存活直到父进程发送 SIGKILL（`:411-430`）。因此该 hostile
+证明的是“live leader 先 reap child、随后被 KILL”，而不是“leader 已经退出、remaining
+group 由 parent 清理”。对应 test 只断言这条规避分支
+（`:957-978`）。HANDOFF 所称“cleanup no longer depends on the helper leader remaining
+alive”及“every armed group ... joined and audited absent”
+（`fl_v3/usenix27_orchestra/handoffs/S07/HANDOFF.md:2025-2026`）超过实际实现与 authored
+coverage。
+
+**Required remediation:**
+
+1. 增加真实 `leader_exit_with_descendant` hostile：helper 在 ACK 后 raw-fork 一个保持在
+   exact isolated PGID 的 descendant，向 parent 发送其不可歧义 identity，然后 helper
+   自己正常或异常退出而不等待 descendant；parent 必须先证明 direct `Process` 已退出而
+   `killpg(pgid, 0)` 仍为真，才能进入被测 cleanup。
+2. 把 direct-child reap 与 group cleanup 分开：`Process.join()` 只用于回收 helper；每次
+   TERM/KILL 后用 monotonic deadline 独立轮询原 group/descendant identity。TERM deadline
+   到期且原 group仍存在才发送 KILL；KILL 后必须再次 bounded wait，不能靠再次 join 已退出
+   leader。最终才关闭 `Process` sentinel。
+3. 对 orphan descendant 的“gone/reaped”证明必须识别原进程实例，而不是只看裸 PID；在
+   Linux/CPython 3.11 环境可在 descendant 活着时记录 `/proc/<pid>/stat` starttime 或打开
+   pidfd。若测试要声称由 pytest parent **reap**，则需显式、安全地采用并恢复 subreaper
+   contract；否则措辞应精确为 original descendant exited and no matching process/group
+   remains，而不能宣称 parent `waitpid` 了非 child。
+4. hostile 必须继续证明 parent PID/SID/PGID 未变、无 parent-group signal、control/Queue/
+   sentinel 全闭合，并在后续测试中无残留。
+
+在这一修复与新 exact-SHA 独立复审前，R10 的 all-path descendant cleanup 仍为
+`CHANGES-REQUESTED`。
+
+### P2 — parent 先 `join()` producer、后读取 `multiprocessing.Queue`，仍存在 feeder backpressure deadlock，可能把 primary traceback/cleanup notes 重新降格成 timeout
+
+child 的正常/error outcome 经 `result_queue.put(...)` 发送；其 `finally` 随即执行
+`result_queue.close(); result_queue.join_thread()`（`test_nuscenes_zip_dataset.py:470-499`）。
+parent 却先 `process.join(run_timeout)`，只有确认 helper 退出后才
+`result_queue.get(timeout=5)`（`:638-645`）。这正是 CPython `multiprocessing.Queue`
+producer 的经典 deadlock 顺序：`put()` 只进入 child feeder buffer，child 的
+`join_thread()` 等 feeder 把全部 pickle bytes 写入 pipe；若 outcome（尤其完整 traceback、
+多个 cleanup notes 或较长 exception repr）超过 pipe 可用容量，parent 又在 join 中不读，
+双方互相等待直到 `run_timeout`。此时本应回传的 forced primary error 会被父侧
+“helper timed out”替代，R10 所要求的跨进程 primary traceback preservation 实际仍不具备
+all-size/all-cleanup-path保证。
+
+本轮 fixed `forced_error` payload 通常较小，因此静态审查不能断言该 authored case必然
+触发 deadlock；但 all-path harness 不能把正确性建立在 traceback/notes 小于平台 pipe
+容量的隐含条件上。CPython 3.11 的 `Queue` 实现也明确显示 producer 的
+`close()`只向 feeder buffer排 sentinel，而 `join_thread()`等待 feeder；parent get-only
+Queue 本身没有 feeder finalizer。这使上述等待环真实存在，不是 style issue。
+
+**Required remediation:** parent 必须在 producer join 之前持续 drain outcome（例如 normal/
+error path 先按 deadline `get()` 完整 outcome，再 bounded join/reap helper；hang path在无
+outcome deadline后进入 group cleanup），或改用一个具有明确 framing/parent-read-before-
+child-exit contract 的同步 channel。不得用 `cancel_join_thread()`静默丢失 primary report。
+新增一个超过 pipe capacity 的 traceback/cleanup-note hostile，证明 parent 收到完整 primary
+traceback和notes、helper正常reap、Queue/control/Process资源闭合且不超时。
+
+### P3 — worker/descendant 的裸 PID `kill(pid, 0)` audit 不区分 PID reuse；private Queue/FD 断言仅在冻结的 CPython 3.11 layout 下成立
+
+forced-error/forced-hang 最终只保存 integer PID，parent 稍后用 `os.kill(pid, 0)` 判断存活
+（`:761-803`）。原 worker/descendant 已退出后若 PID 被快速复用给无关进程，这会把“原进程
+已消失”误报为残留；它也不能证明所见 task 是原 child。当前代码不会向这些裸 worker PID
+直接发 signal，因此主要后果是 flaky false failure；但在测试 process cleanup 与 PID-reuse
+审计中不能把它称为 exact per-PID proof。应按上一 finding 记录 starttime/pidfd identity，
+将 ESRCH 或 identity 改变都解释为“原进程 gone”，仅同一 identity 存活才失败。
+
+parent 对 get-only Queue 的处理在**当前冻结 CPython 3.11**语义下静态可行：parent从未
+`put()`，所以 `_thread/_close/_jointhread` 均未启动；`Queue.close()`不会关闭 pipe，随后
+显式关闭 `_reader/_writer` 不构成同一 parent object 的 double-close；child producer的
+normal/error path则由自己的 feeder close/join。`Process.close()`在 direct child 已停止后
+关闭 sentinel。这里没有确认新的 CPython-3.11 必败点。不过 `_reader/_writer` 是 private
+API，且最终只对早先记录的 integer FD做 `fstat(...)=EBADF`（`:805-847`）；若未来 Python
+layout改变或 FD number在检查前被复用，证据会变脆。该限制应保留为版本绑定的 P3，不能
+外推到其他 Python/runtime。上方 Queue drain-order P2 则即使在冻结 CPython 3.11 也成立。
+
+### 无 P0/P1 finding
+
+本 diff 只有获批 test 与 HANDOFF 两路径；没有 production/model/data/config/metric/protocol、
+canonical/collab/fl_v2、RUN_REQUEST/RESULTS、negative artifacts 或 scientific contract
+变化。没有未授权 pytest/import/compute、merge、push、upload 或 publication。上述两项 P2
+是 explicit-fork test harness 的 all-path cleanup/diagnostic correctness blocker，不是模型或
+科学协议变化。
+
+## Review identity、prefix、import topology 与 exact ownership
+
+- Session：`S07-B-R11`。
+- Remediation base：`97588f7ad556fe1ce1a5f7bd76cee19e79d16d31`。
+- Candidate `WORKER_SHA`：`8469eb4944f164f5bd2fa1aa833ea4df0acf04b3`。
+- Test commit：`6782fa19ca2e4c021ac5215c3e85dd939f4296f9`，parent exact 为
+  remediation base；该 commit 只改
+  `fl_v3/tests/test_nuscenes_zip_dataset.py`，exact numstat `633/68`。
+- Handoff-only candidate commit：`8469eb4944f164f5bd2fa1aa833ea4df0acf04b3`，parent exact
+  为 test commit。
+- Startup/import HEAD：`1839c94b28b016ed690165b15c013c0e72544f8b`，branch
+  `codex/s07-b-r11-integrated-cl-stack-review`，startup clean。
+- 权威 canonical：`e999b5d3854d21ee4e22f709fadc6bcd297b6535`（O-068）。
+- `APPROVED_COMPUTE: none`。
+
+Import topology 精确为 candidate `8469eb4` → review-only `935734d` →
+review-only `a7e97aa` → review-only startup `1839c94`；这三个后续 commit 的唯一 changed
+path 都是 `fl_v3/usenix27_orchestra/handoffs/S07/REVIEW.md`。candidate 是 startup 的
+ancestor；除该 REVIEW path外，candidate与startup tree一致，没有把 reviewer ancestry
+当 implementation merge。
+
+追加 R11 前 exact R10 prefix 为 Git blob
+`b100c30123104063b3c1f88a6909008f3b2b888d`、size `175932` bytes、SHA-256
+`1f755af1e8811253b0fec332680f06ae43dcc899cd640f4cf147d70f9863900d`。本段只追加在这些
+bytes末尾，未重写、删除或重新编码 prior prefix。
+
+`97588f7..8469eb4` 精确只有两个 changed paths：
+
+- `fl_v3/tests/test_nuscenes_zip_dataset.py`：test commit `633` insertions / `68`
+  deletions，candidate SHA-256
+  `0c5a4e65403ec37329503aff95c0d07bcc9c5b2dd811c9a0e598c4b4d9e2cca8`；
+- `fl_v3/usenix27_orchestra/handoffs/S07/HANDOFF.md`：仅末尾追加 O-067 remediation
+  record，candidate SHA-256
+  `c74a0ba576e388c361f4ad31b8459e716a9a2de5d44f03667c7330a2e571f164`。
+
+`git diff --check 97588f7..8469eb4` 无 warning。HANDOFF 的 test hash、test commit、
+parent、R10 prefix blob/size/SHA-256与 candidate bytes精确一致；但其 leader-dead/all-path
+措辞受首项 P2 限制。
+
+Forbidden blobs在 remediation base与candidate精确相同：
+
+- `training/loop.py`：`881c070b1ef8affd350144cce33e508a241cf839`；
+- `training/tasks.py`：`86ab9d0563e1636d6c4cde06986470d2559f19f7`；
+- nuScenes `dataset.py`：`afd2707d3939d2d76205996fe94d29fcfc4ed5f3`；
+- `RUN_REQUEST.md`：`efa5ce78eac121f2dd3e70ea75ef414023d45d13`；
+- `RESULTS.md`：`b3b80625ef6c38e4d9382e11ded5c8534b5556ae`；
+- candidate-local `REVIEW.md`：`cd0e0795402c2892fe199691a6a01f483d6a457f`；
+- runtime launcher：`1e182ebc1fe883ad59702bfeb1b3db110bbf54c1`。
+
+## R10 requirement closure matrix
+
+| R10/O-068 requirement | R11 独立结论 | Evidence / boundary |
+|---|---|---|
+| duplex ready/ACK；pre-ACK禁止 fork | **CLOSED STATICALLY/AUTHORED, NOT EXECUTED** | child `send→recv ACK→fork`顺序明确；parent完整tuple、process.pid、kernel SID/PGID、parent-distinct后才arm/ACK；pre-ACK hostile在verified ready窗口失败。 |
+| unvalidated/unarmed path不 `killpg` parent group | **CLOSED STATICALLY** | `armed_group`只在validator返回后赋值；`None`分支只调用 exact `Process.terminate/kill`；parent identity末尾核对。现有 pre-ACK hostile本身是validated-and-armed-before-ACK，不是malformed-unarmed case，但结构上无 unvalidated killpg。 |
+| leader-dead remaining group/descendant TERM/KILL/gone | **OPEN — P2** | code检查group，但等待只join leader；无group deadline；forced-hang故意保持leader活着并由leader reap descendant。 |
+| primary traceback不被 lifecycle cleanup覆盖 | **CLOSED IN CHILD STATICALLY; CROSS-PROCESS QUEUE P2** | `_persistent_lifecycle`保存原 traceback并附notes；fixed forced-error检查notes/PIDs。producer join-before-drain仍可把大report变成timeout。 |
+| forced-error进入真实fork DataLoader并回传worker PIDs | **CLOSED AUTHORED, NOT EXECUTED** | error在第一个真实batch后触发；iterator workers被记录；parent逐PID检查。PID identity精度受P3限制。 |
+| forced-hang进入真实 raw-fork descendant | **CLOSED FOR LIVE-LEADER CASE ONLY** | descendant真实fork、TERM后由leader `waitpid`、leader再KILL；不能外推leader-dead。 |
+| Queue/control/sentinel/Process.close | **STRUCTURALLY VALID FOR CPYTHON 3.11, NOT EXECUTED; QUEUE ORDER P2** | endpoint ownership/close语义成立且无明显double-close；但join-before-drain可hang，private API/FD-number证据保留P3。 |
+| normal two epochs/PID/reopen/read-count | **RETAINED STATICALLY/AUTHORED, NOT EXECUTED** | 两epoch payload equality、同一两worker PID set、owner/current PID、reopen不增/read增、archive set、explicit shutdown仍在。 |
+| only test+HANDOFF；negative/results/forbidden blobs不变 | **PASS** | exact two-path diff与blob audit如上。 |
+
+## Checks actually run 与 explicit NOT RUN
+
+本 R11 只执行 kickoff允许的 Git/hash/static/artifact检查：
+
+1. startup root/HEAD/branch/status、candidate/import parent chain与唯一 review-only paths：PASS；
+2. R10 prefix blob/size/SHA-256：PASS；
+3. root AGENTS、三份 canonical、权威 O-068、S07 HANDOFF、完整 prior REVIEW、candidate
+   actual diff及相关 test/CPython 3.11 multiprocessing source读取：完成；
+4. exact two-commit/two-path ownership、`633/68` numstat、candidate hashes、
+   `git diff --check`与forbidden blobs：PASS；
+5. ready/ACK、kernel validation、group signal/join、primary exception、Queue feeder/endpoint、
+   Process sentinel、worker/descendant PID与normal two-epoch控制流逐行追踪：产生上述 findings。
+
+明确 **NOT RUN / NO IMPLIED PASS**：pytest、pycompile、AST/source-text compile、project/
+package import、Torch/NumPy/CUDA/spconv/cumm、data/cache/model/checkpoint、任何 worker/fork/
+spawn runtime、Slurm/srun/GPU/compute、full trainval `t1.v2`、100/1000 steps、profile、mAP/
+NDS、DDP、matrix、seed/rerun、FL/attack/defense/scientific cell。未 merge/push/upload/
+publication。
+
+## Interpretation、residual risk 与 final verdict
+
+允许解释：R10 的 ready/ACK ordering、full-validation-before-arm、pre-ACK no-fork结构、
+child primary traceback/cleanup-note收集、真实 forced-error/forced-hang路径、CPython 3.11
+endpoint/sentinel close结构以及normal two-epoch语义均有实质静态/authored改进；exact ownership、
+forbidden blobs、Jobs 348557/348818负面证据和Job 349653 bounded attribution保持不变。
+
+禁止解释：不得称 leader-dead all-path group cleanup、arbitrary-size primary report传输或
+per-PID exact gone proof已关闭；不得称新增hostiles已执行或 post-O-059 integrated suite已PASS；
+不得称 production/full-cache/full-trainval/100/1000/profile/metric readiness，亦不得推断
+mAP/NDS、fusion gain、FL、attack/defense、generalization或publication evidence。
+
+Residual risk还包括所有新增test均未执行、full `t1.v2` cache仍不存在、integrated fp16/
+concurrency/EMA/official eval仍无新runtime evidence，以及private multiprocessing API只绑定
+当前CPython 3.11。应先修复leader-dead group deadline/identity hostile与Queue drain-before-
+join，再从exact new SHA独立复审；之后才可讨论任何新的bounded runtime proposal。
+
+**CHANGES-REQUESTED for S07-B candidate
+`8469eb4944f164f5bd2fa1aa833ea4df0acf04b3`.**
+
+本 verdict 不授权任何 runtime proposal、compute、merge、push、upload 或科学解释。
