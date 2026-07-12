@@ -728,3 +728,108 @@ code-level/static-authored scope and requests only the delivery-state
 correction. Corrected runtime remains unverified; fresh independent acceptance
 and a separately frozen exact runtime request are still required. Compute
 remains `NOT_APPROVED_DO_NOT_SUBMIT`.
+
+## Job 352354 — formal 9/9 and cleanup complete / warning-contaminated strict readiness FAIL
+
+The once-approved Section-I command executed exactly once. Scheduler accounting
+is terminal `COMPLETED/0:0` on `n559`: submit `2026-07-12T17:23:28+02:00`,
+start `17:23:29+02:00`, end `17:27:45+02:00`, elapsed `00:04:16` of
+`00:20:00`, zero restarts, batch MaxRSS `1008M`, and TotalCPU `02:28.908`.
+There is no retry authorization.
+
+The immutable raw summary reports all formal fields as passing:
+
+- `diagnostic_complete=true`, `artifact_complete=true`, `suite_pass=true`;
+- expected/observed nodes `9/9`, all invoked once in the frozen order;
+- aggregate present-JUnit totals `9 tests / 0 failures / 0 errors / 0 skips`;
+- every node return code `0`, `timed_out=false`,
+  `supervisor_cleanup_intervened=false`, `cleanup_ok=true`, and JUnit
+  `1/0/0/0`;
+- `all_process_groups_and_identities_cleaned=true`.
+
+The root `sha256sums.txt` has 51 records and independent
+`sha256sum -c sha256sums.txt` verification passes all 51. Exact immutable
+artifact hashes are:
+
+| Artifact | SHA-256 |
+|---|---|
+| `diagnostic_summary.json` | `b8fd26b34d607510c9a3a3e90251709dce43f792b8956728845448e6837478e9` |
+| `execution_identity.json` | `f97eaa87ed0b4c74706f412a186dff226b07d30430c4f846f6ff695a5f8522be` |
+| `diagnostic_run_config.json` | `6a74231ec26177ff44fadde407541739fd794e6f6423efb849241a1d06595ec6` |
+| `runtime_source_files.txt` | `c9e0a4175725e59d1e4e3e3efbe3421c0d9b8480fd5161cf5147ae9184eb511f` |
+| `runtime_source_sha256s.txt` | `d64aa9c1baa28541dffc96bdfbed4bed18d85d3ae2e6e687c53e465dd67a797d` |
+| `selected_nodes.tsv` | `b216a6512b5d54d58c1e9acf632ae34b4fac1b930df0cafe83c4ca7b86e6eeca` |
+| `sha256sums.txt` | `67d723b37ca3a9d36af8bde75eab13765ca05bef1bd1fc6e2f08bbf87d3527ac` |
+| scheduler stdout | `0fbd5327140be93c30b69d579b28d8be23c9229d1a217bf70009d3845df398a6` |
+| scheduler stderr (empty) | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+### Preserved negative evidence and readiness decision
+
+Node 8, `detection_loader_determinism_num_workers`, is formally return `0`
+with JUnit `1/0/0/0`, no timeout/intervention, and complete final cleanup. Its
+raw pytest log nevertheless contains exactly the silent lifecycle failure that
+formal counts missed: `PytestUnraisableExceptionWarning: Exception ignored in:
+<function _MultiProcessingDataLoaderIter.__del__ ...>`, followed by the
+destructor's `_shutdown_workers()` traceback and
+`RuntimeError: DataLoader worker (pid 4081264) is killed by signal: Aborted`.
+The log ends `1 passed, 1 warning in 5.39s`.
+
+| Node-8 artifact | SHA-256 |
+|---|---|
+| `pytest.log` | `fb50d32d85c1f0cc24c27727d784c0ee7ceb045caf166294fd3869fd3bb62dbb` |
+| `pytest.junit.xml` | `be7b4856d7c9dd2552376329fea2546dbf17f293905332e393d2f36f67ce70d3` |
+| `supervisor_result.json` | `55bff2a7f9907c63be5447eb50308c3ca07362e30b8aa55c41a53323441cd323` |
+
+The executed run config did not include a warning filter that could make
+`PytestUnraisableExceptionWarning` fatal. Therefore the exact formal 9/9,
+cleanup result, scheduler success, and checksums remain valid evidence, but
+the strict multiworker runtime readiness verdict is **FAIL**. It is forbidden
+to cite Job 352354 as unqualified suite PASS, production readiness, or evidence
+that persistent DataLoader shutdown is clean.
+
+### O-086 remediation result — authored/static evidence only
+
+Exact O-086 code is durable at
+`7a3a15a13d19be87c5269966afc5fd6b1054d660`, sole parent
+`b36bfa93da5e1b0691ad94d6ab5840a2fbd0f723`, with exactly three changed
+test/launcher paths and no production source:
+
+| Path | Git blob | SHA-256 |
+|---|---|---|
+| `tests/test_model_task.py` | `9e8b19d6d3ff1edc02c4efe1dac8c007bdb50097` | `36abc1d447d3b1ff1feb249c2740a351b0371abe6c01da71b6665b5c0a7143c7` |
+| `scripts/run_s07_b_multiworker_diagnostic.sh` | `90e477e68091276fd1c92bf914e0f0dd1fd0c1b4` | `8cb97121ada2041517f56b2c9291dea1c49771d247cd2d81a83c89d73450f5ed` |
+| `scripts/run_s07_b_static_checks.sh` | `f8dda510b1e2b2f6dac2ce7924fca3ef34a8b1a8` | `f62c57252cce720d5f425142afc849766d1f14da49aa8c6c9dba5fe44b1f84f3` |
+
+The two target model-task tests retain their multiprocessing iterators and
+explicitly invoke
+`_shutdown_workers()` in `finally` without exception suppression. The CUDA
+persistent-worker test preserves two-epoch first-batch behavior: it calls
+`iter(loader)` twice, asserts the second iterator is the cached first iterator,
+then shuts that iterator down. No `loader._iterator` reference is cleared, so
+an explicit shutdown error is not obscured by reference manipulation.
+
+The nine-node launcher now passes exact
+`-W error::pytest.PytestUnraisableExceptionWarning` to every pytest subprocess
+and records `pytest_unraisable_exception_warning_is_fatal=true` in both its run
+config and summary. The static checker locks both literal occurrences and uses
+stdlib AST inspection to require one matching explicit iterator/finally-
+shutdown structure in each target test and to forbid temporary
+`next(iter(...))` there.
+
+Only shell syntax, source compilation, embedded-heredoc compilation, static
+contract, hash, and diff checks are evidence for O-086. No project import,
+pytest, multiprocessing runtime, CUDA/data/model execution, Slurm, retry, or
+follow-on occurred. This remediation does not retroactively change Job 352354;
+fresh runtime evidence requires independent review, a new exact immutable
+request, and separate owner approval. Current compute is
+`NOT_APPROVED_DO_NOT_SUBMIT`.
+
+The permitted static checks are complete: `bash -n` passed both changed shell
+files; `run_s07_b_static_checks.sh --launcher-contract-only` printed
+`short TMPDIR contract: 5 launchers OK`; stdlib source `compile()` passed
+`test_model_task.py`; all four embedded Python heredocs in the diagnostic
+launcher compiled; `git diff --check` was empty; and independent raw-artifact
+verification returned 51 `OK` records. Exactly the six O-086-owned files are
+covered by the scoped work, but exact code identity is the durable three-path
+commit `7a3a15a13d19be87c5269966afc5fd6b1054d660`; these three lifecycle
+documents are delivery records and do not alter that code identity.

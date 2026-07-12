@@ -1361,12 +1361,12 @@ frozen exact request are required before any runtime action.
 
 ---
 
-## I. S07-B corrected nine-node multiworker runtime — APPROVED ONCE / PENDING PROVISION AND SUBMISSION
+## I. S07-B corrected nine-node multiworker runtime — EXECUTED ONCE / FORMAL 9 OF 9 / STRICT READINESS FAIL
 
 ### Approval state and exact purpose
 
 - **Compute status:**
-  `EXECUTED_ONCE_JOB_352354_ACTIVE_APPROVAL_CONSUMED_NO_RETRY`.
+  `EXECUTED_ONCE_JOB_352354_FORMAL_9_OF_9_WARNING_CONTAMINATED_READINESS_FAIL_APPROVAL_CONSUMED_NO_RETRY`.
 - O-083 authorizes request preparation and pure Git/hash/static/preflight only.
   It does not authorize `sbatch`, `srun`, allocation, compute, retry, requeue,
   replacement, resubmission, or follow-on.
@@ -1632,3 +1632,65 @@ replacement, automatic resubmission, code/golden change, or follow-on. A PASS
 would establish only this bounded mini-data multiprocessing/runtime gate, not
 full-suite, production, full-data/cache, model-quality, performance, metric,
 FL, attack/defense, generalization, or scientific readiness.
+
+---
+
+## J. O-086 Job 352354 terminal audit and warning-fatal harness remediation — NO COMPUTE APPROVED
+
+Job `352354` is terminal `COMPLETED/0:0` on `n559` after `00:04:16`
+(`2026-07-12T17:23:29+02:00` through `17:27:45+02:00`), with zero restarts,
+batch MaxRSS `1008M`, and TotalCPU `02:28.908`. Its frozen raw summary reports
+formal `diagnostic_complete=true`, `artifact_complete=true`,
+`suite_pass=true`, nine observed of nine expected nodes, aggregate JUnit
+`9/0/0/0`, and all process groups/identities cleaned. All 51 formal checksum
+records verify. These facts are preserved and are not reclassified.
+
+Strict readiness is nevertheless **FAIL**. Node 8
+`detection_loader_determinism_num_workers` returned zero with JUnit `1/0/0/0`,
+but its exact log records a `PytestUnraisableExceptionWarning` raised from
+`_MultiProcessingDataLoaderIter.__del__`, followed by
+`RuntimeError: DataLoader worker (pid 4081264) is killed by signal: Aborted`.
+The executed command did not promote that warning to an error, so the frozen
+summary's formal `suite_pass=true` cannot establish clean multiworker runtime
+readiness. The exact node-8 log SHA-256 is
+`fb50d32d85c1f0cc24c27727d784c0ee7ceb045caf166294fd3869fd3bb62dbb`;
+its supervisor record SHA-256 is
+`55bff2a7f9907c63be5447eb50308c3ca07362e30b8aa55c41a53323441cd323`.
+
+O-086 source/static remediation is durable at exact code commit
+`7a3a15a13d19be87c5269966afc5fd6b1054d660`, sole parent
+`b36bfa93da5e1b0691ad94d6ab5840a2fbd0f723`. It changes exactly the following
+three code/test paths and no production source:
+
+| Path | Git blob | SHA-256 |
+|---|---|---|
+| `tests/test_model_task.py` | `9e8b19d6d3ff1edc02c4efe1dac8c007bdb50097` | `36abc1d447d3b1ff1feb249c2740a351b0371abe6c01da71b6665b5c0a7143c7` |
+| `scripts/run_s07_b_multiworker_diagnostic.sh` | `90e477e68091276fd1c92bf914e0f0dd1fd0c1b4` | `8cb97121ada2041517f56b2c9291dea1c49771d247cd2d81a83c89d73450f5ed` |
+| `scripts/run_s07_b_static_checks.sh` | `f8dda510b1e2b2f6dac2ce7924fca3ef34a8b1a8` | `f62c57252cce720d5f425142afc849766d1f14da49aa8c6c9dba5fe44b1f84f3` |
+
+The two production-loader tests hold their multiprocessing iterators and call
+`_shutdown_workers()` in a `finally` block without suppressing exceptions. The
+CUDA persistent-worker test retains two calls to `iter(loader)` as two-epoch
+first-batch semantics and asserts that the cached iterator is reused before
+explicit shutdown. Every one of the nine future diagnostic pytest commands
+includes exact
+`-W error::pytest.PytestUnraisableExceptionWarning`; both run config and summary
+record that policy, and the static checker locks the flag plus both shutdown
+structures and the CUDA cached-iterator identity assertion.
+
+This remediation authorizes only shell syntax, source compilation, embedded
+heredoc compilation, static contract inspection, hash/diff inspection, and
+documentation. It authorizes no project import, pytest, multiprocessing
+runtime, CUDA/data/model execution, `sbatch`, `srun`, retry, requeue,
+replacement, or follow-on. Any future runtime validation requires a new durable
+exact candidate, independent review, a fresh immutable request, and separate
+owner approval. Current compute status is
+`NOT_APPROVED_DO_NOT_SUBMIT_JOB_352354_TERMINAL_READINESS_FAIL_NO_RETRY`.
+
+Exact-code static evidence is: both changed shell files passed `bash -n`;
+`run_s07_b_static_checks.sh --launcher-contract-only` printed
+`short TMPDIR contract: 5 launchers OK`; `test_model_task.py` passed stdlib
+source `compile()`; all four embedded Python heredocs in the diagnostic
+launcher passed stdlib `compile()`; and `git diff --check` was empty. The raw
+Job 352354 manifest independently returned 51 `OK` records. These checks do
+not authorize or substitute for runtime validation.
