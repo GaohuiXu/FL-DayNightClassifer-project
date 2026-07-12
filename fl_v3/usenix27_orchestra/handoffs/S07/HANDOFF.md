@@ -903,3 +903,74 @@ S07-B re-review. It is not a worker PASS. In particular, the ownership-expansion
 caller block and actual GH200/runtime gate remain open; production/full-data,
 metric, model-quality, fusion, FL, attack/defense and publication interpretations
 remain forbidden.
+
+### Owner-approved caller ownership expansion
+
+After the scoped remediation above, the owner explicitly approved the exact
+ownership expansion proposed in finding 2. The expansion began from clean
+`codex/s07-b-integrated-cl-stack@9d9f21f2043139bbc05082acc156ba25c127ca57`
+with no index lock. It authorized edits only to the four primary callers, the four
+named historical callers, `test_s07_b_*.py`, the existing S07 static launcher and
+this handoff. It did not authorize compute, protocol/model/head/NMS/metric changes,
+RUN_REQUEST creation, merge or push. Expansion implementation commit is
+`4ce2366df2925161adae8fea393d5fca64836d40`.
+
+The earlier “ownership-expansion caller block” is now superseded as follows:
+
+- `fl_v3/src/fl_v3/attacks/fusion_ablation.py` no longer accepts or forwards a
+  legacy `max_objects` override. All condition decodes use the reviewed per-class
+  K=500/no-secondary-task-K six-task decoder. The shared cond-4/cond-5a path reads
+  exact `task_outputs`; camera-only invariance compares every branch of all six
+  task heads.
+- `fl_v3/scripts/arrhenius_mini_matrix.py` validates six task dictionaries and
+  records heatmap telemetry plus branch deltas per task/branch. It no longer calls
+  dict methods on the task list or silently drops five heads.
+- `fl_v3/scripts/t4_readiness_eval.py` and
+  `fl_v3/scripts/t5_attack_eval.py` reject bare/legacy checkpoint payloads. They
+  inspect only enough payload metadata to reconstruct the embedded exact
+  `ResolvedConfig`, verify caller/config drift, physical cache/manifest identity
+  and actual runtime dependency identity, build matching model/optimizer/scheduler/
+  scaler/EMA components, and then perform the state transition through the S06
+  `load_checkpoint()` path. The embedded hash-bound raw/EMA policy selects the
+  evaluated weights. Physical checkpoint, runtime-dependency, resolved/data and
+  actual-mode identities propagate into official submissions. Mode-aware subset
+  datasets bind exact depth, ZIP manifest and C/L/F mode.
+- T5 `null-verify` now explicitly refuses to reinterpret the frozen legacy
+  bare-state checksum as a complete S06 checkpoint checksum. A new scientific null
+  identity requires a future owner-frozen protocol; no checksum definition was
+  silently changed.
+
+Repository call/launcher inventory found the four historical consumers only in
+old executed collab evidence and legacy launcher paths. Their assumptions are
+structurally incompatible with the current stack: `_t4_fd_diagnose.py` and
+`t3_trainval_reeval_fullval.py` consume bare checkpoints; `p3_crt_probe.py` trains/
+saves legacy bare state; `p3_grad_conflict.py` assumes one
+`head.heatmap.weight[10,...]` rather than six task heads. Each now fails explicitly
+at its executable entry before data/model/checkpoint use, with the historical
+reason preserved in its message. Existing collab findings, old raw outputs and
+negative/positive results were not edited or deleted. These scripts are retired
+for the current S07-B stack, not reinterpreted as current evidence.
+
+Focused authored tests now:
+
+- drive T5 clean and cond-4/cond-5a helpers with an actual six-task tensor
+  structure and assert no decoder receives `max_objects`;
+- exercise mini-matrix telemetry/delta over all six task outputs;
+- execute T4/T5 loader seams with a syntactically real resolved config and assert
+  one S06 `load_checkpoint` call plus config/checkpoint/dependency provenance;
+- AST-inventory every primary decoder call and assert historical callers contain
+  an explicit fail-closed entry.
+
+Expansion checks actually run: `python3 -m py_compile` over all nine changed
+Python/test files, `bash -n run_s07_b_static_checks.sh`, `git diff --check`, and the
+complete static launcher (compile + JSON + template refusal + candidate hashes),
+all PASS. Pytest and every authored focused test remain **NOT RUN**. Also NOT RUN:
+Torch/spconv/cumm imports on GH200, checkpoint/model/data construction, raw/EMA
+loads, directory/ZIP payload reads, T4/T5 condition decode, official devkit,
+Slurm/GPU/model steps, profile/metrics, full cache, 100/1000-step, DDP, rerun or
+scientific cells. No `RUN_REQUEST.md` was created or changed.
+
+The code-level caller ownership blocker is closed for re-review, but this remains
+a static candidate only. Independent review and an exact future O-009 request are
+still required before runtime evidence; all production/scientific interpretations
+remain forbidden.
