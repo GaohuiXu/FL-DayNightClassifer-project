@@ -135,6 +135,8 @@ def _checkpoint_preflight(caller_cfg: dict, checkpoint: str) -> dict:
         or any(char not in "0123456789abcdef" for char in identity)
     ):
         raise RuntimeError("T5 checkpoint identity must be a lowercase SHA-256 string")
+    if identity != resolved.sha256:
+        raise RuntimeError("T5 checkpoint identity does not equal embedded resolved-config SHA-256")
     required_mappings = ("model", "optimizer", "scheduler", "grad_scaler", "training_state", "rng")
     malformed = [key for key in required_mappings if not isinstance(payload.get(key), dict)]
     if malformed:
