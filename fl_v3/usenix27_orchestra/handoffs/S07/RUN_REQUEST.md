@@ -320,3 +320,170 @@ No retry or downstream action follows automatically.
   `RESULTS.md`.
 - Section C approval is consumed. No rerun is authorized. Section B remains
   `PENDING_OWNER_APPROVAL_DO_NOT_SUBMIT` and was not submitted.
+
+---
+
+## D. S07-B bounded integrated GH200 validation — PREPARED ONLY
+
+### Approval state and immutable scope
+
+- **Status:** `PREPARED_PENDING_S00_AUDIT_DO_NOT_SUBMIT`.
+- This section prepares one exact owner-delegated S07-B integrated validation
+  request. It is not generic O-009 authority and does not authorize `sbatch`,
+  `srun`, retry, resubmission or follow-on. S00 must separately audit the entire
+  tuple and the owner must approve the exact submission before execution.
+- Independent S07-B-R8 code-level review is **PASS** at
+  `8a144ddaa624f3fd0605c7464eb30c1dcf6a51d9`; exact REVIEW blob
+  `384a4a531f7967f25c75fc1282e1a7767bd4f97c`, size 145,973 bytes, SHA-256
+  `bdb4093a526efa22fc3f32bf99e97c5f6264b03e95b5985ee35eacc795f5876f`.
+- Immutable executable/archive source commit (`L`):
+  `05b733997968b8217e1fc6dd27c3a4add34f6c98`.
+- Launcher path and exact SHA-256:
+  `fl_v3/scripts/run_s07_b_runtime_tests.sh` /
+  `1b1c45d33b113d0c7d649e51b2ddf98a2d7822eab38d708d4bb0e223b8c334c0`.
+- Exact C-locale source file count: 123.
+- Exact source-list SHA-256:
+  `be3b9157e213b942094d290d403306aa714e82157e36ba92847e32cfef71419a`.
+- Exact aggregate source-state SHA-256 (SHA-256 of the ordered per-file
+  `sha256sum` records):
+  `d8c6cc0e20ed0c8ded5a4e13dd3ae52f32a62ebbcfafd2f9cbcd469fc5b87acd`.
+- Both hashes were reproduced independently from a `git archive` extraction of
+  exact `L` and directly from the same ordered immutable Git blobs.
+
+Exact config file hashes inside `L` are:
+
+| Config | SHA-256 |
+|---|---|
+| `s07_b_c_str8.json` | `d2eaa46c800ebea5927359398acd88b38d90219c2f1f3841a4b1897ed05f8cc6` |
+| `s07_b_f_cbgs.json` | `bd8c57e84b34f835f3eaafe71f259a0c4131748bb27a62edf83bcd7f44bb54f0` |
+| `s07_b_f_u.json` | `df7f36fe28e0d0c6c8275b293318cf7fae2e3c71fe3c60b7a7b81c26af69fa2e` |
+| `s07_b_l_p020.json` | `625242234a03314010860e6026b0fbb88b774a9aeec12c7f7fe870203da07421` |
+| `s07_b_l_s075.json` | `1658cd5ec0e9c1b8945646d2e23a8db4419d16c2f644ca5a99b94c3477dcce1d` |
+
+They remain fail-closed, non-runnable templates. Hashing them here does not fill
+their unresolved cache/build/seed/budget fields or authorize a training run.
+
+The 123-file source state contains every tracked Python file under
+`fl_v3/src/fl_v3/`, the launcher and Arrhenius bootstrap, centralized trainer,
+mini-matrix, T4 readiness, T5 attack and T5 mini-smoke scripts, `tests/conftest.py`,
+all 25 selected test files below, all five exact `s07_b_*.json` templates,
+`pyproject.toml`, `requirements.txt`, and `requirements.lock.txt`. List generation
+uses `LC_ALL=C sort -u`; the job writes both the list and per-file hashes and
+reproduces both expected identities before environment import or tests.
+
+### Exact resources, immutable snapshot, data and outputs
+
+- One job, one node, one task, one GH200, eight CPUs, 64 GiB RAM, walltime at most
+  `00:45:00`; maximum 0.75 allocated GPU-hours. No array, DDP, requeue, retry,
+  automatic follow-on or spare-GPU job.
+- The launcher creates a fresh snapshot only at
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_integrated_05b733997968`.
+  It extracts `git archive 05b7339...`, validates the exact list/hash tuple, and
+  recursively removes write permission before imports/tests. A collision stops
+  the job; the snapshot is never reused.
+- Existing mini input only:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini`.
+  The launcher requires this literal path and equal realpath, exports only its
+  mini dataroot overrides, and clears shared-trainval and ZIP-manifest overrides.
+  Synthetic ZIP/cache/config/test data may exist only under the job's output-local
+  pytest temp directory. It does not load the shared trainval module, scan/build a
+  full cache, or run trainval metrics.
+- Fresh output root only:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_integrated_05b733997968`.
+  Any pre-existing output or snapshot is a hard stop.
+- Slurm logs:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07b_integrated_%j.{out,err}`.
+- Environment activation is exactly `source fl_v3/scripts/arrhenius_env.sh`,
+  `arrhenius_load_modules build`, `arrhenius_activate_env`. The job requires
+  aarch64, one node/task and eight allocated CPUs.
+- Third-party pytest plugin autoload is disabled, `PYTEST_ADDOPTS` is cleared,
+  cacheprovider is disabled, `WORLD_SIZE=1`, and the pytest subprocess has a
+  42-minute timeout inside the 45-minute allocation.
+
+### Exact selected tests
+
+The launcher passes these 25 files explicitly; it does not run the whole test
+tree or collect files outside this list:
+
+1. `fl_v3/tests/test_s02_p0_correctness.py`
+2. `fl_v3/tests/test_s02_gpu_forward_backward.py`
+3. `fl_v3/tests/test_s03_camera_contract.py`
+4. `fl_v3/tests/test_s04_second_contract.py`
+5. `fl_v3/tests/test_s04_second_smoke.py`
+6. `fl_v3/tests/test_s04_fp16_eval_dispatch.py`
+7. `fl_v3/tests/test_s05_centerhead_decode.py`
+8. `fl_v3/tests/test_s05_eval_roundtrip.py`
+9. `fl_v3/tests/test_s05_nms.py`
+10. `fl_v3/tests/test_s06_checkpoint_resume.py`
+11. `fl_v3/tests/test_s06_loader_eval.py`
+12. `fl_v3/tests/test_s06_model_modes.py`
+13. `fl_v3/tests/test_s06_resolved_config.py`
+14. `fl_v3/tests/test_s06_training_runtime.py`
+15. `fl_v3/tests/test_s07_b_data_lifecycle.py`
+16. `fl_v3/tests/test_s07_b_integration.py`
+17. `fl_v3/tests/test_sparse_voxel_encoder.py`
+18. `fl_v3/tests/test_lidar_backbone.py`
+19. `fl_v3/tests/test_head_capacity.py`
+20. `fl_v3/tests/test_eval_box_to_global.py`
+21. `fl_v3/tests/test_eval_detection_eval.py`
+22. `fl_v3/tests/test_eval_provenance.py`
+23. `fl_v3/tests/test_model_task.py`
+24. `fl_v3/tests/test_profiling_neutral.py`
+25. `fl_v3/tests/test_nuscenes_zip_dataset.py`
+
+Static AST inventory finds 177 test functions and estimates 249 collected cases
+after the visible parametrizations; the future JUnit count is authoritative.
+Bounded forward/backward coverage is concentrated in S02 GPU forward/backward,
+S03 camera contract, S04 SECOND smoke/fp16 dispatch, S07 integration gradient
+reachability, sparse voxel encoder and model-task cases. Bounded optimizer-state or
+optimizer-step validation occurs only inside the focused S06 training/checkpoint
+unit cases and profiling-neutrality unit case. S04 smoke explicitly performs no
+optimizer update. These are small correctness fixtures, not a training campaign:
+the launcher invokes no trainer, requests no 100/1000-step run, and performs zero
+optimizer steps as an experimental training campaign.
+
+### Exact proposed command — DO NOT SUBMIT
+
+```bash
+test "$(git hash-object fl_v3/scripts/run_s07_b_runtime_tests.sh)" = "1e182ebc1fe883ad59702bfeb1b3db110bbf54c1" && \
+git cat-file -e 05b733997968b8217e1fc6dd27c3a4add34f6c98^{commit} && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_integrated_05b733997968 && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_integrated_05b733997968 && \
+test -z "$(squeue -u "$USER" -h -o '%i %j' | awk '$2 == "flv3_s07b_integrated" {print}')" && \
+sbatch --nodes=1 --ntasks=1 --gpus-per-node=nvidia_gh200_120gb:1 \
+  --cpus-per-task=8 --mem=64G --time=00:45:00 --no-requeue \
+  --export=ALL,EXPECTED_S07B_EXECUTABLE_SHA=05b733997968b8217e1fc6dd27c3a4add34f6c98,EXPECTED_S07B_LAUNCHER_SHA256=1b1c45d33b113d0c7d649e51b2ddf98a2d7822eab38d708d4bb0e223b8c334c0,EXPECTED_S07B_SOURCE_SHA256=d8c6cc0e20ed0c8ded5a4e13dd3ae52f32a62ebbcfafd2f9cbcd469fc5b87acd,EXPECTED_S07B_SOURCE_LIST_SHA256=be3b9157e213b942094d290d403306aa714e82157e36ba92847e32cfef71419a,S07B_APPROVAL_SCOPE=owner-delegated-s07b-integrated-validation,S07B_MINI_DATAROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini,S07B_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_integrated_05b733997968 \
+  fl_v3/scripts/run_s07_b_runtime_tests.sh
+```
+
+This command is text for S00 audit only. It was not executed.
+
+### Runtime identity, artifacts, acceptance and stop conditions
+
+`execution_identity.json` records exact Git/source/list/scope identity; Slurm job,
+nodes/tasks/CPUs/memory; host/machine/platform; Python executable,
+implementation/version; Torch version/Git/CUDA/build config; visible CUDA device,
+GH200 name/capability/cuDNN; spconv/cumm module version/path; installed NumPy,
+SciPy, pytest, Torch, torchvision, spconv, cumm, nuscenes-devkit, pyquaternion and
+Pillow versions; mini/output/snapshot paths; plugin state; and the 25 test files.
+
+Required artifacts are `execution_identity.json`, `runtime_source_files.txt`,
+`runtime_source_sha256s.txt`, `config_sha256s.txt`, `selected_test_files.txt`,
+`pytest.log`, `pytest.junit.xml`, `pytest_junit_counts.json`, `pytest.exitcode`, and
+`sha256sums.txt`. The launcher generates checksums for every preceding artifact
+and runs `sha256sum -c` before accepting the result.
+
+PASS requires exact `L`, source-list/source-state/config identities; fresh output
+and snapshot; exact mini-only inputs; aarch64/one-GH200 runtime identity; pytest and
+tee exit zero; a positive JUnit test count with **zero failures, zero errors and
+zero skips**; complete artifacts; and successful in-job checksum verification.
+Any identity/hash/path/resource/output/snapshot mismatch, package/CUDA failure,
+pytest failure/error/skip, timeout/walltime, missing artifact or checksum failure
+stops the single job. There is no retry or next cell.
+
+Allowed interpretation after an independently audited PASS: bounded engineering
+evidence that the integrated S02-S07 selected contracts execute together on one
+Arrhenius GH200 with real mini plus synthetic temporary fixtures. Forbidden:
+production/full-trainval readiness, cache readiness, throughput/memory claims,
+mAP/NDS or other scientific metrics, model-quality/fusion-gain, 100/1000-step
+training, FL, attack/defense, generalization, seed/matrix or publication evidence.

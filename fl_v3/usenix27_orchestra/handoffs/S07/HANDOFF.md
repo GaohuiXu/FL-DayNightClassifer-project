@@ -1539,3 +1539,77 @@ immutable test-only candidate for independent review. It is not worker/code-leve
 PASS, runtime readiness, production/full-data evidence or scientific evidence. No
 O-009 request should be prepared until an independent reviewer accepts the exact
 final delivery SHA.
+
+### S07-B-R8 PASS and bounded runtime request preparation
+
+Independent S07-B-R8 reviewed exact parent
+`fdee4ba574587a9974ac6a188f2c011dc4730f75` and returned code-level **PASS** at
+review commit `8a144ddaa624f3fd0605c7464eb30c1dcf6a51d9`. Its exact REVIEW blob is
+`384a4a531f7967f25c75fc1282e1a7767bd4f97c`, size 145,973 bytes, SHA-256
+`bdb4093a526efa22fc3f32bf99e97c5f6264b03e95b5985ee35eacc795f5876f`.
+That PASS closes the static code-review sequence; it does not itself establish
+GH200/runtime, production, full-data or scientific PASS.
+
+Under O-051, S07-B prepared—but did not submit—one integrated bounded GH200
+request. The separation is exact:
+
+- launcher-only executable/archive commit `L`:
+  `05b733997968b8217e1fc6dd27c3a4add34f6c98`;
+- launcher SHA-256:
+  `1b1c45d33b113d0c7d649e51b2ddf98a2d7822eab38d708d4bb0e223b8c334c0`;
+- exact 123-file C-locale list SHA-256:
+  `be3b9157e213b942094d290d403306aa714e82157e36ba92847e32cfef71419a`;
+- exact aggregate source-state SHA-256:
+  `d8c6cc0e20ed0c8ded5a4e13dd3ae52f32a62ebbcfafd2f9cbcd469fc5b87acd`.
+
+The list/state identities were computed from an extraction of `git archive L` and
+independently reproduced from the ordered immutable Git blobs. The launcher was
+the only path changed in `L`; this subsequent delivery commit changes only
+`RUN_REQUEST.md` and this handoff. The final docs commit SHA is returned to S00
+after commit because it cannot embed its own identity.
+
+The prepared request has status
+`PREPARED_PENDING_S00_AUDIT_DO_NOT_SUBMIT`. It is explicitly owner-delegated
+S07-B validation scope rather than generic O-009 authority. It requests at most
+one job/one node/one GH200/eight CPUs/64 GiB/45 minutes, with no array, DDP, retry,
+requeue or follow-on. It creates a fresh read-only archive snapshot and fresh
+output, activates the persistent Arrhenius environment, uses only the literal
+existing mini root plus output-local synthetic temporary fixtures, and clears
+shared-trainval/ZIP-manifest overrides.
+
+The exact launcher selects 25 named test files: the required S02 Gaussian/GPU,
+S03 camera, S04 SECOND/fp16, S05 CenterHead/eval/NMS, five S06, two S07-B and nine
+shared contract modules. Static AST inventory estimates 177 test functions / 249
+collected cases; a future JUnit record is authoritative. Bounded GPU
+forward/backward and bounded unit-level optimizer-state/step checks are preserved,
+but no trainer, optimizer campaign, 100/1000-step run, full cache, trainval metric
+or scientific cell is launched.
+
+The launcher records full source/config/runtime/dependency identity, disables
+plugin autoload and cacheprovider, clears `PYTEST_ADDOPTS`, constrains the pytest
+subprocess to 42 minutes, and requires positive JUnit count with zero failure/
+error/skip. It emits log/JUnit/exit/source/config/execution artifacts, generates
+`sha256sums.txt`, and verifies it with `sha256sum -c`. Any collision, identity,
+hash, resource, CUDA/package, pytest, skip, timeout or artifact failure stops with
+no retry.
+
+Preparation checks actually run, without project import or compute:
+
+- `bash -n fl_v3/scripts/run_s07_b_runtime_tests.sh`: PASS;
+- embedded stdlib Python heredoc AST parse: `EMBEDDED_AST_OK=3`;
+- five candidate JSON files parsed: `JSON_OK=5`;
+- `--print-source-files` static mode returned 123 existing files;
+- exact archive and immutable-Git-blob list/state hashes matched;
+- `git diff --check`: PASS.
+
+Explicitly **NOT RUN / NO IMPLIED PASS**: `sbatch`, `srun`, pytest, pycompile,
+project/package import, Torch/spconv/cumm, data/model, CUDA/GPU, official devkit,
+cache generation, model step, profile/metric, DDP, matrix, retry or scientific
+cell. No output/snapshot/log path was created by request preparation. RESULTS,
+canonical docs, production source, tests and configs remained read-only. No merge,
+push, upload or publication occurred.
+
+The exact command, resources, tests, artifacts, acceptance/stop conditions and
+interpretation limits are frozen in RUN_REQUEST Section D. S00 must audit the
+final docs commit and the owner must separately approve the exact tuple before any
+submission.
