@@ -2216,3 +2216,281 @@ R7 唯一 authored no-mock-bypass gap已由真实 concurrent bind/write/link/cle
 R3-R6 production/scientific identity closures未回归。此 verdict 只允许 S00 准备 separate
 bounded O-009 proposal；它不是执行许可、runtime/production/full-data/scientific PASS，也不
 授权merge到`v3-ad-perception`、push、upload或publication。
+
+# S07-B-R9 独立复审 — O-059 spawn/runtime remediation 与 Job 349653 归因
+
+## Findings（按严重性排序）
+
+### P2 — session-scoped mini cache 迁移遗漏两个既有 fixture consumer，clean/read-only CWD 下会绕过新 cache 并使现有模型门失败
+
+O-059 正确地把共享 `mini_cache_dir` 从 CWD-relative
+`./fl_outputs/nuscenes/info_cache` 移到 `tmp_path_factory` 创建的 session scratch，并返回
+该 exact 路径（`fl_v3/tests/conftest.py:66-74`）。`test_model_task.py` 也通过
+`_cfg_with_cache()` 把该路径显式注入当前选中的 model-task cases
+（`fl_v3/tests/test_model_task.py:77-90,107-186`）。但是该 fixture 还有两个现存 consumer，
+它们声明了 `mini_cache_dir` 参数却完全不使用返回值：
+
+- `test_overfit_single_scene_falsifiable(mini_cache_dir)` 仍把
+  `nuscenes-cache-dir` 固定为 `./fl_outputs/nuscenes/info_cache`，并在构造模型前先调用
+  `task.client_data()`（`fl_v3/tests/test_model_overfit.py:20,26-39`）；
+- `test_v2_v3_render(tmp_path, mini_cache_dir)` 同样保留该固定路径，并从它构造 client
+  loader（`fl_v3/tests/test_model_viz.py:12,22-33`）。
+
+因此在 fresh/read-only snapshot 中，fixture 会在 pytest scratch 成功生成 cache，而这两个
+测试仍访问不存在的 CWD cache；overfit gate 在其 pretrained-weight skip 边界之前即失败，
+viz smoke 也直接失败。若开发 CWD 恰有旧 `./fl_outputs`，它们反而可能消费未由本次 fixture
+生成、未绑定本次 temp identity 的 stale cache。Job 348557/348818/未来同一 25-file
+launcher都没有选择这两个文件，所以当前 bounded suite 即使以后变绿也不会暴露该回归。
+
+这不是 production data loader 缺陷，但它破坏了共享 fixture 的完整调用契约，并使已有
+model-learns/viz gate 在 clean/read-only CWD 不可运行，属于明确的测试基础设施与 gate
+完整性问题。修复不能恢复 CWD fallback；应在 owner 扩展 exact test ownership 后，把两个
+consumer 都显式注入 `str(mini_cache_dir)`，并保留/扩展 changed-CWD hostile，证明没有
+`./fl_outputs` 读取或写入。应再以 exact new SHA 独立复审。
+
+### P3 — multiprocessing hostile 尚未直接锁住 dummy/zero-worker 两条生产分支，显式 fork timeout 的失败路径也没有完整回收证明
+
+生产实现本身静态正确：
+
+- `NuScenesMultimodalDataset.make_loader()` 在 `num_workers>0` 且 caller 未显式给低层
+  test hook 时固定 `spawn`，而 `num_workers=0` 时不向 `DataLoader` 传
+  `multiprocessing_context`（`fl_v3/src/fl_v3/data/nuscenes/dataset.py:363-383`）；
+- `DummyRegressionTask._loader()` 仅在 worker 数大于零时传 `spawn`
+  （`fl_v3/src/fl_v3/training/tasks.py:315-330`）；
+- `NuScenesDetectionTask._make_loader()` 对实际 production task 显式传 `spawn`，零 worker
+  传 `None`，随后 `make_loader` 不把 context 传给 PyTorch
+  （`fl_v3/src/fl_v3/training/tasks.py:834-870`）。
+
+但 authored assertions 只直接检查 nuScenes default/detection multi-worker spawn
+（`test_nuscenes_zip_dataset.py:351-359`；`test_model_task.py:147-175`）。没有 case 构造
+真实 `DummyRegressionTask` 的 `num_workers>0` loader 并检查 spawn，也没有直接断言 dummy
+与 detection 的 zero-worker loader `multiprocessing_context is None`。这不会把静态实现变成
+错误，但 O-059 的两条真实 caller 与 zero-worker no-context 契约缺少对称回归保护。
+
+另外，显式 ZIP fork 已被正确移入 CUDA-hidden 的 fresh spawned helper；helper 内仍执行完整
+parent-open、2 workers、persistent workers、两个完整 epoch、owner PID/reopen/read-growth 与
+parent-state checks（`test_nuscenes_zip_dataset.py:257-316,322-348`）。正常路径的 loader
+`finally` cleanup 也存在。不过 timeout 分支只对 helper 调用 `terminate()` 和一次十秒
+`join()`；若它仍存活，没有 `kill()`/second join，也没有关闭 `result_queue`、关闭
+`Process` 或证明其 forked DataLoader descendants 已退出（`:335-348`）。这正是 hostile
+为 fork hang 设置的失败边界；未回收 helper/descendant/queue FD 可能污染同一 pytest
+进程的后续 case 或在解释器 shutdown 再次等待。建议对 timeout/error/success 均使用
+`try/finally`：terminate 后仍活则 kill，join 并检查最终退出，close/join queue 与 process，
+并以 child PID/active-child 或等价可审计证据证明无残留。
+
+### P3 — LiDAR test 的模块级说明仍声称旧 62-tensor layout，和本次正确的六任务断言冲突
+
+`test_default_off_byte_identical()` 的 executable assertions 已正确更新为 total 230、head
+183（legacy 15 + 168）、无 LiDAR backbone、fuser width 144；相邻 ON path 继续锁定
+`+30` tensors（`fl_v3/tests/test_lidar_backbone.py:53-75`）。legacy-head regex 也由宽松的
+`six task` 改为 exact `6 task dictionaries`
+（`fl_v3/tests/test_s07_b_integration.py:432-438`），没有 gate weakening。
+
+但文件顶层说明仍写着“DEFAULT-OFF byte-identity”与“62-tensor trainable layout intact”
+（`fl_v3/tests/test_lidar_backbone.py:1-6`），函数名也保留旧 `byte_identical`。这不会改变
+assertion 结果，但与 O-059 已批准的六任务 topology 相冲突，容易在后续 handoff/review 中
+重新制造“62 是 gate”的错误解释。应只修正文档/名称，不改变 230/183/168/+30 数值门。
+
+### 无 P0/P1 finding
+
+未发现 data split/leakage、coordinate/class/metric/protocol 变化，未发现把 mini 或 attribution
+结果外推为科学证据，未发现 canonical/collab/fl_v2 篡改、未授权 compute、merge、push、
+upload 或 publication。Jobs 348557/348818 的失败与诊断仍原样保留；上方 P2/P3 足以阻止
+本 exact candidate 的 code-level acceptance，但没有证据支持 P0/P1。
+
+## Review identity、R8 prefix、candidate/import topology 与 ownership
+
+- Session：`S07-B-R9`。
+- R8-reviewed baseline：`fdee4ba574587a9974ac6a188f2c011dc4730f75`。
+- Candidate `WORKER_SHA`：`797aaf4fa8115568692c381489928fb656f5f356`。
+- Review import commit：`546ca61736a4484747c38377a032b98e169e6fe4`，唯一 parent 精确为
+  candidate；commit 仅导入 exact prior `REVIEW.md`。
+- Review branch：`codex/s07-b-r9-integrated-cl-stack-review`。
+- `APPROVED_COMPUTE: none`。
+
+Startup 在任何写入前精确为 review worktree
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/review_worktrees/s07b_r9_797aaf4`、
+branch `codex/s07-b-r9-integrated-cl-stack-review`、HEAD `546ca617...`、clean status。
+没有创建/切换/删除 branch 或管理 worktree。
+
+追加 R9 前的 prior review 精确为：
+
+- Git blob `384a4a531f7967f25c75fc1282e1a7767bd4f97c`；
+- size `145973` bytes；
+- SHA-256 `bdb4093a526efa22fc3f32bf99e97c5f6264b03e95b5985ee35eacc795f5876f`。
+
+本 R9 只在这些 bytes 末尾追加；没有重写或删除 R8 prefix，也没有合入 prior reviewer
+ancestry。权威 O-064 从 read-only canonical commit
+`5fb0cc725aaaa89f840f1e6437cebc256f9016fb` 读取；review worktree 中滞后的 canonical
+文件未被修改。
+
+`fdee4ba..797aaf4` 的完整历史包括三个 bounded launcher、O-052/O-056/O-061 请求与终态
+证据、O-059 implementation/test 与 O-063 runtime-aware test，共 13 changed paths；它们都在
+相应 owner ledger ownership 内。O-063 terminal submission 记录之后的 exact remediation
+`da262ff..797aaf4` 只有四路径：`test_model_task.py` 与 S07 的
+`HANDOFF/RUN_REQUEST/RESULTS`。Candidate parent 链为
+`da262ff -> 79be43d -> 8e2c31b -> 797aaf4`，均为单亲线性提交。
+
+`fl_v3/src/fl_v3/training/loop.py` 在 R8 baseline 与 candidate 的 Git blob 都精确为
+`881c070b1ef8affd350144cce33e508a241cf839`；五个 `s07_b_*.json` blob 也完全不变。
+没有 production loop/config/model/head/NMS/metric/protocol 漂移。`git diff --check` 对
+`fdee4ba..797aaf4` 与 exact O-063 四路径范围都无 warning。
+
+## O-059 remediation 独立核验
+
+| 项目 | R9 结论 | 证据与边界 |
+|---|---|---|
+| production workers>0 固定 spawn | **STATICALLY CLOSED** | dataset default、dummy 与 detection actual callers 如上；无 user config 可选 fork。 |
+| zero-worker 不传 multiprocessing context | **STATICALLY CLOSED / DIRECT TEST GAP P3** | 三个实现均只在 `>0` 组装 kwarg；无对称 authored direct assertion。 |
+| 显式 ZIP fork 隔离 | **STATICALLY CLOSED / CLEANUP GAP P3** | fresh outer spawn、CUDA hidden/assert unavailable、inner explicit fork、两个完整 epoch及 PID/reopen/read semantics保留；timeout有90+10秒界限，但最终 kill/descendant/queue cleanup未证明。 |
+| CUDA-initialized production hostile | **AUTHORED, NOT EXECUTED IN THIS REVIEW** | exact process 先建立 CUDA tensor，再构造 detection spawn+persistent loader并取两个 iterator epoch heads；无 generic exception skip。 |
+| tmp cache/read-only CWD | **PARTIAL / P2** | model-task四个原 PermissionError consumers已显式注入；另外两个共享 fixture consumers仍错用 CWD。 |
+| diagnostic isolated basetemp parent | **CLOSED STATICALLY** | launcher在任何 isolated attempt前创建并验证 `$JOB_TMP/isolated` writable；不篡改 Job 348818 raw evidence。 |
+| legacy message regex | **CLOSED** | exact `6 task dictionaries`。 |
+| six-task LiDAR OFF topology | **EXECUTABLE ASSERTIONS CLOSED / DOC P3** | exact 230 total、183 head、183-15=168、ON-OFF=30、fuser 144与 no-backbone均保留。 |
+
+所有 O-059 changed Python source/test 的 stdlib AST parse 为 `AST_OK=7`；三个 S07-B
+launcher 的 `bash -n` 均通过。candidate source SHA-256 精确匹配 HANDOFF 所列值，包括
+dataset `719ebf74...`、tasks `b81e3ca...`、conftest `fdaaa3bc...`、model-task
+`b7412201...`、integration `2a820847...`、LiDAR test `7a8c2909...`、ZIP test
+`3a24613e...` 与 diagnostic launcher `663a98a5...`。
+
+## Jobs 348557/348818 negative evidence preservation
+
+- Job 348557 仍明确为 `FAILED 1:0`、internal timeout 124、至少 `3F+4E`、无 JUnit/counts/
+  final checksum manifest；没有从其 progress dots 推导任何 component PASS。
+- Job 348818 仍明确区分 `COMPLETED 0:0` harness 与 `suite_pass=false`：251 isolated tests、
+  3 failures、94 errors、0 skips；90 missing-parent launcher errors、4 read-only CWD errors、
+  3 genuine failures和 combined fork queue hang均保留。110 checksum records仍是原始诊断证据。
+- O-059 修复没有回写、删除或重标这两个 job 的 outputs/logs，也没有称其为修复后执行。
+
+因此负面证据保留满足要求；本 R9 的 P2 正是静态发现尚未被 25-file diagnostic 选择覆盖的
+共享 fixture 影响，不能被 Job 349653 的 attribution PASS 掩盖。
+
+## Job 349653 raw artifact、source 与 attribution audit
+
+本 review 直接读取 output root
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_dummy_attr_a9d657aebfb0`
+及 scheduler logs，而不是只接受 HANDOFF summary。
+
+### Exact request/source/dependency
+
+- Executable launcher commit `a9d657aebfb0f64d271fa74e312d6054eca57e1d`；launcher
+  blob/SHA-256 为 `295610fd422f3b371b8fd85e54785919903dc332` /
+  `bbc1293a42034540327402a5df6c1f172b76afacca7906b4f0b71f5290b5968a`；environment
+  bootstrap SHA-256 为 `f57befbb...`。
+- pre-S06 `968d815...` 的 78-file list/state 为 `0ec5e43e...` / `dc2144cc...`；current
+  `c69befe...` 的 85-file list/state 为 `104a6474...` / `0f2995fc...`。本 review 对两个
+  `*_source_sha256s.txt` 的全部 `78/78` 与 `85/85` entries 从 exact Git blobs 重新散列，
+  mismatch 均为 0；list/state aggregate 也精确一致。
+- `execution_identity.json` 精确记录 n530/aarch64、CPython 3.11.15、同一 interpreter，
+  NumPy 1.26.4、SciPy 1.13.1、Torch 2.11.0+cu128、torchvision 0.26.0+cu128、spconv
+  2.3.8、cumm 0.7.13、nuscenes-devkit 1.1.11、pyquaternion 0.9.9、Pillow 12.2.0，
+  one node/task/GH200、four CPUs。四个 result JSON 都重复记录 Python 与 NumPy/Torch
+  identity和 exact workload config。
+
+### Four independent subprocesses 与 classification
+
+`attempts.tsv` 精确有四行：pre/current 各 repetition 1/2，exit 均为 0；四个 result JSON
+分别绑定 exact snapshot commit、same seed-42 CPU dummy config、`defense=none`、
+`server_round=1`、`n_clients=4`、`decision_valid=true`。四个 checksum 全部精确为
+`4fa46307bab67f2a836102b23b1ad2abc331702e83d16c65e11a09330c3d9edb`。
+
+`attribution_summary.json` 因而正确给出 `diagnostic_complete=true` 与
+`classification=stable_equal_current`，同时保留 historical
+`d2d819fee9a54fc302a9d6c9d0ac4e4d875629a0a16e75f2328f28b7f63cd7cc`，并明确
+`automatic_code_or_golden_change_authorized=false`。该结果支持：在 exact frozen Arrhenius
+runtime 中，pre-S06 与 current source 都稳定产生 `4fa463...`，所以 Job 348818 相对旧
+`d2d819...` 的差异不能归因于 S06/current source change；它不单独定位某个库/硬件原因，
+也不建立跨平台 universal checksum。
+
+### Artifact completeness
+
+`sha256sums.txt` 的 SHA-256 为 `0c74aae4...`，包含且验证全部 25 个 formal artifacts；本
+review 再次执行 read-only `sha256sum -c`，25/25 均 OK。summary、attempts、identity 分别为
+`806afbfd...`、`dfa41729...`、`b66bbc74...`。scheduler stdout/stderr SHA-256 为
+`48f6a06c...` / `ae633085...`，stdout逐项显示25次 OK，stderr仅为已记录的 module-purge
+notice。RESULTS 中这些路径、哈希、resources和 interpretation limits均与 raw bytes一致。
+
+## Runtime-aware dummy test contract
+
+`test_model_task.py` 保留旧 `DUMMY_AGG_GOLDEN=d2d819...` 作为 historical evidence，新增
+exact `ARRHENIUS_DUMMY_AGG_GOLDEN=4fa463...` 与 runtime tuple
+`(aarch64, CPython, 3.11.15, torch 2.11.0+cu128, numpy 1.26.4)`。测试在所有 runtime 都
+执行两个新的 `run_clean_round()`，要求两个 checksum 都是 64-lower-hex 且 same-runtime
+exact equality；只有 tuple 完整相等时才额外断言 `4fa463...`
+（`fl_v3/tests/test_model_task.py:22-73`）。unknown runtime 没有 skip，也不再错误断言旧
+cross-environment golden；frozen Arrhenius exact-4fa branch与 Job 349653 的
+`importlib.metadata` identity定义一致。
+
+这项变更没有修改 `training/loop.py` 或任何 production source。其局限是本 R9 未执行该
+pytest；若未来在能 import Torch/NumPy 但缺 distribution metadata 的非标准 source-only
+environment运行，`importlib.metadata.version()` 会 error而不是把它归为 unknown runtime，
+但这不影响当前冻结 Arrhenius install identity。可把该点作为 portability residual，不应
+据此扩张 Arrhenius golden 的适用范围。
+
+## Checks actually run 与 explicit NOT RUN
+
+本 R9 严格只执行允许的 Git/hash/stdlib/static/read-only checks：
+
+1. startup root/HEAD/branch/status、import-parent/candidate关系：PASS；
+2. R8 prefix blob/size/SHA-256：PASS；
+3. root AGENTS、权威 O-064 canonical docs、S07 四份交付与全部 prior review完整读取：PASS；
+4. `fdee4ba..797aaf4` 与 O-063 四路径 diff/topology/ownership/`diff --check`：PASS；
+5. 七个 changed Python files 的 stdlib AST parse：`AST_OK=7`；
+6. 三个 launcher 的 `bash -n`：`SHELL_OK=3`；
+7. candidate source SHA-256、training-loop/config blobs、generated artifact absence：PASS；
+8. Job 349653 raw JSON/TSV/log/manifest读取，25/25 checksums与163个 immutable Git-source
+   records重算：PASS；
+9. fixture consumer、DataLoader caller/context、explicit-fork control flow、topology/regex
+   assertion逐行静态 tracing：产生上述 findings。
+
+明确 **NOT RUN / NO IMPLIED PASS**：
+
+- pytest、pycompile、project/package import、Torch/NumPy/CUDA/spconv/cumm import；
+- 任何 directory/ZIP/data/cache/model/checkpoint、worker process、fork/spawn runtime；
+- Slurm/srun/GPU/job query或新 compute；
+- C/L/F forward/backward、fp16 option-A、rollback、official devkit、T5 task；
+- full trainval `t1.v2` cache、100/1000-step、profile、mAP/NDS、DDP、matrix、seed/rerun、
+  FL/attack/defense/scientific cell；
+- merge到`v3-ad-perception`、push、upload、publication。
+
+## Gate verdict、allowed/forbidden interpretation 与 residual risk
+
+| Layer | R9 verdict |
+|---|---|
+| R8 exact prefix/import/candidate lineage | **PASS** |
+| Job 349653 source/dependency/four-process/checksum attribution | **PASS within bounded attribution scope** |
+| production spawn policy for dataset/dummy/detection | **PASS STATICALLY** |
+| explicit ZIP fork isolation/two-epoch semantics | **PASS STATICALLY; cleanup/test gaps P3** |
+| diagnostic-parent/regex/six-task executable assertions | **PASS STATICALLY** |
+| shared mini-cache fixture migration | **CHANGES-REQUESTED (P2)** |
+| integrated GH200 runtime suite | **FAILED/DIAGNOSTIC ONLY; no post-fix run exists** |
+| production/full-data/scientific readiness | **NOT ESTABLISHED / FORBIDDEN** |
+
+允许解释：Jobs 348557/348818 的原始负面结果保留；O-059 production spawn policy和主要
+hostile主体已形成可审查静态实现；Job 349653 在 exact frozen runtime 下可靠地把 dummy
+差异分类为 `stable_equal_current`；runtime-aware test不改 production loop并保留旧 hash。
+
+禁止解释：不得称 O-059 后 integrated 25-file suite 已运行或 PASS，不得忽略两个被共享
+fixture 破坏的现有 tests，不得称 fork timeout cleanup、dummy/zero-worker direct regression
+已完整覆盖；不得称 production/full cache/full trainval/100/1000/profile/metric ready，不得
+声称 mAP/NDS、fusion gain、FL、attack/defense、generalization或publication evidence。
+
+Residual risks还包括：full `t1.v2` cache不存在；actual post-O-059 spawn/ZIP/CUDA/model suite
+未执行；S04 integrated fp16/concurrency/EMA与official eval仍未得到新 runtime evidence；
+Job 349653只隔离source-vs-runtime attribution，不定位具体依赖/CPU/BLAS原因；Protocol-B
+split/client ownership不在本 CL engineering review内。
+
+## Final verdict
+
+**CHANGES-REQUESTED for S07-B candidate
+`797aaf4fa8115568692c381489928fb656f5f356`.**
+
+Job 349653 的 exact attribution、runtime-aware dummy contract、production spawn主路径、
+CUDA-hidden explicit-fork设计、diagnostic-parent、regex和六任务数值断言可以在各自静态/
+bounded边界内接受；但 shared `mini_cache_dir` 迁到 tmp 后遗漏
+`test_model_overfit.py` 与 `test_model_viz.py`，使两个现有 gate在clean/read-only CWD必然
+绕过新cache并失败或误用stale CWD cache。修复全部fixture consumers并处理上方P3回归保护/
+cleanup/doc问题后，exact new SHA必须再次独立review；在此之前没有code-level acceptance、
+后续runtime proposal、production/full-data或scientific授权。
