@@ -2,15 +2,16 @@
 
 ## Current approval state
 
-`PENDING_S00_EXACT_TUPLE_APPROVAL_NO_JOB_SUBMITTED`
+`APPROVED_EXACT_ONCE_CONSUMED_BY_JOB_341695_COMPLETED_NO_FOLLOW_ON`
 
 The owner selected option A in canonical decision O-025. This request is one
 necessary, validation-only use of the owner's temporary S02-S05 coordination
-delegation under O-025; it is not an O-009 rerun expansion. Preparing and
-committing this request does not approve submission. S00 must approve the exact
+delegation under O-025; it is not an O-009 rerun expansion. S00 approved the exact
 delivery/executable identity, request/source/launcher hashes, roots, command,
-resources, test inventory, and stop conditions below. No retry or follow-on is
-requested.
+resources, test inventory, and stop conditions once. Job `341695` consumed that
+approval and completed `0:0` with exactly `15 passed / 0 failed / 0 errors / 0
+skipped`. The approval is exhausted. No retry, resubmission, or follow-on is
+authorized.
 
 ### O-025 implementation and immutable execution identity
 
@@ -77,9 +78,9 @@ DDP, retry, resubmission, or follow-on action.
 ### Resources, roots, and stop conditions
 
 - Exactly one shared GH200, one node, 8 CPUs, `00:20:00`; one job only.
-- Snapshot (confirmed absent while preparing this request):
+- Snapshot (confirmed absent before submission; now preserved read-only):
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/snapshots/s04_o025_84985970f0f4_v1`.
-- Output (confirmed absent while preparing this request):
+- Output (confirmed absent before submission; now preserves Job `341695` artifacts):
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s04_o025_84985970f0f4_v1`.
 - Logs:
   `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s04_option_a_%j.{out,err}`.
@@ -89,7 +90,7 @@ DDP, retry, resubmission, or follow-on action.
   failure/error/skip, checksum failure, scheduler failure, or timeout. Do not
   retry, requeue, resubmit, widen tests/resources, or launch another job.
 
-### Exact staging/submission template — not approved, not executed
+### Exact staging/submission template — consumed, not reusable
 
 ```bash
 set -euo pipefail

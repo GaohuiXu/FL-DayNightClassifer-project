@@ -21,8 +21,8 @@
 - Final request-delivery HEAD is returned after its commit; a commit cannot embed
   its own SHA without changing it.
 - Job-336718 evidence delivery is returned after the docs commit.
-- Worker self-assessment: **O-025 REMEDIATION IMPLEMENTED; BOUNDED GH200
-  REVALIDATION PENDING; NOT PASS**.
+- Worker self-assessment: **IMPLEMENTATION AND BOUNDED GH200 GATES PASS;
+  INDEPENDENT S04-R PENDING; NOT AN ORCHESTRA PASS**.
 
 This is not an integration PASS. Jobs `335566`, `335579`, and `336718` all remain
 visible failed negatives. Job `336718` validated the original fp16 output assertion
@@ -58,7 +58,32 @@ FP32 master/full-state hash, training-dispatch parity, fp32 control, and B=4 eva
 memory coverage. Local `python3 -m py_compile`, launcher `bash -n`, and
 `git diff --check` pass; the login runtime has neither torch nor pytest, so no
 runtime test was represented as locally executed. `RUN_REQUEST.md` now requests
-one exact synthetic GH200 job and remains pending S00 approval.
+one exact synthetic GH200 job. S00 approved that immutable tuple once and Job
+`341695` consumed it successfully as recorded below.
+
+### O-025 Job 341695 bounded validation
+
+Job `341695` completed `0:0` on exact executable `84985970`, one shared GH200 and
+eight CPUs, with `15 passed / 0 failed / 0 errors / 0 skipped` in `78.71s` and all
+identity/source/request/checksum gates passing. The exact runtime was CPython
+`3.11.15`, Torch `2.11.0+cu128`, spconv `2.3.8`, cumm `0.7.13`, NumPy `1.26.4`,
+and pytest `9.1.1`.
+
+The focused evidence closes the O-025 worker gates: unsupported and empty-input
+version checks fail closed; fresh 6/256-voxel and same-model before/after-backward
+fp16 eval pass; encoder/GroupNorm remain eval while all 21 sparse convolutions use
+and then restore the temporary dispatch; eval leaves all parameter gradients
+absent and fp32 master/full-state hashes unchanged; training-dispatch parity and
+fresh fp32 control pass. B=4 fp16 eval returned finite `[4,256,180,180]`, dense
+`[4,128,2,180,180]`, with allocated/reserved peaks `371,167,232` / `411,041,792`
+bytes. The separately retained B=4 train/backward peak was `962,274,304` /
+`1,069,547,520` bytes.
+
+This bounded validation does not erase Jobs `335566`, `335579`, or `336718`, nor
+the six fp16-eval error cells in diagnostic Job `336728`; those remain the causal
+negative history for the remediations. It is not full-data, production integration,
+throughput/profile, metric, convergence, or scientific evidence. Independent
+S04-R and S00 disposition remain required.
 
 ## Delivered architecture contract
 
@@ -234,11 +259,11 @@ cache order; it is the current eval dispatch's unsupported mixed-dtype tuple.
 | empty/extreme occupancy | PASS bounded synthetic runtime | Job 335579 |
 | metric/camera-fusion mapping | PASS static | 0.6m, 180x180 golden |
 | sample/batch isolation | PASS bounded synthetic runtime | Job 335579 |
-| fp32/fp16 behavior | O-025 IMPLEMENTED / RUNTIME PENDING | historical fp16 train/B=4 and fp32 eval pass; old eval failure preserved; exact option-A validation not yet run |
-| B=4 forward/backward | PASS bounded synthetic runtime | Job 336718, correct shape/fp16/loss/backward/finite grads |
-| B=4 bounded memory | PASS bounded observation | Job 336718, allocated/reserved/device bytes recorded above |
+| fp32/fp16 behavior | PASS bounded synthetic runtime | Job 341695 exact option-A lifecycle, parity, fp32 control and state/mode gates; old failures preserved |
+| B=4 forward/backward | PASS bounded synthetic runtime | Jobs 336718 and 341695, correct shape/fp16/loss/backward/finite grads |
+| B=4 bounded memory | PASS bounded observation | Job 341695 records separate train/backward and option-A eval allocated/reserved bytes |
 | sparse composition remediation | PASS bounded synthetic runtime | explicit forwarding + Job 335579 |
-| independent S04-R | NOT STARTED | S00/owner controls reviewer launch |
+| independent S04-R | NOT STARTED | required before Orchestra integration decision |
 
 ## Allowed and forbidden interpretations
 
@@ -251,13 +276,15 @@ Allowed:
   at source level;
 - Job 336718 provides bounded evidence for the exact original fp16-output and B=4
   dtype/shape/backward/memory cases listed above, while preserving its later
-  lifecycle failure.
+  lifecycle failure;
+- Job 341695 provides bounded synthetic engineering evidence that exact option A
+  closes the tested fp16-eval lifecycle blocker on attested spconv 2.3.8.
 
 Forbidden:
 
-- S04 PASS, integration readiness, or runtime acceptance of the remediation;
-- any overall S04 PASS, or extrapolating the bounded fp16/B=4 observations beyond
-  executable `2729f45` and Job 336718;
+- Orchestra/integration PASS before independent S04-R;
+- extrapolating Job 341695 beyond executable `84985970`, spconv 2.3.8, its exact
+  synthetic cases, or the stated bounded engineering gates;
 - production detector/model/full-data readiness, mAP/NDS, model superiority,
   voxel-size selection, throughput/profile, convergence, fusion gain, FL,
   attack/defense, generalization, or publication claim.
@@ -266,10 +293,9 @@ Forbidden:
 
 1. Preserve Jobs 335566 (composition), 335579 (fp16 output dtype), and 336718
    (same-model eval reuse spconv tuning) as failed negatives.
-2. S00 audits and, only if exact scope is accepted, approves the immutable O-025
-   request tuple once; no job is currently submitted.
-3. Preserve all raw outcomes and require fresh/same-model fp16 eval,
-   parameter-state preservation, fp32 control, parity, version guard and bounded
-   memory/lifecycle evidence without weakening the historical failure fixture.
+2. Treat the exact O-025 approval as consumed by Job `341695`; do not retry or
+   launch follow-on compute.
+3. Independently review executable `84985970`, Job `341695` raw artifacts, all
+   historical negatives, mode/state/version guarantees, and interpretation limits.
 4. Only after reviewed remediation and independent S04-R may S07-B consider this
    module for integration.

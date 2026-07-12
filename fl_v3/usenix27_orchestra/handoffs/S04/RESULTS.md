@@ -418,7 +418,7 @@ In-job `sha256sum -c` passed all primary artifacts:
 No data, optimizer/parameter step, metric, scientific cell, profile, retry,
 requeue, resubmission, remedy, or follow-on occurred.
 
-## Owner decision docket — remedy not yet authorized
+## Historical owner decision docket — remedy not yet authorized at Job 336728
 
 ### A — force only spconv convolutions through training dispatch in fp16 eval (recommended)
 
@@ -474,5 +474,94 @@ compute. Do not call `.train()` on the whole encoder.
   review.
 
 Option A is the smallest current candidate because it preserves fp32 master weights
-and matches the successful training dtype tuple, but it remains owner-locked. No
-option is implemented or approved by Job `336728`.
+and matches the successful training dtype tuple. At this historical diagnostic
+point it remained owner-locked; no option was implemented or approved by Job
+`336728`. O-025 subsequently selected A as recorded next.
+
+## O-025 option-A implementation validation — Job 341695
+
+The owner subsequently selected option A in O-025, and canonical clarification
+`04569c6` allowed the required one-shot synthetic forward/backward lifecycle
+fixtures while forbidding optimizer/GradScaler/parameter updates and iterative
+training. S00 independently approved the exact immutable tuple once. Job `341695`
+consumed it and completed successfully; no retry, requeue, resubmission, or
+follow-on occurred.
+
+### Result and gate evidence
+
+- Pytest/JUnit: `15 passed / 0 failed / 0 errors / 0 skipped`, `78.714s`.
+- Exact version guard rejected an unsupported version, including before an empty
+  fp16-eval return.
+- Fresh 6-voxel, fresh 256-voxel, same-model eval-before-training, and same-model
+  train/backward-to-eval fp16 paths all returned finite fp16 outputs.
+- Eval required `torch.no_grad`; all parameter `.grad` fields were absent after
+  eval, all master parameters remained fp32, and the complete state-dict SHA-256
+  was unchanged across the lifecycle.
+- Encoder, backbone, and GroupNorm remained eval. Exactly 21 spconv sparse
+  convolutions used temporary training dispatch and every flag was restored,
+  including the explicit exception path.
+- Automatic option-A eval passed numerical parity against ordinary training
+  dispatch under `no_grad`; the fresh fp32 eval control also passed.
+- Existing coordinate/shape/RF, reduced densification, per-sample train/eval cap,
+  over-cap/extreme occupancy, empty-input, permutation/isolation, fp16 train and
+  B=4 forward/backward gates all passed without being removed or weakened.
+- B=4 train/backward: output `[4,256,180,180]` fp16, dense
+  `[4,128,2,180,180]`, finite loss `0.010624694637954235`, peak allocated/reserved
+  `962,274,304` / `1,069,547,520` bytes.
+- B=4 eval: output `[4,256,180,180]` fp16, dense
+  `[4,128,2,180,180]`, dispatch count `21`, all masters fp32, all grads absent,
+  peak allocated/reserved `371,167,232` / `411,041,792` bytes on a
+  `102,005,473,280`-byte device.
+
+### Exact identity, scheduler, and dependencies
+
+- Approved delivery/tree: `2350335166e8f2407ff58f99e9aa5ca98c8acb23` /
+  `671611cdd743d0b1d63bde5c861cc76ec55236db`.
+- Executable/tree: `84985970f0f4b4acb8704ddbbd6ae9b2bf94ca9f` /
+  `913fee67d405ed554b3f7df37c3c137f6f577c2d`.
+- Request/source/identity SHA-256:
+  `b242336e1696a68b6a01a90492ca0e58b7216ef8c4ab9a0eced1f983bf5d2110` /
+  `a2608664abd6b69f09b96f19b915cdefe1431aa8b503985f2184b94817e92463` /
+  `35d5547e68d2132d9bec1dc77202154b7faf6d2e1d767d68944f722bb0849d2c`.
+- Job/name/node: `341695` / `flv3_s04_option_a` / `n412`.
+- Submit/start/end: `2026-07-12T03:22:00` / `03:22:02` / `03:24:43`;
+  scheduler elapsed `00:02:41`, state `COMPLETED`, exit `0:0`, restarts `0`.
+- Allocation: one node, one `nvidia_gh200_120gb`, eight CPUs, `mem=11672M`,
+  `OverSubscribe=OK`; batch MaxRSS/MaxVMSize `1,141,888K` / `18,892,480K`.
+- CPython `3.11.15`, Torch `2.11.0+cu128`, spconv `2.3.8`, cumm `0.7.13`,
+  NumPy `1.26.4`, pytest `9.1.1`.
+- Snapshot:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/snapshots/s04_o025_84985970f0f4_v1`.
+- Output:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s04_o025_84985970f0f4_v1`.
+
+In-job `sha256sum -c` passed all four primary artifacts:
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `execution_identity.json` | 2,649 | `bdca744bf8d8380a6bb67f9ea48603e240278adc267b3ceb8c6d7d722c2e3342` |
+| `runtime_source_sha256s.txt` | 1,869 | `a2608664abd6b69f09b96f19b915cdefe1431aa8b503985f2184b94817e92463` |
+| `pytest.log` | 2,961 | `63ad1d176074b56020e072d56f93fcd496f7c59694a4ddde2ad954be39190a34` |
+| `pytest.junit.xml` | 2,223 | `8969a3b40f39f65853d5fdae488a9f7c9e1acd22c6b28b2dffb7159afee466d6` |
+| `sha256sums.txt` | 751 | `efc70b39763053662c82907ff7901488119f9d7b8c5b081a021f726c8958105d` |
+| Slurm stdout | 3,535 | `f4e0bcee0900a9bfba727ec5d94b67f6a16c601da9cc7ac9fbd592802592661d` |
+| Slurm stderr | 123 | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+The stdout contains one Torch FX API warning plus the pytest warning summary:
+one Python `locale.getdefaultlocale` deprecation from `ccimport` and seven repeats
+of spconv's non-tuple multidimensional-indexing warning. Stderr contains only the
+environment module-purge notice for `hpc_sysenv/.1` and `hpc/.2.1.0`. Neither
+warning affected the exact test or checksum gates, but both dependency-compatibility
+warnings remain visible for future Torch/Python upgrades.
+
+### Interpretation limits and retained negatives
+
+Job `341695` is bounded synthetic engineering evidence only for executable
+`84985970` on the attested spconv-2.3.8 runtime. It does not establish production
+detector wiring, full-data behavior, throughput/profile, metrics, convergence,
+fusion gain, FL/security behavior, or scientific claims. Its pass does not erase
+failed Jobs `335566` (sparse composition), `335579` (final fp16 dtype), or `336718`
+(native fp16 eval dispatch), and does not reinterpret diagnostic Job `336728`:
+all six native fp16-eval cells there remain recorded errors and are the evidence
+that motivated O-025. Independent S04-R and Orchestra acceptance are still
+required before integration.
