@@ -31,6 +31,10 @@ import torch
 
 _ALLOWED_EVAL_OVERRIDES = frozenset({"batch-size", "num-workers", "det-eval-limit"})
 _CHECKPOINT_PREFLIGHTS: Dict[str, dict] = {}
+_SHARD_SCHEMA_FULL = "s07b.t5.shard.full.v1"
+_SHARD_SCHEMA_COND4 = "s07b.t5.shard.cond4.v1"
+_SHARD_MODE_FULL = "full_five_condition"
+_SHARD_MODE_COND4 = "cond4_only"
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +115,11 @@ def _checkpoint_preflight(caller_cfg: dict, checkpoint: str) -> dict:
     from fl_v3.training.checkpoint import CHECKPOINT_SCHEMA, _FIELDS
     from fl_v3.utils.runtime import verify_runtime_dependency_identity
 
+    before_sha = _checkpoint_file_sha256(checkpoint)
     payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    after_sha = _checkpoint_file_sha256(checkpoint)
+    if after_sha != before_sha:
+        raise RuntimeError("T5 checkpoint changed during authoritative preflight load")
     if not isinstance(payload, dict) or "schema" not in payload:
         raise RuntimeError("T5 refuses legacy/bare checkpoints; a complete S06 checkpoint is required")
     if payload.get("schema") != CHECKPOINT_SCHEMA:
@@ -162,11 +170,38 @@ def _checkpoint_preflight(caller_cfg: dict, checkpoint: str) -> dict:
         "resolved": resolved,
         "strict": strict,
         "resolved_sha256": resolved.sha256,
-        "checkpoint_sha256": _checkpoint_file_sha256(checkpoint),
+        "checkpoint_sha256": after_sha,
         "checkpoint_weights": strict["evaluation-checkpoint-weights"],
         "runtime_dependencies": runtime_identity,
         "runtime_dependencies_sha256": runtime_sha,
     }
+
+
+def _validate_task_requirements(args) -> str:
+    """Freeze required checkpoints and artifact mode before any side effect."""
+    if args.task == "null-verify":
+        return "null_fail_closed"
+    if not args.checkpoint:
+        raise RuntimeError(f"T5 task {args.task!r} requires a poisoned checkpoint")
+    if args.task == "shard":
+        if args.num_shards < 1 or args.shard < 0 or args.shard >= args.num_shards:
+            raise RuntimeError("T5 shard index/count must satisfy 0 <= shard < num_shards")
+        if args.cond4_only:
+            if args.clean_checkpoint:
+                raise RuntimeError("cond4-only shard is poison-only; clean checkpoint is forbidden")
+            return _SHARD_MODE_COND4
+        if not args.clean_checkpoint:
+            raise RuntimeError("full five-condition shard requires both poison and clean checkpoints")
+        return _SHARD_MODE_FULL
+    if args.task == "viz":
+        if not args.clean_checkpoint:
+            raise RuntimeError("T5 viz requires both poison and clean checkpoints")
+        return _SHARD_MODE_FULL
+    if args.task in {"aggregate", "stealth", "guards"}:
+        if args.clean_checkpoint:
+            raise RuntimeError(f"T5 task {args.task!r} is poison-only; clean checkpoint is forbidden")
+        return "poison_only"
+    raise RuntimeError(f"unknown T5 task requirement {args.task!r}")
 
 
 def _preflight_t5_checkpoints(cfg: dict, checkpoint: str, clean_checkpoint: Optional[str]) -> None:
@@ -274,6 +309,149 @@ def _checkpoint_file_sha256(path: str) -> str:
     return digest.hexdigest()
 
 
+def _checkpoint_artifact_identity(checkpoint: str, selected_weights_checksum: str) -> dict:
+    preflight = _CHECKPOINT_PREFLIGHTS[os.path.abspath(checkpoint)]
+    return {
+        "checkpoint_file_sha256": preflight["checkpoint_sha256"],
+        "resolved_sha256": preflight["resolved_sha256"],
+        "checkpoint_weights": preflight["checkpoint_weights"],
+        "runtime_dependencies_sha256": preflight["runtime_dependencies_sha256"],
+        "selected_weights_checksum": str(selected_weights_checksum),
+    }
+
+
+def _is_sha256(value) -> bool:
+    return (
+        isinstance(value, str) and len(value) == 64
+        and all(char in "0123456789abcdef" for char in value)
+    )
+
+
+def _shard_artifact_path(output_dir: str, shard: int, count: int, mode: str) -> str:
+    suffix = "full" if mode == _SHARD_MODE_FULL else "cond4"
+    return os.path.join(
+        output_dir, "ablation", f"ablation_shard_{shard}_of_{count}.{suffix}.json",
+    )
+
+
+def _shard_schema(mode: str) -> str:
+    if mode == _SHARD_MODE_FULL:
+        return _SHARD_SCHEMA_FULL
+    if mode == _SHARD_MODE_COND4:
+        return _SHARD_SCHEMA_COND4
+    raise RuntimeError(f"unknown T5 shard artifact mode {mode!r}")
+
+
+def _load_bound_full_shards(args, cfg: dict, subset: dict, poison_weights_checksum: str) -> List[dict]:
+    """Validate the complete fan-out identity/row set before aggregation."""
+    from fl_v3.attacks import fusion_ablation as FA
+
+    count = int(args.num_shards)
+    if count < 1:
+        raise RuntimeError("aggregate num_shards must be >= 1")
+    directory = os.path.join(args.output_dir, "ablation")
+    files = sorted(
+        os.path.join(directory, name) for name in os.listdir(directory)
+        if name.startswith("ablation_shard_") and name.endswith(".json")
+    )
+    if len(files) != count:
+        raise RuntimeError(f"aggregate requires exactly {count} unique shard artifacts, found {len(files)}")
+    file_hashes = [_checkpoint_file_sha256(path) for path in files]
+    if len(file_hashes) != len(set(file_hashes)):
+        raise RuntimeError("aggregate found repeated byte-identical shard artifacts")
+
+    poison_expected = _checkpoint_artifact_identity(args.checkpoint, poison_weights_checksum)
+    frozen_clean = str(cfg.get("attack-clean-checkpoint-checksum", ""))
+    if not frozen_clean or frozen_clean != str(subset.get("checkpoint_checksum", "")):
+        raise RuntimeError("aggregate frozen clean checksum is missing or inconsistent with subset")
+    targets = [tuple(target) for target in subset["targets"]]
+    if len(targets) != int(subset["n"]) or len(targets) != len(set(targets)):
+        raise RuntimeError("frozen subset target identities are duplicate or count-inconsistent")
+
+    seen_indices: set[int] = set()
+    seen_rows: set[tuple[str, str]] = set()
+    rows: List[dict] = []
+    artifact_keys = {
+        "schema_version", "mode", "poison", "clean", "subset_content_hash",
+        "shard_index", "num_shards", "results",
+    }
+    identity_keys = {
+        "checkpoint_file_sha256", "resolved_sha256", "checkpoint_weights",
+        "runtime_dependencies_sha256", "selected_weights_checksum",
+    }
+    row_keys = {
+        "sample_token", "ann_token", "evaluated", "disappeared",
+        "occlusion_disappeared", "placement_aligned_ok",
+        "placement_nonaligned_iou0", "area_ratio",
+    }
+    for path in files:
+        with open(path, encoding="utf-8") as stream:
+            artifact = json.load(stream)
+        if set(artifact) != artifact_keys or artifact["schema_version"] != _SHARD_SCHEMA_FULL:
+            raise RuntimeError(f"invalid or incomplete T5 shard schema: {path}")
+        if artifact["mode"] != _SHARD_MODE_FULL:
+            raise RuntimeError("cond4-only/mixed shard artifact cannot enter full aggregate")
+        if artifact["subset_content_hash"] != subset["content_hash"]:
+            raise RuntimeError("shard frozen-subset identity mismatch")
+        index = artifact["shard_index"]
+        if isinstance(index, bool) or not isinstance(index, int) or index < 0 or index >= count:
+            raise RuntimeError("shard index is outside declared aggregate range")
+        if artifact["num_shards"] != count or index in seen_indices:
+            raise RuntimeError("duplicate shard index or num_shards mismatch")
+        seen_indices.add(index)
+        if not isinstance(artifact["poison"], dict) or set(artifact["poison"]) != identity_keys:
+            raise RuntimeError("shard poison identity schema mismatch")
+        if artifact["poison"] != poison_expected:
+            raise RuntimeError("shard poison preflight/selected-weight identity mismatch")
+        clean = artifact["clean"]
+        if not isinstance(clean, dict) or set(clean) != identity_keys:
+            raise RuntimeError("full shard requires a complete clean identity")
+        for key in (
+            "checkpoint_file_sha256", "resolved_sha256", "runtime_dependencies_sha256",
+            "selected_weights_checksum",
+        ):
+            if not _is_sha256(clean[key]):
+                raise RuntimeError(f"clean shard identity {key} is not a SHA-256")
+        if clean["resolved_sha256"] != poison_expected["resolved_sha256"]:
+            raise RuntimeError("shard clean/poison resolved identity mismatch")
+        if clean["checkpoint_weights"] != poison_expected["checkpoint_weights"]:
+            raise RuntimeError("shard clean/poison raw/EMA policy mismatch")
+        if clean["runtime_dependencies_sha256"] != poison_expected["runtime_dependencies_sha256"]:
+            raise RuntimeError("shard clean/poison dependency identity mismatch")
+        if clean["selected_weights_checksum"] != frozen_clean:
+            raise RuntimeError("shard actual clean selected weights do not match frozen subset")
+
+        expected_targets = targets[index::count]
+        artifact_rows = artifact["results"]
+        if not isinstance(artifact_rows, list) or len(artifact_rows) != len(expected_targets):
+            raise RuntimeError("shard row count does not match deterministic frozen target slice")
+        row_targets = []
+        for row in artifact_rows:
+            if not isinstance(row, dict) or set(row) != row_keys:
+                raise RuntimeError("full shard row schema is incomplete or has unknown fields")
+            identity = (str(row["sample_token"]), str(row["ann_token"]))
+            row_targets.append(identity)
+            if identity in seen_rows:
+                raise RuntimeError("duplicate (sample_token, ann_token) across shard artifacts")
+            seen_rows.add(identity)
+            if row["evaluated"] is not True:
+                raise RuntimeError("full shard row lacks mandatory five-condition evaluation")
+            if type(row["occlusion_disappeared"]) is not bool:
+                raise RuntimeError("full shard mandatory occlusion control must be boolean")
+            disappeared = row["disappeared"]
+            if (
+                not isinstance(disappeared, dict) or set(disappeared) != set(FA.CONDITIONS)
+                or any(type(value) is not bool for value in disappeared.values())
+            ):
+                raise RuntimeError("full shard disappeared-condition schema is invalid")
+        if set(row_targets) != set(expected_targets):
+            raise RuntimeError("shard rows are missing, extra, duplicated, or assigned to wrong index")
+        rows.extend(artifact_rows)
+    if seen_indices != set(range(count)) or seen_rows != set(targets):
+        raise RuntimeError("aggregate shard set does not exactly cover frozen targets")
+    return rows
+
+
 def _load_subset(cfg, subset_path: str) -> dict:
     """Load the frozen subset; re-verify the content-hash + the LITERAL pinned identities (§0.C6)."""
     from fl_v3.eval.asr import verify_frozen_asr_subset
@@ -320,6 +498,7 @@ def _seed(cfg):
 # task: shard (the per-target fan-out worker)
 # ---------------------------------------------------------------------------
 def task_shard(args, cfg):
+    mode = _validate_task_requirements(args)
     _require_preflight(args.checkpoint, args.clean_checkpoint)
     from fl_v3.eval.asr import thresholds_from_subset
     from fl_v3.attacks import trigger as TR
@@ -329,6 +508,22 @@ def task_shard(args, cfg):
     thr = thresholds_from_subset(subset)
     spec = TR.trigger_spec_from_run_config(cfg)
 
+    poisoned = _load_model(cfg, args.checkpoint, device)
+    poison_checksum = _trainable_checksum(poisoned)
+    clean = None
+    clean_checksum = None
+    if mode == _SHARD_MODE_FULL:
+        clean = _load_model(cfg, args.clean_checkpoint, device)
+        clean_checksum = _trainable_checksum(clean)
+        frozen_clean = str(cfg.get("attack-clean-checkpoint-checksum", ""))
+        if not frozen_clean or clean_checksum != frozen_clean:
+            raise RuntimeError(
+                "actual selected clean raw/EMA weights do not match "
+                "attack-clean-checkpoint-checksum"
+            )
+        if clean_checksum != str(subset.get("checkpoint_checksum", "")):
+            raise RuntimeError("actual selected clean weights do not match frozen subset identity")
+
     targets: List[Tuple[str, str]] = [tuple(t) for t in subset["targets"]]
     shard = targets[args.shard::args.num_shards]                      # deterministic round-robin slice
     by_sample: Dict[str, List[str]] = {}
@@ -337,8 +532,6 @@ def task_shard(args, cfg):
 
     val_info = _val_info(cfg)
     ds = _val_dataset(cfg, val_info, list(by_sample.keys()))
-    poisoned = _load_model(cfg, args.checkpoint, device)
-    clean = _load_model(cfg, args.clean_checkpoint, device) if args.clean_checkpoint else None
     print(f"[t5-shard {args.shard}/{args.num_shards}] {len(shard)} targets over {len(by_sample)} samples", flush=True)
 
     out: List[dict] = []
@@ -349,15 +542,32 @@ def task_shard(args, cfg):
             continue
         clean_anns = FA.clean_detected_anns(poisoned, sample, device, thr)
         for ann in by_sample[tok]:
-            if args.cond4_only:   # lean CONTROL measurement: cond-1 + cond-4 only (no cond-2/3/5a/occlusion)
+            if mode == _SHARD_MODE_COND4:
                 v = FA.evaluate_target_cond4(sample, ann, poisoned, device, thr, spec,
                                              clean_anns=clean_anns)
             else:
+                if clean is None:
+                    raise RuntimeError("full five-condition evaluation requires loaded clean model")
                 v = FA.evaluate_target(sample, ann, poisoned, clean, device, thr, spec,
                                        clean_anns=clean_anns)
-            if v is None:
-                out.append({"sample_token": tok, "ann_token": ann, "evaluated": False})
+            if mode == _SHARD_MODE_COND4:
+                if v is None:
+                    out.append({"sample_token": tok, "ann_token": ann, "evaluated": False})
+                else:
+                    out.append({
+                        "sample_token": tok, "ann_token": ann, "evaluated": True,
+                        "cond1_clean_disappeared": bool(v.disappeared["cond1_clean"]),
+                        "cond4_aligned_disappeared": bool(v.disappeared["cond4_aligned"]),
+                        "placement_aligned_ok": v.placement_aligned_ok,
+                        "area_ratio": v.area_ratio,
+                    })
             else:
+                if v is None:
+                    raise RuntimeError(
+                        f"full five-condition target {(tok, ann)!r} lacks mandatory evaluation/control"
+                    )
+                if type(v.occlusion_disappeared) is not bool:
+                    raise RuntimeError("full five-condition target lacks boolean occlusion control")
                 out.append({"sample_token": tok, "ann_token": ann, "evaluated": True,
                             "disappeared": v.disappeared, "occlusion_disappeared": v.occlusion_disappeared,
                             "placement_aligned_ok": v.placement_aligned_ok,
@@ -367,9 +577,21 @@ def task_shard(args, cfg):
             print(f"[t5-shard {args.shard}] {i+1}/{len(ds)} samples", flush=True)
 
     os.makedirs(os.path.join(args.output_dir, "ablation"), exist_ok=True)
-    p = os.path.join(args.output_dir, "ablation", f"ablation_shard_{args.shard}_of_{args.num_shards}.json")
-    json.dump({"shard": args.shard, "num_shards": args.num_shards, "n_targets": len(shard),
-               "results": out}, open(p, "w"), sort_keys=True)
+    p = _shard_artifact_path(args.output_dir, args.shard, args.num_shards, mode)
+    artifact = {
+        "schema_version": _shard_schema(mode),
+        "mode": mode,
+        "poison": _checkpoint_artifact_identity(args.checkpoint, poison_checksum),
+        "clean": (
+            _checkpoint_artifact_identity(args.clean_checkpoint, clean_checksum)
+            if mode == _SHARD_MODE_FULL else None
+        ),
+        "subset_content_hash": subset["content_hash"],
+        "shard_index": int(args.shard),
+        "num_shards": int(args.num_shards),
+        "results": out,
+    }
+    json.dump(artifact, open(p, "w"), sort_keys=True)
     print(f"[t5-shard {args.shard}] wrote {p} ({len(out)} targets)", flush=True)
 
 
@@ -377,6 +599,7 @@ def task_shard(args, cfg):
 # task: aggregate (combine shards → table + verdict)
 # ---------------------------------------------------------------------------
 def task_aggregate(args, cfg):
+    _validate_task_requirements(args)
     _require_preflight(args.checkpoint)
     from fl_v3.attacks import fusion_ablation as FA
     from fl_v3.eval.provenance import verify_attack_provenance
@@ -391,14 +614,9 @@ def task_aggregate(args, cfg):
     print(f"[t5-agg] attack provenance VERIFIED: {prov.get('regime')} | mode={prov.get('attack-mode')} "
           f"poison_rate={prov.get('attack-poison-rate')} m_r={prov.get('m_r')} roster={prov.get('roster')}", flush=True)
 
-    adir = os.path.join(args.output_dir, "ablation")
-    files = sorted(f for f in os.listdir(adir) if f.startswith("ablation_shard_") and f.endswith(".json"))
-    rows: List[dict] = []
-    for f in files:
-        rows.extend(json.load(open(os.path.join(adir, f)))["results"])
-    seen = {(r["sample_token"], r["ann_token"]) for r in rows}
-    evaluated = [r for r in rows if r.get("evaluated")]
-    coverage = len(seen) / N if N else 0.0
+    rows = _load_bound_full_shards(args, cfg, subset, checksum)
+    evaluated = rows
+    coverage = 1.0 if N else 0.0
 
     # per-condition raw ASR over the FULL N (un-evaluated targets → not disappeared, conservative)
     counts = {c: 0 for c in FA.CONDITIONS}
@@ -408,7 +626,7 @@ def task_aggregate(args, cfg):
         for c in FA.CONDITIONS:
             if r["disappeared"].get(c):
                 counts[c] += 1
-        if r.get("occlusion_disappeared"):
+        if r["occlusion_disappeared"] is True:
             occ += 1
         aligned_ok += int(bool(r.get("placement_aligned_ok")))
         nonaligned_iou0 += int(bool(r.get("placement_nonaligned_iou0")))
@@ -469,7 +687,7 @@ def task_aggregate(args, cfg):
                ("D3-ESCAPE-HATCH (cond4≈cond2 — point-decoration)" if verdict["degenerate_cond4_approx_cond2"] else
                 ("INCOMPLETE — missing sub-gates: " + ", ".join(missing) if missing else "GATE NOT GREEN")))
 
-    result = {"N": N, "n_shards": len(files), "raw_asr": asr, "fusion_aware_verdict": verdict,
+    result = {"N": N, "n_shards": int(args.num_shards), "raw_asr": asr, "fusion_aware_verdict": verdict,
               "headline": headline, "occlusion_control": occlusion, "placement_objective_test": placement,
               "stealth": stealth, "cond5a_guards": guards, "gate": gate, "gate_pass": gate_pass,
               "missing_subgates": missing, "overall_verdict": overall,
@@ -493,6 +711,7 @@ def task_aggregate(args, cfg):
 # task: stealth (poisoned clean DetectionEval — mAP/NDS + official car recall)
 # ---------------------------------------------------------------------------
 def task_stealth(args, cfg):
+    _validate_task_requirements(args)
     _require_preflight(args.checkpoint)
     _assert_pinned_constants(cfg)
     from fl_v3.data.nuscenes.class_map import DETECTION_NAMES
@@ -526,6 +745,7 @@ def task_stealth(args, cfg):
 # task: guards (cond-5a LiDAR-invariance + camera-only clean-recall precondition)
 # ---------------------------------------------------------------------------
 def task_guards(args, cfg):
+    _validate_task_requirements(args)
     _require_preflight(args.checkpoint)
     _assert_pinned_constants(cfg)
     from fl_v3.eval.asr import thresholds_from_subset
@@ -566,6 +786,7 @@ def task_guards(args, cfg):
 # task: viz (V5 + V3(trigger) for a few subset samples)
 # ---------------------------------------------------------------------------
 def task_viz(args, cfg):
+    _validate_task_requirements(args)
     _require_preflight(args.checkpoint, args.clean_checkpoint)
     from fl_v3.eval.asr import thresholds_from_subset
     from fl_v3.attacks import trigger as TR
@@ -644,6 +865,7 @@ def main():
     ap.add_argument("overrides", nargs="*", default=[])
     args = ap.parse_args()
     cfg = _load_config(args.config, args.overrides)
+    _validate_task_requirements(args)
     if args.task == "null-verify":
         task_null_verify(args, cfg)
         return

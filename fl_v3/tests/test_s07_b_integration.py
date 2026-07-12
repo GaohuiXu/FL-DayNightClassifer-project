@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import ast
+import copy
 import importlib
 import importlib.util
 import os
@@ -593,11 +594,18 @@ def test_t5_main_preflights_existing_compat_config_before_device_seed_or_data(
     import fl_v3.config as config_module
     import fl_v3.eval.asr as asr_module
     import fl_v3.attacks.trigger as trigger_module
+    import fl_v3.training.checkpoint as checkpoint_module
+    import fl_v3.training.tasks as tasks_module
     import fl_v3.utils.runtime as runtime_module
 
     module = _script_module("t5_attack_eval.py", "s07b_t5_order")
     repo = Path(__file__).resolve().parents[1]
     compatibility = json.loads((repo / "configs/t5_attack.json").read_text(encoding="utf-8"))
+    compatibility["nuscenes-dataroot"] = str(tmp_path / "explicit_data")
+    compatibility["nuscenes-cache-dir"] = str(tmp_path / "explicit_cache")
+    compatibility["nuscenes-zip-manifest"] = str(tmp_path / "explicit_manifest.sqlite")
+    compatibility_path = tmp_path / "t5_compatibility.json"
+    compatibility_path.write_text(json.dumps(compatibility), encoding="utf-8")
     raw = valid_config(tmp_path)
     raw["precision"] = "fp32"
     raw["optimizer"]["learning_rate"] = float(compatibility["learning-rate"])
@@ -609,15 +617,22 @@ def test_t5_main_preflights_existing_compat_config_before_device_seed_or_data(
         train_split=str(compatibility["nuscenes-train-split"]),
         val_split=str(compatibility["nuscenes-val-split"]),
     )
+    raw["data"]["zip_manifest"]["path"] = compatibility["nuscenes-zip-manifest"]
     cache_dir = Path(str(compatibility["nuscenes-cache-dir"]))
     for role in ("train", "val"):
         raw["data"]["caches"][role]["path"] = str(cache_dir / f"{role}.pkl")
         raw["data"]["caches"][role]["sidecar_path"] = str(cache_dir / f"{role}.meta.json")
     resolved = config_module.resolve_config(raw)
-    checkpoint = tmp_path / "checkpoint.pt"; checkpoint.write_bytes(b"synthetic-complete")
+    checkpoint = tmp_path / "poison.pt"; checkpoint.write_bytes(b"synthetic-poison")
+    clean_checkpoint = tmp_path / "clean.pt"; clean_checkpoint.write_bytes(b"synthetic-clean")
     events = []
-    monkeypatch.setattr(module.torch, "load",
-                        lambda *args, **kwargs: (events.append("parse") or _synthetic_s06_payload(resolved)))
+    monkeypatch.setattr(
+        module.torch, "load",
+        lambda path, **kwargs: (
+            events.append("parse_clean" if str(path) == str(clean_checkpoint) else "parse_poison")
+            or _synthetic_s06_payload(resolved)
+        ),
+    )
     monkeypatch.setattr(
         config_module, "verify_physical_data_identities",
         lambda _cfg: events.append("physical"),
@@ -626,6 +641,7 @@ def test_t5_main_preflights_existing_compat_config_before_device_seed_or_data(
         runtime_module, "verify_runtime_dependency_identity",
         lambda _run: (events.append("dependency") or {"torch": "attested"}),
     )
+    monkeypatch.setattr(runtime_module, "make_grad_scaler", lambda *_args: object())
     monkeypatch.setattr(module, "_device", lambda cfg: (events.append("device") or torch.device("cpu")))
 
     def seeded(cfg):
@@ -635,25 +651,64 @@ def test_t5_main_preflights_existing_compat_config_before_device_seed_or_data(
         assert cfg["model-mode"] == "camera_only"
 
     monkeypatch.setattr(module, "_seed", seeded)
-    monkeypatch.setattr(module, "_load_subset", lambda *_args: {"targets": []})
+    frozen_clean = str(compatibility["attack-clean-checkpoint-checksum"])
+    monkeypatch.setattr(
+        module, "_load_subset",
+        lambda *_args: {"targets": [], "n": 0, "content_hash": "9" * 64,
+                        "checkpoint_checksum": frozen_clean},
+    )
     monkeypatch.setattr(asr_module, "thresholds_from_subset", lambda _subset: object())
     monkeypatch.setattr(trigger_module, "trigger_spec_from_run_config", lambda _cfg: object())
     monkeypatch.setattr(module, "_val_info", lambda _cfg: (events.append("val_info") or []))
     monkeypatch.setattr(module, "_val_dataset",
                         lambda *_args: (events.append("dataset") or []))
-    monkeypatch.setattr(module, "_load_model",
-                        lambda *_args: (events.append("model") or object()))
+
+    class Task:
+        @staticmethod
+        def build_model(_run):
+            events.append("build_model")
+            model = torch.nn.Linear(2, 2)
+            model.selected_checksum = None
+            return model
+
+    monkeypatch.setattr(tasks_module, "get_task", lambda _name: Task())
+
+    def load_checkpoint(path, **kwargs):
+        events.append("load_clean" if str(path) == str(clean_checkpoint) else "load_poison")
+        kwargs["model"].selected_checksum = (
+            frozen_clean if str(path) == str(clean_checkpoint) else "8" * 64
+        )
+        return object(), resolved.sha256
+
+    monkeypatch.setattr(checkpoint_module, "load_checkpoint", load_checkpoint)
+    def selected_checksum(model):
+        events.append("checksum_clean" if model.selected_checksum == frozen_clean else "checksum_poison")
+        return model.selected_checksum
+
+    monkeypatch.setattr(module, "_trainable_checksum", selected_checksum)
+    original_makedirs = module.os.makedirs
+
+    def tracked_makedirs(path, *args, **kwargs):
+        events.append("makedirs")
+        return original_makedirs(path, *args, **kwargs)
+
+    monkeypatch.setattr(module.os, "makedirs", tracked_makedirs)
     output = tmp_path / "out"
     monkeypatch.setattr(sys, "argv", [
         "t5_attack_eval.py", "--task", "shard", "--config",
-        str(repo / "configs/t5_attack.json"), "--checkpoint", str(checkpoint),
+        str(compatibility_path), "--checkpoint", str(checkpoint),
+        "--clean-checkpoint", str(clean_checkpoint),
         "--subset", str(tmp_path / "subset.json"), "--output-dir", str(output),
     ])
     module.main()
-    assert events[:3] == ["parse", "physical", "dependency"]
+    assert events.index("parse_poison") < events.index("parse_clean")
+    assert events.index("parse_clean") < events.index("makedirs")
+    assert max(index for index, event in enumerate(events) if event == "dependency") \
+        < events.index("makedirs")
     assert events.index("dependency") < events.index("device") < events.index("seed")
-    assert events.index("seed") < events.index("val_info") < events.index("dataset")
-    assert events.index("dataset") < events.index("model")
+    assert events.index("seed") < events.index("build_model") < events.index("load_poison")
+    assert events.index("load_clean") < events.index("checksum_clean") < events.index("val_info")
+    assert events.index("val_info") < events.index("dataset")
 
 
 def test_t5_preflight_rejects_missing_legacy_caller_drift_and_embedded_drift(
@@ -689,6 +744,11 @@ def test_t5_preflight_rejects_missing_legacy_caller_drift_and_embedded_drift(
     monkeypatch.setattr(module.torch, "load", lambda *args, **kwargs: payload)
     authoritative = {}
     module._preflight_t5_checkpoints(authoritative, str(checkpoint), None)
+    original_mode = authoritative["model-mode"]
+    authoritative["model-mode"] = "fusion"
+    with pytest.raises(RuntimeError, match="authoritative config changed after preflight"):
+        module._load_model(authoritative, str(checkpoint), torch.device("cpu"))
+    authoritative["model-mode"] = original_mode
     checkpoint.write_bytes(b"changed-after-preflight")
     with pytest.raises(RuntimeError, match="changed after authoritative preflight"):
         module._load_model(authoritative, str(checkpoint), torch.device("cpu"))
@@ -718,3 +778,185 @@ def test_t5_preflight_rejects_clean_poison_resolved_identity_mismatch(tmp_path, 
     with pytest.raises(RuntimeError, match="clean/poison checkpoint resolved identities differ"):
         module._preflight_t5_checkpoints(caller, str(poison_path), str(clean_path))
     assert caller == {} and module._CHECKPOINT_PREFLIGHTS == {}
+
+
+def test_t5_task_requirement_matrix_fails_before_output_side_effect(tmp_path, monkeypatch):
+    module = _script_module("t5_attack_eval.py", "s07b_t5_requirements")
+    config = tmp_path / "config.json"; config.write_text("{}", encoding="utf-8")
+    called = []
+    monkeypatch.setattr(module.os, "makedirs", lambda *_args, **_kwargs: called.append("makedirs"))
+    monkeypatch.setattr(module, "_preflight_t5_checkpoints",
+                        lambda *_args, **_kwargs: called.append("preflight"))
+    monkeypatch.setattr(sys, "argv", [
+        "t5_attack_eval.py", "--task", "shard", "--config", str(config),
+        "--checkpoint", str(tmp_path / "poison.pt"), "--subset", "subset.json",
+        "--output-dir", str(tmp_path / "out"),
+    ])
+    with pytest.raises(RuntimeError, match="requires both poison and clean"):
+        module.main()
+    assert called == []
+
+    base = SimpleNamespace(task="shard", checkpoint="poison", clean_checkpoint=None,
+                           cond4_only=True, shard=0, num_shards=1)
+    assert module._validate_task_requirements(base) == module._SHARD_MODE_COND4
+    for task, clean, expected in (
+        ("aggregate", None, "poison_only"), ("stealth", None, "poison_only"),
+        ("guards", None, "poison_only"), ("viz", "clean", module._SHARD_MODE_FULL),
+    ):
+        args = SimpleNamespace(task=task, checkpoint="poison", clean_checkpoint=clean,
+                               cond4_only=False, shard=0, num_shards=1)
+        assert module._validate_task_requirements(args) == expected
+
+
+def test_t5_checkpoint_preflight_rejects_complete_schema_and_metadata_hostiles(
+    tmp_path, monkeypatch,
+):
+    from test_s06_resolved_config import valid_config
+    import fl_v3.config as config_module
+    import fl_v3.training.checkpoint as checkpoint_module
+    import fl_v3.utils.runtime as runtime_module
+
+    module = _script_module("t5_attack_eval.py", "s07b_t5_payload_matrix")
+    resolved = config_module.resolve_config(valid_config(tmp_path))
+    valid = _synthetic_s06_payload(resolved)
+    checkpoint = tmp_path / "checkpoint.pt"; checkpoint.write_bytes(b"stable")
+    monkeypatch.setattr(config_module, "verify_physical_data_identities", lambda _cfg: None)
+    monkeypatch.setattr(runtime_module, "verify_runtime_dependency_identity",
+                        lambda _run: {"torch": "attested"})
+
+    cases = []
+    missing = copy.deepcopy(valid); missing.pop("optimizer")
+    cases.append((missing, "partial checkpoints"))
+    extra = copy.deepcopy(valid); extra["unexpected"] = 1
+    cases.append((extra, "partial checkpoints"))
+    wrong_schema = copy.deepcopy(valid); wrong_schema["schema"] = "wrong.v1"
+    cases.append((wrong_schema, "unsupported checkpoint schema"))
+    for key, value in (
+        ("model_mode", "fusion"), ("precision", "fp16"),
+        ("data_identities", {"drift": True}),
+    ):
+        payload = copy.deepcopy(valid); payload[key] = value
+        cases.append((payload, "embedded config/data metadata drift"))
+    bad_identity = copy.deepcopy(valid); bad_identity["checkpoint_identity"] = "f" * 64
+    cases.append((bad_identity, "does not equal embedded resolved-config"))
+    bad_ema = copy.deepcopy(valid); bad_ema["ema"] = None
+    cases.append((bad_ema, "EMA presence differs"))
+
+    for payload, message in cases:
+        monkeypatch.setattr(module.torch, "load", lambda *args, _p=payload, **kwargs: _p)
+        with pytest.raises(RuntimeError, match=message):
+            module._checkpoint_preflight({}, str(checkpoint))
+
+    def replacing_load(*_args, **_kwargs):
+        checkpoint.write_bytes(b"replaced-during-load")
+        return valid
+
+    monkeypatch.setattr(module.torch, "load", replacing_load)
+    with pytest.raises(RuntimeError, match="changed during authoritative preflight"):
+        module._checkpoint_preflight({}, str(checkpoint))
+
+
+@pytest.mark.parametrize("drift_key", ["checkpoint_weights", "runtime_dependencies_sha256"])
+def test_t5_preflight_rejects_clean_policy_or_runtime_drift(tmp_path, monkeypatch, drift_key):
+    module = _script_module("t5_attack_eval.py", "s07b_t5_pair_" + drift_key)
+    poison_path = os.path.abspath(tmp_path / "poison.pt")
+    clean_path = os.path.abspath(tmp_path / "clean.pt")
+    base = {
+        "resolved_sha256": "1" * 64, "checkpoint_weights": "raw",
+        "runtime_dependencies_sha256": "2" * 64, "strict": {},
+        "checkpoint_sha256": "3" * 64,
+    }
+    poison = {**base, "path": poison_path}
+    clean = {**base, "path": clean_path, drift_key: ("ema" if drift_key == "checkpoint_weights" else "4" * 64)}
+    monkeypatch.setattr(
+        module, "_checkpoint_preflight",
+        lambda _cfg, path: poison if os.path.abspath(path) == poison_path else clean,
+    )
+    with pytest.raises(RuntimeError, match=("raw/EMA policies" if drift_key == "checkpoint_weights"
+                                            else "runtime dependency identities")):
+        module._preflight_t5_checkpoints({}, poison_path, clean_path)
+    assert module._CHECKPOINT_PREFLIGHTS == {}
+
+
+def _full_shard_row(module, target):
+    from fl_v3.attacks import fusion_ablation as ablation
+    return {
+        "sample_token": target[0], "ann_token": target[1], "evaluated": True,
+        "disappeared": {condition: False for condition in ablation.CONDITIONS},
+        "occlusion_disappeared": False, "placement_aligned_ok": True,
+        "placement_nonaligned_iou0": True, "area_ratio": 0.1,
+    }
+
+
+def test_t5_full_shard_aggregate_binds_identity_and_rejects_mixed_duplicate_rows(
+    tmp_path,
+):
+    module = _script_module("t5_attack_eval.py", "s07b_t5_artifacts")
+    output = tmp_path / "out"; ablation_dir = output / "ablation"; ablation_dir.mkdir(parents=True)
+    poison_path = tmp_path / "poison.pt"; poison_path.write_bytes(b"poison")
+    poison_selected = "8" * 64
+    frozen_clean = "9" * 64
+    preflight = {
+        "checkpoint_sha256": "1" * 64, "resolved_sha256": "2" * 64,
+        "checkpoint_weights": "raw", "runtime_dependencies_sha256": "3" * 64,
+    }
+    module._CHECKPOINT_PREFLIGHTS[os.path.abspath(poison_path)] = preflight
+    poison_identity = {
+        "checkpoint_file_sha256": preflight["checkpoint_sha256"],
+        "resolved_sha256": preflight["resolved_sha256"],
+        "checkpoint_weights": preflight["checkpoint_weights"],
+        "runtime_dependencies_sha256": preflight["runtime_dependencies_sha256"],
+        "selected_weights_checksum": poison_selected,
+    }
+    clean_identity = {
+        "checkpoint_file_sha256": "4" * 64, "resolved_sha256": "2" * 64,
+        "checkpoint_weights": "raw", "runtime_dependencies_sha256": "3" * 64,
+        "selected_weights_checksum": frozen_clean,
+    }
+    targets = [("sample-a", "ann-a"), ("sample-b", "ann-b")]
+    subset = {"content_hash": "5" * 64, "checkpoint_checksum": frozen_clean,
+              "targets": [list(target) for target in targets], "n": 2}
+    args = SimpleNamespace(num_shards=2, output_dir=str(output), checkpoint=str(poison_path))
+
+    def artifact(index, target):
+        return {
+            "schema_version": module._SHARD_SCHEMA_FULL, "mode": module._SHARD_MODE_FULL,
+            "poison": poison_identity, "clean": clean_identity,
+            "subset_content_hash": subset["content_hash"], "shard_index": index,
+            "num_shards": 2, "results": [_full_shard_row(module, target)],
+        }
+
+    paths = []
+    for index, target in enumerate(targets):
+        path = ablation_dir / f"ablation_shard_{index}_of_2.full.json"
+        path.write_text(json.dumps(artifact(index, target)), encoding="utf-8")
+        paths.append(path)
+    cfg = {"attack-clean-checkpoint-checksum": frozen_clean}
+    rows = module._load_bound_full_shards(args, cfg, subset, poison_selected)
+    assert [(row["sample_token"], row["ann_token"]) for row in rows] == targets
+
+    missing_control = artifact(1, targets[1])
+    missing_control["results"][0]["occlusion_disappeared"] = None
+    paths[1].write_text(json.dumps(missing_control), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="occlusion control must be boolean"):
+        module._load_bound_full_shards(args, cfg, subset, poison_selected)
+
+    mixed = artifact(1, targets[1]); mixed["schema_version"] = module._SHARD_SCHEMA_COND4
+    mixed["mode"] = module._SHARD_MODE_COND4; mixed["clean"] = None
+    paths[1].write_text(json.dumps(mixed), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="invalid or incomplete|cond4-only/mixed"):
+        module._load_bound_full_shards(args, cfg, subset, poison_selected)
+
+    duplicate = artifact(0, targets[0])
+    paths[1].write_text(json.dumps(duplicate), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="duplicate shard index|repeated byte-identical"):
+        module._load_bound_full_shards(args, cfg, subset, poison_selected)
+
+    duplicate_row = artifact(1, targets[0])
+    paths[1].write_text(json.dumps(duplicate_row), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="duplicate \(sample_token, ann_token\)"):
+        module._load_bound_full_shards(args, cfg, subset, poison_selected)
+
+    paths[1].unlink()
+    with pytest.raises(RuntimeError, match="exactly 2 unique shard artifacts"):
+        module._load_bound_full_shards(args, cfg, subset, poison_selected)
