@@ -940,3 +940,131 @@ hide or rerun it. Stop on identity/dependency/output/snapshot collision,
 archive/source mismatch, subprocess or artifact failure, malformed checksum,
 checksum verification failure, or walltime. No retry or automatic code/golden
 change follows any outcome.
+
+---
+
+## G. S07-B post-remediation focused GH200 validation — PREPARED / NOT APPROVED
+
+### Approval state and exact purpose
+
+- **Status:** `PREPARED_NOT_APPROVED_DO_NOT_SUBMIT`.
+- Canonical O-071 is
+  `bf7fd65f4b58b6981b0604647489595b4903beaf`. It authorizes request
+  preparation only; it does not authorize `sbatch`, `srun`, compute, retry,
+  requeue, replacement, or follow-on execution. S00 must independently audit
+  the exact tuple below before any one-time approval.
+- This is one bounded engineering validation of the code-level/static-review
+  PASS candidate `c53117a889987c3070b60817e52bdb4aac4c9098`. It tests only
+  the remediated ZIP lifecycle/hostiles, production spawn and zero-worker
+  contexts, read-only cache and visualization consumer, runtime-bound dummy
+  checksum, approved six-task LiDAR topology, and legacy-head error message.
+- It expressly excludes `test_model_overfit.py` and its 180-step gate, the full
+  25-file suite, full cache/trainval, 100/1000-step work, metrics, profiling,
+  DDP, scientific matrices, retries, and automatic resubmission. It cannot
+  establish model-quality, convergence, throughput, full-data, FL,
+  attack/defense, generalization, or publication evidence.
+
+### Immutable candidate, executable, source, and dependency identity
+
+- Exact code/test candidate: `c53117a889987c3070b60817e52bdb4aac4c9098`.
+- Exact launcher-only executable commit `L`:
+  `c36555fd9c233198b703d73741382960edcb4159`; its sole parent is the exact
+  candidate and its only changed path is
+  `fl_v3/scripts/run_s07_b_postremediation_focused.sh`. The immutable archive
+  of `L` therefore contains the candidate code/tests plus this transport
+  launcher and no other semantic change.
+- Launcher Git blob: `717ec0869d5c1207bd946fd5f5034390c208623b`.
+- Launcher SHA-256:
+  `b32f78b76f14b8f12957d0132d8739e2ef37691c72684a022688752bb8ff185a`.
+- Exact 93-file C-locale source-list SHA-256:
+  `a0b585b40ebfef2167ad6a9e66f3b59ca719e607b01c933b33310d716a6e08a6`.
+- Exact ordered source-state SHA-256:
+  `0d519ea46dd388f80a41ed96d350e47db837f6be7976e2e583448a2975915861`.
+- The source set contains every `*.py` under `fl_v3/src/fl_v3`,
+  `fl_v3/tests/conftest.py`, the five exact selected test files, this launcher,
+  `fl_v3/scripts/arrhenius_env.sh`, `fl_v3/pyproject.toml`,
+  `fl_v3/requirements.txt`, and `fl_v3/requirements.lock.txt`. The environment
+  bootstrap SHA-256 is
+  `f57befbb5082aaf4d4bb186958a88420ea873e0fdee5c65da1091b73f566c2bf`.
+- The launcher locks, rather than merely logs, the validated dependency
+  identity: CPython `3.11.15`, NumPy `1.26.4`, SciPy `1.13.1`, pytest `9.1.1`,
+  Torch `2.11.0+cu128`, torchvision `0.26.0+cu128`, spconv `2.3.8`, cumm
+  `0.7.13`, nuscenes-devkit `1.1.11`, pyquaternion `0.9.9`, and Pillow `12.2.0`.
+  It also requires Linux `aarch64` and exactly one visible CUDA device.
+
+### Exact five pytest selections and harness contract
+
+The launcher invokes exactly five pytest selection entries, once each, in this
+order:
+
+1. `fl_v3/tests/test_nuscenes_zip_dataset.py`;
+2. `fl_v3/tests/test_model_task.py`;
+3. `fl_v3/tests/test_lidar_backbone.py`;
+4. `fl_v3/tests/test_model_viz.py`;
+5. `fl_v3/tests/test_s07_b_integration.py::test_multitask_loss_rejects_legacy_single_head_output`.
+
+Each entry runs in its own writable output directory with `python -X
+faulthandler -m pytest -vv --tb=long`, third-party plugin autoload and
+cacheprovider disabled, an output-local `--basetemp`, and a 180-second internal
+timeout plus a 30-second forced-kill bound. The five bounds total at most 17.5
+minutes, below the 25-minute Slurm walltime. Continuing to the next distinct
+selection after a failure records the complete one-attempt gate and is not a
+retry of the failed selection.
+
+The literal mini root is
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini`.
+The launcher sets both supported mini dataroot variables to that exact path and
+clears `NUSCENES_DATA_DIR`, `NUSCENES_ZIP_MANIFEST`, and
+`ARRHENIUS_NUSCENES_ZIP_MANIFEST`. It creates a fresh immutable Git-archive
+snapshot and fresh output root, marks the entire snapshot read-only, and runs
+pytest from a distinct writable output CWD.
+
+Required artifacts include the 93-file source list and hashes, selected-entry
+manifest, locked execution/dependency identity, focused run-config and its
+checksum, and, for every selection, a verbose log, exit code, JUnit XML, and
+per-selection checksum manifest. A final C-locale-sorted `sha256sums.txt`
+covers all formal artifacts and is verified in-job with `sha256sum -c`.
+
+PASS requires all five exact selection entries to be observed, each to collect
+and execute a positive test count, every pytest exit to be zero, zero timeout,
+zero failures/errors/skips, all five JUnit files, and successful per-selection
+and final checksum verification. Scheduler `COMPLETED` is explicitly not a
+substitute for this suite-level PASS. Any failure or missing artifact is a
+preserved negative outcome; it cannot be hidden by scheduler state or rerun.
+
+### Resources, fresh paths, stop rules, and exact proposed command
+
+- One node, one task, one GH200, eight CPUs, 64 GiB, walltime `00:25:00`;
+  maximum 5/12 GPU-hour. One attempt only, `--no-requeue`, no array/DDP/retry.
+- Fresh immutable snapshot:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_postrem_focus_c36555fd9c23`.
+- Fresh output root:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_postrem_focus_c36555fd9c23`.
+- Scheduler logs:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07b_postrem_focus_%j.{out,err}`.
+- Stop before workload on candidate/executable/parent/transport-diff,
+  launcher/source/dependency/platform/GPU/data/path/resource mismatch or any
+  snapshot/output collision. Stop with nonzero suite status on any pytest
+  failure/error/skip/nonzero exit/timeout, missing or zero-count JUnit, malformed
+  artifact, or checksum failure. There is no retry or automatic follow-on.
+
+```bash
+test -z "$(git branch --show-current)" && \
+test "$(git rev-parse HEAD)" = "c36555fd9c233198b703d73741382960edcb4159" && \
+test -z "$(git status --short)" && \
+test "$(git hash-object fl_v3/scripts/run_s07_b_postremediation_focused.sh)" = "717ec0869d5c1207bd946fd5f5034390c208623b" && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_postrem_focus_c36555fd9c23 && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_postrem_focus_c36555fd9c23 && \
+test -z "$(squeue -u "$USER" -h -o '%i %j' | awk '$2 == "flv3_s07b_postrem_focus" {print}')" && \
+sbatch --nodes=1 --ntasks=1 --gpus-per-node=nvidia_gh200_120gb:1 \
+  --cpus-per-task=8 --mem=64G --time=00:25:00 --no-requeue \
+  --export=ALL,EXPECTED_S07B_FOCUSED_CANDIDATE_SHA=c53117a889987c3070b60817e52bdb4aac4c9098,EXPECTED_S07B_FOCUSED_EXECUTABLE_SHA=c36555fd9c233198b703d73741382960edcb4159,EXPECTED_S07B_FOCUSED_LAUNCHER_SHA256=b32f78b76f14b8f12957d0132d8739e2ef37691c72684a022688752bb8ff185a,EXPECTED_S07B_FOCUSED_SOURCE_SHA256=0d519ea46dd388f80a41ed96d350e47db837f6be7976e2e583448a2975915861,EXPECTED_S07B_FOCUSED_SOURCE_LIST_SHA256=a0b585b40ebfef2167ad6a9e66f3b59ca719e607b01c933b33310d716a6e08a6,S07B_FOCUSED_APPROVAL_SCOPE=s07b-postremediation-focused-runtime-only,S07B_FOCUSED_MINI_DATAROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini,S07B_FOCUSED_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_postrem_focus_c36555fd9c23 \
+  fl_v3/scripts/run_s07_b_postremediation_focused.sh
+```
+
+Any change to the candidate/executable/parent/transport diff, launcher or
+source-list/state identity, dependency versions, exact selections/order,
+pytest flags/timeouts, mini root, cleared overrides, snapshot/output/log paths,
+resources, artifacts, acceptance, stop rules, or command invalidates a future
+approval. Preparation performed no project import, pytest, Torch/CUDA/data
+workload, Slurm submission, compute, merge, push, upload, or publication.

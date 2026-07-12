@@ -2162,3 +2162,41 @@ config/launcher/canonical/scientific contract changed; no compute, merge, push,
 upload or publication occurred. This remains a static test candidate for fresh
 independent review; it is not a post-O-059 integrated runtime PASS and
 authorizes no runtime proposal or scientific interpretation.
+
+### O-071 R12 static PASS and focused runtime-request preparation
+
+Canonical O-071 at exact Orchestra commit
+`bf7fd65f4b58b6981b0604647489595b4903beaf` accepts independent R12
+`49735be` as code-level/static-review PASS with no P0-P3 and authorizes request
+preparation only. Candidate
+`c53117a889987c3070b60817e52bdb4aac4c9098` remains the exact code/test
+candidate; no production, test, config, result, review, or canonical file was
+changed by this preparation.
+
+Launcher-only commit `L` is
+`c36555fd9c233198b703d73741382960edcb4159`, whose sole parent is the exact
+candidate and whose only changed path is
+`fl_v3/scripts/run_s07_b_postremediation_focused.sh`. Launcher blob/SHA-256 are
+`717ec0869d5c1207bd946fd5f5034390c208623b` /
+`b32f78b76f14b8f12957d0132d8739e2ef37691c72684a022688752bb8ff185a`.
+The exact 93-file C-locale source-list/state tuple is
+`a0b585b40ebfef2167ad6a9e66f3b59ca719e607b01c933b33310d716a6e08a6` /
+`0d519ea46dd388f80a41ed96d350e47db837f6be7976e2e583448a2975915861`.
+
+RUN_REQUEST Section G freezes exactly four complete test files—ZIP lifecycle,
+model task, LiDAR topology, and visualization consumer—and the one exact legacy
+multi-task-loss node. The prepared harness uses a fresh immutable archive,
+read-only snapshot, writable output CWD/basetemps, literal mini dataroot,
+cleared ZIP/full-data overrides, five bounded verbose/faulthandler pytest
+invocations, per-selection JUnit/log/exit/checksums, locked dependencies, final
+artifact checksum verification, and suite-level zero fail/error/skip/timeout
+acceptance. It excludes the 180-step overfit test, complete suite, full
+cache/trainval, 100/1000-step, metrics/profile/DDP/matrix/retry.
+
+Preparation checks actually run: launcher `bash -n`; stdlib AST parse of all
+three embedded Python heredocs; exact five-entry/source-list enumeration;
+launcher/source/bootstrap hashes; launcher-only parent/diff and owned-path
+audit; `git diff --check`. Not run: project/package import, pytest, pycompile,
+Torch/NumPy/CUDA/spconv/cumm, data/cache/model workload, Slurm/GPU/compute.
+Section G remains `PREPARED_NOT_APPROVED_DO_NOT_SUBMIT`; no approval, submit,
+retry, merge, push, upload, publication, or scientific interpretation occurred.
