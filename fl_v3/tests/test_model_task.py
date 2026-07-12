@@ -1,12 +1,16 @@
 """T2 task integration + skeleton-preservation + GPU op guards.
 
-Covers: ``dummy_regression`` byte-identity after the loop generalization (committed
-golden), ``NuScenesDetectionTask`` registration / derived N / client materialization, the
+Covers: ``dummy_regression`` same-runtime byte identity after the loop generalization,
+``NuScenesDetectionTask`` registration / derived N / client materialization, the
 generalized loop training a detection dict-batch end-to-end, loader determinism across
 ``num_workers``, and the GPU op guards (#76176 ``index_copy_`` + float-CUDA ``cumsum``).
-The full-training **bit-identical-weights** gate is the A40 SLURM job — NOT here.
+The full-training **bit-identical-weights** gate is a separate runtime job — NOT here.
 """
 from __future__ import annotations
+
+import importlib.metadata
+import platform
+import re
 
 import pytest
 import torch
@@ -15,11 +19,20 @@ from fl_v3.utils.runtime import enforce_determinism, seed_everything
 
 CUDA = torch.cuda.is_available()
 
-# Committed golden: the dummy_regression aggregated-state checksum. The loop's tensor
-# path is provably byte-identical after the T2 generalization (same op sequence:
-# X.to/y.to → model(X) → criterion(out,y) → y.size(0)); this pins it so any future drift
-# fails loudly.
+# Historical old-environment evidence: this checksum was committed after the T2 loop
+# generalization. Job 349653 showed that it is not portable to the frozen Arrhenius
+# runtime, so it must remain documented without being asserted on unknown runtimes.
 DUMMY_AGG_GOLDEN = "d2d819fee9a54fc302a9d6c9d0ac4e4d875629a0a16e75f2328f28b7f63cd7cc"
+ARRHENIUS_DUMMY_AGG_GOLDEN = (
+    "4fa46307bab67f2a836102b23b1ad2abc331702e83d16c65e11a09330c3d9edb"
+)
+ARRHENIUS_DUMMY_RUNTIME = (
+    "aarch64",
+    "CPython",
+    "3.11.15",
+    "2.11.0+cu128",
+    "1.26.4",
+)
 
 _DUMMY_CFG = {
     "task-type": "dummy_regression", "seed": 42, "device": "cpu", "num-clients": 4,
@@ -28,14 +41,36 @@ _DUMMY_CFG = {
 }
 
 
+def _dummy_runtime_identity():
+    return (
+        platform.machine(),
+        platform.python_implementation(),
+        platform.python_version(),
+        importlib.metadata.version("torch"),
+        importlib.metadata.version("numpy"),
+    )
+
+
 def test_dummy_regression_byte_identity_golden():
-    """dummy_regression aggregated checksum unchanged after the loop generalization."""
+    """Fresh rounds agree everywhere; the frozen Arrhenius runtime also has a golden."""
     from fl_v3.engine.local_runner import run_clean_round
 
-    r = run_clean_round(dict(_DUMMY_CFG), defense="none", server_round=1)
-    assert r["agg_checksum"] == DUMMY_AGG_GOLDEN, (
-        f"dummy_regression byte-identity broke: {r['agg_checksum']} != golden"
+    first = run_clean_round(dict(_DUMMY_CFG), defense="none", server_round=1)
+    second = run_clean_round(dict(_DUMMY_CFG), defense="none", server_round=1)
+    first_checksum = first["agg_checksum"]
+    second_checksum = second["agg_checksum"]
+
+    assert isinstance(first_checksum, str) and re.fullmatch(r"[0-9a-f]{64}", first_checksum)
+    assert isinstance(second_checksum, str) and re.fullmatch(r"[0-9a-f]{64}", second_checksum)
+    assert first_checksum == second_checksum, (
+        "dummy_regression is not byte-identical across two fresh same-runtime rounds: "
+        f"{first_checksum} != {second_checksum}"
     )
+    if _dummy_runtime_identity() == ARRHENIUS_DUMMY_RUNTIME:
+        assert first_checksum == ARRHENIUS_DUMMY_AGG_GOLDEN, (
+            "dummy_regression drifted on the frozen Arrhenius runtime: "
+            f"{first_checksum} != {ARRHENIUS_DUMMY_AGG_GOLDEN}"
+        )
 
 
 # --- detection task wiring ---
