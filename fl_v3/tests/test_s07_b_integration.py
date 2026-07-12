@@ -655,9 +655,11 @@ def test_t5_main_preflights_existing_compat_config_before_device_seed_or_data(
 
     monkeypatch.setattr(module, "_seed", seeded)
     frozen_clean = str(compatibility["attack-clean-checkpoint-checksum"])
+    frozen_targets = [[f"sample-{index:02d}", f"ann-{index:02d}"] for index in range(40)]
     monkeypatch.setattr(
         module, "_load_subset",
-        lambda *_args: {"targets": [], "n": 0, "content_hash": "9" * 64,
+        lambda *_args: {"targets": frozen_targets, "n": len(frozen_targets),
+                        "content_hash": "9" * 64,
                         "checkpoint_checksum": frozen_clean},
     )
     monkeypatch.setattr(asr_module, "thresholds_from_subset", lambda _subset: object())
@@ -851,6 +853,22 @@ def test_t5_task_requirement_matrix_fails_before_output_side_effect(tmp_path, mo
         with pytest.raises(RuntimeError, match="index/count"):
             module._validate_task_requirements(args)
 
+    for bad_run_id in (None, "", "../escape", "a/b"):
+        args = SimpleNamespace(
+            task="aggregate", checkpoint="poison", clean_checkpoint=None,
+            cond4_only=False, shard=0, num_shards=1,
+            run_id=bad_run_id, subset="subset.json",
+        )
+        with pytest.raises(RuntimeError, match="nonempty immutable --run-id"):
+            module._validate_task_requirements(args)
+    args = SimpleNamespace(
+        task="aggregate", checkpoint="poison", clean_checkpoint=None,
+        cond4_only=False, shard=0, num_shards=1,
+        run_id="matrix-run", subset=None,
+    )
+    with pytest.raises(RuntimeError, match="requires the frozen subset"):
+        module._validate_task_requirements(args)
+
 
 def test_t5_checkpoint_preflight_rejects_complete_schema_and_metadata_hostiles(
     tmp_path, monkeypatch,
@@ -982,52 +1000,55 @@ def test_t5_full_shard_aggregate_binds_identity_and_rejects_mixed_duplicate_rows
         path.write_text(json.dumps(artifact(index, target)), encoding="utf-8")
         paths.append(path)
     cfg = {"attack-clean-checkpoint-checksum": frozen_clean}
-    rows = module._load_bound_full_shards(
-        args, cfg, subset, poison_selected, manifest, manifest_sha,
-    )
+    run_fd = module._open_run_directory(args, create=False)
+
+    def load_shards():
+        return module._load_bound_full_shards(
+            args, cfg, subset, poison_selected, manifest, manifest_sha, run_fd,
+        )
+
+    rows = load_shards()
     assert [(row["sample_token"], row["ann_token"]) for row in rows] == targets
 
     wrong_clean = artifact(1, targets[1])
     wrong_clean["clean"]["selected_weights_checksum"] = "7" * 64
     paths[1].write_text(json.dumps(wrong_clean), encoding="utf-8")
     with pytest.raises(RuntimeError, match="clean identity differs|actual clean selected"):
-        module._load_bound_full_shards(args, cfg, subset, poison_selected, manifest, manifest_sha)
+        load_shards()
     wrong_subset = artifact(1, targets[1]); wrong_subset["subset_content_hash"] = "0" * 64
     paths[1].write_text(json.dumps(wrong_subset), encoding="utf-8")
     with pytest.raises(RuntimeError, match="frozen-subset identity mismatch"):
-        module._load_bound_full_shards(args, cfg, subset, poison_selected, manifest, manifest_sha)
+        load_shards()
     extra_key = artifact(1, targets[1]); extra_key["unknown"] = True
     paths[1].write_text(json.dumps(extra_key), encoding="utf-8")
     with pytest.raises(RuntimeError, match="invalid or incomplete"):
-        module._load_bound_full_shards(args, cfg, subset, poison_selected, manifest, manifest_sha)
+        load_shards()
 
     missing_control = artifact(1, targets[1])
     missing_control["results"][0]["occlusion_disappeared"] = None
     paths[1].write_text(json.dumps(missing_control), encoding="utf-8")
     with pytest.raises(RuntimeError, match="occlusion control must be boolean"):
-        module._load_bound_full_shards(args, cfg, subset, poison_selected, manifest, manifest_sha)
+        load_shards()
 
     mixed = artifact(1, targets[1]); mixed["schema_version"] = module._SHARD_SCHEMA_COND4
     mixed["mode"] = module._SHARD_MODE_COND4; mixed["clean"] = None
     paths[1].write_text(json.dumps(mixed), encoding="utf-8")
     with pytest.raises(RuntimeError, match="invalid or incomplete|cond4-only/mixed"):
-        module._load_bound_full_shards(args, cfg, subset, poison_selected, manifest, manifest_sha)
+        load_shards()
 
     duplicate = artifact(0, targets[0])
     paths[1].write_text(json.dumps(duplicate), encoding="utf-8")
     with pytest.raises(RuntimeError, match="duplicate shard index|repeated byte-identical"):
-        module._load_bound_full_shards(args, cfg, subset, poison_selected, manifest, manifest_sha)
+        load_shards()
 
     duplicate_row = artifact(1, targets[0])
     paths[1].write_text(json.dumps(duplicate_row), encoding="utf-8")
     with pytest.raises(RuntimeError, match="duplicate \(sample_token, ann_token\)"):
-        module._load_bound_full_shards(args, cfg, subset, poison_selected, manifest, manifest_sha)
+        load_shards()
 
     paths[1].unlink()
     with pytest.raises(RuntimeError, match="exact canonical full-shard filename set"):
-        module._load_bound_full_shards(
-            args, cfg, subset, poison_selected, manifest, manifest_sha,
-        )
+        load_shards()
 
     paths[1].write_text(json.dumps(artifact(1, targets[1])), encoding="utf-8")
     for extra_name in (
@@ -1038,10 +1059,9 @@ def test_t5_full_shard_aggregate_binds_identity_and_rejects_mixed_duplicate_rows
         extra = ablation_dir / extra_name
         extra.write_text("{}", encoding="utf-8")
         with pytest.raises(RuntimeError, match="exact canonical full-shard filename set"):
-            module._load_bound_full_shards(
-                args, cfg, subset, poison_selected, manifest, manifest_sha,
-            )
+            load_shards()
         extra.unlink()
+    os.close(run_fd)
 
 
 def _t5_identity(selected: str, checkpoint_file: str = "1" * 64):
@@ -1056,39 +1076,171 @@ def _t5_identity(selected: str, checkpoint_file: str = "1" * 64):
 
 def test_t5_run_manifest_is_immutable_exact_and_poison_only_reuses_it(tmp_path):
     module = _script_module("t5_attack_eval.py", "s07b_t5_manifest")
-    args = SimpleNamespace(output_dir=str(tmp_path / "out"), run_id="fresh-run", num_shards=3)
-    subset = {"content_hash": "5" * 64}
+    args = SimpleNamespace(
+        output_dir=str(tmp_path / "out"), run_id="fresh-run", num_shards=3,
+        guard_samples=40,
+    )
+    subset = {
+        "content_hash": "5" * 64,
+        "targets": [[f"sample-{index:02d}", f"ann-{index:02d}"] for index in range(40)],
+    }
     cfg = {"attack-clean-checkpoint-checksum": "9" * 64}
     poison = _t5_identity("8" * 64)
     clean = _t5_identity("9" * 64, checkpoint_file="4" * 64)
 
-    manifest, manifest_sha = module._bind_run_manifest(args, cfg, subset, poison, clean)
+    manifest, manifest_sha, run_fd = module._bind_run_manifest(args, cfg, subset, poison, clean)
     assert manifest["run_id"] == "fresh-run"
     assert manifest["poison"] == poison and manifest["clean"] == clean
     assert manifest["task_plan"]["full_num_shards"] == 3
+    assert manifest["task_plan"]["guard_selection"]["declared_sample_count"] == 40
     assert len(manifest_sha) == 64
-    reread, reread_sha = module._bind_run_manifest(args, cfg, subset, poison)
+    os.close(run_fd)
+    reread, reread_sha, reread_fd = module._bind_run_manifest(args, cfg, subset, poison)
     assert reread == manifest and reread_sha == manifest_sha
+    os.close(reread_fd)
 
     changed = dict(poison); changed["selected_weights_checksum"] = "7" * 64
     with pytest.raises(RuntimeError, match="does not exactly match"):
         module._bind_run_manifest(args, cfg, subset, changed)
+    args.guard_samples = 1
+    with pytest.raises(RuntimeError, match="does not exactly match"):
+        module._bind_run_manifest(args, cfg, subset, poison)
+    args.guard_samples = 40
     args.num_shards = 4
     with pytest.raises(RuntimeError, match="does not exactly match"):
         module._bind_run_manifest(args, cfg, subset, poison)
 
-    path = Path(module._run_manifest_path(args))
+    args.num_shards = 3
+    run_fd = module._open_run_directory(args, create=False)
     with pytest.raises(FileExistsError):
-        module._write_json_exclusive(str(path), manifest)
+        module._write_json_exclusive_at(run_fd, "t5_run_manifest.json", manifest)
+    os.close(run_fd)
+
+    with pytest.raises(RuntimeError, match="exceeds frozen available"):
+        module._guard_selection(subset, 41)
+    with pytest.raises(RuntimeError, match="positive integer"):
+        module._guard_selection(subset, 0)
+
+
+def test_t5_manifest_publication_is_complete_noreplace_and_cleans_failures(
+    tmp_path, monkeypatch,
+):
+    module = _script_module("t5_attack_eval.py", "s07b_t5_atomic_manifest")
+    args = SimpleNamespace(output_dir=str(tmp_path / "out"), run_id="atomic-run")
+    run_fd = module._open_run_directory(args, create=True)
+    value = {"schema_version": module._RUN_MANIFEST_SCHEMA, "payload": "x" * 256}
+
+    original_write_all = module._write_all
+
+    def partial_then_fail(fd, payload):
+        os.write(fd, payload[:17])
+        raise RuntimeError("simulated creator crash")
+
+    monkeypatch.setattr(module, "_write_all", partial_then_fail)
+    with pytest.raises(RuntimeError, match="simulated creator crash"):
+        module._atomic_publish_json_at(run_fd, "t5_run_manifest.json", value)
+    assert os.listdir(run_fd) == []
+
+    monkeypatch.setattr(module, "_write_all", original_write_all)
+    orphan = ".t5_run_manifest.json.crashed-writer.deadbeef.tmp"
+    orphan_fd = os.open(orphan, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=run_fd)
+    os.write(orphan_fd, b"partial-private-temp")
+    os.close(orphan_fd)
+    original_link = module.os.link
+    observed = []
+
+    def observing_link(*link_args, **link_kwargs):
+        with pytest.raises(RuntimeError, match="missing or unsafe"):
+            module._load_required_json_at(run_fd, "t5_run_manifest.json")
+        observed.append("reader_saw_no_partial_final")
+        return original_link(*link_args, **link_kwargs)
+
+    monkeypatch.setattr(module.os, "link", observing_link)
+    assert module._atomic_publish_json_at(run_fd, "t5_run_manifest.json", value) is True
+    assert observed == ["reader_saw_no_partial_final"]
+    loaded, loaded_sha = module._load_required_json_at(run_fd, "t5_run_manifest.json")
+    assert loaded == value and len(loaded_sha) == 64
+    assert orphan not in os.listdir(run_fd)
+
+    monkeypatch.setattr(module.os, "link", original_link)
+    assert module._atomic_publish_json_at(
+        run_fd, "t5_run_manifest.json", {"different": True},
+    ) is False
+    winner, _winner_sha = module._load_required_json_at(run_fd, "t5_run_manifest.json")
+    assert winner == value
+    assert not any(name.endswith(".tmp") for name in os.listdir(run_fd))
+    os.close(run_fd)
+
+
+def test_t5_run_directory_rejects_symlink_traversal_missing_and_stale_root(tmp_path):
+    module = _script_module("t5_attack_eval.py", "s07b_t5_run_root")
+    real_root = tmp_path / "real-root"; real_root.mkdir()
+    linked_root = tmp_path / "linked-root"; linked_root.symlink_to(real_root, target_is_directory=True)
+    args = SimpleNamespace(output_dir=str(linked_root), run_id="safe-run")
+    with pytest.raises(RuntimeError, match="output root.*symlink"):
+        module._open_run_directory(args, create=True)
+
+    output = tmp_path / "out"; output.mkdir()
+    outside = tmp_path / "outside"; outside.mkdir()
+    (output / "safe-run").symlink_to(outside, target_is_directory=True)
+    args.output_dir = str(output)
+    with pytest.raises(RuntimeError, match="missing, unsafe, or a symlink"):
+        module._open_run_directory(args, create=True)
+    assert not (outside / "t5_run_manifest.json").exists()
+
+    for unsafe in (None, "", ".", "..", "../escape", "a/b", "/absolute"):
+        args.run_id = unsafe
+        with pytest.raises(RuntimeError, match="unsafe or missing"):
+            module._open_run_directory(args, create=True)
+
+    args.run_id = "missing-run"
+    with pytest.raises(RuntimeError, match="missing, unsafe, or a symlink"):
+        module._open_run_directory(args, create=False)
+
+    stale_output = tmp_path / "stale"; stale_run = stale_output / "stale-run"
+    stale_run.mkdir(parents=True)
+    (stale_run / "t5_run_manifest.json").write_text('{"partial":', encoding="utf-8")
+    args = SimpleNamespace(
+        output_dir=str(stale_output), run_id="stale-run", num_shards=1,
+        guard_samples=2,
+    )
+    subset = {
+        "content_hash": "5" * 64,
+        "targets": [["sample-a", "ann-a"], ["sample-b", "ann-b"]],
+    }
+    cfg = {"attack-clean-checkpoint-checksum": "9" * 64}
+    with pytest.raises(RuntimeError, match="incomplete or invalid"):
+        module._bind_run_manifest(
+            args, cfg, subset, _t5_identity("8" * 64),
+            _t5_identity("9" * 64, checkpoint_file="4" * 64),
+        )
+    assert (stale_run / "t5_run_manifest.json").read_text(encoding="utf-8") == '{"partial":'
+
+    mixed_run = stale_output / "mixed-run"; mixed_run.mkdir()
+    (mixed_run / "stealth.json").write_text('{"favorable":true}', encoding="utf-8")
+    args.run_id = "mixed-run"
+    with pytest.raises(RuntimeError, match="stale T5 run directory"):
+        module._bind_run_manifest(
+            args, cfg, subset, _t5_identity("8" * 64),
+            _t5_identity("9" * 64, checkpoint_file="4" * 64),
+        )
+    assert not (mixed_run / "t5_run_manifest.json").exists()
 
 
 def test_t5_bound_stealth_and_guards_reject_stale_mixed_and_type_drift(tmp_path):
     module = _script_module("t5_attack_eval.py", "s07b_t5_siblings")
-    args = SimpleNamespace(output_dir=str(tmp_path / "out"), run_id="siblings-run")
+    args = SimpleNamespace(
+        output_dir=str(tmp_path / "out"), run_id="siblings-run", guard_samples=2,
+    )
     run_root = Path(module._run_root(args)); run_root.mkdir(parents=True)
-    subset = {"content_hash": "5" * 64}
+    subset = {
+        "content_hash": "5" * 64,
+        "targets": [["sample-a", "ann-a"], ["sample-b", "ann-b"]],
+    }
     poison = _t5_identity("8" * 64)
     manifest_sha = "6" * 64
+    selection = module._guard_selection(subset, 2)
+    manifest = {"task_plan": {"guard_selection": selection}}
     stealth = {
         "schema_version": module._STEALTH_SCHEMA,
         "run_id": args.run_id,
@@ -1107,35 +1259,64 @@ def test_t5_bound_stealth_and_guards_reject_stale_mixed_and_type_drift(tmp_path)
         "run_manifest_sha256": manifest_sha,
         "poison": poison,
         "subset_content_hash": subset["content_hash"],
+        "guard_selection": selection,
         "metrics": {
             "lidar_invariant_all": True, "max_abs_head_diff": 0.0,
             "n_invariance_checks": 2, "camera_only_clean_recall": 0.4,
             "camera_only_recall_floor": 0.3, "clean_recall_precondition_ok": True,
-            "detected": 4, "total": 10, "cond5a_valid": True,
+            "detected": 1, "total": 2, "cond5a_valid": True,
         },
     }
     stealth_path = run_root / "stealth.json"
     guard_path = run_root / "cond5a_guards.json"
     stealth_path.write_text(json.dumps(stealth), encoding="utf-8")
     guard_path.write_text(json.dumps(guards), encoding="utf-8")
-    assert module._load_bound_stealth(args, subset, poison, manifest_sha) == stealth
-    assert module._load_bound_guards(args, subset, poison, manifest_sha) == guards
+    run_fd = module._open_run_directory(args, create=False)
+    assert module._load_bound_stealth(args, subset, poison, manifest_sha, run_fd) == stealth
+    assert module._load_bound_guards(
+        args, subset, poison, manifest, manifest_sha, run_fd,
+    ) == guards
+
+    old_guard = copy.deepcopy(guards); old_guard["schema_version"] = "s07b.t5.guards.v1"
+    guard_path.write_text(json.dumps(old_guard), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="inexact schema"):
+        module._load_bound_guards(args, subset, poison, manifest, manifest_sha, run_fd)
+    guard_path.write_text(json.dumps(guards), encoding="utf-8")
 
     stale = copy.deepcopy(stealth)
     stale["poison"]["selected_weights_checksum"] = "7" * 64
     stealth_path.write_text(json.dumps(stale), encoding="utf-8")
     with pytest.raises(RuntimeError, match="stale or mixed"):
-        module._load_bound_stealth(args, subset, poison, manifest_sha)
+        module._load_bound_stealth(args, subset, poison, manifest_sha, run_fd)
 
     stealth_path.write_text(json.dumps(stealth), encoding="utf-8")
     bad_guard = copy.deepcopy(guards); bad_guard["subset_content_hash"] = "0" * 64
     guard_path.write_text(json.dumps(bad_guard), encoding="utf-8")
     with pytest.raises(RuntimeError, match="frozen-subset identity mismatch"):
-        module._load_bound_guards(args, subset, poison, manifest_sha)
+        module._load_bound_guards(args, subset, poison, manifest, manifest_sha, run_fd)
     bad_guard = copy.deepcopy(guards); bad_guard["metrics"]["detected"] = True
     guard_path.write_text(json.dumps(bad_guard), encoding="utf-8")
     with pytest.raises(RuntimeError, match="nonnegative integer"):
-        module._load_bound_guards(args, subset, poison, manifest_sha)
+        module._load_bound_guards(args, subset, poison, manifest, manifest_sha, run_fd)
+
+    one_sample = copy.deepcopy(guards)
+    one_sample["guard_selection"] = module._guard_selection(subset, 1)
+    one_sample["metrics"]["n_invariance_checks"] = 1
+    one_sample["metrics"]["total"] = 1
+    guard_path.write_text(json.dumps(one_sample), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="selection differs"):
+        module._load_bound_guards(args, subset, poison, manifest, manifest_sha, run_fd)
+    reordered = copy.deepcopy(guards)
+    reordered["guard_selection"]["selected_sample_tokens"].reverse()
+    guard_path.write_text(json.dumps(reordered), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="selection differs"):
+        module._load_bound_guards(args, subset, poison, manifest, manifest_sha, run_fd)
+    wrong_target = copy.deepcopy(guards)
+    wrong_target["guard_selection"]["selected_targets"][0][1] = "different-ann"
+    guard_path.write_text(json.dumps(wrong_target), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="selection differs"):
+        module._load_bound_guards(args, subset, poison, manifest, manifest_sha, run_fd)
+    os.close(run_fd)
 
 
 def test_t5_null_fails_before_preflight_or_output_and_ema_checksum_order(tmp_path, monkeypatch):

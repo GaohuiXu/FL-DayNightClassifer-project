@@ -24,6 +24,8 @@ import hashlib
 import json
 import os
 import re
+import secrets
+import stat
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -36,9 +38,9 @@ _SHARD_SCHEMA_FULL = "s07b.t5.shard.full.v1"
 _SHARD_SCHEMA_COND4 = "s07b.t5.shard.cond4.v1"
 _SHARD_MODE_FULL = "full_five_condition"
 _SHARD_MODE_COND4 = "cond4_only"
-_RUN_MANIFEST_SCHEMA = "s07b.t5.run.v1"
+_RUN_MANIFEST_SCHEMA = "s07b.t5.run.v2"
 _STEALTH_SCHEMA = "s07b.t5.stealth.v1"
-_GUARDS_SCHEMA = "s07b.t5.guards.v1"
+_GUARDS_SCHEMA = "s07b.t5.guards.v2"
 _RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 
@@ -344,28 +346,177 @@ def _canonical_json_bytes(value: dict, *, indent: Optional[int] = None) -> bytes
     return (text + "\n").encode("utf-8")
 
 
-def _write_json_exclusive(path: str, value: dict, *, indent: Optional[int] = None) -> None:
-    """Create one immutable artifact; never replace or truncate an existing path."""
-    payload = _canonical_json_bytes(value, indent=indent)
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+def _write_all(fd: int, payload: bytes) -> None:
+    view = memoryview(payload)
+    while view:
+        written = os.write(fd, view)
+        view = view[written:]
+
+
+def _open_run_directory(args, *, create: bool) -> int:
+    """Open the direct OUTPUT_DIR/RUN_ID child without following either final symlink."""
+    if not isinstance(args.run_id, str) or not _RUN_ID_RE.fullmatch(args.run_id):
+        raise RuntimeError("unsafe or missing T5 run-id")
+    output_root = os.path.abspath(args.output_dir)
+    if create:
+        os.makedirs(output_root, mode=0o700, exist_ok=True)
     try:
-        view = memoryview(payload)
-        while view:
-            written = os.write(fd, view)
-            view = view[written:]
+        root_stat = os.lstat(output_root)
+    except FileNotFoundError as exc:
+        raise RuntimeError("T5 output root does not exist for this run") from exc
+    if stat.S_ISLNK(root_stat.st_mode) or not stat.S_ISDIR(root_stat.st_mode):
+        raise RuntimeError("T5 output root must be a real directory, not a symlink")
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    directory = getattr(os, "O_DIRECTORY", 0)
+    required_dirfd = (os.open, os.mkdir, os.link, os.unlink)
+    if not nofollow or not directory or any(fn not in os.supports_dir_fd for fn in required_dirfd):
+        raise RuntimeError("T5 secure run directories require Linux no-follow dirfd support")
+    root_fd = os.open(output_root, os.O_RDONLY | directory | nofollow)
+    try:
+        if create:
+            try:
+                os.mkdir(args.run_id, mode=0o700, dir_fd=root_fd)
+                os.fsync(root_fd)
+            except FileExistsError:
+                pass
+        try:
+            run_fd = os.open(args.run_id, os.O_RDONLY | directory | nofollow, dir_fd=root_fd)
+        except (FileNotFoundError, NotADirectoryError, OSError) as exc:
+            raise RuntimeError("T5 run directory is missing, unsafe, or a symlink") from exc
+        root_real = os.path.realpath(f"/proc/self/fd/{root_fd}")
+        run_real = os.path.realpath(f"/proc/self/fd/{run_fd}")
+        if os.path.dirname(run_real) != root_real:
+            os.close(run_fd)
+            raise RuntimeError("T5 run directory escapes the validated output root")
+        run_stat = os.fstat(run_fd)
+        if not stat.S_ISDIR(run_stat.st_mode):
+            os.close(run_fd)
+            raise RuntimeError("T5 run root is not a directory")
+        return run_fd
+    finally:
+        os.close(root_fd)
+
+
+def _open_subdirectory(run_fd: int, name: str, *, create: bool) -> int:
+    if not _RUN_ID_RE.fullmatch(name):
+        raise RuntimeError("unsafe internal T5 directory name")
+    if create:
+        try:
+            os.mkdir(name, mode=0o700, dir_fd=run_fd)
+            os.fsync(run_fd)
+        except FileExistsError:
+            pass
+    try:
+        return os.open(
+            name,
+            os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
+            dir_fd=run_fd,
+        )
+    except (FileNotFoundError, NotADirectoryError, OSError) as exc:
+        raise RuntimeError(f"T5 internal directory {name!r} is missing, unsafe, or a symlink") from exc
+
+
+def _reserve_subdirectory(run_fd: int, name: str) -> int:
+    if not _RUN_ID_RE.fullmatch(name):
+        raise RuntimeError("unsafe internal T5 directory name")
+    try:
+        os.mkdir(name, mode=0o700, dir_fd=run_fd)
+        os.fsync(run_fd)
+    except FileExistsError as exc:
+        raise RuntimeError(f"T5 output directory {name!r} already exists; refusing stale reuse") from exc
+    return _open_subdirectory(run_fd, name, create=False)
+
+
+def _write_json_exclusive_at(
+    directory_fd: int, name: str, value: dict, *, indent: Optional[int] = None,
+) -> None:
+    """Create one immutable artifact through a validated directory; never replace it."""
+    if os.path.basename(name) != name:
+        raise RuntimeError("T5 artifact name must be a direct child")
+    payload = _canonical_json_bytes(value, indent=indent)
+    fd = os.open(
+        name,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+        0o600,
+        dir_fd=directory_fd,
+    )
+    try:
+        _write_all(fd, payload)
         os.fsync(fd)
     finally:
         os.close(fd)
+    os.fsync(directory_fd)
 
 
-def _load_required_json(path: str) -> dict:
-    if not os.path.isfile(path):
-        raise RuntimeError(f"required immutable T5 artifact is missing: {path}")
-    with open(path, encoding="utf-8") as stream:
-        value = json.load(stream)
+def _load_required_json_at(directory_fd: int, name: str) -> Tuple[dict, str]:
+    if os.path.basename(name) != name:
+        raise RuntimeError("T5 artifact name must be a direct child")
+    try:
+        fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=directory_fd)
+    except (FileNotFoundError, OSError) as exc:
+        raise RuntimeError(f"required immutable T5 artifact is missing or unsafe: {name}") from exc
+    with os.fdopen(fd, "rb", closefd=True) as stream:
+        payload = stream.read()
+    try:
+        value = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"required immutable T5 artifact is incomplete or invalid: {name}") from exc
     if not isinstance(value, dict):
-        raise RuntimeError(f"T5 artifact must be a JSON object: {path}")
-    return value
+        raise RuntimeError(f"T5 artifact must be a JSON object: {name}")
+    return value, hashlib.sha256(payload).hexdigest()
+
+
+def _atomic_publish_json_at(directory_fd: int, name: str, value: dict) -> bool:
+    """Publish complete manifest bytes without replacement; return False on a lost race."""
+    if os.path.basename(name) != name:
+        raise RuntimeError("T5 manifest name must be a direct child")
+    payload = _canonical_json_bytes(value)
+    temp_name = f".{name}.{os.getpid()}.{secrets.token_hex(12)}.tmp"
+    temp_fd = None
+    try:
+        temp_fd = os.open(
+            temp_name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=directory_fd,
+        )
+        _write_all(temp_fd, payload)
+        os.fsync(temp_fd)
+        os.close(temp_fd)
+        temp_fd = None
+        try:
+            os.link(
+                temp_name, name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+        except FileExistsError:
+            return False
+        except FileNotFoundError:
+            # A completed winner may remove this private loser while publishing.  Treat that
+            # interleaving as a lost race only when the complete final name now exists.
+            try:
+                os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                raise
+            return False
+        os.fsync(directory_fd)
+        prefix = f".{name}."
+        for entry in os.listdir(directory_fd):
+            if entry.startswith(prefix) and entry.endswith(".tmp"):
+                try:
+                    os.unlink(entry, dir_fd=directory_fd)
+                except FileNotFoundError:
+                    pass
+        os.fsync(directory_fd)
+        return True
+    finally:
+        if temp_fd is not None:
+            os.close(temp_fd)
+        try:
+            os.unlink(temp_name, dir_fd=directory_fd)
+            os.fsync(directory_fd)
+        except FileNotFoundError:
+            pass
 
 
 def _identity_keys() -> set[str]:
@@ -388,13 +539,33 @@ def _validate_checkpoint_artifact_identity(value: object, label: str) -> None:
         raise RuntimeError(f"{label} checkpoint raw/EMA policy is invalid")
 
 
-def _run_manifest_path(args) -> str:
-    return os.path.join(_run_root(args), "t5_run_manifest.json")
+def _guard_selection(subset: dict, guard_samples: int) -> dict:
+    if type(guard_samples) is not int or guard_samples <= 0:
+        raise RuntimeError("guard sample count must be a positive integer")
+    targets = [(str(sample), str(ann)) for sample, ann in subset["targets"]]
+    available = sorted({sample for sample, _ann in targets})
+    if guard_samples > len(available):
+        raise RuntimeError(
+            f"guard sample count {guard_samples} exceeds frozen available sample count {len(available)}"
+        )
+    selected_samples = available[:guard_samples]
+    selected_set = set(selected_samples)
+    selected_targets = [list(target) for target in targets if target[0] in selected_set]
+    selection = {
+        "declared_sample_count": guard_samples,
+        "selected_sample_tokens": selected_samples,
+        "selected_targets": selected_targets,
+    }
+    selection["selection_sha256"] = hashlib.sha256(
+        _canonical_json_bytes(selection)
+    ).hexdigest()
+    return selection
 
 
-def _manifest_plan(num_shards: int) -> dict:
+def _manifest_plan(num_shards: int, guard_selection: dict) -> dict:
     return {
         "full_num_shards": int(num_shards),
+        "guard_selection": guard_selection,
         "required_tasks": ["shard/full", "stealth", "guards", "aggregate"],
         "optional_tasks": ["shard/cond4", "viz"],
     }
@@ -402,8 +573,8 @@ def _manifest_plan(num_shards: int) -> dict:
 
 def _bind_run_manifest(
     args, cfg: dict, subset: dict, poison_identity: dict, clean_identity: Optional[dict] = None,
-) -> Tuple[dict, str]:
-    """Atomically create/read the immutable run contract and return it plus its file SHA-256."""
+) -> Tuple[dict, str, int]:
+    """Atomically create/read the run contract; return manifest, SHA-256, and validated dirfd."""
     _validate_checkpoint_artifact_identity(poison_identity, "run poison")
     if clean_identity is not None:
         _validate_checkpoint_artifact_identity(clean_identity, "run clean")
@@ -414,7 +585,7 @@ def _bind_run_manifest(
         "clean": clean_identity,
         "subset_content_hash": subset["content_hash"],
         "frozen_clean_selected_weights_checksum": str(cfg.get("attack-clean-checkpoint-checksum", "")),
-        "task_plan": _manifest_plan(args.num_shards),
+        "task_plan": _manifest_plan(args.num_shards, _guard_selection(subset, args.guard_samples)),
     }
     if not _is_sha256(expected["subset_content_hash"]):
         raise RuntimeError("run manifest subset content hash is not a SHA-256")
@@ -427,30 +598,42 @@ def _bind_run_manifest(
             if clean_identity[key] != poison_identity[key]:
                 raise RuntimeError(f"run clean/poison {key} identities differ")
 
-    path = _run_manifest_path(args)
-    if os.path.exists(path):
-        manifest = _load_required_json(path)
+    run_fd = _open_run_directory(args, create=clean_identity is not None)
+    name = "t5_run_manifest.json"
+    try:
+        try:
+            manifest, manifest_sha256 = _load_required_json_at(run_fd, name)
+        except RuntimeError as exc:
+            if "missing or unsafe" not in str(exc):
+                raise
+            if clean_identity is None:
+                raise RuntimeError(
+                    "poison-only T5 tasks require an existing complete run manifest initialized "
+                    "by a clean+poison full-shard or viz invocation"
+                ) from exc
+            temporary_prefix = f".{name}."
+            unsafe_entries = sorted(
+                entry for entry in os.listdir(run_fd)
+                if not (entry.startswith(temporary_prefix) and entry.endswith(".tmp"))
+            )
+            if unsafe_entries:
+                raise RuntimeError(
+                    f"refusing to initialize a stale T5 run directory without a complete "
+                    f"manifest: {unsafe_entries}"
+                ) from exc
+            published = _atomic_publish_json_at(run_fd, name, expected)
+            manifest, manifest_sha256 = _load_required_json_at(run_fd, name)
+            if not published and manifest != expected:
+                raise RuntimeError("concurrently published T5 run manifest has a different identity")
         if clean_identity is None:
             expected["clean"] = manifest.get("clean")
         if manifest != expected:
             raise RuntimeError("existing T5 run manifest does not exactly match this invocation")
         _validate_checkpoint_artifact_identity(manifest.get("clean"), "manifest clean")
-    else:
-        if clean_identity is None:
-            raise RuntimeError(
-                "poison-only T5 tasks require an existing run manifest initialized by a "
-                "clean+poison full-shard or viz invocation"
-            )
-        os.makedirs(_run_root(args), exist_ok=True)
-        try:
-            _write_json_exclusive(path, expected)
-        except FileExistsError:
-            manifest = _load_required_json(path)
-            if manifest != expected:
-                raise RuntimeError("concurrently created T5 run manifest has a different identity")
-        else:
-            manifest = expected
-    return manifest, _checkpoint_file_sha256(path)
+        return manifest, manifest_sha256, run_fd
+    except Exception:
+        os.close(run_fd)
+        raise
 
 
 def _validate_artifact_run_binding(artifact: dict, args, manifest_sha256: str) -> None:
@@ -467,6 +650,10 @@ def _shard_artifact_path(output_dir: str, shard: int, count: int, mode: str) -> 
     )
 
 
+def _shard_artifact_name(shard: int, count: int, mode: str) -> str:
+    return os.path.basename(_shard_artifact_path("unused", shard, count, mode))
+
+
 def _shard_schema(mode: str) -> str:
     if mode == _SHARD_MODE_FULL:
         return _SHARD_SCHEMA_FULL
@@ -477,7 +664,7 @@ def _shard_schema(mode: str) -> str:
 
 def _load_bound_full_shards(
     args, cfg: dict, subset: dict, poison_weights_checksum: str, manifest: dict,
-    manifest_sha256: str,
+    manifest_sha256: str, run_fd: int,
 ) -> List[dict]:
     """Validate the complete fan-out identity/row set before aggregation."""
     from fl_v3.attacks import fusion_ablation as FA
@@ -485,24 +672,32 @@ def _load_bound_full_shards(
     count = int(args.num_shards)
     if count < 1:
         raise RuntimeError("aggregate num_shards must be >= 1")
-    directory = os.path.join(_run_root(args), "ablation")
-    expected_files = {
-        _shard_artifact_path(_run_root(args), index, count, _SHARD_MODE_FULL)
+    ablation_fd = _open_subdirectory(run_fd, "ablation", create=False)
+    expected_names = {
+        _shard_artifact_name(index, count, _SHARD_MODE_FULL)
         for index in range(count)
     }
-    actual_files = {
-        os.path.join(directory, name) for name in os.listdir(directory)
+    actual_names = {
+        name for name in os.listdir(ablation_fd)
         if name.startswith("ablation_shard_")
     }
-    if actual_files != expected_files:
-        missing = sorted(os.path.basename(path) for path in expected_files - actual_files)
-        extra = sorted(os.path.basename(path) for path in actual_files - expected_files)
+    if actual_names != expected_names:
+        missing = sorted(expected_names - actual_names)
+        extra = sorted(actual_names - expected_names)
+        os.close(ablation_fd)
         raise RuntimeError(
             f"aggregate requires the exact canonical full-shard filename set; "
             f"missing={missing}, extra={extra}"
         )
-    files = sorted(expected_files)
-    file_hashes = [_checkpoint_file_sha256(path) for path in files]
+    names = sorted(expected_names)
+    artifacts = []
+    try:
+        for name in names:
+            artifact, artifact_sha256 = _load_required_json_at(ablation_fd, name)
+            artifacts.append((name, artifact, artifact_sha256))
+    finally:
+        os.close(ablation_fd)
+    file_hashes = [artifact_sha256 for _name, _artifact, artifact_sha256 in artifacts]
     if len(file_hashes) != len(set(file_hashes)):
         raise RuntimeError("aggregate found repeated byte-identical shard artifacts")
 
@@ -527,11 +722,9 @@ def _load_bound_full_shards(
         "occlusion_disappeared", "placement_aligned_ok",
         "placement_nonaligned_iou0", "area_ratio",
     }
-    for path in files:
-        with open(path, encoding="utf-8") as stream:
-            artifact = json.load(stream)
+    for name, artifact, _artifact_sha256 in artifacts:
         if set(artifact) != artifact_keys or artifact["schema_version"] != _SHARD_SCHEMA_FULL:
-            raise RuntimeError(f"invalid or incomplete T5 shard schema: {path}")
+            raise RuntimeError(f"invalid or incomplete T5 shard schema: {name}")
         _validate_artifact_run_binding(artifact, args, manifest_sha256)
         if artifact["mode"] != _SHARD_MODE_FULL:
             raise RuntimeError("cond4-only/mixed shard artifact cannot enter full aggregate")
@@ -605,10 +798,9 @@ def _is_number(value: object) -> bool:
 
 
 def _load_bound_stealth(
-    args, subset: dict, poison_identity: dict, manifest_sha256: str,
+    args, subset: dict, poison_identity: dict, manifest_sha256: str, run_fd: int,
 ) -> dict:
-    path = os.path.join(_run_root(args), "stealth.json")
-    artifact = _load_required_json(path)
+    artifact, _artifact_sha256 = _load_required_json_at(run_fd, "stealth.json")
     if set(artifact) != {
         "schema_version", "run_id", "run_manifest_sha256", "poison",
         "subset_content_hash", "metrics",
@@ -635,13 +827,13 @@ def _load_bound_stealth(
 
 
 def _load_bound_guards(
-    args, subset: dict, poison_identity: dict, manifest_sha256: str,
+    args, subset: dict, poison_identity: dict, manifest: dict, manifest_sha256: str,
+    run_fd: int,
 ) -> dict:
-    path = os.path.join(_run_root(args), "cond5a_guards.json")
-    artifact = _load_required_json(path)
+    artifact, _artifact_sha256 = _load_required_json_at(run_fd, "cond5a_guards.json")
     if set(artifact) != {
         "schema_version", "run_id", "run_manifest_sha256", "poison",
-        "subset_content_hash", "metrics",
+        "subset_content_hash", "guard_selection", "metrics",
     } or artifact["schema_version"] != _GUARDS_SCHEMA:
         raise RuntimeError("guard artifact has an inexact schema")
     _validate_artifact_run_binding(artifact, args, manifest_sha256)
@@ -650,6 +842,9 @@ def _load_bound_guards(
         raise RuntimeError("guard artifact poison identity is stale or mixed")
     if artifact["subset_content_hash"] != subset["content_hash"]:
         raise RuntimeError("guard artifact frozen-subset identity mismatch")
+    expected_selection = manifest["task_plan"]["guard_selection"]
+    if artifact["guard_selection"] != expected_selection:
+        raise RuntimeError("guard artifact selection differs from immutable run plan")
     metrics = artifact["metrics"]
     expected = {
         "lidar_invariant_all", "max_abs_head_diff", "n_invariance_checks",
@@ -667,6 +862,10 @@ def _load_bound_guards(
     for key in ("max_abs_head_diff", "camera_only_clean_recall", "camera_only_recall_floor"):
         if not _is_number(metrics[key]):
             raise RuntimeError(f"guard metric {key} must be numeric")
+    if metrics["n_invariance_checks"] != expected_selection["declared_sample_count"]:
+        raise RuntimeError("guard invariant count differs from immutable selected sample count")
+    if metrics["total"] != len(expected_selection["selected_targets"]):
+        raise RuntimeError("guard target count differs from immutable selected target identity")
     return artifact
 
 
@@ -747,7 +946,7 @@ def task_shard(args, cfg):
         _checkpoint_artifact_identity(args.clean_checkpoint, clean_checksum)
         if mode == _SHARD_MODE_FULL else None
     )
-    _manifest, manifest_sha256 = _bind_run_manifest(
+    _manifest, manifest_sha256, run_fd = _bind_run_manifest(
         args, cfg, subset, poison_identity, clean_identity,
     )
 
@@ -803,8 +1002,8 @@ def task_shard(args, cfg):
         if (i + 1) % 50 == 0:
             print(f"[t5-shard {args.shard}] {i+1}/{len(ds)} samples", flush=True)
 
-    os.makedirs(os.path.join(_run_root(args), "ablation"), exist_ok=True)
-    p = _shard_artifact_path(_run_root(args), args.shard, args.num_shards, mode)
+    ablation_fd = _open_subdirectory(run_fd, "ablation", create=True)
+    name = _shard_artifact_name(args.shard, args.num_shards, mode)
     artifact = {
         "schema_version": _shard_schema(mode),
         "run_id": args.run_id,
@@ -817,8 +1016,11 @@ def task_shard(args, cfg):
         "num_shards": int(args.num_shards),
         "results": out,
     }
-    _write_json_exclusive(p, artifact)
-    print(f"[t5-shard {args.shard}] wrote {p} ({len(out)} targets)", flush=True)
+    _write_json_exclusive_at(ablation_fd, name, artifact)
+    os.close(ablation_fd)
+    os.close(run_fd)
+    print(f"[t5-shard {args.shard}] wrote {_run_root(args)}/ablation/{name} "
+          f"({len(out)} targets)", flush=True)
 
 
 # ---------------------------------------------------------------------------
@@ -843,15 +1045,15 @@ def task_aggregate(args, cfg):
           f"poison_rate={prov.get('attack-poison-rate')} m_r={prov.get('m_r')} roster={prov.get('roster')}", flush=True)
 
     poison_identity = _checkpoint_artifact_identity(args.checkpoint, checksum)
-    manifest, manifest_sha256 = _bind_run_manifest(args, cfg, subset, poison_identity)
+    manifest, manifest_sha256, run_fd = _bind_run_manifest(args, cfg, subset, poison_identity)
     rows = _load_bound_full_shards(
-        args, cfg, subset, checksum, manifest, manifest_sha256,
+        args, cfg, subset, checksum, manifest, manifest_sha256, run_fd,
     )
     stealth_artifact = _load_bound_stealth(
-        args, subset, poison_identity, manifest_sha256,
+        args, subset, poison_identity, manifest_sha256, run_fd,
     )
     guards_artifact = _load_bound_guards(
-        args, subset, poison_identity, manifest_sha256,
+        args, subset, poison_identity, manifest, manifest_sha256, run_fd,
     )
     stealth = stealth_artifact["metrics"]
     guards = guards_artifact["metrics"]
@@ -933,9 +1135,8 @@ def task_aggregate(args, cfg):
               "missing_subgates": missing, "overall_verdict": overall,
               "pinned_constants": _pinned_constants(cfg),
               "checkpoint_checksum": checksum, "verified_attack_provenance": prov}
-    _write_json_exclusive(
-        os.path.join(_run_root(args), "fusion_ablation.json"), result, indent=2,
-    )
+    _write_json_exclusive_at(run_fd, "fusion_ablation.json", result, indent=2)
+    os.close(run_fd)
     print("=" * 72, flush=True)
     print(f"[t5-agg] 5-CONDITION ABLATION (N={N}, coverage={coverage:.4f}, evaluated={len(evaluated)})", flush=True)
     for c in FA.CONDITIONS:
@@ -967,11 +1168,9 @@ def task_stealth(args, cfg):
     checksum = _trainable_checksum(model)
     prov = verify_attack_provenance(args.checkpoint, checksum)
     poison_identity = _checkpoint_artifact_identity(args.checkpoint, checksum)
-    _manifest, manifest_sha256 = _bind_run_manifest(args, cfg, subset, poison_identity)
-    det_output = os.path.join(_run_root(args), "stealth_det_eval")
-    if os.path.exists(det_output):
-        raise RuntimeError("stealth evaluation output already exists; refusing to overwrite")
-    os.mkdir(det_output)
+    _manifest, manifest_sha256, run_fd = _bind_run_manifest(args, cfg, subset, poison_identity)
+    det_fd = _reserve_subdirectory(run_fd, "stealth_det_eval")
+    det_output = f"/proc/self/fd/{det_fd}"
     task = get_task("nuscenes_detection")
     val_info = _val_info(cfg)
     all_tokens = sorted(i["sample_token"] for i in val_info)
@@ -998,7 +1197,9 @@ def task_stealth(args, cfg):
         "subset_content_hash": subset["content_hash"],
         "metrics": metrics,
     }
-    _write_json_exclusive(os.path.join(_run_root(args), "stealth.json"), artifact, indent=2)
+    _write_json_exclusive_at(run_fd, "stealth.json", artifact, indent=2)
+    os.close(det_fd)
+    os.close(run_fd)
     print(f"[t5-stealth] poisoned clean car_recall={det['car_recall']:.4f} (≥{floor}: {metrics['stealth_ok']}) "
           f"mAP={det['mAP']:.4f} NDS={det['NDS']:.4f}", flush=True)
 
@@ -1020,9 +1221,12 @@ def task_guards(args, cfg):
     checksum = _trainable_checksum(model)
     verify_attack_provenance(args.checkpoint, checksum)
     poison_identity = _checkpoint_artifact_identity(args.checkpoint, checksum)
-    _manifest, manifest_sha256 = _bind_run_manifest(args, cfg, subset, poison_identity)
-    targets = [tuple(t) for t in subset["targets"]]
-    sample_tokens = sorted({s for s, _ in targets})[: args.guard_samples]
+    manifest, manifest_sha256, run_fd = _bind_run_manifest(args, cfg, subset, poison_identity)
+    selection = _guard_selection(subset, args.guard_samples)
+    if selection != manifest["task_plan"]["guard_selection"]:
+        raise RuntimeError("guard selection differs from immutable run plan")
+    targets = [tuple(t) for t in selection["selected_targets"]]
+    sample_tokens = list(selection["selected_sample_tokens"])
     by_sample: Dict[str, List[str]] = {}
     for s, a in targets:
         if s in sample_tokens:
@@ -1037,6 +1241,10 @@ def task_guards(args, cfg):
         inv_results.append(FA.lidar_invariance_check(model, sample, device))
         recall_pairs.append((sample, by_sample[sample["sample_token"]]))
     rec = FA.camera_only_clean_recall(model, recall_pairs, device, thr)
+    if len(inv_results) != selection["declared_sample_count"]:
+        raise RuntimeError("guard did not evaluate every immutable selected sample")
+    if int(rec["total"]) != len(selection["selected_targets"]):
+        raise RuntimeError("guard did not evaluate every immutable selected target")
     all_invariant = all(r["lidar_invariant"] for r in inv_results)
     max_diff = max((r["max_abs_head_diff"] for r in inv_results), default=0.0)
     floor = float(cfg.get("attack-cond5a-recall-floor", 0.3))  # camera-only readout is OOD vs the 0.85 fused model
@@ -1057,9 +1265,11 @@ def task_guards(args, cfg):
         "run_manifest_sha256": manifest_sha256,
         "poison": poison_identity,
         "subset_content_hash": subset["content_hash"],
+        "guard_selection": selection,
         "metrics": metrics,
     }
-    _write_json_exclusive(os.path.join(_run_root(args), "cond5a_guards.json"), artifact, indent=2)
+    _write_json_exclusive_at(run_fd, "cond5a_guards.json", artifact, indent=2)
+    os.close(run_fd)
     print(f"[t5-guards] LiDAR-invariant={all_invariant} (max|Δ|={max_diff}) "
           f"camera_only_clean_recall={rec['camera_only_clean_recall']:.4f} (≥{floor}) "
           f"→ cond5a_valid={metrics['cond5a_valid']}", flush=True)
@@ -1090,7 +1300,7 @@ def task_viz(args, cfg):
         raise RuntimeError("viz selected clean weights do not match the frozen clean identity")
     poison_identity = _checkpoint_artifact_identity(args.checkpoint, poison_checksum)
     clean_identity = _checkpoint_artifact_identity(args.clean_checkpoint, clean_checksum)
-    _manifest, manifest_sha256 = _bind_run_manifest(
+    _manifest, manifest_sha256, run_fd = _bind_run_manifest(
         args, cfg, subset, poison_identity, clean_identity,
     )
     cfg_bev = model.cfg.bev
@@ -1101,10 +1311,8 @@ def task_viz(args, cfg):
     sample_tokens = sorted(first_by_sample)[: args.viz_samples]
     val_info = _val_info(cfg)
     ds = _val_dataset(cfg, val_info, sample_tokens)
-    viz_output = os.path.join(_run_root(args), "viz")
-    if os.path.exists(viz_output):
-        raise RuntimeError("viz output already exists; refusing to overwrite")
-    os.mkdir(viz_output)
+    viz_fd = _reserve_subdirectory(run_fd, "viz")
+    viz_output = f"/proc/self/fd/{viz_fd}"
     writer = VizWriter(viz_output)
     for i in range(len(ds)):
         sample = ds[i]
@@ -1126,7 +1334,7 @@ def task_viz(args, cfg):
         except Exception as e:
             print(f"[t5-viz] fusion-diff skipped for {tok}: {type(e).__name__}: {e}", flush=True)
     writer.write_manifest()
-    _write_json_exclusive(os.path.join(viz_output, "t5_run_binding.json"), {
+    _write_json_exclusive_at(viz_fd, "t5_run_binding.json", {
         "schema_version": "s07b.t5.viz-binding.v1",
         "run_id": args.run_id,
         "run_manifest_sha256": manifest_sha256,
@@ -1134,6 +1342,8 @@ def task_viz(args, cfg):
         "clean": clean_identity,
         "subset_content_hash": subset["content_hash"],
     })
+    os.close(viz_fd)
+    os.close(run_fd)
     print(f"[t5-viz] rendered V5/V3 for up to {len(sample_tokens)} subset samples", flush=True)
 
 
