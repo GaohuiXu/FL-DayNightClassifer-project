@@ -1,11 +1,17 @@
-"""LSS camera→BEV view transform (fl_v3 T2) — the deterministic ``cumsum_trick`` splat.
+"""Pure-camera LSS camera->BEV view transform for the O-017 contract.
 
-Per the Architecture table: per-pixel **depth softmax** over bins → lift context
+Per the Architecture table: per-pixel **depth softmax** over bins -> lift context
 features into the camera frustum (outer product — determinism-clean) → transform the
 frustum to the canonical LIDAR_TOP frame via ``inv(lidar2img)`` → **splat into BEV via
-the LSS ``cumsum_trick``** (sort by BEV rank → float cumsum → segment-boundary diff).
+the LSS ``cumsum_trick``** (sort by BEV rank -> float cumsum -> segment-boundary diff).
 **NO ``scatter_add`` / ``index_add`` / atomic scatter; NO ``grid_sample``** (the lift is
 grid_sample-free by construction — the ban is belt-and-suspenders).
+
+The module accepts camera features plus camera calibration only.  ``LIDAR_TOP`` is
+the coordinate frame of the output, not an input modality: there is no point tensor,
+projected LiDAR depth map, LiDAR BEV, or cross-conditioned feature argument.  The
+primary S03 configuration is effective image stride 8 with depth bins
+``[1.0, 60.0)`` at 0.5 m spacing (118 bins).
 
 ## The two determinism musts (SPEC §0 + view_transform bullet)
 
@@ -107,19 +113,32 @@ class DepthLSSTransform(nn.Module):
         self,
         in_channels: int = 256,
         context_channels: int = 80,
-        depth_bins: Tuple[float, float, float] = (1.0, 60.0, 1.0),  # (min, max, step)
+        depth_bins: Tuple[float, float, float] = (1.0, 60.0, 0.5),  # (min, max, step)
         image_hw: Tuple[int, int] = (256, 704),
-        feat_stride: int = 16,
+        feat_stride: int = 8,
         cfg: BEVConfig = BEVConfig(),
+        bev_output_dtype: str = "float32",
     ):
         super().__init__()
         self.cfg = cfg
+        self.in_channels = int(in_channels)
         self.context_channels = int(context_channels)
         dmin, dmax, dstep = depth_bins
+        if not (dstep > 0.0 and dmax > dmin):
+            raise ValueError("depth_bins must satisfy min < max with a positive step")
         ds = torch.arange(dmin, dmax, dstep, dtype=torch.float32)
         self.D = int(ds.numel())
+        self.depth_bins = (float(dmin), float(dmax), float(dstep))
         self.image_hw = (int(image_hw[0]), int(image_hw[1]))
         self.feat_stride = int(feat_stride)
+        if self.feat_stride <= 0:
+            raise ValueError("feat_stride must be positive")
+        if self.image_hw[0] % self.feat_stride or self.image_hw[1] % self.feat_stride:
+            raise ValueError("image_hw must be divisible by feat_stride")
+        if bev_output_dtype not in ("input", "float32"):
+            raise ValueError("bev_output_dtype must be 'input' or 'float32'")
+        self.bev_output_dtype = bev_output_dtype
+        self.requires_lidar_input = False
         fH = self.image_hw[0] // self.feat_stride
         fW = self.image_hw[1] // self.feat_stride
         self.fH, self.fW = fH, fW
@@ -162,6 +181,17 @@ class DepthLSSTransform(nn.Module):
 
         Returns ``{"bev": [B,Cc,ny,nx], "depth_prob": [B*N,D,fH,fW], "context":
         [B*N,Cc,fH,fW]}`` (the extra maps drive V2)."""
+        if feat.ndim != 4:
+            raise ValueError("feat must have shape [B*N,C,fH,fW]")
+        if tuple(feat.shape) != (B * N, self.in_channels, self.fH, self.fW):
+            raise ValueError(
+                f"feat shape must be [B*N,{self.in_channels},{self.fH},{self.fW}], "
+                f"got {tuple(feat.shape)}"
+            )
+        if lidar2img.shape != (B, N, 4, 4):
+            raise ValueError(f"lidar2img must have shape {(B, N, 4, 4)}")
+        if not lidar2img.is_floating_point():
+            raise TypeError("lidar2img must be floating point")
         cfg = self.cfg
         x = self.depthnet(feat)                                # [BN, D+Cc, fH, fW]
         depth_logits = x[:, : self.D]
@@ -247,13 +277,46 @@ class DepthLSSTransform(nn.Module):
             cell_id = torch.arange(P, device=feat.device).view(1, 1, -1)
             geom_id = (n_idx * P + cell_id).expand(B, N, P)
             feats_pt = lifted.view(B, N, Cc, P).permute(0, 1, 3, 2).contiguous()  # [B,N,P,Cc]
-            x_pt = feats_pt.reshape(-1, Cc)[m]
+            # Both strict and relaxed reductions accumulate in fp32.  The explicit
+            # output policy below decides whether the integration tensor is cast
+            # back to the camera feature dtype.
+            x_pt = feats_pt.reshape(-1, Cc)[m].float()
             geom_pt = geom_id.reshape(-1)[m]
             bev = bev_splat(x_pt, ranks_pt, geom_pt, B, cfg.nx, cfg.ny)
+        if self.bev_output_dtype == "input":
+            bev = bev.to(context.dtype)
+        else:
+            bev = bev.float()
         out = {"bev": bev, "depth_prob": depth_prob, "context": context}
         if projection_meta:
             out["projection_meta"] = projection_meta
         return out
+
+    def output_contract(self, input_dtype: torch.dtype = torch.float32) -> dict:
+        """Shape/dtype/config interface consumed by S07-B integration."""
+        output_dtype = input_dtype if self.bev_output_dtype == "input" else torch.float32
+        return {
+            "input_layout": "[B*N,C,fH,fW]",
+            "input_feature_hw": [self.fH, self.fW],
+            "input_stride": self.feat_stride,
+            "image_hw": list(self.image_hw),
+            "depth_bins": list(self.depth_bins),
+            "depth_bin_count": self.D,
+            "context_channels": self.context_channels,
+            "bev_layout": "[B,C,H=y,W=x]",
+            "bev_hw": [self.cfg.ny, self.cfg.nx],
+            "accumulation_dtype": "torch.float32",
+            "bev_output_dtype_policy": self.bev_output_dtype,
+            "example_input_dtype": str(input_dtype),
+            "example_bev_dtype": str(output_dtype),
+            "requires_lidar_input": False,
+        }
+
+    def theoretical_lift_elements(self, B: int, N: int) -> int:
+        """Elements in the unmasked ``[BN,C,D,fH,fW]`` lift tensor."""
+        if B <= 0 or N <= 0:
+            raise ValueError("B and N must be positive")
+        return int(B * N * self.context_channels * self.D * self.fH * self.fW)
 
 
 def P_(D: int, fH: int, fW: int) -> int:

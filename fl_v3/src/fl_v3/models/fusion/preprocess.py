@@ -1,117 +1,454 @@
-"""Deterministic image resize + ImageNet normalization (fl_v3 T2).
+"""Camera image geometry and ImageNet normalization.
 
-T1 stores **native uint8 1600×900 RGB** images and the full-resolution
-``cam_intrinsics`` / ``lidar2img`` (T1 schema). T2 owns the resize + normalization
-T1 deliberately left out — and, critically, **rescales the calibration consistently**
-so camera features land in the right BEV cell (the SPEC's "resize/intrinsic/lidar2img
-inconsistency" failure mode → camera features mis-placed in BEV).
+The production S03 path is an aspect-preserving resize followed by crop/pad,
+optional horizontal flip, and optional in-plane rotation.  Every operation is
+represented by one pixel-space homography ``A`` and the exact same transform is
+left-multiplied into both ``cam_intrinsics`` and ``lidar2img``::
 
-## The half-pixel-correct resize (exact consistency, not "≈")
+    K_aug = A @ K
+    lidar2img_aug = embed4(A) @ lidar2img
 
-We resize each camera image from ``(H_in, W_in)`` to ``(H_out, W_out)`` with
-``F.interpolate(mode="bilinear", align_corners=False)`` — the **forward** of which is
-deterministic on CUDA (there is no backward path: images are input data, not
-parameters, even in the full-model ablation). ``align_corners=False`` maps an output
-pixel ``i`` to the input continuous coordinate ``(i + 0.5)/s - 0.5`` (``s = W_out/W_in``),
-i.e. content at input pixel ``u`` appears at output ``u·s + (0.5·s − 0.5)``.
+Pixel coordinates use integer pixel centres, ``u`` right and ``v`` down.  Resize
+uses ``align_corners=False``; therefore its half-pixel translation is part of
+``A``.  Flip uses ``u' = (W - 1) - u`` and rotation is around
+``((W - 1) / 2, (H - 1) / 2)``.  These details make projected points and sampled
+image content share one geometry rather than relying on an approximate scale.
 
-We rescale the intrinsics with the **same affine** so the projection matches the
-resized image to float precision (not just "<1px"):
-
-    u_out = fx·u_in + tx,   tx = 0.5·fx − 0.5      (fx = W_out / W_in)
-    v_out = fy·v_in + ty,   ty = 0.5·fy − 0.5      (fy = H_out / H_in)
-
-As a 3×3 pixel-space affine on ``K`` and a 4×4 left-multiply on ``lidar2img``
-(``lidar2img`` maps a lidar point to the homogeneous ``[u·d, v·d, d, 1]``, so the
-``tx,ty`` ride on the depth component ``d = proj[2]``)::
-
-    A = [[fx, 0, tx], [0, fy, ty], [0, 0, 1]]            cam_intrinsics' = A @ K
-    M = [[fx,0,tx,0],[0,fy,ty,0],[0,0,1,0],[0,0,0,1]]    lidar2img'      = M @ lidar2img
-
-This is **exact** (the ≤1px gate measures ~1e-4 px residual vs the resize center
-mapping). Aspect ratio is NOT preserved (``fx ≠ fy`` for 1600×900→704×256) — that is
-fine because ``fx, fy`` are handled independently and the calibration follows exactly;
-aspect-preserving resize-then-crop (BEVFusion-MIT) is a later refinement, hooked via
-``crop`` but off by default. RNG-free by construction; no random augmentation in the
-clean baseline (seeded aug is a deferred hook).
+``augmentation=None`` retains the pre-S03 anisotropic resize for callers that
+have not yet been migrated.  S07-B must explicitly construct
+``ImageAugmentationConfig`` for the O-017 reference-style path; this lets S03
+publish the new module contract without editing ``detector.py`` or ``tasks.py``.
 """
 from __future__ import annotations
 
-from typing import Tuple
+from dataclasses import dataclass
+import math
+from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# ImageNet-1k RGB statistics (torchvision Swin_T / ResNet18 IMAGENET1K_V1 transforms).
+# ImageNet-1k RGB statistics (torchvision Swin_T IMAGENET1K_V1 transforms).
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
-# Recommended input (BEVFusion-MIT): H=256, W=704.
 DEFAULT_IMAGE_HW = (256, 704)
+AUGMENTATION_PARAM_FIELDS = (
+    "resize",
+    "resized_h",
+    "resized_w",
+    "crop_left",
+    "crop_top",
+    "flip",
+    "rotate_degrees",
+)
+
+
+@dataclass(frozen=True)
+class ImageAugmentationConfig:
+    """MIT-BEVFusion-style 2D geometry with an explicit deterministic eval path.
+
+    ``enabled`` controls random *training* augmentation.  Validation always uses
+    ``validation_resize``, mean bottom crop, no flip, and no rotation.  A caller
+    can also supply explicit per-camera parameters to :meth:`ImagePreprocessor.forward`
+    for fixtures or replay.
+    """
+
+    enabled: bool = True
+    resize_limits: Tuple[float, float] = (0.38, 0.55)
+    validation_resize: float = 0.48
+    bottom_crop_limits: Tuple[float, float] = (0.0, 0.0)
+    rotation_limits_degrees: Tuple[float, float] = (-5.4, 5.4)
+    random_flip: bool = True
+
+    def __post_init__(self) -> None:
+        r0, r1 = self.resize_limits
+        b0, b1 = self.bottom_crop_limits
+        a0, a1 = self.rotation_limits_degrees
+        if not (0.0 < r0 <= r1 and self.validation_resize > 0.0):
+            raise ValueError("resize factors must be positive and ordered")
+        if not (0.0 <= b0 <= b1 <= 1.0):
+            raise ValueError("bottom_crop_limits must lie in [0, 1]")
+        if a0 > a1:
+            raise ValueError("rotation_limits_degrees must be ordered")
 
 
 def resize_affine(
     H_in: int, W_in: int, H_out: int, W_out: int, device=None, dtype=torch.float64
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Return ``(A_3x3, M_4x4)`` for the half-pixel-correct resize (see module doc).
+    """Return 3x3/4x4 half-pixel resize transforms.
 
-    ``A`` rescales a pixel-space ``K``; ``M`` left-multiplies ``lidar2img``. float64
-    by default for calibration accuracy (cast to f32 when stored)."""
-    fx = W_out / W_in
-    fy = H_out / H_in
-    tx = 0.5 * fx - 0.5
-    ty = 0.5 * fy - 0.5
-    A = torch.tensor([[fx, 0.0, tx], [0.0, fy, ty], [0.0, 0.0, 1.0]], device=device, dtype=dtype)
-    M = torch.tensor(
-        [[fx, 0.0, tx, 0.0], [0.0, fy, ty, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]],
-        device=device, dtype=dtype,
+    This helper remains the compatibility primitive for the legacy direct-resize
+    path.  The aspect-preserving path composes the same affine with crop/flip/
+    rotation in :func:`image_augmentation_affine`.
+    """
+    if min(H_in, W_in, H_out, W_out) <= 0:
+        raise ValueError("image dimensions must be positive")
+    sx = W_out / W_in
+    sy = H_out / H_in
+    tx = 0.5 * sx - 0.5
+    ty = 0.5 * sy - 0.5
+    A = torch.tensor(
+        [[sx, 0.0, tx], [0.0, sy, ty], [0.0, 0.0, 1.0]],
+        device=device,
+        dtype=dtype,
     )
+    M = torch.eye(4, device=device, dtype=dtype)
+    M[:3, :3] = A
     return A, M
 
 
+def image_augmentation_affine(
+    H_in: int,
+    W_in: int,
+    H_out: int,
+    W_out: int,
+    resized_h: int,
+    resized_w: int,
+    crop_left: int,
+    crop_top: int,
+    flip: bool,
+    rotate_degrees: float,
+    *,
+    device=None,
+    dtype=torch.float64,
+) -> torch.Tensor:
+    """Compose native-pixel -> augmented-pixel affine ``A`` exactly."""
+    A_resize, _ = resize_affine(
+        H_in, W_in, resized_h, resized_w, device=device, dtype=dtype
+    )
+    A_crop = torch.eye(3, device=device, dtype=dtype)
+    A_crop[0, 2] = -float(crop_left)
+    A_crop[1, 2] = -float(crop_top)
+
+    A_flip = torch.eye(3, device=device, dtype=dtype)
+    if flip:
+        A_flip[0, 0] = -1.0
+        A_flip[0, 2] = float(W_out - 1)
+
+    theta = math.radians(float(rotate_degrees))
+    co, si = math.cos(theta), math.sin(theta)
+    # Positive angle follows MIT ImageAug3D/PIL in image coordinates (v down).
+    R = torch.tensor([[co, si], [-si, co]], device=device, dtype=dtype)
+    centre = torch.tensor(
+        [(W_out - 1) / 2.0, (H_out - 1) / 2.0], device=device, dtype=dtype
+    )
+    A_rotate = torch.eye(3, device=device, dtype=dtype)
+    A_rotate[:2, :2] = R
+    A_rotate[:2, 2] = centre - R @ centre
+    return A_rotate @ A_flip @ A_crop @ A_resize
+
+
+def _uniform(low: float, high: float, generator: Optional[torch.Generator]) -> float:
+    if low == high:
+        return float(low)
+    value = torch.rand((), generator=generator, device="cpu", dtype=torch.float64)
+    return float(low + (high - low) * value.item())
+
+
+def _sample_parameters(
+    config: ImageAugmentationConfig,
+    training: bool,
+    B: int,
+    N: int,
+    H_in: int,
+    W_in: int,
+    H_out: int,
+    W_out: int,
+    generator: Optional[torch.Generator],
+) -> torch.Tensor:
+    if generator is not None and generator.device.type != "cpu":
+        raise ValueError("image augmentation requires a CPU torch.Generator")
+    rows = []
+    random_train = bool(training and config.enabled)
+    for _ in range(B * N):
+        if random_train:
+            resize = _uniform(*config.resize_limits, generator)
+            bottom = _uniform(*config.bottom_crop_limits, generator)
+            rotate = _uniform(*config.rotation_limits_degrees, generator)
+            flip = bool(
+                config.random_flip
+                and int(torch.randint(0, 2, (), generator=generator, device="cpu").item())
+            )
+        else:
+            resize = float(config.validation_resize)
+            bottom = 0.5 * sum(config.bottom_crop_limits)
+            rotate = 0.0
+            flip = False
+
+        # Match the reference's scalar aspect-preserving resize choice.  The
+        # realized sx/sy (after integer rounding) are used by calibration.
+        resized_w = max(1, int(W_in * resize))
+        resized_h = max(1, int(H_in * resize))
+        crop_top = int((1.0 - bottom) * resized_h) - H_out
+        max_left = max(0, resized_w - W_out)
+        crop_left = (
+            int(_uniform(0.0, float(max_left), generator)) if random_train else int(max_left / 2)
+        )
+        rows.append(
+            [
+                resize,
+                float(resized_h),
+                float(resized_w),
+                float(crop_left),
+                float(crop_top),
+                float(flip),
+                rotate,
+            ]
+        )
+    return torch.tensor(rows, dtype=torch.float64).view(B, N, len(AUGMENTATION_PARAM_FIELDS))
+
+
+def _crop_or_pad(
+    image: torch.Tensor, crop_left: int, crop_top: int, H_out: int, W_out: int
+) -> torch.Tensor:
+    """Crop a CHW image, zero-padding when the reference crop extends outside."""
+    _, H, W = image.shape
+    pad_left = max(-crop_left, 0)
+    pad_top = max(-crop_top, 0)
+    pad_right = max(crop_left + W_out - W, 0)
+    pad_bottom = max(crop_top + H_out - H, 0)
+    if pad_left or pad_right or pad_top or pad_bottom:
+        image = F.pad(image, (pad_left, pad_right, pad_top, pad_bottom))
+    left = crop_left + pad_left
+    top = crop_top + pad_top
+    return image[:, top : top + H_out, left : left + W_out]
+
+
+def _rotate_image(image: torch.Tensor, affine: torch.Tensor) -> torch.Tensor:
+    """Apply only the rotation component of ``affine`` to an already-cropped CHW image."""
+    C, H, W = image.shape
+    ys, xs = torch.meshgrid(
+        torch.arange(H, device=image.device, dtype=torch.float64),
+        torch.arange(W, device=image.device, dtype=torch.float64),
+        indexing="ij",
+    )
+    out = torch.stack((xs, ys, torch.ones_like(xs)), dim=-1)
+    inv = torch.linalg.inv(affine.to(device=image.device, dtype=torch.float64))
+    src = out @ inv.T
+    grid_x = (2.0 * (src[..., 0] + 0.5) / W) - 1.0
+    grid_y = (2.0 * (src[..., 1] + 0.5) / H) - 1.0
+    grid = torch.stack((grid_x, grid_y), dim=-1).to(image.dtype).unsqueeze(0)
+    return F.grid_sample(
+        image.unsqueeze(0),
+        grid,
+        mode="bilinear",
+        padding_mode="zeros",
+        align_corners=False,
+    ).reshape(C, H, W)
+
+
 class ImagePreprocessor(nn.Module):
-    """uint8 native images + native calibration → normalized float images + rescaled
-    calibration. Stateless (no parameters), RNG-free, deterministic.
+    """Native RGB tensors + calibration -> normalized augmented camera tensors.
 
-    Forward consumes the collated batch tensors and returns a dict with
-    ``images`` ``[B,6,3,H_out,W_out]`` f32 (ImageNet-normalized), ``lidar2img``
-    ``[B,6,4,4]`` f32 (rescaled), and ``cam_intrinsics`` ``[B,6,3,3]`` f32 (rescaled)."""
+    Reference-style forward output:
 
-    def __init__(self, image_hw: Tuple[int, int] = DEFAULT_IMAGE_HW):
+    - ``images``: ``[B,N,3,H_out,W_out]`` float32;
+    - ``cam_intrinsics`` / ``lidar2img``: input calibration dtype;
+    - ``image_aug_matrix``: ``[B,N,3,3]`` calibration dtype;
+    - ``augmentation_params``: ``[B,N,7]`` float64 and the stable field names in
+      ``augmentation_param_fields``.
+    """
+
+    def __init__(
+        self,
+        image_hw: Tuple[int, int] = DEFAULT_IMAGE_HW,
+        augmentation: Optional[ImageAugmentationConfig] = None,
+    ):
         super().__init__()
         self.image_hw = (int(image_hw[0]), int(image_hw[1]))
+        if min(self.image_hw) <= 0:
+            raise ValueError("image_hw must be positive")
+        self.augmentation = augmentation
         mean = torch.tensor(IMAGENET_MEAN, dtype=torch.float32).view(1, 1, 3, 1, 1)
         std = torch.tensor(IMAGENET_STD, dtype=torch.float32).view(1, 1, 3, 1, 1)
-        # Buffers so .to(device)/.cuda() move them and they're not trainable params.
         self.register_buffer("_mean", mean, persistent=False)
         self.register_buffer("_std", std, persistent=False)
 
-    def forward(
+    @property
+    def geometry_mode(self) -> str:
+        return "legacy_stretch" if self.augmentation is None else "aspect_preserving_reference"
+
+    def output_contract(self) -> dict:
+        config = self.augmentation
+        return {
+            "geometry_mode": self.geometry_mode,
+            "output_image_hw": list(self.image_hw),
+            "image_dtype": "torch.float32",
+            "calibration_dtype": "preserve_input",
+            "calibration_update": "K'=A@K; lidar2img'=embed4(A)@lidar2img",
+            "augmentation_param_fields": list(AUGMENTATION_PARAM_FIELDS),
+            "training_random_augmentation": bool(config is not None and config.enabled),
+            "validation_deterministic": True,
+            "resize_limits": list(config.resize_limits) if config is not None else None,
+            "validation_resize": config.validation_resize if config is not None else None,
+            "bottom_crop_limits": list(config.bottom_crop_limits) if config is not None else None,
+            "rotation_limits_degrees": (
+                list(config.rotation_limits_degrees) if config is not None else None
+            ),
+            "random_flip": config.random_flip if config is not None else False,
+        }
+
+    def _legacy_forward(
         self,
-        images_u8: torch.Tensor,      # [B,6,3,H_in,W_in] uint8
-        lidar2img: torch.Tensor,      # [B,6,4,4] f32 (native resolution)
-        cam_intrinsics: torch.Tensor,  # [B,6,3,3] f32 (native resolution)
+        images_u8: torch.Tensor,
+        lidar2img: torch.Tensor,
+        cam_intrinsics: torch.Tensor,
     ) -> dict:
         B, N, C, H_in, W_in = images_u8.shape
         H_out, W_out = self.image_hw
-        device = images_u8.device
-
-        # --- resize (bilinear, align_corners=False; forward is deterministic) ---
         x = images_u8.reshape(B * N, C, H_in, W_in).to(torch.float32) / 255.0
         x = F.interpolate(x, size=(H_out, W_out), mode="bilinear", align_corners=False)
         x = x.reshape(B, N, C, H_out, W_out)
-        # --- ImageNet normalization ---
         x = (x - self._mean) / self._std
-
-        # --- rescale calibration with the same affine (half-pixel-correct) ---
-        A, M = resize_affine(H_in, W_in, H_out, W_out, device=device, dtype=torch.float32)
-        # broadcast matmul over [B,6]
-        K2 = torch.matmul(A.view(1, 1, 3, 3), cam_intrinsics)        # [B,6,3,3]
-        l2i2 = torch.matmul(M.view(1, 1, 4, 4), lidar2img)           # [B,6,4,4]
+        A, M = resize_affine(
+            H_in, W_in, H_out, W_out, device=images_u8.device, dtype=torch.float64
+        )
+        A_batch = A.view(1, 1, 3, 3).expand(B, N, 3, 3)
+        M_batch = M.view(1, 1, 4, 4).expand(B, N, 4, 4)
+        K2 = (A_batch @ cam_intrinsics.to(torch.float64)).to(cam_intrinsics.dtype)
+        l2i2 = (M_batch @ lidar2img.to(torch.float64)).to(lidar2img.dtype)
         return {
             "images": x.contiguous(),
             "cam_intrinsics": K2.contiguous(),
             "lidar2img": l2i2.contiguous(),
+            "image_aug_matrix": A_batch.to(cam_intrinsics.dtype).contiguous(),
             "image_hw": (H_out, W_out),
+            "geometry_mode": self.geometry_mode,
+        }
+
+    def forward(
+        self,
+        images_u8: torch.Tensor,
+        lidar2img: torch.Tensor,
+        cam_intrinsics: torch.Tensor,
+        *,
+        generator: Optional[torch.Generator] = None,
+        augmentation_params: Optional[torch.Tensor] = None,
+    ) -> dict:
+        if images_u8.ndim != 5 or images_u8.shape[2] != 3:
+            raise ValueError("images_u8 must have shape [B,N,3,H,W]")
+        B, N, C, H_in, W_in = images_u8.shape
+        if lidar2img.shape != (B, N, 4, 4):
+            raise ValueError(f"lidar2img must have shape {(B, N, 4, 4)}")
+        if cam_intrinsics.shape != (B, N, 3, 3):
+            raise ValueError(f"cam_intrinsics must have shape {(B, N, 3, 3)}")
+        if not (lidar2img.is_floating_point() and cam_intrinsics.is_floating_point()):
+            raise TypeError("calibration tensors must be floating point")
+        if self.augmentation is None:
+            if augmentation_params is not None:
+                raise ValueError("augmentation_params require ImageAugmentationConfig")
+            return self._legacy_forward(images_u8, lidar2img, cam_intrinsics)
+
+        H_out, W_out = self.image_hw
+        if augmentation_params is None:
+            params = _sample_parameters(
+                self.augmentation,
+                self.training,
+                B,
+                N,
+                H_in,
+                W_in,
+                H_out,
+                W_out,
+                generator,
+            )
+        else:
+            expected = (B, N, len(AUGMENTATION_PARAM_FIELDS))
+            if tuple(augmentation_params.shape) != expected:
+                raise ValueError(f"augmentation_params must have shape {expected}")
+            params = augmentation_params.detach().to(device="cpu", dtype=torch.float64).clone()
+        if not torch.isfinite(params).all():
+            raise ValueError("augmentation_params must be finite")
+
+        images = []
+        affines = []
+        flat = images_u8.reshape(B * N, C, H_in, W_in)
+        for idx in range(B * N):
+            resize, resized_h_f, resized_w_f, left_f, top_f, flip_f, angle = params.view(-1, 7)[idx]
+            if float(resize) <= 0:
+                raise ValueError("resize must be positive")
+            for field_name, value in (
+                ("resized_h", resized_h_f),
+                ("resized_w", resized_w_f),
+                ("crop_left", left_f),
+                ("crop_top", top_f),
+                ("flip", flip_f),
+            ):
+                if float(value) != float(int(value)):
+                    raise ValueError(f"{field_name} must be integer-valued")
+            if int(flip_f) not in (0, 1):
+                raise ValueError("flip must be 0 or 1")
+            resized_h, resized_w = int(resized_h_f), int(resized_w_f)
+            crop_left, crop_top = int(left_f), int(top_f)
+            flip = bool(int(flip_f))
+            if min(resized_h, resized_w) <= 0:
+                raise ValueError("resized dimensions must be positive")
+
+            image = flat[idx].to(torch.float32).unsqueeze(0) / 255.0
+            image = F.interpolate(
+                image,
+                size=(resized_h, resized_w),
+                mode="bilinear",
+                align_corners=False,
+            ).squeeze(0)
+            image = _crop_or_pad(image, crop_left, crop_top, H_out, W_out)
+            if flip:
+                image = torch.flip(image, dims=(-1,))
+
+            A = image_augmentation_affine(
+                H_in,
+                W_in,
+                H_out,
+                W_out,
+                resized_h,
+                resized_w,
+                crop_left,
+                crop_top,
+                flip,
+                float(angle),
+                device=images_u8.device,
+                dtype=torch.float64,
+            )
+            if float(angle) != 0.0:
+                # At this point resize/crop/flip are already applied.  Supply only
+                # the final rotation to the inverse-sampling grid.
+                A_before_rotation = image_augmentation_affine(
+                    H_in,
+                    W_in,
+                    H_out,
+                    W_out,
+                    resized_h,
+                    resized_w,
+                    crop_left,
+                    crop_top,
+                    flip,
+                    0.0,
+                    device=images_u8.device,
+                    dtype=torch.float64,
+                )
+                A_rotation = A @ torch.linalg.inv(A_before_rotation)
+                image = _rotate_image(image, A_rotation)
+            images.append(image)
+            affines.append(A)
+
+        x = torch.stack(images, dim=0).reshape(B, N, C, H_out, W_out)
+        x = (x - self._mean) / self._std
+        A_batch = torch.stack(affines, dim=0).reshape(B, N, 3, 3)
+        M_batch = torch.eye(
+            4, device=images_u8.device, dtype=torch.float64
+        ).view(1, 1, 4, 4).repeat(B, N, 1, 1)
+        M_batch[:, :, :3, :3] = A_batch
+        K2 = (A_batch @ cam_intrinsics.to(torch.float64)).to(cam_intrinsics.dtype)
+        l2i2 = (M_batch @ lidar2img.to(torch.float64)).to(lidar2img.dtype)
+        return {
+            "images": x.contiguous(),
+            "cam_intrinsics": K2.contiguous(),
+            "lidar2img": l2i2.contiguous(),
+            "image_aug_matrix": A_batch.to(cam_intrinsics.dtype).contiguous(),
+            "augmentation_params": params.to(device=images_u8.device),
+            "augmentation_param_fields": AUGMENTATION_PARAM_FIELDS,
+            "image_hw": (H_out, W_out),
+            "geometry_mode": self.geometry_mode,
         }
