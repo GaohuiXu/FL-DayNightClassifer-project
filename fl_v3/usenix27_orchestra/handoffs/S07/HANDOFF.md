@@ -2587,3 +2587,18 @@ launcher passed stdlib `compile()`; `git diff --check` was empty; and the raw
 Job 352354 root manifest independently verified all 51 records. Exact code
 commit `7a3a15a13d19be87c5269966afc5fd6b1054d660` is the only O-086 code
 identity; these three lifecycle documents record its separate delivery state.
+
+### O-088 final warning-fatal runtime request
+
+Independent R16 `d621d696d5a188189041fa73e54495eb56e8db49`
+accepted code `7a3a15a13d19be87c5269966afc5fd6b1054d660` and delivery
+`764aab2390940746f4409ee52a3437b5cf1d341f` at static-authored scope with no
+P0-P3. The owner approved the minimal completion plan: S00 alone prepares,
+submits, monitors, and audits one fresh warning-fatal nine-node job with no new
+subagent and no retry. RUN_REQUEST Section K freezes the exact tuple: launcher
+SHA-256 `8cb97121...`, 90-file list/state `c9e0a417...`/`ffd96718...`, node
+manifest `b216a651...`, one GH200/20 minutes, and fresh paths keyed
+`764aab239094`. Besides formal 9/9 and complete process/checksum evidence, raw
+logs must contain no unraisable-warning, worker-abort, or temp-cleanup breach
+token. No full-data, cache, model-step, metric, profile, DDP, matrix,
+scientific, merge, or push scope is authorized.

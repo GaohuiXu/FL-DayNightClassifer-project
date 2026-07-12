@@ -1694,3 +1694,83 @@ source `compile()`; all four embedded Python heredocs in the diagnostic
 launcher passed stdlib `compile()`; and `git diff --check` was empty. The raw
 Job 352354 manifest independently returned 51 `OK` records. These checks do
 not authorize or substitute for runtime validation.
+
+---
+
+## K. Final warning-fatal nine-node runtime gate — EXACT ONE-TIME OWNER APPROVAL
+
+The owner approved the minimal completion plan in the active S00 task on
+2026-07-12: no new subagent, one fresh single-GH200 warning-fatal execution,
+direct S00 monitoring, and no retry. This section freezes its exact tuple.
+
+### Immutable identity and scope
+
+- code candidate: `7a3a15a13d19be87c5269966afc5fd6b1054d660`;
+- reviewed delivery/executable: `764aab2390940746f4409ee52a3437b5cf1d341f`;
+- candidate-to-executable runtime-input diff: zero paths;
+- R16 static review: `d621d696d5a188189041fa73e54495eb56e8db49`;
+- launcher blob/SHA-256: `90e477e68091276fd1c92bf914e0f0dd1fd0c1b4` /
+  `8cb97121ada2041517f56b2c9291dea1c49771d247cd2d81a83c89d73450f5ed`;
+- bootstrap SHA-256:
+  `f57befbb5082aaf4d4bb186958a88420ea873e0fdee5c65da1091b73f566c2bf`;
+- exact 90-file source-list/state SHA-256:
+  `c9e0a4175725e59d1e4e3e3efbe3421c0d9b8480fd5161cf5147ae9184eb511f` /
+  `ffd96718a8333690f875152a0318e77e607eed0cde6a7b58ee5bb4384f442273`;
+- exact nine-node manifest SHA-256:
+  `b216a6512b5d54d58c1e9acf632ae34b4fac1b930df0cafe83c4ca7b86e6eeca`.
+
+The node list/order is exactly Section I. Every subprocess includes
+`-W error::pytest.PytestUnraisableExceptionWarning`; config and summary must
+record `pytest_unraisable_exception_warning_is_fatal=true`. Scope is literal
+mini only. Full cache/trainval, model steps, metrics, profile, DDP, matrix,
+seeds, and scientific work are excluded.
+
+### Resources, fresh paths, and exact command
+
+- one node/task/GH200, eight CPUs, 64 GiB, `00:20:00`, `--no-requeue`;
+- detached worktree:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_worktrees/s07b_mw_warn_764aab239094`;
+- snapshot/output:
+  `execution_snapshots/s07b_mw_diag_764aab239094` /
+  `outputs/s07b_mw_diag_764aab239094` under the environment root;
+- logs: `logs/s07b_mw_warn_764aab239094_%j.{out,err}`;
+- job name: `flv3_s07b_warn_764aab2`.
+
+```bash
+cd /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_worktrees/s07b_mw_warn_764aab239094 && \
+test -z "$(git branch --show-current)" && \
+test "$(git rev-parse HEAD)" = "764aab2390940746f4409ee52a3437b5cf1d341f" && \
+test -z "$(git status --short)" && \
+test "$(git hash-object fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh)" = "90e477e68091276fd1c92bf914e0f0dd1fd0c1b4" && \
+test "$(sha256sum fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh | awk '{print $1}')" = "8cb97121ada2041517f56b2c9291dea1c49771d247cd2d81a83c89d73450f5ed" && \
+test "$(bash fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh --print-source-files | wc -l)" = "90" && \
+test "$(bash fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh --print-source-files | sha256sum | awk '{print $1}')" = "c9e0a4175725e59d1e4e3e3efbe3421c0d9b8480fd5161cf5147ae9184eb511f" && \
+test "$(bash fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh --print-source-files | while IFS= read -r path; do sha256sum "$path"; done | sha256sum | awk '{print $1}')" = "ffd96718a8333690f875152a0318e77e607eed0cde6a7b58ee5bb4384f442273" && \
+test "$(bash fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh --print-nodes | sha256sum | awk '{print $1}')" = "b216a6512b5d54d58c1e9acf632ae34b4fac1b930df0cafe83c4ca7b86e6eeca" && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_mw_diag_764aab239094 && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_mw_diag_764aab239094 && \
+test -z "$(find /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs -maxdepth 1 -type f -name 's07b_mw_warn_764aab239094_*' -print -quit)" && \
+test -z "$(squeue -u "$USER" -h -o '%i %j' | awk '$2 == "flv3_s07b_warn_764aab2" {print}')" && \
+sbatch --nodes=1 --ntasks=1 --gpus-per-node=nvidia_gh200_120gb:1 \
+  --cpus-per-task=8 --mem=64G --time=00:20:00 --no-requeue \
+  --job-name=flv3_s07b_warn_764aab2 \
+  --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07b_mw_warn_764aab239094_%j.out \
+  --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07b_mw_warn_764aab239094_%j.err \
+  --export=ALL,EXPECTED_S07B_MW_CANDIDATE_SHA=7a3a15a13d19be87c5269966afc5fd6b1054d660,EXPECTED_S07B_MW_EXECUTABLE_SHA=764aab2390940746f4409ee52a3437b5cf1d341f,EXPECTED_S07B_MW_LAUNCHER_SHA256=8cb97121ada2041517f56b2c9291dea1c49771d247cd2d81a83c89d73450f5ed,EXPECTED_S07B_MW_SOURCE_SHA256=ffd96718a8333690f875152a0318e77e607eed0cde6a7b58ee5bb4384f442273,EXPECTED_S07B_MW_SOURCE_LIST_SHA256=c9e0a4175725e59d1e4e3e3efbe3421c0d9b8480fd5161cf5147ae9184eb511f,S07B_MW_APPROVAL_SCOPE=s07b-multiworker-diagnostic-only,S07B_MW_MINI_DATAROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini,S07B_MW_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_mw_diag_764aab239094 \
+  fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh
+```
+
+### Strict acceptance and stop rule
+
+PASS requires every Section I identity, 9/9 JUnit, timeout, supervisor,
+process-cleanup, artifact, and checksum predicate, plus:
+
+- config and summary both record warning-fatal policy `true`;
+- no node/scheduler log contains `PytestUnraisableExceptionWarning`, a
+  DataLoader worker abort/SIGABRT, or `S07B_TMP_CLEANUP_FAILURE`;
+- node 8 and node 9 return zero with clean iterator/worker teardown.
+
+One submission consumes approval regardless of outcome. Any drift or failed
+predicate is terminal FAIL. No retry, requeue, replacement, alternate command,
+automatic resubmission, or follow-on is approved. PASS establishes only the
+bounded S07-B multiprocessing/runtime gate.
