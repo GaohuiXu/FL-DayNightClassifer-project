@@ -29,9 +29,14 @@ must fail loudly.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import importlib.metadata
+import json
 import os
+from pathlib import Path
 import random as _random
+import subprocess
+from urllib.parse import unquote, urlparse
 import warnings
 from contextlib import nullcontext
 
@@ -86,6 +91,95 @@ def require_spconv_238() -> None:
         raise RuntimeError("lidar/fusion mode requires installed spconv==2.3.8") from exc
     if version != "2.3.8":
         raise RuntimeError(f"lidar/fusion mode requires spconv==2.3.8, found {version!r}")
+
+
+def _source_checkout_identity(distribution: str, import_name: str) -> tuple[str, str]:
+    """Return ``(clean Git HEAD, import origin)`` for one editable dependency."""
+    dist = importlib.metadata.distribution(distribution)
+    try:
+        direct = json.loads(dist.read_text("direct_url.json") or "")
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"{distribution} lacks valid direct_url build provenance") from exc
+    parsed = urlparse(str(direct.get("url", "")))
+    if parsed.scheme != "file":
+        vcs = direct.get("vcs_info", {})
+        commit = str(vcs.get("commit_id", ""))
+        if len(commit) != 40:
+            raise RuntimeError(f"{distribution} direct_url lacks an exact source commit")
+        source = ""
+        head = commit
+    else:
+        source = unquote(parsed.path)
+        if not source:
+            raise RuntimeError(f"{distribution} direct_url has no source checkout path")
+        try:
+            head = subprocess.run(
+                ["git", "-C", source, "rev-parse", "HEAD"],
+                check=True, capture_output=True, text=True,
+            ).stdout.strip()
+            dirty = subprocess.run(
+                ["git", "-C", source, "status", "--porcelain", "--untracked-files=no"],
+                check=True, capture_output=True, text=True,
+            ).stdout.strip()
+        except (OSError, subprocess.CalledProcessError) as exc:
+            raise RuntimeError(f"cannot attest {distribution} source checkout {source!r}") from exc
+        if dirty:
+            raise RuntimeError(f"{distribution} source checkout is modified")
+    spec = importlib.util.find_spec(import_name)
+    if spec is None or not spec.origin:
+        raise RuntimeError(f"cannot resolve installed import origin for {import_name}")
+    origin = str(Path(spec.origin).resolve())
+    if source and Path(source).resolve() not in Path(origin).parents:
+        raise RuntimeError(
+            f"{distribution} import origin {origin!r} is not from attested source {source!r}"
+        )
+    return head, origin
+
+
+def verify_runtime_dependency_identity(run_config: dict) -> dict[str, str]:
+    """Fail before construction on Torch and sparse package/source identity drift.
+
+    The returned paths are suitable for an execution manifest.  This proves the
+    installed package version, active import root, and clean source commit; an
+    approved launcher must additionally hash its concrete runtime/source snapshot.
+    """
+    expected_torch = str(run_config.get("dependency-torch", ""))
+    if not expected_torch or torch.__version__ != expected_torch:
+        raise RuntimeError(
+            f"Torch build identity drift: expected={expected_torch!r}, actual={torch.__version__!r}"
+        )
+    result = {"torch": torch.__version__}
+    if str(run_config.get("det-lidar-arch")) != "second_075":
+        return result
+    expected = {
+        "spconv": (
+            "spconv", "spconv", str(run_config.get("dependency-spconv", "")),
+            str(run_config.get("dependency-spconv-source-sha", "")),
+        ),
+        "cumm": (
+            "cumm", "cumm", str(run_config.get("dependency-cumm", "")),
+            str(run_config.get("dependency-cumm-source-sha", "")),
+        ),
+    }
+    for label, (distribution, import_name, expected_version, expected_head) in expected.items():
+        try:
+            actual_version = importlib.metadata.version(distribution)
+        except importlib.metadata.PackageNotFoundError as exc:
+            raise RuntimeError(f"required sparse dependency {distribution!r} is not installed") from exc
+        if actual_version != expected_version:
+            raise RuntimeError(
+                f"{label} package identity drift: expected={expected_version!r}, "
+                f"actual={actual_version!r}"
+            )
+        actual_head, origin = _source_checkout_identity(distribution, import_name)
+        if actual_head != expected_head:
+            raise RuntimeError(
+                f"{label} source identity drift: expected={expected_head!r}, actual={actual_head!r}"
+            )
+        result[f"{label}_version"] = actual_version
+        result[f"{label}_source_sha"] = actual_head
+        result[f"{label}_import_origin"] = origin
+    return result
 
 
 def current_precision() -> str:

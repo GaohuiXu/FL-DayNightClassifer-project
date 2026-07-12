@@ -22,6 +22,7 @@ _HEX = frozenset("0123456789abcdef")
 _MODES = frozenset({"camera_only", "lidar_only", "fusion"})
 _PRECISIONS = frozenset({"fp32", "fp16"})
 _OPTIMIZERS = frozenset({"adam", "adamw"})
+_SAMPLING = frozenset({"uniform", "cbgs"})
 _CAMERAS = frozenset({"swin_t_stride8", "none"})
 _LIDARS = frozenset({"second_075", "pillar_020", "none"})
 _FUSIONS = frozenset({"conv_fuser_256", "none"})
@@ -31,11 +32,13 @@ _ROOT = frozenset({
     "schema_version", "model", "precision", "optimizer", "training", "data",
     "dependencies", "evaluation",
 })
-_MODEL = frozenset({"mode", "camera_arch", "lidar_arch", "fusion_arch", "head_arch"})
+_MODEL = frozenset({
+    "mode", "camera_arch", "camera_pretrained", "lidar_arch", "fusion_arch", "head_arch",
+})
 _OPT = frozenset({"name", "learning_rate", "weight_decay"})
 _TRAIN = frozenset({
     "max_optimizer_steps", "micro_batch_size", "world_size", "accumulation_steps",
-    "effective_global_batch", "seed", "max_epochs", "num_workers", "ema_decay",
+    "effective_global_batch", "seed", "max_epochs", "num_workers", "ema_decay", "sampling",
 })
 _DATA = frozenset({
     "dataroot", "version", "train_split", "val_split", "n_sweeps", "caches", "zip_manifest",
@@ -166,7 +169,13 @@ class ResolvedConfig:
             "s06-production-runtime": True,
             "resolved-config-sha256": self.sha256,
             "model-mode": m["mode"],
+            "det-camera-arch": m["camera_arch"],
+            "det-camera-pretrained": m["camera_pretrained"],
+            "det-lidar-arch": m["lidar_arch"],
+            "det-fusion-arch": m["fusion_arch"],
+            "det-head-arch": m["head_arch"],
             "precision": self.data["precision"],
+            "dependency-torch": self.data["dependencies"]["torch"],
             "dependency-spconv": self.data["dependencies"]["spconv"],
             "dependency-spconv-source-sha": self.data["dependencies"]["spconv_source_sha"],
             "dependency-cumm": self.data["dependencies"]["cumm"],
@@ -179,6 +188,11 @@ class ResolvedConfig:
             "max-epochs": t["max_epochs"],
             "num-workers": t["num_workers"],
             "det-ema-decay": t["ema_decay"],
+            "det-cbgs": t["sampling"] == "cbgs",
+            "det-cbgs-thresh": 0.5,
+            "det-cbgs-max-repeat": 4.0,
+            "det-class-weights": None,
+            "det-reg-class-weights": None,
             "learning-rate": o["learning_rate"],
             "weight-decay": o["weight_decay"],
             "det-optimizer": o["name"],
@@ -213,6 +227,12 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
     model = _mapping(root["model"], "model"); _keys(model, _MODEL, "model")
     mode = _enum(model["mode"], _MODES, "model.mode")
     camera = _enum(model["camera_arch"], _CAMERAS, "model.camera_arch")
+    camera_pretrained = model["camera_pretrained"]
+    if camera == "none":
+        if camera_pretrained is not None:
+            raise ConfigError("model.camera_pretrained must be null when camera_arch='none'")
+    elif not isinstance(camera_pretrained, bool):
+        raise ConfigError("model.camera_pretrained must explicitly be true or false")
     lidar = _enum(model["lidar_arch"], _LIDARS, "model.lidar_arch")
     fusion = _enum(model["fusion_arch"], _FUSIONS, "model.fusion_arch")
     _enum(model["head_arch"], _HEADS, "model.head_arch")
@@ -231,6 +251,9 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
     _number(opt["weight_decay"], "optimizer.weight_decay")
 
     train = _mapping(root["training"], "training"); _keys(train, _TRAIN, "training")
+    sampling = _enum(train["sampling"], _SAMPLING, "training.sampling")
+    if sampling == "cbgs" and mode != "fusion":
+        raise ConfigError("training.sampling='cbgs' is frozen only for the F-CBGS fusion candidate")
     for key in ("max_optimizer_steps", "micro_batch_size", "world_size", "accumulation_steps",
                 "max_epochs"):
         _integer(train[key], f"training.{key}")
@@ -274,7 +297,7 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
     deps = _mapping(root["dependencies"], "dependencies"); _keys(deps, _DEPS, "dependencies")
     if not isinstance(deps["torch"], str) or not deps["torch"]:
         raise ConfigError("dependencies.torch must be an explicit version")
-    if mode in {"lidar_only", "fusion"}:
+    if lidar == "second_075":
         if deps["spconv"] != "2.3.8":
             raise ConfigError("lidar/fusion requires dependencies.spconv exactly '2.3.8'")
         if deps["cumm"] != "0.7.13":
@@ -283,10 +306,8 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
             value = deps[key]
             if not isinstance(value, str) or len(value) != 40 or any(c not in _HEX for c in value):
                 raise ConfigError(f"dependencies.{key} must be an exact lowercase 40-character Git SHA")
-        if precision not in _PRECISIONS:
-            raise ConfigError("unsupported sparse precision")
     elif any(deps[k] is not None for k in ("spconv", "spconv_source_sha", "cumm", "cumm_source_sha")):
-        raise ConfigError("camera_only must set spconv/cumm dependency fields to null")
+        raise ConfigError("non-SECOND modes must set spconv/cumm dependency fields to null")
 
     evaluation = _mapping(root["evaluation"], "evaluation"); _keys(evaluation, _EVAL, "evaluation")
     if not isinstance(evaluation["timing"], bool):

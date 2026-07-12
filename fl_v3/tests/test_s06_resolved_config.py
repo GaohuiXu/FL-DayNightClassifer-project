@@ -17,13 +17,15 @@ def valid_config(tmp_path=None):
     return {
         "schema_version": "s06.v1",
         "model": {"mode": "camera_only", "camera_arch": "swin_t_stride8",
+                  "camera_pretrained": False,
                   "lidar_arch": "none", "fusion_arch": "none",
                   "head_arch": "centerhead_multitask"},
         "precision": "fp32",
         "optimizer": {"name": "adamw", "learning_rate": 0.001, "weight_decay": 0.01},
         "training": {"max_optimizer_steps": 4, "micro_batch_size": 2, "world_size": 1,
                      "accumulation_steps": 2, "effective_global_batch": 4, "seed": 7,
-                     "max_epochs": 3, "num_workers": 0, "ema_decay": 0.9},
+                     "max_epochs": 3, "num_workers": 0, "ema_decay": 0.9,
+                     "sampling": "uniform"},
         "data": {"dataroot": root, "version": "v1.0-mini", "train_split": "mini_train",
                  "val_split": "mini_val", "n_sweeps": 10,
                  "caches": {
@@ -53,6 +55,12 @@ def test_config_hash_is_order_stable_and_roundtrips(tmp_path):
     assert run["resolved-config-sha256"] == a.sha256
     assert type(run["nuscenes-cache-identities"]) is dict
     assert all(type(value) is dict for value in run["nuscenes-cache-identities"].values())
+    assert run["det-camera-arch"] == "swin_t_stride8"
+    assert run["det-lidar-arch"] == "none"
+    assert run["det-fusion-arch"] == "none"
+    assert run["det-head-arch"] == "centerhead_multitask"
+    assert run["det-cbgs"] is False
+    assert run["det-class-weights"] is None
 
 
 @pytest.mark.parametrize("mutation", [
@@ -70,7 +78,9 @@ def test_config_rejects_unknown_alias_legacy_missing_and_batch_drift(tmp_path, m
 
 def test_lidar_pins_exact_spconv(tmp_path):
     raw = valid_config(tmp_path)
-    raw["model"].update(mode="lidar_only", camera_arch="none", lidar_arch="second_075")
+    raw["model"].update(
+        mode="lidar_only", camera_arch="none", camera_pretrained=None, lidar_arch="second_075"
+    )
     with pytest.raises(ConfigError, match="spconv"):
         resolve_config(raw)
     raw["dependencies"]["spconv"] = "2.3.8"
@@ -78,6 +88,38 @@ def test_lidar_pins_exact_spconv(tmp_path):
     raw["dependencies"]["cumm"] = "0.7.13"
     raw["dependencies"]["cumm_source_sha"] = "3" * 40
     assert resolve_config(raw).model_mode == "lidar_only"
+
+
+def test_pillar_does_not_claim_spconv_and_cbgs_is_fusion_only(tmp_path):
+    raw = valid_config(tmp_path)
+    raw["model"].update(
+        mode="lidar_only", camera_arch="none", camera_pretrained=None, lidar_arch="pillar_020"
+    )
+    assert resolve_config(raw).model_mode == "lidar_only"
+    raw["training"]["sampling"] = "cbgs"
+    with pytest.raises(ConfigError, match="F-CBGS"):
+        resolve_config(raw)
+
+
+def test_fusion_cbgs_is_hash_bound_and_disables_loss_weights(tmp_path):
+    raw = valid_config(tmp_path)
+    raw["model"].update(
+        mode="fusion", lidar_arch="second_075", fusion_arch="conv_fuser_256"
+    )
+    raw["dependencies"].update(
+        spconv="2.3.8", spconv_source_sha="2" * 40,
+        cumm="0.7.13", cumm_source_sha="3" * 40,
+    )
+    uniform = resolve_config(raw)
+    raw["training"]["sampling"] = "cbgs"
+    cbgs = resolve_config(raw)
+    assert cbgs.sha256 != uniform.sha256
+    run = cbgs.to_run_config()
+    assert run["det-cbgs"] is True
+    assert run["det-cbgs-thresh"] == 0.5
+    assert run["det-cbgs-max-repeat"] == 4.0
+    assert run["det-class-weights"] is None
+    assert run["det-reg-class-weights"] is None
 
 
 def test_physical_identities_reject_drift(tmp_path):

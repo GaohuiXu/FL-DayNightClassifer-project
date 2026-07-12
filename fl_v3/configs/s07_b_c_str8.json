@@ -1,0 +1,19 @@
+{
+  "schema_version": "s06.v1",
+  "template_only": {"reason": "full t1.v2 identities, budget, seed, and initialization policy are not owner-approved"},
+  "model": {"mode": "camera_only", "camera_arch": "swin_t_stride8", "camera_pretrained": null, "lidar_arch": "none", "fusion_arch": "none", "head_arch": "centerhead_multitask"},
+  "precision": "fp16",
+  "optimizer": {"name": "adamw", "learning_rate": 0.0001, "weight_decay": 0.01},
+  "training": {"max_optimizer_steps": 1, "micro_batch_size": 1, "world_size": 1, "accumulation_steps": 1, "effective_global_batch": 1, "seed": 0, "max_epochs": 1, "num_workers": 0, "ema_decay": null, "sampling": "uniform"},
+  "data": {
+    "dataroot": "REQUIRES_EXACT_NUSCENES_MODULE_ROOT",
+    "version": "v1.0-trainval", "train_split": "train", "val_split": "val", "n_sweeps": 10,
+    "caches": {
+      "train": {"format": "t1.v2", "path": "REQUIRES_FULL_T1_V2/train.pkl", "sidecar_path": "REQUIRES_FULL_T1_V2/train.meta.json", "logical_sha256": "FULL_T1_V2_NOT_MATERIALIZED", "pickle_sha256": "FULL_T1_V2_NOT_MATERIALIZED", "sidecar_sha256": "FULL_T1_V2_NOT_MATERIALIZED"},
+      "val": {"format": "t1.v2", "path": "REQUIRES_FULL_T1_V2/val.pkl", "sidecar_path": "REQUIRES_FULL_T1_V2/val.meta.json", "logical_sha256": "FULL_T1_V2_NOT_MATERIALIZED", "pickle_sha256": "FULL_T1_V2_NOT_MATERIALIZED", "sidecar_sha256": "FULL_T1_V2_NOT_MATERIALIZED"}
+    },
+    "zip_manifest": {"path": "REQUIRES_APPROVED_MANIFEST/manifest.sqlite", "logical_sha256": "APPROVED_MANIFEST_IDENTITY_REQUIRED", "file_sha256": "APPROVED_MANIFEST_IDENTITY_REQUIRED"}
+  },
+  "dependencies": {"torch": "2.11.0+cu128", "spconv": null, "spconv_source_sha": null, "cumm": null, "cumm_source_sha": null},
+  "evaluation": {"timing": false}
+}

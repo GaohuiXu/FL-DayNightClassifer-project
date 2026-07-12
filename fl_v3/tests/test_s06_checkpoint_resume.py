@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import random
+import types
 
 import numpy as np
 import pytest
@@ -313,6 +314,40 @@ def test_real_late_component_failure_rolls_back_every_component_and_rng(
             path, model=model, optimizer=optimizer, scheduler=scheduler,
             grad_scaler=scaler, ema=ema, config=cfg,
         )
+    _assert_bundle_unchanged(before, model, optimizer, scheduler, scaler, ema, caller_state)
+
+
+@pytest.mark.parametrize("late_component", ["model", "optimizer"])
+def test_real_model_or_optimizer_load_failure_rolls_back_every_component_and_rng(
+    tmp_path, late_component,
+):
+    """Inject after the real live object's load has mutated it, not in preflight."""
+    cfg, path, model, optimizer, scheduler, scaler, ema, caller_state = _full_checkpoint(tmp_path)
+    raw = torch.load(path, weights_only=False)
+    first = next(iter(raw["model"]))
+    raw["model"][first] = raw["model"][first] + 1
+    raw["optimizer"]["param_groups"][0]["lr"] *= 0.5
+    torch.save(raw, path)
+
+    component = model if late_component == "model" else optimizer
+    real_load = component.load_state_dict
+    calls = {"count": 0}
+
+    def fail_after_real_load(_self, state, *args, **kwargs):
+        calls["count"] += 1
+        result = real_load(state, *args, **kwargs)
+        if calls["count"] == 1:
+            raise RuntimeError(f"hostile real {late_component} load failure")
+        return result
+
+    component.load_state_dict = types.MethodType(fail_after_real_load, component)
+    before = _bundle_snapshot(model, optimizer, scheduler, scaler, ema, caller_state)
+    with pytest.raises(RuntimeError, match="rolled back"):
+        load_checkpoint(
+            path, model=model, optimizer=optimizer, scheduler=scheduler,
+            grad_scaler=scaler, ema=ema, config=cfg,
+        )
+    assert calls["count"] == 2
     _assert_bundle_unchanged(before, model, optimizer, scheduler, scaler, ema, caller_state)
 
 

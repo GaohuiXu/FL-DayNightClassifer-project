@@ -1,9 +1,9 @@
-"""S06 centralized production trainer.
+"""S07-B resolved centralized trainer.
 
 This entry point accepts only the canonical ``s06.v1`` config.  It constructs
-one loader, advances schedules by successful optimizer updates, and writes one
-complete boundary-safe checkpoint.  S07-B must wire the reviewed S02-S05 module
-and modality-aware dataset interfaces before real nuScenes execution is possible.
+one mode-aware loader, maps exact architecture enums to the reviewed stack,
+advances schedules by successful optimizer updates, and writes one complete
+boundary-safe checkpoint.  DDP remains fail closed.
 """
 from __future__ import annotations
 
@@ -22,7 +22,12 @@ from fl_v3.config import load_resolved_config, verify_physical_data_identities
 from fl_v3.training.checkpoint import load_checkpoint, save_checkpoint
 from fl_v3.training.loop import train_one_epoch
 from fl_v3.training.runtime_state import PersistentEpochIterator, TrainingState
-from fl_v3.utils.runtime import enforce_determinism, make_grad_scaler, seed_everything
+from fl_v3.utils.runtime import (
+    enforce_determinism,
+    make_grad_scaler,
+    seed_everything,
+    verify_runtime_dependency_identity,
+)
 
 
 def _build_optimizer(model: torch.nn.Module, config) -> torch.optim.Optimizer:
@@ -61,6 +66,8 @@ def main() -> None:
     args = parser.parse_args()
 
     config = load_resolved_config(args.config)
+    runtime_dependencies = verify_runtime_dependency_identity(config.to_run_config())
+    print(json.dumps({"runtime_dependencies": runtime_dependencies}, sort_keys=True), flush=True)
     verify_physical_data_identities(config)
     train_spec = config.data["training"]
     declared_world = int(train_spec["world_size"])
@@ -75,8 +82,6 @@ def main() -> None:
     seed_everything(seed)
     enforce_determinism(precision=config.precision, strict=(config.precision == "fp32"))
 
-    # S07-B will replace this bridge only with reviewed enum/module and mode-aware
-    # data integration.  Current S06 tasks fail closed before disabled-modality I/O.
     from fl_v3.training.tasks import get_task
 
     run_config = config.to_run_config()
@@ -152,6 +157,9 @@ def main() -> None:
             "nonfinite/overflow/epoch stop remains negative evidence"
         )
     (out_dir / "resolved_config.json").write_bytes(config.canonical_bytes + b"\n")
+    (out_dir / "runtime_dependencies.json").write_text(
+        json.dumps(runtime_dependencies, sort_keys=True) + "\n", encoding="utf-8"
+    )
     (out_dir / "checkpoint.sha256").write_text(_checkpoint_sha256(checkpoint) + "\n", encoding="utf-8")
 
 
