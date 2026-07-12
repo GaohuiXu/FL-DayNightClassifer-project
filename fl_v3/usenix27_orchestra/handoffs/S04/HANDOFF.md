@@ -16,11 +16,13 @@
   `2729f45144053e1b554a0bf04640b8bbc1ff43e4`.
 - Pending source-diagnostic executable:
   `bd1fc9af139cce85240c5908d6704c38425f3c1f`.
+- Owner-approved O-025 option-A executable:
+  `84985970f0f4b4acb8704ddbbd6ae9b2bf94ca9f`.
 - Final request-delivery HEAD is returned after its commit; a commit cannot embed
   its own SHA without changing it.
 - Job-336718 evidence delivery is returned after the docs commit.
-- Worker self-assessment: **CHANGES-REQUESTED / DTYPE AND B=4 TRAIN PASS,
-  UNIVERSAL CURRENT FP16 EVAL BLOCKER CONFIRMED**.
+- Worker self-assessment: **O-025 REMEDIATION IMPLEMENTED; BOUNDED GH200
+  REVALIDATION PENDING; NOT PASS**.
 
 This is not an integration PASS. Jobs `335566`, `335579`, and `336718` all remain
 visible failed negatives. Job `336718` validated the original fp16 output assertion
@@ -28,6 +30,32 @@ and the complete B=4 dtype/forward/backward/memory case, but the added same-mode
 train/backward-to-eval non-empty reuse sub-check failed inside the spconv tuner.
 No retry is authorized. Independent S04-R plus Orchestra disposition remain
 required.
+
+## O-025 acknowledgment and scoped remediation
+
+The worker read the complete canonical S00 diff at
+`f413b837f07846a667f91b265016448771e4f99b` without merging or cherry-picking it,
+and acknowledges O-025 plus the updated S04 scheduling/acceptance text. Executable
+`84985970f0f4b4acb8704ddbbd6ae9b2bf94ca9f` implements exactly option A:
+
+- exact `spconv==2.3.8` fail-closed validation occurs before even an empty fp16
+  eval can return;
+- fp16 eval requires `torch.no_grad()` and keeps the encoder, active eval voxel
+  cap, GroupNorm, and every non-spconv module in eval;
+- only each spconv `SparseConvolution` leaf's dispatch flag is temporarily set,
+  selecting the installed training/custom-fwd coherent-half feature/filter path;
+- `finally` restores every prior convolution flag, including on exceptions;
+- no dependency patch, fp32 eval fallback, secondary weights, training-semantic,
+  geometry, cap, architecture, or precision-interface change was made.
+
+New tests preserve the prior train/backward-to-eval failure sequence under its
+now-locked `no_grad` inference contract and add version/empty fail-closed,
+fresh-small/large, before/after lifecycle, mode restoration, no-grad/no-gradient,
+FP32 master/full-state hash, training-dispatch parity, fp32 control, and B=4 eval
+memory coverage. Local `python3 -m py_compile`, launcher `bash -n`, and
+`git diff --check` pass; the login runtime has neither torch nor pytest, so no
+runtime test was represented as locally executed. `RUN_REQUEST.md` now requests
+one exact synthetic GH200 job and remains pending S00 approval.
 
 ## Delivered architecture contract
 
@@ -84,7 +112,9 @@ Changed/added within S04 ownership:
 - `fl_v3/tests/test_sparse_voxel_encoder.py`;
 - `fl_v3/tests/test_s04_second_contract.py`;
 - `fl_v3/tests/test_s04_second_smoke.py`;
+- `fl_v3/tests/test_s04_fp16_eval_dispatch.py`;
 - `fl_v3/usenix27_orchestra/handoffs/S04/{run_s04_second_smoke.sh,RUN_REQUEST.md,RESULTS.md,HANDOFF.md}`.
+- `fl_v3/usenix27_orchestra/handoffs/S04/run_s04_option_a_validation.sh`.
 
 Commit history:
 
@@ -201,7 +231,7 @@ cache order; it is the current eval dispatch's unsupported mixed-dtype tuple.
 | empty/extreme occupancy | PASS bounded synthetic runtime | Job 335579 |
 | metric/camera-fusion mapping | PASS static | 0.6m, 180x180 golden |
 | sample/batch isolation | PASS bounded synthetic runtime | Job 335579 |
-| fp32/fp16 behavior | PARTIAL PASS / BLOCKED | fp16 train/B=4 pass; Job 336728 confirms all current fp16 eval variants fail at mixed-dtype first SubMConv; fp32 eval passes |
+| fp32/fp16 behavior | O-025 IMPLEMENTED / RUNTIME PENDING | historical fp16 train/B=4 and fp32 eval pass; old eval failure preserved; exact option-A validation not yet run |
 | B=4 forward/backward | PASS bounded synthetic runtime | Job 336718, correct shape/fp16/loss/backward/finite grads |
 | B=4 bounded memory | PASS bounded observation | Job 336718, allocated/reserved/device bytes recorded above |
 | sparse composition remediation | PASS bounded synthetic runtime | explicit forwarding + Job 335579 |
@@ -233,10 +263,10 @@ Forbidden:
 
 1. Preserve Jobs 335566 (composition), 335579 (fp16 output dtype), and 336718
    (same-model eval reuse spconv tuning) as failed negatives.
-2. Owner/S00 selects one remedy from the decision docket in `RESULTS.md`; no option
-   is implemented or authorized by this handoff.
-3. Require fresh/same-model fp16 eval, parameter-state preservation, fp32 control,
-   parity, version guard and bounded memory/lifecycle evidence for the selected
-   remedy.
+2. S00 audits and, only if exact scope is accepted, approves the immutable O-025
+   request tuple once; no job is currently submitted.
+3. Preserve all raw outcomes and require fresh/same-model fp16 eval,
+   parameter-state preservation, fp32 control, parity, version guard and bounded
+   memory/lifecycle evidence without weakening the historical failure fixture.
 4. Only after reviewed remediation and independent S04-R may S07-B consider this
    module for integration.

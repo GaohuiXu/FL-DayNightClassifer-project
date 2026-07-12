@@ -1,6 +1,139 @@
-# S04 RUN REQUEST — spconv fp16 lifecycle diagnostic
+# S04 RUN REQUEST — O-025 option-A fp16 eval validation
 
 ## Current approval state
+
+`PENDING_S00_EXACT_TUPLE_APPROVAL_NO_JOB_SUBMITTED`
+
+The owner selected option A in canonical decision O-025. This request is one
+necessary, validation-only use of the owner's temporary S02-S05 coordination
+delegation under O-025; it is not an O-009 rerun expansion. Preparing and
+committing this request does not approve submission. S00 must approve the exact
+delivery/executable identity, request/source/launcher hashes, roots, command,
+resources, test inventory, and stop conditions below. No retry or follow-on is
+requested.
+
+### O-025 implementation and immutable execution identity
+
+- Worker branch: `codex/s04-lidar-second`.
+- Approved canonical decision source read and acknowledged without cherry-pick:
+  S00 commit `f413b837f07846a667f91b265016448771e4f99b`, O-025 in
+  `ORCHESTRA.md` and the corresponding active S04 row/order in `SESSIONS.md`.
+- Exact executable commit:
+  `84985970f0f4b4acb8704ddbbd6ae9b2bf94ca9f`.
+- Exact executable tree:
+  `913fee67d405ed554b3f7df37c3c137f6f577c2d`.
+- Exact runtime source-state SHA-256 over the 18 locale-sorted files enumerated
+  by the launcher:
+  `a2608664abd6b69f09b96f19b915cdefe1431aa8b503985f2184b94817e92463`.
+- Launcher: `run_s04_option_a_validation.sh`, SHA-256
+  `33cc9ccb97d6f67b6dc8f5224108898ef24d01c446d6b6c75320cdc5deecf45c`.
+- Focused O-025 fixture SHA-256:
+  `0b3b8dfe434bca69fb9137e60d5e011ae583e1a391d4ceec8f05fa50311dbd32`.
+- Request-delivery SHA, this file's SHA-256, and the derived identity-file
+  SHA-256 are supplied externally by S00 because this file cannot contain its
+  own enclosing commit/hash without changing them.
+
+The implementation preserves encoder/eval-cap, GroupNorm, and all non-spconv eval
+semantics. Only spconv `SparseConvolution.training` leaf dispatch flags are
+temporarily set during a non-empty fp16 eval backbone call under `torch.no_grad()`;
+every flag is restored in `finally`. The path fails closed unless the installed
+distribution is exactly `spconv==2.3.8`, including before an empty-input early
+return. It does not patch spconv, cast sparse eval to fp32, create secondary
+weights, change training behavior, or alter architecture/caps/interfaces.
+
+### Purpose, exact tests, and acceptance
+
+Run exactly 15 deterministic, synthetic-only tests:
+
+```bash
+python -m pytest -q -ra -s -p no:cacheprovider \
+  fl_v3/tests/test_s04_second_contract.py \
+  fl_v3/tests/test_sparse_voxel_encoder.py \
+  fl_v3/tests/test_s04_fp16_eval_dispatch.py \
+  fl_v3/tests/test_s04_second_smoke.py \
+  --junitxml="$S04_O025_OUTPUT_ROOT/pytest.junit.xml"
+```
+
+Acceptance is exactly 15 tests, zero failures/errors/skips, plus all immutable
+identity, allocation, version, source-state, and final `sha256sum -c` checks.
+Coverage includes unsupported-version and empty-input fail-closed behavior;
+fresh 6-voxel and 256-voxel fp16 eval; same-model eval before and after real
+train/backward; no eval gradients; fp32 master parameters and complete state-dict
+hash immutability; encoder/GroupNorm eval with only sparse-convolution dispatch
+temporarily changed and restored, including exception restoration; parity against
+ordinary training dispatch under `no_grad`; a fresh fp32 eval control; the existing
+empty/over-cap/isolation gates; the preserved B=4 fp16 train/backward case; and one
+B=4 fp16 eval dtype/finite/memory case. The pre-O-025 failing lifecycle fixture is
+retained as the same train/backward-to-eval sequence, now correctly executed under
+the locked `no_grad` inference contract.
+
+The job reads no mini/trainval/ZIP/cache/checkpoint/model artifact. It performs no
+optimizer/GradScaler/parameter update, data loading, model step, metric, profile,
+matrix, seed campaign, array, DDP, retry, resubmission, or follow-on action.
+
+### Resources, roots, and stop conditions
+
+- Exactly one shared GH200, one node, 8 CPUs, `00:20:00`; one job only.
+- Snapshot (confirmed absent while preparing this request):
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/snapshots/s04_o025_84985970f0f4_v1`.
+- Output (confirmed absent while preparing this request):
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s04_o025_84985970f0f4_v1`.
+- Logs:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s04_option_a_%j.{out,err}`.
+- Compact outputs only: execution identity, source hashes, pytest log/JUnit, and
+  checksum manifest. No checkpoint/cache/profile is produced.
+- Stop on identity/version/source/allocation mismatch, pre-existing root, any test
+  failure/error/skip, checksum failure, scheduler failure, or timeout. Do not
+  retry, requeue, resubmit, widen tests/resources, or launch another job.
+
+### Exact staging/submission template — not approved, not executed
+
+```bash
+set -euo pipefail
+S04_O025_APPROVED_DELIVERY_SHA=<exact S00-approved delivery SHA>
+S04_O025_APPROVED_REQUEST_SHA256=<exact S00-approved request SHA-256>
+S04_O025_APPROVED_IDENTITY_SHA256=<exact S00-approved identity SHA-256>
+EXEC_SHA=84985970f0f4b4acb8704ddbbd6ae9b2bf94ca9f
+EXEC_TREE=913fee67d405ed554b3f7df37c3c137f6f577c2d
+SOURCE_SHA=a2608664abd6b69f09b96f19b915cdefe1431aa8b503985f2184b94817e92463
+REQUEST=fl_v3/usenix27_orchestra/handoffs/S04/RUN_REQUEST.md
+SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/snapshots/s04_o025_84985970f0f4_v1
+OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s04_o025_84985970f0f4_v1
+TMP_SNAPSHOT="${SNAPSHOT}.tmp"
+
+test "$(git rev-parse HEAD)" = "${S04_O025_APPROVED_DELIVERY_SHA}"
+test "$(git branch --show-current)" = codex/s04-lidar-second
+test -z "$(git status --short)"
+test "$(sha256sum "${REQUEST}" | awk '{print $1}')" = "${S04_O025_APPROVED_REQUEST_SHA256}"
+test "$(git rev-parse "${EXEC_SHA}^{tree}")" = "${EXEC_TREE}"
+test ! -e "${SNAPSHOT}" && test ! -e "${TMP_SNAPSHOT}" && test ! -e "${OUTPUT}"
+mkdir -p "$(dirname "${SNAPSHOT}")"
+mkdir "${TMP_SNAPSHOT}"
+trap 'chmod -R u+w "${TMP_SNAPSHOT}" 2>/dev/null || true; rm -rf "${TMP_SNAPSHOT}"' EXIT
+git archive "${EXEC_SHA}" | tar -xf - -C "${TMP_SNAPSHOT}"
+install -m 0444 "${REQUEST}" "${TMP_SNAPSHOT}/${REQUEST}"
+printf '%s\n' \
+  'schema=s04.option-a-snapshot.v1' \
+  "exec_sha=${EXEC_SHA}" \
+  "exec_tree=${EXEC_TREE}" \
+  "source_sha256=${SOURCE_SHA}" \
+  "request_sha256=${S04_O025_APPROVED_REQUEST_SHA256}" \
+  > "${TMP_SNAPSHOT}/.s04_option_a_snapshot_identity"
+test "$(sha256sum "${TMP_SNAPSHOT}/.s04_option_a_snapshot_identity" | awk '{print $1}')" = "${S04_O025_APPROVED_IDENTITY_SHA256}"
+find "${TMP_SNAPSHOT}" -type f -exec chmod 0444 {} +
+chmod 0555 "${TMP_SNAPSHOT}/fl_v3/usenix27_orchestra/handoffs/S04/run_s04_option_a_validation.sh"
+find "${TMP_SNAPSHOT}" -type d -exec chmod 0555 {} +
+mv "${TMP_SNAPSHOT}" "${SNAPSHOT}"
+trap - EXIT
+(
+  cd "${SNAPSHOT}"
+  sbatch --chdir="${SNAPSHOT}" \
+    --export=ALL,EXPECTED_S04_O025_SHA="${EXEC_SHA}",EXPECTED_S04_O025_TREE="${EXEC_TREE}",EXPECTED_S04_O025_SOURCE_HASH="${SOURCE_SHA}",EXPECTED_S04_O025_REQUEST_HASH="${S04_O025_APPROVED_REQUEST_SHA256}",EXPECTED_S04_O025_IDENTITY_HASH="${S04_O025_APPROVED_IDENTITY_SHA256}",S04_O025_SNAPSHOT_ROOT="${SNAPSHOT}",S04_O025_OUTPUT_ROOT="${OUTPUT}" \
+    "${SNAPSHOT}/fl_v3/usenix27_orchestra/handoffs/S04/run_s04_option_a_validation.sh"
+)
+```
+
+## Prior lifecycle diagnostic approval state
 
 `APPROVED_ONCE_CONSUMED_BY_JOB_336728_COMPLETED_DIAGNOSTIC_NO_FOLLOW_ON`
 
