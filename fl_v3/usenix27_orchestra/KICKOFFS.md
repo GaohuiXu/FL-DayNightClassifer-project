@@ -498,6 +498,40 @@ production checkpoint host-memory gates under their exact authorization scopes.
 The S06 review branch is evidence, not a substitute for reporting the exact
 worker/review merge or cherry-pick plan.
 
+**S07-B launch refinement after O-031.** Start from the exact post-S06 canonical
+S00 kickoff-draft SHA supplied in the launch envelope; that base already contains
+reviewed S01/S07-A data-foundation history. On the dedicated
+`codex/s07-b-integrated-cl-stack` branch, propose and execute only after owner
+approval the following local integration sequence:
+
+1. non-FF merge final worker branches in order S02 `3aebf2d`, S03 `5089383`,
+   S04 `483e149`, S05 `a9c801f`, and S06 `6b7ef29`;
+2. do not merge reviewer branch ancestry as implementation. S02 and S05 final
+   reviews diverge from earlier worker/review baselines. Import only the exact
+   final `REVIEW.md` blobs for S02 `df142dc` /
+   `8bb56cafc22a38dfd7b4ef4d755f1531ab081b0371fe18585d744307f5640474`,
+   S03 `2f62e57` / `01dea6fd81f14bee8ee1cdf9e4dc66488e7253075459821b2e63947fde7566c1`,
+   S04 `a0763c2` / `8673672793235ae0226d9109c73cd39577d5f40e846b17425178a7011300ea2a`,
+   S05 `1c44084` / `67b58c8e9d1d1622d1af49a2c052cbadd66580500dbf988fc1184f2d0df6736e`,
+   and S06 `ca7bbd7` / `96d1996562bae4b5e2d1204cb6b51d276ad5c50dd7a75e928137b52b41ae0a59`;
+   record both Git blob IDs
+   and full SHA-256 values in the integration handoff;
+3. stop on any unexpected textual conflict. Independently inspect every clean
+   auto-merge: S05 and S06 both modify `eval/detection_eval.py`, and the legacy
+   detector/trainer/data APIs have semantic conflicts even where Git reports none;
+4. after the immutable history import, make separate integration commits for
+   mode-aware S01 I/O, reviewed S02-S05 construction/wiring, the single official
+   S05+S06 eval path, resolved configs/runtime/checkpoint/provenance, and only
+   demonstrably dead legacy cleanup. Never weaken or edit away a reviewed gate to
+   obtain a green integration result.
+
+The kickoff authorizes no compute by itself. Before any bounded engineering smoke,
+write an exact S07 `RUN_REQUEST.md` and stop for S00 audit under O-009. Full
+trainval `t1.v2` materialization, 100/1000-step training, production-shape/full-
+data profile, metrics, DDP, matrix, rerun or automatic retry require separate exact
+owner approval. A final S07-B handoff is not accepted until an independent review
+from its exact worker SHA reconciles all worker/review histories and raw artifacts.
+
 Do not invent new architecture or waive a failed owner gate. Return failures to the
 owning session. S07 may edit integration files only after reporting the merge plan
 and conflicts. Write handoffs/S07/HANDOFF.md. A minimal bounded smoke may use O-009
