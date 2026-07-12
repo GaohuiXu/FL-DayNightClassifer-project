@@ -1912,3 +1912,84 @@ Torch/CUDA/spconv/cumm, data/model workload, Slurm/GPU/compute. Job 349653 is
 terminal and O-061 consumed; no retry, requeue, replacement, alternate
 invocation, follow-on, merge, push or upload is authorized. The revised test and
 evidence require independent review before any focused validation proposal.
+
+### O-065 S07-B R9 scoped test/lifecycle remediation
+
+Canonical O-065 at exact Orchestra commit
+`8db33735a797f4b8827645c704a05f35da1eedd4` returned the R9 candidate for a
+six-path, test/evidence-only remediation. The implementation worktree preflight
+was clean branch `codex/s07-b-integrated-cl-stack` at exact parent
+`797aaf4fa8115568692c381489928fb656f5f356`. Test-only commit `T` is
+`3f3686c3fbbfd3fb1bb516a9c00f0612d9da0f04`, with that exact parent.
+
+The independent R9 review commit is
+`55f19ab1c7ef1188cfa803724b79a79b3a0d0291`; its `REVIEW.md` Git blob is
+`9719ff6d35435eac00cf0f194c3032515802f148`, size `164814` bytes, SHA-256
+`318a752ec30d5eb9cac07cc8dfec4b42f3f2371944f8ab51edf79c01189f646c`,
+with final verdict `CHANGES-REQUESTED` for candidate `797aaf4...`. The reviewer
+commit is not merged or cherry-picked into this implementation branch.
+
+R9 findings are closed as follows, subject to a fresh independent review and
+later runtime evidence:
+
+- `test_model_overfit.py` and `test_model_viz.py` now inject the exact
+  `str(mini_cache_dir)` fixture result. Both change into a fresh `tmp_path`
+  before task/data construction and assert that the changed CWD has no
+  `./fl_outputs`; the old CWD cache fallback is not restored.
+- A real `DummyRegressionTask` two-worker loader directly asserts `spawn`,
+  consumes a real batch and explicitly shuts down its workers. Separate direct
+  dummy and detection zero-worker cases assert
+  `multiprocessing_context is None` and consume batches. These new contract
+  tests do not skip.
+- Explicit ZIP `fork` remains only the pre-existing low-level lifecycle hook.
+  Its outer fresh-spawn helper now enters a new POSIX session/process group and
+  sends an auditable ready record proving session ID and process-group ID equal
+  the helper PID. Persistent DataLoader workers are explicitly shut down,
+  joined and asserted dead; the isolated helper reports their PIDs and asserts
+  no live active child remains on the normal path.
+- The parent owns all-path cleanup in `try/finally`. A timeout first calls
+  `terminate()` and joins, then sends `SIGKILL` to the whole isolated process
+  group, uses `Process.kill()` as a still-alive fallback, joins again and
+  asserts final exit. Error/assertion paths also kill the isolated group before
+  final direct-process fallback. Normal, error and timeout paths close and
+  `join_thread()` the result queue and close the reaped `Process`, preventing
+  helper/worker/queue descriptor leakage into later pytest cases.
+- The LiDAR test module and function name now describe the approved six-task
+  topology rather than old byte identity/62 tensors. Executable gates remain
+  exact: OFF total `230`, head `183`, approved increment `183 - 15 = 168`, no
+  LiDAR backbone, fuser width `144`, and ON-minus-OFF `+30` tensors.
+
+Exact post-`T` SHA-256 values are:
+
+- `fl_v3/tests/test_model_overfit.py`:
+  `c57e88e8c3187d08d90dea6bc1e686b972e08961816e7883c7397f51ba20d2ca`;
+- `fl_v3/tests/test_model_viz.py`:
+  `243b41840ba34d713ec905c3888d8411bab1eb1041c309b38884b80423cfe0c6`;
+- `fl_v3/tests/test_model_task.py`:
+  `74d61d8122909e5bae63f83a5ad57ca7c4123236fc6a661eeff19ef6a7083e52`;
+- `fl_v3/tests/test_nuscenes_zip_dataset.py`:
+  `4b385dc4766bf5d83cda986602160e21c0e88db07f7d104e3da57c1fe46d6d03`;
+- `fl_v3/tests/test_lidar_backbone.py`:
+  `586606dfa592ddfe6f237e0390466bce49bb031325ce31ef875be08fc667b8ee`.
+
+Actually run: stdlib AST parse and source-text `compile()` of all five changed
+tests, exact source/fixture/context/cleanup/topology text audits,
+`git diff --check`, and owned/forbidden-path plus Git-blob checks: PASS. The
+login-node `python` command was absent; the same permitted stdlib check was run
+successfully with `python3`. Explicitly NOT RUN: pytest, pycompile,
+project/package import, Torch/NumPy/CUDA/spconv/cumm, data/cache/model workload,
+Slurm/GPU/compute. No production/training loop/config/launcher,
+`RUN_REQUEST.md`, `RESULTS.md`, `REVIEW.md`, canonical ledger or scientific
+contract changed. No compute, merge, push, upload or publication occurred.
+
+Forbidden blobs remain exact across O-065 remediation: `training/loop.py`
+`881c070b1ef8affd350144cce33e508a241cf839`; `training/tasks.py`
+`86ab9d0563e1636d6c4cde06986470d2559f19f7`; nuScenes `dataset.py`
+`afd2707d3939d2d76205996fe94d29fcfc4ed5f3`; `RUN_REQUEST.md`
+`efa5ce78eac121f2dd3e70ea75ef414023d45d13`; `RESULTS.md`
+`b3b80625ef6c38e4d9382e11ded5c8534b5556ae`; local `REVIEW.md`
+`cd0e0795402c2892fe199691a6a01f483d6a457f`; runtime launcher
+`1e182ebc1fe883ad59702bfeb1b3db110bbf54c1`. This remediation is static/test
+candidate evidence only: it is not a post-O-059 integrated runtime PASS, does
+not authorize a Slurm job, and establishes no full-data, production or
+scientific result.
