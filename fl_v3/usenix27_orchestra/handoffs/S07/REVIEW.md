@@ -3211,3 +3211,82 @@ integrated suite、production/full-data/checkpoint/performance/scientific PASS�
 `e3122dbccdd252a6d89f1a4fe339b9043fe19884`; O-079 code candidate
 `56c74de5bdf5463fdd6ab1a623ab0f92a35871ae` is accepted only at
 code-level/static-authored scope.**
+
+---
+
+# S07-B-R15 独立复审 — R14 delivery-state docs-only correction
+
+## Findings（按严重性排序）
+
+**无 P0/P1/P2/P3 finding。** R14 唯一的 durable-delivery 状态 finding 已由
+exact docs-only correction `65881c5628a737eaeaf4742ab7b11a63b9d3cbc2`
+关闭；本 verdict 仅接受文档状态与 O-079 static/authored code scope，不是 runtime PASS。
+
+## R14 finding closure
+
+1. `HANDOFF.md` 已明确 O-079 code `56c74de5...` 的 already-submitted durable
+   delivery 是 exact `e3122dbccdd252a6d89f1a4fe339b9043fe19884`，其 sole
+   parent 是 code SHA，且仅改变三份 S07 lifecycle 文档；不再把该 delivery 写成
+   pending、uncommitted 或 requires delivery。
+2. `RESULTS.md` 同样记录 exact durable delivery、parent 与三路径 ownership；同时明确
+   R14 `9645148d...` 仅为 review-only/unmerged，corrected runtime 仍未验证，必须先有
+   fresh independent acceptance 和 separately frozen exact runtime request。
+3. `RUN_REQUEST.md` 不再要求重复创建同一 documentation delivery；它继续明确本节未冻结
+   runtime command、当前 compute 为 `NOT_APPROVED_DO_NOT_SUBMIT`，任何 runtime action
+   仍须 fresh independent acceptance 与新的 exact request。
+4. 三份文档均保留 O-079 code 仅有 code-level/static-authored evidence 的边界，没有把
+   Job 352105 的 artifact-complete / suite FAIL / harness-confounded negative 重新分类，
+   也没有声称 multiprocessing、GH200 或 integrated runtime 已通过。
+
+## Review identity、prefix、topology 与 ownership
+
+- Session：`S07-B-R15`；`APPROVED_COMPUTE: none`。
+- Exact O-079 code：`56c74de5bdf5463fdd6ab1a623ab0f92a35871ae`。
+- Exact original delivery：`e3122dbccdd252a6d89f1a4fe339b9043fe19884`，sole
+  parent exact 为 O-079 code，且只改 `HANDOFF.md`、`RUN_REQUEST.md`、`RESULTS.md`。
+- Exact corrected delivery：`65881c5628a737eaeaf4742ab7b11a63b9d3cbc2`，sole
+  parent exact 为 original delivery。
+- Review startup/import：`49af85e60f4126e63518799c376c6471572d76db`，parent
+  exact 为 corrected delivery，branch `codex/s07-b-r15-delivery-review`，startup clean；
+  import commit 只修改 `REVIEW.md`。
+- 追加前 R14 prefix：Git blob
+  `ca11b076d883fb11eaddd1cfc54cb4b197abfa4e`、size `214596`、SHA-256
+  `74a3e339faa788aa8aaab4157eaa01b1bd599e497f9158af5bb99a60997dc6bc`；
+  R15 仅追加在这些 exact bytes 之后。
+
+`e3122db..65881c5` 精确只改三份 S07 durable docs，numstat 为 `27/6`；没有
+production、test、launcher 或其他代码变化。三份 corrected blob 分别为：
+`HANDOFF.md` `6d920e5cbd2d57a322473fa81fd6e5805533a993`、
+`RESULTS.md` `22c60f98084aab8b47fb9dcab7fec4bc2ce5dfd1`、
+`RUN_REQUEST.md` `0108bdb4fd9eca5237e21edfed5328c0e7773c01`。
+R14 review commit 不在 implementation ancestry 中，符合 review-only/unmerged 陈述；
+`git diff --check e3122db..65881c5` 无 warning。
+
+## Checks actually run 与 explicit NOT RUN
+
+实际执行：startup branch/HEAD/parent/clean；R14 prefix blob/size/SHA-256；commit parents、
+ancestry、name-status/numstat；exact 三文档 diff 的逐行审读；current blob/SHA-256/size；
+stale delivery-state、Job 352105、runtime 与 compute-boundary 文本搜索；`git diff --check`。
+
+明确 **NOT RUN / NO IMPLIED PASS**：project/package import、pytest、pycompile、shell
+launcher、任何 multiprocessing/fork/spawn runtime、Torch/NumPy/CUDA/spconv/cumm、
+data/cache/model/checkpoint、Slurm/srun/GPU、full `t1.v2`、full trainval、100/1000 steps、
+profile、metrics、DDP、matrix、seed/rerun、FL/attack/defense/scientific cell。未 merge、
+push、upload 或 publication。
+
+## Interpretation、residual risk 与 final verdict
+
+允许解释：R14 的唯一 delivery-state finding 已关闭；O-079 code 在 R14 已核验的
+code-level/static-authored 范围内可接受，corrected lifecycle docs 现在准确记录 durable
+delivery 与后续审批边界。
+
+禁止解释：不得称 corrected pytest/multiprocessing/GH200 runtime、integrated suite、
+production/full-data/checkpoint/performance/scientific gate PASS；不得从本 review 推导任何
+compute、merge、push、upload 或科学授权。Job 352105 仍是 immutable negative diagnostic。
+
+S00 只有在本 docs/static acceptance 之后另行冻结 exact executable、command、data scope、
+resource/output/stop conditions 并形成 fresh approved request，才可启动任何 bounded runtime。
+
+**PASS at docs/static-authored scope for corrected S07-B delivery
+`65881c5628a737eaeaf4742ab7b11a63b9d3cbc2` and O-079 code candidate
+`56c74de5bdf5463fdd6ab1a623ab0f92a35871ae`. Runtime remains unverified.**
