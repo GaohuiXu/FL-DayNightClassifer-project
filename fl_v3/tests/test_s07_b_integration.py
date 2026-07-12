@@ -7,7 +7,12 @@ execution gate.
 from __future__ import annotations
 
 import json
+import importlib
+import importlib.util
+import os
 from pathlib import Path
+import sys
+from types import ModuleType, SimpleNamespace
 
 import numpy as np
 import pytest
@@ -22,6 +27,15 @@ from fl_v3.training.tasks import (
     _production_sampler,
 )
 from fl_v3.utils import runtime
+
+
+def _centralized_train_module():
+    path = Path(__file__).resolve().parents[1] / "scripts" / "centralized_train.py"
+    spec = importlib.util.spec_from_file_location("s07b_centralized_train", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _run_config(mode: str, camera: str, lidar: str, fusion: str) -> dict:
@@ -99,6 +113,8 @@ def test_runtime_sparse_identity_binds_torch_packages_sources_and_imports(monkey
     run = _run_config("lidar_only", "none", "second_075", "none")
     run.update({
         "dependency-torch": torch.__version__,
+        "dependency-torch-build-sha256": "f" * 64,
+        "dependency-torch-source-sha": "1" * 40,
         "dependency-spconv": "2.3.8",
         "dependency-spconv-build-sha256": "a" * 64,
         "dependency-spconv-source-sha": "2" * 40,
@@ -109,20 +125,68 @@ def test_runtime_sparse_identity_binds_torch_packages_sources_and_imports(monkey
     versions = {"spconv": "2.3.8", "cumm": "0.7.13"}
     sources = {"spconv": ("2" * 40, "/src/spconv/spconv/__init__.py"),
                "cumm": ("3" * 40, "/src/cumm/cumm/__init__.py")}
+    monkeypatch.setattr(runtime.torch.version, "git_version", "1" * 40)
     monkeypatch.setattr(runtime.importlib.metadata, "version", lambda name: versions[name])
     monkeypatch.setattr(runtime, "_source_checkout_identity", lambda dist, _imp: sources[dist])
     monkeypatch.setattr(
-        runtime, "_runtime_package_sha256",
-        lambda name: {"spconv": "a" * 64, "cumm": "b" * 64}[name],
+        runtime, "_runtime_build_identity",
+        lambda distribution, _name, _targets, _metadata: (
+            {"torch": "f" * 64, "spconv": "a" * 64, "cumm": "b" * 64}[distribution],
+            [f"/attested/{distribution}.so"],
+        ),
+    )
+    monkeypatch.setattr(
+        runtime, "_executable_artifact_records",
+        lambda distribution, _name: [{"path": f"/attested/{distribution}.so", "bytes": 1,
+                                      "sha256": "0" * 64}],
     )
     identity = runtime.verify_runtime_dependency_identity(run)
     assert identity["spconv_source_sha"] == "2" * 40
     assert identity["cumm_source_sha"] == "3" * 40
     assert identity["spconv_build_sha256"] == "a" * 64
     assert identity["torch"] == torch.__version__
+    assert identity["torch_build_sha256"] == "f" * 64
     run["dependency-spconv-source-sha"] = "4" * 40
     with pytest.raises(RuntimeError, match="source identity drift"):
         runtime.verify_runtime_dependency_identity(run)
+
+
+def _write_dist_info(root: Path, name: str) -> None:
+    dist = root / f"{name}-1.0.dist-info"
+    dist.mkdir()
+    (dist / "METADATA").write_text(
+        f"Metadata-Version: 2.1\nName: {name}\nVersion: 1.0\n", encoding="utf-8"
+    )
+    (dist / "RECORD").write_text(f"{name}/__init__.py,,\n", encoding="utf-8")
+
+
+def test_executable_manifest_uses_real_files_and_rejects_loaded_native_outside_root(
+    tmp_path, monkeypatch,
+):
+    name = "s07b_hostile_dist"
+    package = tmp_path / name
+    package.mkdir()
+    source = package / "__init__.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    native = package / "inside.so"
+    native.write_bytes(b"native-a")
+    _write_dist_info(tmp_path, name)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+
+    first, origins = runtime._runtime_build_identity(name, name, (name,), {"version": "1.0"})
+    assert len(first) == 64 and any(path.endswith("__init__.py") for path in origins)
+    native.write_bytes(b"native-b")
+    second, _ = runtime._runtime_build_identity(name, name, (name,), {"version": "1.0"})
+    assert second != first
+
+    outside = tmp_path / "outside.so"
+    outside.write_bytes(b"outside")
+    injected = ModuleType(name + ".native")
+    injected.__file__ = str(outside)
+    monkeypatch.setitem(sys.modules, name + ".native", injected)
+    with pytest.raises(RuntimeError, match="outside attested roots"):
+        runtime._runtime_build_identity(name, name, (name,), {"version": "1.0"})
 
 
 class _InfoDataset:
@@ -172,6 +236,130 @@ def test_production_sampler_is_epoch_addressable_over_expanded_cbgs_dataset():
     assert list(resumed) == continuous
     assert sorted(continuous) == list(range(len(expanded)))
     assert _production_sampler(dataset, run, shuffle=False) is None
+
+
+class _StrictEvalTask:
+    def __init__(self):
+        self.infos = [{"sample_token": "token-b"}, {"sample_token": "token-a"}]
+        self.loader_calls = 0
+
+    def _load_info(self, _run, split):
+        assert split == "mini_val"
+        return self.infos, {}
+
+    def _make_loader(self, _run, infos, tokens, shuffle):
+        self.loader_calls += 1
+        assert infos is self.infos and tokens == ["token-a", "token-b"] and shuffle is False
+        return object()
+
+
+def test_strict_official_eval_is_token_complete_single_decode_and_provenance_bound(
+    tmp_path, monkeypatch,
+):
+    entry = _centralized_train_module()
+    checkpoint = tmp_path / "checkpoint.pt"
+    checkpoint.write_bytes(b"exact checkpoint")
+    config = SimpleNamespace(sha256="c" * 64)
+    run = {
+        "evaluation-checkpoint-weights": "raw", "evaluation-timing": True,
+        "nuscenes-version": "v1.0-mini", "nuscenes-val-split": "mini_val",
+        "nuscenes-dataroot": str(tmp_path), "model-mode": "camera_only",
+        "resolved-config-sha256": config.sha256,
+        "nuscenes-train-cache-logical-sha256": "1" * 64,
+        "nuscenes-train-cache-pickle-sha256": "2" * 64,
+        "nuscenes-train-cache-sidecar-sha256": "3" * 64,
+        "nuscenes-val-cache-logical-sha256": "4" * 64,
+        "nuscenes-val-cache-pickle-sha256": "5" * 64,
+        "nuscenes-val-cache-sidecar-sha256": "6" * 64,
+        "nuscenes-zip-manifest-logical-sha256": "7" * 64,
+        "nuscenes-zip-manifest-file-sha256": "8" * 64,
+    }
+    load_calls = []
+    monkeypatch.setattr(
+        entry, "load_checkpoint",
+        lambda path, **kwargs: (load_calls.append((path, kwargs)) or (object(), config.sha256)),
+    )
+    decode_calls = []
+
+    def decode(_model, _loader, _device, decode_run, timing):
+        decode_calls.append(dict(decode_run))
+        timing.update({"batches": 1, "total_seconds": 0.0, "batch_seconds": [0.0]})
+        return [SimpleNamespace(sample_token="token-a", boxes=np.zeros((0, 7))),
+                SimpleNamespace(sample_token="token-b", boxes=np.zeros((0, 7)))]
+
+    captured = {}
+
+    def official(_nusc, decodes, eval_set, version, _out, _names, **kwargs):
+        captured.update(kwargs)
+        assert len(decodes) == 2 and eval_set == "mini_val" and version == "v1.0-mini"
+        assert kwargs["all_eval_tokens"] == ["token-a", "token-b"]
+        provenance = kwargs["run_config"]
+        assert provenance["checkpoint-sha256"] == entry._checkpoint_sha256(checkpoint)
+        assert provenance["checkpoint-weights"] == "raw"
+        assert len(provenance["runtime-dependencies-sha256"]) == 64
+        return {"mAP": 0.0, "NDS": 0.0}
+
+    task = _StrictEvalTask()
+    model = torch.nn.Linear(1, 1)
+    metrics = entry.run_strict_official_evaluation(
+        config=config, run_config=run, runtime_dependencies={"torch": "exact"},
+        task=task, model=model, optimizer=object(), scheduler=object(), scaler=object(),
+        ema=None, checkpoint=checkpoint, device=torch.device("cpu"), output_dir=tmp_path,
+        decode_fn=decode, official_eval_fn=official,
+        nusc_factory=lambda *args, **kwargs: object(),
+    )
+    assert metrics == {"mAP": 0.0, "NDS": 0.0}
+    assert len(load_calls) == len(decode_calls) == task.loader_calls == 1
+    assert (tmp_path / "evaluation_timing.json").is_file()
+
+
+@pytest.mark.parametrize("tokens,match", [(["token-a"], "not token-complete"),
+                                            (["token-a", "token-a"], "more than once")])
+def test_strict_official_eval_rejects_missing_or_duplicate_decode_tokens(
+    tmp_path, monkeypatch, tokens, match,
+):
+    entry = _centralized_train_module()
+    checkpoint = tmp_path / "checkpoint.pt"; checkpoint.write_bytes(b"checkpoint")
+    config = SimpleNamespace(sha256="d" * 64)
+    run = {
+        "evaluation-checkpoint-weights": "raw", "evaluation-timing": False,
+        "nuscenes-version": "v1.0-mini", "nuscenes-val-split": "mini_val",
+        "nuscenes-dataroot": str(tmp_path),
+    }
+    monkeypatch.setattr(entry, "load_checkpoint", lambda *args, **kwargs: (object(), config.sha256))
+    with pytest.raises(RuntimeError, match=match):
+        entry.run_strict_official_evaluation(
+            config=config, run_config=run, runtime_dependencies={}, task=_StrictEvalTask(),
+            model=torch.nn.Linear(1, 1), optimizer=object(), scheduler=object(), scaler=object(),
+            ema=None, checkpoint=checkpoint, device=torch.device("cpu"), output_dir=tmp_path,
+            decode_fn=lambda *_args: [SimpleNamespace(sample_token=token, boxes=np.zeros((0, 7)))
+                                      for token in tokens],
+            official_eval_fn=lambda *_args, **_kwargs: pytest.fail("official eval reached"),
+            nusc_factory=lambda *args, **kwargs: object(),
+        )
+
+
+def test_strict_official_eval_rejects_over_500_before_devkit(tmp_path, monkeypatch):
+    entry = _centralized_train_module()
+    checkpoint = tmp_path / "checkpoint.pt"; checkpoint.write_bytes(b"checkpoint")
+    config = SimpleNamespace(sha256="e" * 64)
+    run = {
+        "evaluation-checkpoint-weights": "raw", "evaluation-timing": False,
+        "nuscenes-version": "v1.0-mini", "nuscenes-val-split": "mini_val",
+        "nuscenes-dataroot": str(tmp_path),
+    }
+    monkeypatch.setattr(entry, "load_checkpoint", lambda *args, **kwargs: (object(), config.sha256))
+    records = [SimpleNamespace(sample_token="token-a", boxes=np.zeros((501, 7))),
+               SimpleNamespace(sample_token="token-b", boxes=np.zeros((0, 7)))]
+    with pytest.raises(RuntimeError, match="per-sample box cap"):
+        entry.run_strict_official_evaluation(
+            config=config, run_config=run, runtime_dependencies={}, task=_StrictEvalTask(),
+            model=torch.nn.Linear(1, 1), optimizer=object(), scheduler=object(), scaler=object(),
+            ema=None, checkpoint=checkpoint, device=torch.device("cpu"), output_dir=tmp_path,
+            decode_fn=lambda *_args: records,
+            official_eval_fn=lambda *_args, **_kwargs: pytest.fail("official eval reached"),
+            nusc_factory=lambda *args, **kwargs: object(),
+        )
 
 
 @pytest.mark.parametrize(

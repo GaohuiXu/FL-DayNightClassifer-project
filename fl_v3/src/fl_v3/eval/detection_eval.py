@@ -208,6 +208,7 @@ def build_results_dict(
     submission: Dict[str, object] = {"meta": submission_meta(mode), "results": results}
     identity_keys = (
         "resolved-config-sha256", "checkpoint-sha256",
+        "runtime-dependencies-sha256",
         "nuscenes-train-cache-logical-sha256", "nuscenes-train-cache-pickle-sha256",
         "nuscenes-train-cache-sidecar-sha256", "nuscenes-val-cache-logical-sha256",
         "nuscenes-val-cache-pickle-sha256", "nuscenes-val-cache-sidecar-sha256",
@@ -217,7 +218,14 @@ def build_results_dict(
         missing = [k for k in identity_keys if not rc.get(k)]
         if missing:
             raise ValueError(f"evaluation identity fields missing: {missing}")
-        submission["fl_v3_provenance"] = {"model_mode": mode, **{k: rc[k] for k in identity_keys}}
+        weights = rc.get("checkpoint-weights")
+        if weights not in {"raw", "ema"}:
+            raise ValueError("evaluation checkpoint-weights must be exactly 'raw' or 'ema'")
+        submission["fl_v3_provenance"] = {
+            "model_mode": mode,
+            "checkpoint_weights": weights,
+            **{k: rc[k] for k in identity_keys},
+        }
     return submission
 
 

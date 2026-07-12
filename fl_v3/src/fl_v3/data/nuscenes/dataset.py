@@ -191,6 +191,24 @@ class NuScenesMultimodalDataset(Dataset):
         self.augment = augment
         self.gtpaste = gtpaste
         self.model_mode = normalize_model_mode(model_mode)
+        if self.model_mode == "camera_only" and self.gtpaste is not None:
+            raise ValueError(
+                "camera_only is incompatible with LiDAR GT-paste; refuse before dataset iteration"
+            )
+        if self.model_mode == "camera_only" and self.augment is not None:
+            raise ValueError(
+                "camera_only is incompatible with the LiDAR-scene BEV augmentation; "
+                "refuse before dataset iteration"
+            )
+        if (
+            self.model_mode == "lidar_only"
+            and self.augment is not None
+            and float(self.augment.get("img_flip", 0.0)) != 0.0
+        ):
+            raise ValueError(
+                "lidar_only augmentation cannot request camera image flipping; "
+                "refuse before dataset iteration"
+            )
         self.blob_store = NuScenesBlobStore(dataroot, manifest_path=zip_manifest)
         by_token = {i["sample_token"]: i for i in info_list}
         if sample_tokens is None:

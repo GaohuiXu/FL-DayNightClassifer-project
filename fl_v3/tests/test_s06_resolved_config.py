@@ -37,11 +37,12 @@ def valid_config(tmp_path=None):
                              "logical_sha256": H, "pickle_sha256": H, "sidecar_sha256": H}},
                  "zip_manifest": {"path": root + "/manifest.sqlite",
                                   "logical_sha256": H, "file_sha256": H}},
-        "dependencies": {"torch": "2.11.0+cu128", "spconv": None,
+        "dependencies": {"torch": "2.11.0+cu128", "torch_build_sha256": H,
+                         "torch_source_sha": "1" * 40, "spconv": None,
                          "spconv_build_sha256": None, "spconv_source_sha": None,
                          "cumm": None, "cumm_build_sha256": None,
                          "cumm_source_sha": None},
-        "evaluation": {"timing": False},
+        "evaluation": {"timing": False, "checkpoint_weights": "raw"},
     }
 
 
@@ -63,6 +64,23 @@ def test_config_hash_is_order_stable_and_roundtrips(tmp_path):
     assert run["det-head-arch"] == "centerhead_multitask"
     assert run["det-cbgs"] is False
     assert run["det-class-weights"] is None
+    assert run["evaluation-timing"] is False
+    assert run["evaluation-checkpoint-weights"] == "raw"
+
+
+def test_evaluation_timing_and_raw_ema_policy_are_hash_bound(tmp_path):
+    raw = valid_config(tmp_path)
+    plain = resolve_config(raw)
+    raw["evaluation"]["timing"] = True
+    timed = resolve_config(raw)
+    assert timed.sha256 != plain.sha256
+    assert timed.to_run_config()["evaluation-timing"] is True
+    raw["evaluation"]["checkpoint_weights"] = "ema"
+    ema = resolve_config(raw)
+    assert ema.sha256 != timed.sha256
+    raw["training"]["ema_decay"] = None
+    with pytest.raises(ConfigError, match="requires training.ema_decay"):
+        resolve_config(raw)
 
 
 @pytest.mark.parametrize("mutation", [

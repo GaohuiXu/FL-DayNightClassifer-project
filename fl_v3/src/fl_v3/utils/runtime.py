@@ -29,6 +29,7 @@ must fail loudly.
 from __future__ import annotations
 
 import hashlib
+import importlib
 import importlib.util
 import importlib.metadata
 import json
@@ -36,6 +37,7 @@ import os
 from pathlib import Path
 import random as _random
 import subprocess
+import sys
 from urllib.parse import unquote, urlparse
 import warnings
 from contextlib import nullcontext
@@ -136,35 +138,129 @@ def _source_checkout_identity(distribution: str, import_name: str) -> tuple[str,
     return head, origin
 
 
-def _runtime_package_sha256(import_name: str) -> str:
-    """Content hash the active import package, excluding interpreter bytecode caches."""
+_EXECUTABLE_SUFFIXES = frozenset({
+    ".py", ".so", ".pyd", ".dll", ".dylib", ".cubin", ".fatbin", ".ptx",
+})
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _runtime_executable_files(distribution: str, import_name: str) -> tuple[list[Path], list[Path]]:
+    """Return stable executable artifacts and allowed import roots.
+
+    Python/native code is included; bytecode caches, metadata, tests, data and
+    mutable logs are excluded.  Distribution RECORD entries and package roots
+    are both consulted so wheel and editable installs cannot silently hide code.
+    """
     spec = importlib.util.find_spec(import_name)
     roots = list(spec.submodule_search_locations or ()) if spec is not None else []
     if not roots:
         raise RuntimeError(f"cannot resolve package tree for {import_name}")
-    digest = hashlib.sha256()
-    files: list[tuple[str, Path]] = []
+    allowed_roots = [Path(root).resolve() for root in roots]
+    paths: set[Path] = set()
     for root_text in roots:
         root = Path(root_text).resolve()
         for path in root.rglob("*"):
-            if not path.is_file() or "__pycache__" in path.parts or path.suffix == ".pyc":
+            if (
+                not path.is_file()
+                or "__pycache__" in path.parts
+                or path.suffix.lower() not in _EXECUTABLE_SUFFIXES
+            ):
                 continue
-            files.append((f"{root.name}/{path.relative_to(root).as_posix()}", path))
+            paths.add(path.resolve())
+    dist = importlib.metadata.distribution(distribution)
+    for entry in dist.files or ():
+        located = Path(dist.locate_file(entry)).resolve()
+        if located.is_file() and located.suffix.lower() in _EXECUTABLE_SUFFIXES:
+            paths.add(located)
+            allowed_roots.append(located.parent)
+    files = sorted(paths, key=lambda path: str(path))
     if not files:
         raise RuntimeError(f"active package tree for {import_name} is empty")
-    for relative, path in sorted(files, key=lambda item: item[0]):
-        name = relative.encode("utf-8")
+    return files, sorted(set(allowed_roots), key=lambda path: str(path))
+
+
+def _executable_manifest_sha256(paths: list[Path], metadata: dict[str, str]) -> str:
+    digest = hashlib.sha256()
+    for key, value in sorted(metadata.items()):
+        encoded = f"meta\0{key}\0{value}".encode("utf-8")
+        digest.update(len(encoded).to_bytes(8, "big")); digest.update(encoded)
+    for path in paths:
+        name = str(path).encode("utf-8")
         digest.update(len(name).to_bytes(8, "big"))
         digest.update(name)
         size = path.stat().st_size
         digest.update(size.to_bytes(8, "big"))
-        with path.open("rb") as stream:
-            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-                digest.update(chunk)
+        digest.update(bytes.fromhex(_sha256_file(path)))
     return digest.hexdigest()
 
 
-def verify_runtime_dependency_identity(run_config: dict) -> dict[str, str]:
+def _executable_artifact_records(distribution: str, import_name: str) -> list[dict[str, object]]:
+    paths, _ = _runtime_executable_files(distribution, import_name)
+    return [
+        {"path": str(path), "bytes": path.stat().st_size, "sha256": _sha256_file(path)}
+        for path in paths
+    ]
+
+
+def _loaded_module_origins(prefix: str) -> list[Path]:
+    origins: set[Path] = set()
+    for name, module in tuple(sys.modules.items()):
+        if name != prefix and not name.startswith(prefix + "."):
+            continue
+        origin = getattr(module, "__file__", None)
+        if origin:
+            path = Path(origin).resolve()
+            if path.is_file() and path.suffix.lower() in _EXECUTABLE_SUFFIXES:
+                origins.add(path)
+    return sorted(origins, key=lambda path: str(path))
+
+
+def _is_beneath(path: Path, roots: list[Path]) -> bool:
+    return any(path == root or root in path.parents for root in roots)
+
+
+def _runtime_build_identity(
+    distribution: str,
+    import_name: str,
+    import_targets: tuple[str, ...],
+    metadata: dict[str, str],
+) -> tuple[str, list[str]]:
+    """Hash stable code before/after imports and bind every loaded code origin."""
+    before, roots = _runtime_executable_files(distribution, import_name)
+    before_digest = _executable_manifest_sha256(before, metadata)
+    for target in import_targets:
+        importlib.import_module(target)
+    after, after_roots = _runtime_executable_files(distribution, import_name)
+    after_digest = _executable_manifest_sha256(after, metadata)
+    if [str(path) for path in before] != [str(path) for path in after] or before_digest != after_digest:
+        raise RuntimeError(f"{distribution} executable artifacts changed during first import")
+    allowed = sorted(set(roots + after_roots), key=lambda path: str(path))
+    origins = _loaded_module_origins(import_name)
+    outside = [str(path) for path in origins if not _is_beneath(path, allowed)]
+    if outside:
+        raise RuntimeError(
+            f"{distribution} loaded native/Python code outside attested roots: {outside}"
+        )
+    missing = [path for path in origins if path not in set(after)]
+    if missing:
+        after = sorted(set(after + missing), key=lambda path: str(path))
+        after_digest = _executable_manifest_sha256(after, metadata)
+    return after_digest, [str(path) for path in origins]
+
+
+def _runtime_package_sha256(import_name: str) -> str:
+    """Compatibility helper: hash the active distribution's executable code."""
+    return _runtime_build_identity(import_name, import_name, (import_name,), {})[0]
+
+
+def verify_runtime_dependency_identity(run_config: dict) -> dict[str, object]:
     """Fail before construction on Torch and sparse package/source identity drift.
 
     The returned paths are suitable for an execution manifest.  This proves the
@@ -176,7 +272,37 @@ def verify_runtime_dependency_identity(run_config: dict) -> dict[str, str]:
         raise RuntimeError(
             f"Torch build identity drift: expected={expected_torch!r}, actual={torch.__version__!r}"
         )
-    result = {"torch": torch.__version__}
+    torch_source = str(getattr(torch.version, "git_version", "") or "")
+    expected_torch_source = str(run_config.get("dependency-torch-source-sha", ""))
+    if torch_source != expected_torch_source:
+        raise RuntimeError(
+            f"Torch source identity drift: expected={expected_torch_source!r}, actual={torch_source!r}"
+        )
+    torch_metadata = {
+        "version": str(torch.__version__),
+        "git_version": torch_source,
+        "cuda": str(getattr(torch.version, "cuda", "")),
+        "config": str(torch.__config__.show()),
+    }
+    torch_build, torch_origins = _runtime_build_identity(
+        "torch", "torch", ("torch",), torch_metadata,
+    )
+    expected_torch_build = str(run_config.get("dependency-torch-build-sha256", ""))
+    if torch_build != expected_torch_build:
+        raise RuntimeError(
+            f"Torch executable build identity drift: expected={expected_torch_build!r}, "
+            f"actual={torch_build!r}"
+        )
+    result: dict[str, object] = {
+        "torch": torch.__version__,
+        "torch_build_sha256": torch_build,
+        "torch_source_sha": torch_source,
+        "torch_import_origins": torch_origins,
+        "torch_executable_artifacts": _executable_artifact_records("torch", "torch"),
+        "torch_build_config_sha256": hashlib.sha256(
+            torch_metadata["config"].encode("utf-8")
+        ).hexdigest(),
+    }
     if str(run_config.get("det-lidar-arch")) != "second_075":
         return result
     expected = {
@@ -204,7 +330,11 @@ def verify_runtime_dependency_identity(run_config: dict) -> dict[str, str]:
                 f"actual={actual_version!r}"
             )
         actual_head, origin = _source_checkout_identity(distribution, import_name)
-        actual_build = _runtime_package_sha256(import_name)
+        targets = ("spconv", "spconv.pytorch") if label == "spconv" else ("cumm", "cumm.tensorview")
+        actual_build, import_origins = _runtime_build_identity(
+            distribution, import_name, targets,
+            {"version": actual_version, "source_sha": actual_head},
+        )
         if actual_build != expected_build:
             raise RuntimeError(
                 f"{label} build identity drift: expected={expected_build!r}, "
@@ -218,6 +348,10 @@ def verify_runtime_dependency_identity(run_config: dict) -> dict[str, str]:
         result[f"{label}_build_sha256"] = actual_build
         result[f"{label}_source_sha"] = actual_head
         result[f"{label}_import_origin"] = origin
+        result[f"{label}_import_origins"] = import_origins
+        result[f"{label}_executable_artifacts"] = _executable_artifact_records(
+            distribution, import_name,
+        )
     return result
 
 

@@ -479,22 +479,32 @@ class NuScenesBlobStore:
         # The inherited sqlite object and descriptors belong to the parent.  Do
         # not call sqlite/close on them from the child; simply forget them.  The
         # child lazily opens independent read-only state on its first read.
-        for fd in store._archive_fds.values():
+        store._reset_after_process_change()
+
+    def _reset_after_process_change(self) -> None:
+        """Forget every inherited process-local handle, cache, and counter.
+
+        This primitive is shared by the registered after-fork hook and the PID
+        fallback.  It deliberately does not call ``sqlite3.Connection.close``:
+        invoking SQLite methods on a connection inherited across ``fork`` is
+        unsafe.  Raw descriptor copies may be closed in the child.
+        """
+        for fd in self._archive_fds.values():
             try:
                 os.close(fd)
             except OSError:
                 pass
-        store._lock = threading.RLock()
-        store._pid = None
-        store._conn = None
-        store._archive_names = {}
-        store._archive_fds = {}
-        store._locations = OrderedDict()
-        store._read_count = 0
-        store._byte_count = 0
-        store._modality_read_count = {"camera": 0, "lidar": 0, "other": 0}
-        store._modality_byte_count = {"camera": 0, "lidar": 0, "other": 0}
-        store._reopen_count += 1
+        self._lock = threading.RLock()
+        self._pid = None
+        self._conn = None
+        self._archive_names = {}
+        self._archive_fds = {}
+        self._locations = OrderedDict()
+        self._read_count = 0
+        self._byte_count = 0
+        self._modality_read_count = {"camera": 0, "lidar": 0, "other": 0}
+        self._modality_byte_count = {"camera": 0, "lidar": 0, "other": 0}
+        self._reopen_count += 1
 
     def _close_handles(self) -> None:
         if self._conn is not None:
@@ -519,17 +529,8 @@ class NuScenesBlobStore:
             # Fallback PID guard for fork paths where the registered hook did
             # not run.  Forget the inherited sqlite object without invoking
             # sqlite after fork, but close the child's copies of raw FDs.
-            for fd in self._archive_fds.values():
-                try:
-                    os.close(fd)
-                except OSError:
-                    pass
-            self._conn = None
-            self._reopen_count += 1
+            self._reset_after_process_change()
         self._pid = pid
-        self._conn = None
-        self._archive_names = {}
-        self._archive_fds = {}
 
     def _ensure_manifest(self) -> sqlite3.Connection:
         self._ensure_process()

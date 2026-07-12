@@ -14,6 +14,6 @@
     },
     "zip_manifest": {"path": "REQUIRES_APPROVED_MANIFEST/manifest.sqlite", "logical_sha256": "APPROVED_MANIFEST_IDENTITY_REQUIRED", "file_sha256": "APPROVED_MANIFEST_IDENTITY_REQUIRED"}
   },
-  "dependencies": {"torch": "2.11.0+cu128", "spconv": null, "spconv_build_sha256": null, "spconv_source_sha": null, "cumm": null, "cumm_build_sha256": null, "cumm_source_sha": null},
-  "evaluation": {"timing": false}
+  "dependencies": {"torch": "2.11.0+cu128", "torch_build_sha256": "ACTUAL_TORCH_EXECUTABLE_BUILD_SHA256_REQUIRED", "torch_source_sha": "ACTUAL_TORCH_SOURCE_GIT_SHA_REQUIRED", "spconv": null, "spconv_build_sha256": null, "spconv_source_sha": null, "cumm": null, "cumm_build_sha256": null, "cumm_source_sha": null},
+  "evaluation": {"timing": false, "checkpoint_weights": "REQUIRES_OWNER_SELECTION_RAW_OR_EMA"}
 }

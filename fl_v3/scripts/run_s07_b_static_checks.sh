@@ -17,7 +17,9 @@ python3 -m py_compile \
   fl_v3/scripts/centralized_train.py \
   fl_v3/tests/test_nuscenes_zip_dataset.py \
   fl_v3/tests/test_s06_checkpoint_resume.py \
+  fl_v3/tests/test_s06_loader_eval.py \
   fl_v3/tests/test_s06_resolved_config.py \
+  fl_v3/tests/test_s07_b_data_lifecycle.py \
   fl_v3/tests/test_s07_b_integration.py
 
 for config in fl_v3/configs/s07_b_*.json; do

@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import sys
+from typing import Callable
 
 sys.path.insert(0, "fl_v3/src")
 
@@ -56,6 +57,118 @@ def _checkpoint_sha256(path: Path) -> str:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def _canonical_sha256(value: object) -> str:
+    encoded = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def run_strict_official_evaluation(
+    *,
+    config,
+    run_config: dict,
+    runtime_dependencies: dict,
+    task,
+    model,
+    optimizer,
+    scheduler,
+    scaler,
+    ema,
+    checkpoint: Path,
+    device: torch.device,
+    output_dir: Path,
+    decode_fn: Callable | None = None,
+    official_eval_fn: Callable | None = None,
+    nusc_factory: Callable | None = None,
+) -> dict:
+    """Evaluate one strict checkpoint through one token-complete official path.
+
+    Loading deliberately reuses the production checkpoint loader (including
+    config/data identity checks and rollback).  The raw/EMA choice and timing
+    collection are both fields of the hashed ``s06.v1`` config.
+    """
+    _, checkpoint_identity = load_checkpoint(
+        str(checkpoint), model=model, optimizer=optimizer, scheduler=scheduler,
+        grad_scaler=scaler, ema=ema, config=config, map_location="cpu",
+    )
+    if checkpoint_identity != config.sha256:
+        raise RuntimeError(
+            "checkpoint identity is not the exact resolved-config identity: "
+            f"checkpoint={checkpoint_identity}, config={config.sha256}"
+        )
+    weights = str(run_config["evaluation-checkpoint-weights"])
+    if weights == "ema":
+        if ema is None or not hasattr(ema, "module"):
+            raise RuntimeError("EMA evaluation requested but checkpoint/runtime has no EMA model")
+        model.load_state_dict(ema.module.state_dict(), strict=True)
+    elif weights != "raw":
+        raise RuntimeError(f"unknown strict evaluation checkpoint policy {weights!r}")
+    model.to(device)
+
+    from fl_v3.data.nuscenes import paths as nuscenes_paths
+    from fl_v3.data.nuscenes.class_map import DETECTION_NAMES
+    from fl_v3.eval.detection_eval import (
+        VERSION_EVAL_SET, decode_eval_set, run_detection_eval,
+    )
+    from fl_v3.eval.box_to_global import NUSCENES_MAX_BOXES_PER_SAMPLE
+
+    version = str(run_config["nuscenes-version"])
+    split = str(run_config["nuscenes-val-split"])
+    infos, _ = task._load_info(run_config, split)
+    all_tokens = sorted(str(info["sample_token"]) for info in infos)
+    if len(all_tokens) != len(set(all_tokens)):
+        raise RuntimeError("resolved validation cache contains duplicate sample tokens")
+    loader = task._make_loader(run_config, infos, all_tokens, shuffle=False)
+    timing: dict | None = {} if bool(run_config["evaluation-timing"]) else None
+    decoder = decode_fn or decode_eval_set
+    decodes = decoder(model, loader, device, run_config, timing)
+    decoded_tokens = [str(item.sample_token) for item in decodes]
+    if len(decoded_tokens) != len(set(decoded_tokens)):
+        raise RuntimeError("strict evaluation decoded a sample token more than once")
+    if set(decoded_tokens) != set(all_tokens) or len(decoded_tokens) != len(all_tokens):
+        missing = sorted(set(all_tokens) - set(decoded_tokens))[:3]
+        extra = sorted(set(decoded_tokens) - set(all_tokens))[:3]
+        raise RuntimeError(
+            "strict evaluation is not token-complete: "
+            f"expected={len(all_tokens)}, decoded={len(decoded_tokens)}, "
+            f"missing={missing}, extra={extra}"
+        )
+    over_cap = [
+        str(item.sample_token) for item in decodes
+        if len(item.boxes) > NUSCENES_MAX_BOXES_PER_SAMPLE
+    ]
+    if over_cap:
+        raise RuntimeError(
+            "strict evaluation decode exceeded official per-sample box cap "
+            f"{NUSCENES_MAX_BOXES_PER_SAMPLE}: {over_cap[:3]}"
+        )
+
+    eval_run_config = dict(run_config)
+    eval_run_config.update({
+        "checkpoint-sha256": _checkpoint_sha256(checkpoint),
+        "checkpoint-weights": weights,
+        "runtime-dependencies-sha256": _canonical_sha256(runtime_dependencies),
+    })
+    factory = nusc_factory or nuscenes_paths.create_nuscenes
+    nusc = factory(version, run_config["nuscenes-dataroot"], verbose=False)
+    evaluator = official_eval_fn or run_detection_eval
+    metrics = evaluator(
+        nusc, decodes, VERSION_EVAL_SET[version], version,
+        str(output_dir / "official_detection_eval"), DETECTION_NAMES,
+        all_eval_tokens=all_tokens, run_config=eval_run_config, verbose=False,
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "official_metrics.json").write_text(
+        json.dumps(metrics, sort_keys=True) + "\n", encoding="utf-8",
+    )
+    if timing is not None:
+        (output_dir / "evaluation_timing.json").write_text(
+            json.dumps(timing, sort_keys=True) + "\n", encoding="utf-8",
+        )
+    return metrics
 
 
 def main() -> None:
@@ -161,6 +274,13 @@ def main() -> None:
         json.dumps(runtime_dependencies, sort_keys=True) + "\n", encoding="utf-8"
     )
     (out_dir / "checkpoint.sha256").write_text(_checkpoint_sha256(checkpoint) + "\n", encoding="utf-8")
+    metrics = run_strict_official_evaluation(
+        config=config, run_config=run_config, runtime_dependencies=runtime_dependencies,
+        task=task, model=model, optimizer=optimizer, scheduler=scheduler,
+        scaler=scaler, ema=ema, checkpoint=checkpoint, device=device,
+        output_dir=out_dir,
+    )
+    print(json.dumps({"official_evaluation": metrics}, sort_keys=True), flush=True)
 
 
 if __name__ == "__main__":

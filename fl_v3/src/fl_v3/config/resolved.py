@@ -49,10 +49,12 @@ _CACHE = frozenset({
 })
 _MANIFEST = frozenset({"path", "logical_sha256", "file_sha256"})
 _DEPS = frozenset({
-    "torch", "spconv", "spconv_build_sha256", "spconv_source_sha",
+    "torch", "torch_build_sha256", "torch_source_sha",
+    "spconv", "spconv_build_sha256", "spconv_source_sha",
     "cumm", "cumm_build_sha256", "cumm_source_sha",
 })
-_EVAL = frozenset({"timing"})
+_EVAL = frozenset({"timing", "checkpoint_weights"})
+_CHECKPOINT_WEIGHTS = frozenset({"raw", "ema"})
 
 
 def _mapping(value: Any, where: str) -> dict[str, Any]:
@@ -179,6 +181,8 @@ class ResolvedConfig:
             "det-head-arch": m["head_arch"],
             "precision": self.data["precision"],
             "dependency-torch": self.data["dependencies"]["torch"],
+            "dependency-torch-build-sha256": self.data["dependencies"]["torch_build_sha256"],
+            "dependency-torch-source-sha": self.data["dependencies"]["torch_source_sha"],
             "dependency-spconv": self.data["dependencies"]["spconv"],
             "dependency-spconv-build-sha256": self.data["dependencies"]["spconv_build_sha256"],
             "dependency-spconv-source-sha": self.data["dependencies"]["spconv_source_sha"],
@@ -213,6 +217,8 @@ class ResolvedConfig:
             "nuscenes-zip-manifest": d["zip_manifest"]["path"],
             "nuscenes-zip-manifest-logical-sha256": d["zip_manifest"]["logical_sha256"],
             "nuscenes-zip-manifest-file-sha256": d["zip_manifest"]["file_sha256"],
+            "evaluation-timing": self.data["evaluation"]["timing"],
+            "evaluation-checkpoint-weights": self.data["evaluation"]["checkpoint_weights"],
         }
         for role in ("train", "val"):
             cache = d["caches"][role]
@@ -302,6 +308,10 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
     deps = _mapping(root["dependencies"], "dependencies"); _keys(deps, _DEPS, "dependencies")
     if not isinstance(deps["torch"], str) or not deps["torch"]:
         raise ConfigError("dependencies.torch must be an explicit version")
+    _sha(deps["torch_build_sha256"], "dependencies.torch_build_sha256")
+    torch_source = deps["torch_source_sha"]
+    if not isinstance(torch_source, str) or len(torch_source) != 40 or any(c not in _HEX for c in torch_source):
+        raise ConfigError("dependencies.torch_source_sha must be an exact lowercase 40-character Git SHA")
     if lidar == "second_075":
         if deps["spconv"] != "2.3.8":
             raise ConfigError("lidar/fusion requires dependencies.spconv exactly '2.3.8'")
@@ -322,6 +332,12 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
     evaluation = _mapping(root["evaluation"], "evaluation"); _keys(evaluation, _EVAL, "evaluation")
     if not isinstance(evaluation["timing"], bool):
         raise ConfigError("evaluation.timing must be boolean")
+    weights = _enum(
+        evaluation["checkpoint_weights"], _CHECKPOINT_WEIGHTS,
+        "evaluation.checkpoint_weights",
+    )
+    if weights == "ema" and train["ema_decay"] is None:
+        raise ConfigError("evaluation.checkpoint_weights='ema' requires training.ema_decay")
 
     normalized = json.loads(canonical_json(root).decode("utf-8"))
     encoded = canonical_json(normalized)

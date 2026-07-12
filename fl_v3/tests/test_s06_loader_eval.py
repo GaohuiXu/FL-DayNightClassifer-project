@@ -91,14 +91,16 @@ def test_submission_metadata_records_actual_mode():
 
 
 def test_submission_binds_config_checkpoint_and_data_identities():
-    keys = ("resolved-config-sha256", "checkpoint-sha256",
+    keys = ("resolved-config-sha256", "checkpoint-sha256", "runtime-dependencies-sha256",
             "nuscenes-train-cache-logical-sha256", "nuscenes-train-cache-pickle-sha256",
             "nuscenes-train-cache-sidecar-sha256", "nuscenes-val-cache-logical-sha256",
             "nuscenes-val-cache-pickle-sha256", "nuscenes-val-cache-sidecar-sha256",
             "nuscenes-zip-manifest-logical-sha256",
             "nuscenes-zip-manifest-file-sha256")
-    cfg = {"model-mode": "camera_only", **{k: "a" * 64 for k in keys}}
+    cfg = {"model-mode": "camera_only", "checkpoint-weights": "raw",
+           **{k: "a" * 64 for k in keys}}
     submission = build_results_dict([], [], ["tok"], run_config=cfg)
     assert submission["meta"]["use_camera"] and not submission["meta"]["use_lidar"]
     assert submission["fl_v3_provenance"]["model_mode"] == "camera_only"
     assert set(keys) <= set(submission["fl_v3_provenance"])
+    assert submission["fl_v3_provenance"]["checkpoint_weights"] == "raw"
