@@ -123,7 +123,7 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 | S03 | Camera branch architecture | S00 kickoff | corrected stride-8 independent camera modules | reviewed module PASS at delivery `5089383` / review `2f62e57`; accepted S07-B dependency with production-shape limits |
 | S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | reviewed module PASS at worker `483e149` / executable `8498597` / review `a0763c2`; Job `341695` 15/15 bounded runtime PASS; accepted S07-B dependency with same-instance concurrency/reentrancy integration requirement |
 | S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | reviewed PASS at worker `a9c801f` / execution `96e509b` / review `1c44084`; Job `336731` 43/44 negative preserved, Job `336738` 44/44 focused runtime PASS; accepted S07-B dependency only |
-| S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | planned; must consume explicit `t1.v2` depth/hash contract |
+| S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | filled kickoff drafted under O-027 from the reviewed S07-A/canonical base; owner launch review pending; no worker/compute yet |
 | S07 | Integrated engineering gate | phase A: S01 PASS; phase B: S01-S06 PASS | staged data foundation, then one resolved candidate stack and 100/1000-step evidence | S07-A reviewed PASS at `ba15716`/`44cefd0`/`370ea6c`; full cache and S07-B separate |
 | S08 | Camera scientific run | S07 PASS | `C-STR8` full-val result/checkpoint | planned |
 | S09 | LiDAR scientific runs | S07 PASS | `L-P020` and `L-S075` results/checkpoints | planned |
@@ -385,6 +385,14 @@ final module wiring to S07.
 scientific tolerance; no accidental branch I/O; effective global batch and
 optimizer-step budget are identical across experiment cells; provenance rejects
 architecture/data/precision drift.
+
+**O-027 launch refinement.** S06 runs before S07-B and consumes S02-S05 only as
+reviewed interface contracts. It must not land or copy their implementation
+histories. The runtime must pin S04's exact spconv 2.3.8 requirement and serialize
+same-instance encoder forward/mode transitions unless separately protected and
+tested. The absent full trainval `t1.v2` cache is a required fail-closed identity
+field, not permission to materialize it; synthetic/mini fixtures exercise the
+resolver until an exact owner-approved cache job freezes production hashes.
 
 ---
 

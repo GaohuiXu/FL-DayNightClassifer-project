@@ -329,7 +329,19 @@ You are worker S06: Production modes, resolved config, training/runtime/evaluati
 Read completely before editing:
 - repository AGENTS.md;
 - fl_v3/usenix27_orchestra/{ORCHESTRA.md,SESSIONS.md,KICKOFFS.md}, especially S06;
-- fl_v3/docs/env.md;
+- fl_v3/docs/{env.md,roadmap/INDEX.md};
+- accepted S01/S07-A data-foundation history and artifacts: S01 worker
+  abe5c58b174dbbe1f7045ce91c8b15168d97b87b, S01 review
+  7cf7fcc4b17d43806f1a134cf8c8a7b6868aa5bc, S07-A delivery
+  ba1571632557c20adbda3172221694cdbecfeabe, executable
+  44cefd06bc815e893919d95c754896711dba3402, review
+  370ea6c0bd4d9d737a5a50b6aff1c6f742589825, and integrated freeze
+  0249eb21a32730ac1689255491b19a158711401f;
+- reviewed S02-S05 HANDOFF/RESULTS/REVIEW packages and actual diffs at S02
+  3aebf2dc1d19473f29260df279421047d216d70e / df142dc9a391b87d05bd7becaba59459e9659f88,
+  S03 50893839c45cd3e2ef1b72b98db6668df7030f2a / 2f62e570c9c24ef1e18a483888c3f28ad56a415e,
+  S04 483e149b95ec891b675df825d924a96bb225b7dd / a0763c2e0b322d4ca53a92f9f69c90d9b231bbff,
+  and S05 a9c801fdee378906e54d06314d0c772b6559901a / 1c440843bb2b6d72f10310ff11fcde0d7d1e885c;
 - detector.py, training/tasks.py, training/loop.py, centralized_train.py;
 - eval/detection_eval.py, eval/provenance.py, runtime/config utilities and tests.
 
@@ -342,13 +354,71 @@ production cache load must pass the resolved `n_sweeps` explicitly and bind the
 exact accepted `t1.v2` cache plus ZIP-manifest hashes into config/provenance;
 scientific entry points may not rely on cache-depth autodiscovery.
 
-Own production integration seams/runtime tests and handoffs/S06/, but integrate only
-against declared module contracts; S07 owns final cross-session wiring. Report
-intended files/interfaces before editing. Write HANDOFF.md. Any Slurm test requires
-RUN_REQUEST.md; only a bounded non-scientific smoke may self-submit under O-009.
-Return branch-execution proof, continuous/resume evidence, step/exposure accounting,
-config rejection tests, negative results, and risks. Do not commit/merge/push
-without authorization.
+Binding runtime contract:
+- `model-mode` is exactly `camera_only | lidar_only | fusion`; unknown or legacy
+  aliases fail. A disabled modality is not constructed, checkpoint-loaded,
+  transferred, dataset-decoded, or executed. Evaluation/submission metadata records
+  the actual mode.
+- Resolve one canonical, locale/order-stable config before constructing data/model/
+  optimizer. Its hash binds architecture enums, model mode, precision, optimizer and
+  executed-step budget, effective global batch, accumulation, seed, `n_sweeps`,
+  canonical/physical `t1.v2` cache identities, ZIP-manifest identity, and dependency
+  contract. Train, resume, eval, and later FL entry points must consume the same
+  resolved hash; unknown keys/enums and environment-only scientific defaults fail.
+- Full trainval `t1.v2` materialization is still absent and not authorized here.
+  Implement and test the required identity fields with synthetic/mini fixtures;
+  reject `t1.v1`, missing depth/hash/manifest, depth autodiscovery, and identity drift.
+- Gradient accumulation and every schedule are defined by successfully executed
+  optimizer updates, not batches. On nonfinite loss or GradScaler overflow, do not
+  advance optimizer-step, scheduler, EMA, or exposure counters; clear/retain
+  gradients only under one documented fail-closed rule. Checkpoint only at an
+  accumulation/update boundary unless pending gradients and phase are serialized.
+- Resume restores model, optimizer, scheduler, GradScaler, EMA, epoch, executed
+  optimizer-step/exposure counters, RNG states, resolved-config hash, and data/
+  manifest identities. Legacy/partial/mismatched checkpoints fail; no silent
+  `strict=False` migration. Continuous versus interrupted/resumed tiny runs must
+  match at the declared boundary.
+- Keep one persistent loader/sampler across epochs where supported; call
+  deterministic `set_epoch`, and prove no duplicate/omitted samples or ZIP handle
+  lifecycle drift across epoch/resume boundaries.
+- Evaluation uses the resolved precision/autocast policy, runs the dataset once,
+  records modality/config/checkpoint/data identities, and keeps optional timing
+  instrumentation output-neutral.
+- For lidar/fusion, pin the reviewed S04 runtime to exact `spconv==2.3.8` and either
+  serialize forward/mode changes for each encoder instance or fail closed. Do not
+  claim concurrent/reentrant safety without instance-level protection and adversarial
+  tests.
+- Consume S02-S05 only as reviewed interface contracts. Do not cherry-pick, copy,
+  reimplement, or finally wire their module code; S07-B is the sole cross-session
+  integration owner. Return every unresolved interface seam explicitly.
+
+File ownership is limited to production runtime seams:
+- fl_v3/src/fl_v3/models/fusion/detector.py;
+- fl_v3/src/fl_v3/training/{tasks.py,loop.py} and new S06-specific checkpoint/
+  sampler/runtime helpers in that package;
+- fl_v3/scripts/centralized_train.py and fl_v3/scripts/run_s06_*.sh;
+- fl_v3/src/fl_v3/eval/{detection_eval.py,provenance.py};
+- fl_v3/src/fl_v3/utils/runtime.py and new fl_v3/src/fl_v3/config/**;
+- new fl_v3/configs/s06_*.json;
+- fl_v3/tests/test_s06_*.py plus existing focused tests only when named in the
+  filled kickoff envelope;
+- fl_v3/usenix27_orchestra/handoffs/S06/**.
+
+All S01-S05 source modules, data/cache builders, box conversion/decode/NMS, legacy
+configs, canonical Orchestra files, fl_v3/collab/, and fl_v2/ are read-only. Report
+the intended file list and interface/config schema before editing. Write HANDOFF.md;
+write RUN_REQUEST.md/RESULTS.md when compute is proposed/executed. At kickoff,
+compute is none: do not self-submit. S00 may approve only an exact bounded
+non-scientific synthetic/mini validation after auditing its immutable request;
+full trainval/cache/profile/100/1000-step/metrics/matrix/seed/rerun remains exact
+owner scope.
+
+Return mode-specific construction/I/O/forward proof, config-hash rejection cases,
+step/exposure and nonfinite/overflow accounting, loader epoch behavior,
+continuous/resume evidence, checkpoint/provenance rejection, eval autocast/metadata,
+negative results, and S07-B integration requirements. O-027 authorizes scoped
+implementation/test/handoff commits only after the owner approves the filled
+envelope. Do not merge or push.
 ```
 
 ### S07-A — reviewed S01 data-foundation integration phase
