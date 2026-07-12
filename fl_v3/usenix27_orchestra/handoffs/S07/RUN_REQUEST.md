@@ -557,14 +557,18 @@ interpretation is available from this execution.
 
 ---
 
-## E. S07-B failure/hang diagnostic attribution — PREPARED ONLY
+## E. S07-B failure/hang diagnostic attribution — APPROVED ONCE / NOT YET SUBMITTED
 
 ### Approval state and immutable identity
 
-- **Status:** `PREPARED_PENDING_S00_AUDIT_DO_NOT_SUBMIT`.
+- **Status:**
+  `APPROVED_ONCE_BY_S00_UNDER_OWNER_DELEGATED_S07B_DIAGNOSTIC_O-056_2026-07-12_NOT_YET_SUBMITTED`.
 - Canonical O-055 at exact Orchestra commit
-  `d56e01d3b80a7dae41f90211c0be9ff565861b85` authorizes preparation only. It
-  does not approve `sbatch`, `srun`, pytest, retry, replacement or follow-on.
+  `d56e01d3b80a7dae41f90211c0be9ff565861b85` authorized preparation only.
+  Canonical O-056 at exact Orchestra commit
+  `07ec16f37cbe0816be6ce102350036e8c7511e1e` records S00's audit and approves
+  exactly one submission of the immutable tuple below under the owner's delegated
+  S07-B diagnostic scheduling authority. It remains not yet submitted.
 - This is a distinct diagnostic proposal after the durable Job 348557 negative
   record at `d7888a9fef615c83c8d36161bfa6d581a3dc4f0f`. It is not an O-052 retry and
   cannot change or overwrite the old output.
@@ -581,6 +585,35 @@ interpretation is available from this execution.
   `56ddfdc66045548899cdde1ad08f7e394c300a8fc27a6c0aaf6551a8178533b2`.
 - Exact parent runtime launcher SHA-256, checked separately in-job:
   `1b1c45d33b113d0c7d649e51b2ddf98a2d7822eab38d708d4bb0e223b8c334c0`.
+
+### O-056 exact one-time approval record
+
+O-056 at canonical commit `07ec16f37cbe0816be6ce102350036e8c7511e1e`
+approves only this exact tuple:
+
+- executable/archive `fd142dc1c247ed527dbf5ddb823576c817dc415a`;
+- diagnostic launcher SHA-256
+  `d8d7686eb727d4973591cf20186615f6bf2f3bc71ba020dec815c9b6d2d0dc1b`;
+- exact 124-file list/state SHA-256
+  `40c364201bda63386be614fca3710f62111e6964f9b7fdc1beffef69cb5f05d8` /
+  `56ddfdc66045548899cdde1ad08f7e394c300a8fc27a6c0aaf6551a8178533b2`;
+- the exact ordered 25 test files below, isolated 120-second verbose attempts and
+  the 600-second verbose combined probe;
+- literal mini root
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini`;
+- fresh snapshot/output
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_diagnostic_fd142dc1c247` /
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_diagnostic_fd142dc1c247`;
+- one job/node/task/GH200, eight CPUs, 64 GiB and 30 minutes; and
+- the exact preflight, `sbatch --no-requeue`, exports and launcher command in the
+  command block below.
+
+This authority is consumed by one submission attempt regardless of outcome.
+Any Git/hash/test/order/timeout/data/path/resource/environment/command/summary/
+acceptance/stop-rule drift invalidates approval. There is no retry, requeue,
+replacement, alternate invocation, automatic follow-on or spare job. A completed
+diagnostic harness is not suite PASS: `diagnostic_complete` never substitutes for
+the separately computed `suite_pass` result.
 
 The 124-file state is the exact prior 123-file runtime set plus only the new
 diagnostic launcher. It contains all tracked `fl_v3/src/fl_v3/**/*.py`, both
@@ -713,7 +746,7 @@ cannot recursively contain itself. Scratch fixtures are not formal evidence.
 Scheduler stdout/stderr remain separately preserved for S00 to hash after the
 job closes.
 
-### Exact proposed command — DO NOT SUBMIT
+### Exact O-056-approved one-time command — NOT YET SUBMITTED
 
 ```bash
 test "$(git hash-object fl_v3/scripts/run_s07_b_diagnostic_tests.sh)" = "e41e97d31ff0a4e5555a548a63ac04d656565538" && \
@@ -727,9 +760,10 @@ sbatch --nodes=1 --ntasks=1 --gpus-per-node=nvidia_gh200_120gb:1 \
   fl_v3/scripts/run_s07_b_diagnostic_tests.sh
 ```
 
-This command is frozen text for S00 audit only. It was not executed. Any Git,
+This exact command is approved once under O-056 but has not been executed or
+submitted. It must not be altered, repeated or followed automatically. Any Git,
 hash, file list/order, test command/timeout, data, resource, path, environment,
-summary, acceptance or stop-rule drift invalidates the tuple.
+summary, acceptance or stop-rule drift invalidates approval.
 
 ### Interpretation limits
 
