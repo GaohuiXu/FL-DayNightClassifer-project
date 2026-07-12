@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import torch
 
 from fl_v3.eval.detection_eval import build_results_dict, decode_eval_set, submission_meta
@@ -50,8 +51,10 @@ class EvalModel(torch.nn.Module):
 
 def _batch():
     return {
-        "images": torch.ones(1, 1), "lidar2img": torch.eye(4).reshape(1, 1, 4, 4),
-        "cam_intrinsics": torch.eye(3).reshape(1, 1, 3, 3), "lidar_points": torch.ones(2, 6),
+        "images": torch.ones(1, 1),
+        "lidar2img": torch.eye(4).reshape(1, 1, 4, 4).repeat(1, 6, 1, 1),
+        "cam_intrinsics": torch.eye(3).reshape(1, 1, 3, 3).repeat(1, 6, 1, 1),
+        "lidar_points": torch.ones(2, 6),
         "sample_token": ["tok"], "gt_boxes": [torch.zeros(0, 7)],
         "gt_labels": [torch.zeros(0, dtype=torch.long)], "gt_num_lidar_pts": [torch.zeros(0)],
         "gt_in_range": [torch.zeros(0, dtype=torch.bool)], "gt_velocity": [torch.zeros(0, 2)],
@@ -68,6 +71,16 @@ def test_eval_is_single_pass_autocast_policy_and_timing_output_neutral():
     assert a.calls == b.calls == 1 and timing["batches"] == 1
     assert plain[0].sample_token == timed[0].sample_token
     assert np.array_equal(plain[0].boxes, timed[0].boxes)
+
+
+def test_eval_rejects_non_six_camera_calibration():
+    batch = _batch()
+    batch["lidar2img"] = torch.eye(4).reshape(1, 1, 4, 4)
+    with pytest.raises(ValueError, match="six cameras"):
+        decode_eval_set(
+            EvalModel(), [batch], torch.device("cpu"),
+            {"model-mode": "camera_only", "precision": "fp32", "det-score-threshold": .1},
+        )
 
 
 def test_submission_metadata_records_actual_mode():

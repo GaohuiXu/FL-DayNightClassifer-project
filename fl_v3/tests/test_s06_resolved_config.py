@@ -49,7 +49,10 @@ def test_config_hash_is_order_stable_and_roundtrips(tmp_path):
     assert a.as_dict() == b.as_dict()
     assert a.data_identities["train_cache_format"] == "t1.v2"
     assert a.data_identities["val_cache_format"] == "t1.v2"
-    assert a.to_run_config()["resolved-config-sha256"] == a.sha256
+    run = a.to_run_config()
+    assert run["resolved-config-sha256"] == a.sha256
+    assert type(run["nuscenes-cache-identities"]) is dict
+    assert all(type(value) is dict for value in run["nuscenes-cache-identities"].values())
 
 
 @pytest.mark.parametrize("mutation", [

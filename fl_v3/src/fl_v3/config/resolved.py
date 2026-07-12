@@ -115,6 +115,15 @@ def _freeze(value: Any) -> Any:
     return value
 
 
+def _thaw(value: Any) -> Any:
+    """Return JSON-serializable plain containers from the frozen config graph."""
+    if isinstance(value, Mapping):
+        return {key: _thaw(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_thaw(item) for item in value]
+    return value
+
+
 @dataclass(frozen=True)
 class ResolvedConfig:
     """Validated canonical config and its content identity."""
@@ -178,7 +187,9 @@ class ResolvedConfig:
             "nuscenes-train-split": d["train_split"],
             "nuscenes-val-split": d["val_split"],
             "nuscenes-cache-dir": str(Path(d["caches"]["train"]["path"]).parent),
-            "nuscenes-cache-identities": json.loads(canonical_json(d["caches"]).decode("utf-8")),
+            "nuscenes-cache-identities": json.loads(
+                canonical_json(_thaw(d["caches"])).decode("utf-8")
+            ),
             "det-lidar-sweeps": d["n_sweeps"],
             "nuscenes-zip-manifest": d["zip_manifest"]["path"],
             "nuscenes-zip-manifest-logical-sha256": d["zip_manifest"]["logical_sha256"],

@@ -122,9 +122,11 @@ def test_known_epoch_remainder_fails_before_any_mutation_or_attempt():
 def test_unknown_length_tail_is_discarded_audited_and_raises():
     model, optimizer = _parts()
     state = TrainingState()
+    opaque_batches = (batch for batch in loader(5))
+    assert not hasattr(opaque_batches, "__len__")
     with pytest.raises(RuntimeError, match="partial accumulation window"):
         train_one_epoch(
-            model, iter(loader(5)), torch.nn.MSELoss(), optimizer, torch.device("cpu"),
+            model, opaque_batches, torch.nn.MSELoss(), optimizer, torch.device("cpu"),
             accumulation_steps=3, runtime_state=state,
         )
     assert state.optimizer_step == state.successful_windows == 1

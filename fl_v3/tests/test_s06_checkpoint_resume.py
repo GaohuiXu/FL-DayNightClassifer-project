@@ -89,6 +89,59 @@ def test_checkpoint_refuses_pending_gradients(tmp_path):
                         checkpoint_identity="d" * 64)
 
 
+def test_checkpoint_save_failure_preserves_target_and_cleans_temp(tmp_path, monkeypatch):
+    cfg = resolve_config(valid_config(tmp_path)); model, opt, sched = _parts()
+    target = tmp_path / "checkpoint.pt"
+    target.write_bytes(b"original-target")
+
+    def fail_after_partial_write(_payload, path):
+        with open(path, "wb") as stream:
+            stream.write(b"partial-temp")
+        raise RuntimeError("hostile save failure")
+
+    monkeypatch.setattr(torch, "save", fail_after_partial_write)
+    with pytest.raises(RuntimeError, match="hostile save failure"):
+        save_checkpoint(
+            str(target), model=model, optimizer=opt, scheduler=sched,
+            grad_scaler=None, ema=None, state=TrainingState(), config=cfg,
+            checkpoint_identity="d" * 64,
+        )
+    assert target.read_bytes() == b"original-target"
+    assert list(tmp_path.glob("s06-ckpt-*.pt")) == []
+
+
+def test_checkpoint_save_atomically_replaces_existing_target(tmp_path):
+    cfg = resolve_config(valid_config(tmp_path)); model, opt, sched = _parts()
+    target = tmp_path / "checkpoint.pt"
+    target.write_bytes(b"old-target")
+    save_checkpoint(
+        str(target), model=model, optimizer=opt, scheduler=sched,
+        grad_scaler=None, ema=None, state=TrainingState(), config=cfg,
+        checkpoint_identity="d" * 64,
+    )
+    assert torch.load(target, weights_only=False)["schema"] == "s06.checkpoint.v1"
+    assert list(tmp_path.glob("s06-ckpt-*.pt")) == []
+
+
+def test_checkpoint_replace_failure_preserves_target_and_cleans_temp(tmp_path, monkeypatch):
+    cfg = resolve_config(valid_config(tmp_path)); model, opt, sched = _parts()
+    target = tmp_path / "checkpoint.pt"
+    target.write_bytes(b"old-target")
+
+    def fail_replace(_source, _target):
+        raise OSError("hostile replace failure")
+
+    monkeypatch.setattr("fl_v3.training.checkpoint.os.replace", fail_replace)
+    with pytest.raises(OSError, match="hostile replace failure"):
+        save_checkpoint(
+            str(target), model=model, optimizer=opt, scheduler=sched,
+            grad_scaler=None, ema=None, state=TrainingState(), config=cfg,
+            checkpoint_identity="d" * 64,
+        )
+    assert target.read_bytes() == b"old-target"
+    assert list(tmp_path.glob("s06-ckpt-*.pt")) == []
+
+
 class StatefulComponent:
     def __init__(self, value):
         self.value = int(value)

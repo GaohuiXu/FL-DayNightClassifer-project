@@ -318,7 +318,9 @@ def save_checkpoint(
         "checkpoint_identity": str(checkpoint_identity),
     }
     parent = os.path.dirname(os.path.abspath(path)); os.makedirs(parent, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(prefix=".s06-ckpt-", dir=parent)
+    # Torch 2.11's zip writer rejects hidden/suffix-less basenames. Keep the
+    # temporary file in the target directory so os.replace remains atomic.
+    fd, tmp = tempfile.mkstemp(prefix="s06-ckpt-", suffix=".pt", dir=parent)
     os.close(fd)
     try:
         torch.save(payload, tmp)

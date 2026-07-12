@@ -95,6 +95,16 @@ def _np(x):
     return x.detach().cpu().numpy() if hasattr(x, "detach") else np.asarray(x)
 
 
+def _six_camera_lidar2img(value: object) -> np.ndarray:
+    calibration = _np(value).astype(np.float64)
+    if calibration.shape != (6, 4, 4):
+        raise ValueError(
+            "nuScenes evaluation requires lidar2img with six cameras and shape (6, 4, 4); "
+            f"got {calibration.shape}"
+        )
+    return calibration
+
+
 @torch.no_grad()
 def decode_eval_set(model, eval_loader, device, run_config, timing: Optional[dict] = None) -> List[SampleDecode]:
     """Run the model over the eval loader ONCE, returning per-sample decode records.
@@ -142,7 +152,7 @@ def decode_eval_set(model, eval_loader, device, run_config, timing: Optional[dic
                     velocity=_np(d["velocity"]).astype(np.float64).reshape(-1, 2),
                     lidar2ego=_np(batch["lidar2ego"][b]).astype(np.float64).reshape(4, 4),
                     ego2global_lidar=_np(batch["ego2global_lidar"][b]).astype(np.float64).reshape(4, 4),
-                    lidar2img=_np(batch["lidar2img"][b]).astype(np.float64).reshape(6, 4, 4),
+                    lidar2img=_six_camera_lidar2img(batch["lidar2img"][b]),
                     gt_boxes=_np(batch["gt_boxes"][b]).astype(np.float64).reshape(-1, 7),
                     gt_labels=_np(batch["gt_labels"][b]).astype(np.int64).reshape(-1),
                     gt_num_lidar_pts=_np(batch["gt_num_lidar_pts"][b]).astype(np.int64).reshape(-1),
