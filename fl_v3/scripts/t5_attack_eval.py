@@ -29,6 +29,10 @@ import numpy as np
 import torch
 
 
+_ALLOWED_EVAL_OVERRIDES = frozenset({"batch-size", "num-workers", "det-eval-limit"})
+_CHECKPOINT_PREFLIGHTS: Dict[str, dict] = {}
+
+
 # ---------------------------------------------------------------------------
 # config / model / subset plumbing
 # ---------------------------------------------------------------------------
@@ -101,34 +105,129 @@ def _trainable_checksum(model) -> str:
     return numpy_state_checksum([v.detach().cpu().numpy() for v in trainable_state_dict(model).values()])
 
 
-def _load_model(cfg, checkpoint: str, device):
+def _checkpoint_preflight(caller_cfg: dict, checkpoint: str) -> dict:
+    """Validate one complete checkpoint without constructing data or a model."""
     from fl_v3.config import resolve_config, verify_physical_data_identities
-    from fl_v3.training.checkpoint import CHECKPOINT_SCHEMA, load_checkpoint
-    from fl_v3.training.tasks import get_task
-    from fl_v3.utils.runtime import make_grad_scaler, verify_runtime_dependency_identity
+    from fl_v3.training.checkpoint import CHECKPOINT_SCHEMA, _FIELDS
+    from fl_v3.utils.runtime import verify_runtime_dependency_identity
 
     payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
-    if not isinstance(payload, dict) or payload.get("schema") != CHECKPOINT_SCHEMA:
+    if not isinstance(payload, dict) or "schema" not in payload:
         raise RuntimeError("T5 refuses legacy/bare checkpoints; a complete S06 checkpoint is required")
+    if payload.get("schema") != CHECKPOINT_SCHEMA:
+        raise RuntimeError(f"T5 refuses unsupported checkpoint schema {payload.get('schema')!r}")
+    if set(payload) != _FIELDS:
+        raise RuntimeError("T5 refuses partial checkpoints; the complete S06 field set is required")
     resolved = resolve_config(payload.get("resolved_config", {}))
+    expected_metadata = {
+        "resolved_config_sha256": resolved.sha256,
+        "resolved_config": resolved.as_dict(),
+        "model_mode": resolved.model_mode,
+        "precision": resolved.precision,
+        "data_identities": resolved.data_identities,
+    }
+    metadata_drift = [key for key, value in expected_metadata.items() if payload.get(key) != value]
+    if metadata_drift:
+        raise RuntimeError(f"T5 checkpoint embedded config/data metadata drift: {metadata_drift}")
+    identity = payload.get("checkpoint_identity")
+    if (
+        not isinstance(identity, str) or len(identity) != 64
+        or any(char not in "0123456789abcdef" for char in identity)
+    ):
+        raise RuntimeError("T5 checkpoint identity must be a lowercase SHA-256 string")
+    required_mappings = ("model", "optimizer", "scheduler", "grad_scaler", "training_state", "rng")
+    malformed = [key for key in required_mappings if not isinstance(payload.get(key), dict)]
+    if malformed:
+        raise RuntimeError(f"T5 checkpoint component metadata is incomplete: {malformed}")
+    expects_ema = resolved.data["training"]["ema_decay"] is not None
+    if expects_ema != isinstance(payload.get("ema"), dict):
+        raise RuntimeError("T5 checkpoint EMA presence differs from resolved training policy")
     strict = resolved.to_run_config()
-    allowed_eval_overrides = {"batch-size", "num-workers", "det-eval-limit"}
     drift = [
         key for key in strict
-        if key in cfg and key not in allowed_eval_overrides and cfg[key] != strict[key]
+        if key in caller_cfg and key not in _ALLOWED_EVAL_OVERRIDES
+        and caller_cfg[key] != strict[key]
     ]
     if drift:
         raise RuntimeError(f"T5 caller/checkpoint resolved-config drift: {sorted(drift)}")
-    preserved = {key: cfg[key] for key in allowed_eval_overrides if key in cfg}
-    cfg.update(strict); cfg.update(preserved)
-    cfg["batch-size"] = 1; cfg["det-eval-limit"] = 0
     verify_physical_data_identities(resolved)
     runtime_identity = verify_runtime_dependency_identity(strict)
-    cfg["runtime-dependencies-sha256"] = hashlib.sha256(
+    runtime_sha = hashlib.sha256(
         json.dumps(runtime_identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
-    cfg["checkpoint-sha256"] = _checkpoint_file_sha256(checkpoint)
-    cfg["checkpoint-weights"] = strict["evaluation-checkpoint-weights"]
+    return {
+        "path": os.path.abspath(checkpoint),
+        "resolved": resolved,
+        "strict": strict,
+        "resolved_sha256": resolved.sha256,
+        "checkpoint_sha256": _checkpoint_file_sha256(checkpoint),
+        "checkpoint_weights": strict["evaluation-checkpoint-weights"],
+        "runtime_dependencies": runtime_identity,
+        "runtime_dependencies_sha256": runtime_sha,
+    }
+
+
+def _preflight_t5_checkpoints(cfg: dict, checkpoint: str, clean_checkpoint: Optional[str]) -> None:
+    """Establish authoritative numeric/data/model identity before every T5 task."""
+    _CHECKPOINT_PREFLIGHTS.clear()
+    if not checkpoint:
+        raise RuntimeError("T5 task requires an explicit complete S06 checkpoint")
+    poison = _checkpoint_preflight(cfg, checkpoint)
+    clean = _checkpoint_preflight(cfg, clean_checkpoint) if clean_checkpoint else None
+    if clean is not None:
+        if clean["resolved_sha256"] != poison["resolved_sha256"]:
+            raise RuntimeError(
+                "T5 clean/poison checkpoint resolved identities differ: "
+                f"poison={poison['resolved_sha256']}, clean={clean['resolved_sha256']}"
+            )
+        if clean["checkpoint_weights"] != poison["checkpoint_weights"]:
+            raise RuntimeError("T5 clean/poison checkpoint raw/EMA policies differ")
+        if clean["runtime_dependencies_sha256"] != poison["runtime_dependencies_sha256"]:
+            raise RuntimeError("T5 clean/poison runtime dependency identities differ")
+
+    preserved = {key: cfg[key] for key in _ALLOWED_EVAL_OVERRIDES if key in cfg}
+    cfg.update(poison["strict"])
+    cfg.update(preserved)
+    cfg["batch-size"] = 1
+    cfg["det-eval-limit"] = 0
+    cfg["runtime-dependencies-sha256"] = poison["runtime_dependencies_sha256"]
+    cfg["checkpoint-sha256"] = poison["checkpoint_sha256"]
+    cfg["checkpoint-weights"] = poison["checkpoint_weights"]
+    if clean is not None:
+        cfg["clean-checkpoint-sha256"] = clean["checkpoint_sha256"]
+    _CHECKPOINT_PREFLIGHTS[poison["path"]] = poison
+    if clean is not None:
+        _CHECKPOINT_PREFLIGHTS[clean["path"]] = clean
+
+
+def _require_preflight(checkpoint: str, clean_checkpoint: Optional[str] = None) -> None:
+    required = [checkpoint, *([clean_checkpoint] if clean_checkpoint else [])]
+    missing = [
+        os.path.abspath(path) for path in required
+        if not path or os.path.abspath(path) not in _CHECKPOINT_PREFLIGHTS
+    ]
+    if missing:
+        raise RuntimeError(f"T5 authoritative checkpoint preflight missing: {missing}")
+
+
+def _load_model(cfg, checkpoint: str, device):
+    """Construct/load only from an already validated authoritative preflight."""
+    from fl_v3.training.checkpoint import load_checkpoint
+    from fl_v3.training.tasks import get_task
+    from fl_v3.utils.runtime import make_grad_scaler
+
+    _require_preflight(checkpoint)
+    preflight = _CHECKPOINT_PREFLIGHTS[os.path.abspath(checkpoint)]
+    resolved = preflight["resolved"]
+    strict = preflight["strict"]
+    drift = [
+        key for key, expected in strict.items()
+        if key not in _ALLOWED_EVAL_OVERRIDES and cfg.get(key) != expected
+    ]
+    if drift:
+        raise RuntimeError(f"T5 authoritative config changed after preflight: {sorted(drift)}")
+    if _checkpoint_file_sha256(checkpoint) != preflight["checkpoint_sha256"]:
+        raise RuntimeError("T5 checkpoint changed after authoritative preflight")
 
     task = get_task("nuscenes_detection")
     model = task.build_model(strict).to(device)
@@ -155,10 +254,12 @@ def _load_model(cfg, checkpoint: str, device):
     )
     if identity != resolved.sha256:
         raise RuntimeError("T5 checkpoint identity does not equal its resolved-config SHA-256")
-    if cfg["checkpoint-weights"] == "ema":
+    if preflight["checkpoint_weights"] == "ema":
         if ema is None:
             raise RuntimeError("T5 EMA policy requested but checkpoint has no EMA")
         model.load_state_dict(ema.module.state_dict(), strict=True)
+    if _checkpoint_file_sha256(checkpoint) != preflight["checkpoint_sha256"]:
+        raise RuntimeError("T5 checkpoint changed during complete load")
     model.to(device).eval()
     return model
 
@@ -217,6 +318,7 @@ def _seed(cfg):
 # task: shard (the per-target fan-out worker)
 # ---------------------------------------------------------------------------
 def task_shard(args, cfg):
+    _require_preflight(args.checkpoint, args.clean_checkpoint)
     from fl_v3.eval.asr import thresholds_from_subset
     from fl_v3.attacks import trigger as TR
     from fl_v3.attacks import fusion_ablation as FA
@@ -273,6 +375,7 @@ def task_shard(args, cfg):
 # task: aggregate (combine shards → table + verdict)
 # ---------------------------------------------------------------------------
 def task_aggregate(args, cfg):
+    _require_preflight(args.checkpoint)
     from fl_v3.attacks import fusion_ablation as FA
     from fl_v3.eval.provenance import verify_attack_provenance
     _assert_pinned_constants(cfg)  # §0.C4: NO post-hoc override of any anti-gaming constant
@@ -388,6 +491,7 @@ def task_aggregate(args, cfg):
 # task: stealth (poisoned clean DetectionEval — mAP/NDS + official car recall)
 # ---------------------------------------------------------------------------
 def task_stealth(args, cfg):
+    _require_preflight(args.checkpoint)
     _assert_pinned_constants(cfg)
     from fl_v3.data.nuscenes.class_map import DETECTION_NAMES
     from fl_v3.eval.detection_eval import decode_eval_set, run_detection_eval, VERSION_EVAL_SET
@@ -420,6 +524,7 @@ def task_stealth(args, cfg):
 # task: guards (cond-5a LiDAR-invariance + camera-only clean-recall precondition)
 # ---------------------------------------------------------------------------
 def task_guards(args, cfg):
+    _require_preflight(args.checkpoint)
     _assert_pinned_constants(cfg)
     from fl_v3.eval.asr import thresholds_from_subset
     from fl_v3.attacks import fusion_ablation as FA
@@ -459,21 +564,20 @@ def task_guards(args, cfg):
 # task: viz (V5 + V3(trigger) for a few subset samples)
 # ---------------------------------------------------------------------------
 def task_viz(args, cfg):
+    _require_preflight(args.checkpoint, args.clean_checkpoint)
     from fl_v3.eval.asr import thresholds_from_subset
     from fl_v3.attacks import trigger as TR
     from fl_v3.attacks.poison import _lidar_xyz
     from fl_v3.viz.writer import VizWriter
     from fl_v3.viz import attack as V5
     from fl_v3.viz.fusion import render_v3_trigger
-    from fl_v3.models.fusion.bev_grid import BEVConfig
     device = _device(cfg); _seed(cfg)
     subset = _load_subset(cfg, args.subset)
     thr = thresholds_from_subset(subset)
     spec = TR.trigger_spec_from_run_config(cfg)
     model = _load_model(cfg, args.checkpoint, device)
     clean = _load_model(cfg, args.clean_checkpoint, device) if args.clean_checkpoint else None
-    cfg_bev = BEVConfig(bev_voxel=(float(cfg.get("det-bev-voxel", 0.4)),) * 2,
-                        out_size_factor=int(cfg.get("det-out-size-factor", 2)))
+    cfg_bev = model.cfg.bev
     targets = [tuple(t) for t in subset["targets"]]
     first_by_sample = {}
     for s, a in targets:
@@ -538,6 +642,10 @@ def main():
     ap.add_argument("overrides", nargs="*", default=[])
     args = ap.parse_args()
     cfg = _load_config(args.config, args.overrides)
+    if args.task == "null-verify":
+        task_null_verify(args, cfg)
+        return
+    _preflight_t5_checkpoints(cfg, args.checkpoint, args.clean_checkpoint)
     os.makedirs(args.output_dir, exist_ok=True)
     {"shard": task_shard, "aggregate": task_aggregate, "stealth": task_stealth,
      "guards": task_guards, "viz": task_viz, "null-verify": task_null_verify}[args.task](args, cfg)

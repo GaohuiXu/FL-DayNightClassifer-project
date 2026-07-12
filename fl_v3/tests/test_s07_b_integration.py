@@ -439,6 +439,22 @@ def _six_tasks():
     return [_task_output(count, size=2) for count in (1, 2, 2, 1, 2, 2)]
 
 
+def _synthetic_s06_payload(resolved):
+    from fl_v3.training.checkpoint import CHECKPOINT_SCHEMA
+    return {
+        "schema": CHECKPOINT_SCHEMA,
+        "model": {}, "optimizer": {}, "scheduler": {}, "grad_scaler": {},
+        "ema": {} if resolved.data["training"]["ema_decay"] is not None else None,
+        "training_state": {}, "rng": {},
+        "resolved_config_sha256": resolved.sha256,
+        "resolved_config": resolved.as_dict(),
+        "model_mode": resolved.model_mode,
+        "precision": resolved.precision,
+        "data_identities": resolved.data_identities,
+        "checkpoint_identity": resolved.sha256,
+    }
+
+
 def test_t5_condition_decode_consumes_task_outputs_without_legacy_global_k(monkeypatch):
     from fl_v3.attacks import fusion_ablation as ablation
 
@@ -537,8 +553,7 @@ def test_t4_t5_callers_use_complete_checkpoint_loader_and_bind_provenance(
     raw = valid_config(tmp_path)
     resolved = config_module.resolve_config(raw)
     checkpoint = tmp_path / "checkpoint.pt"; checkpoint.write_bytes(b"exact-s06-checkpoint")
-    payload = {"schema": checkpoint_module.CHECKPOINT_SCHEMA,
-               "resolved_config": resolved.as_dict()}
+    payload = _synthetic_s06_payload(resolved)
     monkeypatch.setattr(module.torch, "load", lambda *args, **kwargs: payload)
     monkeypatch.setattr(config_module, "verify_physical_data_identities", lambda _cfg: None)
     monkeypatch.setattr(runtime_module, "verify_runtime_dependency_identity",
@@ -557,6 +572,8 @@ def test_t4_t5_callers_use_complete_checkpoint_loader_and_bind_provenance(
         lambda path, **kwargs: (load_calls.append((path, kwargs)) or (object(), resolved.sha256)),
     )
     caller = {"batch-size": 1, "num-workers": 0, "det-eval-limit": 0}
+    if filename.startswith("t5"):
+        module._preflight_t5_checkpoints(caller, str(checkpoint), None)
     model = getattr(module, function_name)(caller, str(checkpoint), torch.device("cpu"))
     assert isinstance(model, torch.nn.Module) and len(load_calls) == 1
     assert caller["resolved-config-sha256"] == resolved.sha256
@@ -567,3 +584,137 @@ def test_t4_t5_callers_use_complete_checkpoint_loader_and_bind_provenance(
     assert caller["checkpoint-sha256"] == expected_checkpoint_hash
     assert caller["checkpoint-weights"] == "raw"
     assert len(caller["runtime-dependencies-sha256"]) == 64
+
+
+def test_t5_main_preflights_existing_compat_config_before_device_seed_or_data(
+    tmp_path, monkeypatch,
+):
+    from test_s06_resolved_config import valid_config
+    import fl_v3.config as config_module
+    import fl_v3.eval.asr as asr_module
+    import fl_v3.attacks.trigger as trigger_module
+    import fl_v3.utils.runtime as runtime_module
+
+    module = _script_module("t5_attack_eval.py", "s07b_t5_order")
+    repo = Path(__file__).resolve().parents[1]
+    compatibility = json.loads((repo / "configs/t5_attack.json").read_text(encoding="utf-8"))
+    raw = valid_config(tmp_path)
+    raw["precision"] = "fp32"
+    raw["optimizer"]["learning_rate"] = float(compatibility["learning-rate"])
+    raw["optimizer"]["weight_decay"] = float(compatibility["weight-decay"])
+    raw["training"]["seed"] = int(compatibility["seed"])
+    raw["data"].update(
+        dataroot=str(compatibility["nuscenes-dataroot"]),
+        version=str(compatibility["nuscenes-version"]),
+        train_split=str(compatibility["nuscenes-train-split"]),
+        val_split=str(compatibility["nuscenes-val-split"]),
+    )
+    cache_dir = Path(str(compatibility["nuscenes-cache-dir"]))
+    for role in ("train", "val"):
+        raw["data"]["caches"][role]["path"] = str(cache_dir / f"{role}.pkl")
+        raw["data"]["caches"][role]["sidecar_path"] = str(cache_dir / f"{role}.meta.json")
+    resolved = config_module.resolve_config(raw)
+    checkpoint = tmp_path / "checkpoint.pt"; checkpoint.write_bytes(b"synthetic-complete")
+    events = []
+    monkeypatch.setattr(module.torch, "load",
+                        lambda *args, **kwargs: (events.append("parse") or _synthetic_s06_payload(resolved)))
+    monkeypatch.setattr(
+        config_module, "verify_physical_data_identities",
+        lambda _cfg: events.append("physical"),
+    )
+    monkeypatch.setattr(
+        runtime_module, "verify_runtime_dependency_identity",
+        lambda _run: (events.append("dependency") or {"torch": "attested"}),
+    )
+    monkeypatch.setattr(module, "_device", lambda cfg: (events.append("device") or torch.device("cpu")))
+
+    def seeded(cfg):
+        events.append("seed")
+        assert cfg["precision"] == "fp32"
+        assert cfg["s06-production-runtime"] is True
+        assert cfg["model-mode"] == "camera_only"
+
+    monkeypatch.setattr(module, "_seed", seeded)
+    monkeypatch.setattr(module, "_load_subset", lambda *_args: {"targets": []})
+    monkeypatch.setattr(asr_module, "thresholds_from_subset", lambda _subset: object())
+    monkeypatch.setattr(trigger_module, "trigger_spec_from_run_config", lambda _cfg: object())
+    monkeypatch.setattr(module, "_val_info", lambda _cfg: (events.append("val_info") or []))
+    monkeypatch.setattr(module, "_val_dataset",
+                        lambda *_args: (events.append("dataset") or []))
+    monkeypatch.setattr(module, "_load_model",
+                        lambda *_args: (events.append("model") or object()))
+    output = tmp_path / "out"
+    monkeypatch.setattr(sys, "argv", [
+        "t5_attack_eval.py", "--task", "shard", "--config",
+        str(repo / "configs/t5_attack.json"), "--checkpoint", str(checkpoint),
+        "--subset", str(tmp_path / "subset.json"), "--output-dir", str(output),
+    ])
+    module.main()
+    assert events[:3] == ["parse", "physical", "dependency"]
+    assert events.index("dependency") < events.index("device") < events.index("seed")
+    assert events.index("seed") < events.index("val_info") < events.index("dataset")
+    assert events.index("dataset") < events.index("model")
+
+
+def test_t5_preflight_rejects_missing_legacy_caller_drift_and_embedded_drift(
+    tmp_path, monkeypatch,
+):
+    from test_s06_resolved_config import valid_config
+    import fl_v3.config as config_module
+    import fl_v3.utils.runtime as runtime_module
+
+    module = _script_module("t5_attack_eval.py", "s07b_t5_hostiles")
+    with pytest.raises(RuntimeError, match="explicit complete S06 checkpoint"):
+        module._preflight_t5_checkpoints({}, None, None)
+
+    checkpoint = tmp_path / "checkpoint.pt"; checkpoint.write_bytes(b"checkpoint")
+    monkeypatch.setattr(module.torch, "load", lambda *args, **kwargs: {})
+    with pytest.raises(RuntimeError, match="legacy/bare checkpoints"):
+        module._preflight_t5_checkpoints({}, str(checkpoint), None)
+
+    resolved = config_module.resolve_config(valid_config(tmp_path))
+    payload = _synthetic_s06_payload(resolved)
+    monkeypatch.setattr(module.torch, "load", lambda *args, **kwargs: payload)
+    monkeypatch.setattr(config_module, "verify_physical_data_identities", lambda _cfg: None)
+    monkeypatch.setattr(runtime_module, "verify_runtime_dependency_identity",
+                        lambda _run: {"torch": "attested"})
+    with pytest.raises(RuntimeError, match="caller/checkpoint resolved-config drift"):
+        module._preflight_t5_checkpoints({"precision": "fp16"}, str(checkpoint), None)
+
+    embedded_drift = dict(payload); embedded_drift["resolved_config_sha256"] = "0" * 64
+    monkeypatch.setattr(module.torch, "load", lambda *args, **kwargs: embedded_drift)
+    with pytest.raises(RuntimeError, match="embedded config/data metadata drift"):
+        module._preflight_t5_checkpoints({}, str(checkpoint), None)
+
+    monkeypatch.setattr(module.torch, "load", lambda *args, **kwargs: payload)
+    authoritative = {}
+    module._preflight_t5_checkpoints(authoritative, str(checkpoint), None)
+    checkpoint.write_bytes(b"changed-after-preflight")
+    with pytest.raises(RuntimeError, match="changed after authoritative preflight"):
+        module._load_model(authoritative, str(checkpoint), torch.device("cpu"))
+
+
+def test_t5_preflight_rejects_clean_poison_resolved_identity_mismatch(tmp_path, monkeypatch):
+    from test_s06_resolved_config import valid_config
+    import fl_v3.config as config_module
+    import fl_v3.utils.runtime as runtime_module
+
+    module = _script_module("t5_attack_eval.py", "s07b_t5_pair")
+    poison_raw = valid_config(tmp_path)
+    clean_raw = valid_config(tmp_path); clean_raw["evaluation"]["timing"] = True
+    poison = config_module.resolve_config(poison_raw)
+    clean = config_module.resolve_config(clean_raw)
+    poison_path = tmp_path / "poison.pt"; poison_path.write_bytes(b"poison")
+    clean_path = tmp_path / "clean.pt"; clean_path.write_bytes(b"clean")
+    payloads = {
+        str(poison_path): _synthetic_s06_payload(poison),
+        str(clean_path): _synthetic_s06_payload(clean),
+    }
+    monkeypatch.setattr(module.torch, "load", lambda path, **kwargs: payloads[str(path)])
+    monkeypatch.setattr(config_module, "verify_physical_data_identities", lambda _cfg: None)
+    monkeypatch.setattr(runtime_module, "verify_runtime_dependency_identity",
+                        lambda _run: {"torch": "attested"})
+    caller = {}
+    with pytest.raises(RuntimeError, match="clean/poison checkpoint resolved identities differ"):
+        module._preflight_t5_checkpoints(caller, str(poison_path), str(clean_path))
+    assert caller == {} and module._CHECKPOINT_PREFLIGHTS == {}
