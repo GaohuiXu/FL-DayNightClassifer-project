@@ -15,6 +15,7 @@ import importlib.util
 import os
 from pathlib import Path
 import sys
+import threading
 from types import ModuleType, SimpleNamespace
 
 import numpy as np
@@ -1175,9 +1176,7 @@ def test_t5_manifest_publication_is_complete_noreplace_and_owns_only_its_temp(
     os.close(run_fd)
 
 
-def test_t5_bind_manifest_real_lost_race_accepts_only_exact_complete_winner(
-    tmp_path, monkeypatch,
-):
+def test_t5_bind_manifest_real_lost_races_accept_only_exact_complete_winner(tmp_path):
     module = _script_module("t5_attack_eval.py", "s07b_t5_bind_race")
     subset = {
         "content_hash": "5" * 64,
@@ -1186,37 +1185,104 @@ def test_t5_bind_manifest_real_lost_race_accepts_only_exact_complete_winner(
     cfg = {"attack-clean-checkpoint-checksum": "9" * 64}
     poison = _t5_identity("8" * 64)
     clean = _t5_identity("9" * 64, checkpoint_file="4" * 64)
-    original_publish = module._atomic_publish_json_at
 
-    args = SimpleNamespace(
-        output_dir=str(tmp_path / "out"), run_id="exact-winner", num_shards=2,
-        guard_samples=2,
+    def run_two_real_publishers(run_id, poison_identities):
+        args = SimpleNamespace(
+            output_dir=str(tmp_path / "out"), run_id=run_id, num_shards=2,
+            guard_samples=2,
+        )
+        initial_fd = module._open_run_directory(args, create=True)
+        os.close(initial_fd)
+        write_barrier = threading.Barrier(2)
+        link_barrier = threading.Barrier(2)
+        lock = threading.Lock()
+        temp_names = []
+        both_live_observations = []
+        link_outcomes = []
+        results = []
+        original_write_all = module._write_all
+        original_link = module.os.link
+
+        def recording_link(*link_args, **link_kwargs):
+            try:
+                result = original_link(*link_args, **link_kwargs)
+            except FileExistsError:
+                with lock:
+                    link_outcomes.append(False)
+                raise
+            else:
+                with lock:
+                    link_outcomes.append(True)
+                return result
+
+        def synchronized_write_all(fd, payload):
+            original_write_all(fd, payload)
+            temp_name = os.path.basename(os.readlink(f"/proc/self/fd/{fd}"))
+            with lock:
+                temp_names.append(temp_name)
+            leader = write_barrier.wait(timeout=5)
+            with lock:
+                snapshot = tuple(temp_names)
+            both_live = (
+                len(snapshot) == 2
+                and len(set(snapshot)) == 2
+                and all((Path(args.output_dir) / args.run_id / name).is_file() for name in snapshot)
+            )
+            both_live_observations.append(both_live)
+            if leader == 0:
+                module.os.link = recording_link
+            link_barrier.wait(timeout=5)
+
+        def caller(poison_identity):
+            try:
+                manifest, manifest_sha, run_fd = module._bind_run_manifest(
+                    args, cfg, subset, poison_identity, clean,
+                )
+            except Exception as exc:
+                with lock:
+                    results.append(("error", type(exc).__name__, str(exc)))
+            else:
+                os.close(run_fd)
+                with lock:
+                    results.append(("ok", manifest["poison"], manifest_sha))
+
+        module._write_all = synchronized_write_all
+        threads = [threading.Thread(target=caller, args=(identity,)) for identity in poison_identities]
+        try:
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(timeout=10)
+            assert all(not thread.is_alive() for thread in threads)
+        finally:
+            module._write_all = original_write_all
+            module.os.link = original_link
+
+        run_fd = module._open_run_directory(args, create=False)
+        entries = os.listdir(run_fd)
+        winner, winner_sha = module._load_required_json_at(run_fd, "t5_run_manifest.json")
+        os.close(run_fd)
+        assert both_live_observations == [True, True]
+        assert sorted(link_outcomes) == [False, True]
+        assert not any(name.endswith(".tmp") for name in entries)
+        return results, winner, winner_sha
+
+    exact_results, exact_winner, exact_sha = run_two_real_publishers(
+        "exact-winner", [copy.deepcopy(poison), copy.deepcopy(poison)],
     )
+    assert [result[0] for result in exact_results].count("ok") == 2
+    assert exact_winner["poison"] == poison and len(exact_sha) == 64
 
-    def exact_winner_publishes_first(directory_fd, name, expected):
-        assert original_publish(directory_fd, name, expected) is True
-        return False
-
-    monkeypatch.setattr(module, "_atomic_publish_json_at", exact_winner_publishes_first)
-    manifest, manifest_sha, run_fd = module._bind_run_manifest(args, cfg, subset, poison, clean)
-    assert manifest["run_id"] == args.run_id and len(manifest_sha) == 64
-    os.close(run_fd)
-
-    args.run_id = "different-winner"
-
-    def different_winner_publishes_first(directory_fd, name, expected):
-        different = copy.deepcopy(expected)
-        different["poison"]["selected_weights_checksum"] = "7" * 64
-        assert original_publish(directory_fd, name, different) is True
-        return False
-
-    monkeypatch.setattr(module, "_atomic_publish_json_at", different_winner_publishes_first)
-    with pytest.raises(RuntimeError, match="concurrently published.*different identity"):
-        module._bind_run_manifest(args, cfg, subset, poison, clean)
-    run_fd = module._open_run_directory(args, create=False)
-    winner, _winner_sha = module._load_required_json_at(run_fd, "t5_run_manifest.json")
-    assert winner["poison"]["selected_weights_checksum"] == "7" * 64
-    os.close(run_fd)
+    different_poison = copy.deepcopy(poison)
+    different_poison["selected_weights_checksum"] = "7" * 64
+    different_results, different_winner, different_sha = run_two_real_publishers(
+        "different-winner", [copy.deepcopy(poison), different_poison],
+    )
+    assert [result[0] for result in different_results].count("ok") == 1
+    errors = [result for result in different_results if result[0] == "error"]
+    assert len(errors) == 1 and "different identity" in errors[0][2]
+    assert different_winner["poison"] in (poison, different_poison)
+    assert len(different_sha) == 64
 
 
 def test_t5_run_directory_rejects_symlink_traversal_missing_and_stale_root(tmp_path):
