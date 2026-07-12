@@ -1569,12 +1569,18 @@ the only path changed in `L`; this subsequent delivery commit changes only
 after commit because it cannot embed its own identity.
 
 The request now has status
-`APPROVED_ONCE_BY_S00_UNDER_OWNER_DELEGATED_S07B_VALIDATION_O-052_2026-07-12_NOT_YET_SUBMITTED`.
+`SUBMITTED_ONCE_JOB_348557_APPROVAL_CONSUMED_ACTIVE`.
 Canonical O-052 at exact Orchestra commit
 `e71274b1a169c1af92fe638608785a6e479d2b3a` records S00's audit and the owner's
 delegated S07-B validation authority. This is explicitly not generic O-009. It
-permits exactly one submission of the exact RUN_REQUEST Section D command and no
-alternate invocation, retry, rerun, requeue, follow-on or spare job.
+permitted exactly one submission of the exact RUN_REQUEST Section D command.
+Canonical O-053 at exact Orchestra commit
+`e8ee6461ff543b258ebaf588ff36ca5591277909` records that this approval was
+consumed immediately by Job `348557`. Scheduler SubmitTime was exactly
+`2026-07-12T12:33:41+02:00`; StartTime was exactly
+`2026-07-12T12:33:42+02:00` on Arrhenius node `n30` (Europe/Stockholm, CEST).
+There is no alternate invocation, retry, rerun, requeue, replacement, follow-on
+or spare job.
 
 The immutable approval tuple is executable/archive `L`
 `05b733997968b8217e1fc6dd27c3a4add34f6c98`, launcher SHA-256
@@ -1593,12 +1599,15 @@ and one job/one node/one task/one GH200/eight CPUs/64 GiB/45 minutes. The exact
 approved command is the Section D preflight plus `sbatch --no-requeue` command
 with the recorded exact exports. Any SHA/hash/test/data/path/resource/command or
 acceptance/stop-rule drift invalidates approval and requires a new canonical
-decision. One submission attempt consumes the approval regardless of outcome.
+decision. The one submission attempt consumed the approval regardless of outcome.
 
-The job remains not yet submitted. It creates a fresh read-only archive snapshot
-and fresh output, activates the persistent Arrhenius environment, uses only the
-literal existing mini root plus output-local synthetic temporary fixtures, and
-clears shared-trainval/ZIP-manifest overrides.
+The exact Section D preflight/resources/exports/launcher command was submitted
+once and unchanged. Job `348557` is ACTIVE. It creates a fresh read-only archive
+snapshot and fresh output, activates the persistent Arrhenius environment, uses
+only the literal existing mini root plus output-local synthetic temporary
+fixtures, and clears shared-trainval/ZIP-manifest overrides. S07-B now waits for
+S00 to preserve and audit the result; this worker performs no job query, cancel,
+retry or follow-on.
 
 The exact launcher selects 25 named test files: the required S02 Gaussian/GPU,
 S03 camera, S04 SECOND/fp16, S05 CenterHead/eval/NMS, five S06, two S07-B and nine

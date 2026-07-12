@@ -323,21 +323,20 @@ No retry or downstream action follows automatically.
 
 ---
 
-## D. S07-B bounded integrated GH200 validation — APPROVED ONCE / NOT YET SUBMITTED
+## D. S07-B bounded integrated GH200 validation — SUBMITTED ONCE / ACTIVE
 
 ### Approval state and immutable scope
 
 - **Status:**
-  `APPROVED_ONCE_BY_S00_UNDER_OWNER_DELEGATED_S07B_VALIDATION_O-052_2026-07-12_NOT_YET_SUBMITTED`.
+  `SUBMITTED_ONCE_JOB_348557_APPROVAL_CONSUMED_ACTIVE`.
 - Canonical approval is O-052 at exact Orchestra commit
   `e71274b1a169c1af92fe638608785a6e479d2b3a`. S00 independently audited the
   complete tuple below under the owner's delegated S07-B validation authority.
-  This is not generic O-009 authority: it permits exactly one submission of the
-  exact command below and remains not yet submitted. Any change to the Git SHA,
-  launcher/list/state/config hash, test selection, mini input, output/snapshot,
-  resource, environment, command, acceptance or stop rule invalidates approval.
-  There is no retry, resubmission, rerun, requeue, automatic follow-on or spare
-  job authority.
+  Canonical O-053 at exact Orchestra commit
+  `e8ee6461ff543b258ebaf588ff36ca5591277909` records that the exact command was
+  submitted once as Slurm Job `348557`; O-052 was consumed immediately. This is
+  not generic O-009 authority. There is no retry, resubmission, rerun, requeue,
+  automatic follow-on, replacement or spare-job authority.
 - Independent S07-B-R8 code-level review is **PASS** at
   `8a144ddaa624f3fd0605c7464eb30c1dcf6a51d9`; exact REVIEW blob
   `384a4a531f7967f25c75fc1282e1a7767bd4f97c`, size 145,973 bytes, SHA-256
@@ -356,7 +355,7 @@ No retry or downstream action follows automatically.
 - Both hashes were reproduced independently from a `git archive` extraction of
   exact `L` and directly from the same ordered immutable Git blobs.
 
-### O-052 exact one-time approval record
+### O-052 exact approval and O-053 consumed submission record
 
 O-052 at canonical commit `e71274b1a169c1af92fe638608785a6e479d2b3a`
 approves only this immutable tuple:
@@ -382,10 +381,14 @@ approves only this immutable tuple:
 - the exact preflight plus `sbatch --no-requeue` command and exact `--export`
   values recorded in the command block below.
 
-The approval is consumed by one submission attempt, regardless of whether that
-attempt passes, fails, times out or is cancelled. No retry or follow-on is
-authorized. A drift in any listed field requires a new canonical owner/S00
-decision before submission.
+That exact approval was consumed by one submission attempt as Job `348557` under
+O-053 at canonical commit `e8ee6461ff543b258ebaf588ff36ca5591277909`.
+Scheduler SubmitTime was exactly `2026-07-12T12:33:41+02:00` and StartTime was
+exactly `2026-07-12T12:33:42+02:00` on Arrhenius node `n30` (Europe/Stockholm,
+CEST). The submitted command tuple is byte-for-byte the preflight, resources,
+exports and launcher command recorded below. The single attempt consumed approval
+regardless of whether it passes, fails, times out or is cancelled. No retry,
+follow-on or changed tuple is authorized.
 
 Exact config file hashes inside `L` are:
 
@@ -479,7 +482,7 @@ optimizer update. These are small correctness fixtures, not a training campaign:
 the launcher invokes no trainer, requests no 100/1000-step run, and performs zero
 optimizer steps as an experimental training campaign.
 
-### Exact O-052-approved one-time command — NOT YET SUBMITTED
+### Exact command submitted once as Job 348557
 
 ```bash
 test "$(git hash-object fl_v3/scripts/run_s07_b_runtime_tests.sh)" = "1e182ebc1fe883ad59702bfeb1b3db110bbf54c1" && \
@@ -493,8 +496,9 @@ sbatch --nodes=1 --ntasks=1 --gpus-per-node=nvidia_gh200_120gb:1 \
   fl_v3/scripts/run_s07_b_runtime_tests.sh
 ```
 
-This exact command is approved once by O-052 but has not been executed or
-submitted. No alternate invocation, retry or follow-on is approved.
+This exact command was submitted once as Job `348557` at
+`2026-07-12T12:33:41+02:00`; O-052 is consumed. It must not be submitted again.
+No alternate invocation, retry, replacement or follow-on is approved.
 
 ### Runtime identity, artifacts, acceptance and stop conditions
 
