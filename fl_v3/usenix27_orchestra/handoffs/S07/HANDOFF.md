@@ -988,8 +988,9 @@ S00 independently verified its exact parent, sole REVIEW path and preserved prio
 could seed and construct compatibility data before the complete checkpoint supplied
 authoritative precision/depth/mode/cache/manifest identity.
 
-S00 returned this exact P1 within existing O-037 ownership. Implementation commit
-`2c6203c02f118678dcfb71e3b67ddc703dbd2f8a` changes only
+S00 returned this exact P1 within existing O-037 ownership. Implementation commits
+`2c6203c02f118678dcfb71e3b67ddc703dbd2f8a` and
+`9403178ac2833e5e11e641223b728c6fa168657f` change only
 `fl_v3/scripts/t5_attack_eval.py` and
 `fl_v3/tests/test_s07_b_integration.py`:
 
