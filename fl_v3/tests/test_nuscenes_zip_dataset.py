@@ -322,3 +322,56 @@ def test_zip_root_without_manifest_fails_before_any_archive_scan(tmp_path):
     (root / TRAINVAL_ARCHIVE_NAMES[0]).write_bytes(b"not-even-opened")
     with pytest.raises(FileNotFoundError, match="no external member manifest"):
         NuScenesBlobStore(str(root))
+
+
+def _mode_zip(tmp_path, directory_root, members):
+    root = tmp_path / "mode_zip"
+    root.mkdir()
+    buckets = {name: [] for name in TRAINVAL_ARCHIVE_NAMES}
+    for index, rel in enumerate(members):
+        buckets[TRAINVAL_ARCHIVE_NAMES[index % len(TRAINVAL_ARCHIVE_NAMES)]].append(rel)
+    for name, paths in buckets.items():
+        with zipfile.ZipFile(root / name, "w", compression=zipfile.ZIP_STORED) as archive:
+            for rel in paths:
+                archive.writestr(rel, (directory_root / rel).read_bytes())
+    manifest = tmp_path / "mode_manifest.sqlite"
+    build_zip_manifest(str(root), str(manifest))
+    return root, manifest
+
+
+@pytest.mark.parametrize("backend", ["directory", "zip"])
+@pytest.mark.parametrize("model_mode", ["camera_only", "lidar_only"])
+def test_mode_aware_io_never_reads_missing_disabled_payload(
+    directory_and_zip, tmp_path, backend, model_mode
+):
+    directory_root, _zip_root, _manifest, info, _paths = directory_and_zip
+    enabled = (
+        list(info["cam_rel_paths"])
+        if model_mode == "camera_only"
+        else [info["lidar_rel_path"], *(s["rel_path"] for s in info["lidar_sweeps"])]
+    )
+    if backend == "zip":
+        root, manifest = _mode_zip(tmp_path, directory_root, enabled)
+        kwargs = {"zip_manifest": str(manifest)}
+    else:
+        root = tmp_path / "mode_directory"
+        for rel in enabled:
+            target = root / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((directory_root / rel).read_bytes())
+        kwargs = {}
+
+    dataset = DS.NuScenesMultimodalDataset(
+        [info], str(root), n_sweeps=10, model_mode=model_mode, **kwargs
+    )
+    sample = dataset[0]
+    counts = dataset.payload_read_counts["reads"]
+    assert sample["model_mode"] == model_mode
+    assert "images" in sample is (model_mode == "camera_only")
+    assert "lidar_points" in sample is (model_mode == "lidar_only")
+    assert counts["camera"] == (6 if model_mode == "camera_only" else 0)
+    assert counts["lidar"] == (10 if model_mode == "lidar_only" else 0)
+    assert sample["cam_intrinsics"].shape == (6, 3, 3)
+    assert sample["lidar2ego"].shape == (4, 4)
+    assert sample["gt_boxes"].shape == (0, 7)
+    dataset.close()

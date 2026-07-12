@@ -445,6 +445,8 @@ class NuScenesBlobStore:
         self._locations: OrderedDict[str, tuple[int, int, int, int, int, int]] = OrderedDict()
         self._read_count = 0
         self._byte_count = 0
+        self._modality_read_count = {"camera": 0, "lidar": 0, "other": 0}
+        self._modality_byte_count = {"camera": 0, "lidar": 0, "other": 0}
         self._reopen_count = 0
         multiprocessing.util.register_after_fork(self, type(self)._after_fork)
 
@@ -467,6 +469,8 @@ class NuScenesBlobStore:
         self._locations = OrderedDict()
         self._read_count = 0
         self._byte_count = 0
+        self._modality_read_count = {"camera": 0, "lidar": 0, "other": 0}
+        self._modality_byte_count = {"camera": 0, "lidar": 0, "other": 0}
         self._reopen_count = 0
         multiprocessing.util.register_after_fork(self, type(self)._after_fork)
 
@@ -488,6 +492,8 @@ class NuScenesBlobStore:
         store._locations = OrderedDict()
         store._read_count = 0
         store._byte_count = 0
+        store._modality_read_count = {"camera": 0, "lidar": 0, "other": 0}
+        store._modality_byte_count = {"camera": 0, "lidar": 0, "other": 0}
         store._reopen_count += 1
 
     def _close_handles(self) -> None:
@@ -822,6 +828,17 @@ class NuScenesBlobStore:
                 payloads = [by_path[path] for path in paths]
             self._read_count += len(payloads)
             self._byte_count += sum(len(payload) for payload in payloads)
+            for path, payload in zip(paths, payloads, strict=True):
+                parts = path.split("/")
+                channel = parts[1] if len(parts) > 1 else ""
+                if channel.startswith("CAM_"):
+                    modality = "camera"
+                elif channel == "LIDAR_TOP":
+                    modality = "lidar"
+                else:
+                    modality = "other"
+                self._modality_read_count[modality] += 1
+                self._modality_byte_count[modality] += len(payload)
             return payloads
 
     def read_bytes(self, rel_path: str) -> bytes:
@@ -866,6 +883,15 @@ class NuScenesBlobStore:
             )
             self._read_count += 1
             self._byte_count += len(payload)
+            parts = path.split("/")
+            channel = parts[1] if len(parts) > 1 else ""
+            modality = (
+                "camera" if channel.startswith("CAM_")
+                else "lidar" if channel == "LIDAR_TOP"
+                else "other"
+            )
+            self._modality_read_count[modality] += 1
+            self._modality_byte_count[modality] += len(payload)
             return payload
 
     def contains(self, rel_path: str) -> bool:
@@ -896,6 +922,8 @@ class NuScenesBlobStore:
                 ),
                 "read_count": self._read_count,
                 "byte_count": self._byte_count,
+                "modality_read_count": dict(self._modality_read_count),
+                "modality_byte_count": dict(self._modality_byte_count),
                 "reopen_count": self._reopen_count,
                 "location_cache_size": len(self._locations),
             }

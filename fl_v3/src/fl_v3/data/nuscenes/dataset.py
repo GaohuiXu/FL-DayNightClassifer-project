@@ -31,6 +31,7 @@ from torch.utils.data import DataLoader, Dataset
 from fl_v3.data.nuscenes import paths as P
 from fl_v3.data.nuscenes.zip_backend import NuScenesBlobStore, canonical_member_path
 from fl_v3.utils.runtime import seeded_worker_init
+from fl_v3.utils.runtime import normalize_model_mode
 
 # Frozen cam order — a test asserts the schema matches this exactly.
 CAM_ORDER = P.CAMERA_CHANNELS
@@ -166,6 +167,7 @@ class NuScenesMultimodalDataset(Dataset):
         augment: Optional[dict] = None,
         gtpaste: Optional[dict] = None,
         zip_manifest: Optional[str] = None,
+        model_mode: str = "fusion",
     ):
         """``info_list`` from :mod:`info_cache`. If ``sample_tokens`` is given, the
         dataset is restricted to (and ordered by) those tokens — this is how a
@@ -188,6 +190,7 @@ class NuScenesMultimodalDataset(Dataset):
         self.n_sweeps = int(n_sweeps)
         self.augment = augment
         self.gtpaste = gtpaste
+        self.model_mode = normalize_model_mode(model_mode)
         self.blob_store = NuScenesBlobStore(dataroot, manifest_path=zip_manifest)
         by_token = {i["sample_token"]: i for i in info_list}
         if sample_tokens is None:
@@ -227,14 +230,18 @@ class NuScenesMultimodalDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Dict[str, object]:
         info = self._infos[idx]
-        # --- images (6,3,900,1600) uint8, row i ↔ cam_order[i] ---
-        image_payloads = self.blob_store.read_many(info["cam_rel_paths"])
-        imgs = np.stack([_decode_image_bytes_chw(payload) for payload in image_payloads])  # (6,3,H,W)
-        # --- lidar: (P,5) single keyframe, or (P,6) accumulated multi-sweep (+dt channel) ---
-        if self.n_sweeps > 1:
-            pts = _load_multisweep(info, self.dataroot, self.n_sweeps, self.blob_store)
-        else:
-            pts = _load_lidar(info["lidar_rel_path"], blob_store=self.blob_store)
+        use_camera = self.model_mode in {"camera_only", "fusion"}
+        use_lidar = self.model_mode in {"lidar_only", "fusion"}
+        imgs = None
+        pts = None
+        if use_camera:
+            image_payloads = self.blob_store.read_many(info["cam_rel_paths"])
+            imgs = np.stack([_decode_image_bytes_chw(payload) for payload in image_payloads])
+        if use_lidar:
+            if self.n_sweeps > 1:
+                pts = _load_multisweep(info, self.dataroot, self.n_sweeps, self.blob_store)
+            else:
+                pts = _load_lidar(info["lidar_rel_path"], blob_store=self.blob_store)
 
         M = int(info["gt_boxes"].shape[0])
         sample = {
@@ -245,13 +252,12 @@ class NuScenesMultimodalDataset(Dataset):
             "location": info["location"],
             "timestamp": int(info["timestamp"]),
             "cam_order": tuple(info["cam_order"]),
-            # images + calibration (native resolution; NO resize/norm)
-            "images": torch.from_numpy(imgs),                                  # uint8 [6,3,900,1600]
+            "model_mode": self.model_mode,
+            # Calibration and poses remain available even when their raw payload is disabled.
             "cam_intrinsics": torch.from_numpy(info["cam_intrinsics"].astype(np.float32)),   # [6,3,3]
             "lidar2img": torch.from_numpy(info["lidar2img"].astype(np.float32)),             # [6,4,4]
             "cam2ego": torch.from_numpy(info["cam2ego"].astype(np.float32)),                 # [6,4,4]
             "ego2global_cam": torch.from_numpy(info["ego2global_cam"].astype(np.float32)),   # [6,4,4]
-            "lidar_points": torch.from_numpy(np.ascontiguousarray(pts)),                     # f32 [P,5]
             "lidar2ego": torch.from_numpy(info["lidar2ego"].astype(np.float32)),             # [4,4]
             "ego2global_lidar": torch.from_numpy(info["ego2global_lidar"].astype(np.float32)),  # [4,4]
             # GT (canonical LIDAR_TOP frame), ann_token-sorted
@@ -267,6 +273,10 @@ class NuScenesMultimodalDataset(Dataset):
             "gt_ann_tokens": list(info["gt_ann_tokens"]),                            # [M] str
             "num_boxes": M,
         }
+        if imgs is not None:
+            sample["images"] = torch.from_numpy(imgs)
+        if pts is not None:
+            sample["lidar_points"] = torch.from_numpy(np.ascontiguousarray(pts))
         # TRAIN-ONLY GT-paste (rare-class object copy-paste). BEFORE the BEV aug so the scene transform T
         # transforms pasted points/boxes/velocity CONSISTENTLY with the host scene. Default None ⇒ byte-identical.
         if self.gtpaste is not None:
@@ -281,6 +291,14 @@ class NuScenesMultimodalDataset(Dataset):
     @property
     def blob_backend(self) -> str:
         return self.blob_store.mode
+
+    @property
+    def payload_read_counts(self) -> dict:
+        state = self.blob_store.debug_state()
+        return {
+            "reads": state["modality_read_count"],
+            "bytes": state["modality_byte_count"],
+        }
 
     def close(self) -> None:
         self.blob_store.close()

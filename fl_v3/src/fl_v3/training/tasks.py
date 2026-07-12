@@ -688,17 +688,14 @@ class NuScenesDetectionTask(Task):
 
         dataroot = P.get_dataroot(run_config)
         production = bool(run_config.get("s06-production-runtime", False))
-        if production:
-            # S01's accepted dataset currently decodes both modalities.  Silently
-            # decoding then dropping one violates the S06 mode contract; S07-B is
-            # the sole owner allowed to integrate a modality-aware dataset API.
-            raise RuntimeError(
-                "S07-B integration required: NuScenesMultimodalDataset has no reviewed "
-                "model_mode I/O contract; refusing production decode of a disabled modality"
-            )
+        model_mode = normalize_model_mode(str(run_config.get("model-mode", "fusion")))
         ds = NuScenesMultimodalDataset(info_list, dataroot, sample_tokens=tokens,
                                        n_sweeps=int(run_config.get("det-lidar-sweeps", 1)),
-                                       augment=augment)
+                                       augment=augment,
+                                       gtpaste=_gtpaste_from_run(run_config) if shuffle else None,
+                                       zip_manifest=(str(run_config["nuscenes-zip-manifest"])
+                                                     if production else None),
+                                       model_mode=model_mode)
         # T5 routing (additive): for a malicious-roster CLIENT train shard, wrap with the
         # poisoning dataset. ``client_id is None`` (the eval/val loader) or attack-disabled /
         # poison_rate=0 / honest client ⇒ ``ds`` is returned UNCHANGED (byte-identical clean).
