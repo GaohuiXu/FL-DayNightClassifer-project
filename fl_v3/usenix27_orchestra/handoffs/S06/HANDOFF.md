@@ -7,18 +7,43 @@
 - Source branch named by kickoff: `codex/s00-orchestra-ledger`.
 - Startup state: clean detached HEAD at the exact base; branch name empty.
 - Owner-authorized delivery branch: `codex/s06-production-runtime`.
-- Implementation commit: `a2c7095adfb0715decb6b21bb08977c9b39eb9a1`.
-- Bounded-test launcher commit: `a95816b607d1ced5f07bd1136b23f36f58357a14`.
-- Train/val cache-identity correction and exact executable:
-  `7d733e9b08454b059822015fcaf3eea53e8c2e56`.
+- Original implementation commit: `a2c7095adfb0715decb6b21bb08977c9b39eb9a1`.
+- S00 rejected/voided predecessor executables:
+  `a95816b607d1ced5f07bd1136b23f36f58357a14` and
+  `7d733e9b08454b059822015fcaf3eea53e8c2e56`; both are
+  `REJECTED_BY_S00_NEVER_EXECUTE`.
+- Remediation implementation/test commit:
+  `4fe67093e0aa3b60f7e1c3804b2c8b06c3f6eeab`.
+- Fresh bounded-test launcher and exact executable:
+  `6696984a6ebd4ec398d9fbfa172fb118e84e7af8`.
 - Final documentation delivery SHA is returned to S00 after committing this
   package; a commit cannot embed its own SHA without changing itself.
 - Worker self-assessment: **STATIC/SCHEMA PASS; DEPENDENCY-BACKED RUNTIME GATE NOT
   RUN; PENDING S00 REVIEW OF EXACT RUN_REQUEST.** This is not an independent,
   integration, model-readiness, full-data, or scientific PASS.
 
-No Slurm/srun, mini/trainval traversal, cache materialization, model campaign,
+No Slurm/srun, job creation, mini/trainval traversal, cache materialization, model campaign,
 metric, profile, merge, push, PR, upload, or reviewer launch occurred.
+
+## S00 remediation disposition
+
+S00 rejected the prior request hash
+`d2e302aba6cb0ed0561677f15c04601c373ebe10e9471787168bba05dcc65ef2`.
+It and both predecessor executables above must never be run. Remediation stayed
+inside original S06 ownership and addressed only the two blocking findings plus
+S00's read-only GPU-memory follow-up:
+
+1. fixed accumulation-window boundaries, complete attempted/invalid/discarded
+   sample/window reconciliation, fail-closed partial/short batches, and
+   update-boundary-only limits;
+2. mutation-free checkpoint preflight followed by transactional load/rollback of
+   every runtime component and global RNG;
+3. rollback tensors cloned directly to detached CPU storage and production
+   checkpoint load mapped to CPU, avoiding an additional live-GPU rollback copy.
+
+The real unused-modality raw-decode proof remains an explicit S07-B seam. The
+full replacement `centralized_train.py` compatibility surface and DDP refusal are
+unchanged limitations, not newly claimed coverage.
 
 ## Scope and files
 
@@ -118,24 +143,38 @@ option-A encoder and retain `torch.no_grad()` around fp16 eval.
 
 ## Executed-update, nonfinite and overflow accounting
 
-`TrainingState` records epoch, successfully executed optimizer steps, successful
-global sample exposure, accumulation phase/pending samples, nonfinite/overflow
-windows and discarded partial windows.
+`TrainingState` now records cumulative attempted microbatches/samples/windows,
+loss-evaluated samples, successful windows/exposure, invalid windows/samples and
+their nonfinite/overflow causes, plus fail-closed discarded windows/samples. Its
+validator requires the exact reconciliations:
 
-The documented rule is **discard the entire accumulation window**:
+```text
+attempted_samples = exposure_samples + invalid_samples + discarded_samples
+attempted_windows = successful_windows + invalid_windows + discarded_windows
+optimizer_step = successful_windows
+invalid_windows = nonfinite_windows + overflow_windows
+```
 
-1. any nonfinite loss clears all pending gradients and samples;
-2. fp32 nonfinite gradients clear the window without stepping;
-3. GradScaler overflow clears the window after scaler update;
-4. none of these advances optimizer-step, exposure, scheduler or EMA;
-5. only a successful optimizer update advances all four synchronized states;
-6. an incomplete end-of-epoch window is discarded and recorded;
-7. max update budget is compared to the cumulative successful-update count.
+Accumulation windows are fixed by original microbatch position. A nonfinite loss
+clears gradients immediately but the remaining microbatches are still consumed
+and loss-evaluated through that same boundary; the next window never shifts.
+Nonfinite/overflow windows advance none of optimizer-step, successful exposure,
+scheduler or EMA. A successful window must contain the same declared global
+microbatch size at every position, so its exposure is the resolved effective
+batch.
 
-Exposure uses a declared world-size multiplier and is added only when the complete
-window succeeds. The bounded tests include nonfinite on the second accumulated
-microbatch, one synthetic scaler overflow followed by success, and partial-window
-discard.
+When loader length is known, a non-divisible epoch/`max_steps` plan is rejected
+before `model.train()` or data iteration. Limits are checked before fetching the
+next batch and may stop only at a window boundary. An unknown-length partial tail
+or runtime short batch is cleared, fully recorded as discarded, raises, and makes
+the state terminal for further production training; the caller cannot increment
+the epoch or report success. No pending gradients are serialized.
+
+Hostile fixtures place nonfinite loss at positions 1/2/3 of a three-microbatch
+window, inject overflow, exercise known and unknown remainders, reject a
+non-boundary `max_steps`, prove no extra fetch after update budget, and reject a
+short final microbatch. They are authored but dependency-backed execution remains
+pending exact S00 approval.
 
 ## Checkpoint and resume boundary
 
@@ -149,12 +188,32 @@ Checkpoint schema `s06.checkpoint.v1` contains exactly:
 - checkpoint identity field.
 
 Save is atomic through a same-directory temporary file. Save and load reject any
-pending accumulation phase/samples. Load rejects missing/unknown legacy fields,
-component-presence drift, config/mode/precision/data drift and any model key drift;
-there is no checkpoint `strict=False` migration. The authored deterministic CPU
-fixture compares a continuous two-epoch run with an epoch-boundary save/new-object
-restore/resume trajectory, including model tensors, scheduler and counters; it
-also tests partial schema, identity drift and mid-window save rejection.
+pending accumulation phase/samples. Before mutating a caller object or global RNG,
+load validates exact schema/config/data/component presence, TrainingState
+reconciliation, complete Python/NumPy/Torch/CUDA RNG states, model keys/order and
+tensor shape/dtype/layout, optimizer type/config identity, Adam/AdamW parameter
+groups/state topology, and scheduler/GradScaler/EMA state structure. Legacy,
+partial, mismatched and `strict=False` migration paths are absent.
+
+Only after preflight, every caller component is snapshotted and real strict loads
+begin. Any late model/optimizer/scheduler/scaler/EMA/RNG exception rolls every
+component and RNG back before rethrowing. Snapshots recursively clone tensors
+directly to detached CPU storage while preserving nested non-tensor containers;
+production resume also loads the checkpoint payload with `map_location="cpu"`.
+Thus rollback does not allocate a second full detector/optimizer/EMA copy on the
+GPU. The cost is deliberately transferred to host memory: peak host storage is
+proportional to the full checkpoint payload plus rollback copies of live
+model/optimizer/scheduler/scaler/EMA state. No production-shape host-memory bound
+or throughput claim is made; S07-B must resource that later gate.
+
+Hostile fixtures cover corrupt model shape, optimizer topology, TrainingState,
+partial/bad RNG, scheduler/scaler/EMA structural errors and real-load-only late
+failures at each component position, proving caller state and all RNG streams are
+unchanged. A no-alias fixture checks every snapshot tensor is detached and on CPU;
+the requested GH200 inventory also exercises exact rollback of live CUDA
+model/optimizer/GradScaler/EMA from CPU snapshots. The positive continuous versus
+interrupted/resumed AdamW fixture guards against over-strict rejection of a legal
+resume state. These PyTorch fixtures are authored, not locally run.
 
 ## Persistent loader/sampler contract
 
@@ -204,6 +263,15 @@ stdlib hostile rejection of legacy camera/FUSION aliases
 AST parse of new runtime/config/test sources
 ```
 
+After S00 remediation, the exact executable additionally passed:
+
+```text
+git diff --check
+python3 -m py_compile training/{runtime_state,loop,checkpoint}.py \
+  scripts/centralized_train.py tests/{test_s06_training_runtime,test_s06_checkpoint_resume}.py
+bash -n fl_v3/scripts/run_s06_runtime_tests.sh
+```
+
 Final local dependency probe:
 
 ```text
@@ -228,13 +296,19 @@ is preserved as an environment limitation, not a test failure or PASS.
 ## Exact pending bounded validation
 
 `RUN_REQUEST.md` SHA-256:
-`d2e302aba6cb0ed0561677f15c04601c373ebe10e9471787168bba05dcc65ef2`.
+`e42fd06051fc8fa7ce1531fb8151d150c2395d2ea89aaf7a6249257f2aeddf08`.
 
-It is bound to executable `7d733e9...`, 25 source files and aggregate
-`d81f5b08...`, one shared GH200/eight CPUs/15 minutes, synthetic/config-only
-tests, and a unique output/snapshot. Status is
+It is bound to executable `6696984a6ebd4ec398d9fbfa172fb118e84e7af8`, tree
+`c504a5ff70b9c31b058867fc25a70bbd8b597997`, 25 source files and aggregate
+`7be6c0c58b42dbef005ccf0ed52f152c06179701c3205bb607a0007ffa098aae`,
+one shared GH200/eight CPUs/15 minutes, synthetic/config-only tests, and brand-new
+confirmed-absent `s06_runtime_remediation1_6696984a6ebd` output/snapshot roots.
+Status is
 `PENDING_S00_EXACT_APPROVAL_DO_NOT_SUBMIT`. S06 did not submit it. No `RESULTS.md`
 exists because no execution occurred.
+
+The prior request hash `d2e302...` and executables `a95816b...`/`7d733e9...` are
+recorded in the new request as `REJECTED_BY_S00_NEVER_EXECUTE`.
 
 ## Gate status
 
@@ -246,8 +320,8 @@ exists because no execution occurred.
 | canonical config/hash and fail-closed identities | STDLIB PASS; PyTorch integration NOT RUN |
 | separate train/val t1.v2 and manifest identities | IMPLEMENTED/STDLIB PASS; real artifacts absent |
 | spconv 2.3.8 and same-instance serialization | IMPLEMENTED; Arrhenius dependency/concurrency tests NOT RUN |
-| accumulation/nonfinite/overflow/exposure sync | IMPLEMENTED; runtime tests AUTHORED NOT RUN |
-| complete strict checkpoint/resume | IMPLEMENTED; continuous/resume test AUTHORED NOT RUN |
+| fixed-window accounting/effective batch | REMEDIATED; hostile runtime tests AUTHORED NOT RUN |
+| fail-atomic strict checkpoint/resume | REMEDIATED; CPU/CUDA rollback tests AUTHORED NOT RUN |
 | persistent loader/set_epoch/no duplicate/omission | IMPLEMENTED; runtime test AUTHORED NOT RUN |
 | real ZIP handle lifecycle across resume | NOT RUN; S07-B integrated mini gate required |
 | eval autocast/single-pass/timing neutrality/metadata | IMPLEMENTED; runtime tests AUTHORED NOT RUN |
@@ -267,7 +341,11 @@ exists because no execution occurred.
    this branch. The architecture enums are provenance contracts, not final wiring.
 6. Legacy task evaluation still exists outside official `decode_eval_set`; S07-B
    must route production official evaluation exclusively through the resolved path.
-7. No real checkpoint, throughput, memory, convergence, metric or scientific
+7. CPU rollback avoids a second live-GPU state copy but retains a full host-memory
+   snapshot; production detector resume memory and rollback are not yet measured.
+8. `centralized_train.py` is a full replacement entry point. Compatibility with
+   historical callers is not claimed, and world-size/ DDP remains fail-closed.
+9. No real checkpoint, throughput, memory, convergence, metric or scientific
    evidence was produced.
 
 ## Explicit S07-B integration seams
@@ -288,7 +366,8 @@ exists because no execution occurred.
    test mode-transition contention, exception restoration and resume-to-eval.
 6. Materialize/freeze real train and val `t1.v2` hashes only under separately
    approved S07-A request; replace no synthetic identity post hoc.
-7. Run the pending bounded S06 request only after exact approval, then independent
+7. Run only the fresh remediation-1 bounded S06 request after exact approval; the
+   two rejected predecessors must never execute. Then perform independent
    S06-R; later production-shape/100/1000/full-data gates require separate scope.
 
 ## Interpretation boundary

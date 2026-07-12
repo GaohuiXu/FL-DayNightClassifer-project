@@ -1,31 +1,38 @@
-# S06 RUN_REQUEST — bounded synthetic runtime validation
+# S06 RUN_REQUEST — remediation-1 bounded synthetic runtime validation
 
-## Approval state
+## Approval state and permanently rejected predecessors
 
-- `APPROVAL_STATUS: PENDING_S00_EXACT_APPROVAL_DO_NOT_SUBMIT`
-- No `sbatch`/`srun` has been invoked by S06.
-- This request does not rely on standing self-submission. S00 must audit and
-  explicitly approve this exact immutable tuple before execution.
-- Any change to executable SHA/tree, command, tests, source aggregate, resources,
-  output root, or stop conditions invalidates approval.
+- `APPROVAL_STATUS: PENDING_S00_EXACT_APPROVAL_DO_NOT_SUBMIT`.
+- No `sbatch`/`srun` has been invoked by S06; there is no job ID and no retry.
+- S00 explicitly set `REJECTED_BY_S00_NEVER_EXECUTE` for both predecessor
+  executables `a95816b607d1ced5f07bd1136b23f36f58357a14` and
+  `7d733e9b08454b059822015fcaf3eea53e8c2e56`.
+- The prior RUN_REQUEST with SHA-256
+  `d2e302aba6cb0ed0561677f15c04601c373ebe10e9471787168bba05dcc65ef2`
+  is `REJECTED_BY_S00_NEVER_EXECUTE`, including its old output/snapshot roots.
+- This replacement does not inherit approval. S00 must audit and explicitly
+  approve the exact immutable tuple below before any owner-run execution.
+- Any change to executable/tree, command, tests, source aggregate, resources,
+  roots, or stop conditions invalidates a future approval.
 
 ## Immutable source identity
 
 - Branch: `codex/s06-production-runtime`.
-- Executable SHA: `7d733e9b08454b059822015fcaf3eea53e8c2e56`.
+- Executable SHA: `6696984a6ebd4ec398d9fbfa172fb118e84e7af8`.
+- Executable tree: `c504a5ff70b9c31b058867fc25a70bbd8b597997`.
 - Base SHA: `968d81583c87ba76b7dbbb722760f8eb8eb6cd39`.
 - Base-to-executable binary diff SHA-256:
-  `0ed3ae6d7ed2721a214e75304e59bfde4397fa781197ac037280701d2e2170ab`.
+  `f87ed29ab089e6ab4e1b365c693bf32d47930515eb33c2de7454cd9607d5847d`.
 - Runtime source file count: `25`.
 - Runtime source-manifest SHA-256:
-  `d81f5b08846759f385a5288da80d7265184ffc23a3d5339213348977114f3189`.
+  `7be6c0c58b42dbef005ccf0ed52f152c06179701c3205bb607a0007ffa098aae`.
 - Launcher SHA-256:
-  `aeba5912ab8ad250720ccedf92b3e84378b0c67e03234424b4f457b3a00eb3a2`.
+  `2e261bfddf7cd406934bd7f5b9ead76571be734f2adc25ec2b01458bc92ba120`.
 - Launcher: `fl_v3/scripts/run_s06_runtime_tests.sh`.
 
-The launcher exports this exact Git object into a new read-only `/nobackup`
-snapshot, computes the same locale-stable 25-file source manifest inside the job,
-and fails before pytest if the aggregate differs.
+The launcher exports this exact Git object into a new read-only snapshot,
+recomputes the same locale-stable 25-file aggregate, and fails before pytest if
+the request generation or aggregate differs.
 
 ## Exact test inventory
 
@@ -44,31 +51,38 @@ Exact additional nodes:
 - `fl_v3/tests/test_eval_detection_eval.py::test_submission_meta_uses_actual_mode`;
 - `fl_v3/tests/test_eval_provenance.py::test_s06_provenance_binds_mode_config_checkpoint_and_data`.
 
-The scope is synthetic/config-only. It does not open mini or shared trainval,
-create a cache/manifest, construct the reviewed S03/S04/S05 production modules,
-perform an optimizer campaign, compute a metric, or profile production shapes.
-The only optimizer operations are bounded tiny CPU fixtures inside the declared
-unit tests. No 100/1000-step gate is included.
+The two remediation files now include hostile coverage for nonfinite loss at the
+first/middle/final microbatch of a fixed window, GradScaler overflow, known and
+runtime-only remainder, non-boundary `max_steps`, successful-update budget stop,
+short microbatch/effective-batch drift, corrupt model/optimizer/training/RNG and
+late scheduler/scaler/EMA loads. They also assert detached unaliased CPU rollback
+snapshots and, on the requested GH200, exact rollback of live CUDA
+model/optimizer/scaler/EMA objects from CPU snapshots.
+
+This remains synthetic/config-only. It does not open mini or shared trainval,
+create a cache/manifest, construct production S03/S04/S05 modules, run a training
+campaign, compute a metric, or profile production shapes. Tiny fixture optimizer
+operations are bounded inside the declared tests; no 100/1000-step gate exists.
 
 ## Exact command
 
 ```bash
-sbatch --export=ALL,EXPECTED_S06_EXECUTABLE_SHA=7d733e9b08454b059822015fcaf3eea53e8c2e56,EXPECTED_S06_SOURCE_SHA256=d81f5b08846759f385a5288da80d7265184ffc23a3d5339213348977114f3189,S06_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s06_runtime_7d733e9b0845 fl_v3/scripts/run_s06_runtime_tests.sh
+sbatch --export=ALL,EXPECTED_S06_EXECUTABLE_SHA=6696984a6ebd4ec398d9fbfa172fb118e84e7af8,EXPECTED_S06_SOURCE_SHA256=7be6c0c58b42dbef005ccf0ed52f152c06179701c3205bb607a0007ffa098aae,S06_REQUEST_GENERATION=remediation-1,S06_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s06_runtime_remediation1_6696984a6ebd fl_v3/scripts/run_s06_runtime_tests.sh
 ```
 
-## Resources and roots
+## Resources and fresh roots
 
 - one shared Arrhenius node;
 - one `nvidia_gh200_120gb` allocation;
-- eight CPUs, 16 GiB memory;
+- eight CPUs, 16 GiB host memory;
 - walltime `00:15:00` (maximum `0.25` allocation-equivalent GPU-hours);
-- no array, DDP, multi-node, additional cell/seed, retry, requeue, automatic
+- no array, DDP, multi-node, extra cell/seed, retry, requeue, automatic
   resubmission, or follow-on;
-- output root:
-  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s06_runtime_7d733e9b0845`;
-- snapshot root:
-  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s06_runtime_7d733e9b0845`;
-- Slurm logs use the S06 job ID under the existing Arrhenius log root.
+- output root (confirmed absent while preparing this request):
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s06_runtime_remediation1_6696984a6ebd`;
+- snapshot root (confirmed absent while preparing this request):
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s06_runtime_remediation1_6696984a6ebd`;
+- Slurm logs use the new `s06_runtime_r1_<jobid>` names.
 
 ## Acceptance and stop conditions
 
@@ -76,17 +90,19 @@ Accept only if all are true:
 
 1. scheduler state `COMPLETED`, exit `0:0`, no restart/requeue;
 2. actual allocation and CUDA visibility are one GH200/eight CPUs/one node;
-3. executable/source identities match before pytest;
-4. every collected declared test passes with zero failures/errors/skips;
-5. exact installed `spconv==2.3.8` check passes;
+3. executable/tree/source/launcher identities match before pytest;
+4. every collected declared test passes with zero failures/errors/skips (the CUDA
+   rollback fixture must execute, not skip);
+5. installed `spconv==2.3.8` check passes;
 6. JUnit, execution identity, source lists, pytest log and final checksum manifest
    exist and verify in-job.
 
 On any mismatch/failure, preserve it as negative evidence and stop. Do not modify,
-retry, resubmit, broaden the test inventory, touch data, or launch a follow-on.
+retry, resubmit, broaden the inventory, touch data, or launch a follow-on.
 
 ## Explicitly outside this request
 
-Full `t1.v2` materialization, any mini/trainval decode, official eval/metric,
-production-shape S03/S04/S05 integration, fp16 sparse forward, 100/1000-step run,
-profile/throughput/memory, matrix, seed, rerun, DDP, upload, merge, or push.
+Production-detector checkpoint memory measurement, full `t1.v2` materialization,
+any mini/trainval decode, official eval/metric, production-shape S03/S04/S05
+integration, fp16 sparse forward, 100/1000-step run, profile/throughput/memory,
+matrix, seed, rerun, DDP, upload, merge, or push.
