@@ -179,10 +179,18 @@ def test_loader_determinism_num_workers(mini_cache_dir):
     from fl_v3.training.tasks import get_task
 
     task = get_task("nuscenes_detection")
-    b0 = next(iter(task.eval_loader(_cfg_with_cache(mini_cache_dir, **{"num-workers": 0}))))
+    loader0 = task.eval_loader(_cfg_with_cache(mini_cache_dir, **{"num-workers": 0}))
+    iterator0 = iter(loader0)
+    b0 = next(iterator0)
     loader2 = task.eval_loader(_cfg_with_cache(mini_cache_dir, **{"num-workers": 2}))
     assert loader2.multiprocessing_context.get_start_method() == "spawn"
-    b2 = next(iter(loader2))
+    iterator2 = iter(loader2)
+    try:
+        b2 = next(iterator2)
+    finally:
+        # Do not defer persistent-worker shutdown to iterator.__del__: failures
+        # during shutdown must remain ordinary test failures, not unraisable warnings.
+        iterator2._shutdown_workers()
     assert torch.equal(b0["images"], b2["images"])
     assert torch.equal(b0["lidar_points"], b2["lidar_points"])
     assert torch.equal(b0["gt_boxes"][0], b2["gt_boxes"][0])
@@ -211,10 +219,17 @@ def test_cuda_initialized_production_loader_is_spawn_persistent(mini_cache_dir):
     )
     assert loader.multiprocessing_context.get_start_method() == "spawn"
     assert loader.persistent_workers is True
-    first = next(iter(loader))
-    second = next(iter(loader))
-    assert torch.equal(first["images"], second["images"])
-    del loader
+    iterator = iter(loader)
+    try:
+        first = next(iterator)
+        second_iterator = iter(loader)
+        assert second_iterator is iterator
+        second = next(second_iterator)
+        assert torch.equal(first["images"], second["images"])
+    finally:
+        # Preserve the two-epoch first-batch check above, then close the cached
+        # persistent iterator explicitly so worker errors cannot be hidden by GC.
+        iterator._shutdown_workers()
 
 
 def test_detection_cache_is_explicit_and_readonly_cwd_safe(mini_cache_dir, tmp_path, monkeypatch):

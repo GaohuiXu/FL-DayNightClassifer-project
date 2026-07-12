@@ -332,7 +332,9 @@ record = {
     "pytest_flags": [
         "-vv", "--tb=long", "-p", "no:cacheprovider", "-o",
         f"faulthandler_timeout={faulthandler_timeout}",
+        "-W", "error::pytest.PytestUnraisableExceptionWarning",
     ],
+    "pytest_unraisable_exception_warning_is_fatal": True,
     "snapshot_read_only": True,
     "output_cwd_writable": True,
     "mini_only": True,
@@ -573,6 +575,8 @@ for label, node_id in nodes:
         "no:cacheprovider",
         "-o",
         f"faulthandler_timeout={faulthandler_timeout}",
+        "-W",
+        "error::pytest.PytestUnraisableExceptionWarning",
         f"--basetemp={basetemp}",
         f"--junitxml={junit_path}",
         f"{snapshot}/{node_id}",
@@ -828,6 +832,7 @@ record = {
     "all_process_groups_and_identities_cleaned": all(entry["cleanup_ok"] for entry in entries),
     "failures_and_timeouts_are_preserved_diagnostics": True,
     "scheduler_success_is_harness_completion_only": True,
+    "pytest_unraisable_exception_warning_is_fatal": True,
     "entries": entries,
     "totals_from_present_junit": {
         key: sum((entry["junit_counts"] or {}).get(key, 0) for entry in entries)

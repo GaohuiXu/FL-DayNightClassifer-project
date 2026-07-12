@@ -16,6 +16,7 @@ for launcher in "${S07_B_RUNTIME_LAUNCHERS[@]}"; do
 done
 
 python3 - "${S07_B_RUNTIME_LAUNCHERS[@]}" <<'PY'
+import ast
 from pathlib import Path
 import sys
 
@@ -81,6 +82,78 @@ for token in (
     'assert os.WTERMSIG(reaped_status) == signal.SIGKILL',
 ):
     assert token in test_text, token
+
+diagnostic_text = Path(
+    "fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh"
+).read_text(encoding="utf-8")
+warning_filter = '"error::pytest.PytestUnraisableExceptionWarning"'
+warning_policy = '"pytest_unraisable_exception_warning_is_fatal": True'
+assert diagnostic_text.count(warning_filter) == 2
+assert diagnostic_text.count(warning_policy) == 2
+
+model_path = Path("fl_v3/tests/test_model_task.py")
+model_tree = ast.parse(model_path.read_text(encoding="utf-8"), filename=str(model_path))
+functions = {
+    node.name: node
+    for node in model_tree.body
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+}
+shutdown_iterators = {
+    "test_loader_determinism_num_workers": "iterator2",
+    "test_cuda_initialized_production_loader_is_spawn_persistent": "iterator",
+}
+for function_name, shutdown_iterator in shutdown_iterators.items():
+    function = functions[function_name]
+    iterator_names = {
+        target.id
+        for node in ast.walk(function)
+        if isinstance(node, ast.Assign)
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "iter"
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+    assert iterator_names, function_name
+    shutdown_finally_calls = []
+    for try_node in (node for node in ast.walk(function) if isinstance(node, ast.Try)):
+        for statement in try_node.finalbody:
+            for call in (node for node in ast.walk(statement) if isinstance(node, ast.Call)):
+                if (
+                    isinstance(call.func, ast.Attribute)
+                    and call.func.attr == "_shutdown_workers"
+                    and isinstance(call.func.value, ast.Name)
+                    and call.func.value.id == shutdown_iterator
+                ):
+                    shutdown_finally_calls.append(call)
+    assert len(shutdown_finally_calls) == 1, function_name
+    nested_next_iter = [
+        node
+        for node in ast.walk(function)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "next"
+        and node.args
+        and isinstance(node.args[0], ast.Call)
+        and isinstance(node.args[0].func, ast.Name)
+        and node.args[0].func.id == "iter"
+    ]
+    assert not nested_next_iter, function_name
+cuda_function = functions[
+    "test_cuda_initialized_production_loader_is_spawn_persistent"
+]
+assert any(
+    isinstance(node, ast.Assert)
+    and isinstance(node.test, ast.Compare)
+    and isinstance(node.test.left, ast.Name)
+    and node.test.left.id == "second_iterator"
+    and len(node.test.ops) == 1
+    and isinstance(node.test.ops[0], ast.Is)
+    and len(node.test.comparators) == 1
+    and isinstance(node.test.comparators[0], ast.Name)
+    and node.test.comparators[0].id == "iterator"
+    for node in ast.walk(cuda_function)
+)
 print(f"short TMPDIR contract: {len(sys.argv) - 1} launchers OK")
 PY
 
@@ -108,6 +181,7 @@ python3 -m py_compile \
   fl_v3/scripts/p3_crt_probe.py \
   fl_v3/scripts/p3_grad_conflict.py \
   fl_v3/tests/test_nuscenes_zip_dataset.py \
+  fl_v3/tests/test_model_task.py \
   fl_v3/tests/test_s06_checkpoint_resume.py \
   fl_v3/tests/test_s06_loader_eval.py \
   fl_v3/tests/test_s06_resolved_config.py \
