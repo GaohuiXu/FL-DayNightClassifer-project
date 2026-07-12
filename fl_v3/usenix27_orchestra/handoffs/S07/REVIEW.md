@@ -2494,3 +2494,150 @@ bounded边界内接受；但 shared `mini_cache_dir` 迁到 tmp 后遗漏
 绕过新cache并失败或误用stale CWD cache。修复全部fixture consumers并处理上方P3回归保护/
 cleanup/doc问题后，exact new SHA必须再次独立review；在此之前没有code-level acceptance、
 后续runtime proposal、production/full-data或scientific授权。
+
+# S07-B-R10 独立复审 — O-065 fixture/lifecycle remediation
+
+## Findings（按严重性排序）
+
+### P2 — ready record 没有父子握手；父侧在取得 PGID 前失败时只杀 helper，异步 `Queue.put()` 后已经 fork 的 DataLoader descendants 可能泄漏
+
+helper 先 `setsid()`，随后把 ready tuple 放进 `multiprocessing.Queue`，并立即进入
+`_persistent_lifecycle(..., "fork")`（`fl_v3/tests/test_nuscenes_zip_dataset.py:325-330`）。
+父进程只有在 `result_queue.get(timeout=10)` 返回并通过 tuple assertions 后才把
+`group_id` 视为可用（`:367-376`）。问题是 `multiprocessing.Queue.put()` 只把对象交给
+helper 本地 feeder；它不是父进程已经收到并确认 PGID 的同步握手。helper 因而可以在 ready
+record 尚未到达父进程时继续启动两个 fork DataLoader workers。
+
+若父侧 ready `get()` 超时、queue feeder/pipe 异常，或在 `group_id` 赋值前的 ready
+assertion 失败，`finally` 中 `group_id is None`，所以跳过 whole-group `killpg`
+（`:399-407`）。它只对 `multiprocessing.Process` 代表的 helper 执行
+`terminate()/kill()/join()`；这不等价于终止 helper 已经 fork 的 grandchildren。helper 被
+SIGTERM/SIGKILL 时也不会执行 Python/DataLoader 的 orderly daemon-child shutdown。因此本次
+remediation 对“ready 前失败”并非 all-path descendant cleanup，仍可能把 fork workers 留给
+后续 pytest case/解释器 shutdown。normal path 的 `_shutdown_workers()`、worker join/dead
+assertion和 `active_children()==[]`（`:309-339,392-398`）不能覆盖这个窗口；ready 已确认后的
+90 秒 timeout path 才具备正确的 isolated-group kill。
+
+同时，代码在验证 `ready[2]`/`ready[3]` 前先执行 `group_id = ready[3]`（`:374-376`）。exact
+helper 的正常 `setsid()` record 会令 SID/PGID 等于 helper PID，因此本 review 没有确认正常
+路径会误杀 pytest parent；parent 本身也不在 helper 的新 session/group 中。但 fail-closed
+cleanup 不应在 record 尚未验证时 arm 一个将传给 `os.killpg()` 的值。一个 malformed/error-
+injection ready record会在 assertion failure 的 `finally` 中使未验证 group 成为 kill target。
+
+**Required remediation:** 使用双向 ready/ack handshake：helper 在父进程确认 exact helper
+PID、SID、PGID 后才允许进入 `_persistent_lifecycle`/fork；或者使用等价的、父侧可安全独立
+验证的 group ownership primitive。父侧必须先在局部变量中验证 complete ready record，必要
+时再用 OS-level PGID 查询交叉确认，然后才设置 armed `group_id`。所有 ready-timeout、malformed
+ready、helper error、90 秒 timeout和 success路径都必须终止并审计 whole isolated group，随后
+关闭/join queue thread、reap/close `Process`。增加一个 authored hostile，在 ready delivery/ack
+窗口强制失败并让 helper 尝试生成 descendant，证明 parent 不会被 signal 且 helper/group/
+worker PID 均不残留。仅有正常执行路径不能关闭此 finding。
+
+### P3 — cleanup 可以遮蔽原始 lifecycle assertion，且没有 authored error/timeout case 证明所声称的诊断与回收顺序
+
+`_persistent_lifecycle()` 把 `_shutdown_workers()`、逐 worker `join(5)`、dead assertion、
+dataset close 和 GC 直接放进一个 `finally`（`test_nuscenes_zip_dataset.py:279-322`）。若主体的
+epoch/PID/reopen/read assertion 已经失败，而这些 cleanup 操作中的任一个再失败，Python 会把
+cleanup exception 作为当前异常；helper 随后只发送 `repr(exc)`（`:335-339`）。这样原始
+lifecycle assertion/traceback被遮蔽，父侧只做 `assert outcome[1] is None`，也不会在 error
+outcome 上独立验证所报告的 `live_children` 已在 group kill 后消失（`:392-407`）。
+
+本 diff 没有新增强制 helper assertion failure、worker-shutdown failure或90 秒 timeout的
+authored case；所以 HANDOFF `:1950-1956` 对 normal/error/timeout 全部“preventing leakage”的
+措辞超过实际可达证据。应保留主体 exception/traceback，单独收集 cleanup failure（例如明确
+chaining/`ExceptionGroup`），并让 parent 在失败报告中同时保留 original failure、cleanup
+failure、worker PID与最终 group-reaped proof。上述分支需要独立 hostile，不得靠静态存在的
+`finally` 与正常路径外推。
+
+### 无 P0/P1 finding
+
+未发现数据 split/leakage、coordinate/class/metric/protocol 或 production source变化；未发现
+canonical/collab/fl_v2、RUN_REQUEST/RESULTS、training loop、runtime launcher或五个 candidate
+config漂移。没有未授权 compute、merge、push、upload 或 publication。上述 P2/P3 是测试
+lifecycle/all-path cleanup与证据完整性问题，不改变模型或科学协议。
+
+## Review identity、R9 prefix、import topology 与 exact ownership
+
+- Session：`S07-B-R10`。
+- Remediation base：`797aaf4fa8115568692c381489928fb656f5f356`。
+- Candidate `WORKER_SHA`：`97588f7ad556fe1ce1a5f7bd76cee19e79d16d31`。
+- Test commit：`3f3686c3fbbfd3fb1bb516a9c00f0612d9da0f04`，parent exact 为 remediation base。
+- Startup/import HEAD：`a900cab039d18985c03ea0e53bc39d4a9f2f6904`，branch
+  `codex/s07-b-r10-integrated-cl-stack-review`，clean。
+- 权威 canonical：`589b2a99965de9031a79f66768a1c6821857e69b`（O-066）。
+- `APPROVED_COMPUTE: none`。
+
+Import topology 精确为：candidate `97588f7` → review-only `fe35e47` → review-only
+startup `a900cab`。`fe35e47` 的唯一 diff 是把 prior review bytes 补至 R8；`a900cab` 的唯一
+diff 是追加 R9。candidate 与 startup 除
+`fl_v3/usenix27_orchestra/handoffs/S07/REVIEW.md` 外 tree 内容完全相同；没有把 prior reviewer
+ancestry当 implementation merge。
+
+追加 R10 前的 exact R9 prefix 为：Git blob
+`9719ff6d35435eac00cf0f194c3032515802f148`、size `164814` bytes、SHA-256
+`318a752ec30d5eb9cac07cc8dfec4b42f3f2371944f8ab51edf79c01189f646c`。本段只追加在这些
+bytes末尾，没有重写、删除或重新编码 prior prefix。
+
+`797aaf4..97588f7` 是线性两提交、exact 六路径、214 insertions/20 deletions：五个获批
+test文件与 `S07/HANDOFF.md`。没有第七个 changed path；`git diff --check` 无 warning。
+HANDOFF 中五个 post-test SHA-256 与 candidate bytes精确一致。
+
+Forbidden blobs在 remediation base与 candidate完全相同：
+
+- `training/loop.py`：`881c070b1ef8affd350144cce33e508a241cf839`；
+- `training/tasks.py`：`86ab9d0563e1636d6c4cde06986470d2559f19f7`；
+- nuScenes `dataset.py`：`afd2707d3939d2d76205996fe94d29fcfc4ed5f3`；
+- `RUN_REQUEST.md`：`efa5ce78eac121f2dd3e70ea75ef414023d45d13`；
+- `RESULTS.md`：`b3b80625ef6c38e4d9382e11ded5c8534b5556ae`；
+- candidate-local `REVIEW.md`：`cd0e0795402c2892fe199691a6a01f483d6a457f`；
+- runtime launcher：`1e182ebc1fe883ad59702bfeb1b3db110bbf54c1`。
+
+## R9 finding closure matrix
+
+| R9 requirement | R10 独立结论 | Evidence / boundary |
+|---|---|---|
+| overfit exact mini cache + changed CWD/no `fl_outputs` | **CLOSED STATICALLY** | `test_model_overfit.py:20-42` 注入 exact `str(mini_cache_dir)`，在 task/data前 chdir，并在 `client_data()` 后证明无 CWD output。没有恢复 fallback。 |
+| viz exact mini cache + changed CWD/no `fl_outputs` | **CLOSED STATICALLY** | `test_model_viz.py:12-47` 注入同一 session cache；data construction后及render/manifest后均证明无 `tmp_path/fl_outputs`。Viz artifacts显式写 `tmp_path`，不是 stale cache fallback。 |
+| real dummy workers=2 spawn/batch/shutdown | **CLOSED AUTHORED, NOT EXECUTED** | `test_model_task.py:76-90` 真实 `DummyRegressionTask.client_data`、spawn assertion、真实 `(8,4)/(8,1)` batch及 explicit iterator shutdown。 |
+| dummy/detection workers=0 no context + batch | **CLOSED AUTHORED, NOT EXECUTED** | dummy train/val均断言 `None`并取 batch（`:93-103`）；detection eval loader断言 `None`并取 dict batch（`:191-199`）。 |
+| explicit fork normal path DataLoader shutdown/PID/active children | **CLOSED STATICALLY/AUTHORED, NOT EXECUTED** | persistent iterator显式 shutdown/join/dead；normal helper返回 worker PIDs并要求 `active_children()==[]`。 |
+| explicit fork error/timeout all-path cleanup | **OPEN — P2/P3** | ready-before-ack window可跳过 group kill；error cleanup可遮蔽 original assertion；无对应 hostile。 |
+| LiDAR doc/name and numerical gates | **CLOSED** | module/function wording改为 six-task；OFF 230、head 183、`183-15=168`、no-backbone、fuser 144及 ON-OFF `+30` 均未弱化。 |
+| runtime/negative evidence preservation | **PASS** | Jobs 348557/348818仍是 failure/diagnostic suite-fail；Job 349653仍只支持 `stable_equal_current` bounded attribution；无 post-O-059 integrated runtime run。 |
+
+## Checks actually run 与 explicit NOT RUN
+
+本 R10 只执行允许的 Git/hash/static/artifact checks：
+
+1. startup root/branch/HEAD/status、candidate/import parents与 non-review tree equality：PASS；
+2. R9 prefix blob/size/SHA-256：PASS；
+3. root AGENTS、权威 O-066 canonical三文件、S07 HANDOFF/RUN_REQUEST/RESULTS/完整 prior REVIEW、actual diff与相关 source/test完整读取：PASS；
+4. exact two-commit/six-path ownership、`git diff --check`、forbidden blobs/config不变：PASS；
+5. 五个 changed test SHA-256与 HANDOFF：PASS；
+6. cache consumers、dummy/detection context、fork session/group/queue/process/worker控制流及LiDAR数值门逐行追踪：产生上述 findings。
+
+明确 **NOT RUN / NO IMPLIED PASS**：pytest、pycompile、project/package import、Torch/NumPy/
+CUDA/spconv/cumm、data/cache/model/checkpoint、任何 worker/fork/spawn runtime、Slurm/srun/GPU/
+compute、full trainval `t1.v2`、100/1000 steps、profile、mAP/NDS、DDP、matrix、seed/rerun、
+FL/attack/defense/scientific cell。未 merge/push/upload/publication。
+
+## Interpretation、residual risk 与 final verdict
+
+允许解释：R9 的两个 mini-cache consumer、dummy/detection直接 context contracts、LiDAR
+wording/numerical gates以及 explicit-fork normal-path shutdown已形成正确的静态/authored
+remediation；exact ownership、forbidden blobs、Jobs 348557/348818负面证据和 Job 349653
+bounded attribution均保留。
+
+禁止解释：不得称 explicit-fork helper 的 ready/error/timeout all-path descendant cleanup 已
+关闭，不得称 post-O-059 integrated suite已运行或PASS；不得称 production/full-cache/full-
+trainval/100/1000/profile/metric ready，亦不得声称 mAP/NDS、fusion gain、FL、attack/defense、
+generalization或publication evidence。
+
+Residual risk还包括所有新增test均未执行、full `t1.v2` cache仍不存在、integrated fp16/
+concurrency/EMA/official eval仍无新 runtime evidence。上述 P2 需要先修复握手和安全 arm/kill
+顺序，P3 需要保留原始failure并补齐error/timeout hostiles；然后 exact new SHA再次独立review。
+
+**CHANGES-REQUESTED for S07-B candidate
+`97588f7ad556fe1ce1a5f7bd76cee19e79d16d31`.**
+
+本 verdict 不授权任何 runtime proposal、compute、merge、push、upload 或科学解释。
