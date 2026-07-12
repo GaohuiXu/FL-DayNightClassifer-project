@@ -1061,8 +1061,9 @@ shards did not require the clean occlusion checkpoint, and cross-process shard
 artifacts did not carry/check the preflight/subset identity needed by aggregate.
 
 S00 returned all R3 findings within the existing T5/test/handoff ownership. Scoped
-implementation/test commit `cf99ba30c4a2edbeef99af4fc8aee85f87b65bd7`
-changes only `t5_attack_eval.py` and `test_s07_b_integration.py`.
+implementation/test commits `cf99ba30c4a2edbeef99af4fc8aee85f87b65bd7`
+and `b855a2a3742fdb7729a7d96667ec82e5cb60e855` change only
+`t5_attack_eval.py` and `test_s07_b_integration.py`.
 
 #### Pre-side-effect task/checkpoint contract
 
