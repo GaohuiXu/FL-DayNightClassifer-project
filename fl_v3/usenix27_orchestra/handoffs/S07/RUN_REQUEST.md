@@ -799,3 +799,121 @@ throughput/memory, mAP/NDS, model-quality/fusion-gain, 100/1000-step training,
 FL, attack/defense, generalization, matrix/seed or publication claim is allowed.
 No trainer, full trainval/cache scan, profile, metric, DDP or scientific cell is
 invoked. Preparation authorizes no compute, retry, merge, push or upload.
+
+---
+
+## F. S07-B two-snapshot dummy checksum attribution — PREPARED / NOT APPROVED
+
+### Approval state and exact purpose
+
+- **Status:** `PREPARED_NOT_APPROVED_DO_NOT_SUBMIT`.
+- Canonical O-060 is
+  `34ee1f9672df5c907881b5c6335b6be6e204c156`. It authorizes preparation only;
+  it does not authorize `sbatch`, `srun`, a retry, or any other compute.
+- This is a bounded engineering attribution of the dummy-regression checksum,
+  not a retry of Jobs 348557/348818 and not a scientific matrix. It compares
+  exactly the pre-S06 snapshot
+  `968d81583c87ba76b7dbbb722760f8eb8eb6cd39` with the current remediated
+  snapshot `c69befe5e8dd6397059c4d3fe1cbf906a9646836` in the same GH200 job and
+  persistent environment. Each snapshot runs twice in a fresh independent
+  Python process.
+- No outcome automatically authorizes changing the committed golden, training
+  loop, production code, tests, or scientific interpretation. S00 must inspect
+  the exact artifacts and decide the next scoped action.
+
+### Immutable executable, source, and environment identity
+
+- Exact detached executable commit `L`:
+  `a9d657aebfb0f64d271fa74e312d6054eca57e1d`.
+- Launcher Git blob:
+  `295610fd422f3b371b8fd85e54785919903dc332`.
+- Launcher SHA-256:
+  `bbc1293a42034540327402a5df6c1f172b76afacca7906b4f0b71f5290b5968a`.
+- Environment bootstrap `fl_v3/scripts/arrhenius_env.sh` SHA-256:
+  `f57befbb5082aaf4d4bb186958a88420ea873e0fdee5c65da1091b73f566c2bf`.
+- Pre-S06 snapshot source identity: 78 files; C-locale source-list SHA-256
+  `0ec5e43e98ee6b98c949d6c3187c4484fb47842443fd3ffe54fcb61e4d777ae0`;
+  ordered source-state SHA-256
+  `dc2144cc522d20035eeff81269e45973312c10f908ddc6808bc3c2611b38c93d`.
+- Current snapshot source identity: 85 files; C-locale source-list SHA-256
+  `104a647441ce712e83c20d32372944e48777913cf746ae19ee124894ca927e41`;
+  ordered source-state SHA-256
+  `0f2995fca7d323421e46326493b2f9cc5d0032ca3d794d422779fc10c626ee32`.
+- Each source set contains every tracked Python file under
+  `fl_v3/src/fl_v3/` plus `pyproject.toml`, `requirements.txt`, and
+  `requirements.lock.txt`. The launcher separately binds itself and the
+  environment bootstrap.
+- The exact validated dependency identity is locked, not merely logged:
+  CPython `3.11.15`, NumPy `1.26.4`, SciPy `1.13.1`, Torch
+  `2.11.0+cu128`, torchvision `0.26.0+cu128`, spconv `2.3.8`, cumm
+  `0.7.13`, nuscenes-devkit `1.1.11`, pyquaternion `0.9.9`, and Pillow
+  `12.2.0`. The launcher stops on any mismatch and records the actual identity.
+
+### Exact workload, resources, snapshots, and outputs
+
+- One node, one task, one GH200, four CPUs, 32 GiB, walltime `00:10:00`;
+  at most one sixth GPU-hour. One job only, `--no-requeue`; no array, DDP,
+  retry, automatic resubmission, or follow-on.
+- The GPU allocation is only for the validated aarch64 environment. The exact
+  dummy workload runs on `device=cpu`; it opens no nuScenes data, cache, ZIP,
+  trainval, model metric, trainer campaign, profile, or scientific cell.
+- The two Git commits are independently archived into fresh immutable snapshots:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_dummy_attr_a9d657aebfb0_pre`
+  and
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_dummy_attr_a9d657aebfb0_current`.
+- Exact fresh output root:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_dummy_attr_a9d657aebfb0`.
+- Scheduler logs:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07b_dummy_attr_%j.{out,err}`.
+- For each snapshot and repetition 1/2, a fresh Python subprocess uses exactly:
+  `task-type=dummy_regression`, `seed=42`, `device=cpu`, `num-clients=4`,
+  `num-local-epochs=1`, `batch-size=8`, `learning-rate=0.01`,
+  `weight-decay=0.0`, `num-workers=0`, `loss=mse`, `defense=none`, and
+  `server_round=1`.
+
+### Exact command — not approved, do not submit
+
+```bash
+test -z "$(git branch --show-current)" && \
+test "$(git rev-parse HEAD)" = "a9d657aebfb0f64d271fa74e312d6054eca57e1d" && \
+test -z "$(git status --short)" && \
+test "$(git hash-object fl_v3/scripts/run_s07_b_dummy_attribution.sh)" = "295610fd422f3b371b8fd85e54785919903dc332" && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_dummy_attr_a9d657aebfb0 && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_dummy_attr_a9d657aebfb0_pre && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_dummy_attr_a9d657aebfb0_current && \
+test -z "$(squeue -u "$USER" -h -o '%i %j' | awk '$2 == "flv3_s07b_dummy_attr" {print}')" && \
+sbatch --nodes=1 --ntasks=1 --gpus-per-node=nvidia_gh200_120gb:1 \
+  --cpus-per-task=4 --mem=32G --time=00:10:00 --no-requeue \
+  --export=ALL,EXPECTED_S07B_ATTR_EXECUTABLE_SHA=a9d657aebfb0f64d271fa74e312d6054eca57e1d,EXPECTED_S07B_ATTR_LAUNCHER_SHA256=bbc1293a42034540327402a5df6c1f172b76afacca7906b4f0b71f5290b5968a,EXPECTED_S07B_ATTR_ENV_SHA256=f57befbb5082aaf4d4bb186958a88420ea873e0fdee5c65da1091b73f566c2bf,EXPECTED_S07B_ATTR_PRE_SOURCE_LIST_SHA256=0ec5e43e98ee6b98c949d6c3187c4484fb47842443fd3ffe54fcb61e4d777ae0,EXPECTED_S07B_ATTR_PRE_SOURCE_SHA256=dc2144cc522d20035eeff81269e45973312c10f908ddc6808bc3c2611b38c93d,EXPECTED_S07B_ATTR_CURRENT_SOURCE_LIST_SHA256=104a647441ce712e83c20d32372944e48777913cf746ae19ee124894ca927e41,EXPECTED_S07B_ATTR_CURRENT_SOURCE_SHA256=0f2995fca7d323421e46326493b2f9cc5d0032ca3d794d422779fc10c626ee32,S07B_ATTR_APPROVAL_SCOPE=s07b-dummy-two-snapshot-attribution-only,S07B_ATTR_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_dummy_attr_a9d657aebfb0 \
+  fl_v3/scripts/run_s07_b_dummy_attribution.sh
+```
+
+Any change to executable/snapshot SHA, launcher/bootstrap/source/dependency
+identity, workload, repetitions, command, resource, path, summary, or stop rule
+invalidates a future approval. This request does not authorize an alternate
+invocation.
+
+### Required artifacts, classification, acceptance, and stop rules
+
+The launcher records both source lists/states/identities, exact execution and
+dependency identity, four per-process JSON results plus stdout/stderr/exit,
+`attempts.tsv`, `attribution_summary.json`, and a C-locale-sorted
+`sha256sums.txt`. It then requires `sha256sum -c` for every prior formal artifact.
+
+The summary must classify exactly one of:
+
+- `stable_equal_current`: both snapshots repeat stably and both equal Job
+  348818's observed `4fa46307...` checksum;
+- `pre_historical_current_new`: pre-S06 repeats equal historical `d2d819...`
+  while current repeats equal `4fa46307...`;
+- `unstable`: either snapshot differs across its two fresh subprocesses;
+- `unexpected_stable_pair`: all other stable checksum pairs.
+
+Harness completion requires exact identities, four successful independent
+subprocesses, two attempts per snapshot, valid 64-hex checksums, one declared
+classification, complete artifacts, and checksum verification. `unstable` or
+`unexpected_stable_pair` is a preserved diagnostic outcome, not permission to
+hide or rerun it. Stop on identity/dependency/output/snapshot collision,
+archive/source mismatch, subprocess or artifact failure, malformed checksum,
+checksum verification failure, or walltime. No retry or automatic code/golden
+change follows any outcome.

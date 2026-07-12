@@ -1806,3 +1806,45 @@ launcher `bash -n`, `git diff --check`, owned-path/source audit: PASS. Explicitl
 NOT RUN: pytest, pycompile, project/package import, Torch/CUDA/spconv/data/model,
 Slurm/GPU/compute. No RUN_REQUEST/RESULTS/runtime launcher/config/canonical or
 forbidden production file changed. No compute, merge, push or upload occurred.
+
+### O-060 bounded dummy-attribution request preparation
+
+Canonical O-060
+`34ee1f9672df5c907881b5c6335b6be6e204c156` permits request preparation only.
+Launcher-only commit `L` is
+`a9d657aebfb0f64d271fa74e312d6054eca57e1d`, parent exact
+`c69befe5e8dd6397059c4d3fe1cbf906a9646836`, with only new executable path
+`fl_v3/scripts/run_s07_b_dummy_attribution.sh`. Launcher Git blob/SHA-256 are
+`295610fd422f3b371b8fd85e54785919903dc332` /
+`bbc1293a42034540327402a5df6c1f172b76afacca7906b4f0b71f5290b5968a`;
+the bound environment-bootstrap SHA-256 is
+`f57befbb5082aaf4d4bb186958a88420ea873e0fdee5c65da1091b73f566c2bf`.
+
+The prepared job archives the fixed pre-S06
+`968d81583c87ba76b7dbbb722760f8eb8eb6cd39` and current
+`c69befe5e8dd6397059c4d3fe1cbf906a9646836` commits into distinct fresh
+read-only snapshots. Their 78/85-file source-list/state SHA-256 tuples are
+`0ec5e43e98ee6b98c949d6c3187c4484fb47842443fd3ffe54fcb61e4d777ae0` /
+`dc2144cc522d20035eeff81269e45973312c10f908ddc6808bc3c2611b38c93d`
+and
+`104a647441ce712e83c20d32372944e48777913cf746ae19ee124894ca927e41` /
+`0f2995fca7d323421e46326493b2f9cc5d0032ca3d794d422779fc10c626ee32`.
+Each snapshot executes the exact seed-42 CPU dummy clean round twice in fresh
+independent Python subprocesses under one locked GH200 dependency environment.
+
+The request is `PREPARED_NOT_APPROVED_DO_NOT_SUBMIT`: one node/task/GH200, four
+CPUs, 32 GiB, ten minutes, no requeue/retry. It opens no data and performs no
+pytest, full cache/trainval, 100/1000-step campaign, metric, profile, DDP, matrix,
+or scientific cell. Summary classification is restricted to
+`stable_equal_current`, `pre_historical_current_new`, `unstable`, or
+`unexpected_stable_pair`; no outcome automatically changes the golden or loop.
+Exact command, paths, identities, artifacts and stop rules are in RUN_REQUEST
+Section F.
+
+Preparation checks actually run: launcher `bash -n`, stdlib AST compilation of
+all four embedded Python heredocs, immutable Git-blob source-list/state
+reproduction for both snapshots, launcher/bootstrap hashes, owned-path audit,
+and `git diff --check`: PASS. Not run: project/package import, pytest, pycompile,
+Torch/CUDA/spconv/cumm, data/model workload, Slurm/GPU/compute. No RESULTS,
+production/test/golden/training-loop/config/canonical file changed; no submit,
+merge, push or upload occurred.
