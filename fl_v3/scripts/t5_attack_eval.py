@@ -198,6 +198,8 @@ def _validate_task_requirements(args) -> str:
             raise RuntimeError("T5 viz requires both poison and clean checkpoints")
         return _SHARD_MODE_FULL
     if args.task in {"aggregate", "stealth", "guards"}:
+        if args.cond4_only:
+            raise RuntimeError("--cond4-only is valid only for shard task")
         if args.clean_checkpoint:
             raise RuntimeError(f"T5 task {args.task!r} is poison-only; clean checkpoint is forbidden")
         return "poison_only"
@@ -396,7 +398,7 @@ def _load_bound_full_shards(args, cfg: dict, subset: dict, poison_weights_checks
         index = artifact["shard_index"]
         if isinstance(index, bool) or not isinstance(index, int) or index < 0 or index >= count:
             raise RuntimeError("shard index is outside declared aggregate range")
-        if artifact["num_shards"] != count or index in seen_indices:
+        if type(artifact["num_shards"]) is not int or artifact["num_shards"] != count or index in seen_indices:
             raise RuntimeError("duplicate shard index or num_shards mismatch")
         seen_indices.add(index)
         if not isinstance(artifact["poison"], dict) or set(artifact["poison"]) != identity_keys:
@@ -438,6 +440,16 @@ def _load_bound_full_shards(args, cfg: dict, subset: dict, poison_weights_checks
                 raise RuntimeError("full shard row lacks mandatory five-condition evaluation")
             if type(row["occlusion_disappeared"]) is not bool:
                 raise RuntimeError("full shard mandatory occlusion control must be boolean")
+            if (
+                type(row["placement_aligned_ok"]) is not bool
+                or type(row["placement_nonaligned_iou0"]) is not bool
+                or (
+                    row["area_ratio"] is not None
+                    and (isinstance(row["area_ratio"], bool)
+                         or not isinstance(row["area_ratio"], (int, float)))
+                )
+            ):
+                raise RuntimeError("full shard placement-control schema is invalid")
             disappeared = row["disappeared"]
             if (
                 not isinstance(disappeared, dict) or set(disappeared) != set(FA.CONDITIONS)
@@ -607,6 +619,8 @@ def task_aggregate(args, cfg):
     device = _device(cfg)
     subset = _load_subset(cfg, args.subset)
     N = int(subset["n"])
+    if N <= 0:
+        raise RuntimeError("aggregate requires a nonempty frozen target subset")
     # §0.C8: the verdict is bound to a provenance-verified trainval poisoned checkpoint
     model = _load_model(cfg, args.checkpoint, device)
     checksum = _trainable_checksum(model)
