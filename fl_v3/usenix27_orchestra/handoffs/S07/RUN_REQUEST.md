@@ -557,18 +557,20 @@ interpretation is available from this execution.
 
 ---
 
-## E. S07-B failure/hang diagnostic attribution — APPROVED ONCE / NOT YET SUBMITTED
+## E. S07-B failure/hang diagnostic attribution — SUBMITTED ONCE / ACTIVE
 
 ### Approval state and immutable identity
 
 - **Status:**
-  `APPROVED_ONCE_BY_S00_UNDER_OWNER_DELEGATED_S07B_DIAGNOSTIC_O-056_2026-07-12_NOT_YET_SUBMITTED`.
+  `SUBMITTED_ONCE_JOB_348818_APPROVAL_CONSUMED_ACTIVE`.
 - Canonical O-055 at exact Orchestra commit
   `d56e01d3b80a7dae41f90211c0be9ff565861b85` authorized preparation only.
   Canonical O-056 at exact Orchestra commit
   `07ec16f37cbe0816be6ce102350036e8c7511e1e` records S00's audit and approves
   exactly one submission of the immutable tuple below under the owner's delegated
-  S07-B diagnostic scheduling authority. It remains not yet submitted.
+  S07-B diagnostic scheduling authority. Canonical O-057 at exact Orchestra
+  commit `da9dbb4f643f9ab92f6e979e605e9ef24722963a` records that the exact command
+  was submitted once as Job `348818` and O-056 was consumed immediately.
 - This is a distinct diagnostic proposal after the durable Job 348557 negative
   record at `d7888a9fef615c83c8d36161bfa6d581a3dc4f0f`. It is not an O-052 retry and
   cannot change or overwrite the old output.
@@ -608,7 +610,11 @@ approves only this exact tuple:
 - the exact preflight, `sbatch --no-requeue`, exports and launcher command in the
   command block below.
 
-This authority is consumed by one submission attempt regardless of outcome.
+This authority was consumed by Job `348818`, submitted exactly at
+`2026-07-12T13:40:45+02:00` and started at `2026-07-12T13:40:46+02:00` on
+Arrhenius node `n412` (Europe/Stockholm, CEST). The submitted tuple is exactly the
+preflight/resources/exports/launcher command below. The one attempt consumed
+approval regardless of outcome.
 Any Git/hash/test/order/timeout/data/path/resource/environment/command/summary/
 acceptance/stop-rule drift invalidates approval. There is no retry, requeue,
 replacement, alternate invocation, automatic follow-on or spare job. A completed
@@ -746,7 +752,7 @@ cannot recursively contain itself. Scratch fixtures are not formal evidence.
 Scheduler stdout/stderr remain separately preserved for S00 to hash after the
 job closes.
 
-### Exact O-056-approved one-time command — NOT YET SUBMITTED
+### Exact command submitted once as Job 348818
 
 ```bash
 test "$(git hash-object fl_v3/scripts/run_s07_b_diagnostic_tests.sh)" = "e41e97d31ff0a4e5555a548a63ac04d656565538" && \
@@ -760,8 +766,9 @@ sbatch --nodes=1 --ntasks=1 --gpus-per-node=nvidia_gh200_120gb:1 \
   fl_v3/scripts/run_s07_b_diagnostic_tests.sh
 ```
 
-This exact command is approved once under O-056 but has not been executed or
-submitted. It must not be altered, repeated or followed automatically. Any Git,
+This exact command was submitted once as Job `348818` at
+`2026-07-12T13:40:45+02:00`; O-056 is consumed. It must not be altered, repeated
+or followed automatically. Any Git,
 hash, file list/order, test command/timeout, data, resource, path, environment,
 summary, acceptance or stop-rule drift invalidates approval.
 

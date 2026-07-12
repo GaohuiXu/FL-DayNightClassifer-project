@@ -1686,11 +1686,15 @@ reproduced the 124-file list and aggregate hashes. The five candidate config
 hashes and exact ordered 25 test files remain unchanged and are checked in-job.
 
 The request is
-`APPROVED_ONCE_BY_S00_UNDER_OWNER_DELEGATED_S07B_DIAGNOSTIC_O-056_2026-07-12_NOT_YET_SUBMITTED`.
+`SUBMITTED_ONCE_JOB_348818_APPROVAL_CONSUMED_ACTIVE`.
 Canonical O-056 at exact Orchestra commit
 `07ec16f37cbe0816be6ce102350036e8c7511e1e` records S00's independent audit and
 approves exactly one submission under the owner's delegated S07-B diagnostic
-scheduling authority. The immutable tuple is `L`
+scheduling authority. Canonical O-057 at exact Orchestra commit
+`da9dbb4f643f9ab92f6e979e605e9ef24722963a` records that exact Job `348818` was
+submitted at `2026-07-12T13:40:45+02:00`, started at
+`2026-07-12T13:40:46+02:00` on node `n412`, and consumed O-056 immediately. The
+immutable tuple is `L`
 `fd142dc1c247ed527dbf5ddb823576c817dc415a`, launcher/list/state SHA-256
 `d8d7686eb727d4973591cf20186615f6bf2f3bc71ba020dec815c9b6d2d0dc1b` /
 `40c364201bda63386be614fca3710f62111e6964f9b7fdc1beffef69cb5f05d8` /
@@ -1704,8 +1708,8 @@ fresh snapshot/output
 one node/task/GH200, eight CPUs, 64 GiB and 30 minutes, and the exact Section E
 preflight/exports/`sbatch --no-requeue` command.
 
-The job remains not yet submitted. One submission attempt consumes approval
-regardless of outcome. Any tuple drift invalidates approval; no retry, requeue,
+Job `348818` is ACTIVE. The one submission attempt consumed approval regardless
+of outcome. Any tuple drift invalidates approval; no retry, requeue,
 replacement, alternate invocation, follow-on or spare job is authorized. A
 completed diagnostic harness is not suite PASS: `diagnostic_complete` remains
 separate from `suite_pass`. The approved request uses
@@ -1748,6 +1752,6 @@ Explicitly not run: `sbatch`, `srun`, pytest, pycompile, project/package import,
 Torch/spconv/cumm, data/model/CUDA/GPU, cache, model step, profile/metric, DDP,
 matrix, retry or scientific cell. No fresh diagnostic output/snapshot/log exists.
 No RESULTS, production source, tests, runtime launcher or canonical doc changed.
-No merge, push, upload or publication occurred. O-056 records the completed S00
-audit and exact one-time approval; the job remains not yet submitted and no tuple
-other than the exact Section E command is authorized.
+No merge, push, upload or publication occurred. O-057 records the exact submitted
+tuple and consumed approval; no retry, replacement, intervention or follow-on is
+authorized. S00 alone monitors the result.
