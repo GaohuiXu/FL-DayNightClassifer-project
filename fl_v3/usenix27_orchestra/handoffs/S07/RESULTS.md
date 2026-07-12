@@ -677,6 +677,47 @@ multiprocessing runtime, Torch/CUDA/data/model workload, or Slurm was run.
 
 These static results do not repair or reinterpret Job 352105 retroactively.
 That job's summary/source/log/checksum hashes and 2 PASS / 2 FAIL / 5 timeout
-negative shape above remain exact. Candidate `26cffb0` is pending independent
-review and separately approved runtime evidence. Current compute remains
-`NOT_APPROVED_DO_NOT_SUBMIT`.
+negative shape above remain exact. Code `26cffb0` and its exact three-document
+delivery `34f07994a4b3de62c7c1331d98ff03dbba98de2e` are durable; delivery parent
+is exact code commit and changed only `HANDOFF.md`, `RUN_REQUEST.md`, and this
+`RESULTS.md`. Independent review
+`69037534352c4517e93a62b17cd8f168c0f8a24c` was not merged and returned
+`CHANGES-REQUESTED`. Current compute remains `NOT_APPROVED_DO_NOT_SUBMIT`.
+
+### O-079 R13 remediation — authored/static result only
+
+Exact durable O-079 code
+`56c74de5bdf5463fdd6ab1a623ab0f92a35871ae`, parent exact
+`34f07994a4b3de62c7c1331d98ff03dbba98de2e`, adds the exact missing hostile
+and cleanup-observability predicates:
+
+| Input | Git blob | SHA-256 |
+|---|---|---|
+| `tests/test_nuscenes_zip_dataset.py` | `9db60cb07609c51d374973158380b0a003c1b1f8` | `2db06a8e6492b68ac3f645cc9bfc4b6feaa2c588ec6e2ad821b8ca5843241b3d` |
+| `scripts/run_s07_b_runtime_tests.sh` | `1eef653ed6ecd8675f7603d7f1ef7771b22724a3` | `f3dc70455a06fa5f77b14232799a4c214dd6c5e38a6c5b2d1635881d2e008d04` |
+| `scripts/run_s07_b_diagnostic_tests.sh` | `17dad205039334ed1a34e593c6847db47888c789` | `d1be90179426c135fb97cf57c7f162ae4f7aa77db7b279b0feee4081f4ba3edd` |
+| `scripts/run_s07_b_dummy_attribution.sh` | `8755c91fa2493e6255db14bf96c75ac9daffa429` | `81a5ebd51d70c180ff0ac64bf4e8bd153be64b992550601eb96d536c557c4725` |
+| `scripts/run_s07_b_postremediation_focused.sh` | `926161c3b8d10bdb7760ce3a7ec2785ed3434405` | `00d9674fcbc01ee9876508a6220e1e97a1b714e32555c863499dacec2cbc2599` |
+| `scripts/run_s07_b_multiworker_diagnostic.sh` | `42bb7560d6a04995edb7ae7976906f23e3b9d4f5` | `4b09b6c6ef0f682bdb5326ca23851b45705d636e00fddd0809de74abbc37577e` |
+| `scripts/run_s07_b_static_checks.sh` | `c57dc1c98e7bc07538b93f55877c30968d78eeca` | `e814bdbd3ff8c607d9aa61ebcf232b3a588f244a6d10a94e7e63b7e3af559d03` |
+
+- leader-exit retrieves the raw status for its exact `(PID,starttime)` key,
+  asserts `os.WIFSIGNALED(status)` and
+  `os.WTERMSIG(status) == signal.SIGKILL`, and checks the report's decoded
+  signal is `SIGKILL`;
+- all five EXIT traps emit one fixed-tag/reason stderr record for each possible
+  path-pattern, parent-directory, symlink, directory, stat, device/inode, or rm
+  refusal/failure. The messages contain no temp path. Primary failure status is
+  preserved; a cleanup failure after primary success becomes nonzero;
+- restoration is attempted on every controlled Python path. Static structure
+  cannot prove the restore syscall succeeds; only a passing exact runtime
+  hostile can establish that execution's successful restoration.
+
+Stable exact-tree results were: six shell syntax checks PASS; five-launcher
+contract PASS; changed-test source compile PASS; all 19 embedded Python
+heredocs compile PASS; `shellcheck -S error` PASS; and `git diff --check` PASS.
+They are not pytest, multiprocessing, Torch/CUDA/data/model, Slurm, production,
+or scientific evidence. Job 352105's exact negative artifacts/hashes above are
+unchanged and must not be reclassified. O-079 code is durable, while this
+lifecycle update still requires delivery and new independent review; compute
+remains `NOT_APPROVED_DO_NOT_SUBMIT`.

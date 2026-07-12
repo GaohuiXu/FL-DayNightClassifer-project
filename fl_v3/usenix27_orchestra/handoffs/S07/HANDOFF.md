@@ -2346,8 +2346,10 @@ The exact candidate semantics are:
   helper start, proves the exact descendant was adopted by the pytest parent,
   and reaps only that verified `(PID,starttime)` with bounded
   `waitpid(pid,WNOHANG)`. PID reuse, different PPID, or non-child state cannot
-  trigger a reap. The saved state is restored on every path and restore failure
-  remains additive cleanup evidence;
+  trigger a reap. Restoration of the saved state is attempted on every
+  controlled Python path; a passing leader-exit hostile proves successful
+  restoration for that execution, while a restore syscall failure remains
+  additive cleanup evidence rather than a claim that restoration succeeded;
 - static launcher-contract checks cover shell syntax, random short-temp
   construction, trap-before-assertion order, anchored deletion, device/inode,
   length, mode, and post-environment TMP/TEMP exports. The leader-exit hostile
@@ -2377,8 +2379,55 @@ PASS above. It is not runtime evidence and not a candidate negative result.
 
 Historical executable `4b3c8474...`, candidate `c53117a...`, Job 352105 raw
 artifacts, and all earlier negative evidence remain immutable. This work has not
-run pytest/project import/Torch/CUDA/data/Slurm and has no independent review
-yet. The code SHA is durable, while this updated lifecycle prose remains an
-uncommitted documentation diff. Current compute is
-`NOT_APPROVED_DO_NOT_SUBMIT`; the candidate authorizes no compute, merge, push,
-upload, or scientific interpretation.
+run pytest/project import/Torch/CUDA/data/Slurm. Code commit `26cffb02...` is
+durable. Its lifecycle delivery is exact commit
+`34f07994a4b3de62c7c1331d98ff03dbba98de2e`, whose sole parent is
+`26cffb02...` and whose exact three changed paths are this `HANDOFF.md`,
+`RUN_REQUEST.md`, and `RESULTS.md`; these files are not an uncommitted delivery.
+Independent R13 review commit
+`69037534352c4517e93a62b17cd8f168c0f8a24c` is review-only, is not merged,
+and returns delivery `34f07994...` as `CHANGES-REQUESTED`. Current compute is
+`NOT_APPROVED_DO_NOT_SUBMIT`; neither delivery nor review authorizes compute,
+merge, push, upload, or scientific interpretation.
+
+### O-079 scoped R13 evidence remediation — durable code candidate
+
+O-079 code is durable at exact
+`56c74de5bdf5463fdd6ab1a623ab0f92a35871ae`, sole parent
+`34f07994a4b3de62c7c1331d98ff03dbba98de2e`. It changes exactly seven
+test/launcher paths (`163` insertions, `59` deletions), no production source,
+and retains Job 352105 and all prior semantics while addressing exactly the
+three R13 findings:
+
+| Path | Git blob | SHA-256 |
+|---|---|---|
+| `tests/test_nuscenes_zip_dataset.py` | `9db60cb07609c51d374973158380b0a003c1b1f8` | `2db06a8e6492b68ac3f645cc9bfc4b6feaa2c588ec6e2ad821b8ca5843241b3d` |
+| `scripts/run_s07_b_runtime_tests.sh` | `1eef653ed6ecd8675f7603d7f1ef7771b22724a3` | `f3dc70455a06fa5f77b14232799a4c214dd6c5e38a6c5b2d1635881d2e008d04` |
+| `scripts/run_s07_b_diagnostic_tests.sh` | `17dad205039334ed1a34e593c6847db47888c789` | `d1be90179426c135fb97cf57c7f162ae4f7aa77db7b279b0feee4081f4ba3edd` |
+| `scripts/run_s07_b_dummy_attribution.sh` | `8755c91fa2493e6255db14bf96c75ac9daffa429` | `81a5ebd51d70c180ff0ac64bf4e8bd153be64b992550601eb96d536c557c4725` |
+| `scripts/run_s07_b_postremediation_focused.sh` | `926161c3b8d10bdb7760ce3a7ec2785ed3434405` | `00d9674fcbc01ee9876508a6220e1e97a1b714e32555c863499dacec2cbc2599` |
+| `scripts/run_s07_b_multiworker_diagnostic.sh` | `42bb7560d6a04995edb7ae7976906f23e3b9d4f5` | `4b09b6c6ef0f682bdb5326ca23851b45705d636e00fddd0809de74abbc37577e` |
+| `scripts/run_s07_b_static_checks.sh` | `c57dc1c98e7bc07538b93f55877c30968d78eeca` | `e814bdbd3ff8c607d9aa61ebcf232b3a588f244a6d10a94e7e63b7e3af559d03` |
+
+- the leader-exit hostile now requires the exact adopted descendant's raw
+  `waitpid` status to satisfy `os.WIFSIGNALED(status)` and
+  `os.WTERMSIG(status) == signal.SIGKILL`; the report also records the decoded
+  signal, and the static checker locks both predicates;
+- every one of the five launcher EXIT traps emits exactly one deterministic,
+  non-sensitive stderr line with fixed launcher tag
+  `S07B_TMP_CLEANUP_FAILURE:<launcher>` and one of
+  `path_pattern/dirname/symlink/directory/stat/device_inode/rm` whenever safe
+  removal is refused or fails. `stat`/`rm` raw stderr is suppressed so paths do
+  not leak. A nonzero primary status remains unchanged; a successful primary
+  becomes nonzero on any cleanup failure. The static checker locks all seven
+  reasons, tags, redirections, and exit-status rules;
+- the committed-delivery and controlled-path restore wording is corrected as
+  above. A PASS hostile may prove restore success only for that exact execution.
+
+Exact committed-tree checks were: six shell `bash -n` checks PASS;
+`short TMPDIR contract: 5 launchers OK`; changed-test source compile PASS;
+all 19 embedded Python heredocs compile PASS; `shellcheck -S error` PASS; and
+`git diff --check` PASS. No project import, pytest, multiprocessing,
+Torch/CUDA/data/model or Slurm evidence exists for O-079. The code is durable;
+this lifecycle update remains a documentation diff pending delivery and new
+independent review. Current compute remains `NOT_APPROVED_DO_NOT_SUBMIT`.
