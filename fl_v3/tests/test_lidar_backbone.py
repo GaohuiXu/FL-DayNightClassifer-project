@@ -1,7 +1,7 @@
 """Dense 2D LiDAR backbone tests (MCR P1 capacity lever).
 
-Guards: (a) the module shape contract (H,W preserved so ConvFuser can concat); (b) DEFAULT-OFF byte-identity
-(disabled ⇒ no new params, fuser width unchanged, 62-tensor trainable layout intact); (c) the ON-path wiring
+Guards: (a) the module shape contract (H,W preserved so ConvFuser can concat); (b) DEFAULT-OFF six-task
+topology (disabled ⇒ no LiDAR-backbone params, fuser width unchanged, 230-tensor layout intact); (c) the ON-path wiring
 (fuser width threaded to 80+Cout, trainable count rises by the backbone's tensors); (d) finite/deterministic
 forward. The static-AST ban over models/fusion/** auto-covers lidar_backbone.py via the existing sweep test."""
 import torch
@@ -50,7 +50,7 @@ def test_deep_4stage_backbone():
     assert y.shape == (2, 128, 512, 512) and torch.isfinite(y).all()
 
 
-def test_default_off_byte_identical():
+def test_default_off_preserves_six_task_topology():
     """Backbone OFF preserves six-task head topology and excludes LiDAR backbone."""
     off = BEVFusionDetector(DetectorConfig(pretrained_backbone=False))
     names = [n for n, _ in off.named_parameters()]

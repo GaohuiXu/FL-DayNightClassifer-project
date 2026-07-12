@@ -73,6 +73,36 @@ def test_dummy_regression_byte_identity_golden():
         )
 
 
+def test_dummy_multiworker_loader_is_spawn_and_consumes_batch():
+    """The real dummy task uses spawn and its worker loader is executable."""
+    from fl_v3.training.tasks import get_task
+
+    task = get_task("dummy_regression")
+    client = task.client_data(0, {**_DUMMY_CFG, "num-workers": 2})
+    loader = client.trainloader
+    assert loader.multiprocessing_context.get_start_method() == "spawn"
+    iterator = iter(loader)
+    try:
+        features, targets = next(iterator)
+        assert features.shape == (8, 4)
+        assert targets.shape == (8, 1)
+    finally:
+        iterator._shutdown_workers()
+
+
+def test_dummy_zero_worker_loader_has_no_multiprocessing_context():
+    from fl_v3.training.tasks import get_task
+
+    client = get_task("dummy_regression").client_data(
+        0, {**_DUMMY_CFG, "num-workers": 0}
+    )
+    assert client.trainloader.multiprocessing_context is None
+    assert client.valloader.multiprocessing_context is None
+    features, targets = next(iter(client.trainloader))
+    assert features.shape == (8, 4)
+    assert targets.shape == (8, 1)
+
+
 # --- detection task wiring ---
 _DET_CFG = {
     "nuscenes-cache-dir": "./fl_outputs/nuscenes/info_cache", "nuscenes-version": "v1.0-mini",
@@ -156,6 +186,17 @@ def test_loader_determinism_num_workers(mini_cache_dir):
     assert torch.equal(b0["images"], b2["images"])
     assert torch.equal(b0["lidar_points"], b2["lidar_points"])
     assert torch.equal(b0["gt_boxes"][0], b2["gt_boxes"][0])
+
+
+def test_detection_zero_worker_loader_has_no_multiprocessing_context(mini_cache_dir):
+    from fl_v3.training.tasks import get_task
+
+    loader = get_task("nuscenes_detection").eval_loader(
+        _cfg_with_cache(mini_cache_dir, **{"num-workers": 0})
+    )
+    assert loader.multiprocessing_context is None
+    batch = next(iter(loader))
+    assert isinstance(batch, dict)
 
 
 @pytest.mark.skipif(not CUDA, reason="GH200 hostile requires CUDA initialization")

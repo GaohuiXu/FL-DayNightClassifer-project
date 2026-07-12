@@ -4,6 +4,8 @@ from __future__ import annotations
 import copy
 import gc
 import multiprocessing
+import os
+import signal
 import zipfile
 
 import numpy as np
@@ -305,26 +307,50 @@ def _persistent_lifecycle(zip_root, manifest, base_info, start_method):
             assert set(second["open_archives"]) == set(first["open_archives"])
         assert torch.equal(parent_sample["images"], dataset[0]["images"])
     finally:
+        iterator = getattr(loader, "_iterator", None)
+        workers = list(getattr(iterator, "_workers", ())) if iterator is not None else []
+        if iterator is not None:
+            iterator._shutdown_workers()
+        for worker in workers:
+            worker.join(5)
+        assert not any(worker.is_alive() for worker in workers), (
+            "persistent DataLoader workers survived explicit shutdown"
+        )
         del loader
         dataset.close()
         gc.collect()
+    return [worker.pid for worker in workers]
 
 
 def _fresh_spawn_then_fork(zip_root, manifest, base_info, result_queue):
+    os.setsid()
+    result_queue.put(("ready", os.getpid(), os.getsid(0), os.getpgrp()))
     try:
         assert torch.cuda.is_available() is False
-        _persistent_lifecycle(zip_root, manifest, base_info, "fork")
-        result_queue.put(None)
+        worker_pids = _persistent_lifecycle(zip_root, manifest, base_info, "fork")
+        live_children = [
+            child.pid for child in multiprocessing.active_children() if child.is_alive()
+        ]
+        result_queue.put(("result", None, worker_pids, live_children))
     except BaseException as exc:
-        result_queue.put(repr(exc))
+        live_children = [
+            child.pid for child in multiprocessing.active_children() if child.is_alive()
+        ]
+        result_queue.put(("result", repr(exc), [], live_children))
+
+
+def _kill_process_group(group_id, sig):
+    try:
+        os.killpg(group_id, sig)
+    except ProcessLookupError:
+        pass
 
 
 @pytest.mark.parametrize("start_method", ["fork", "spawn"])
 def test_repeated_persistent_multiworker_reads_are_deterministic(
     directory_and_zip, start_method, monkeypatch
 ):
-    if start_method not in multiprocessing.get_all_start_methods():
-        pytest.skip(f"{start_method} unavailable")
+    assert start_method in multiprocessing.get_all_start_methods()
     _directory_root, zip_root, manifest, base_info, _paths = directory_and_zip
     if start_method == "spawn":
         _persistent_lifecycle(str(zip_root), str(manifest), base_info, "spawn")
@@ -338,14 +364,53 @@ def test_repeated_persistent_multiworker_reads_are_deterministic(
         target=_fresh_spawn_then_fork,
         args=(str(zip_root), str(manifest), base_info, result_queue),
     )
-    process.start()
-    process.join(90)
-    if process.is_alive():
-        process.terminate()
-        process.join(10)
-        pytest.fail("fresh spawn helper timed out during explicit fork lifecycle")
-    assert process.exitcode == 0
-    assert result_queue.get(timeout=5) is None
+    group_id = None
+    success = False
+    try:
+        process.start()
+        ready = result_queue.get(timeout=10)
+        assert ready[0] == "ready"
+        assert ready[1] == process.pid
+        group_id = ready[3]
+        assert ready[2] == process.pid
+        assert group_id == process.pid
+
+        process.join(90)
+        if process.is_alive():
+            process.terminate()
+            process.join(10)
+            # The helper is a POSIX session/process-group leader. Kill the whole
+            # group even if terminate already reaped the leader, so forked
+            # DataLoader descendants cannot survive the timeout path.
+            _kill_process_group(group_id, signal.SIGKILL)
+            if process.is_alive():
+                process.kill()
+            process.join(10)
+            assert not process.is_alive(), "fresh spawn helper survived kill+join"
+            pytest.fail("fresh spawn helper timed out during explicit fork lifecycle")
+
+        assert process.exitcode == 0
+        outcome = result_queue.get(timeout=5)
+        assert outcome[0] == "result"
+        assert outcome[1] is None
+        assert outcome[2], "fork lifecycle did not report worker PIDs"
+        assert outcome[3] == [], f"forked descendants survived normal cleanup: {outcome[3]}"
+        success = True
+    finally:
+        if process.is_alive():
+            process.terminate()
+            process.join(10)
+        if not success and group_id is not None:
+            _kill_process_group(group_id, signal.SIGKILL)
+        if process.is_alive():
+            process.kill()
+            process.join(10)
+        still_alive = process.is_alive()
+        result_queue.close()
+        result_queue.join_thread()
+        if not still_alive:
+            process.close()
+        assert not still_alive, "fresh spawn helper survived final cleanup"
 
 
 def test_default_loader_context_is_spawn(directory_and_zip):

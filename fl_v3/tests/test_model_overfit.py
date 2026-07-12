@@ -17,14 +17,15 @@ CUDA = torch.cuda.is_available()
 
 
 @pytest.mark.skipif(not CUDA, reason="overfit is heavy; run on a GPU")
-def test_overfit_single_scene_falsifiable(mini_cache_dir):
+def test_overfit_single_scene_falsifiable(mini_cache_dir, tmp_path, monkeypatch):
     from fl_v3.training.tasks import get_task, center_distance_proxy
     from fl_v3.training.loop import _move_to_device
 
+    monkeypatch.chdir(tmp_path)
     enforce_determinism(strict=True); seed_everything(42)
     dev = torch.device("cuda")
     cfg = {
-        "nuscenes-cache-dir": "./fl_outputs/nuscenes/info_cache", "nuscenes-version": "v1.0-mini",
+        "nuscenes-cache-dir": str(mini_cache_dir), "nuscenes-version": "v1.0-mini",
         "nuscenes-train-split": "mini_train", "nuscenes-val-split": "mini_val",
         "nuscenes-partition-mode": "iid", "nuscenes-num-clients": 4, "seed": 42,
         "batch-size": 1, "num-workers": 0,
@@ -37,6 +38,8 @@ def test_overfit_single_scene_falsifiable(mini_cache_dir):
     }
     task = get_task("nuscenes_detection")
     cdata = task.client_data(0, cfg)
+    assert cfg["nuscenes-cache-dir"] == str(mini_cache_dir)
+    assert not (tmp_path / "fl_outputs").exists()
     seed_everything(42)
     try:
         model = task.build_model(cfg).to(dev)
