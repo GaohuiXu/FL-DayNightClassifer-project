@@ -1358,3 +1358,259 @@ accepts the O-079 code only at static-authored scope while requesting this
 delivery-state correction. Fresh independent acceptance and a separately
 frozen exact request are required before any runtime action.
 **Current compute status remains `NOT_APPROVED_DO_NOT_SUBMIT`; do not submit.**
+
+---
+
+## I. S07-B corrected nine-node multiworker runtime — PREPARED / NOT APPROVED
+
+### Approval state and exact purpose
+
+- **Compute status:** `PREPARED_NOT_APPROVED`; `DO_NOT_SUBMIT`.
+- O-083 authorizes request preparation and pure Git/hash/static/preflight only.
+  It does not authorize `sbatch`, `srun`, allocation, compute, retry, requeue,
+  replacement, resubmission, or follow-on.
+- Independent R15 review
+  `bc587790ff3b2dfb65b12fa4469c1f5b79aea5fc` is review-only/not merged and
+  gives docs/static-authored `PASS` for corrected delivery
+  `65881c5628a737eaeaf4742ab7b11a63b9d3cbc2` and O-079 code
+  `56c74de5bdf5463fdd6ab1a623ab0f92a35871ae`; runtime remains unverified.
+- This request is a new corrected nine-node gate, not a retry or
+  reinterpretation of Job 352105. Job 352105 remains an immutable
+  artifact-complete, suite-FAIL, harness-confounded negative diagnostic.
+- Purpose: execute the same exact nine single-node selections/order under the
+  reviewed short-temp, nearest-subreaper, exact SIGKILL-wait-status, and
+  cleanup-observability remediation. It excludes full suite/cache/trainval,
+  model steps, 100/1000-step gates, profiling, metrics, DDP, matrices, seeds,
+  FL, attack/defense, and scientific claims.
+
+### Immutable code, launcher, and complete source identity
+
+- Exact candidate/code:
+  `56c74de5bdf5463fdd6ab1a623ab0f92a35871ae`.
+- Exact executable/corrected delivery:
+  `65881c5628a737eaeaf4742ab7b11a63b9d3cbc2`.
+- Candidate-to-executable diff is empty under `fl_v3/src/fl_v3`,
+  `fl_v3/tests`, `fl_v3/scripts/arrhenius_env.sh`, `fl_v3/pyproject.toml`,
+  `fl_v3/requirements.txt`, and `fl_v3/requirements.lock.txt`.
+- Existing reviewed launcher:
+  `fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh`.
+- Launcher Git blob:
+  `42bb7560d6a04995edb7ae7976906f23e3b9d4f5`.
+- Launcher SHA-256:
+  `4b09b6c6ef0f682bdb5326ca23851b45705d636e00fddd0809de74abbc37577e`.
+- Environment bootstrap SHA-256:
+  `f57befbb5082aaf4d4bb186958a88420ea873e0fdee5c65da1091b73f566c2bf`.
+- Complete source count: `90`.
+- Complete C-locale source-list SHA-256:
+  `c9e0a4175725e59d1e4e3e3efbe3421c0d9b8480fd5161cf5147ae9184eb511f`.
+- Complete ordered source-state SHA-256:
+  `d64aa9c1baa28541dffc96bdfbed4bed18d85d3ae2e6e687c53e465dd67a797d`.
+
+The exact 90-file list is:
+
+```text
+fl_v3/pyproject.toml
+fl_v3/requirements.lock.txt
+fl_v3/requirements.txt
+fl_v3/scripts/arrhenius_env.sh
+fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh
+fl_v3/src/fl_v3/__init__.py
+fl_v3/src/fl_v3/attacks/__init__.py
+fl_v3/src/fl_v3/attacks/fusion_ablation.py
+fl_v3/src/fl_v3/attacks/poison.py
+fl_v3/src/fl_v3/attacks/poisoned_client.py
+fl_v3/src/fl_v3/attacks/trigger.py
+fl_v3/src/fl_v3/client_app.py
+fl_v3/src/fl_v3/config/__init__.py
+fl_v3/src/fl_v3/config/resolved.py
+fl_v3/src/fl_v3/data/__init__.py
+fl_v3/src/fl_v3/data/nuscenes/__init__.py
+fl_v3/src/fl_v3/data/nuscenes/augment.py
+fl_v3/src/fl_v3/data/nuscenes/cbgs.py
+fl_v3/src/fl_v3/data/nuscenes/class_map.py
+fl_v3/src/fl_v3/data/nuscenes/dataset.py
+fl_v3/src/fl_v3/data/nuscenes/gt_database.py
+fl_v3/src/fl_v3/data/nuscenes/gt_paste.py
+fl_v3/src/fl_v3/data/nuscenes/info_cache.py
+fl_v3/src/fl_v3/data/nuscenes/partition.py
+fl_v3/src/fl_v3/data/nuscenes/paths.py
+fl_v3/src/fl_v3/data/nuscenes/transforms.py
+fl_v3/src/fl_v3/data/nuscenes/zip_backend.py
+fl_v3/src/fl_v3/data/partition.py
+fl_v3/src/fl_v3/engine/__init__.py
+fl_v3/src/fl_v3/engine/local_runner.py
+fl_v3/src/fl_v3/eval/__init__.py
+fl_v3/src/fl_v3/eval/asr.py
+fl_v3/src/fl_v3/eval/box_to_global.py
+fl_v3/src/fl_v3/eval/detection_eval.py
+fl_v3/src/fl_v3/eval/frustum_visibility.py
+fl_v3/src/fl_v3/eval/provenance.py
+fl_v3/src/fl_v3/eval/report.py
+fl_v3/src/fl_v3/models/__init__.py
+fl_v3/src/fl_v3/models/dummy.py
+fl_v3/src/fl_v3/models/fusion/__init__.py
+fl_v3/src/fl_v3/models/fusion/bev_grid.py
+fl_v3/src/fl_v3/models/fusion/bev_neck.py
+fl_v3/src/fl_v3/models/fusion/camera_backbone.py
+fl_v3/src/fl_v3/models/fusion/camera_neck.py
+fl_v3/src/fl_v3/models/fusion/centerhead_decode.py
+fl_v3/src/fl_v3/models/fusion/collate.py
+fl_v3/src/fl_v3/models/fusion/detector.py
+fl_v3/src/fl_v3/models/fusion/fusion.py
+fl_v3/src/fl_v3/models/fusion/head.py
+fl_v3/src/fl_v3/models/fusion/lidar_backbone.py
+fl_v3/src/fl_v3/models/fusion/lidar_encoder.py
+fl_v3/src/fl_v3/models/fusion/losses.py
+fl_v3/src/fl_v3/models/fusion/nms_deterministic.py
+fl_v3/src/fl_v3/models/fusion/preprocess.py
+fl_v3/src/fl_v3/models/fusion/second_sparse_backbone.py
+fl_v3/src/fl_v3/models/fusion/sparse_voxel_encoder.py
+fl_v3/src/fl_v3/models/fusion/swin_sdpa.py
+fl_v3/src/fl_v3/models/fusion/view_transform.py
+fl_v3/src/fl_v3/server_app.py
+fl_v3/src/fl_v3/strategy/__init__.py
+fl_v3/src/fl_v3/strategy/aggregation_core.py
+fl_v3/src/fl_v3/strategy/defenses/__init__.py
+fl_v3/src/fl_v3/strategy/defenses/base.py
+fl_v3/src/fl_v3/strategy/defenses/fed_median.py
+fl_v3/src/fl_v3/strategy/defenses/fedavg.py
+fl_v3/src/fl_v3/strategy/defenses/flame.py
+fl_v3/src/fl_v3/strategy/defenses/foolsgold.py
+fl_v3/src/fl_v3/strategy/defenses/multi_krum.py
+fl_v3/src/fl_v3/strategy/flower_strategies.py
+fl_v3/src/fl_v3/strategy/gradient_metrics.py
+fl_v3/src/fl_v3/strategy/sampling.py
+fl_v3/src/fl_v3/strategy/server_opt.py
+fl_v3/src/fl_v3/training/__init__.py
+fl_v3/src/fl_v3/training/checkpoint.py
+fl_v3/src/fl_v3/training/loop.py
+fl_v3/src/fl_v3/training/runtime_state.py
+fl_v3/src/fl_v3/training/tasks.py
+fl_v3/src/fl_v3/utils/__init__.py
+fl_v3/src/fl_v3/utils/profiling.py
+fl_v3/src/fl_v3/utils/runtime.py
+fl_v3/src/fl_v3/viz/__init__.py
+fl_v3/src/fl_v3/viz/attack.py
+fl_v3/src/fl_v3/viz/calibration.py
+fl_v3/src/fl_v3/viz/detection.py
+fl_v3/src/fl_v3/viz/encoder.py
+fl_v3/src/fl_v3/viz/fusion.py
+fl_v3/src/fl_v3/viz/writer.py
+fl_v3/tests/conftest.py
+fl_v3/tests/test_model_task.py
+fl_v3/tests/test_nuscenes_zip_dataset.py
+```
+
+### Locked runtime and data identity
+
+- Linux `aarch64`, CPython `3.11.15`, exactly one visible CUDA device.
+- Exact package versions: NumPy `1.26.4`, SciPy `1.13.1`, pytest `9.1.1`,
+  Torch `2.11.0+cu128`, torchvision `0.26.0+cu128`, spconv `2.3.8`, cumm
+  `0.7.13`, nuscenes-devkit `1.1.11`, pyquaternion `0.9.9`, Pillow `12.2.0`.
+- Literal mini root only:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini`.
+- `NUSCENES_DATAROOT` and `ARRHENIUS_NUSCENES_DATAROOT` resolve exactly to
+  that mini root. `NUSCENES_DATA_DIR`, `NUSCENES_ZIP_MANIFEST`, and
+  `ARRHENIUS_NUSCENES_ZIP_MANIFEST` are cleared. No full data/cache is opened.
+
+### Exact nine nodes and harness contract
+
+The exact order is unchanged and each node is invoked once:
+
+1. `test_nuscenes_zip_dataset.py::test_repeated_persistent_multiworker_reads_are_deterministic[fork]`;
+2. `test_nuscenes_zip_dataset.py::test_repeated_persistent_multiworker_reads_are_deterministic[spawn]`;
+3. `test_nuscenes_zip_dataset.py::test_explicit_fork_pre_ack_failure_never_forks_or_touches_parent_group`;
+4. `test_nuscenes_zip_dataset.py::test_explicit_fork_post_ack_error_preserves_primary_and_cleanup_evidence`;
+5. `test_nuscenes_zip_dataset.py::test_explicit_fork_post_ack_leader_exit_cleans_verified_orphan_group`;
+6. `test_nuscenes_zip_dataset.py::test_explicit_fork_post_ack_hang_kills_verified_group_and_descendant`;
+7. `test_model_task.py::test_dummy_multiworker_loader_is_spawn_and_consumes_batch`;
+8. `test_model_task.py::test_loader_determinism_num_workers`;
+9. `test_model_task.py::test_cuda_initialized_production_loader_is_spawn_persistent`.
+
+Each selection runs in a distinct `start_new_session=True` pytest subprocess
+with exact `PID == SID == PGID`, verbose long traceback, plugin autoload and
+cacheprovider disabled, a 30-second faulthandler, and a 90-second supervisor.
+On timeout the supervisor sends TERM to the exact owned process group, waits
+five seconds, sends KILL when required, and performs fixed-point exact
+`(PID,starttime,PPID,PGID,SID)` scan/reap/TERM/KILL cleanup. Cross-node
+descendants are forbidden; every root group, tracked identity, and adopted
+child must be absent before the next node.
+
+The job temp is random
+`/tmp/flv3-s07b-${SLURM_JOB_ID}-65881c5628a7.XXXXXX`, numeric-job and 12-hex
+validated, exact-parent `/tmp`, mode `0700`, non-symlink, device/inode bound,
+and at most 48 bytes. It is rebound to `TMPDIR/TMP/TEMP` after environment
+activation. Cleanup refuses drift and emits deterministic non-sensitive reason
+tokens without replacing a nonzero primary status. Durable artifacts remain in
+the approved output root.
+
+### Fresh execution paths, resources, and exact command
+
+- Required owner-provisioned clean detached execution worktree:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_worktrees/s07b_mw_runtime_65881c5628a7`
+  at exact `65881c5628a737eaeaf4742ab7b11a63b9d3cbc2`. It does not exist at
+  preparation time; provisioning is not compute or submission approval.
+- Read-only snapshot created in allocation:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_mw_diag_65881c5628a7`.
+- Output root:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_mw_diag_65881c5628a7`.
+- Scheduler logs:
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07b_mw_diag_65881c5628a7_%j.{out,err}`.
+- Job name: `flv3_s07b_mw_65881c5`.
+- Resources: one node, one task, one GH200, eight CPUs, 64 GiB, `00:20:00`,
+  `--no-requeue`; at most one-third GPU-hour. One attempt only; no array, DDP,
+  retry, replacement, resubmission, or follow-on.
+
+The exact proposed command is **not approved and must not be run**:
+
+```bash
+cd /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_worktrees/s07b_mw_runtime_65881c5628a7 && \
+test -z "$(git branch --show-current)" && \
+test "$(git rev-parse HEAD)" = "65881c5628a737eaeaf4742ab7b11a63b9d3cbc2" && \
+test -z "$(git status --short)" && \
+test "$(git hash-object fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh)" = "42bb7560d6a04995edb7ae7976906f23e3b9d4f5" && \
+test "$(sha256sum fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh | awk '{print $1}')" = "4b09b6c6ef0f682bdb5326ca23851b45705d636e00fddd0809de74abbc37577e" && \
+test "$(bash fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh --print-source-files | wc -l)" = "90" && \
+test "$(bash fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh --print-source-files | sha256sum | awk '{print $1}')" = "c9e0a4175725e59d1e4e3e3efbe3421c0d9b8480fd5161cf5147ae9184eb511f" && \
+test "$(bash fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh --print-source-files | while IFS= read -r path; do sha256sum "$path"; done | sha256sum | awk '{print $1}')" = "d64aa9c1baa28541dffc96bdfbed4bed18d85d3ae2e6e687c53e465dd67a797d" && \
+test "$(bash fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh --print-nodes | wc -l)" = "9" && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_mw_diag_65881c5628a7 && \
+test ! -e /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_mw_diag_65881c5628a7 && \
+test -z "$(find /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs -maxdepth 1 -type f -name 's07b_mw_diag_65881c5628a7_*' -print -quit)" && \
+test -z "$(squeue -u "$USER" -h -o '%i %j' | awk '$2 == "flv3_s07b_mw_65881c5" {print}')" && \
+sbatch --nodes=1 --ntasks=1 --gpus-per-node=nvidia_gh200_120gb:1 \
+  --cpus-per-task=8 --mem=64G --time=00:20:00 --no-requeue \
+  --job-name=flv3_s07b_mw_65881c5 \
+  --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07b_mw_diag_65881c5628a7_%j.out \
+  --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s07b_mw_diag_65881c5628a7_%j.err \
+  --export=ALL,EXPECTED_S07B_MW_CANDIDATE_SHA=56c74de5bdf5463fdd6ab1a623ab0f92a35871ae,EXPECTED_S07B_MW_EXECUTABLE_SHA=65881c5628a737eaeaf4742ab7b11a63b9d3cbc2,EXPECTED_S07B_MW_LAUNCHER_SHA256=4b09b6c6ef0f682bdb5326ca23851b45705d636e00fddd0809de74abbc37577e,EXPECTED_S07B_MW_SOURCE_SHA256=d64aa9c1baa28541dffc96bdfbed4bed18d85d3ae2e6e687c53e465dd67a797d,EXPECTED_S07B_MW_SOURCE_LIST_SHA256=c9e0a4175725e59d1e4e3e3efbe3421c0d9b8480fd5161cf5147ae9184eb511f,S07B_MW_APPROVAL_SCOPE=s07b-multiworker-diagnostic-only,S07B_MW_MINI_DATAROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini,S07B_MW_OUTPUT_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_mw_diag_65881c5628a7 \
+  fl_v3/scripts/run_s07_b_multiworker_diagnostic.sh
+```
+
+### Strict acceptance, failure, and stop conditions
+
+Acceptance requires all of the following, with no substitution by scheduler
+success or textual prefix progress:
+
+1. exact candidate/executable/launcher/bootstrap/source-list/source-state,
+   dependency, data, resource, path, node-list, and node-order identity match;
+2. exactly nine observed nodes in the frozen order, each attempted once;
+3. every node has return code `0`, `timed_out=false`,
+   `supervisor_cleanup_intervened=false`, `cleanup_ok=true`, JUnit present with
+   exactly one test and zero failure/error/skip;
+4. summary `diagnostic_complete=true`, `artifact_complete=true`,
+   `suite_pass=true`, `expected_nodes=observed_nodes=9`, totals exactly
+   `tests=9/failures=0/errors=0/skipped=0`;
+5. every process group, tracked identity, and adopted child absent at final
+   audit; no cross-node descendant, cleanup breach token, malformed/missing
+   artifact, source/hash drift, checksum failure, or collision;
+6. in-job and independent `sha256sum -c sha256sums.txt` both verify every
+   listed artifact; scheduler logs and exact Slurm state are preserved.
+
+Any node failure, timeout, missing/nonzero/skip JUnit, cleanup intervention,
+identity/path/hash/artifact mismatch, scheduler failure, or walltime makes this
+request terminal FAIL. There is no retry, requeue, alternate command,
+replacement, automatic resubmission, code/golden change, or follow-on. A PASS
+would establish only this bounded mini-data multiprocessing/runtime gate, not
+full-suite, production, full-data/cache, model-quality, performance, metric,
+FL, attack/defense, generalization, or scientific readiness.

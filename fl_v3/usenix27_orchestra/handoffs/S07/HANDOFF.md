@@ -2439,3 +2439,47 @@ only this delivery-state correction. Corrected multiprocessing/GH200 runtime
 remains unverified, and fresh independent acceptance is required before S00
 may freeze any new exact runtime request. Current compute remains
 `NOT_APPROVED_DO_NOT_SUBMIT`.
+
+### O-083 corrected nine-node runtime request preparation
+
+Independent R15 review
+`bc587790ff3b2dfb65b12fa4469c1f5b79aea5fc` is review-only/not merged and
+gives `PASS` at docs/static-authored scope for corrected delivery
+`65881c5628a737eaeaf4742ab7b11a63b9d3cbc2` and O-079 code
+`56c74de5bdf5463fdd6ab1a623ab0f92a35871ae`; runtime remains unverified.
+O-083 therefore prepares, but does not approve or submit, a new bounded request
+using the already reviewed multiworker launcher without changing any launcher,
+test, production source, node, timeout, cleanup, data, or dependency semantics.
+
+The exact request identity is:
+
+- candidate/code `56c74de5bdf5463fdd6ab1a623ab0f92a35871ae`;
+- executable/delivery `65881c5628a737eaeaf4742ab7b11a63b9d3cbc2`;
+- candidate-to-executable diff under source/tests/environment/dependency inputs:
+  zero paths;
+- launcher blob `42bb7560d6a04995edb7ae7976906f23e3b9d4f5`, SHA-256
+  `4b09b6c6ef0f682bdb5326ca23851b45705d636e00fddd0809de74abbc37577e`;
+- complete 90-file source-list SHA-256
+  `c9e0a4175725e59d1e4e3e3efbe3421c0d9b8480fd5161cf5147ae9184eb511f`
+  and ordered source-state SHA-256
+  `d64aa9c1baa28541dffc96bdfbed4bed18d85d3ae2e6e687c53e465dd67a797d`;
+- environment bootstrap SHA-256
+  `f57befbb5082aaf4d4bb186958a88420ea873e0fdee5c65da1091b73f566c2bf`.
+
+RUN_REQUEST Section I freezes the complete source list, nine exact nodes/order,
+locked dependencies, numeric-job/12-hex/random mode-0700 short temp contract
+with maximum 48 bytes, 90-second per-node supervisor, 30-second faulthandler,
+exact group/identity cleanup, literal mini root, cleared full-data overrides,
+fresh paths keyed `65881c5628a7`, one node/task/GH200, eight CPUs, 64 GiB,
+20 minutes, no requeue/retry/follow-on, and strict 9/9 PASS acceptance.
+
+Preparation checks were pure Git/hash/text/shell-preflight only: exact clean
+HEAD/parent/branch, R15 direct read, candidate/executable object and runtime-diff
+checks, launcher/bootstrap/source/node enumeration and hashes, path collision
+checks, mini-root presence, launcher `bash -n`, and `git diff --check`. No
+project/package import, pytest, multiprocessing/fork/spawn runtime, Torch/CUDA,
+data read, model work, `sbatch`, `srun`, or Slurm compute occurred.
+
+**Compute status: `PREPARED_NOT_APPROVED`; `DO_NOT_SUBMIT`.** O-083 is
+request preparation only and grants no compute, retry, requeue, follow-on,
+merge, push, upload, or scientific interpretation.
