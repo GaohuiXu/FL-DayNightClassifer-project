@@ -525,3 +525,235 @@ Forbidden interpretation: independent remediation acceptance before re-review,
 permission to rerun Section C or submit pending Section B, full-data/model training readiness, architecture or
 metric acceptance, mAP/NDS/model quality, FL, attack/defense, generalization,
 scientific, or publication claims.
+
+---
+
+# S07-B HANDOFF — reviewed CL-stack history and local integration candidate
+
+## Status and exact identity
+
+- Session: `S07-B`, sole reviewed CL-stack integration worker.
+- Base: `c9c84f8b2caebea14adc1d79d6d706695be0f50f` from
+  `codex/s00-orchestra-ledger`.
+- Startup observation: detached HEAD exactly at the base, empty branch name, clean
+  status, top level
+  `/home/gaohui/.codex/worktrees/d5e7/fl_weather_project`.
+- Owner-authorized delivery branch:
+  `codex/s07-b-integrated-cl-stack`; no other branch or worktree operation occurred.
+- Code/config integration candidate before this handoff-only commit:
+  `2944386de19ab7d25b3ec09c77b6951dd34cea8d`.
+- Worker self-assessment: **IMPLEMENTATION CANDIDATE DELIVERED; RUNTIME/FULL-STACK
+  GATES NOT RUN; NOT PRODUCTION OR SCIENTIFIC PASS**. The final handoff commit SHA
+  is returned to S00 after commit because a commit cannot embed its own SHA.
+- No merge to `v3-ad-perception`, push, PR, upload, branch deletion, worktree
+  add/move/remove/prune, Slurm submission, `srun`, retry, or external publication
+  occurred.
+
+## Exact owner-approved history integration
+
+The pre-merge state was branch `codex/s07-b-integrated-cl-stack` at exact base
+`c9c84f8...`. Expected overlaps were shared detector/eval/runtime interfaces and,
+specifically, S05+S06 `detection_eval.py`. All five non-FF merges completed in the
+required order without a textual conflict:
+
+| Worker | Exact second parent | Resulting merge SHA |
+|---|---|---|
+| S02 | `3aebf2dc1d19473f29260df279421047d216d70e` | `062ee1c5596db3e77203d9d5869bc988b5beb0ed` |
+| S03 | `50893839c45cd3e2ef1b72b98db6668df7030f2a` | `21d822d7ec7ff993b079f0d572bc9215164946a8` |
+| S04 | `483e149b95ec891b675df825d924a96bb225b7dd` | `10fc657bbf3a3067695db4cb5c5b44c913ab0b6a` |
+| S05 | `a9c801fdee378906e54d06314d0c772b6559901a` | `5f186d079a1b39133010096477b2adda8e9eeb66` |
+| S06 | `6b7ef29b49c23f206c07ea60c2f15e3ffd9aeef7` | `9fb1a9a9a448c90a60d75850f8146d2d4da06b80` |
+
+Clean auto-merge was treated only as textual integration. The later scoped commits
+perform the semantic wiring/audit. No reviewer branch was merged or cherry-picked.
+Exact final reviewer bytes were materialized only at the five owned `REVIEW.md`
+paths, then committed as provenance import
+`588e9f42a3bf9aa1341fd57c5ce8a838f0e299e0`:
+
+| Review | Git blob | SHA-256 |
+|---|---|---|
+| S02 | `f882a7e223ccc88084d283269ac5ba2516a482f0` | `8bb56cafc22a38dfd7b4ef4d755f1531ab081b0371fe18585d744307f5640474` |
+| S03 | `09d1beb66cec07e769c3650dd9e09a942bceb674` | `01dea6fd81f14bee8ee1cdf9e4dc66488e7253075459821b2e63947fde7566c1` |
+| S04 | `1caa6d01d83792736ebacbc6eecdf6b42bdadb2e` | `8673672793235ae0226d9109c73cd39577d5f40e846b17425178a7011300ea2a` |
+| S05 | `d3fc2bec71fbb3206de50b3baeb3ad7db6dc9ef7` | `67b58c8e9d1d1622d1af49a2c052cbadd66580500dbf988fc1184f2d0df6736e` |
+| S06 | `6df4171c0e85b4a63270af91ca18004c7db3a2e4` | `96d1996562bae4b5e2d1204cb6b51d276ad5c50dd7a75e928137b52b41ae0a59` |
+
+## Scoped S07-B commits and semantic inventory
+
+### `f629462c79df6ccbd491b595df1e8ad0f52bc94b` — mode-aware S01 payload I/O
+
+- `data/nuscenes/dataset.py` accepts only exact C/L/F names. Camera-only never
+  opens/reads/decodes LiDAR payloads; LiDAR-only never opens/reads/decodes image
+  payloads; fusion reads both. Calibration, poses and GT remain available.
+- `zip_backend.py` records camera/LiDAR/other read and byte counters and resets
+  process-local handles/counters across pickle/fork lifecycle.
+- `models/fusion/collate.py` omits disabled payloads, rejects mixed modes and
+  unexpected disabled payloads, and preserves metadata.
+- `training/tasks.py` passes exact mode and explicit production manifest to the
+  dataset; the S06 synthetic raw-I/O fail seam was removed only after the real
+  mode-aware implementation existed.
+- `test_nuscenes_zip_dataset.py` adds hostile missing-disabled-payload directory
+  and ZIP cases at sweep depths 1/10 with read-counter and metadata assertions.
+
+### `e6ec980463b1e0aa1743df1aaedb78557ea3c65e` — reviewed detector stack
+
+- Strict resolved construction maps `swin_t_stride8` to trainable Swin-T,
+  reference image augmentation, all-level stride-8 FPN, 0.5 m depth bins and the
+  common 180x180 BEV; `second_075` to the reviewed 0.075x0.075x0.2 SECOND input,
+  XY stride 8, 120k/160k train/eval caps, 256-channel 180x180 output and fp16
+  sparse dispatch; `pillar_020` to the repaired 0.2 m/512x512 pillar control with
+  four-stage dense LiDAR backbone; and `conv_fuser_256` plus two-convolution
+  six-task CenterHead to exact constructors. Missing, unknown, legacy, or
+  mode-inconsistent mappings fail before model construction.
+- The camera initialization choice is now an explicit resolved boolean rather
+  than an implicit default. Candidate templates leave it unresolved/null.
+- `MultiTaskCenterPointLoss` partitions canonical global labels by the reviewed
+  name map `[(0),(1,4),(2,3),(9),(6,7),(5,8)]`, applies the reviewed S02 Gaussian
+  target/regression order to each S05 task and sums task objectives.
+- Production decode routes list-of-task dictionaries only through S05 forced-FP32
+  candidate selection and deterministic official task-wide NMS. The old
+  single-head decoder is retained only for inventoried non-production callers;
+  strict config/checkpoint structure cannot select it.
+- F-CBGS is hash-bound sampling, fixed at threshold 0.5/max-repeat 4.0, and fails
+  if stacked with heatmap/regression class weights. Production train loaders use
+  `EpochPermutationSampler` after any CBGS expansion, so the persistent trainer
+  has a deterministic `set_epoch()` sampler and resume addresses an epoch rather
+  than generator history.
+
+### `8e78b643aae4ba5869af2d09d319bc81e33b56ed` — S05+S06 official eval audit
+
+The clean auto-merged implementation already retained both reviewed semantics:
+S05 duplicate-token rejection, official <=500 cap, deterministic content order,
+canonical global conversion/devkit contract; and S06 actual-mode metadata,
+resolved precision/autocast, forced-FP32 output boundary, one traversal, timing
+neutrality and complete optional identity provenance. This commit corrects the
+integrated contract documentation so evaluation cannot suggest a legacy global
+`max_objects` override. It does not re-decode or introduce a second threshold.
+
+### `2944386de19ab7d25b3ec09c77b6951dd34cea8d` — strict runtime/config/checkpoint evidence
+
+- `resolved.py` binds exact architecture enums, explicit camera initialization,
+  uniform/CBGS sampling, precision, optimizer/exposure, cache/manifest identities,
+  Torch and sparse dependency identities. `t1.v1`, aliases, missing/unknown keys,
+  non-SECOND spconv claims and CBGS outside F-CBGS fail closed.
+- `runtime.py` verifies exact Torch build string and, for SECOND, exact installed
+  spconv/cumm versions, active import roots and clean Git source HEADs. This check
+  runs before physical data verification or model construction. Any approved
+  launcher must still hash its immutable executable/runtime source snapshot; no
+  actual Arrhenius package/source attestation was executed in this session.
+- `centralized_train.py` is the one strict `--config/--out-dir/--resume`
+  production entry, records dependency identity, remains world-size-one only,
+  uses fixed accumulation/exposure accounting and complete boundary checkpoints.
+- `test_s06_checkpoint_resume.py` adds hostile failure injection after the real
+  live model or AdamW object's `load_state_dict` has mutated state; rollback is
+  required to restore every component and RNG. These tests are authored but not
+  run here and therefore do not establish production fail-atomic evidence.
+- `test_s07_b_integration.py` covers enum constructors/geometries, unknown and
+  inconsistent mappings, mocked dependency-source identity drift, deterministic
+  CBGS/no-stacking, expanded-dataset sampler resume, template refusal, global-to-
+  task loss mapping and gradient reachability.
+- `run_s07_b_static_checks.sh` is the local reproducible static-only check. It
+  contains no pytest, data, CUDA, model step, Slurm or retry action.
+
+## Candidate config files and explicit blocker
+
+The five candidate files name the requested architecture/precision/head/sampling
+choices, but are deliberately **NON-RUNNABLE TEMPLATES**, not resolved configs.
+Each contains an unknown top-level `template_only` marker, unresolved/null camera
+initialization where applicable, unmaterialized full `t1.v2` identities, and
+unapproved placeholder budget/seed values. Strict loading rejects each before data
+or model construction. File-byte SHA-256 values are:
+
+| Candidate | File SHA-256 |
+|---|---|
+| C-STR8 `s07_b_c_str8.json` | `9952a15cf5afeeb1aa058f1b48a59487cadad32451de7546d5d6bc84996a09ea` |
+| L-P020 `s07_b_l_p020.json` | `c737ae2cbd26757603753c872a217d5ab1ddc99f757404ab792e60e1fdea35ad` |
+| L-S075 `s07_b_l_s075.json` | `dfd7fd027b86144bd011c31c75ef3154b1aecd5af1526a52225088ba03e7f260` |
+| F-U `s07_b_f_u.json` | `bad2f7ae7134b1fc2e8182bb773404822658754ab61e03b6aaa0c59b5823ccb7` |
+| F-CBGS `s07_b_f_cbgs.json` | `ed3c479da0fb6ae3afe69772a97c3ec34e5b40bac5d710e6725ba25e5ac36358` |
+
+The explicit blocker to a real resolved candidate is unchanged: full trainval
+`t1.v2` train/val cache artifacts and their logical/pickle/sidecar identities are
+absent; exact module dataroot/manifest identities, budget, seed, camera
+initialization and CBGS-adjusted schedule are not owner-frozen. Synthetic all-`a`
+hashes were used only in an in-memory schema reachability check and are not written,
+reported as config identities, or permitted as production inputs.
+
+## Legacy caller/path inventory and cleanup decision
+
+- `centralized_train.py` is now the sole resolved production entry.
+- Historical `run_arrhenius_stop_e_gate.sh` supplies removed CLI flags
+  (`--epochs`, `--max-steps`, `--tag`, flat overrides) and is rejected by argparse;
+  it is outside S07-B ownership and was neither edited nor deleted.
+- Imported `s06_synthetic_camera.json` lacks the new explicit initialization and
+  sampling fields and remains synthetic; it is not silently promoted to an S07-B
+  production config.
+- `run_s06_runtime_tests.sh` lists `centralized_train.py` only as attested source;
+  it does not call the trainer. `p3_crt_probe.py` mentions it only in prose.
+- Historical tests and FL helpers calling `_det_config_from_run` without
+  `s06-production-runtime` retain the old compatibility branch. No legacy symbol,
+  config or launcher was bulk-deleted, and no negative evidence was erased.
+
+## Verification performed in S07-B
+
+PASS local/static only:
+
+1. startup ref/top-level/clean-tree checks;
+2. five non-FF merge-parent topology checks;
+3. exact Git blob and SHA-256 checks for all five imported reviews;
+4. `python3 -m py_compile` on every S07-B changed Python source/test listed by
+   `run_s07_b_static_checks.sh`;
+5. `bash -n fl_v3/scripts/run_s07_b_static_checks.sh`;
+6. `python3 -m json.tool` on all five templates;
+7. strict loader refusal of all five checked for `template_only` before
+   construction;
+8. in-memory schema reachability for all five after removing the template marker,
+   supplying an explicit `camera_pretrained=False`, and substituting syntactically
+   valid fake hashes; this validates enum/schema consistency only, not identity or
+   run readiness;
+9. `git diff --check` after every integration stage;
+10. candidate file hashes reproduced by the committed static script.
+
+NOT RUN, with no implied PASS:
+
+- pytest is unavailable in login `/usr/bin/python3`; Torch is also unavailable;
+- every S02-S06 reviewed focused runtime test and all authored S07-B pytest cases;
+- actual directory/ZIP payload/decode parity, hostile disabled-payload reads,
+  persistent fork/spawn workers and resume;
+- actual spconv/cumm/Torch import/build/source attestation on an aarch64 GH200;
+- S04 same-instance fp16 train/eval/no-grad/concurrency/EMA/deepcopy lifecycle;
+- C/L/F real construction, B=1/4/16 forward/backward, grid/dtype/gradient and
+  batch-invariance cases;
+- real model/optimizer rollback injection, CUDA rollback and host-memory gate;
+- official devkit load/eval round trip and worst-case CPU float64 rotate-NMS
+  profile;
+- mini data/model steps, full trainval cache, 100/1000 steps, production-shape or
+  full-data profile, mAP/NDS, DDP, matrix, seed, rerun or retry.
+
+No new S07 `RUN_REQUEST.md` or `RESULTS.md` section was created because no compute
+was requested, approved or executed. Existing S07-A request/results/evidence remain
+unchanged. Jobs `341997` (45/62 failure), `342014` (bounded 66/66 pass), S05
+`336731` (43/44 negative), and all S03/S04/S01 historical failures/passes retain
+their original interpretation; no subset was relabeled.
+
+## Ownership and interpretation limits
+
+All direct S07-B edits are within the launch envelope: owned nuScenes/fusion/config/
+training/eval/runtime source, central trainer, `s07_b_*` configs/script, owned tests,
+the five imported review paths, and this S07 handoff. Canonical Orchestra files,
+S07 `REVIEW.md`, `fl_v3/collab`, `fl_v3/docs`, `fl_v2`, historical configs/scripts
+outside ownership and S07-A request/results remain untouched by S07-B direct edits.
+
+Allowed interpretation: exact reviewed worker histories and final review bytes are
+integrated; one code-level C/L/F stack candidate exists at `2944386...`; static
+syntax/schema/template-fail-closed checks pass; actual runtime gates are explicitly
+assembled but unexecuted.
+
+Forbidden interpretation: S07-B/full-stack/production/checkpoint/throughput/memory/
+model-quality PASS; a real resolved candidate config; permission to materialize
+full cache or run any model/data/profile/metric job; mAP/NDS/fusion gain; FL,
+attack/defense, generalization, scientific or publication evidence.
+
+Next action is S00 completeness audit followed by an independent S07-B-R from the
+exact returned worker SHA. The reviewer must inspect actual diffs/topology and may
+not substitute this worker self-assessment for a verdict.
