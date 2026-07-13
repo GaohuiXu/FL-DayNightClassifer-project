@@ -132,7 +132,7 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 | S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | reviewed module PASS at worker `483e149` / executable `8498597` / review `a0763c2`; Job `341695` 15/15 bounded runtime PASS; accepted S07-B dependency with same-instance concurrency/reentrancy integration requirement |
 | S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | reviewed PASS at worker `a9c801f` / execution `96e509b` / review `1c44084`; Job `336731` 43/44 negative preserved, Job `336738` 44/44 focused runtime PASS; accepted S07-B dependency only |
 | S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | reviewed bounded PASS under O-031 at worker `6b7ef29` / executable `c330c72` / review `ca7bbd7`; Job `341997` FAILED 45/62 preserved, Job `342014` PASS 66/66; accepted S07-B candidate dependency with P3 integration gates, no production/full-data/scientific PASS |
-| S07 | Cleanup then clean integration completion | accepted S01/S07-A and S02-S06 | S07-C cleanup, independent S07-C-R, then simplified clean S07-B completion | S07-C A2 completeness audit PASS for durable materialization; owner authorized exact local sealing then S07-C-R; compute none |
+| S07 | Cleanup then clean integration completion | accepted S01/S07-A and S02-S06 | S07-C cleanup, independent S07-C-R, then simplified clean S07-B completion | S07-C implementation `a16c2cd`, handoff seal `f736f41`; S00 static completeness PASS, runtime NOT RUN; owner authorized independent S07-C-R; compute none |
 | S08 | Camera scientific run | S07 PASS | `C-STR8` full-val result/checkpoint | planned |
 | S09 | LiDAR scientific runs | S07 PASS | `L-P020` and `L-S075` results/checkpoints | planned |
 | S10 | Fusion and recipe selection | S08, S09 | `F-U`/`F-CBGS`, optional init A/B, `CL-PILOT` | planned |
@@ -477,10 +477,22 @@ local durable implementation commit and handoff seal as a linear successor of
 the committed canonical amendment, then independent S07-C-R. Runtime/dependency
 tests remain NOT RUN and are reviewer residual risk, not a cleanup blocker.
 
+**Durable identities.** Canonical A1/A2 parent
+`f7c696345b24b0e1227b1a52f3b47fb14e9120f5`; original detached snapshot
+`9f06875e1b865734950abcf3b6de36ad06a0ac7b` (provenance only); worker
+implementation `a16c2cdfd4e23ba08677a66c45c50dd78340cc3b`; handoff seal
+`f736f41371666725a11d51bc3b01c6ececb59d50`. The snapshot and canonical-parent
+implementation share patch-id `8f89c30d21164e80ec73f6a01eab33621e984789`.
+The branch was fast-forwarded to the handoff seal; no worker or reviewer history
+was merged.
+
 ### S07-C-R — Independent cleanup review
 
-Start only from the exact durable S07-C worker SHA in a separate worktree/ref.
-Own only `handoffs/S07-C/REVIEW.md`. Audit tombstone scans, fixed clean FedAvg,
+Start in a separate worktree at the exact canonical review-launch seal named in
+the task envelope. Treat `a16c2cdfd4e23ba08677a66c45c50dd78340cc3b` as the
+worker implementation under review and
+`f736f41371666725a11d51bc3b01c6ececb59d50` as its handoff seal. Own only
+`handoffs/S07-C/REVIEW.md`. Audit tombstone scans, fixed clean FedAvg,
 protected-foundation diffs and focused tests. Do not fix code, run Slurm, or merge
 reviewer history. A CHANGES-REQUESTED verdict returns to a new worker remediation
 SHA and requires another independent review.

@@ -984,13 +984,29 @@ tombstone evidence, run available local compile/JSON/TOML/bash/diff checks, ACK
 O-092-A2 in HANDOFF, and stop again for S00 audit. No commit/ref, reviewer launch,
 Slurm/GH200, merge or push is authorized.
 
-**S00 completeness outcome.** S00 independently inspected the cumulative A2
-source diff and handoff package and re-ran the exact-script-set, protected-byte,
-semantic-AST, Python compile, JSON, TOML, shell and diff checks. No source-cleanup
-blocker remains. The owner authorized durable local materialization as a linear
-successor of this canonical record, followed by S07-C-R from the exact sealed
-delivery SHA. This is not an implementation PASS or runtime/scientific PASS;
-dependency-backed and GH200 checks remain explicitly NOT RUN.
+**S00 completeness and durable-delivery outcome.** S00 independently inspected
+the cumulative A2 source diff and handoff package and re-ran the exact-script-set,
+protected-byte, semantic-AST, Python compile, JSON, TOML, shell and diff checks.
+No source-cleanup blocker remains. The exact linear identities are:
+
+```text
+audited code base:       4ce2366df2925161adae8fea393d5fca64836d40
+canonical A1/A2 parent: f7c696345b24b0e1227b1a52f3b47fb14e9120f5
+original snapshot:      9f06875e1b865734950abcf3b6de36ad06a0ac7b
+worker implementation:  a16c2cdfd4e23ba08677a66c45c50dd78340cc3b
+handoff seal:            f736f41371666725a11d51bc3b01c6ececb59d50
+implementation patch-id: 8f89c30d21164e80ec73f6a01eab33621e984789
+```
+
+The snapshot and canonical-parent implementation have the same patch-id; the
+snapshot remains provenance evidence only. The implementation is a direct child
+of the canonical parent, and the handoff seal is a direct child of the
+implementation. `codex/s07-c-legacy-security-cleanup` was fast-forwarded to the
+handoff seal without a merge commit. The owner authorized independent S07-C-R
+from the subsequent canonical review-launch seal, with the implementation and
+handoff identities above pinned separately. This is not an implementation PASS or
+runtime/scientific PASS; dependency-backed and GH200 checks remain explicitly
+NOT RUN.
 
 ### 11.3 Accepted clean-foundation evidence
 

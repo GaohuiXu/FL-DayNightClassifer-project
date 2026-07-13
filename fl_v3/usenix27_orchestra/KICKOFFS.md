@@ -681,32 +681,62 @@ authorized local durable sealing. S07-C-R still must not launch from mutable
 worktree state: its filled packet must pin the resulting implementation SHA,
 handoff-seal SHA and committed canonical parent exactly.
 
+The sealed identities are canonical parent
+`f7c696345b24b0e1227b1a52f3b47fb14e9120f5`, implementation
+`a16c2cdfd4e23ba08677a66c45c50dd78340cc3b`, and handoff seal
+`f736f41371666725a11d51bc3b01c6ececb59d50`. The original detached snapshot
+`9f06875e1b865734950abcf3b6de36ad06a0ac7b` has the same implementation
+patch-id but is provenance evidence only.
+
 ### S07-C-R — independent cleanup review
 
 ```text
 SESSION_ID: S07-C-R
-BASE_SHA: exact accepted S07-C_WORKER_SHA
+BASE_SHA: exact canonical review-launch seal supplied by the task envelope
 SOURCE_BRANCH: codex/s07-c-legacy-security-cleanup
-EXPECTED_REF_MODE: detached@S07-C_WORKER_SHA
+EXPECTED_REF_MODE: detached@BASE_SHA
 WORKTREE_PROVISIONED_BY: owner / Codex task UI after explicit review launch approval
 FILE_OWNERSHIP:
 - fl_v3/usenix27_orchestra/handoffs/S07-C/REVIEW.md
 UPSTREAM_HANDOFFS_AND_SHAS:
-- canonical P SHA
+- canonical preparation 4eba37d60cbeb9c865e4eec8d5fa57c90d23f873
+- canonical A1/A2 parent f7c696345b24b0e1227b1a52f3b47fb14e9120f5
 - audited code base 4ce2366df2925161adae8fea393d5fca64836d40
-- exact S07-C worker SHA/HANDOFF/diff
-WORKER_SHA: exact S07-C_WORKER_SHA
+- original detached snapshot evidence 9f06875e1b865734950abcf3b6de36ad06a0ac7b
+- worker implementation a16c2cdfd4e23ba08677a66c45c50dd78340cc3b
+- handoff seal f736f41371666725a11d51bc3b01c6ececb59d50
+- frozen old evidence only e231808e77388d69053dcbced6e754dbe3468aef
+- read-only spawn reference only bf480ea77ccf9ae8417c3ea58e933701dbc7222a
+WORKER_SHA: a16c2cdfd4e23ba08677a66c45c50dd78340cc3b
+HANDOFF_SEAL_SHA: f736f41371666725a11d51bc3b01c6ececb59d50
 DELIVERY_REF: pending review commit/ref
 REASONING_EFFORT: xhigh
 APPROVED_COMPUTE: none
 DECISION_SCOPE: independent code/science/process review only
 ```
 
-Audit the exact worker diff against both canonical P and 4ce2366. Verify every
-REMOVE/REFACTOR/KEEP claim, legacy tombstone scan, fixed clean FedAvg semantics,
-protected S01/C/L/F/S06/eval paths and focused tests. Review actual source and
-artifacts. Do not fix code, run Slurm, edit any path except REVIEW.md, or merge
-reviewer history. Return severity-ordered findings, gate verdict and residual risk.
+Read repository `AGENTS.md`, all three canonical Orchestra documents,
+`docs/env.md`, the full S07-C HANDOFF/RESULTS/RUN_REQUEST package, accepted
+S01/S07-A and S02-S06 packages, and actual source/diffs rather than summaries.
+Audit `f7c6963..a16c2cd` as the implementation diff and
+`a16c2cd..f736f41` as the handoff-only diff; compare protected foundations to
+`4ce2366`. Verify every REMOVE/REFACTOR-KEEP/KEEP/HISTORICAL-READ-ONLY claim,
+the exact retained 18-script set, removal of old imports/default routes, and that
+no deleted clean-foundation test was discarded by mistake.
+
+Adversarially review clean FedAvg num-example FP32 weighting, deterministic client
+identity/partition ordering and sampling, server optimizer, EMA, checkpoint and
+trainable-only state; the direct scikit-learn pin and devkit `--no-deps` contract;
+clean C/L/F construction; official DetectionEval; S01 ZIP/data; S06
+runtime/checkpoint; centralized training; and residual config/doc routes. Confirm
+that removal of seams from `test_s07_b_integration.py` did not remove other clean
+coverage. Dependency-backed and GH200 tests are NOT RUN and must not be upgraded
+to PASS. No GH200 run is needed or authorized for this review.
+
+Review actual source and artifacts. Do not fix code, run Slurm, edit any path
+except REVIEW.md, commit, merge, push or publish. Return severity-ordered findings
+with exact paths/lines, adversarial checks, a PASS or CHANGES-REQUESTED gate
+verdict, and explicit residual risk.
 
 ### S07-B-COMPLETE — future clean integration completion
 
