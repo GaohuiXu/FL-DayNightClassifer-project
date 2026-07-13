@@ -856,9 +856,7 @@ current implementation, compute, scientific or scheduling authority.
 | O-017 | Reviewed S02-S05 camera/LiDAR/head/loss contracts remain the clean C/L/F construction foundation. | locked architecture |
 | O-018 | CenterHead retains the reviewed reference-faithful no-starvation decode adaptation and explicit global class mapping. | locked head/decode |
 | O-025 | spconv 2.3.8 fp16 no-grad evaluation uses the reviewed version-guarded spconv-only training-dispatch workaround while preserving encoder eval/GN/state semantics. | locked runtime |
-| O-092 | Freeze the old S07-B/T5/harness chain; clean it from active authority; execute S07-C from audited code base 4ce2366, then independent S07-C-R, then clean S07-B completion from the accepted cleanup SHA. | active cleanup authority |
-| O-092-A1 | S00 completeness audit returned the first S07-C delivery for remediation: restore scikit-learn as a pinned nuScenes runtime dependency, remove remaining active legacy compatibility/viz/dead-script routes, migrate clean callers, and correct the tombstone evidence before any worker commit or S07-C-R launch. | active S07-C amendment; owner approved 2026-07-13 |
-| O-092-A2 | After auditing the completed A1 diff and package, remove the remaining closed-session A40/T3, MCR P1/P3, Stop-E and oversized mini-matrix/profile harness routes plus their dedicated tests; preserve the exact current clean environment/data/runtime/training script set. | active S07-C amendment; owner approved 2026-07-13 |
+| O-092 | Freeze the old S07-B/T5/harness chain; S07-C cleanup is independently accepted at static-review scope; start clean S07-B completion only from the exact canonical acceptance seal, never from e231, bf480ea or reviewer history. | active clean-completion authority |
 
 ### 11.2 O-092 exact cleanup decision (2026-07-13)
 
@@ -1008,6 +1006,20 @@ handoff identities above pinned separately. This is not an implementation PASS o
 runtime/scientific PASS; dependency-backed and GH200 checks remain explicitly
 NOT RUN.
 
+**Independent review and acceptance.** S07-C-R reviewed from launch base
+`6d42e9543bafb6bd971d5e0e8c36043ec8c64bd2` and produced review-only commit
+`b8e11bc98cfd904e9c7c259d3d6f7edc0c7922d5` on
+`codex/s07-c-r-legacy-security-cleanup-review`, with sole parent equal to that
+launch base and tree `188a6e006e3f8c6f494258379a191f15648ae5ca`. Its only diff is the new
+`handoffs/S07-C/REVIEW.md`, SHA-256
+`588cfd0f91a2f70cbdcc6bf94a2279fc3cca693c9cd14f9d9909f02df769d8f5`.
+The verdict is **PASS at code/source/config/test/docs static-review scope**, with
+no P0-P3 finding. Dependency-backed pytest, Flower/Ray, S01/S06 lifecycle,
+C/L/F runtime, official DetectionEval runtime and GH200 remain NOT RUN. Reviewer
+history is separate evidence and was not merged. The canonical acceptance-seal
+commit containing this paragraph is the only approved future branch point for a
+filled S07-B-COMPLETE kickoff; that kickoff must supply its full SHA explicitly.
+
 ### 11.3 Accepted clean-foundation evidence
 
 Acceptance below is limited to the recorded worker/review/runtime scope. It is
@@ -1022,6 +1034,7 @@ not a full-data, production, performance or scientific PASS.
 | S04 | O-025, O-026 | worker `483e149b95ec891b675df825d924a96bb225b7dd`; executable `84985970f0f4b4acb8704ddbbd6ae9b2bf94ca9f`; review `a0763c2e0b322d4ca53a92f9f69c90d9b231bbff` | LiDAR/spconv module contract with recorded concurrency residual |
 | S05 | O-018, O-024 | worker `a9c801fdee378906e54d06314d0c772b6559901a`; executable `96e509b71a3e22afb4de397132438fd3b9bbf5d8`; review `1c440843bb2b6d72f10310ff11fcde0d7d1e885c` | CenterHead/decode module contract |
 | S06 | O-027 through O-031 | worker `6b7ef29b49c23f206c07ea60c2f15e3ffd9aeef7`; executable `c330c72f4060348768c63fb1b7855ca56baffb95`; review `ca7bbd7e49e91ac2f214f39f62d5e416dd736383` | bounded C/L/F runtime/config/checkpoint candidate contract |
+| S07-C | O-092, O-092-A1, O-092-A2 | implementation `a16c2cdfd4e23ba08677a66c45c50dd78340cc3b`; handoff `f736f41371666725a11d51bc3b01c6ececb59d50`; review `b8e11bc98cfd904e9c7c259d3d6f7edc0c7922d5` | legacy active-route cleanup and protected clean-foundation preservation at static-review scope only; runtime NOT RUN |
 
 ### 11.4 Closed and consumed decision history
 
@@ -1040,6 +1053,7 @@ not authorize current work.
 | O-064 through O-071 | R9-R12 multiprocessing test-lifecycle chain | retired harness evidence |
 | O-072 through O-083 | Jobs 351903/352105 and R13-R15 harness chain | retired diagnostic/harness evidence |
 | O-084 through O-091 | Jobs 352354/352718, warning-fatal remediation and R16 | terminal negative evidence; no retry |
+| O-092-A1 through O-092-A2 | S07-C dependency/alias remediation and closed-session harness removal | consumed by implementation `a16c2cd` and independent static review `b8e11bc`; retained in Section 11.2 as exact cleanup history |
 
 ### 11.5 Frozen S07-B Git and review anchors
 

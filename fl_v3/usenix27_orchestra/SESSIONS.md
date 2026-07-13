@@ -6,9 +6,10 @@
 > `4ce2366df2925161adae8fea393d5fca64836d40`. S01/S07-A and reviewed
 > S02-S06 remain accepted clean foundations within their bounded evidence.
 >
-> The active sequence is S07-C legacy-security cleanup, independent S07-C-R,
-> then simplified clean S07-B completion from the accepted cleanup worker SHA.
-> S07-C starts with no compute. S12 is deferred and unaccepted. S13 attack work
+> S07-C legacy-security cleanup and independent S07-C-R are complete with a
+> static-scope PASS. The next sequence is a filled simplified clean S07-B
+> completion kickoff from the exact canonical acceptance seal. Runtime remains
+> NOT RUN. S12 is deferred and unaccepted. S13 attack work
 > requires a later owner-approved threat model after CL freeze and clean
 > Protocol-B adaptation; S14 remains blocked until a viable undefended attack.
 >
@@ -41,9 +42,9 @@ accepted S01/S07-A + S02-S06
               │
 canonical-only P
               │
-S07-C cleanup ── S07-C-R independent review
+S07-C cleanup ── S07-C-R static PASS
               │
-accepted cleanup worker SHA
+canonical S07-C acceptance seal
               │
 clean S07-B completion ── independent clean integration review
               │
@@ -63,8 +64,8 @@ no outgoing implementation edge into this graph.
 
 | Wave | Sessions | Boundary |
 |---|---|---|
-| Cleanup | S07-C | delete legacy attack/defense routes while preserving clean foundations; no compute at kickoff |
-| Review | S07-C-R | exact worker SHA; REVIEW.md only; reviewer history is never merged |
+| Cleanup | S07-C | complete at implementation `a16c2cd`; no runtime claim |
+| Review | S07-C-R | PASS at `b8e11bc`; REVIEW.md only; reviewer history is never merged |
 | Completion | clean S07-B | starts only from accepted cleanup SHA; clean C/L/F/runtime/eval/FedAvg engineering only |
 | CL | S08-S11 | starts only after clean S07-B review; every scientific run requires exact approval |
 | Protocol | deferred S12, then S13 | re-review clean Protocol A/B after CL readiness; attack remains blocked until clean adaptation passes |
@@ -132,7 +133,7 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 | S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | reviewed module PASS at worker `483e149` / executable `8498597` / review `a0763c2`; Job `341695` 15/15 bounded runtime PASS; accepted S07-B dependency with same-instance concurrency/reentrancy integration requirement |
 | S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | reviewed PASS at worker `a9c801f` / execution `96e509b` / review `1c44084`; Job `336731` 43/44 negative preserved, Job `336738` 44/44 focused runtime PASS; accepted S07-B dependency only |
 | S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | reviewed bounded PASS under O-031 at worker `6b7ef29` / executable `c330c72` / review `ca7bbd7`; Job `341997` FAILED 45/62 preserved, Job `342014` PASS 66/66; accepted S07-B candidate dependency with P3 integration gates, no production/full-data/scientific PASS |
-| S07 | Cleanup then clean integration completion | accepted S01/S07-A and S02-S06 | S07-C cleanup, independent S07-C-R, then simplified clean S07-B completion | S07-C implementation `a16c2cd`, handoff seal `f736f41`; S00 static completeness PASS, runtime NOT RUN; owner authorized independent S07-C-R; compute none |
+| S07 | Cleanup then clean integration completion | accepted S01/S07-A and S02-S06 | S07-C cleanup, independent S07-C-R, then simplified clean S07-B completion | S07-C implementation `a16c2cd`, handoff `f736f41`, independent review `b8e11bc` PASS at static scope; runtime NOT RUN; clean completion packet is next |
 | S08 | Camera scientific run | S07 PASS | `C-STR8` full-val result/checkpoint | planned |
 | S09 | LiDAR scientific runs | S07 PASS | `L-P020` and `L-S075` results/checkpoints | planned |
 | S10 | Fusion and recipe selection | S08, S09 | `F-U`/`F-CBGS`, optional init A/B, `CL-PILOT` | planned |
@@ -449,7 +450,7 @@ fallback requires a new exact immutable RUN_REQUEST and owner/S00 approval.
 **Delivery.** `handoffs/S07-C/HANDOFF.md`, optional unapproved
 `RUN_REQUEST.md`, exact worker SHA and path-by-path deletion/refactor proof.
 
-**Active amendment O-092-A1.** S00 completeness audit rejected the first
+**Consumed amendment O-092-A1.** S00 completeness audit rejected the first
 uncommitted delivery before reviewer launch. The same worker must restore
 scikit-learn as a pinned nuScenes runtime dependency (the devkit is installed
 with `--no-deps` and imports it), remove the remaining clean-path legacy aliases
@@ -459,7 +460,7 @@ scripts from writing `fl_v3/collab/**`, and clean active T5/T6/T7 authority
 wording. Update the handoff/tombstone evidence and stop again for S00 audit.
 No compute or Git publication authority is added.
 
-**Active amendment O-092-A2.** After inspecting A1 source, diff and package, S00
+**Consumed amendment O-092-A2.** After inspecting A1 source, diff and package, S00
 confirmed the named A1 blockers are closed. The owner authorized the same worker
 to delete the exact 16 obsolete A40/T3, MCR P1/P3, Stop-E and mini-matrix/profile
 scripts plus three dedicated tests listed in `KICKOFFS.md`; shared tests/docs lose
@@ -488,19 +489,20 @@ was merged.
 
 ### S07-C-R — Independent cleanup review
 
-Start in a separate worktree at the exact canonical review-launch seal named in
-the task envelope. Treat `a16c2cdfd4e23ba08677a66c45c50dd78340cc3b` as the
-worker implementation under review and
-`f736f41371666725a11d51bc3b01c6ececb59d50` as its handoff seal. Own only
-`handoffs/S07-C/REVIEW.md`. Audit tombstone scans, fixed clean FedAvg,
-protected-foundation diffs and focused tests. Do not fix code, run Slurm, or merge
-reviewer history. A CHANGES-REQUESTED verdict returns to a new worker remediation
-SHA and requires another independent review.
+Completed from exact launch base `6d42e9543bafb6bd971d5e0e8c36043ec8c64bd2`.
+Review-only commit `b8e11bc98cfd904e9c7c259d3d6f7edc0c7922d5`
+adds only `handoffs/S07-C/REVIEW.md` and returns PASS at static code/source/config/
+test/docs scope with no P0-P3 finding. REVIEW.md SHA-256 is
+`588cfd0f91a2f70cbdcc6bf94a2279fc3cca693c9cd14f9d9909f02df769d8f5`.
+Reviewer history remains separate and unmerged. Dependency-backed and GH200
+runtime remain NOT RUN.
 
 ### S07-B-COMPLETE — Simplified clean integration completion
 
-Start only after owner acceptance of S07-C-R, from the exact accepted cleanup
-worker SHA on `codex/s07-b-clean-completion`.
+Start only from the exact canonical S07-C acceptance-seal commit containing the
+accepted review identity above, supplied in full by the task envelope, on
+`codex/s07-b-clean-completion`. The separate reviewer commit is evidence, not an
+ancestor of the completion branch.
 
 Own only clean C/L/F construction, S06 runtime/checkpoint/resume, official clean
 evaluation, clean FedAvg/Flower integration and the smallest necessary engineering
@@ -761,14 +763,13 @@ manually verified.
 
 ## 4. Active launch order after O-092
 
-1. Review and commit canonical-only P on
-   `codex/s07-c-legacy-security-cleanup`; prove the diff against 4ce2366 is
-   exactly ORCHESTRA.md, SESSIONS.md and KICKOFFS.md.
-2. Launch S07-C at xhigh with no compute and the exact cleanup ownership.
-3. After a durable worker SHA and complete handoff, launch independent S07-C-R.
-   Never merge reviewer history.
-4. If review passes, create `codex/s07-b-clean-completion` at the accepted
-   cleanup worker SHA and complete only the simplified clean engineering gates.
+1. S07-C canonical preparation, worker cleanup and durable handoff are complete.
+2. S07-C-R is complete at review-only commit `b8e11bc`; reviewer history remains
+   separate and unmerged.
+3. Commit the canonical S07-C acceptance seal, then present a filled exact-SHA
+   S07-B-COMPLETE envelope before creating its worktree.
+4. After owner launch approval, create `codex/s07-b-clean-completion` at that
+   exact acceptance seal and complete only the simplified clean engineering gates.
 5. Resume S08-S11 planning only after clean S07-B completion is independently
    accepted. Scientific jobs retain separate exact authorization.
 6. Re-audit S12 later. Establish clean Protocol-B/Protocol-A foundations before

@@ -692,9 +692,9 @@ patch-id but is provenance evidence only.
 
 ```text
 SESSION_ID: S07-C-R
-BASE_SHA: exact canonical review-launch seal supplied by the task envelope
+BASE_SHA: 6d42e9543bafb6bd971d5e0e8c36043ec8c64bd2
 SOURCE_BRANCH: codex/s07-c-legacy-security-cleanup
-EXPECTED_REF_MODE: detached@BASE_SHA
+EXPECTED_REF_MODE: detached@6d42e9543bafb6bd971d5e0e8c36043ec8c64bd2
 WORKTREE_PROVISIONED_BY: owner / Codex task UI after explicit review launch approval
 FILE_OWNERSHIP:
 - fl_v3/usenix27_orchestra/handoffs/S07-C/REVIEW.md
@@ -709,7 +709,9 @@ UPSTREAM_HANDOFFS_AND_SHAS:
 - read-only spawn reference only bf480ea77ccf9ae8417c3ea58e933701dbc7222a
 WORKER_SHA: a16c2cdfd4e23ba08677a66c45c50dd78340cc3b
 HANDOFF_SEAL_SHA: f736f41371666725a11d51bc3b01c6ececb59d50
-DELIVERY_REF: pending review commit/ref
+REVIEW_SHA: b8e11bc98cfd904e9c7c259d3d6f7edc0c7922d5
+DELIVERY_REF: codex/s07-c-r-legacy-security-cleanup-review
+REVIEW_SHA256: 588cfd0f91a2f70cbdcc6bf94a2279fc3cca693c9cd14f9d9909f02df769d8f5
 REASONING_EFFORT: xhigh
 APPROVED_COMPUTE: none
 DECISION_SCOPE: independent code/science/process review only
@@ -738,20 +740,30 @@ except REVIEW.md, commit, merge, push or publish. Return severity-ordered findin
 with exact paths/lines, adversarial checks, a PASS or CHANGES-REQUESTED gate
 verdict, and explicit residual risk.
 
+S07-C-R completed at review-only commit
+`b8e11bc98cfd904e9c7c259d3d6f7edc0c7922d5`: PASS at static
+code/source/config/test/docs scope, no P0-P3 finding. Dependency-backed and GH200
+runtime remain NOT RUN. The review commit is separate evidence and must never be
+merged into S07-C or S07-B-COMPLETE.
+
 ### S07-B-COMPLETE — future clean integration completion
 
-This prompt is not launchable until S07-C-R passes and the owner accepts an exact
-cleanup worker SHA.
+This prompt is not launchable until the canonical S07-C acceptance seal is
+committed and S00 presents a filled exact-SHA/file-ownership envelope for owner
+review. The static review has passed; no completion worker is authorized by that
+fact alone.
 
 ```text
 SESSION_ID: S07-B-COMPLETE
-BASE_SHA: exact owner-accepted S07-C_WORKER_SHA
+BASE_SHA: exact canonical S07-C acceptance-seal SHA supplied by the launch envelope
 SOURCE_BRANCH: codex/s07-b-clean-completion
 EXPECTED_REF_MODE: detached@BASE_SHA
 WORKTREE_PROVISIONED_BY: owner / Codex task UI after explicit launch approval
 FILE_OWNERSHIP: fill exact clean integration paths after S07-C review
 UPSTREAM_HANDOFFS_AND_SHAS:
-- accepted S07-C worker and independent review
+- S07-C implementation a16c2cdfd4e23ba08677a66c45c50dd78340cc3b
+- S07-C handoff seal f736f41371666725a11d51bc3b01c6ececb59d50
+- S07-C review b8e11bc98cfd904e9c7c259d3d6f7edc0c7922d5 (separate, never merged)
 - accepted S01/S07-A and S02-S06 clean foundations
 WORKER_SHA: pending
 DELIVERY_REF: pending
