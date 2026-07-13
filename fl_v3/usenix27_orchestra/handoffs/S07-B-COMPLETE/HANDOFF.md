@@ -7,9 +7,10 @@ BASE_SHA: 4aa2b133d1d33382bf1514f7a3c86fcb03cf83e5
 EXECUTABLE_SHA: 34cbe02b7b72114e3a2d61f6f797c8dec022798c
 EXECUTABLE_TREE: ed2d4091f0098f6b2144028afd87e20d023b1da2
 BRANCH: codex/s07-b-clean-completion
-CURRENT_APPROVAL_SEAL: 1755734c4423488143e5d4adbffe57f22171dc01
+PRIOR_APPROVAL_SEAL: 1755734c4423488143e5d4adbffe57f22171dc01
 STATUS: local/static ready; GH200 training gate failed numerically
-COMPUTE_AUTHORITY: consumed by Job 380806; no retry
+DIAGNOSTIC_COMMIT: 1900fe3bcb52ade22f0b947a2aca44d5ece12b2f
+COMPUTE_AUTHORITY: one exact D1 submission approved; no retry
 ```
 
 The executable is a direct child of the accepted S07-C packet base and changes
@@ -93,4 +94,5 @@ cleared. Candidate snapshot
 `s07b_grad_diag_0ca44717e978` is read-only and differs from the Job `380806`
 snapshot only in the focused completion test. Exact hashes, nine cells, one-GPU/
 25-minute command and output root are recorded in `RUN_REQUEST.md`. D1 is **NOT
-RUN** and no compute/retry authority is implied by preparation.
+RUN**; the owner approved one exact submission after the durable diagnostic
+commit. No changed command or retry is authorized.

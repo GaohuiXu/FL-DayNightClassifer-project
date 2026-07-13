@@ -118,17 +118,20 @@ integrated S06/S01/official-eval suite, detector capability, mAP/NDS, fusion gai
 Protocol A/B readiness, performance, reproducibility, attack, defense, or
 scientific result.
 
-Do not launch review or retry. The exact compute approval is consumed. A future
-diagnostic/remediation command requires a new exact owner decision.
+Do not launch review or retry Job `380806`; its exact compute approval is
+consumed. D1 below has one separate exact diagnostic submission approval only.
+Any remediation command still requires a new exact owner decision.
 
-## D1 preparation status
+## D1 approved preparation status
 
-The focused gradient-classification test and immutable snapshot are prepared but
-**NOT RUN**. Local `python3 -m py_compile`, candidate JSON parsing, `bash -n` for
-both exact temporary command files, embedded-command hash equality and
+The focused gradient-classification test is durable at
+`1900fe3bcb52ade22f0b947a2aca44d5ece12b2f` and the immutable snapshot is
+prepared but **NOT RUN**. Local `python3 -m py_compile`, candidate JSON parsing,
+`bash -n` for both exact temporary command files, embedded-command hash equality and
 `git diff --check` pass. The login node has no `python` command and uses system
 Python 3.9 only for syntax; no Arrhenius/Torch import was attempted there.
 
 D1 has nine fixed C/L/F x precision/scale cells and no automatic remediation.
-Exact request hashes and resource bounds are in `RUN_REQUEST.md`. Until the owner
-approves that immutable request, there is no new Job ID or runtime result.
+The owner approved one exact submission with the request hashes and resource
+bounds in `RUN_REQUEST.md`. There is not yet a Job ID or runtime result; no retry
+is authorized.

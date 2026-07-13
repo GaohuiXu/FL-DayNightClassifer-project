@@ -920,6 +920,12 @@ fp16 attempts had nonfinite unscaled gradient norms; assertions stopped before
 step/skip metrics were emitted, and the loader phase was not run. This kickoff is consumed. It does not
 authorize retry, scale changes, remediation compute, or review.
 
+**D1 diagnostic amendment (2026-07-13).** The owner approved exactly one focused
+gradient-classification submission after durable diagnostic commit `1900fe3`,
+using only the immutable snapshot, nine cells, two script hashes, resources,
+output root and stop rules pinned in `RUN_REQUEST.md`. No changed command, retry,
+automatic remediation or review is authorized.
+
 ### S08 — camera-only scientific execution
 
 ```text

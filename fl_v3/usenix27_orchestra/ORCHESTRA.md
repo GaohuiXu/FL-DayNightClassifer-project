@@ -1065,13 +1065,15 @@ integration evidence and a numerical training gate failure, not an environment
 failure. No retry, scale change, or review is authorized without a new exact owner
 decision.
 
-A test-only D1 classification candidate is prepared, not executed: exact C/L/F
+A test-only D1 classification diagnostic is prepared, not yet executed: exact C/L/F
 crossed with FP32, fp16 scale 512 and fp16 scale 1, recording per-task losses,
 unscaled element finiteness, stable FP64 norm, first offending parameter and
-step/skip/scale state. It does not modify production source/config or authorize
-compute. The immutable snapshot, command hashes and one-GH200/25-minute bound are
-in the S07-B-COMPLETE `RUN_REQUEST.md`; exact owner compute approval remains
-required.
+step/skip/scale state. It does not modify production source/config. The owner
+approved exactly one submission after durable diagnostic commit
+`1900fe3bcb52ade22f0b947a2aca44d5ece12b2f`, bound to snapshot
+`s07b_grad_diag_0ca44717e978`, the two script hashes and the one-GH200/25-minute
+envelope in `RUN_REQUEST.md`. No changed command, retry or automatic remediation
+is authorized.
 
 ### 11.3 Accepted clean-foundation evidence
 
