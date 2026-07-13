@@ -14,7 +14,7 @@ WORKER_SHA: 34cbe02b7b72114e3a2d61f6f797c8dec022798c
 EXECUTABLE_SHA: 34cbe02b7b72114e3a2d61f6f797c8dec022798c
 EXECUTABLE_TREE: ed2d4091f0098f6b2144028afd87e20d023b1da2
 DELIVERY_REF: 6802f34fdafdf33bd31157ed15537b8f7955d1ad
-APPROVAL_SEAL: this docs-only approval commit; full SHA supplied externally after commit
+APPROVAL_SEAL: e5f8dcf9f8608b40d49ad72c62b3557769b780fb
 ```
 
 The owner approved exactly one submission of the frozen command and resources in
@@ -280,9 +280,9 @@ test, extra legacy detector update, `test_model_overfit.py`, and extra official
 permutation metric. `test_gt_as_pred_per_class_ap_near_one` is the only named
 official-devkit metric identity case; its AP is test output, not science.
 
-## Fully specified future submission template — text only, do not run
+## Exact owner-approved submission command — one submission only
 
-The template pins the durable executable commit/tree directly. It validates the
+The approved command pins the durable executable commit/tree directly. It validates the
 commit in the Git common directory, requires its sole parent to be BASE and its
 exact two-path diff, creates one fresh SHA-derived job root, then submits exactly
 one job. It does not depend on a mutable or temporary Codex worktree. A submission
