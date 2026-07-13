@@ -1,4 +1,4 @@
-# S07-B-COMPLETE RESULTS — first real training boundary reached
+# S07-B-COMPLETE RESULTS — closed bounded clean-engineering gate
 
 ## Current result
 
@@ -106,20 +106,21 @@ under that path fails with `OSError: AF_UNIX path too long`; `TMPDIR=/tmp`
 succeeds with a randomized 36-byte `pymp-*/listener-*` address. This is local
 inter-process communication, not network, CUDA, dataset, or model behavior.
 
-## Interpretation limits
+## Job 380806 interpretation limits (historical boundary)
 
-Allowed now: the clean-only config/test changes pass local static gates; the
-persistent environment can activate and load Torch/CUDA/spconv on GH200; the clean
-FedAvg/profile test passes; current C/L/F models all construct and complete one
-real-mini forward, finite loss and backward on the exact GH200 environment.
+Allowed at that point: the clean-only config/test changes passed local static
+gates; the persistent environment activated and loaded Torch/CUDA/spconv on GH200;
+the clean FedAvg/profile test passed; C/L/F models all constructed and completed
+one real-mini forward, finite loss and backward on the exact GH200 environment.
 
-Not established: any successful C/L/F optimizer update, completed worker=2 equality check,
-integrated S06/S01/official-eval suite, detector capability, mAP/NDS, fusion gain,
-Protocol A/B readiness, performance, reproducibility, attack, defense, or
-scientific result.
+Not established by Job `380806`: any successful C/L/F optimizer update, completed
+worker=2 equality check, integrated S06/S01/official-eval suite, detector
+capability, mAP/NDS, fusion gain, Protocol A/B readiness, performance,
+reproducibility, attack, defense, or scientific result.
 
-Do not launch review or retry Job `380806`; its exact compute approval is
-consumed. Any remediation command still requires a new exact owner decision.
+At that historical boundary, review and retry were forbidden because Job `380806`'s
+exact compute approval was consumed. The later owner-approved D1/F1 path and final
+independent acceptance are recorded below; Job `380806` itself was never retried.
 
 ## D1 terminal gradient classification
 
@@ -206,4 +207,11 @@ slurm-390576.err     ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d8
 This is the requested bounded S07-B-COMPLETE final engineering gate PASS. It
 does not establish multi-step stability, convergence, performance, full-data
 readiness, mAP/NDS, Protocol A/B readiness or any scientific claim. Independent
-review is still required before final S07-B-COMPLETE acceptance.
+S07-B-COMPLETE-R subsequently reviewed candidate `c615b647`, test commit
+`29ca6637`, the immutable F1/D1 snapshots and raw artifacts, and returned **PASS
+at the exact bounded clean-engineering scope** with no P0/P1/P2/P3 finding.
+Review SHA-256 is
+`b0feed5476dbc810b24a5dc3c7a678bc90ac3a2520360f02fdb6a6bf54691ebd`;
+the terminal/review package is
+`7f3bd40158e5a8af30196509734782c4575c50aa`. The owner accepted that verdict
+and formally closed S07-B-COMPLETE. All compute authority is consumed.

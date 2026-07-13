@@ -1,4 +1,4 @@
-# S07-B-COMPLETE RUN_REQUEST — simplified training-first validation
+# S07-B-COMPLETE RUN_REQUEST — closed execution/approval record
 
 ## State and immutable inputs
 
@@ -446,6 +446,10 @@ APPROVED_COMPUTE: one exact F1 submission with the pinned test commit, snapshot,
 RETRY: forbidden
 JOB_ID: 390576
 JOB_STATE: COMPLETED 0:0 / elapsed 00:04:24 / node n105 / restarts 0
+REVIEWED_CANDIDATE: c615b6471a04b91a09c6ac6d487ff39a1501ceee
+TERMINAL_REVIEW_PACKAGE: 7f3bd40158e5a8af30196509734782c4575c50aa
+REVIEW_SHA256: b0feed5476dbc810b24a5dc3c7a678bc90ac3a2520360f02fdb6a6bf54691ebd
+ACCEPTANCE_STATE: OWNER ACCEPTED / S07-B-COMPLETE CLOSED
 ```
 
 The read-only F1 snapshot was copied from the exact D1 snapshot and differs only

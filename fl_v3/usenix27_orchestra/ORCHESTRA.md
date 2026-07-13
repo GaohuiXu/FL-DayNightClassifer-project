@@ -856,7 +856,8 @@ current implementation, compute, scientific or scheduling authority.
 | O-017 | Reviewed S02-S05 camera/LiDAR/head/loss contracts remain the clean C/L/F construction foundation. | locked architecture |
 | O-018 | CenterHead retains the reviewed reference-faithful no-starvation decode adaptation and explicit global class mapping. | locked head/decode |
 | O-025 | spconv 2.3.8 fp16 no-grad evaluation uses the reviewed version-guarded spconv-only training-dispatch workaround while preserving encoder eval/GN/state semantics. | locked runtime |
-| O-092 | Freeze the old S07-B/T5/harness chain; S07-C cleanup is independently accepted at static-review scope at canonical anchor `70bcd856f7ebb411eb2887e7ab71ef41ed13271f`; start clean S07-B completion only after owner approval from the exact docs-only packet seal containing the filled kickoff, never from e231, bf480ea or reviewer history. | active clean-completion authority |
+| O-092 | Freeze the old S07-B/T5/harness chain; S07-C cleanup is independently accepted at static-review scope at canonical anchor `70bcd856f7ebb411eb2887e7ab71ef41ed13271f`; start clean S07-B completion only after owner approval from the exact docs-only packet seal containing the filled kickoff, never from e231, bf480ea or reviewer history. | consumed predecessor authority; current state is O-093 |
+| O-093 | Accept and close S07-B-COMPLETE at exact bounded clean-engineering scope: reviewed candidate `c615b6471a04b91a09c6ac6d487ff39a1501ceee`, F1 Job `390576`, terminal/review package `7f3bd40158e5a8af30196509734782c4575c50aa`, review SHA-256 `b0feed5476dbc810b24a5dc3c7a678bc90ac3a2520360f02fdb6a6bf54691ebd`; no P0-P3. This is not full-training/scientific PASS and does not freeze later precision. | closed accepted engineering gate |
 
 ### 11.2 O-092 exact cleanup decision (2026-07-13)
 
@@ -1018,12 +1019,13 @@ no P0-P3 finding. Dependency-backed pytest, Flower/Ray, S01/S06 lifecycle,
 C/L/F runtime, official DetectionEval runtime and GH200 remain NOT RUN. Reviewer
 history is separate evidence and was not merged. Canonical S07-C acceptance is
 sealed at `70bcd856f7ebb411eb2887e7ab71ef41ed13271f`; this is the accepted clean-code
-anchor, not itself launch authorization. The future S07-B-COMPLETE worker base is
-the exact docs-only S00 packet-seal descendant containing the filled kickoff. Its
-full SHA must be supplied explicitly in the task envelope, and the branch/worktree
-may be created only after owner launch approval.
+anchor, not itself launch authorization. At that historical point, the planned
+S07-B-COMPLETE worker base was the exact docs-only S00 packet-seal descendant
+containing the filled kickoff; its full SHA had to be supplied explicitly in the
+task envelope, and the branch/worktree still required owner launch approval.
 
-**Prepared clean-completion boundary.** The accepted tree still contains stale
+**Historical prepared clean-completion boundary.** At packet-preparation time the
+accepted tree still contained stale
 active T3/Path-A/Path-B/4-GPU/overcommit and legacy `collab/**` authority profiles
 in `fl_v3/configs/flwr_config.toml`. The filled S07-B-COMPLETE packet requires this
 file to retain only CPU local smoke plus one single-GPU sequential clean profile,
@@ -1033,8 +1035,9 @@ MCR configs and all scripts are read-only inputs; no harness may be recovered or
 created. All other source edits require a demonstrated clean-contract failure and
 remain inside the exact kickoff ownership. GH200 is not approved at kickoff; the
 only candidate is the separately audited bounded sequential engineering job in
-`KICKOFFS.md`. No branch, worktree, worker, compute, merge or push is authorized by
-preparing or committing this packet.
+`KICKOFFS.md`. Preparing or committing that packet alone did not authorize a
+branch, worktree, worker, compute, merge or push; later exact decisions are
+recorded below.
 
 **O-092-A3 owner amendment (2026-07-13).** Retire the failed S07-B-COMPLETE
 audit wrapper completely from active code/document authority. Preserve its three
@@ -1074,13 +1077,14 @@ FP32 controls had roughly 8.33M/5.77M norms and 1.91M/1.22M maximum elements,
 while surviving scale-1 FP16 elements approached 65,504. This classifies a real
 LiDAR-path FP16 dynamic-range failure for the exact mini batch, not an environment
 failure or telemetry-only overflow, while leaving multi-step behavior and the
-specific operation unproven. No retry, automatic remediation or review is
-authorized; the next owner decision is whether to retain FP32 as the immediate
-clean baseline or open a separate narrow mixed-precision remediation.
+specific operation unproven. At that historical point, no retry, automatic
+remediation or review was authorized; the next owner decision was whether to
+retain FP32 as the immediate clean baseline or open a separate narrow
+mixed-precision remediation.
 
 The owner resolved that decision on 2026-07-13: precision comparison and scaler
-remediation are outside S07-B-COMPLETE. Its only remaining runtime gate is one
-uniform FP32 clean contract: plain FedAvg construction, one successful
+remediation are outside S07-B-COMPLETE. At that stage, its only remaining runtime
+gate was one uniform FP32 clean contract: plain FedAvg construction, one successful
 `train_one_epoch` optimizer update for each C-STR8/L-S075/F-U mode, and the
 worker-0/2 first-batch equality check. This engineering choice does not freeze
 the precision regime for later full CL/FL scientific training. No AMP cell,
@@ -1092,9 +1096,15 @@ five-case command, two script hashes, resources and output root in
 Exact Job `390576` consumed that approval and passed 5/5 cases: clean plain-FedAvg
 construction, one successful finite FP32 `train_one_epoch` update for each
 C-STR8/L-S075/F-U mode, and worker-0/2 first-batch equality. The job completed
-`0:0` in `00:04:24` on `n105` with zero restarts. S07-B-COMPLETE is now ready for
-independent review; this bounded mini engineering PASS is not final integration,
-full-training, performance or scientific acceptance.
+`0:0` in `00:04:24` on `n105` with zero restarts. Independent
+S07-B-COMPLETE-R reviewed candidate `c615b647`, the exact F1/D1 snapshots and raw
+artifacts, found no P0/P1/P2/P3, and returned **PASS at the exact bounded
+clean-engineering scope**. Review SHA-256 is
+`b0feed5476dbc810b24a5dc3c7a678bc90ac3a2520360f02fdb6a6bf54691ebd`;
+terminal/review package is `7f3bd40158e5a8af30196509734782c4575c50aa`.
+The owner accepted that verdict and formally closed S07-B-COMPLETE under O-093.
+This is not full-training, performance or scientific acceptance and does not
+freeze the later precision regime.
 
 ### 11.3 Accepted clean-foundation evidence
 
@@ -1111,6 +1121,7 @@ not a full-data, production, performance or scientific PASS.
 | S05 | O-018, O-024 | worker `a9c801fdee378906e54d06314d0c772b6559901a`; executable `96e509b71a3e22afb4de397132438fd3b9bbf5d8`; review `1c440843bb2b6d72f10310ff11fcde0d7d1e885c` | CenterHead/decode module contract |
 | S06 | O-027 through O-031 | worker `6b7ef29b49c23f206c07ea60c2f15e3ffd9aeef7`; executable `c330c72f4060348768c63fb1b7855ca56baffb95`; review `ca7bbd7e49e91ac2f214f39f62d5e416dd736383` | bounded C/L/F runtime/config/checkpoint candidate contract |
 | S07-C | O-092, O-092-A1, O-092-A2 | implementation `a16c2cdfd4e23ba08677a66c45c50dd78340cc3b`; handoff `f736f41371666725a11d51bc3b01c6ececb59d50`; review `b8e11bc98cfd904e9c7c259d3d6f7edc0c7922d5` | legacy active-route cleanup and protected clean-foundation preservation at static-review scope only; runtime NOT RUN |
+| S07-B-COMPLETE | O-093 | candidate `c615b6471a04b91a09c6ac6d487ff39a1501ceee`; test `29ca6637bcd0a4e9a6422f3b820fb43d5295ad2c`; Job `390576`; terminal/review package `7f3bd40158e5a8af30196509734782c4575c50aa`; review SHA-256 `b0feed5476dbc810b24a5dc3c7a678bc90ac3a2520360f02fdb6a6bf54691ebd` | closed bounded clean FedAvg/C-L-F one-step FP32/loader-equality engineering gate; no full-training/scientific or precision-freeze claim |
 
 ### 11.4 Closed and consumed decision history
 

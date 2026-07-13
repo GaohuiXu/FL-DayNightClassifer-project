@@ -16,8 +16,9 @@
 > elements beginning in sparse SECOND stem/stage1. Both exact approvals are
 > consumed. The owner removed precision comparison/scaler work from S07-B and
 > selected and exactly approved one uniform FP32 final clean gate from test commit
-> `29ca663`; Job `390576` passed all 5 cases. The candidate is ready for independent
-> review, which is not yet launched. S12 is
+> `29ca663`; Job `390576` passed all 5 cases. Independent S07-B-COMPLETE-R found
+> no P0-P3 and returned bounded clean-engineering PASS; the owner accepted it and
+> formally closed S07-B-COMPLETE at terminal/review package `7f3bd401`. S12 is
 > deferred and unaccepted. S13 attack work
 > requires a later owner-approved threat model after CL freeze and clean
 > Protocol-B adaptation; S14 remains blocked until a viable undefended attack.
@@ -144,7 +145,7 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 | S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | reviewed module PASS at worker `483e149` / executable `8498597` / review `a0763c2`; Job `341695` 15/15 bounded runtime PASS; accepted S07-B dependency with same-instance concurrency/reentrancy integration requirement |
 | S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | reviewed PASS at worker `a9c801f` / execution `96e509b` / review `1c44084`; Job `336731` 43/44 negative preserved, Job `336738` 44/44 focused runtime PASS; accepted S07-B dependency only |
 | S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | reviewed bounded PASS under O-031 at worker `6b7ef29` / executable `c330c72` / review `ca7bbd7`; Job `341997` FAILED 45/62 preserved, Job `342014` PASS 66/66; accepted S07-B candidate dependency with P3 integration gates, no production/full-data/scientific PASS |
-| S07 | Cleanup then clean integration completion | accepted S01/S07-A and S02-S06 | S07-C cleanup, independent S07-C-R, then simplified clean S07-B completion | S07-C accepted at `70bcd85`; review `b8e11bc` static PASS; D1 Job `389356` classified the fp16 failure; owner excluded scaler/comparison work; F1 Job `390576` passed plain FedAvg + C/L/F FP32 updates + loader equality 5/5; candidate ready for independent review |
+| S07 | Cleanup then clean integration completion | accepted S01/S07-A and S02-S06 | S07-C cleanup, independent S07-C-R, then simplified clean S07-B completion | **closed / owner accepted at bounded clean-engineering scope**; S07-C `70bcd85` / review `b8e11bc`; S07-B candidate `c615b64`, F1 Job `390576` 5/5, review package `7f3bd401` with no P0-P3; no full-training/scientific PASS |
 | S08 | Camera scientific run | S07 PASS | `C-STR8` full-val result/checkpoint | planned |
 | S09 | LiDAR scientific runs | S07 PASS | `L-P020` and `L-S075` results/checkpoints | planned |
 | S10 | Fusion and recipe selection | S08, S09 | `F-U`/`F-CBGS`, optional init A/B, `CL-PILOT` | planned |
@@ -537,12 +538,12 @@ seed matrix, retry or scientific work is included. GH200 is not approved at
 kickoff. A later exact owner/S00-approved RUN_REQUEST may contain only the single
 bounded sequential engineering job specified in `KICKOFFS.md`.
 
-Owner amendment O-092-A3 retires the expanded audit wrapper and full integrated
+Owner amendment O-092-A3 retired the expanded audit wrapper and full integrated
 retest. Accepted S01 and S02--S06 reviewed evidence remains upstream evidence and
-is not re-executed for the two-file completion diff. The only candidate runtime
-delta is clean profile plus one C/L/F fp16 optimizer update with workers 0,
+was not re-executed for the two-file completion diff. The initial A3 candidate
+requested clean profile plus one C/L/F fp16 optimizer update with workers 0,
 followed by one independently timed workers-0-versus-2 first-batch check using
-`TMPDIR=/tmp`. The job contains no Git/dependency checkout audit, source/archive
+`TMPDIR=/tmp`. The job contained no Git/dependency checkout audit, source/archive
 manifest, warnings-as-errors, custom cache harness or 205-case suite.
 
 Exact Job `380806` consumed the simplified approval. It passed environment and
@@ -550,7 +551,17 @@ clean-FedAvg identity, then reached the complete real-mini six-task C/L/F
 forward/loss/backward paths. The first unscaled gradient norm was nonfinite in all
 three modes; assertions preceded durable step/skip metrics. The loader phase was
 not run. This is a shared fp16 integration blocker; it is not permission to retry, lower
-the scale, weaken the gate, or launch review.
+the scale, weaken the gate, or launch review at that historical stage.
+
+D1 Job `389356` independently classified the failure: all FP32 controls were
+finite, fp16 scale 1 recovered C only, and L/F retained direct sparse-SECOND
+stem/stage1 nonfinite gradients. The owner then excluded scaler/precision
+comparison from S07-B and selected the uniform FP32 F1 gate. Job `390576` passed
+plain FedAvg, one successful finite C/L/F FP32 production-loop update each, and
+worker-0/2 equality, 5/5. Independent review of candidate `c615b647` found no
+P0-P3 and returned bounded clean-engineering PASS; terminal/review package
+`7f3bd401` is owner accepted under O-093. S07-B-COMPLETE is closed. This does not
+freeze later full-training precision or establish a full-data/scientific PASS.
 
 ### S08 — Camera-only scientific run
 
@@ -801,19 +812,20 @@ is mixed into a table; all attack/defense comparisons share declared clean basel
 seed, participation, precision, and data semantics; citations and novelty claims are
 manually verified.
 
-## 4. Active launch order after O-092
+## 4. Active launch order after O-092/O-093
 
 1. S07-C canonical preparation, worker cleanup and durable handoff are complete.
 2. S07-C-R is complete at review-only commit `b8e11bc`; reviewer history remains
    separate and unmerged.
 3. Canonical S07-C acceptance is sealed at `70bcd85`; the S07-B-COMPLETE packet,
    branch and two-file executable were launched and sealed.
-4. Job `380806` consumed the simplified runtime approval and exposed shared
-   nonfinite fp16 gradients before any optimizer step. Preserve it, prepare the
-   smallest causal remediation proposal, and obtain a new exact owner decision
-   before editing the numerical contract or submitting compute.
-5. Resume S08-S11 planning only after clean S07-B completion is independently
-   accepted. Scientific jobs retain separate exact authorization.
+4. S07-B-COMPLETE is independently reviewed and owner accepted under O-093:
+   candidate `c615b64`, F1 Job `390576`, terminal/review package `7f3bd401`.
+   Preserve earlier failed jobs as negative evidence; schedule no further S07-B
+   remediation, retry or compute.
+5. S08-S11 planning may now resume from this bounded clean-engineering foundation.
+   It is not a full-training/scientific PASS or precision freeze; every scientific
+   job retains separate protocol, precision and exact compute authorization.
 6. Re-audit S12 later. Establish clean Protocol-B/Protocol-A foundations before
    any new S13 attack envelope.
 7. Start S14 only after an independently reviewed viable undefended S13 attack.

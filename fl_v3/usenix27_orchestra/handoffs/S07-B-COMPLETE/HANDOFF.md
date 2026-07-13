@@ -1,4 +1,4 @@
-# S07-B-COMPLETE HANDOFF — clean candidate with retired audit wrapper
+# S07-B-COMPLETE HANDOFF — accepted bounded clean integration gate
 
 ## Identity and status
 
@@ -6,12 +6,17 @@
 BASE_SHA: 4aa2b133d1d33382bf1514f7a3c86fcb03cf83e5
 EXECUTABLE_SHA: 34cbe02b7b72114e3a2d61f6f797c8dec022798c
 EXECUTABLE_TREE: ed2d4091f0098f6b2144028afd87e20d023b1da2
+FINAL_TEST_COMMIT: 29ca6637bcd0a4e9a6422f3b820fb43d5295ad2c
+FINAL_TEST_SHA256: 1b72abf2f8aaa9c98db9cabe994792187f976c5fbb267483967a58103b61c79f
+REVIEWED_CANDIDATE: c615b6471a04b91a09c6ac6d487ff39a1501ceee
+TERMINAL_REVIEW_PACKAGE: 7f3bd40158e5a8af30196509734782c4575c50aa
+REVIEW_SHA256: b0feed5476dbc810b24a5dc3c7a678bc90ac3a2520360f02fdb6a6bf54691ebd
 BRANCH: codex/s07-b-clean-completion
 PRIOR_APPROVAL_SEAL: 1755734c4423488143e5d4adbffe57f22171dc01
 DIAGNOSTIC_APPROVAL_SEAL: 9b23fabf33bde821a8053192566976b332f75c05
-STATUS: FP32 final gate PASS; candidate ready for independent review
+STATUS: CLOSED / ACCEPTED AT EXACT BOUNDED CLEAN-ENGINEERING SCOPE
 DIAGNOSTIC_COMMIT: 1900fe3bcb52ade22f0b947a2aca44d5ece12b2f
-COMPUTE_AUTHORITY: consumed by Job 389356; no retry
+COMPUTE_AUTHORITY: all S07-B-COMPLETE approvals consumed; no retry
 ```
 
 The executable is a direct child of the accepted S07-C packet base and changes
@@ -20,7 +25,7 @@ only two paths:
 - `fl_v3/configs/flwr_config.toml`: remove stale security/overcommit profiles and
   retain default clean local CPU/GPU profiles;
 - `fl_v3/tests/test_s07_b_clean_completion.py`: five bounded cases covering the
-  clean profile, workers 0/2 first-batch equality, and one C/L/F fp16 optimizer
+  clean profile, workers 0/2 first-batch equality, and one C/L/F FP32 optimizer
   update each.
 
 No production model, training, data, checkpoint, evaluation, environment,
@@ -59,11 +64,14 @@ by a read-only snapshot created on the login node.
 | `373363` | failed wrapper | environment/spconv import, before pytest |
 | `374142` | stopped wrapper | environment/identity/205 collection and clean-FedAvg profile PASS; worker=2 TMPDIR failure; no model update |
 | `380806` | failed current training gate | environment and clean FedAvg PASS; all C/L/F reached finite-loss backward; norms `inf/nan/nan`; assertions stopped before durable step/skip counters |
+| `389356` | diagnostic PASS | nine exact C/L/F x precision/scale records classified real fp16 overflow; not an AMP acceptance |
+| `390576` | final bounded gate PASS | plain FedAvg, C/L/F one-step FP32 updates and worker-0/2 equality; 5/5 |
 
-All approvals are consumed. No result is a C/L/F optimizer-step PASS. Raw paths
-and hashes are retained in `RESULTS.md` and `RUN_REQUEST.md`.
+All approvals are consumed. Jobs through `380806` contain no accepted C/L/F
+optimizer-step PASS; final Job `390576` supplies the exact bounded FP32 one-step
+PASS. Raw paths and hashes are retained in `RESULTS.md` and `RUN_REQUEST.md`.
 
-## Current training boundary
+## Closed historical training boundary
 
 Job `380806` was the first current execution to enter all three complete model
 paths. It disproves the one-attempt scale-512 update gate: C/L/F unscaled gradient
@@ -77,16 +85,12 @@ run this real six-task fp16 integration seam. S06 already tests that an overflow
 window is skipped and a later batch can complete the optimizer budget; the
 completion fixture's length-one iterable prevented that intended continuation.
 
-## Next action
+## Closed resolution and independent review
 
-Preserve Job `380806` as the terminal result. Do not retry, change the default
-GradScaler scale, weaken the finite-gradient/final-step gate, or launch review
-from this failure. The smallest remediation is test-only: print the returned
-metrics before assertions, distinguish element nonfiniteness from global-norm
-reduction overflow, give the same mini batch a fixed small attempt budget, and
-retain exact one-successful-step acceptance. Parameter-level diagnostics are
-needed only if bounded backoff still fails. Any changed test or compute requires
-a new exact owner-approved RUN_REQUEST.
+Job `380806` remains preserved as the failed fp16 boundary and was never retried.
+D1 then classified the gradient failure without changing production code. The
+owner explicitly removed scaler/precision remediation from this session and
+selected the uniform FP32 final gate rather than weakening the acceptance gate.
 
 The D1 test-only implementation is now prepared without production-source or
 config changes. It compares FP32, fp16 scale 512 and fp16 scale 1 for each C/L/F
@@ -113,4 +117,11 @@ the exact test commit is `29ca6637bcd0a4e9a6422f3b820fb43d5295ad2c` and
 the owner approved one submission after the docs-only seal. Job `390576` consumed
 that approval and passed all five cases: plain FedAvg, three C/L/F successful FP32
 updates and worker-0/2 first-batch equality. This is worker/runtime candidate
-evidence, not independent-review or final integration acceptance.
+evidence, not full-training or scientific evidence.
+
+Independent S07-B-COMPLETE-R reviewed candidate `c615b647` and exact raw
+artifacts, found no P0/P1/P2/P3 issue, and returned **PASS at the exact bounded
+clean-engineering scope**. Its durable terminal/review package is `7f3bd401` and
+the review hash is recorded above. The owner accepted that verdict and formally
+closed S07-B-COMPLETE. Precision for later full scientific training remains
+unfrozen; no additional S07-B compute, retry, attack or defense work is authorized.

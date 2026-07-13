@@ -746,14 +746,14 @@ code/source/config/test/docs scope, no P0-P3 finding. Dependency-backed and GH20
 runtime remain NOT RUN. The review commit is separate evidence and must never be
 merged into S07-C or S07-B-COMPLETE.
 
-### S07-B-COMPLETE — future clean integration completion
+### S07-B-COMPLETE — closed clean integration completion
 
-This packet is prepared for owner review but is **not launch-authorized**. The
-accepted cleanup anchor is exact. Because canonical launch instructions must be
-present in the worker's immutable tree, the eventual task `BASE_SHA` is the
-docs-only S00 launch-packet seal containing this envelope; its full SHA is supplied
-externally after this document is committed. Creating the completion branch or
-worktree still requires explicit owner approval.
+**Current state: CLOSED / OWNER ACCEPTED under O-093.** The block below preserves
+the exact pre-launch envelope as historical provenance. At preparation time it was
+not launch-authorized: canonical instructions had to be present in the worker's
+immutable tree, and the task `BASE_SHA` therefore had to be the later docs-only S00
+launch-packet seal containing this envelope. The subsequently approved launch,
+bounded jobs, independent review and closure are recorded after the envelope.
 
 ```text
 SESSION_ID: S07-B-COMPLETE
@@ -904,14 +904,15 @@ throughput benchmark, Ray live federation, DDP, multi-GPU, actor/process matrix,
 seed matrix, automatic retry, attack/defense or upload. `test_model_overfit.py`
 and the old S07-B harness are never inputs.
 
-Acceptance requires training JUnit `4/0/0/0`, loader JUnit `1/0/0/0`, exact C/L/F
-one-step evidence, phase exit codes zero and a final success marker. Warnings remain
-recorded but non-fatal. S01/S06/checkpoint/eval integration is inherited only from
-its accepted reviewed evidence and must remain explicitly NOT RUN in this job. A
-passing mini gate is engineering evidence only. Write HANDOFF/RUN_REQUEST/RESULTS
-and stop for S00 completeness.
-Do not commit, submit compute, create a reviewer, merge or push without later
-exact authorization.
+The initial A3 acceptance requested training JUnit `4/0/0/0` plus loader JUnit
+`1/0/0/0`; the later owner-approved F1 amendment replaced it with one exact
+five-case FP32 JUnit while preserving C/L/F one-step evidence, worker equality,
+zero exit and a final marker. Warnings remain recorded but non-fatal. S01/S06/
+checkpoint/eval integration is inherited only from accepted reviewed evidence and
+remained explicitly NOT RUN. A passing mini gate is engineering evidence only.
+At kickoff time, commit, compute, reviewer creation, merge and push each required
+later exact authorization; this sentence is retained as the historical launch
+boundary, not as the current S07-B-COMPLETE state.
 
 **Terminal launch record (2026-07-13).** The worker and exact simplified compute
 were later authorized. Job `380806` passed environment identity and clean FedAvg,
@@ -944,8 +945,18 @@ the docs-only seal. No changed command or retry is authorized.
 **F1 terminal record.** Job `390576` completed `0:0` in `00:04:24` with zero
 restarts and passed all five selected cases: plain FedAvg, one finite successful
 FP32 update for each C/L/F mode, and worker-0/2 first-batch equality. The compute
-approval is consumed. The candidate may proceed to independent review; no retry,
-full training or scientific claim is authorized.
+approval was consumed. At that point the candidate could proceed only to
+independent review; no retry, full training or scientific claim was authorized.
+The review below later consumed that transition.
+
+**Independent review and closure.** S07-B-COMPLETE-R independently reviewed
+candidate `c615b647`, exact F1/D1 snapshots and raw artifacts, returned **PASS at
+the exact bounded clean-engineering scope**, and found no P0/P1/P2/P3. Review
+SHA-256 is `b0feed5476dbc810b24a5dc3c7a678bc90ac3a2520360f02fdb6a6bf54691ebd`;
+terminal/review package is `7f3bd40158e5a8af30196509734782c4575c50aa`.
+The owner accepted the verdict and formally closed S07-B-COMPLETE. This authorizes
+no additional S07-B compute and does not freeze full-training precision or grant
+full-data/scientific acceptance.
 
 ### S08 — camera-only scientific execution
 
