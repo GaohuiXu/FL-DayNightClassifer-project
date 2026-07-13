@@ -857,6 +857,8 @@ current implementation, compute, scientific or scheduling authority.
 | O-018 | CenterHead retains the reviewed reference-faithful no-starvation decode adaptation and explicit global class mapping. | locked head/decode |
 | O-025 | spconv 2.3.8 fp16 no-grad evaluation uses the reviewed version-guarded spconv-only training-dispatch workaround while preserving encoder eval/GN/state semantics. | locked runtime |
 | O-092 | Freeze the old S07-B/T5/harness chain; clean it from active authority; execute S07-C from audited code base 4ce2366, then independent S07-C-R, then clean S07-B completion from the accepted cleanup SHA. | active cleanup authority |
+| O-092-A1 | S00 completeness audit returned the first S07-C delivery for remediation: restore scikit-learn as a pinned nuScenes runtime dependency, remove remaining active legacy compatibility/viz/dead-script routes, migrate clean callers, and correct the tombstone evidence before any worker commit or S07-C-R launch. | active S07-C amendment; owner approved 2026-07-13 |
+| O-092-A2 | After auditing the completed A1 diff and package, remove the remaining closed-session A40/T3, MCR P1/P3, Stop-E and oversized mini-matrix/profile harness routes plus their dedicated tests; preserve the exact current clean environment/data/runtime/training script set. | active S07-C amendment; owner approved 2026-07-13 |
 
 ### 11.2 O-092 exact cleanup decision (2026-07-13)
 
@@ -894,6 +896,101 @@ The owner approved all of the following as one binding decision:
     the frozen S07 branch/reviews and raw job artifacts are historical/negative
     evidence only. Future workers may cite them as evidence but may not import,
     copy, recover or treat their code or decisions as current authority.
+
+#### O-092-A1 — S07-C remediation amendment (2026-07-13)
+
+S00 audited the first uncommitted S07-C delivery at detached
+`4eba37d60cbeb9c865e4eec8d5fa57c90d23f873` and found two blocking classes
+before a durable worker SHA was created. The owner approved returning the same
+worker for remediation with no compute:
+
+1. `scikit-learn==1.8.0` is not FLAME-only in this environment. The builder
+   installs `nuscenes-devkit==1.1.11` with `--no-deps`, while the devkit imports
+   `sklearn.metrics` unconditionally. Preserve the pin/runtime identity in the
+   project dependency manifests, Arrhenius audit lock, environment contract and
+   import smoke; remove only FLAME/HDBSCAN-specific use and wording.
+2. Remove the remaining active compatibility selectors/names
+   (`NormTrackingFedAvg`, the `defense="none"` local-runner parameter) by
+   migrating their clean callers. Reduce the visualization writer/tests to clean
+   calibration/encoder/fusion/detection stages.
+3. Delete the fail-closed but still active legacy
+   `p3_grad_conflict.py`, `p3_crt_probe.py`, and
+   `t3_trainval_reeval_fullval.py`; move `p3_partition_health.py` output away
+   from read-only `fl_v3/collab/**`.
+4. Remove active T5/T6/T7 authority wording from the package, clean model/data
+   docstrings and focused tests without changing executable model/data semantics.
+5. Re-run an inclusive active-surface tombstone scan and local static/focused
+   checks, then correct HANDOFF/RESULTS and the exact path inventory. No worker
+   commit/ref, S07-C-R, Slurm/GH200, merge or push is authorized by this
+   amendment.
+
+#### O-092-A2 — closed-session harness cleanup amendment (2026-07-13)
+
+S00 inspected the completed A1 working diff and updated HANDOFF/RESULTS before
+issuing this amendment. The A1 dependency correction, selector/alias removal,
+four-stage VizWriter, three dead-script removals, output relocation and inclusive
+tombstone evidence close the named A1 blockers. The owner then authorized the same
+uncommitted detached S07-C worker to remove additional closed-session harness
+routes that pollute automatic active-tree discovery.
+
+Delete these 16 scripts:
+
+```text
+fl_v3/scripts/_bench_msweep.py
+fl_v3/scripts/agg_overcommit_diag.py
+fl_v3/scripts/arrhenius_lidar_gap_utils.py
+fl_v3/scripts/arrhenius_mini_matrix.py
+fl_v3/scripts/arrhenius_profile_mini.py
+fl_v3/scripts/det_gate_a40.py
+fl_v3/scripts/fl_gate_a40.py
+fl_v3/scripts/p1_amp_smoke.py
+fl_v3/scripts/p3_partition_health.py
+fl_v3/scripts/run_arrhenius_mini_matrix.sh
+fl_v3/scripts/run_arrhenius_profile_mini.sh
+fl_v3/scripts/run_arrhenius_stop_e_gate.sh
+fl_v3/scripts/run_v1_calibration.py
+fl_v3/scripts/runconfig.py
+fl_v3/scripts/t3_iid_vs_central.py
+fl_v3/scripts/verify_levers.py
+```
+
+Delete their three dedicated tests and remove only the named residual seams from
+shared clean files:
+
+```text
+REMOVE tests:
+fl_v3/tests/test_arrhenius_camera_audit_controls.py
+fl_v3/tests/test_arrhenius_lidar_gap_controls.py
+fl_v3/tests/test_fl_gate_refuses_non_a40.py
+
+REFACTOR-KEEP:
+fl_v3/tests/test_s07_b_integration.py
+fl_v3/tests/test_model_determinism.py
+fl_v3/src/fl_v3/models/fusion/losses.py
+fl_v3/usenix27_orchestra/handoffs/S07-C/{HANDOFF,RESULTS}.md
+```
+
+The protected active script set is exactly: Arrhenius environment/build/general
+smoke (`arrhenius_env.sh`, `build_arrhenius_env.sh`,
+`run_arrhenius_env_build.sh`, `arrhenius_smoke.py`,
+`run_arrhenius_smoke.sh`); `centralized_train.py`; clean data builders
+(`build_nuscenes_cache.py`, `build_gt_database.py`); the seven accepted S01 ZIP
+scripts; `run_s06_runtime_tests.sh`; and the two accepted S07-A provenance/cache
+scripts. Do not delete, repurpose or fold these into another harness.
+
+A2 adds no scientific/runtime feature and no compute authority. Remove stale
+imports/tests/wording tied to the deleted routes, update the exact inventory and
+tombstone evidence, run available local compile/JSON/TOML/bash/diff checks, ACK
+O-092-A2 in HANDOFF, and stop again for S00 audit. No commit/ref, reviewer launch,
+Slurm/GH200, merge or push is authorized.
+
+**S00 completeness outcome.** S00 independently inspected the cumulative A2
+source diff and handoff package and re-ran the exact-script-set, protected-byte,
+semantic-AST, Python compile, JSON, TOML, shell and diff checks. No source-cleanup
+blocker remains. The owner authorized durable local materialization as a linear
+successor of this canonical record, followed by S07-C-R from the exact sealed
+delivery SHA. This is not an implementation PASS or runtime/scientific PASS;
+dependency-backed and GH200 checks remain explicitly NOT RUN.
 
 ### 11.3 Accepted clean-foundation evidence
 

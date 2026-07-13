@@ -132,7 +132,7 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 | S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | reviewed module PASS at worker `483e149` / executable `8498597` / review `a0763c2`; Job `341695` 15/15 bounded runtime PASS; accepted S07-B dependency with same-instance concurrency/reentrancy integration requirement |
 | S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | reviewed PASS at worker `a9c801f` / execution `96e509b` / review `1c44084`; Job `336731` 43/44 negative preserved, Job `336738` 44/44 focused runtime PASS; accepted S07-B dependency only |
 | S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | reviewed bounded PASS under O-031 at worker `6b7ef29` / executable `c330c72` / review `ca7bbd7`; Job `341997` FAILED 45/62 preserved, Job `342014` PASS 66/66; accepted S07-B candidate dependency with P3 integration gates, no production/full-data/scientific PASS |
-| S07 | Cleanup then clean integration completion | accepted S01/S07-A and S02-S06 | S07-C cleanup, independent S07-C-R, then simplified clean S07-B completion | O-092 active: old e231 chain frozen; S07-C branch prepared from audited `4ce2366`; worker not launched and compute none until canonical P is accepted |
+| S07 | Cleanup then clean integration completion | accepted S01/S07-A and S02-S06 | S07-C cleanup, independent S07-C-R, then simplified clean S07-B completion | S07-C A2 completeness audit PASS for durable materialization; owner authorized exact local sealing then S07-C-R; compute none |
 | S08 | Camera scientific run | S07 PASS | `C-STR8` full-val result/checkpoint | planned |
 | S09 | LiDAR scientific runs | S07 PASS | `L-P020` and `L-S075` results/checkpoints | planned |
 | S10 | Fusion and recipe selection | S08, S09 | `F-U`/`F-CBGS`, optional init A/B, `CL-PILOT` | planned |
@@ -448,6 +448,34 @@ fallback requires a new exact immutable RUN_REQUEST and owner/S00 approval.
 
 **Delivery.** `handoffs/S07-C/HANDOFF.md`, optional unapproved
 `RUN_REQUEST.md`, exact worker SHA and path-by-path deletion/refactor proof.
+
+**Active amendment O-092-A1.** S00 completeness audit rejected the first
+uncommitted delivery before reviewer launch. The same worker must restore
+scikit-learn as a pinned nuScenes runtime dependency (the devkit is installed
+with `--no-deps` and imports it), remove the remaining clean-path legacy aliases
+and selector-compatible parameters by migrating their callers, shrink VizWriter
+to clean stages, remove the named fail-closed legacy P3/T3 scripts, stop active
+scripts from writing `fl_v3/collab/**`, and clean active T5/T6/T7 authority
+wording. Update the handoff/tombstone evidence and stop again for S00 audit.
+No compute or Git publication authority is added.
+
+**Active amendment O-092-A2.** After inspecting A1 source, diff and package, S00
+confirmed the named A1 blockers are closed. The owner authorized the same worker
+to delete the exact 16 obsolete A40/T3, MCR P1/P3, Stop-E and mini-matrix/profile
+scripts plus three dedicated tests listed in `KICKOFFS.md`; shared tests/docs lose
+only their imports or authority wording for those routes. The exact retained
+Arrhenius environment/general smoke, centralized training, S01 ZIP, S06 runtime
+and S07-A cache/provenance scripts are protected. Update HANDOFF/RESULTS and stop
+for S00 audit with no compute, commit/ref or reviewer launch.
+
+**S00 completeness gate.** The cumulative A2 delivery contains 70 deleted and 64
+modified tracked paths plus the three-file handoff package. S00 independently
+confirmed the exact 18-script set, 16 protected byte-identical scripts, 11
+semantic-AST-equal foundations, absent active legacy routes, source compile, 27
+JSON files, TOML, 17 shell files and `git diff --check`. The owner authorized a
+local durable implementation commit and handoff seal as a linear successor of
+the committed canonical amendment, then independent S07-C-R. Runtime/dependency
+tests remain NOT RUN and are reviewer residual risk, not a cleanup blocker.
 
 ### S07-C-R — Independent cleanup review
 

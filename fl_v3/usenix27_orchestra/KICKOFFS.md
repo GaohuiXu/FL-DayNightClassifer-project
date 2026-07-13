@@ -562,6 +562,125 @@ checks; exact path inventory; and explicit unverified-runtime limits. Write the
 durable S07-C package and stop for S00 completeness audit. Do not commit, merge or
 push without exact authorization.
 
+#### S07-C remediation amendment O-092-A1
+
+The first S07-C delivery was not accepted and has no `WORKER_SHA`. The owner
+approved returning the same detached worker with `APPROVED_COMPUTE=none` and the
+following additional ownership:
+
+```text
+REMOVE:
+- fl_v3/scripts/{p3_grad_conflict,p3_crt_probe,t3_trainval_reeval_fullval}.py
+
+REFACTOR-KEEP:
+- fl_v3/src/fl_v3/__init__.py
+- fl_v3/src/fl_v3/viz/{writer,calibration}.py
+- fl_v3/tests/test_viz_writer.py
+- fl_v3/docs/determinism.md
+- fl_v3/scripts/p3_partition_health.py
+- fl_v3/scripts/{fl_gate_a40,t3_iid_vs_central}.py
+- fl_v3/tests/{test_fl_sampling,test_model_task,test_fl_local_runner_multiround,test_fl_server_opt_integration,test_determinism_smoke,test_task_agnostic}.py
+- fl_v3/src/fl_v3/models/fusion/{__init__,fusion,bev_grid}.py
+- fl_v3/src/fl_v3/data/nuscenes/{gt_database,partition}.py
+- fl_v3/tests/{test_model_bev_convention,test_model_params,test_fl_trainable_only}.py
+```
+
+Existing S07-C ownership remains in force. Restore `scikit-learn==1.8.0` in
+`pyproject.toml`, `requirements.txt`, `requirements.lock.txt`, `docs/env.md`,
+`build_arrhenius_env.sh`, and `arrhenius_smoke.py` as a pinned nuScenes runtime
+dependency; do not restore HDBSCAN or any defense implementation. Remove
+`NormTrackingFedAvg` and the `defense` parameter from local clean runners, update
+all named callers, and retain exactly one `CleanFedAvgStrategy`. VizWriter keeps
+only calibration/encoder/fusion/detection. `p3_partition_health.py` must default
+to a configurable output outside `fl_v3/collab/**`.
+
+The inclusive tombstone scan covers active source, scripts, configs, tests,
+README and active docs; it may exclude only canonical Orchestra records,
+`collab/**`, `docs/cycle_04/**`, and explicitly labelled frozen roadmap history.
+It must not hide compatibility aliases, fail-closed dead scripts, visualization
+stages, or clean callers. Re-run compile/JSON/TOML/bash/diff checks and every
+available focused local test; dependency/GH200 tests remain `NOT RUN` unless a
+new exact request is separately approved. Update HANDOFF/RESULTS, acknowledge
+O-092-A1, and stop for a new S00 completeness audit without commit/merge/push.
+
+#### S07-C closed-session harness amendment O-092-A2
+
+S00 audited the completed O-092-A1 diff and durable package. The named A1
+blockers are closed. The owner approved continuing in the same detached worker,
+on the same uncommitted diff, with `APPROVED_COMPUTE=none`.
+
+```text
+REMOVE scripts:
+- fl_v3/scripts/_bench_msweep.py
+- fl_v3/scripts/agg_overcommit_diag.py
+- fl_v3/scripts/arrhenius_lidar_gap_utils.py
+- fl_v3/scripts/arrhenius_mini_matrix.py
+- fl_v3/scripts/arrhenius_profile_mini.py
+- fl_v3/scripts/det_gate_a40.py
+- fl_v3/scripts/fl_gate_a40.py
+- fl_v3/scripts/p1_amp_smoke.py
+- fl_v3/scripts/p3_partition_health.py
+- fl_v3/scripts/run_arrhenius_mini_matrix.sh
+- fl_v3/scripts/run_arrhenius_profile_mini.sh
+- fl_v3/scripts/run_arrhenius_stop_e_gate.sh
+- fl_v3/scripts/run_v1_calibration.py
+- fl_v3/scripts/runconfig.py
+- fl_v3/scripts/t3_iid_vs_central.py
+- fl_v3/scripts/verify_levers.py
+
+REMOVE tests:
+- fl_v3/tests/test_arrhenius_camera_audit_controls.py
+- fl_v3/tests/test_arrhenius_lidar_gap_controls.py
+- fl_v3/tests/test_fl_gate_refuses_non_a40.py
+
+REFACTOR-KEEP:
+- fl_v3/tests/test_s07_b_integration.py
+  Remove the arrhenius_mini_matrix import/test seam only; preserve remaining
+  clean integrated C/L/F/runtime/eval/FedAvg tests.
+- fl_v3/tests/test_model_determinism.py
+  Remove the A40 det_gate script authority wording only.
+- fl_v3/src/fl_v3/models/fusion/losses.py
+  Remove the verify_levers historical proof wording only; do not change loss code.
+- fl_v3/usenix27_orchestra/handoffs/S07-C/{HANDOFF,RESULTS}.md
+  ACK O-092-A2 and update exact inventories, scans, checks and limits.
+```
+
+The following 18 active foundation scripts are protected and must remain:
+
+```text
+fl_v3/scripts/arrhenius_env.sh
+fl_v3/scripts/build_arrhenius_env.sh
+fl_v3/scripts/run_arrhenius_env_build.sh
+fl_v3/scripts/arrhenius_smoke.py
+fl_v3/scripts/run_arrhenius_smoke.sh
+fl_v3/scripts/centralized_train.py
+fl_v3/scripts/build_nuscenes_cache.py
+fl_v3/scripts/build_gt_database.py
+fl_v3/scripts/run_s01_nuscenes_zip_full_gate.sh
+fl_v3/scripts/run_s01_nuscenes_zip_smoke.sh
+fl_v3/scripts/run_s01_nuscenes_zip_tests.sh
+fl_v3/scripts/s01_nuscenes_zip_audit.py
+fl_v3/scripts/s01_nuscenes_zip_benchmark.py
+fl_v3/scripts/s01_nuscenes_zip_manifest.py
+fl_v3/scripts/s01_nuscenes_zip_smoke.py
+fl_v3/scripts/run_s06_runtime_tests.sh
+fl_v3/scripts/run_s07a_nuscenes_cache_t1v2.sh
+fl_v3/scripts/run_s07a_provenance_tests.sh
+```
+
+Do not recover the removed scripts elsewhere, rename them into a consolidated
+harness, or modify protected-script semantics beyond already-authorized A1 edits.
+Remove all active imports/test seams/default routes for the deleted names. The
+inclusive tombstone scan must cover active scripts and shared tests. Re-run every
+available local compile/JSON/TOML/bash/diff check and focused dependency-free
+contract; dependency/GH200 checks remain `NOT RUN`. Stop for S00 completeness
+audit without commit/ref, reviewer launch, Slurm/GH200, merge or push.
+
+S00 subsequently completed the cumulative A2 completeness audit and the owner
+authorized local durable sealing. S07-C-R still must not launch from mutable
+worktree state: its filled packet must pin the resulting implementation SHA,
+handoff-seal SHA and committed canonical parent exactly.
+
 ### S07-C-R — independent cleanup review
 
 ```text
