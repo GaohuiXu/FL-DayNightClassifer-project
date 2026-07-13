@@ -21,7 +21,7 @@ TERMINAL_STATE: FAILED / ExitCode=1:0 / Restarts=0
 SUBMIT_START_END: 2026-07-13T11:25:44 / 11:25:45 / 11:25:53 Europe/Stockholm
 OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_complete_34cbe02b7b72
 RETRY_STATE: forbidden / not requested / not approved / not submitted
-DIAGNOSTIC_REQUEST_STATE: DRAFT_FOR_S00_OWNER_AUDIT / NOT REQUESTED / NOT APPROVED
+DIAGNOSTIC_REQUEST_STATE: OWNER_APPROVED_FOR_ONE_EXACT_SUBMISSION / NOT YET SUBMITTED
 DIAGNOSTIC_SCOPE: same W/tree and 205-case gate with durable bootstrap observations
 DIAGNOSTIC_FIX: replace reserved GIT_COMMON_DIR export with PROJECT_GIT_DIR and unset Git repository-selection overrides
 DIAGNOSTIC_OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_complete_diag1_34cbe02b7b72
@@ -29,7 +29,11 @@ PRIOR_COMMAND_SHA256: 888982814f0033e54528ab9f6e01de02c3596dfbf2fef7078f9e73b3ca
 DIAGNOSTIC_COMMAND_SHA256: b5a98f0a09b79d9c64a474b1449f4e144c58e10a3b497d2c427c704e275d6596
 DIAGNOSTIC_JOB_BODY_SHA256: 8c99f9026cdc09af3ffc17e91bcc490bc95f010cbfdec9e0511fec241d829e3e
 PYTEST_ARGS_SHA256: 2b9f312535632b7ec17a72ec5fbf0b300b5b690a4fd9d8a81ae94aea21028a67 (unchanged)
-DIAGNOSTIC_APPROVED_COMPUTE: none
+DIAGNOSTIC_REQUEST_SEAL: 261b2a9eef2a49afe14a04f16da87bb38a02b274
+DIAGNOSTIC_APPROVAL_DATE: 2026-07-13
+DIAGNOSTIC_APPROVAL_SOURCE: owner message "批准创建并且compute也批准，立刻开始执行"
+DIAGNOSTIC_APPROVED_COMPUTE: one exact instrumented GH200 validation job
+DIAGNOSTIC_RETRY_STATE: forbidden / not approved
 ```
 
 The owner approved exactly one submission of the frozen command and resources at
@@ -334,15 +338,16 @@ test, extra legacy detector update, `test_model_overfit.py`, and extra official
 permutation metric. `test_gt_as_pred_per_class_ap_near_one` is the only named
 official-devkit metric identity case; its AP is test output, not science.
 
-## Draft instrumented diagnostic command — text only, do not run
+## Exact owner-approved instrumented command — one submission only
 
 This draft keeps the executable commit/tree, source closure, 205-case inventory,
 mini scope, resources, timeout, and no-retry behavior unchanged. It adds durable
 labels plus expected/observed files around the thirteen formerly silent bootstrap
 gates, renames the project Git path to neutral `PROJECT_GIT_DIR`, explicitly
 clears Git repository-selection overrides, and uses a fresh diagnostic job root.
-It does not depend on a mutable or temporary Codex worktree. It is not approved
-for submission.
+It does not depend on a mutable or temporary Codex worktree. The owner approved
+exactly one submission of this command; any byte, resource, data, test, output,
+or stop-condition change invalidates that approval.
 
 ```bash
 #!/bin/bash
