@@ -1,6 +1,10 @@
 # USENIX Security '27 Orchestra — kickoff prompts
 
-> **Status:** active kickoff registry.
+> **Status (2026-07-13):** O-092 cleanup registry. Legacy S07-B/T5/T6/T7
+> prompts are retired and must not be recovered from Git history as active
+> authority. S07-C is the next worker only after canonical P is committed and
+> its exact SHA is inserted into the launch envelope. S12 is deferred; S13/S14
+> remain blocked by their clean prerequisites.
 > **Use:** copy one complete prompt into a fresh session. Do not shorten its
 > required-reading or authorization clauses.
 > **Canonical context:** [`ORCHESTRA.md`](ORCHESTRA.md) and
@@ -17,10 +21,10 @@
    acting.
 4. `fl_v3/collab/` is read-only historical evidence. New work records go only to
    `fl_v3/usenix27_orchestra/handoffs/Sxx/`.
-5. A prompt may grant `APPROVED_COMPUTE: standing short-smoke policy O-009` for a
-   bounded, non-scientific engineering smoke after its exact preflight is recorded.
-   O-009 is the owner's explicit exception to older per-job-only language in
-   `AGENTS.md`; every other compute/publication restriction remains in force.
+5. A prompt may reference `standing short-smoke policy O-009` only for a bounded,
+   non-scientific engineering smoke after its exact preflight is recorded. Under
+   O-092 cleanup work, the session still stops for owner/S00 audit before
+   submission; merely writing RUN_REQUEST.md does not authorize execution.
    No prompt authorizes a full test/run/evaluation, full-data profile, metric,
    matrix, seed expansion, rerun, upload, push, merge, or publication without exact
    owner approval.
@@ -81,6 +85,10 @@ DECISION_SCOPE: evidence/proposal only, or exact owner-approved implementation c
     `RUN_REQUEST.md` to S00 and wait for explicit S00 approval before `sbatch`. It does not
     authorize full trainval, 100/1000-step gates, profiles/metrics/matrices, push,
     or merge to `v3-ad-perception`.
+15. O-092 supersedes every active route from legacy O-032-O-091. No kickoff may
+    import, copy, recover or cherry-pick legacy T5/T6/T7, old defense-registry,
+    frozen e231 or old cycle_04/collab implementation decisions. Historical
+    evidence may be cited only with its recorded negative/limited interpretation.
 
 Before editing or reviewing, every task runs/reports `git rev-parse --show-toplevel`,
 `git rev-parse HEAD`, `git branch --show-current`, and `git status --short`. An empty
@@ -466,80 +474,148 @@ RUN_REQUEST.md; report every Git operation, test, artifact/hash, negative result
 and remaining S07-B gate.
 ```
 
-### S07 — integrated engineering gate
+### S07-C — legacy-security cleanup
 
 ```text
-You are worker S07: sole CL integration and engineering-gate owner.
-
-Read completely before editing:
-- repository AGENTS.md;
-- all fl_v3/usenix27_orchestra canonical documents, especially S07;
-- accepted S07-A `INT-A_SHA`, then S02-S06 HANDOFF.md and REVIEW.md plus approved
-  worker commits/diffs for the later S07-B phase;
-- fl_v3/docs/env.md and all affected source/config/launcher/tests.
-
-Objective: integrate only independently reviewed S01-S06 outputs into one resolved
-stack and candidate configs C-STR8, L-P020, L-S075, F-U, and F-CBGS. Close every
-shape/dtype/geometry/config/provenance seam and assemble evidence for directory/ZIP,
-batch invariance, branch modes, gradients, precision, resume, official eval,
-100-step/1000-step gates, and full-data performance.
-
-S06 is accepted only as the reviewed candidate dependency at final worker
-`6b7ef29b49c23f206c07ea60c2f15e3ffd9aeef7`, implementation executable
-`c330c72f4060348768c63fb1b7855ca56baffb95`, and review
-`ca7bbd7e49e91ac2f214f39f62d5e416dd736383`. Preserve failed Job `341997`
-(45/62) and separate bounded-pass Job `342014` (66/66); do not collapse them.
-Before any production-readiness claim, S07-B must: implement actual mode-aware
-S01 raw payload skip with read counters; map every resolved enum to reviewed
-S02-S05 APIs; add a real model/optimizer late-load rollback injection; re-attest
-actual cumm/spconv build/source identity; and execute the deferred actual S04/S05
-fp16, persistent multi-worker ZIP/resume, concurrency/EMA, official-eval and
-production checkpoint host-memory gates under their exact authorization scopes.
-The S06 review branch is evidence, not a substitute for reporting the exact
-worker/review merge or cherry-pick plan.
-
-**S07-B launch refinement after O-031.** Start from the exact post-S06 canonical
-S00 kickoff-draft SHA supplied in the launch envelope; that base already contains
-reviewed S01/S07-A data-foundation history. On the dedicated
-`codex/s07-b-integrated-cl-stack` branch, propose and execute only after owner
-approval the following local integration sequence:
-
-1. non-FF merge final worker branches in order S02 `3aebf2d`, S03 `5089383`,
-   S04 `483e149`, S05 `a9c801f`, and S06 `6b7ef29`;
-2. do not merge reviewer branch ancestry as implementation. S02 and S05 final
-   reviews diverge from earlier worker/review baselines. Import only the exact
-   final `REVIEW.md` blobs for S02 `df142dc` /
-   `8bb56cafc22a38dfd7b4ef4d755f1531ab081b0371fe18585d744307f5640474`,
-   S03 `2f62e57` / `01dea6fd81f14bee8ee1cdf9e4dc66488e7253075459821b2e63947fde7566c1`,
-   S04 `a0763c2` / `8673672793235ae0226d9109c73cd39577d5f40e846b17425178a7011300ea2a`,
-   S05 `1c44084` / `67b58c8e9d1d1622d1af49a2c052cbadd66580500dbf988fc1184f2d0df6736e`,
-   and S06 `ca7bbd7` / `96d1996562bae4b5e2d1204cb6b51d276ad5c50dd7a75e928137b52b41ae0a59`;
-   record both Git blob IDs
-   and full SHA-256 values in the integration handoff;
-3. stop on any unexpected textual conflict. Independently inspect every clean
-   auto-merge: S05 and S06 both modify `eval/detection_eval.py`, and the legacy
-   detector/trainer/data APIs have semantic conflicts even where Git reports none;
-4. after the immutable history import, make separate integration commits for
-   mode-aware S01 I/O, reviewed S02-S05 construction/wiring, the single official
-   S05+S06 eval path, resolved configs/runtime/checkpoint/provenance, and only
-   demonstrably dead legacy cleanup. Never weaken or edit away a reviewed gate to
-   obtain a green integration result.
-
-The kickoff authorizes no compute by itself. Before any bounded engineering smoke,
-write an exact S07 `RUN_REQUEST.md` and stop for S00 audit under O-009. Full
-trainval `t1.v2` materialization, 100/1000-step training, production-shape/full-
-data profile, metrics, DDP, matrix, rerun or automatic retry require separate exact
-owner approval. A final S07-B handoff is not accepted until an independent review
-from its exact worker SHA reconciles all worker/review histories and raw artifacts.
-
-Do not invent new architecture or waive a failed owner gate. Return failures to the
-owning session. S07 may edit integration files only after reporting the merge plan
-and conflicts. Write handoffs/S07/HANDOFF.md. A minimal bounded smoke may use O-009
-after recording RUN_REQUEST.md; capped 100/1000-step runs and every full-data profile
-stop for exact owner approval. Return the exact integrated commit/config hashes, all
-gates including failures, cost estimates, and readiness verdict. Do not commit/
-merge/push without authorization.
+SESSION_ID: S07-C
+BASE_SHA: fill with the exact canonical-only P commit before launch
+SOURCE_BRANCH: codex/s07-c-legacy-security-cleanup
+EXPECTED_REF_MODE: detached@BASE_SHA
+WORKTREE_PROVISIONED_BY: owner / Codex task UI after explicit launch approval
+FILE_OWNERSHIP:
+- REMOVE:
+  fl_v3/src/fl_v3/attacks/**
+  fl_v3/src/fl_v3/eval/{asr,frustum_visibility,report}.py
+  fl_v3/src/fl_v3/viz/{attack,detection}.py
+  fl_v3/configs/{t4_a100_detgate,t4_mini_smoke,t4_reference,t5_attack,t5_mini_smoke}.json
+  fl_v3/scripts/{_t4_fd_diagnose,t4_readiness_eval,t5_attack_eval,t5_mini_smoke}.py
+  fl_v3/scripts/run_s07_b_static_checks.sh
+  fl_v3/tests/_attack_fixtures.py
+  fl_v3/tests/test_attack_*.py
+  fl_v3/tests/test_eval_{asr,frustum,report}.py
+  fl_v3/tests/test_viz_detection.py
+  fl_v3/src/fl_v3/strategy/defenses/**
+  fl_v3/src/fl_v3/strategy/gradient_metrics.py
+  fl_v3/tests/test_defense_*.py
+  fl_v3/tests/test_gradient_metrics_parity.py
+  fl_v3/tests/test_multikrum.py
+  fl_v3/tests/fixtures/{make_oracle_fixtures.py,oracle_inputs.npz,oracle_arrays.npz,oracle_decisions.json}
+- REFACTOR-KEEP:
+  fl_v3/src/fl_v3/strategy/{aggregation_core,flower_strategies,__init__,server_opt}.py
+  fl_v3/src/fl_v3/{server_app.py,training/tasks.py}
+  fl_v3/src/fl_v3/engine/local_runner.py
+  fl_v3/src/fl_v3/eval/{__init__,provenance,box_to_global,detection_eval}.py
+  fl_v3/src/fl_v3/viz/fusion.py
+  fl_v3/pyproject.toml
+  fl_v3/requirements.txt
+  fl_v3/requirements.lock.txt
+  fl_v3/scripts/{build_arrhenius_env.sh,arrhenius_smoke.py,arrhenius_profile_mini.py}
+  fl_v3/docs/env.md
+  fl_v3/README.md
+  fl_v3/docs/roadmap/INDEX.md
+  fl_v3/src/fl_v3/data/nuscenes/conventions.md
+  fl_v3/configs/{fl_1client_sanity,fl_bb02d_fedadam,p1_bb02,p1_bb02d,p1_bb02d_voxel,p1_bb02h,p1_bb04,p1_cbgs,p1_exp3,p1_gtpaste,p1_msweep,p1_msweep_aug,p1_msweep_aug2,p1_unfrozen,t3_fl_gate,t3_trainval}.json
+  fl_v3/tests/{conftest,test_eval_provenance,test_fl_config_keys_registered,test_flower_fp32_parity,test_flower_strategies_construct,test_fl_round_smoke,test_s07_b_integration}.py
+  fl_v3/usenix27_orchestra/handoffs/S07-C/{HANDOFF,RUN_REQUEST,RESULTS}.md
+- READ-ONLY:
+  repository AGENTS.md
+  fl_v3/usenix27_orchestra/{ORCHESTRA,SESSIONS,KICKOFFS}.md
+  fl_v3/collab/**
+  fl_v3/docs/cycle_04/**
+  all protected clean-foundation paths not listed above
+UPSTREAM_HANDOFFS_AND_SHAS:
+- audited code base 4ce2366df2925161adae8fea393d5fca64836d40
+- accepted S01/S07-A and S02-S06 worker/review identities in ORCHESTRA 11.3
+- frozen old evidence only: e231808e77388d69053dcbced6e754dbe3468aef
+- read-only spawn reference only: bf480ea77ccf9ae8417c3ea58e933701dbc7222a
+WORKER_SHA: pending
+DELIVERY_REF: pending owner authorization
+REASONING_EFFORT: xhigh
+APPROVED_COMPUTE: none
+DECISION_SCOPE: cleanup and clean-foundation preservation only
 ```
+
+Read completely before acting: repository AGENTS.md; all three canonical
+Orchestra documents; env.md; accepted S01/S07-A and S02-S06 handoffs/reviews;
+frozen S07 HANDOFF/RESULTS/REVIEW packages; and actual Git diffs/raw artifacts.
+Do not trust summaries when the source/diff/artifact is available.
+
+Objective: remove every active legacy attack/readiness/defense route while
+preserving clean C/L/F model construction, official clean DetectionEval, S01
+ZIP/data contracts, S06 runtime/checkpoint behavior and one fixed clean FedAvg
+path outside the legacy defense namespace.
+
+The fixed clean FedAvg contract has no defense registry, no defense-type selector,
+no gradient-space telemetry, no clipping/clustering/reweight/noise and no malicious
+count. Preserve deterministic client identity/order, num-example weighting, server
+optimizer, EMA, checkpoint and trainable-state semantics.
+
+Do not import or cherry-pick bf480ea. Do not recover T5/T6/T7 from e231, old reviews,
+collab, cycle_04 or Git history. Do not implement S12, a new attack or a new defense.
+Do not run Slurm/GH200, full cache/trainval, model campaigns, metrics, profile, DDP,
+matrix or retry. Local static/focused checks only.
+
+Acceptance requires: no active legacy import/config/launcher route; clean FedAvg
+parity on fixed FP32 weighted inputs; C/L/F construction tests; official clean eval
+tests; focused S01/S06 regression checks; source compile/JSON/bash syntax/diff
+checks; exact path inventory; and explicit unverified-runtime limits. Write the
+durable S07-C package and stop for S00 completeness audit. Do not commit, merge or
+push without exact authorization.
+
+### S07-C-R — independent cleanup review
+
+```text
+SESSION_ID: S07-C-R
+BASE_SHA: exact accepted S07-C_WORKER_SHA
+SOURCE_BRANCH: codex/s07-c-legacy-security-cleanup
+EXPECTED_REF_MODE: detached@S07-C_WORKER_SHA
+WORKTREE_PROVISIONED_BY: owner / Codex task UI after explicit review launch approval
+FILE_OWNERSHIP:
+- fl_v3/usenix27_orchestra/handoffs/S07-C/REVIEW.md
+UPSTREAM_HANDOFFS_AND_SHAS:
+- canonical P SHA
+- audited code base 4ce2366df2925161adae8fea393d5fca64836d40
+- exact S07-C worker SHA/HANDOFF/diff
+WORKER_SHA: exact S07-C_WORKER_SHA
+DELIVERY_REF: pending review commit/ref
+REASONING_EFFORT: xhigh
+APPROVED_COMPUTE: none
+DECISION_SCOPE: independent code/science/process review only
+```
+
+Audit the exact worker diff against both canonical P and 4ce2366. Verify every
+REMOVE/REFACTOR/KEEP claim, legacy tombstone scan, fixed clean FedAvg semantics,
+protected S01/C/L/F/S06/eval paths and focused tests. Review actual source and
+artifacts. Do not fix code, run Slurm, edit any path except REVIEW.md, or merge
+reviewer history. Return severity-ordered findings, gate verdict and residual risk.
+
+### S07-B-COMPLETE — future clean integration completion
+
+This prompt is not launchable until S07-C-R passes and the owner accepts an exact
+cleanup worker SHA.
+
+```text
+SESSION_ID: S07-B-COMPLETE
+BASE_SHA: exact owner-accepted S07-C_WORKER_SHA
+SOURCE_BRANCH: codex/s07-b-clean-completion
+EXPECTED_REF_MODE: detached@BASE_SHA
+WORKTREE_PROVISIONED_BY: owner / Codex task UI after explicit launch approval
+FILE_OWNERSHIP: fill exact clean integration paths after S07-C review
+UPSTREAM_HANDOFFS_AND_SHAS:
+- accepted S07-C worker and independent review
+- accepted S01/S07-A and S02-S06 clean foundations
+WORKER_SHA: pending
+DELIVERY_REF: pending
+REASONING_EFFORT: xhigh
+APPROVED_COMPUTE: none
+DECISION_SCOPE: simplified clean C/L/F/runtime/eval/FedAvg completion only
+```
+
+It may complete clean C/L/F integrated construction, S06 runtime/checkpoint/resume,
+official clean evaluation and clean FedAvg/Flower engineering. It may independently
+specify a minimal spawn lifecycle if clean evidence requires it. It may not recover
+legacy bf480ea harness code, T5/T6/T7, attacks, defenses or S12 split logic. Any
+GH200 smoke requires a new exact immutable RUN_REQUEST and owner/S00 approval.
 
 ### S08 — camera-only scientific execution
 
@@ -634,86 +710,35 @@ self-assessment. No architecture/metric/recipe change, opportunistic rerun, comm
 merge, push, or upload without authorization.
 ```
 
-### S12 — FL protocols, tail split, threat model, paper skeleton
+### S12 — deferred; not copy-ready
 
-```text
-You are worker S12: Protocol-B contract, Protocol-A control, tail split, threat
-model, novelty audit, and paper skeleton.
+The old S12 proposal and snapshot are unreviewed historical evidence. Do not open
+or aggregate S12 during S07-C. A later S12 re-audit requires a new filled kickoff
+from the cleaned branch, clean CL status and explicit owner approval. Its scope is
+clean Protocol-A/B data ownership and split design only; old attack/defense
+assumptions are not inherited.
 
-Read completely before acting:
-- repository AGENTS.md;
-- all canonical Orchestra documents, especially Protocol B and S12;
-- fl_v3 data schema/partition/eval/provenance code;
-- read-only prior FL partition/attack/defense docs under fl_v3/collab/;
-- primary literature named in ORCHESTRA.md and the USENIX Security '27 ML/CFP rules.
+### S13 — blocked pending clean prerequisites; not copy-ready
 
-Binding decision: Protocol B is the primary security protocol; Protocol A is the
-clean optimization control. Do not reopen that decision without owner instruction.
+No S13 task may be launched from this placeholder. Before a filled kickoff exists:
 
-Objective: define train-only scene/log-disjoint D_base, D_tail and held-out tail
-evaluation; freeze tail criteria/client unit/update scope/split hashes; define W_base,
-central oracle, local-only, clean FL, attack and defense controls; formalize attacker,
-server visibility, secure-aggregation assumptions, metrics, RQs, novelty boundary,
-claim-evidence table, and paper skeleton.
+1. clean S07-B completion must be independently accepted;
+2. the CL detector must be trained and frozen;
+3. clean Protocol-B adaptation and the separately labelled Protocol-A control must
+   be established under an accepted data/split contract;
+4. the owner must approve a new threat model and exact attack envelope.
 
-This session may perform read-only statistics locally but may not train or submit
-Slurm. Own handoffs/S12/ and paper/protocol drafts explicitly approved by S00; do
-not write to fl_v3/collab/ or edit canonical docs. Write HANDOFF.md with split
-proposal/hashes if created, leakage audit, unresolved owner decisions, literature
-gaps, allowed/forbidden novelty claims, and exact downstream run requests. Do not
-commit/merge/push/upload without authorization.
-```
+A later S13 may implement a new attack from the clean foundation. It must not
+import, copy, recover or cherry-pick legacy T5/T6/T7, e231, retired O-032-O-091,
+collab or cycle_04 implementation decisions. Clean and attacked compute requests
+remain separate.
 
-### S13 — clean FL baselines and modality-localized attack
+### S14 — blocked until viable undefended attack; not copy-ready
 
-```text
-You are worker S13: clean Protocol-B federated adaptation, Protocol-A control,
-modality-localized attack, and causal update mechanism.
-
-Read completely before acting:
-- repository AGENTS.md;
-- all canonical Orchestra documents, especially S13;
-- approved S12 HANDOFF/REVIEW and frozen split/threat-model manifests;
-- reviewed CL-PILOT/CL-FREEZE artifacts;
-- existing FL/attack/eval/provenance code and read-only historical T3-T5 evidence.
-
-Objective in strict phases: (1) retrain frozen architecture on D_base for W_base;
-(2) establish central pooled-tail oracle, local-only, clean Protocol-B FL and
-separately labeled Protocol-A clean control; (3) only after clean utility passes,
-run approved attacks; (4) measure per-module update geometry and causal block
-interventions. Weak clean FL, leakage, unequal exposure, or missing eligibility
-blocks security claims.
-
-Clean and attacked matrices need separate RUN_REQUEST.md approvals. Stop after each
-phase for S00/owner review; do not infer attack authorization from clean approval.
-Write RESULTS.md/HANDOFF.md with all jobs/failures, common/tail/forgetting/client
-utility, ASR/false-trigger, budgets, update geometry, raw hashes, negative findings,
-and interpretation limits. Do not commit/merge/push/upload without authorization.
-```
-
-### S14 — defense, adaptive attack, and generalization
-
-```text
-You are worker S14: structure-aware defense, adaptive attack, and generalization.
-
-Read completely before acting:
-- repository AGENTS.md;
-- all canonical Orchestra documents, especially S14;
-- approved S12 threat model and reviewed S13 clean/attack mechanism evidence;
-- generic defense implementations/oracles and relevant primary papers;
-- exact clean baselines, splits, checkpoints, budgets, and server-visibility rules.
-
-Objective: design the minimum defense that targets the measured module/modality
-mechanism; compare fairly tuned generic defenses; evaluate a defense-aware adaptive
-attacker, benign tail clients/outliers, common/tail utility, FPR, overhead, secure-
-aggregation assumptions, and at least one approved generalization structure.
-
-Do not proceed if S13 attack is not viable. Every defense/adaptive/generalization
-matrix needs an exact RUN_REQUEST.md and owner approval. Write RESULTS.md and
-HANDOFF.md with all cells/failures, tuning budgets, clean harm, tail suppression,
-ASR/FPR, overhead, assumptions, hashes, negative results, and forbidden claims. Do
-not commit/merge/push/upload without authorization.
-```
+No S14 task may be launched until a new S13 undefended attack is independently
+shown viable on the capable clean baseline and the owner approves a defense
+envelope. Legacy defense implementations/oracles may be inspected only as frozen
+negative/parity evidence; they are not active baselines or code sources.
 
 ### S15 — paper and artifact
 
@@ -839,20 +864,12 @@ rejection and authorization compliance. Write S06/REVIEW.md with exact findings,
 gates and residual risk. No Slurm.
 ```
 
-### S07-R — integrated engineering review
+### S07-R — retired alias
 
-```text
-You are independent reviewer S07-R. Read AGENTS, all canonical docs, S01-S07
-handoffs/reviews, exact integrated diff/commit/configs, all gate outputs and any
-approved run request/results. Do not fix integration.
-
-Audit that only reviewed changes were integrated; cross-module shapes/dtypes/grids;
-ZIP-to-model path; C/L/F mode truth; batch invariance; geometry; gradients;
-precision/resume/eval/provenance; 100/1000-step scope; full-data profile; failures;
-and config/checkpoint hashes. Reconcile worker claims against raw outputs. Write
-S07/REVIEW.md with blocking seam findings, complete gate verdict, residual risk and
-whether S08/S09 requests may be prepared. No Slurm.
-```
+The old integrated-engineering reviewer prompt is retired with the e231 chain.
+For cleanup, use the exact S07-C-R prompt above. A later clean S07-B completion
+review receives a new filled exact-SHA prompt after that worker delivers; it must
+not reuse this historical section.
 
 ### S08-R — camera result review
 
@@ -911,51 +928,21 @@ from Protocol-B initialization. Write S11/REVIEW.md with CL-FREEZE recommendatio
 accepted numbers/claims, blockers and residual risk. No Slurm/upload.
 ```
 
-### S12-R — protocol/split/threat-model review
+### S12-R — deferred; not copy-ready
 
-```text
-You are independent science reviewer S12-R. Read AGENTS, all canonical docs, S12
-contract/HANDOFF, split proposal/manifests/statistics, data schema/partition code,
-threat model/claim map/paper skeleton, and all cited primary literature. Do not
-redesign silently.
+No S12-R launches until a fresh cleaned-branch S12 worker exists at an exact
+durable SHA under a new owner-approved protocol/split envelope.
 
-Audit Protocol B as primary and A as control; scene/log/sample/sweep isolation;
-official val/test holdout; frozen train-only tail rule; held-out tail support;
-D_base target support; client unit/update scope; W_base/oracle/local/clean FL
-controls; attacker/server/secure-aggregation realism; metrics/forgetting; novelty
-boundary and claim-evidence completeness. Write S12/REVIEW.md with leakage findings,
-required owner decisions, gate verdict, unsupported claims and residual risk.
-```
+### S13-R — deferred; not copy-ready
 
-### S13-R — clean FL/attack mechanism review
+No S13-R launches until clean adaptation and, later, a newly implemented attack
+have exact worker SHAs and separate approved review scopes. Legacy T5 review
+packages cannot be reused.
 
-```text
-You are independent science reviewer S13-R. Read AGENTS, canonical docs, S13
-contract, approved clean and attack RUN_REQUESTs, RESULTS/HANDOFF, S12 review, exact
-splits/configs/checkpoints/logs and raw update/ASR artifacts. Do not rerun or tune.
+### S14-R — deferred; not copy-ready
 
-Audit W_base saw only D_base; oracle/local/clean FL exposure fairness; Protocol A/B
-labels; common retention, tail gain, forgetting, client dispersion and clean utility
-gate; attack authorization/budgets; clean-correct ASR denominator; occlusion/false
-trigger; persistence; block-energy/causal intervention; failed cells; and post-hoc
-choices. Write S13/REVIEW.md with clean-readiness and attack-mechanism verdicts,
-accepted/forbidden claims, blockers and residual risk. No Slurm/upload.
-```
-
-### S14-R — defense/adaptive/generalization review
-
-```text
-You are independent science reviewer S14-R. Read AGENTS, canonical docs, S14
-contract, approved requests, RESULTS/HANDOFF, S13 review/raw attack evidence, generic
-defense references, configs/logs/checkpoints and server-visibility assumptions. Do
-not rerun or tune.
-
-Audit that the undefended attack is viable; defense tuning fairness; identical clean
-baselines/budgets; adaptive attacker knowledge; rare benign client rejection, tail
-suppression, common utility, FPR, ASR and overhead; secure-aggregation compatibility;
-missing/negative cells; and generalization scope. Write S14/REVIEW.md with findings,
-accepted/forbidden defense claims, gate verdict and residual risk. No Slurm/upload.
-```
+No S14-R launches until a new S14 implementation follows an independently viable
+undefended S13 attack. Legacy defense review/oracle evidence is historical only.
 
 ### S15-R — paper/artifact review
 

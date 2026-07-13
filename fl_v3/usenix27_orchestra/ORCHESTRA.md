@@ -1,63 +1,37 @@
 # USENIX Security '27 Orchestra — strong CL backbone to federated multimodal security
 
-> **Status:** active. The owner designated the pinned S00 task at
-> `detached@f262f6bea037580065a8505008773c04fdd259f5` as the sole canonical writer
-> on 2026-07-10. S01 is integrated into the dedicated S07-A branch, and S07-A is
-> independently reviewed **PASS for the data-foundation phase** at delivery
-> `ba1571632557c20adbda3172221694cdbecfeabe`, executable INT-A
-> `44cefd06bc815e893919d95c754896711dba3402`, and review artifact
-> `370ea6c0bd4d9d737a5a50b6aff1c6f742589825`. Job `335280` closed the two
-> prior provenance P1 findings plus locale-stable source attestation with 7/7
-> focused tests. No merge to `v3-ad-perception` or push has occurred. The full
-> trainval `t1.v2` cache remains unapproved/unexecuted, and S07-B model readiness
-> remains a separate gate. Wave-A S02-S05 is active from common base `372de939`:
-> S02 delivered `7ad396e` after preserved failed Job `335565` and separate passing
-> remediation Job `335578`; bounded GPU Job `336713` closed the sole review gap,
-> and limited re-review `df142dc` now accepts S02 as a reviewed S07-B dependency.
-> S03 preserved its failed infrastructure attempt, then passed exact shared-node
-> Job `336708`; independent review `2f62e57` accepts it as a module-level S07-B
-> dependency with production-shape limits. S04 Job `335579` closed the sparse
-> composition defect but failed two final-BEV fp16 dtype assertions. S04 Job
-> `336718` closed those dtype assertions and passed the B=4 gate, but remains a
-> preserved 9/10 failure on a tiny-occupancy train-to-eval spconv tuner path; Job
-> `336728` confirmed a universal current spconv-2.3.8 fp16-eval dispatch blocker,
-> and owner decision O-025 selected the version-guarded spconv-only
-> training-dispatch-under-no-grad remediation. Exact Job `341695` passed 15/15,
-> and independent review `a0763c2` accepts S04 as a module-level S07-B dependency,
-> with same-instance concurrency/reentrancy retained as an S06/S07-B integration
-> requirement. S05 preserved failed Job
-> `336731` (43/44), corrected only the tuple-valued devkit fixture, and passed the
-> separately approved exact Job `336738` (44/44). Final independent review
-> `1c44084` accepts worker `a9c801f` as a reviewed S07-B dependency. All failures
-> remain negative evidence; no automatic retry or integration PASS has been inferred.
-> All S02-S05 modules are now reviewed PASS within their stated limits. The filled
-> S06 production-runtime kickoff was owner-approved under O-027 and launched at
-> `xhigh` from exact base `968d81583c87ba76b7dbbb722760f8eb8eb6cd39`
-> on `codex/s06-production-runtime`. S00 rejected its first two unexecuted runtime
-> requests under O-028 and returned fixed-window exposure plus fail-atomic
-> checkpoint blockers for scoped remediation. Remediated executable `6696984`
-> then ran only the exact bounded synthetic Job `341997`, which is preserved as
-> **FAILED 1:0** with 45 passed / 17 failed / 0 skipped. O-029 returns four
-> engineering root-cause families plus failure-artifact preservation for a
-> second scoped remediation. Exact remediation-2 Job `342014` then completed
-> `0:0` with 66/66 tests, zero skips, exact source/environment attestation and
-> an in-job verified final manifest. S00 completeness audit accepted final worker
-> `6b7ef29` for independent review. S06-R review `ca7bbd7` found no P0-P2 and
-> returned a strictly bounded **PASS** under O-031: S06 is now a reviewed S07-B
-> candidate dependency, not an integration, production, full-data or scientific PASS.
-> S12 has delivered its
-> evidence/proposal-only handoff for completeness/review and used no compute.
-> Remaining architecture choices, cells, and run requests still require their own
-> approvals.
-> **Venue target:** USENIX Security '27 first submission cycle (registration 2026-08-18 AoE;
-> submission 2026-08-25 AoE).
+> **Status (2026-07-13): active cleanup and clean-foundation recovery.**
+> The owner froze legacy S07-B endpoint
+> `e231808e77388d69053dcbced6e754dbe3468aef` as read-only negative evidence
+> and selected `4ce2366df2925161adae8fea393d5fca64836d40` as the audited code
+> baseline for S07-C cleanup. The old S07-B branch must not be rewritten,
+> merged, pushed, or treated as a continuation baseline.
+>
+> S01/S07-A and reviewed S02-S06 remain accepted clean foundations within their
+> recorded limits. The next approved topology is a canonical-only preparation
+> commit on `codex/s07-c-legacy-security-cleanup`, then S07-C cleanup, an
+> independent review whose history is never merged, and a later
+> `codex/s07-b-clean-completion` branch from the accepted cleanup worker SHA.
+>
+> Legacy T4 attack-readiness, T5 attack, T6/T7 defense, old defense-registry and
+> harness implementations are retired from active authority. No new attack is
+> allowed until the CL detector is trained/frozen and clean Protocol-B
+> adaptation is established. New attack work belongs to a later owner-approved
+> S13 threat model; S14 starts only after a viable undefended attack.
+>
+> Compute is **not approved** for canonical preparation or S07-C kickoff. Any
+> bounded GH200 validation requires an exact immutable RUN_REQUEST and separate
+> owner/S00 audit. Full cache, trainval, 100/1000-step, metrics, profile, DDP,
+> matrix, retry, merge, push and upload remain unauthorized.
+>
+> S12 is deferred and its proposal is not an active implementation authority.
+> `fl_v3/collab/**` and `fl_v3/docs/cycle_04/**` remain read-only historical
+> evidence. Sections below retain scientific planning context; where any older
+> wording conflicts with the active registry in Section 11 and O-092, O-092 wins.
+>
+> **Venue target:** USENIX Security '27 first submission cycle.
 > **Canonical companions:** [`SESSIONS.md`](SESSIONS.md) and
 > [`KICKOFFS.md`](KICKOFFS.md).
-> **Scope rule:** this directory is a top-level `fl_v3/` workspace, parallel to
-> `fl_v3/collab/`. The entire `collab/` tree is now read-only historical evidence
-> for this stage; it may be read and cited but receives no new planning, handoff,
-> review, or result documents.
-
 ## 1. Decision and research objective
 
 We will sprint for the USENIX Security '27 first submission cycle. The immediate
@@ -74,16 +48,21 @@ security contribution. The intended paper question remains:
 > module-/modality-aware defense remove it without rejecting the rare benign
 > updates that the adaptation process exists to learn?
 
-The USENIX '27 sprint schedule therefore overlaps three streams:
+The USENIX '27 sprint schedule is now sequenced through three streams:
 
 1. **CL foundation:** fix correctness, choose and freeze a strong modular backbone.
-2. **Security mechanism:** prepare the threat model and attack instrumentation in
-   parallel; start scientific attack/FL runs as soon as the single-seed fusion
-   pilot passes, without waiting for all final CL seeds.
+2. **Clean federated foundation:** freeze the CL detector, establish clean
+   Protocol-B adaptation and the separate Protocol-A control, and only then
+   return to an owner-approved S13 threat model. Legacy T5/T6/T7 code is not a
+   shortcut into this stream.
 3. **Paper/artifact:** maintain the argument, tables, provenance, and artifact from
    the beginning rather than reconstructing them at the deadline.
 
-## 2. Current baseline: what is and is not trusted
+## 2. Historical pre-Wave-A baseline: retained diagnostic context
+
+This section records the problems that motivated S02-S06. It is not a claim that
+the selected S07-C base still contains every listed defect. Accepted current
+foundation identities and limits are in Section 11.3; O-092 governs cleanup.
 
 The strongest historical CL result is `bb02d = 0.5656 mAP / 0.5733 NDS` on the full
 nuScenes validation split. It is a useful engineering milestone, but it is not the
@@ -132,7 +111,8 @@ improves over the stronger branch.
    still supplies only coverage/loader evidence and its `t1.v1` caches remain
    forbidden. Before any production training, the separately owner-approved full
    trainval `t1.v2` cache job must generate and freeze exact cache/sidecar/manifest
-   hashes, and S06/S07-B must bind those identities at every production entry point.
+   hashes, and later clean S07-B completion must bind those identities at every
+   production entry point.
 
 ### Capability limitations to resolve during architecture freeze
 
@@ -165,17 +145,18 @@ improves over the stronger branch.
 - EMA history is not restored on resume; fp32 non-finite loss handling can still
   take an optimizer step.
 
-## 3. Owner-approved Wave-A module contract — final integration not yet frozen
+## 3. Owner-approved Wave-A module contract — preserve through cleanup
 
 The owner approved the following implementation contract for parallel S02-S05 work
 on 2026-07-11 under O-017. This freezes the primary module choices that those
-workers may implement; it does not approve S07-B integration, a full-trainval cache
-or model run, numerical CL gates, or a final scientific architecture. S07-B and its
-independent review must still reconcile the reviewed module contracts before any
-production or scientific execution.
+workers implemented; it does not approve a full-trainval cache or model run,
+numerical CL gates, or a final scientific architecture. S07-C must preserve these
+contracts, and later clean S07-B completion plus independent review must reconcile
+them before any production or scientific execution.
 
 The approved Wave-A primary model is a strong, modular late-BEV detector whose modality
-boundaries remain meaningful for attacks and defenses:
+boundaries remain meaningful for clean ablation and any later re-specified
+security work:
 
 - **Camera:** Swin-T initially; effective multi-scale FPN output at stride 8;
   pure-camera LSS/view transform; 0.5 m depth bins; aspect-preserving resize/crop
@@ -525,33 +506,31 @@ The deployment logic is credible, but the setting alone is not a novelty claim:
 Therefore the paper contribution cannot be “federated learning learns rare driving
 data.” The proposed security novelty is the interaction between **legitimate
 long-tail adaptation**, **modality-localized backdoor updates**, **geographic/domain
-non-IID drift**, and **structure-aware defense**. S12 must continue a systematic
-literature audit before any “first” wording is approved.
+non-IID drift**, and **structure-aware defense**. A later owner-approved S12
+re-audit must repeat the systematic literature review before any “first” wording
+or threat-model claim is approved; the old proposal is not authority.
 
-## 6. USENIX '27 sprint execution calendar
+## 6. Execution order after the 2026-07-13 cleanup decision
 
-The calendar is deliberately overlapping and assumes several isolated sessions/
-worktrees run in parallel.
+The earlier overlapping date calendar is retired. It assumed that legacy
+attack/defense work could proceed beside CL engineering and is incompatible with
+O-092. The active order is evidence-gated rather than date-promised:
 
-| Window | Required outcome |
+| Order | Required outcome |
 |---|---|
-| Jul 10-12 | owner approves architecture contract, session split, CL/FL initialization policy |
-| Jul 11-16 | ZIP backend, P0 fixes, camera/LiDAR/head modules, trainer modes in parallel |
-| Jul 16-20 | integration, 100/1000-step gates, full-data profiling, candidate configs frozen |
-| Jul 20-29 | camera and LiDAR full single-seed runs; fusion single-seed jobs start as branch checkpoints arrive |
-| Jul 27-Aug 5 | fusion recipe selection, remaining CL seeds, `CL-PILOT` then `CL-FREEZE` |
-| Jul 29-Aug 12 | preliminary FL/attack mechanism and defense runs on the passing pilot/frozen model |
-| Aug 8-17 | adaptive/generalization experiments, result-table freeze, artifact dry run |
-| Aug 15-18 | fixed title/authors/topics/abstract approved; mandatory registration by Aug 18 AoE |
-| Aug 18-25 | paper and artifact freeze; submission by Aug 25 AoE |
+| 1 | commit canonical-only P above audited 4ce2366 |
+| 2 | S07-C removes legacy attack/defense routes and preserves clean foundations |
+| 3 | independent S07-C-R accepts an exact durable cleanup worker SHA |
+| 4 | clean S07-B completion closes only C/L/F/runtime/eval/FedAvg engineering |
+| 5 | independently review clean completion, then rebaseline S08-S11 CL work |
+| 6 | train and freeze the CL detector |
+| 7 | re-audit S12 and establish clean Protocol-B adaptation plus Protocol-A control |
+| 8 | owner may approve a new S13 threat model/attack; S14 waits for a viable undefended attack |
+| 9 | schedule paper/artifact claims only from checksummed accepted evidence |
 
-Two distinct unlocks keep the sprint moving:
-
-- **`CL-PILOT`:** one fusion seed passes the absolute and fusion-gain gates. It
-  unlocks preliminary FL/attack experiments.
-- **`CL-FREEZE`:** C/L/F each have three seeds, the architecture/config/checkpoint
-  schema is frozen, and all final paper security results must use this version.
-
+No deadline creates compute, merge, push, attack or defense authorization.
+`CL-PILOT` and `CL-FREEZE` definitions will be re-frozen after clean S07-B
+completion; neither currently unlocks attack work.
 ## 7. Session collaboration rules
 
 Detailed session contracts and dependencies are in [`SESSIONS.md`](SESSIONS.md);
@@ -601,8 +580,8 @@ copy-ready worker and independent-review startup prompts are in
   resubmission are outside this authorization.
 - Before submission the session writes `RUN_REQUEST.md` as an audit record with the
   exact HEAD plus working-tree diff hash, command, bounded data/sample scope,
-  resources, output path, and stop criteria, and cites `O-009`. It may then submit
-  without waiting for another approval. Every job ID, log, exit status, retry, and
+  resources, output path, and stop criteria, and cites `O-009`. Under O-092 cleanup
+  work it must stop for owner/S00 audit before submission. Every job ID, log, exit status, retry, and
   negative result is recorded in `HANDOFF.md`/`RESULTS.md` as applicable.
 - Reaching a boundary above, repeating the same failure twice, or seeking a result
   used for a gate/table/metric returns to S00/owner for exact approval. Full tests,
@@ -826,12 +805,13 @@ now.
 - [x] USENIX '27 sprint scope and overlapping calendar (owner-approved).
 - [x] Protocol B is the primary security setting; Protocol A is the clean
       optimization/control setting (owner-approved 2026-07-10).
-- [x] Per-session `RUN_REQUEST.md` audit process; bounded non-scientific smoke may
-      self-submit under O-009, while full tests/runs/metrics/matrices require exact
-      owner approval (owner-approved 2026-07-10).
+- [x] Per-session `RUN_REQUEST.md` audit process; bounded non-scientific smoke
+      still requires an exact tuple and current owner/S00 audit, while full
+      tests/runs/metrics/matrices require separate exact owner approval.
 - [x] Fifteen-session split, dependencies, file ownership, and independent review
       process in `SESSIONS.md` (owner-approved).
-- [x] Copy-ready S00, S01-S15, and S01-R-S15-R kickoff registry in `KICKOFFS.md`.
+- [x] O-092 cleanup ordering and anti-recovery rule. Only S07-C is the next
+      preparable worker; S12-S14 prompts are explicitly deferred/blocked.
 - [x] Evidence-driven Orchestra refinement authority with owner-locked scientific
       decisions and a recorded change-control ledger (owner-approved 2026-07-10).
 - [x] Codex-UI-provisioned worktrees with pinned SHA/ref kickoff envelopes;
@@ -847,49 +827,162 @@ runs they judge; they cannot be selected after seeing those outcomes.
 | Decision | Current status | Latest owner freeze point |
 |---|---|---|
 | Gaussian-radius/target equation and golden values | owner-approved for S02 under O-017: exact official CenterPoint/BEVFusion reference semantics, `min_overlap=0.1`, `min_radius=2`; deterministic golden fixtures must pin the equation | S02-R independently recomputes the fixtures; any deviation or alternative geometric formula returns to S00/owner |
-| Minimum modular backbone/interface contract | owner-approved for Wave-A under O-017: S03 Swin-T/stride-8/pure-camera LSS/0.5 m bins/aspect-preserving geometry; S04 SECOND `0.075x0.075x0.2 m`/~8x sparse-XY reduction/low-resolution densification/fp16+fp32 contract | final cross-module integration contract remains an S07-B review gate |
+| Minimum modular backbone/interface contract | owner-approved for Wave-A under O-017: S03 Swin-T/stride-8/pure-camera LSS/0.5 m bins/aspect-preserving geometry; S04 SECOND `0.075x0.075x0.2 m`/~8x sparse-XY reduction/low-resolution densification/fp16+fp32 contract | preserve through S07-C; recheck at clean S07-B completion review |
 | Multi-task CenterHead primary; TransFusion contingency/generalization | owner-approved for S05 under O-017/O-018: reference-faithful multi-task CenterHead with declared no-starvation decode and GroupNorm adaptations; TransFusion remains closed contingency | official groups/thresholds/NMS remain pinned; O-018 removes only the second task-wide K and forbids claiming exact official-decode equivalence |
-| `D_base`/`D_tail`, regional/fleet client unit, and fine-tuning scope | pending | S12 may design alternatives now; freeze and hash before split materialization or any Protocol-B training in S13 |
-| mAP/NDS, fusion-gain, per-class, speed, memory, and acceptance gates | pending | numerical floors may use S07 engineering/profile evidence, but freeze before the S08/S09/S10 scientific run each gate evaluates |
-| Five-cell single-seed matrix and whether 11 full runs are necessary | pending | use S07 cost plus reviewed branch evidence; approve each exact wave before its `RUN_REQUEST.md`, and freeze fusion cells before S10 outcomes |
-| Security thesis and `CL-PILOT`/`CL-FREEZE` semantics | pending | S12 may refine the thesis; freeze `CL-PILOT` before it unlocks S13 and freeze final-backbone semantics before final security runs |
+| `D_base`/`D_tail`, regional/fleet client unit, and fine-tuning scope | deferred | re-audit S12 only after clean CL readiness; freeze and hash before split materialization or Protocol-B training |
+| mAP/NDS, fusion-gain, per-class, speed, memory, and acceptance gates | pending after cleanup | use independently accepted clean S07-B evidence; freeze before each S08/S09/S10 scientific run |
+| Five-cell single-seed matrix and whether 11 full runs are necessary | pending after cleanup | re-evaluate from clean completion/cost evidence; each exact wave needs owner approval |
+| Security thesis and `CL-PILOT`/`CL-FREEZE` semantics | deferred | no S13 attack unlock until CL freeze, clean Protocol-B adaptation and a new owner-approved threat model |
 
-## 11. Orchestra change-control ledger
+## 11. Canonical owner-decision registry
 
-Only S00 edits this ledger. Each downstream plan/kickoff refinement records the
-evidence that caused it; material entries remain `PENDING` until the owner approves.
+This section is the only active O-ledger. O identifiers are never renumbered or
+reused. A row in the closed/history tables preserves provenance but grants no
+current implementation, compute, scientific or scheduling authority.
 
-| ID | Date | Evidence/decision | Change and affected sessions | Class | Approval/status |
-|---|---|---|---|---|---|
-| O-001 | 2026-07-10 | owner decision | Protocol B primary; Protocol A clean control; all sessions | locked scientific | approved |
-| O-002 | 2026-07-10 | owner decision | 15 workers, independent reviews, durable handoffs, exact run authorization | locked process | approved |
-| O-003 | 2026-07-10 | owner decision | S00 may refine unstarted work from accepted handoffs/reviews within the operational boundary | operational authority | approved |
-| O-004 | 2026-07-10 | Codex managed-worktree contract and owner decision | task UI creates detached managed worktrees; kickoff pins SHA/ref; S00 permanent/pinned; local handoff commit needs exact permission | workspace policy | approved |
-| O-005 | 2026-07-10 | owner decision on staged review | architecture, capability gates, matrix, split details, and thesis are decided at explicit latest freeze points rather than before all Wave-A work | scientific process | approved |
-| O-006 | 2026-07-10 | owner approval in active S00 task | pin `/home/gaohui/.codex/worktrees/bb67/fl_weather_project` as the sole S00 canonical writer; archive the idle `/home/gaohui/.codex/worktrees/90d4/fl_weather_project` task without deleting its worktree or branch | workspace coordination | approved and executed |
-| O-007 | 2026-07-10 | owner approval in active S00 task | issue S01 ZIP-backend implementation and S12 evidence/proposal-only kickoffs from `f262f6bea037580065a8505008773c04fdd259f5`; exact ownership is recorded in `SESSIONS.md`; both had `APPROVED_COMPUTE: none` at issuance | operational launch | approved and active; S01 later amended by O-009 |
-| O-008 | 2026-07-10 | owner reasoning-budget decision | S00 must explicitly create future Sxx/Sxx-R tasks at `xhigh`; use `ultra` only for a recorded unusually complex implementation/review or broad difficult research task | resource policy | approved; applies to future tasks; S01 follow-up amended to xhigh |
-| O-009 | 2026-07-10 | owner compute-policy decision and direct S01 smoke approval | allow bounded non-scientific Slurm smoke without per-job waiting, subject to the standing limits and preflight record above; retain exact owner review for full tests, full-data/profile/metrics, matrices, seeds, and reruns | compute policy | standing; S07-A focused jobs `333477` and `335280` completed PASS within scope |
-| O-010 | 2026-07-10 | owner clarification request | replace ambiguous worker-kickoff `WORKER_SHA: n/a` with `pending`; record that worker SHA/ref is produced only after S00 completeness checking and owner-authorized delivery commit, and is then consumed by Sxx-R | kickoff schema clarification | approved operational clarification |
-| O-011 | 2026-07-11 | owner workflow clarification | before S00 directly creates any Sxx/Sxx-R, present upstream handoff/review/diff status and the complete filled kickoff for owner review and explicit launch authorization; worker sessions never launch their own reviewer; S07 remains the sole code-integration session | launch/integration workflow | approved |
-| O-012 | 2026-07-11 | S01 worker `abe5c58`, review `7cf7fcc`, jobs `332651`/`333206`, and S00 raw-artifact audit | accept S01 as a reviewed dependency for S07 only: full manifest/checksums and scheduler records match; 56/56 focused tests and all listed remediation-source hashes match. Do not merge the review branch as implementation; do not use historical `t1.v1` caches or claim model/scientific readiness | integration evidence | accepted dependency; no merge/push |
-| O-013 | 2026-07-11 | accepted S01/S01-R evidence and `build_gt_database.py` audit | split S07 into phase S07-A data-foundation integration and later S07-B full-stack integration. S07-A lands exact worker history plus review artifact, fixes the `t1.v1` caller and active-doc status, hardens future test attestation, and prepares a separately approved full `t1.v2` cache gate; S06 must bind `n_sweeps` and cache/manifest hashes explicitly | operational dependency refinement | executed; S07-A final review PASS at `370ea6c` |
-| O-014 | 2026-07-11 | owner temporary delegation in active S00 task | S00 may coordinate S07-A/S07-A-R through completion, approve reasonable validation-only O-009 jobs, and after S07-A completion prepare parallel S02-S05 launches; no large jobs/metrics, push, or merge to `v3-ad-perception` | scoped orchestration/compute authority | approved and exercised; Job `335280` completed PASS, no retry/follow-on |
-| O-015 | 2026-07-11 | S07-A delivery `ba15716`, executable `44cefd0`, review `370ea6c`, Jobs `333477`/`335280`, and S00 raw-artifact audit | accept S07-A as reviewed data-foundation dependency; preserve old c8dd locale preflight rejection and historical `t1.v1` limits; full trainval `t1.v2` cache and S07-B remain separate gates | integration evidence | accepted; no full-cache/model authorization |
-| O-016 | 2026-07-11 | accepted S07-A review plus S02-S05 ownership audit | future S02-S05 workers start from one S00-frozen integration SHA; `fusion/losses.py` is exclusive to S02 during the parallel wave, while S05 treats it as read-only and returns any shared-interface change to S00; all four read S07-A handoff/review and preserve the exact data contract | operational refinement affecting S02-S05 | approved under O-003; implementation-choice dependency satisfied by O-017 |
-| O-017 | 2026-07-11 | owner approval in active S00 task after review of the S02-S05 scope and full-data boundary | freeze the S02 official-reference Gaussian semantics (`min_overlap=0.1`, `min_radius=2`), S03 Swin-T stride-8 pure-camera contract, S04 SECOND `0.075x0.075x0.2 m` sparse-XY contract, and S05 multi-task CenterHead primary/TransFusion contingency; authorize S00 to commit the canonical launch ledger directly atop S07-A freeze `0249eb21a32730ac1689255491b19a158711401f`, launch S02-S05 at `xhigh` from that resulting common ledger SHA, and authorize each worker to create `codex/s0x-*` plus implementation/test/handoff commits strictly inside its envelope | locked Wave-A implementation choices plus scoped orchestration | approved and launched at `xhigh` from common base `372de9398ae435f82b83367a922fd302c0635738` on `codex/s02-cl-p0-correctness`, `codex/s03-camera-architecture`, `codex/s04-lidar-second`, and `codex/s05-centerhead-decode`; S00 may audit/approve only O-009 short non-scientific requests and schedule S02-R through S05-R after completeness checks; no full trainval, 100/1000-step gate, profile/metrics/matrix, push, merge to `v3-ad-perception`, or approval drift |
-| O-018 | 2026-07-11 | S05 pre-edit audit of MIT BEVFusion archived HEAD `326653dc06e0938edf1aae7d01efcd158ba83de5`, CenterPoint v0.2 `e9ef04c3715aa3342fa42f4f4e064db987def6ad`, and owner approval in active S00 task | resolve the official coder's per-class K=500 followed by task-wide K=500 conflict with O-017 no-starvation: retain per-class K=500, remove only the second task-wide K, feed at most 500/1000 candidates for one/two-class tasks into the pinned official task-wide NMS, and use deterministic ties ordered by score descending, class ID ascending, then flattened spatial index ascending; retain official score/range, task groups, circle/rotate choice/scales, pre=1000, post=83, and IoU threshold; use GroupNorm instead of official BN while retaining the shared-conv and per-task two-layer field topology; map task-local labels to the project's devkit-global `DETECTION_NAMES` IDs explicitly by class name rather than official task-flatten offsets | locked S05 active-session amendment | approved; implementation must be labeled `reference-faithful no-starvation adaptation`, not exact official decode parity; require single-class parity plus B=1/B>1, batch/input permutation, equal-score tie, tail-candidate retention, duplicate, coordinate, explicit `construction_vehicle`/`bus`/`barrier`/`pedestrian`/`traffic_cone` label-map, and submission-conversion fixtures; all O-017 compute/Git/integration limits remain unchanged |
-| O-019 | 2026-07-11 | S02 delivery `7ad396e`; Jobs `335565`/`335578`; S03 Job `335630`; S04 Jobs `335566`/`335579`; S05 review `c818262`; S00 raw-log/diff/hash audit | preserve every Wave-A negative result and apply scoped return-for-changes: launch S02-R only from exact delivery; require S03 shared `/nobackup` immutable execution provenance plus an explicit decision on observed four-GPU whole-node allocation before another job; retain the S04 final-BEV fp16 gate and repair implementation rather than tests; return S05's three review findings and require fresh re-review | operational evidence/refinement under O-017; affects S02-S05 and S07-B readiness | all scoped returns resolved by O-020 through O-026; all negatives preserved; no integration/merge/push/full-data/profile/metric/scientific authorization implied |
-| O-020 | 2026-07-11 | S02 review `fb17da3`/REVIEW hash `75b6a5ed...`; S05 remediation delivery `705216d`, implementation `753944c`, HANDOFF hash `91506174...`; S00 completeness audits | accept S02-R's source audit but return the missing one-GPU forward/backward as an evidence-only remediation with implementation semantics frozen; accept S05 remediation as complete enough for a fresh exact-SHA re-review, not as PASS; keep all authored-but-unexecuted runtime cases explicitly NOT RUN | review scheduling/evidence refinement under O-017 | resolved: S02 by O-021 and S05 by O-024; their pre-execution NOT-RUN state and later exact execution evidence remain separately recorded |
-| O-021 | 2026-07-11 | S02 Job `336713`, delivery `3aebf2d`, limited review `df142dc`; S03 Job `336708`, delivery `5089383`; repeated Codex reviewer-provisioning API timeouts | accept S02 as a reviewed S07-B dependency after exact one-GPU B=3 forward/backward evidence; send S03 delivery to independent review after exact 10-test one-GPU PASS; when the Codex task provisioning API times out without creating a worktree, S00 may use the owner's existing S02-S05 reviewer-launch delegation to provision an exact-SHA detached review worktree itself, while the reviewer remains forbidden to manage worktrees and retains review-only ownership | operational evidence/infrastructure fallback under O-017 | S02 accepted; S03 later accepted by O-022; fallback used only for S03-R/S05-R2 after three failed API attempts; no merge/push/scientific scope expansion |
-| O-022 | 2026-07-11 | S03 review `2f62e57`/REVIEW hash `01dea6fd...`; S04 Job `336718`, delivery `80a8fbb`, raw JUnit/log/artifact audit | accept S03 as a reviewed module-level S07-B dependency with explicit production-shape/integration limits; preserve S04 Job `336718` as FAILED 9/10 despite passing final dtype and B=4 subgates; treat the fp16 train-to-eval tiny-occupancy spconv tuner failure as a potential lifecycle blocker requiring diagnosis, not as grounds to weaken/remove the eval fixture | integration evidence plus S04 return-for-diagnosis under O-017 | S03 accepted dependency; S04 CHANGES-REQUESTED/diagnosis active; no automatic retry or S04 PASS |
-| O-023 | 2026-07-11 | S04 diagnostic Job `336728`, delivery `49f26de`, seven isolated lifecycle cells and installed spconv 2.3.8 source audit | confirm the blocker is universal to current sparse fp16 eval dispatch: training custom-fwd casts features/filters to half and succeeds; eval bypasses it and requests fp16-feature/fp32-filter/fp32-output, failing across small/large/fresh/reused/cache-order cells; fp32 eval succeeds. Do not implement a workaround until owner selects A) recommended spconv-only training dispatch under no-grad with encoder eval caps/GN preserved and version guard, B) fp32 sparse eval plus fp16 interface cast, C) separate fp16 eval weight copy, or D) dependency patch | locked precision/runtime decision affecting S04/S06/S07-B | owner selected A under O-025; historical diagnostic and all failed cells remain preserved |
-| O-024 | 2026-07-11 | owner temporary S02-S05 coordination/validation delegation; S05 worker `a9c801f`, execution `96e509b`, Jobs `336731`/`336738`, final review `1c44084`, and S00 raw-artifact/diff/hash audit | use the delegated authority for one necessary focused S05 rerun after correcting only the devkit tuple-valued test expectation; explicitly classify it as owner-delegated validation rather than O-009, preserve Job `336731` as FAILED 43/44, and accept separately approved Job `336738` as 44/44 with exact immutable identity/checksums. Accept S05 as a reviewed S07-B dependency while retaining production wiring/profile/full-data/scientific gates | scoped compute/review evidence affecting S05/S07-B | approved and consumed; S05 reviewed PASS at worker `a9c801f` / review `1c44084`; no follow-on compute, merge, push, profile, metric, or scientific authorization; S04's former pending choice is separately resolved by O-025 |
-| O-025 | 2026-07-12 | owner approval after S04 Job `336728` mechanism diagnosis and S00 presentation of options A-D | select option A for S04: during fp16 inference under `torch.no_grad()`, keep the encoder and GroupNorm/eval semantics unchanged while only spconv sparse convolution modules use the installed spconv 2.3.8 training dispatch that activates its coherent fp16 custom-fwd casts. Require an exact version guard/fail-closed behavior; fresh-small, large, and same-model before/after train-to-eval coverage; no-grad/no-parameter-gradient proof; FP32 master parameter and state-dict hash immutability; normalization/eval-cap preservation; train-dispatch-under-no-grad parity; fp32 control; and bounded B4 eval memory evidence | locked S04 precision/runtime amendment affecting S04/S06/S07-B | implemented and independently accepted under O-026; the required synthetic lifecycle test may perform one forward/backward validation but no optimizer/GradScaler/parameter update or iterative training; no full trainval, profile/metrics/matrix, merge, or push; any broader dependency patch or precision change returns to owner |
-| O-026 | 2026-07-12 | S04 final worker `483e149`, executable `8498597`, Job `341695`, review `a0763c2`, and S00 raw-artifact/diff/hash audit | accept O-025 option A as the reviewed S04 bounded synthetic module gate: exact spconv 2.3.8 fail-closed dispatch, no-grad/state/master-weight/mode restoration, train-dispatch parity, fp32 control, caps/isolation, and B=4 train/eval memory all passed 15/15. Preserve Jobs `335566`/`335579`/`336718` as FAILED and Job `336728` as diagnostic completeness. Carry the review's P3 forward: same-instance concurrent/reentrant eval is unproved, so S06/S07-B must serialize the instance or add instance-level protection and adversarial tests | reviewed integration dependency affecting S04/S06/S07-B | S04 accepted as reviewed S07-B dependency only; all S02-S05 Wave-A modules now reviewed PASS within their stated limits; no production/full-data/profile/metric/scientific PASS, merge, or push |
-| O-027 | 2026-07-12 | owner instruction and subsequent approval of the filled S06 kickoff after reviewed S02-S05 completion | launch the filled S06 production-runtime envelope from exact canonical S07-A/S00 base `968d81583c87ba76b7dbbb722760f8eb8eb6cd39`; bind explicit camera-only/lidar-only/fusion modes, resolved config/data identities, executed-step accounting, nonfinite/overflow synchronization, persistent loader epochs, complete boundary-safe resume, eval autocast/provenance, legacy-checkpoint rejection, and S04 spconv 2.3.8 same-instance serialization. S06 consumes reviewed S02-S05 interfaces but S07-B remains sole implementation-integration owner | scoped S06 implementation plus orchestration/review delegation | APPROVED AND LAUNCHED at `xhigh` in task `019f5434-14f1-7391-b9d6-7ff2335e1dff`, worktree `44f9`, branch `codex/s06-production-runtime`; S00 may monitor, audit/approve only bounded non-scientific validation requests, and launch S06-R after completeness; compute remains none at kickoff; no full cache/trainval, 100/1000-step, profile/metrics/matrix, merge, or push |
-| O-028 | 2026-07-12 | S06 delivery `8acfbfe`, executable `7d733e9`, pending request `d2e302ab...`, monitor report, and S00 actual source/test audit | reject both unexecuted S06 runtime requests (`a95816b` and `7d733e9`) before compute. Return S06 for two scoped correctness remediations: preserve fixed accumulation-window boundaries with no successful silent tail discard and complete attempted/invalid/successful sample exposure accounting; and make checkpoint load fail-atomic so any schema/state/RNG or late component-load failure leaves model, optimizer, scheduler, scaler, EMA and RNG unchanged. Preserve production raw-decode and DDP as explicit S07-B seams | operational correctness return affecting S06/S07-B | CHANGES-REQUESTED; old requests are REJECTED/NEVER EXECUTE, no job was submitted; worker may commit scoped fixes/tests/new request under O-027 but must wait for a new exact S00 audit/approval; no compute/merge/push |
-| O-029 | 2026-07-12 | S06 remediation delivery `5bbb12c`, executable `6696984`, request `e42fd060...`, approval record `1528334`, Job `341997`, raw stdout/err/JUnit/source attestations, and S00/monitor audits | preserve Job `341997` as FAILED 1:0 (45 passed / 17 failed / 0 skipped) and forbid replay of its tuple. Return S06 within existing ownership for four scoped root causes without weakening contracts: thaw nested immutable config structures for run-config JSON; retain known-length accumulation preflight but use a truly lengthless iterator for the runtime-tail test; use a legal same-directory `.pt` temporary name while preserving atomic checkpoint save/cleanup; keep the fixed six-camera nuScenes contract and correct the synthetic eval fixture. The next launcher must finalize/check all raw-artifact hashes even when pytest fails, then return the original pytest status. Preserve the accidental empty `sbatch` CLI rejection as a no-job/no-resource negative event | operational runtime remediation and evidence preservation under O-027 | CHANGES-REQUESTED; no S06-R; Job `341997` and all earlier tuples are NEVER EXECUTE; worker may prepare remediation-2 commits and a fresh exact request, but no new compute until S00 audits/approves it; no merge/push/full data/metrics/DDP |
-| O-030 | 2026-07-12 | owner-delegated S06 scheduling authority; remediation-2 request delivery `cae0ff5`, executable `c330c72`, approval record `57b745a`, Job `342014`, final worker `6b7ef29`, raw sacct/JUnit/identity/source/final-manifest audits, and S00 completeness check | approve exactly one remediation-2 bounded synthetic job after independently matching the 25-file aggregate, launcher, fresh roots and unchanged resource/test scope. Accept Job `342014` as a bounded engineering gate only: COMPLETED 0:0, 66/66, zero skips, CUDA rollback executed, spconv 2.3.8, and final `sha256sum -c` all pass. Preserve Job `341997` and the bare-sbatch no-op as negative evidence. Launch independent S06-R from exact final worker SHA `6b7ef29`; reviewer owns only `handoffs/S06/REVIEW.md` and no compute | bounded validation evidence plus independent-review scheduling under O-027 | S06-R ACTIVE in task `019f546e-5661-7860-8023-61f718803e99`, worktree `90a6`, branch `codex/s06-r-production-runtime-review`; no S06 acceptance/integration until verdict and S00 audit; all S06 job tuples retired, no merge/push/full data/metrics/DDP |
-| O-031 | 2026-07-12 | final S06 worker `6b7ef29`, executable `c330c72`, Jobs `341997`/`342014`, independent review `ca7bbd7`, REVIEW SHA-256 `96d19965...`, and S00 actual diff/raw-artifact/review audit | accept S06 as a reviewed candidate dependency for S07-B only. Review found no P0-P2 and validates the fail-closed C/L/F runtime/config/checkpoint/eval contract plus exact Job `342014` bounded synthetic evidence. Preserve three P3 classes in S07-B: add real model/optimizer late-load rollback injection before production checkpoint claims; re-attest actual cumm/spconv build/source rather than only package version/config strings; and run the explicitly deferred actual S04/S05 fp16, mode-aware ZIP/multi-worker/resume, concurrency/EMA and production host-memory gates. Preserve Job `341997` 45/62 and the bare-sbatch no-op as negative evidence | reviewed dependency acceptance and unstarted S07-B kickoff refinement | S06 REVIEWED PASS within bounded scope; S07-B may now be prepared for owner review but is not auto-launched; no implementation merge, full cache, 100/1000-step, profile/metric, merge to `v3-ad-perception`, or push authorized |
-| O-032 | 2026-07-12 | owner agreement to prepare the next step; reviewed S02-S06 worker/review topology, actual branch parents, changed-path overlap audit, and O-031 S06 acceptance | propose the filled S07-B integration kickoff for owner review. Use a dedicated branch from the post-draft canonical SHA; non-FF merge exact final worker branches S02→S06; do not merge divergent reviewer ancestry, instead import and hash the five exact final REVIEW blobs; require explicit semantic reconciliation of S05+S06 evaluation, S01 mode-aware I/O, S02-S05 module APIs, S06 resolved runtime/checkpoint and only proven-dead legacy cleanup. Stage compute authorization: no compute at kickoff, O-009 only after S00 request audit, and full cache/100/1000/profile/metrics/DDP remain exact owner decisions | proposed S07-B scheduling/integration contract; no locked science change | PROPOSED / OWNER LAUNCH APPROVAL PENDING; no branch/worktree/merge/worker/compute created by this proposal |
+### 11.1 Active decisions
+
+| ID | Binding decision | Current authority |
+|---|---|---|
+| O-001 | Protocol B is the primary security setting; Protocol A is the separately labelled clean optimization/control setting. | locked scientific |
+| O-002 | Material worker work requires isolated ownership, durable handoff, independent review and exact execution authorization. | locked process |
+| O-003 | S00 may refine unstarted operational work from accepted evidence, but locked scientific scope returns to the owner. | active orchestration |
+| O-004 | Managed worktrees start from an exact pinned SHA/ref; durable worker and reviewer baselines require explicit Git authority. | active workspace policy |
+| O-005 | Architecture, capability, protocol, matrix and paper decisions freeze only at their declared evidence gates. | active scientific process |
+| O-008 | Worker and reviewer sessions use xhigh reasoning unless the owner records a different budget. | active resource policy |
+| O-009 | Only bounded non-scientific engineering smoke may be proposed under the standing limit; every exact tuple is still recorded and audited. Full cache/trainval, model campaigns, metrics, profiles, DDP, matrices, retries and scientific runs require separate owner approval. | active compute policy |
+| O-010 | Kickoffs use WORKER_SHA=pending until a durable delivery exists; reviewers pin the exact accepted worker SHA. | active kickoff schema |
+| O-011 | S00 presents upstream evidence and a filled kickoff before creating any worker/reviewer task; workers never launch their own reviewer. | active launch policy |
+| O-017 | Reviewed S02-S05 camera/LiDAR/head/loss contracts remain the clean C/L/F construction foundation. | locked architecture |
+| O-018 | CenterHead retains the reviewed reference-faithful no-starvation decode adaptation and explicit global class mapping. | locked head/decode |
+| O-025 | spconv 2.3.8 fp16 no-grad evaluation uses the reviewed version-guarded spconv-only training-dispatch workaround while preserving encoder eval/GN/state semantics. | locked runtime |
+| O-092 | Freeze the old S07-B/T5/harness chain; clean it from active authority; execute S07-C from audited code base 4ce2366, then independent S07-C-R, then clean S07-B completion from the accepted cleanup SHA. | active cleanup authority |
+
+### 11.2 O-092 exact cleanup decision (2026-07-13)
+
+The owner approved all of the following as one binding decision:
+
+1. Freeze `codex/s07-b-integrated-cl-stack` at
+   `e231808e77388d69053dcbced6e754dbe3468aef`. Do not rewrite, merge,
+   push, cherry-pick wholesale, or use it as an unquestioned continuation base.
+2. Use `4ce2366df2925161adae8fea393d5fca64836d40` as the audited code
+   base. A canonical-only preparation commit may sit above it, but its diff must
+   be exactly ORCHESTRA.md, SESSIONS.md and KICKOFFS.md.
+3. Create `codex/s07-c-legacy-security-cleanup`; remove legacy T4
+   attack-readiness, failed/unreviewed T5 attack code, old defense algorithms,
+   defense registry, their configs/scripts/tests/oracle fixtures and active routes.
+4. Retain clean C/L/F construction, official clean DetectionEval, S01 ZIP/data
+   contracts, S06 runtime/checkpoint semantics and one fixed clean FedAvg path.
+   Clean FedAvg must not remain under the legacy defense namespace.
+5. Do not import `bf480ea77ccf9ae8417c3ea58e933701dbc7222a` spawn-policy
+   changes into S07-C. A later clean S07-B completion may independently specify
+   and test a minimal spawn lifecycle if the clean runtime requires it.
+6. S07-C starts with APPROVED_COMPUTE=none. GH200 validation is optional and
+   requires a new immutable RUN_REQUEST; full cache/trainval, 100/1000-step,
+   metrics, profile, DDP, matrix, retry and scientific claims remain forbidden.
+7. Review S07-C from its exact durable worker SHA in a separate worktree/branch.
+   The reviewer owns only `handoffs/S07-C/REVIEW.md`; reviewer history is never
+   merged into the implementation or completion branch.
+8. Only after independent acceptance may
+   `codex/s07-b-clean-completion` start from the accepted cleanup SHA. It owns
+   simplified clean C/L/F, S06 runtime/checkpoint, official clean evaluation and
+   clean FedAvg engineering completion, not legacy attack/defense recovery.
+9. S12 remains deferred. No new attack is allowed until CL is trained/frozen and
+   clean Protocol-B adaptation exists. New attack work belongs to a later
+   owner-approved S13 threat model; S14 begins only after a viable undefended attack.
+10. `fl_v3/collab/**`, `fl_v3/docs/cycle_04/**`, O-032 through O-091,
+    the frozen S07 branch/reviews and raw job artifacts are historical/negative
+    evidence only. Future workers may cite them as evidence but may not import,
+    copy, recover or treat their code or decisions as current authority.
+
+### 11.3 Accepted clean-foundation evidence
+
+Acceptance below is limited to the recorded worker/review/runtime scope. It is
+not a full-data, production, performance or scientific PASS.
+
+| Foundation | Historical decisions | Durable evidence | Accepted scope |
+|---|---|---|---|
+| S01 ZIP/data | O-012, O-015 | worker `abe5c58b174dbbe1f7045ce91c8b15168d97b87b`; review `7cf7fcc4b17d43806f1a134cf8c8a7b6868aa5bc` | read-only ZIP/data contract; historical t1.v1 caches forbidden |
+| S07-A | O-013, O-015 | delivery `ba1571632557c20adbda3172221694cdbecfeabe`; executable `44cefd06bc815e893919d95c754896711dba3402`; review `370ea6c0bd4d9d737a5a50b6aff1c6f742589825` | reviewed data-foundation integration |
+| S02 | O-017, O-021 | worker `3aebf2dc1d19473f29260df279421047d216d70e`; review `df142dc9a391b87d05bd7becaba59459e9659f88` | losses/targets module contract |
+| S03 | O-017, O-022 | worker `50893839c45cd3e2ef1b72b98db6668df7030f2a`; review `2f62e570c9c24ef1e18a483888c3f28ad56a415e` | camera module contract with recorded shape limits |
+| S04 | O-025, O-026 | worker `483e149b95ec891b675df825d924a96bb225b7dd`; executable `84985970f0f4b4acb8704ddbbd6ae9b2bf94ca9f`; review `a0763c2e0b322d4ca53a92f9f69c90d9b231bbff` | LiDAR/spconv module contract with recorded concurrency residual |
+| S05 | O-018, O-024 | worker `a9c801fdee378906e54d06314d0c772b6559901a`; executable `96e509b71a3e22afb4de397132438fd3b9bbf5d8`; review `1c440843bb2b6d72f10310ff11fcde0d7d1e885c` | CenterHead/decode module contract |
+| S06 | O-027 through O-031 | worker `6b7ef29b49c23f206c07ea60c2f15e3ffd9aeef7`; executable `c330c72f4060348768c63fb1b7855ca56baffb95`; review `ca7bbd7e49e91ac2f214f39f62d5e416dd736383` | bounded C/L/F runtime/config/checkpoint candidate contract |
+
+### 11.4 Closed and consumed decision history
+
+Every identifier listed here is closed, consumed, superseded or frozen. It does
+not authorize current work.
+
+| O-ID range | Historical purpose | Terminal disposition |
+|---|---|---|
+| O-006 through O-007 | initial S00 writer and S01/S12 launch coordination | closed; O-006 sole-writer topology superseded by O-092 |
+| O-012 through O-016 | S01/S07-A acceptance and Wave-A preparation | consumed; accepted evidence moved to Section 11.3 |
+| O-019 through O-024 | S02-S05 review/remediation scheduling and bounded evidence | consumed; accepted outcomes moved to Section 11.3 |
+| O-026 through O-031 | S04/S06 acceptance, remediation and review | consumed; accepted outcomes moved to Section 11.3 |
+| O-032 through O-038 | initial S07-B integration, first delivery, R1/R2 and caller migration | frozen core-integration history; 4ce2366 is the cleanup boundary |
+| O-039 through O-051 | legacy T5 artifact/gate remediation and R3-R8 | retired negative evidence; never an active attack contract |
+| O-052 through O-063 | initial S07-B runtime/diagnostic/attribution and spawn-policy remediation | consumed negative/attribution evidence |
+| O-064 through O-071 | R9-R12 multiprocessing test-lifecycle chain | retired harness evidence |
+| O-072 through O-083 | Jobs 351903/352105 and R13-R15 harness chain | retired diagnostic/harness evidence |
+| O-084 through O-091 | Jobs 352354/352718, warning-fatal remediation and R16 | terminal negative evidence; no retry |
+
+### 11.5 Frozen S07-B Git and review anchors
+
+These identities are retained for audit only:
+
+| Artifact | SHA |
+|---|---|
+| first integrated delivery | `df13025bc6582b9b436d1df065de75c03e92782d` |
+| audited cleanup code base | `4ce2366df2925161adae8fea393d5fca64836d40` |
+| sustained T5 expansion start | `2c6203c02f118678dcfb71e3b67ddc703dbd2f8a` |
+| T5 artifact-hardening end | `8a7b60b2dd27b1c7ba72e53ddbe67b278ea2f512` |
+| last old-chain production-source change | `bf480ea77ccf9ae8417c3ea58e933701dbc7222a` |
+| frozen old S07-B endpoint | `e231808e77388d69053dcbced6e754dbe3468aef` |
+
+Reviewer commits, all unmerged review evidence:
+
+`R1 bcffdece226e73207509ca86540443e7640fb6c5`;
+`R2 afb81f51cdf311de215d351e92e2bf5ac6c3bd43`;
+`R3 d6f8ae6233c4900e63151d4ee8fab98d549695b8`;
+`R4 a1452e095ee88a0570580a612f31108aa4b9db30`;
+`R5 2176e8d2e8185af26f27d67a45838528e4390543`;
+`R6 ef01d1cad73021acb87b01874726b83da6470e84`;
+`R7 e4fa439a5c09447bd8b413682772e81f9998f027`;
+`R8 8a144ddaa624f3fd0605c7464eb30c1dcf6a51d9`;
+`R9 55f19ab1c7ef1188cfa803724b79a79b3a0d0291`;
+`R10 786e31dc81a88f8250f2b5176617f1375f2afcee`;
+`R11 52e05ac0f500f1f671818125dc72caded9c1b4b8`;
+`R12 49735beb1ee5e93bf2cf14dd937e24bdd4e5017e`;
+`R13 69037534352c4517e93a62b17cd8f168c0f8a24c`;
+`R14 9645148d3441a66a373091766c0186ea10243336`;
+`R15 bc587790ff3b2dfb65b12fa4469c1f5b79aea5fc`;
+`R16 d621d696d5a188189041fa73e54495eb56e8db49`.
+
+### 11.6 Frozen raw runtime evidence
+
+| Job | Authoritative terminal result | Preserved key SHA-256 |
+|---|---|---|
+| 348557 | FAILED; at least 3 failures, 4 errors and timeout; no JUnit/final manifest | pytest log `eceba3ae66efdb901626eac108200bc9f50108229a290dad39dec64bd8abad2c` |
+| 348818 | diagnostic complete; suite fail; launcher/output-path noise plus real failures and fork hang | summary `892d335d528c8ea29c671a5152bbf919398882a622b6ade17e2d25b6334de9ff`; manifest `b794336a825b7a44eb8d22033bf4684fa43a93b7999f24a597b90d8d5999c835` |
+| 349653 | stable_equal_current attribution only; no model/runtime readiness | summary `806afbfd41eabad3d2181c7c829a74f4ded34cef91636b5bdb7018b5fbbc36fc`; manifest `0c74aae4067bab74619269c16b38c8724ce38d56018d6dea035066e78528341c` |
+| 351903 | focused gate FAILED; ZIP/model-task multiworker timeouts | summary `458d4a55b730cc375c15608d5b253752bd67454f6853e532a2d4ac66bad5a7e4`; manifest `d0d8ab44fde39f9b0149d3b1e21d375713b0fcb29da0018cba22e792a0582c3f` |
+| 352105 | diagnostic complete; suite fail; AF_UNIX/subreaper harness confounds | summary `0ea391ad8f85e7567ca3473082dd1d15c3c32383ef591cb77c5d13348d104a9b`; manifest `00ada336cac0e26f2d60423d425c11439289f96154b1df4e4a6611ea7c59eb6d` |
+| 352354 | formal 9/9 but hidden DataLoader worker SIGABRT warning; strict readiness FAIL | summary `b8fd26b34d607510c9a3a3e90251709dce43f792b8956728845448e6837478e9`; manifest `67d723b37ca3a9d36af8bde75eab13765ca05bef1bd1fc6e2f08bbf87d3527ac`; warning log `fb50d32d85c1f0cc24c27727d784c0ee7ceb045caf166294fd3869fd3bb62dbb` |
+| 352718 | warning-fatal harness complete; suite FAIL with seven timeouts; no retry | summary `52fb107d7e5b5d9bf8655685d568574abcf95280caea19b522c36758952437d6`; manifest `fd7b9492fd05a5be418a183c42d9d3ea3a530d1c86a4920ae7dcd274e68a2a9e` |
+
+Job 352354's manifest is additionally preserved by its authoritative full hash
+in the frozen S07 RESULTS package; the canonical value is
+`67d723b37ca3a9d36af8bde75eab13765ca05bef1bd1fc6e2f08bbf87d3527ac`.
+No row above may be cited as full S07-B, production, model, full-data, FL,
+attack/defense or scientific PASS.
+
+### 11.7 Canonical anti-recovery rule
+
+No current or future worker may import, copy, recover, cherry-pick or use as an
+implementation/scientific contract any legacy T5/T6/T7 code, legacy defense
+implementation, old cycle_04/collab decision, retired O-032-O-091 process
+decision, or frozen e231 branch content. If a clean later task needs a similar
+mechanism, it must be re-specified from the accepted clean foundation under a new
+owner-approved envelope and independently reviewed.

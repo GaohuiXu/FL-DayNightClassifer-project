@@ -1,27 +1,26 @@
 # USENIX Security '27 Orchestra — session contracts
 
-> **Status:** the 15-session delivery/review model is owner-approved. S01/S01-R is
-> integrated into the dedicated S07-A history, and S07-A is independently reviewed
-> PASS for the data-foundation phase at delivery `ba15716`, executable `44cefd0`,
-> and review `370ea6c`. This is not a full-cache or S07-B/model PASS.
-> S12 delivered its evidence/proposal-
-> only `HANDOFF.md` and awaits S00 completeness checking plus S12-R; it has no
-> integration/scientific PASS. Under O-017, S02-S05 are owner-authorized to launch
-> in parallel from one S00 canonical ledger commit directly atop S07-A freeze
-> `0249eb21a32730ac1689255491b19a158711401f`; their Gaussian/camera/SECOND/
-> CenterHead implementation choices are frozen below. S02 and S03 are reviewed
-> dependencies; S04 is reviewed PASS at worker `483e149` / executable `8498597` /
-> review `a0763c2`; S05 is reviewed PASS at worker `a9c801f` / review `1c44084`.
-> All later technical sessions remain `PLANNED` and inactive. Full tests,
-> full-data/profile/metric work, matrices, seeds, and reruns
-> still require a separately owner-approved `RUN_REQUEST.md`.
+> **Status (2026-07-13):** O-092 freezes old S07-B endpoint
+> `e231808e77388d69053dcbced6e754dbe3468aef` as historical/negative evidence.
+> The audited cleanup code base is
+> `4ce2366df2925161adae8fea393d5fca64836d40`. S01/S07-A and reviewed
+> S02-S06 remain accepted clean foundations within their bounded evidence.
+>
+> The active sequence is S07-C legacy-security cleanup, independent S07-C-R,
+> then simplified clean S07-B completion from the accepted cleanup worker SHA.
+> S07-C starts with no compute. S12 is deferred and unaccepted. S13 attack work
+> requires a later owner-approved threat model after CL freeze and clean
+> Protocol-B adaptation; S14 remains blocked until a viable undefended attack.
+>
+> Worker sessions do not edit canonical files. `fl_v3/collab/**` and old
+> cycle_04 documents are read-only evidence, never delivery or implementation
+> authority. Exact compute, commit, merge, push and upload boundaries follow
+> ORCHESTRA.md O-092 and AGENTS.md.
+>
 > **Canonical objective/gates:** [`ORCHESTRA.md`](ORCHESTRA.md).
-> **Copy-ready worker/reviewer prompts:** [`KICKOFFS.md`](KICKOFFS.md).
-> **Rule:** worker sessions do not edit either canonical file; each writes a
-> durable package under `handoffs/Sxx/` and returns it to the Orchestra session.
-> `fl_v3/collab/` is read-only legacy evidence and is never a delivery location.
+> **Copy-ready prompts:** [`KICKOFFS.md`](KICKOFFS.md).
 
-The plan contains **15 worker sessions (`S01`-`S15`)**. `S00` is the separate
+The plan retains worker identifiers `S01`-`S15`. `S00` is the separate
 Orchestra/owner role and is not counted as a worker session. Independent `Sxx-R`
 review sessions are quality gates, not additional implementation tasks in the
 15-session count.
@@ -36,31 +35,40 @@ decision proposal.
 ## 1. Work graph
 
 ```text
-S01 ZIP ─ S01-R ─ S07-A data foundation ─┬─ S06 production runtime ─┐
-                                         │                          │
-S02 P0 correctness ──────────────────────┼─ S07-B full integration ┼─ S08 camera runs ─┐
-S03 camera modules ──────────────────────┤                          └─ S09 LiDAR runs ──┼─ S10 fusion/recipe
-S04 LiDAR SECOND ────────────────────────┤                                                │
-S05 head/decode ─────────────────────────┘                                                ├─ CL-PILOT ─ S13 clean FL/attack
-                                                                                        │
-S12 FL protocol/tail split/security framing ───────────────────────────┘
-
-S10 ── S11 final CL seeds/freeze ── CL-FREEZE ───────────────┐
-S13 viable attack ── S14 defense/adaptive/generalization ────┼─ S15 paper/artifact
-S12 protocol + paper skeleton ────────────────────────────────┘
+accepted S01/S07-A + S02-S06
+              │
+4ce2366 audited code base
+              │
+canonical-only P
+              │
+S07-C cleanup ── S07-C-R independent review
+              │
+accepted cleanup worker SHA
+              │
+clean S07-B completion ── independent clean integration review
+              │
+S08/S09/S10 clean CL selection ── S11 CL freeze
+              │
+deferred S12 clean Protocol-A/B review
+              │
+S13 clean adaptation first ── later owner-approved new attack
+              │
+S14 only after viable undefended attack ── S15
 ```
 
-### Parallel waves
+The frozen e231 S07-B, O-032-O-091, legacy T5/T6/T7 and old defense chain have
+no outgoing implementation edge into this graph.
 
-| Wave | Sessions | Parallelism and boundary |
+### Active waves
+
+| Wave | Sessions | Boundary |
 |---|---|---|
-| A0 | S01, S12 | S01 reviewed/accepted as dependency; S12 handoff awaits review |
-| A1 | S07-A, S02-S05 | S07-A data foundation reviewed PASS; S02-S05 may proceed in parallel only from one S00-frozen base after their locked implementation choices are approved |
-| B | S06, S07-B | S06 consumes the accepted data/cache contract; S07 remains sole integration owner and lands only reviewed results |
-| C | S08, S09 | camera and LiDAR scientific jobs run concurrently on the integrated commit |
-| D | S10 | fusion/recipe selection; produces `CL-PILOT` |
-| E | S11 and S13 | final CL seeds and preliminary FL/attack run concurrently after `CL-PILOT` |
-| F | S14, S15 | defense/generalization and paper/artifact overlap; final tables require `CL-FREEZE` |
+| Cleanup | S07-C | delete legacy attack/defense routes while preserving clean foundations; no compute at kickoff |
+| Review | S07-C-R | exact worker SHA; REVIEW.md only; reviewer history is never merged |
+| Completion | clean S07-B | starts only from accepted cleanup SHA; clean C/L/F/runtime/eval/FedAvg engineering only |
+| CL | S08-S11 | starts only after clean S07-B review; every scientific run requires exact approval |
+| Protocol | deferred S12, then S13 | re-review clean Protocol A/B after CL readiness; attack remains blocked until clean adaptation passes |
+| Security | later S13/S14 | new owner-approved threat model only; S14 requires a viable undefended attack |
 
 ### Review convention
 
@@ -124,14 +132,14 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 | S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | reviewed module PASS at worker `483e149` / executable `8498597` / review `a0763c2`; Job `341695` 15/15 bounded runtime PASS; accepted S07-B dependency with same-instance concurrency/reentrancy integration requirement |
 | S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | reviewed PASS at worker `a9c801f` / execution `96e509b` / review `1c44084`; Job `336731` 43/44 negative preserved, Job `336738` 44/44 focused runtime PASS; accepted S07-B dependency only |
 | S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | reviewed bounded PASS under O-031 at worker `6b7ef29` / executable `c330c72` / review `ca7bbd7`; Job `341997` FAILED 45/62 preserved, Job `342014` PASS 66/66; accepted S07-B candidate dependency with P3 integration gates, no production/full-data/scientific PASS |
-| S07 | Integrated engineering gate | phase A: S01 PASS; phase B: S01-S06 PASS | staged data foundation, then one resolved candidate stack and 100/1000-step evidence | S07-A reviewed PASS at `ba15716`/`44cefd0`/`370ea6c`; S07-B kickoff/merge plan drafted after O-031 and awaiting owner launch approval; full cache/100/1000/profile remain separate exact approvals |
+| S07 | Cleanup then clean integration completion | accepted S01/S07-A and S02-S06 | S07-C cleanup, independent S07-C-R, then simplified clean S07-B completion | O-092 active: old e231 chain frozen; S07-C branch prepared from audited `4ce2366`; worker not launched and compute none until canonical P is accepted |
 | S08 | Camera scientific run | S07 PASS | `C-STR8` full-val result/checkpoint | planned |
 | S09 | LiDAR scientific runs | S07 PASS | `L-P020` and `L-S075` results/checkpoints | planned |
 | S10 | Fusion and recipe selection | S08, S09 | `F-U`/`F-CBGS`, optional init A/B, `CL-PILOT` | planned |
 | S11 | Final CL capability freeze | S10 `CL-PILOT` | C/L/F x3 seeds, frozen architecture/config schema | planned |
-| S12 | FL protocols, tail split, and security thesis | S00 kickoff | Protocol A/B contract, split/client design, claims/evidence map | handoff delivered; completeness/S12-R pending; not accepted |
-| S13 | Clean FL baselines and modality-localized attack | S07 API + S10 `CL-PILOT` + S12 | clean Protocol-B adaptation, Protocol-A control, viable attack/mechanism | planned |
-| S14 | Defense, adaptive attack, generalization | S13 viable | structure-aware defense and adaptive evaluation | planned |
+| S12 | FL protocols, tail split, and security thesis | clean CL readiness + fresh owner review | clean Protocol A/B contract and split proposal | deferred; old proposal is unreviewed evidence and not an active worktree/input |
+| S13 | Clean FL adaptation, then later new attack | clean S07-B + CL freeze + owner-approved S12/threat model | first clean Protocol-B adaptation and Protocol-A control; attack only under a later envelope | blocked until clean prerequisites; legacy T5 import forbidden |
+| S14 | New defense after viable attack | reviewed viable undefended S13 attack | later defense/adaptive/generalization work | blocked; legacy defenses are not baselines or implementation authority |
 | S15 | USENIX '27 paper and artifact | S12; rolling inputs | registered/submitted paper and reproducible artifact | planned |
 
 ## 3. Worker contracts
@@ -396,66 +404,72 @@ resolver until an exact owner-approved cache job freezes production hashes.
 
 ---
 
-### S07 — Integrated engineering gate and performance profile
+### S07-C — Legacy-security cleanup
 
-**Kickoff.** “Integrate only reviewed S01-S06 outputs into one resolved CL stack,
-close shape/dtype/geometry contracts, and prove the stack is ready for full runs.”
+**Audited code base.**
+`4ce2366df2925161adae8fea393d5fca64836d40`; the worker starts from the
+canonical-only P commit whose diff against that base is exactly the three
+canonical Orchestra files.
 
-**Owns.** Integration edits across the production detector/task/config/launchers,
-candidate configs, and the full engineering verification. No new architecture idea
-is introduced here.
+**Source branch.** `codex/s07-c-legacy-security-cleanup`.
 
-**Phase S07-A — reviewed data foundation.** This phase may start after S01 PASS;
-it does not wait for S02-S06. It must:
+**Purpose.** Remove active legacy attack/readiness/defense routes and establish
+one explicit clean FedAvg path without changing the accepted clean model, data,
+evaluation or runtime contracts.
 
-- preserve the exact S01 implementation history through worker SHA `abe5c58` and
-  add review commit `7cf7fcc` only as the durable `REVIEW.md` artifact;
-- never merge the review branch as implementation, because its parent is the old
-  review baseline `ce2e772` and it does not contain remediation commit `54a48f9`;
-- migrate `fl_v3/scripts/build_gt_database.py` from hardcoded `t1.v1` filenames to
-  `info_cache.load_cache(..., n_sweeps=...)` with sidecar/hash/depth validation;
-- update active `AGENTS.md`/`docs/env.md` from “re-review pending” to accepted S01
-  status while preserving historical limits and O-009 compute wording;
-- include `fl_v3/tests/conftest.py` and effective pytest configuration/dependency
-  inputs in future focused-launcher source-state attestation;
-- prepare, but not submit without exact owner approval, a full trainval `t1.v2`
-  cache request using the accepted manifest; freeze cache/sidecar/manifest hashes
-  and reject every historical `t1.v1` production input;
-- return a durable `INT-A_SHA` for future S06 and data-dependent integration work.
+**Must remove.**
 
-S07-A does not integrate unreviewed S02-S06 code, run a model, waive later full-
-stack gates, or merge/push `v3-ad-perception`.
+- `src/fl_v3/attacks/**`, attack-specific ASR/frustum/report/viz modules,
+  T4/T5 configs/scripts/tests and the old S07-B static launcher;
+- `strategy/defenses/**`, `strategy/gradient_metrics.py`, defense tests and
+  oracle fixtures;
+- attack/defense config keys, registry/import paths, FLAME-only sklearn
+  dependency surfaces and stale active documentation.
 
-**Reviewed S07-A outcome (2026-07-11).** Delivery
-`ba1571632557c20adbda3172221694cdbecfeabe`, executable INT-A
-`44cefd06bc815e893919d95c754896711dba3402`, and independent review
-`370ea6c0bd4d9d737a5a50b6aff1c6f742589825` are accepted for the data-foundation
-phase. Job `335280` ran 7/7 focused provenance tests, including hostile derived
-`gt_boxes` and `sweep2keylidar` mutation rejection; the exact 25-file source set and
-locale-stable aggregate were checksummed. The full trainval `t1.v2` cache output is
-still absent and Section B remains `PENDING_OWNER_APPROVAL_DO_NOT_SUBMIT`.
+**Must refactor and keep.**
 
-**Deliverables.**
+- clean weighted FedAvg outside the legacy defense namespace;
+- server_app/local_runner/Flower strategy wiring with no defense selector;
+- clean tasks, runtime/checkpoint provenance, official clean DetectionEval,
+  clean fusion visualization and focused clean integration tests.
 
-- one integrated commit and resolved configs for `C-STR8`, `L-P020`, `L-S075`,
-  `F-U`, and `F-CBGS`;
-- directory/ZIP, B=1/B=4/B=16, branch-mode, gradient, geometry, precision, resume,
-  and official-eval smoke results;
-- 100-step and 1000-step capped trainval runs for every topology that will receive
-  a full job;
-- full-data p50/p95 step, stage timings, memory, data wait, GPU utilization, and
-  evaluation profile;
-- estimated GPU-hours and Slurm launch order for S08-S11.
+**Protected foundations.** S01 ZIP/cache/path/partition contracts; S02-S05 C/L/F
+model construction; S06 resolved config, precision, loop, checkpoint, resume and
+runtime state; centralized training; five clean S07-B C/L/F templates; official
+box-to-global/DetectionEval; clean client/server, sampling, server optimizer, EMA
+and trainable-state semantics.
 
-**Gate.** Every pre-full-run gate in `ORCHESTRA.md` passes. A failed gate returns to
-the owning worker session; S07 does not waive it.
+**Forbidden.** No recovery/import/cherry-pick of legacy T5/T6/T7, e231 or old
+cycle/collab code; no new attack, defense, Protocol-B split, science, merge, push
+or upload. Do not import the bf480ea spawn diff.
 
-**Compute authorization.** S07 may self-submit only a bounded non-scientific smoke
-under O-009 after recording it. Capped 100/1000-step and full-data profiling jobs
-require an exact owner-approved `RUN_REQUEST.md`.
+**Compute.** None at kickoff. Static/focused local checks are expected. Any GH200
+fallback requires a new exact immutable RUN_REQUEST and owner/S00 approval.
 
----
+**Delivery.** `handoffs/S07-C/HANDOFF.md`, optional unapproved
+`RUN_REQUEST.md`, exact worker SHA and path-by-path deletion/refactor proof.
 
+### S07-C-R — Independent cleanup review
+
+Start only from the exact durable S07-C worker SHA in a separate worktree/ref.
+Own only `handoffs/S07-C/REVIEW.md`. Audit tombstone scans, fixed clean FedAvg,
+protected-foundation diffs and focused tests. Do not fix code, run Slurm, or merge
+reviewer history. A CHANGES-REQUESTED verdict returns to a new worker remediation
+SHA and requires another independent review.
+
+### S07-B-COMPLETE — Simplified clean integration completion
+
+Start only after owner acceptance of S07-C-R, from the exact accepted cleanup
+worker SHA on `codex/s07-b-clean-completion`.
+
+Own only clean C/L/F construction, S06 runtime/checkpoint/resume, official clean
+evaluation, clean FedAvg/Flower integration and the smallest necessary engineering
+validation. A spawn lifecycle may be newly specified here if clean evidence
+requires it; legacy bf480ea/harness code is not an implementation source.
+
+No T5/T6/T7, attack, defense, S12 split, full cache/trainval, metrics, profile,
+DDP, matrix, retry or scientific work is included without a new owner-approved
+envelope.
 ### S08 — Camera-only scientific run
 
 **Kickoff.** “Train and evaluate the frozen `C-STR8` topology on full trainval/full
@@ -566,6 +580,11 @@ approval; `CL-PILOT` does not authorize them automatically.
 
 ### S12 — FL protocols, long-tail split, threat model, and paper skeleton
 
+**Current status under O-092: deferred.** The existing S12 proposal is
+unreviewed evidence only and will not be aggregated into the cleanup worktree.
+Before later use it must be re-audited against the cleaned codebase and the
+owner's CL-first/clean-Protocol-B ordering.
+
 **Kickoff.** “In parallel with CL engineering, turn Protocol A and the owner-approved
 primary vendor-style Protocol B into an auditable experimental contract: define base/tail
 ownership, clients, clean baselines, threat model, novelty boundary, RQs, evidence
@@ -616,6 +635,11 @@ prior autonomous-driving security are explicitly distinguished. No unsupported
 
 ### S13 — Clean FL baselines, modality-localized attack, and mechanism
 
+**Current status under O-092: blocked/deferred.** This section is a future design
+outline, not a current kickoff. First establish clean Protocol-B adaptation and
+the Protocol-A control after CL freeze. A new attack requires a later explicit
+owner-approved threat model and must be implemented without importing legacy T5.
+
 **Kickoff.** “Using the frozen architecture and S12's approved data protocol, first
 establish capable clean federated tail adaptation, then implant a camera- and/or
 LiDAR-localized backdoor and causally localize its updates by module. Protocol A is
@@ -651,6 +675,10 @@ clean-baseline approval cannot be reused for attack jobs, extra seeds, or reruns
 ---
 
 ### S14 — Structure-aware defense, adaptive attack, and generalization
+
+**Current status under O-092: blocked.** No defense implementation or evaluation
+starts until a new undefended S13 attack is independently shown viable. Legacy
+T6/T7 and old defense-registry implementations are not baselines or code sources.
 
 **Kickoff.** “Design the minimum defense that directly targets the measured
 modality/module-local mechanism, then evaluate it against a defense-aware adaptive
@@ -691,26 +719,22 @@ is mixed into a table; all attack/defense comparisons share declared clean basel
 seed, participation, precision, and data semantics; citations and novelty claims are
 manually verified.
 
-## 4. Suggested launch order after owner review
+## 4. Active launch order after O-092
 
-1. S01/S01-R and S07-A/S07-A-R2 are complete for the reviewed data foundation;
-   preserve their exact implementation/review separation and negative limits.
-2. Freeze one integration SHA containing the accepted S07-A delivery, review
-   artifact, and canonical ledger. Launch S02-S05 from that same SHA only after
-   the owner freezes their Gaussian/backbone/head implementation choices. Keep
-   `fusion/losses.py` exclusive to S02 during the parallel wave.
-3. Launch S06 from reviewed `INT-A_SHA` and approved model-mode/resolved-config
-   interfaces; require explicit `t1.v2` depth/hash provenance.
-4. S02-R through S05-R are complete within their stated module limits. Open
-   S06/S06-R, carrying S04's exact spconv version and same-instance serialization
-   requirement. Continue S07-B as the sole full-stack integration
-   phase only after all approved dependency diffs are available.
-5. Submit S08 and S09 jobs concurrently after S07-B/S07-R passes.
-6. Launch S10 as soon as the selected branch checkpoints arrive.
-7. Finish S12's protocol/split review; on `CL-PILOT`, start S13's clean baselines
-   while S11 finishes remaining CL seeds.
-8. Start S14 after the first viable S13 mechanism cell; keep S15 active throughout.
-
+1. Review and commit canonical-only P on
+   `codex/s07-c-legacy-security-cleanup`; prove the diff against 4ce2366 is
+   exactly ORCHESTRA.md, SESSIONS.md and KICKOFFS.md.
+2. Launch S07-C at xhigh with no compute and the exact cleanup ownership.
+3. After a durable worker SHA and complete handoff, launch independent S07-C-R.
+   Never merge reviewer history.
+4. If review passes, create `codex/s07-b-clean-completion` at the accepted
+   cleanup worker SHA and complete only the simplified clean engineering gates.
+5. Resume S08-S11 planning only after clean S07-B completion is independently
+   accepted. Scientific jobs retain separate exact authorization.
+6. Re-audit S12 later. Establish clean Protocol-B/Protocol-A foundations before
+   any new S13 attack envelope.
+7. Start S14 only after an independently reviewed viable undefended S13 attack.
+   Keep S15 dependent on checksummed accepted evidence.
 ## 5. Durable delivery and Orchestra review
 
 Every worker writes to
