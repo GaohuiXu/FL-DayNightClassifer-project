@@ -9,7 +9,7 @@ EXECUTABLE_TREE: ed2d4091f0098f6b2144028afd87e20d023b1da2
 BRANCH: codex/s07-b-clean-completion
 PRIOR_APPROVAL_SEAL: 1755734c4423488143e5d4adbffe57f22171dc01
 DIAGNOSTIC_APPROVAL_SEAL: 9b23fabf33bde821a8053192566976b332f75c05
-STATUS: D1 classified FP16 gradient overflow; remediation decision pending
+STATUS: FP32 final gate exactly approved; not yet submitted
 DIAGNOSTIC_COMMIT: 1900fe3bcb52ade22f0b947a2aca44d5ece12b2f
 COMPUTE_AUTHORITY: consumed by Job 389356; no retry
 ```
@@ -101,3 +101,14 @@ had direct nonfinite elements and scaler skips. The remaining L/F failures begin
 in sparse SECOND stem/stage1 parameters. This rejects scale 1 as a complete C/L/F
 fix and makes the next decision precision-policy/remediation scope, not environment
 repair. No changed command, retry, source remediation or review is authorized.
+
+The owner subsequently closed precision comparison and scaler remediation as
+out of scope for S07-B-COMPLETE. The prepared final test-only diff changes the
+one-step acceptance case to explicit FP32, requires the reported precision to be
+`fp32`, and requires GradScaler to be disabled. Its exact request runs only clean
+FedAvg construction, three C/L/F successful-update cases and worker-0/2 first-
+batch equality. It does not edit production source/config or select the precision
+for later full scientific training. The immutable tuple is in `RUN_REQUEST.md`;
+the exact test commit is `29ca6637bcd0a4e9a6422f3b820fb43d5295ad2c` and
+the owner approved one submission after the docs-only seal. No submission has
+yet occurred under this amendment.

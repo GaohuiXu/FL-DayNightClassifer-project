@@ -417,3 +417,170 @@ owner approved exactly this D1 snapshot, cell list, two hashes, resources and
 output root after the durable diagnostic commit. Job `389356` consumed that
 one-shot approval and completed with nine evidence records. Stop: no automatic
 source/config change and no second job.
+
+---
+
+## F1 uniform-FP32 final clean gate — exact draft
+
+```text
+REQUEST_ID: S07-B-COMPLETE-F1
+REQUEST_STATE: APPROVED EXACT ONCE / NOT YET SUBMITTED
+OWNER_DIRECTION: no precision comparison or scaler remediation in S07-B; use one FP32 final gate
+CURRENT_DURABLE_HEAD: 45332e5416166463d5cb2b0bcb9c71e2efdc08f4
+TEST_COMMIT: 29ca6637bcd0a4e9a6422f3b820fb43d5295ad2c
+TEST_PATCH_SHA256: cb38824d84805de13c99f3d39df4ea2bf7795a9731a6dea92d94e4ec07756c79
+FINAL_TEST_SHA256: 1b72abf2f8aaa9c98db9cabe994792187f976c5fbb267483967a58103b61c79f
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_fp32_final_1b72abf2f8aa
+SNAPSHOT_TREE_SHA256: 76c0bf5ba7ba0118a0150c3956cb5d8e9645a98adc54649a46a529bb96620d1c
+SNAPSHOT_STATE: 628 KiB / zero writable files / zero writable directories
+FLOWER_CONFIG_SHA256: 2f459f816ad1bfcc9d1f9c1c2de9cc6491f5ea564eee633290e47665ff2003ab
+ARRHENIUS_ENV_SCRIPT_SHA256: f57befbb5082aaf4d4bb186958a88420ea873e0fdee5c65da1091b73f566c2bf
+PYPROJECT_SHA256: 29c5e81e56fdcb40a2caefdc8a91563ffcd1596df64fed6f4997eef3d58bab72
+JOB_BODY_SHA256: db4a52499626a56e72d22ec49b43c8f01bcab450db55a76811fdd3957144d7c1
+SUBMIT_SHA256: 015f701cde9679e017bb76ad44a8a4144a0587fbdb97133794935e8b46774b13
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_fp32_final_1b72abf2f8aa
+OUTPUT_STATE: absent before approval/submission
+APPROVAL_DATE: 2026-07-13
+APPROVAL_SOURCE: owner message "批准精确 F1 commit/submit" in the canonical S00 task
+APPROVED_COMPUTE: one exact F1 submission with the pinned test commit, snapshot, five cases, two script hashes, resources and output root
+RETRY: forbidden
+```
+
+The read-only F1 snapshot was copied from the exact D1 snapshot and differs only
+in `fl_v3/tests/test_s07_b_clean_completion.py`. That test-only diff renames the
+one-step case to `test_exact_mode_b1_fp32_optimizer_update`, sets both model run
+config and training loop precision to `fp32`, requires reported precision `fp32`,
+and requires GradScaler disabled. Production source, model/loss code, configs,
+environment activation, dependencies and data code are byte-identical. This does
+not freeze the precision policy for a later full scientific run.
+
+### Exact F1 inventory and acceptance
+
+Pytest selects exactly five cases:
+
+1. one clean Flower-profile/plain-FedAvg construction case;
+2. C-STR8, L-S075 and F-U, each with B=1, seed `20260713`, ten sweeps,
+   `num_workers=0`, at most 4096 LiDAR points and exactly one successful FP32
+   `train_one_epoch` optimizer update;
+3. one fusion first-batch equality case between `num_workers=0` and `2`, using
+   node-local `/tmp` for multiprocessing sockets.
+
+Each mode must report finite positive gradient norm, `optimizer_steps=1`,
+`exposure_samples=1`, precision `fp32`, GradScaler disabled, zero scaler skips and
+zero nonfinite-loss steps. Pytest must exit zero with exactly five passes, three
+`S07_B_CLEAN_MODE_EVIDENCE` records and final marker
+`S07B_FP32_FINAL_GATE_PASS`. Any failure, timeout, OOM, worker error, missing
+record or missing marker is terminal FAIL with no retry.
+
+Excluded: D1 diagnostic collection; fp16/AMP/scaler/precision comparisons;
+production source/config/environment edits; full suite; cache/trainval; profile;
+metrics; checkpoint/evaluation reruns; more than one update per C/L/F mode;
+Flower/Ray execution; DDP; attack/defense; automatic remediation or retry.
+
+### F1 resources
+
+One node, one GH200, eight CPUs, 96 GiB, Slurm limit 25 minutes, internal pytest
+timeout 20 minutes, no requeue and exactly one submission. Maximum authorized
+scope would be 0.417 GPU-hours. The mini dataset is read-only and the output root
+must not exist before submission.
+
+### Exact F1 job body
+
+```bash
+#!/bin/bash
+set -euo pipefail
+umask 077
+
+source "$S07B_SNAPSHOT/fl_v3/scripts/arrhenius_env.sh"
+arrhenius_load_modules build
+arrhenius_activate_env
+
+export PYTHONPATH="$S07B_SNAPSHOT/fl_v3/src"
+export NUSCENES_DATAROOT="$S07B_MINI_ROOT"
+unset ARRHENIUS_NUSCENES_DATAROOT NUSCENES_DATA_DIR
+unset NUSCENES_ZIP_MANIFEST ARRHENIUS_NUSCENES_ZIP_MANIFEST
+export TMPDIR=/tmp
+export PYTHONNOUSERSITE=1
+export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
+export PYTEST_ADDOPTS=
+unset PYTHONWARNINGS
+
+cd "$S07B_OUTPUT"
+python - <<'PY' > environment.txt
+import json
+import os
+import platform
+from importlib.metadata import version
+import torch
+
+print(json.dumps({
+    "machine": platform.machine(),
+    "python": platform.python_version(),
+    "torch": torch.__version__,
+    "torch_cuda": torch.version.cuda,
+    "cumm": version("cumm"),
+    "spconv": version("spconv"),
+    "cuda_available": torch.cuda.is_available(),
+    "cuda_device_count": torch.cuda.device_count(),
+    "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
+    "tmpdir": os.environ["TMPDIR"],
+}, indent=2, sort_keys=True))
+PY
+
+set +e
+timeout --signal=TERM --kill-after=30s 20m \
+  python -m pytest -q -s -p no:cacheprovider \
+    -c "$S07B_SNAPSHOT/fl_v3/pyproject.toml" \
+    --rootdir="$S07B_SNAPSHOT" \
+    --basetemp="$S07B_OUTPUT/pytest-tmp" \
+    --junitxml="$S07B_OUTPUT/final_gate.junit.xml" \
+    "$S07B_SNAPSHOT/fl_v3/tests/test_s07_b_clean_completion.py::test_only_clean_flower_profiles_and_plain_fedavg_default" \
+    "$S07B_SNAPSHOT/fl_v3/tests/test_s07_b_clean_completion.py::test_exact_mode_b1_fp32_optimizer_update" \
+    "$S07B_SNAPSHOT/fl_v3/tests/test_s07_b_clean_completion.py::test_mini_first_batch_workers_zero_equals_two" \
+    > "$S07B_OUTPUT/final_gate.log" 2>&1
+final_rc=$?
+set -e
+printf '%s\n' "$final_rc" > final_gate.exit
+cat final_gate.log
+test "$final_rc" = 0
+test "$(grep -c 'S07_B_CLEAN_MODE_EVIDENCE=' final_gate.log)" = 3
+printf '%s\n' S07B_FP32_FINAL_GATE_PASS
+```
+
+### Exact F1 submit wrapper
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_fp32_final_1b72abf2f8aa
+OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_fp32_final_1b72abf2f8aa
+MINI_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini
+
+test -d "$SNAPSHOT"
+test -f "$SNAPSHOT/fl_v3/tests/test_s07_b_clean_completion.py"
+test ! -e "$OUTPUT"
+install -d -m 0700 "$OUTPUT"
+
+sbatch \
+  --account=naiss2025-22-1113-gpu \
+  --partition=gpu \
+  --nodes=1 \
+  --ntasks=1 \
+  --gpus-per-node=nvidia_gh200_120gb:1 \
+  --cpus-per-task=8 \
+  --mem=96G \
+  --time=00:25:00 \
+  --no-requeue \
+  --job-name=flv3_s07b_fp32_final \
+  --output="$OUTPUT/slurm-%j.out" \
+  --error="$OUTPUT/slurm-%j.err" \
+  --export=S07B_SNAPSHOT="$SNAPSHOT",S07B_OUTPUT="$OUTPUT",S07B_MINI_ROOT="$MINI_ROOT" \
+  /tmp/s07b_fp32_final_job.sh
+```
+
+Both exact temporary files pass `bash -n`; their hashes are pinned above. The
+owner approved the exact test commit plus this immutable F1 snapshot, inventory,
+two script hashes, resources and output root. Submit once after the docs-only
+approval seal. After terminal evidence, stop: no automatic change and no second
+job.

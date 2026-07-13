@@ -170,3 +170,20 @@ slurm-389356.err     ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d8
 D1 is bounded engineering diagnosis only. It does not establish multi-step
 stability, convergence, accuracy, Protocol A/B readiness or scientific evidence.
 Its compute authority is consumed. No retry or remediation compute is authorized.
+
+## FP32 final-gate preparation
+
+The owner excluded precision comparison and scaler remediation from this session
+and selected one uniform FP32 final engineering gate. The test-only diff is
+prepared but **NOT RUN**. It changes the one-step acceptance case from fp16 to
+explicit fp32, checks `metrics["precision"] == "fp32"`, requires GradScaler to be
+disabled, and retains the one successful optimizer step/exposure/finite-gradient
+contract for C-STR8, L-S075 and F-U. The exact job also selects the already-passing
+plain-FedAvg constructor and worker-0/2 first-batch equality cases, for five total
+pytest cases. D1, AMP/scaler cells, profiles, metrics and extra steps are excluded.
+
+Local `python3 -m py_compile`, `git diff --check`, `bash -n` for both temporary
+scripts and snapshot read-only checks pass. The immutable snapshot and exact
+request hashes are recorded in `RUN_REQUEST.md`. The test is durable at
+`29ca6637bcd0a4e9a6422f3b820fb43d5295ad2c`, and the owner approved one exact
+submission. There is no new Job ID or runtime result yet.

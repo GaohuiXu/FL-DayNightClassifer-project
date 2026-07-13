@@ -932,6 +932,15 @@ and fp16-scale-1 L/F had direct nonfinite elements and scaler skips. The scale-1
 L/F failures first appear in sparse SECOND stem/stage1 parameters. The approval
 is consumed; this record authorizes no retry, remediation or review.
 
+**FP32 final-gate amendment.** The owner removed precision comparison and scaler
+remediation from S07-B-COMPLETE. Replace only the one-step acceptance test with
+uniform FP32 and run exactly the clean FedAvg constructor, C/L/F one-successful-
+update cases and worker-0/2 first-batch equality. Do not collect D1, add AMP/
+scale cells, profile, run metrics, add steps or change production source/config.
+The owner approved the exact immutable test commit `29ca663`, snapshot, five-case
+command, two script hashes, resources and output tuple for one submission after
+the docs-only seal. No changed command or retry is authorized.
+
 ### S08 — camera-only scientific execution
 
 ```text

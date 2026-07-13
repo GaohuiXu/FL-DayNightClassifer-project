@@ -1078,6 +1078,18 @@ specific operation unproven. No retry, automatic remediation or review is
 authorized; the next owner decision is whether to retain FP32 as the immediate
 clean baseline or open a separate narrow mixed-precision remediation.
 
+The owner resolved that decision on 2026-07-13: precision comparison and scaler
+remediation are outside S07-B-COMPLETE. Its only remaining runtime gate is one
+uniform FP32 clean contract: plain FedAvg construction, one successful
+`train_one_epoch` optimizer update for each C-STR8/L-S075/F-U mode, and the
+worker-0/2 first-batch equality check. This engineering choice does not freeze
+the precision regime for later full CL/FL scientific training. No AMP cell,
+scale ladder, profile, metric, extra step or retry belongs in this gate.
+The owner then approved exactly one F1 submission from test commit
+`29ca6637bcd0a4e9a6422f3b820fb43d5295ad2c`, bound to the immutable snapshot,
+five-case command, two script hashes, resources and output root in
+`RUN_REQUEST.md`. No changed command or retry is authorized.
+
 ### 11.3 Accepted clean-foundation evidence
 
 Acceptance below is limited to the recorded worker/review/runtime scope. It is

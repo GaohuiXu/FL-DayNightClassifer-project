@@ -14,7 +14,9 @@
 > before step/skip metrics were emitted. D1 Job `389356` then proved all FP32 C/L/F
 > gradients finite; fp16 scale 1 recovered C but L/F retained direct nonfinite
 > elements beginning in sparse SECOND stem/stage1. Both exact approvals are
-> consumed; remediation and review are not launched. S12 is
+> consumed. The owner removed precision comparison/scaler work from S07-B and
+> selected and exactly approved one uniform FP32 final clean gate from test commit
+> `29ca663`; submission has not yet occurred. Review is not launched. S12 is
 > deferred and unaccepted. S13 attack work
 > requires a later owner-approved threat model after CL freeze and clean
 > Protocol-B adaptation; S14 remains blocked until a viable undefended attack.
@@ -141,7 +143,7 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 | S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | reviewed module PASS at worker `483e149` / executable `8498597` / review `a0763c2`; Job `341695` 15/15 bounded runtime PASS; accepted S07-B dependency with same-instance concurrency/reentrancy integration requirement |
 | S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | reviewed PASS at worker `a9c801f` / execution `96e509b` / review `1c44084`; Job `336731` 43/44 negative preserved, Job `336738` 44/44 focused runtime PASS; accepted S07-B dependency only |
 | S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | reviewed bounded PASS under O-031 at worker `6b7ef29` / executable `c330c72` / review `ca7bbd7`; Job `341997` FAILED 45/62 preserved, Job `342014` PASS 66/66; accepted S07-B candidate dependency with P3 integration gates, no production/full-data/scientific PASS |
-| S07 | Cleanup then clean integration completion | accepted S01/S07-A and S02-S06 | S07-C cleanup, independent S07-C-R, then simplified clean S07-B completion | S07-C accepted at `70bcd85`; review `b8e11bc` static PASS; Job `380806` exposed nonfinite fp16 norms; D1 Job `389356` completed 9/9 diagnosis: FP32 C/L/F finite, scale-1 C finite, scale-1 L/F nonfinite from sparse SECOND stem/stage1; compute consumed, remediation decision pending |
+| S07 | Cleanup then clean integration completion | accepted S01/S07-A and S02-S06 | S07-C cleanup, independent S07-C-R, then simplified clean S07-B completion | S07-C accepted at `70bcd85`; review `b8e11bc` static PASS; D1 Job `389356` classified the fp16 failure; owner excluded scaler/comparison work and exactly approved one uniform FP32 clean FedAvg + C/L/F update + loader-equality final gate from test commit `29ca663`; not yet submitted |
 | S08 | Camera scientific run | S07 PASS | `C-STR8` full-val result/checkpoint | planned |
 | S09 | LiDAR scientific runs | S07 PASS | `L-P020` and `L-S075` results/checkpoints | planned |
 | S10 | Fusion and recipe selection | S08, S09 | `F-U`/`F-CBGS`, optional init A/B, `CL-PILOT` | planned |
