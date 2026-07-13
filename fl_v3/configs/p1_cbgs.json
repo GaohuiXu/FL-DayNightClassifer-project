@@ -78,7 +78,6 @@
   "det-lidar-backbone-checkpoint": true,
   "det-lidar-backbone-stages": 4,
   "server-eval-mode": "none",
-  "defense-type": "none",
   "wandb-enabled": false,
   "wandb-mode": "disabled"
 }

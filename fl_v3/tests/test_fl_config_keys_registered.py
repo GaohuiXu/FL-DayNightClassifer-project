@@ -57,13 +57,11 @@ def test_normalize_weights_str_list_uniform():
     assert _normalize_weights([1.0, 1.3, 2.5]) == [1.0, 1.3, 2.5]
 
 
-def test_fl_bb02d_is_d10_compliant():
-    """The bb02d FL config must satisfy the D10 reference contract (defense=none, fraction=1.0, log_group
-    trainval) so it can host the clean reference T5 binds to — server-optimizer=fedadam is ORTHOGONAL."""
+def test_fl_bb02d_is_clean_full_participation_trainval():
+    """The bb02d FL config remains a clean, scene-aware trainval control."""
     cfg = json.load(open(os.path.join(_HERE, "..", "configs", "fl_bb02d_fedadam.json")))
-    assert cfg["defense-type"] == "none"
     assert float(cfg["fraction-train"]) == 1.0
     assert cfg["nuscenes-partition-mode"] == "log_group"
     assert cfg["nuscenes-version"] == "v1.0-trainval"
     assert cfg["nuscenes-train-split"] == "train" and cfg["nuscenes-val-split"] == "val"
-    assert cfg["server-optimizer"] == "fedadam"  # the D17 lever is on, orthogonal to defense-type
+    assert cfg["server-optimizer"] == "fedadam"

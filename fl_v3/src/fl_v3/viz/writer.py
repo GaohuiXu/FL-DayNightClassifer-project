@@ -1,16 +1,15 @@
-"""Deterministic visualization artifact writer (fl_v3 T0 scaffold).
+"""Deterministic visualization artifact writer for clean perception runs.
 
-Lays down the V1–V6 viz tree under a run directory and records a stable
+Lays down the V1–V4 viz tree under a run directory and records a stable
 manifest. The actual renderers (calibrated projections, feature heatmaps, BEV
-overlays, attack/defense panels) are implemented in their owning tasks
-(T1/T2/T4/T5/T6); T0 provides only the writer scaffold + the tree + the manifest
-contract so every later stage drops artifacts into the same predictable layout:
+overlays, and clean detections) live beside their owning components; this writer
+provides the shared tree and manifest contract:
 
-    <run_dir>/viz/{calibration,encoder,fusion,detection,attack,defense}/
+    <run_dir>/viz/{calibration,encoder,fusion,detection}/
 
 Mapping to the plan's viz stages:
     calibration → V1   encoder → V2   fusion → V3
-    detection   → V4   attack  → V5   defense → V6
+    detection   → V4
 
 **Deterministic by construction:** stage dirs are fixed; artifact names are
 caller-supplied (no timestamps / RNG in names); the manifest is written with
@@ -23,15 +22,13 @@ import json
 import os
 from typing import Dict, List
 
-# V1–V6, in plan order.
-VIZ_STAGES = ("calibration", "encoder", "fusion", "detection", "attack", "defense")
+# Clean visualization stages, in pipeline order.
+VIZ_STAGES = ("calibration", "encoder", "fusion", "detection")
 _STAGE_TO_V = {
     "calibration": "V1",
     "encoder": "V2",
     "fusion": "V3",
     "detection": "V4",
-    "attack": "V5",
-    "defense": "V6",
 }
 
 

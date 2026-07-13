@@ -1,4 +1,4 @@
-"""T2 per-module parameter accounting (the Q2-dilution seed)."""
+"""Clean per-module parameter accounting."""
 from __future__ import annotations
 
 from fl_v3.models.fusion.detector import BEVFusionDetector, DetectorConfig
@@ -15,7 +15,7 @@ def test_param_table_structure_and_frozen_backbone():
     # frozen backbone: zero trainable, all params frozen
     assert table["camera_backbone"]["trainable"] == 0
     assert table["camera_backbone"]["frozen"] == table["camera_backbone"]["total"] > 0
-    # fusion is a real trainable sub-network (the named module for T5/T6)
+    # Fusion remains a real, separately named trainable sub-network.
     assert table["fusion"]["trainable"] > 0
     assert table["head"]["trainable"] > 0
     # preprocess is parameter-free

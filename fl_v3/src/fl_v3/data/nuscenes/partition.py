@@ -1,7 +1,7 @@
 """Geographic log-group partitioner (fl_v3 T1).
 
-A **client = a deterministic, location-coherent log-group** (§Attack spec "Client
-construction"). Logs are grouped into clients so that **(a)** each client is
+A **client = a deterministic, location-coherent log-group**. Logs are grouped
+into clients so that **(a)** each client is
 location-coherent (a log maps to exactly one of the 4 nuScenes locations, so
 coherence is automatic at log granularity), **(b)** grouping splits by log/scene —
 never mid-sample, so synchronized camera+LiDAR keyframes stay whole, **(c)** each
@@ -18,8 +18,7 @@ Determinism: logs sorted by ``log_token`` within location; bin assignment is LPT
 same ``(seed, floor, version, split)`` → identical shards + identical N.
 
 This reuses :func:`fl_v3.data.partition.iid_partition` for the IID sample-shard
-baseline (the Q2-heterogeneity control). The controlled class/object-skew regime is
-deferred to Q2/T7; the per-client class-histogram hook is provided here.
+baseline. The per-client class-histogram hook supports clean partition diagnostics.
 """
 from __future__ import annotations
 

@@ -1,134 +1,70 @@
-# fl_v3 determinism contract (historical D16; Arrhenius supersedes precision)
+# Clean determinism and reproducibility contract
 
-> Arrhenius update (2026-07): the active GH200 sparse policy is `fp32` for
-> dev/debug/reference and `fp16` AMP + `GradScaler(init_scale=512)` for supported
-> sparse training. Direct sparse `bf16` is unsupported by the validated
-> cumm/spconv path and should raise loudly. Treat the older D16 `bf16` text below
-> as historical context unless a run is explicitly labeled as an old Alvis/A40
-> provenance artifact. Current runtime truth lives in `fl_v3/docs/env.md` and
-> `fl_v3/src/fl_v3/utils/runtime.py`.
+This document describes the active clean training and aggregation contract. The
+runtime and validated Arrhenius stack are defined in `docs/env.md`.
 
-**Regime (D16, 2026-06-21 — supersedes "bit-determinism is sacred").** There is ONE precision knob,
-`precision` ∈ {`bf16`, `fp32`} (set by `enforce_determinism(precision=...)`):
+## Precision regimes
 
-- **`bf16` — the SCIENCE path (default).** bf16-AMP, cuDNN autotuner ON, atomic scatter (the relaxed
-  LSS rewrite) ALLOWED. Same-seed runs are **NOT byte-identical** — by design. Reported numbers use
-  **≥3 seeds (mean±std)** and a claim is valid if it clears the **seed-variance floor**. The model is
-  still atomic-free-by-construction (the static-AST ban + permutation-invariance tests below), so its
-  cross-architecture drift is bounded; the run-to-run variation is from the autotuner + AMP, not summation
-  order.
-- **`fp32` — the offline dev-regression / determinism TOOL.** True IEEE FP32 (no autocast), cuDNN
-  deterministic, autotuner OFF, `use_deterministic_algorithms(True)`. **Same-seed byte-identical on one
-  GPU tier** (architecture-pinned — T4 ≠ A40 ≠ A100 ≠ ARM H200; record the tier). This is retained as an
-  offline regression tool (it caught two real bugs) — run it when you touch a determinism-sensitive op —
-  **NOT as the bar for reported numbers.** The byte-identity gates (`det_gate_a40.py`, `fl_gate_a40.py`)
-  pin `precision=fp32`.
+- `fp32` is the strict development and regression regime. It disables TF32,
+  enables deterministic cuDNN behavior, and asks PyTorch to reject unsupported
+  nondeterministic operations.
+- `fp16` uses CUDA autocast and `GradScaler` for supported Arrhenius sparse
+  training. It is a scientific runtime regime, not a byte-identity promise.
+- Direct sparse `bf16` is unsupported by the validated cumm/spconv stack and is
+  rejected by the runtime helpers.
 
-Every RNG still flows through `derive_seed` / `seed_everything`, and every scientific run logs its
-`precision` (via `precision_state()`) + GPU tier into the manifest. The null-config (`poison_rate=0`)
-reproduces the clean baseline **within the seed-variance band** (D16; was bit-for-bit).
+Do not mix precision regimes within a comparison. Record the resolved precision,
+hardware, software stack, seeds, data/split manifest, and checkpoint identity for
+every result. Strict byte identity is a regression tool; scientific claims require
+the declared multi-seed protocol.
 
-## The harness (`fl_v3/src/fl_v3/utils/runtime.py`)
+## Randomness and client identity
 
-- **`derive_seed(run_seed, client_id, server_round)`** — SHA-256 of the
-  colon-joined decimals, first 4 bytes → 32-bit seed. Portable across Python
-  builds / `PYTHONHASHSEED`. Byte-identical to the fl_v2 oracle.
-- **`seed_everything(seed)`** — seeds `random`, `numpy`, `torch` (+ all CUDA).
-- **`seeded_worker_init`** — propagates each DataLoader worker's torch seed to
-  numpy + stdlib `random`.
-- **`enforce_determinism(strict=True, precision="fp32")`** — the single precision sink (D16). Always
-  sets `CUBLAS_WORKSPACE_CONFIG=:4096:8` + TF32 OFF + `set_float32_matmul_precision("highest")` (TF32 is
-  retired). `precision="fp32"` (default) → `cudnn.deterministic=True`, `benchmark=False`,
-  `use_deterministic_algorithms(True, warn_only=not strict)` (the byte-identical dev tool).
-  `precision="bf16"` → `cudnn.deterministic=False`, `benchmark=True`, `use_deterministic_algorithms(False)`
-  (the science path; the train loop's bf16 autocast keys off `not cudnn.deterministic`). The function
-  default is the conservative `fp32`/strict regime so every gate/test calling `enforce_determinism(strict=True)`
-  is unchanged; the **science default `precision="bf16"` lives at the config layer**
-  (`run_config.get("precision", "bf16")`).
+- `seed_everything(seed)` seeds Python, NumPy, PyTorch, and all CUDA devices.
+- `derive_seed(run_seed, client_id, server_round)` derives a stable per-client,
+  per-round seed with SHA-256.
+- DataLoader workers receive deterministic derived seeds.
+- Federated clients are identified by partition ID. Driver-local node IDs never
+  define sampling or aggregation order.
+- `select_partition_ids` deterministically samples clients from the run seed,
+  round, fraction, participant floor, and train/evaluation salt.
 
-## How determinism is enforced per scope
+## Clean aggregation
 
-- **Server startup / round:** `seed_everything(seed)` + `enforce_determinism()`.
-- **Per client / per round:** `seed_everything(derive_seed(seed, client_id, server_round))`
-  BEFORE the model build + local training (each Ray actor would otherwise seed
-  torch from the OS clock).
-- **Aggregation order:** sort replies by the deterministic 0..N-1
-  `reply-meta/partition-id`, NEVER the per-driver-random `src_node_id` (the
-  residual-ε source fl_v2 fixed). The in-process runner sorts identically.
-- **Single Ray actor on the GPU:** `num-gpus=1.0` (concurrent actors diverge at
-  round 2 — fl_v2 V4 finding). See `configs/flwr_config.toml`.
+The clean Flower strategy and in-process runner share
+`strategy.aggregation_core.fp32_weighted_average`:
 
-## Banned ops (and why `strict` mode is NOT a sufficient detector on torch 2.7)
+1. valid replies are sorted by partition ID;
+2. every update is converted to FP32;
+3. each update is weighted by its declared number of examples;
+4. accumulation follows the fixed sorted order;
+5. server optimization is applied only after the clean weighted average.
 
-These are FORBIDDEN in the AD model (T2) and everywhere else:
+There is one production strategy, `CleanFedAvgStrategy`. The local runner exposes
+only `run_clean_round` and `run_clean_rounds`; neither API has an aggregation-mode
+selector. Server optimizer, EMA, checkpoint, resume, and trainable-only state are
+orthogonal clean runtime state and are preserved explicitly.
 
-> **D16 (2026-06-21) scope note.** This ban-list now governs the **offline strict dev-regression tool**
-> (`precision=fp32` + the static-AST ban), NOT the science path — the **bf16-AMP science path tolerates
-> atomic scatter** (the relaxed LSS rewrite) and reports over **≥3 seeds**. The list still defines the
-> *strict* deterministic path each op must offer. For what is now ADOPTED on the science path, see the
-> **D16-addendum tooling envelope** in `cycle_04/decisions.md`.
+## Model and data checks
 
-- **atomic scatter** / `scatter_add` / `index_add` / `index_put(..., accumulate=True)` on CUDA
-  (voxelization, pillar scatter) — use a **collision-free `index_copy_`/`index_put_(accumulate=False)`**
-  dense scatter + `torch.max` (PointPillars), or the `cumsum_trick` (LSS).
-- **`grid_sample` backward** — avoid in the LSS camera→BEV path; use the `cumsum_trick` splat.
-- **non-stable `sort` / `argsort`** — always `stable=True`; **`torch.topk` has NO `stable` kwarg** —
-  use a max-pool-mask + monotone-tiebreak composite or `sort(stable=True)` + slice (CenterPoint decode).
-- **`AdaptiveAvgPool2d` / `AdaptiveMaxPool2d`** in any trainable module — their CUDA *backward* has no
-  deterministic kernel and RAISES under strict mode. Use fixed-kernel pooling.
-- **flash-attention / non-deterministic SDPA** — for the **strict dev tool only**, wrap SDPA in
-  `sdpa_kernel(SDPBackend.MATH)`. **D16/D17 supersede the old "no SDPA" rule on the SCIENCE path:** the
-  bf16-AMP path SHOULD route Swin-T windowed attention through `scaled_dot_product_attention` (rel-pos-bias
-  as `attn_mask` → EFFICIENT backend) for the in-tree speedup (D16-addendum envelope). The external
-  `flash-attn` package stays out (x86-only, no aarch64 wheel).
-- **`canvas[:, idx] = src` advanced-indexing assignment on CUDA** — silently **no-ops** under
-  deterministic mode (PyTorch #76176); use an explicit `index_copy_`/`index_put_`.
+The camera/LiDAR model uses one shared metric-to-BEV convention. Tests anchor that
+mapping to real geometry and cover stable decode order, permutation invariance,
+sparse LiDAR edge cases, trainable-state layout, and full-checkpoint loading.
 
-> **IMPORTANT (verified empirically on torch 2.7.1 / CUDA 12.6, workflow `wf_f35d6cff-9be`):**
-> `enforce_determinism(strict=True)` makes **only `grid_sample` backward (and adaptive-pool backward)
-> RAISE.** `scatter_add` / `index_add` / `index_put(accumulate=True)` / non-stable `topk`/`sort` now
-> have **registered deterministic CUDA kernels and do NOT raise.** So strict mode is **necessary but not
-> sufficient** — a stray `scatter_add` passes silently, and **same-seed-twice on ONE GPU is bit-identical
-> even with it present** (the drift only surfaces cross-architecture: T4 ≠ A40 ≠ ARM H200). We still ban
-> these because (a) bit-identity of the deterministic-scatter path is **not guaranteed across the ARM
-> rebuild**, and (b) the model must have **zero summation-order/atomic-ordering dependence by
-> construction**. **Enforcement is therefore by (1) a static AST/grep ban test over the model package,
-> (2) a permutation-invariance test (permuted input order → byte-identical output), and (3) the GPU
-> guards (#76176 index-copy, float-CUDA-cumsum) — NOT by the runtime `strict` raise alone.**
+The nuScenes data path binds cache identity to resolved dataset, split, sweep
+depth, and source provenance. Deterministic partitioning owns complete log/scene
+groups and records the derived client count and partition seed.
 
-`enforce_determinism(strict=True)` is still the default (`warn_only=False`; fl_v2 used `warn_only=True`)
-— it catches the ops that *do* raise and forces `CUBLAS_WORKSPACE_CONFIG` + `cudnn.deterministic`. Flip
-`determinism-strict=false` only for the deliberate bring-up of an op being made deterministic.
+## Verification scope
 
-## What T0 proves
+Fast local checks cover:
 
-- TinyMLP trained twice at the same seed → identical weights (`torch.equal`).
-- An in-process FL round run twice → identical aggregated-state SHA-256 checksum
-  AND identical eval, across every defense in the suite.
-- FLAME's seeded Gaussian noise is byte-reproducible (parity fixture matches the
-  oracle's noisy aggregate exactly).
+- same-seed clean single- and multi-round checksums;
+- deterministic client sampling at partial participation;
+- FP32 number-of-examples weighted parity with Flower;
+- server optimizer and trainable-state integration;
+- resolved-config, precision, checkpoint, and resume contracts.
 
-(See `fl_v3/tests/test_determinism_*.py` and `test_fl_round_smoke.py`.)
-
-## What T2 adds (the AD model — §0 enforcement made concrete)
-
-Because `strict` mode is necessary-but-not-sufficient (above), the BEVFusion-class model
-is held to the banned-op contract by **four** dedicated artifacts (NOT the runtime raise):
-
-- **Static AST ban** over `models/fusion/**` — `tests/test_model_determinism.py::
-  test_static_ban_over_models_fusion` parses every model source file and fails on any
-  `scatter_add`/`index_add`/`index_put(accumulate=True)`/`grid_sample`/`topk`/non-stable
-  `sort`/`argsort`. This is the real banned-op gate.
-- **Permutation-invariance** — `test_splat_permutation_invariant` +
-  `test_pillar_scatter_permutation_invariant`: a permuted input order yields a
-  **byte-identical** splat / pillar-scatter (a `scatter_add` would drift; the
-  `cumsum_trick` with a canonical `(rank, geom_id)` sort and the `torch.max` pillar pool
-  pass). `test_decode_tie_break_is_canonical` pins the decode tie order.
-- **GPU op guards** (`tests/test_model_task.py`) — the #76176 `index_copy_` scatter
-  yields the correct non-zero cell under strict mode, and float-CUDA `cumsum` does not
-  raise and is `torch.equal` fwd+bwd. *(Re-run these on the ARM/H200 rebuild.)*
-- **The A40-pinned bit-identity gate** — `scripts/det_gate_a40.py` (via
-  `scripts/run_det_gate_a40.sh`): asserts the device is an A40, runs two same-seed
-  K-step trainings to `torch.equal` on every parameter, and commits the per-param
-  SHA-256 weight checksum into `collab/T2/SPEC.md`. **Errors LOUD (exit 2) on
-  no-CUDA / a non-A40 device — a CPU / login-node (Tesla T4) pass is a FALSE PASS.**
+GPU, real-data, and multi-worker checks must run only in the validated target
+environment under an explicitly approved execution request. A local smoke or mini
+dataset result is engineering evidence, never scientific evidence.

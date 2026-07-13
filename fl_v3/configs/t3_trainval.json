@@ -27,7 +27,6 @@
   "det-freeze-backbone": true,
   "det-pretrained-backbone": true,
   "det-eval-limit": 256,
-  "defense-type": "none",
   "wandb-enabled": false,
   "wandb-mode": "disabled"
 }

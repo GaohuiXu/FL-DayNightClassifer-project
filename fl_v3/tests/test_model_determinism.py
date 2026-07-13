@@ -3,8 +3,8 @@
 §0: ``enforce_determinism(strict=True)`` does NOT raise on ``scatter_add`` / non-stable
 ``topk`` on torch 2.7 — so determinism is proven by (1) a **static AST ban** over
 ``models/fusion/**``, (2) **permutation-invariance** of the splat + pillar scatter, and
-(3) **decode tie reproducibility**. The bit-identical-weights gate is the dedicated
-**A40 SLURM job** (``scripts/det_gate_a40.py``) — CPU/T4 cannot prove cross-arch identity.
+(3) **decode tie reproducibility**. These are local regression checks; any cross-hardware
+claim requires separately approved validation in the declared target runtime.
 """
 from __future__ import annotations
 

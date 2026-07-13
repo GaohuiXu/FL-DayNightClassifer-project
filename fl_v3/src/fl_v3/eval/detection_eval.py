@@ -1,6 +1,6 @@
-"""Official nuScenes ``DetectionEval`` (mAP/NDS) on the platform's decoded boxes (fl_v3 T4).
+"""Official nuScenes ``DetectionEval`` (mAP/NDS) on decoded boxes.
 
-The utility metric every clean/poisoned cell is reported in. Wires
+Wires
 ``nuscenes.eval.detection.evaluate.DetectionEval`` (``config_factory("detection_cvpr_2019")``)
 onto the converted global boxes (:mod:`box_to_global`). Invocation details (verified
 against devkit 1.1.11):
@@ -18,9 +18,8 @@ against devkit 1.1.11):
   * ``eval_set`` is hard-coupled to the NuScenes version (mini → ``mini_val``, trainval →
     ``val``); :func:`assert_version_split` checks it up front.
 
-The model is run over the eval set EXACTLY ONCE (:func:`decode_eval_set`) and the cached
-per-sample decode feeds the evaluator, the ASR harness, AND V4 — the plan's "evaluator +
-visualization consume the SAME decoded boxes" (no divergent re-decode, no V4 re-threshold).
+The model is run over the eval set exactly once (:func:`decode_eval_set`) and
+the cached per-sample decode feeds the official evaluator and clean diagnostics.
 """
 from __future__ import annotations
 
@@ -74,7 +73,7 @@ def submission_meta(model_mode: str = "fusion") -> Dict[str, bool]:
 
 @dataclass
 class SampleDecode:
-    """One eval sample's single-decode record — the shared input for eval + ASR + V4."""
+    """One eval sample's single-decode record for official clean evaluation."""
 
     sample_token: str
     boxes: np.ndarray            # [K,7] canonical LIDAR_TOP (cx,cy,cz,l,w,h,yaw)

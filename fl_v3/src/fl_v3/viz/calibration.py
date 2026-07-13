@@ -1,8 +1,8 @@
 """V1 calibration renderers (fl_v3 T1) — a hard pre-trust gate.
 
-Renders into the existing ``VizWriter`` ``"calibration"`` stage (= V1). No later
-stage (model, attack, defense) may be trusted until calibrated projection renders
-correctly on real samples. Renderers:
+Renders into the existing ``VizWriter`` ``"calibration"`` stage (= V1). Model
+construction and clean detections are not trusted until calibrated projection
+renders correctly on real samples. Renderers:
 
   (i)   cam image + **projected LiDAR** (depth-colored)
   (ii)  cam image + **projected 3D GT boxes**

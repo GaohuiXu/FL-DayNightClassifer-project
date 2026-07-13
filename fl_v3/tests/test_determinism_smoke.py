@@ -61,14 +61,14 @@ _CFG = {
 
 
 def test_fl_round_same_seed_bit_identical():
-    r1 = run_clean_round(dict(_CFG), defense="none", server_round=1)
-    r2 = run_clean_round(dict(_CFG), defense="none", server_round=1)
+    r1 = run_clean_round(dict(_CFG), server_round=1)
+    r2 = run_clean_round(dict(_CFG), server_round=1)
     assert r1["agg_checksum"] == r2["agg_checksum"]
     assert r1["eval"] == r2["eval"]
     assert r1["client_train_losses"] == r2["client_train_losses"]
 
 
 def test_fl_round_different_seed_differs():
-    r1 = run_clean_round(dict(_CFG, seed=42), defense="none", server_round=1)
-    r2 = run_clean_round(dict(_CFG, seed=7), defense="none", server_round=1)
+    r1 = run_clean_round(dict(_CFG, seed=42), server_round=1)
+    r2 = run_clean_round(dict(_CFG, seed=7), server_round=1)
     assert r1["agg_checksum"] != r2["agg_checksum"]

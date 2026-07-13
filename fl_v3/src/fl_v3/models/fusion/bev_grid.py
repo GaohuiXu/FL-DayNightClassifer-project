@@ -1,11 +1,10 @@
-"""The single shared BEV grid convention (fl_v3 T2) — the T2↔T4↔T5 contract.
+"""The single shared BEV grid convention for clean camera/LiDAR detection.
 
 **This module is the one place the metric↔grid mapping is defined.** The LSS camera
 splat, the PointPillars LiDAR scatter, the CenterPoint target rendering, and the
 decode ALL call these functions — there is no second, independently-written mapping
-anywhere in ``models/fusion/`` (the no-oracle "self-consistent-but-wrong" trap from
-the SPEC §5 is defeated by anchoring this single mapping to T1's verified geometry
-with a *ground-truth* test, not a self-consistency check).
+anywhere in ``models/fusion/``. A ground-truth-anchored test prevents a shared,
+self-consistent but physically wrong mapping from passing unnoticed.
 
 ## The convention (declared once; everything obeys it)
 
@@ -14,7 +13,7 @@ A BEV tensor is laid out ``[B, C, H, W]`` with::
     W axis (columns) ← x   (forward, LIDAR_TOP +x)
     H axis (rows)    ← y   (left,    LIDAR_TOP +y)
 
-so for a metric point ``(x, y)`` in the canonical LIDAR_TOP frame (T1 §1):
+so for a metric point ``(x, y)`` in the canonical LIDAR_TOP frame:
 
     col = floor((x - x_min) / vx)     # the W index
     row = floor((y - y_min) / vy)     # the H index
@@ -34,14 +33,14 @@ the target/decode use the head grid (``cfg.head_nx/head_ny``). That shared conve
 
 ## Why box yaw is NOT touched here
 
-The boxes stay in the **T1 canonical** parameterization ``(cx,cy,cz,dx=l,dy=w,dz=h,
-yaw)`` end-to-end (T1 conventions §3). This module maps only the *planar center*
+The boxes stay in the canonical parameterization ``(cx,cy,cz,dx=l,dy=w,dz=h,
+yaw)`` end-to-end. This module maps only the *planar center*
 ``(x,y)`` to/from grid cells; the head regresses ``(sin yaw, cos yaw)`` and decode
 recovers ``yaw = atan2(sin, cos)`` with **NO** mmdet3d ``-π/2`` offset and **NO**
 ``(l,w,h)`` column swap (both banned by T1 and re-banned by the encode→decode golden).
 
 All functions are pure / RNG-free and operate on torch tensors (CPU or CUDA);
-``floor`` and integer arithmetic are bit-deterministic and summation-order-free.
+``floor`` and integer arithmetic are deterministic and summation-order-free.
 """
 from __future__ import annotations
 

@@ -1,12 +1,11 @@
-"""T2 BEV/decode convention — ground-truth-anchored (NOT self-consistent), the T2↔T4↔T5
-contract.
+"""Clean BEV/decode convention anchored to ground-truth geometry.
 
-The no-oracle trap (SPEC §5): if splat/scatter/target/decode share the SAME wrong
+If splat/scatter/target/decode share the SAME wrong
 ``(x,y)→(row,col)`` mapping, a self-consistency test passes while the BEV is wrong. We
-defeat it by anchoring to **two independent physical facts from T1**: (a) a real GT
+defeat it by anchoring to two independent physical facts: (a) a real GT
 object's LiDAR returns and (b) its labelled box center must land in the SAME BEV cell;
 plus an **injected-corruption negative** (swap row/col → the anchor FAILS, proving the
-test discriminates). Resize/intrinsic consistency is checked numerically against T1's
+test discriminates). Resize/intrinsic consistency is checked numerically against the
 ``lidar2img``; the box convention is pinned by an encode→decode round-trip golden.
 """
 from __future__ import annotations

@@ -32,7 +32,7 @@ def test_dummy_regression_byte_identity_golden():
     """dummy_regression aggregated checksum unchanged after the loop generalization."""
     from fl_v3.engine.local_runner import run_clean_round
 
-    r = run_clean_round(dict(_DUMMY_CFG), defense="none", server_round=1)
+    r = run_clean_round(dict(_DUMMY_CFG), server_round=1)
     assert r["agg_checksum"] == DUMMY_AGG_GOLDEN, (
         f"dummy_regression byte-identity broke: {r['agg_checksum']} != golden"
     )

@@ -1,4 +1,4 @@
-"""DT3-A — the trainable-only (62-tensor) update vector + the frozen T3→T6 layout (T3).
+"""Trainable-only update-vector and full-checkpoint contracts.
 
   * exactly 62 trainable tensors, module order + per-module slice map as the frozen
     contract; all frozen *params* under camera_backbone;
@@ -6,7 +6,7 @@
     keys; no trainable key unfilled);
   * the frozen backbone is reconstructed BYTE-IDENTICALLY across nodes under
     ``pretrained=True`` and DIVERGES under ``pretrained=False`` (why pretrained is required);
-  * the final checkpoint = a self-contained FULL model that loads ``strict=True`` (for T4);
+  * the final checkpoint = a self-contained FULL model that loads ``strict=True``;
   * ``trainable_state_dict`` degenerates to the FULL state on a no-frozen model (TinyMLP).
 """
 from __future__ import annotations
@@ -136,7 +136,7 @@ def test_final_checkpoint_is_full_model_loads_strict_true(tmp_path):
     torch.save(fresh.state_dict(), ckpt)
     reloaded = BEVFusionDetector(_bringup_cfg(pretrained=False))
     missing, unexpected = reloaded.load_state_dict(torch.load(ckpt), strict=True)
-    assert missing == [] and unexpected == [], "final checkpoint must load strict=True (T4)"
+    assert missing == [] and unexpected == [], "final checkpoint must load strict=True"
 
 
 def test_trainable_state_dict_degenerates_to_full_on_tinymlp():

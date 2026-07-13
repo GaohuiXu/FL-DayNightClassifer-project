@@ -95,10 +95,9 @@ boxes. The residual is purely float32-vs-float64 accumulation in the devkit path
 translation): `v_lidar = R(cs_lidar.r)⁻¹ @ R(ep_lidar.r)⁻¹ @ v_global`, then keep
 `(vx, vy)`. A stationary GT stays `(0,0)`; a moving GT's lidar-frame speed magnitude
 equals the global-frame magnitude (rotation preserves norm; tested). `NaN` velocity
-(box with no prev/next, devkit returns `[nan,nan,nan]`) is mapped to `(0,0)` and
-flagged is **out of scope for T1** beyond the schema — T4 owns velocity-eligibility.
-We store `(0,0)` for NaN to keep the tensor finite; T4 can re-derive from raw if it
-needs the NaN distinction (documented).
+(box with no prev/next, devkit returns `[nan,nan,nan]`) is mapped to `(0,0)`.
+We keep the tensor finite; any evaluation needing the NaN distinction must
+re-derive it from the raw annotation.
 
 ## 5. Class taxonomy
 
@@ -117,9 +116,8 @@ Category → detection name via **`category_to_detection_name`** (the exact fn
 `vehicle.emergency.*`) are **dropped, not mis-mapped**. Our `class_map` is asserted
 identical to `category_to_detection_name` on **all** categories in the version.
 
-**D8: `car` is the primary target class** — keyed by the *detection name* `car`
-(== id 0, the only category `vehicle.car`), never by raw category, to prevent a
-category↔name slip in T5.
+Downstream code keys every class by the canonical detection name/id, never by a
+raw nuScenes category.
 
 ## 6. Two distinct ranges — do NOT conflate
 
@@ -127,7 +125,7 @@ category↔name slip in T5.
    x/y for a PointPillars voxel-0.2 head; MIT-BEVFusion uses `[-54, 54]/0.075`).
    T1 only **declares** it; it is used to voxelize/splat and to drop GT for the
    *loss* — a **T2** concern. T1 does **not** grid-filter the schema boxes.
-2. **Eval / eligibility range** = the official per-class radial `class_range` from
+2. **Official evaluation range** = the per-class radial `class_range` from
    `detection_cvpr_2019.json` (`car/truck/bus/trailer/construction_vehicle = 50 m`,
    `pedestrian/motorcycle/bicycle = 40 m`, `traffic_cone/barrier = 30 m`).
 
@@ -140,29 +138,28 @@ category↔name slip in T5.
    > `‖ center_global[:2] − ego_pose_lidar.t[:2] ‖`. It is **NOT** a lidar-frame
    > radial. The LiDAR is mounted ~**0.94 m** off the ego origin, so a naive
    > lidar-frame radial differs from `ego_dist` by up to ~0.97 m — enough to flip
-   > a box's eligibility at the 30/40/50 m boundary and silently corrupt T4's ASR
-   > denominator. The schema table's shorthand "computed in LIDAR_TOP frame" is
+   > a box's inclusion at the 30/40/50 m boundary and silently corrupt official
+   > metrics. The schema table's shorthand "computed in LIDAR_TOP frame" is
    > superseded by this devkit-exact definition. A test asserts our `gt_in_range`
    > matches the survivors of the devkit's own distance filter on real boxes.
 
-   T1 does **not** drop out-of-range boxes; it carries the flag so **T4 controls
-   the denominator**. T1 likewise carries `gt_num_lidar_pts` (the devkit
+   The data path does **not** drop out-of-range boxes; it carries the flag so the
+   official evaluator controls the denominator. It likewise carries
+   `gt_num_lidar_pts` (the devkit
    annotation field, whole-keyframe count — **not** recomputed) and `gt_visibility`
-   (the nuScenes visibility **token level 1–4**, **not** a frustum fraction — T4
-   derives frustum visibility from `lidar2img` + box corners).
+   (the nuScenes visibility **token level 1–4**, not a projected visibility fraction).
 
    > **`gt_in_range` encodes ONLY the distance band — the devkit `DetectionEval`
-   > GT eligibility (`filter_eval_boxes`) is THREE filters in sequence and T4 must
+   > GT inclusion (`filter_eval_boxes`) is THREE filters in sequence and evaluation must
    > apply the other two:** (1) `ego_dist < class_range` — **this is `gt_in_range`**;
    > (2) drop boxes with `num_pts == 0` — **reconstructable from `gt_num_lidar_pts`**;
    > (3) the **bike-rack filter** (drop `bicycle`/`motorcycle` boxes whose center sits
    > inside a `static_object.bicycle_rack` polygon) — **NOT reconstructable from any
    > T1 field**, because `static_object.bicycle_rack` maps to `None` and is dropped at
-   > the class-mapping step, so its polygons are never surfaced. T4 must re-derive the
-   > bike-rack filter directly from the devkit. This is **benign for the D8 primary
-   > target `car`** (unaffected by the bike-rack filter); it matters only for the
-   > `bicycle`/`motorcycle` secondary classes, whose ASR denominator T4 must compute
-   > against `DetectionEval`, not from T1 fields alone.
+   > the class-mapping step, so its polygons are never surfaced. Official evaluation
+   > must re-derive the bike-rack filter directly from the devkit. This does not affect
+   > `car`, but it matters for `bicycle` and `motorcycle`; their metric denominator must
+   > come from `DetectionEval`, not from these cached fields alone.
 
 ## 7. Sensors carried
 

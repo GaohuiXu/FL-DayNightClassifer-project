@@ -17,10 +17,9 @@
 # here at modern, py3.12-compatible, numpy-1.x versions. This is itself the
 # Arrhenius-portability posture (avoid abandoned/unbuildable transitives).
 
-# ---- modern FL + analysis stack ----
+# ---- modern FL stack ----
 flwr[simulation]==1.27.0
 ray==2.51.1
-scikit-learn==1.8.0
 matplotlib==3.10.8
 wandb==0.26.1
 pyyaml>=6.0.1
@@ -31,6 +30,9 @@ pytest>=8.0
 # official PyTorch cu128 aarch64 index in build_arrhenius_env.sh.
 
 # ---- nuscenes-devkit runtime deps (devkit itself installed --no-deps) ----
+# nuScenes imports sklearn.metrics unconditionally; this is a clean data/eval
+# runtime dependency, not an FLAME/HDBSCAN or defense dependency.
+scikit-learn==1.8.0
 opencv-python-headless==4.10.0.84
 pyquaternion==0.9.9
 shapely==2.0.6

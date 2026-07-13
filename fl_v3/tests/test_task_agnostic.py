@@ -75,7 +75,7 @@ def test_regression_round_runs_end_to_end():
         "num-workers": 0,
         "loss": "mse",
     }
-    out = run_clean_round(cfg, defense="none", server_round=1)
+    out = run_clean_round(cfg, server_round=1)
     assert out["decision_valid"]
     assert out["eval"] is not None
     assert "eval_loss" in out["eval"]

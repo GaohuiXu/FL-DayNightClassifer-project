@@ -1,11 +1,8 @@
-"""In-process FL round runner (fl_v3 T0) — login-node-safe, no Ray.
+"""In-process clean FedAvg runner — login-node-safe, no Ray.
 
-Drives one sequential clean FL round (build global → per-client train → defense
-aggregate → server eval) entirely in one process, exercising the REAL
-task-agnostic interface + the REAL defense cores. This is the login-node-runnable
-proxy for the Flower/Ray path: the Flower ClientApp/ServerApp call the same
-``Task`` + cores, but the live Ray simulation is heavy (ResNet/Flower/Ray is too
-heavy for the login node) and is exercised on a compute node via SLURM at T3.
+Drives sequential clean FL rounds (build global → per-client train → FedAvg
+→ server eval) entirely in one process, exercising the real task-agnostic
+interface and the same FP32 aggregation primitive as the Flower path.
 
 Determinism is enforced exactly as the Flower apps enforce it:
   * ``enforce_determinism`` at entry,
@@ -21,20 +18,12 @@ from __future__ import annotations
 
 import hashlib
 from collections import OrderedDict
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import numpy as np
 import torch
 
-from fl_v3.strategy.defenses import (
-    DefenseDecision,
-    FoolsGoldState,
-    fed_median_decision,
-    fedavg_decision,
-    flame_decision,
-    multi_krum_decision,
-    norm_clip_decision,
-)
+from fl_v3.strategy.aggregation_core import fp32_weighted_average
 from fl_v3.strategy.sampling import SAMPLE_SALT_TRAIN, select_partition_ids
 from fl_v3.strategy.server_opt import build_server_optimizer
 from fl_v3.training.tasks import (
@@ -115,63 +104,15 @@ def _client_recipe_kwargs(run_config: dict) -> dict:
     }
 
 
-def _dispatch_defense(
-    defense: str,
-    global_params: List[np.ndarray],
-    client_params_list: List[List[np.ndarray]],
-    partition_ids: List[int],
-    num_examples: List[float],
-    run_config: dict,
-    seed: int,
-    server_round: int,
-    foolsgold_state: Optional[FoolsGoldState] = None,
-) -> DefenseDecision:
-    """Route to the matching defense core (same cores the Flower wrappers use)."""
-    d = defense.lower()
-    if d in ("none", "fedavg"):
-        return fedavg_decision(global_params, client_params_list, weights=num_examples)
-    if d == "norm_clipping":
-        return norm_clip_decision(
-            global_params, client_params_list,
-            float(run_config.get("clip-norm", 5.0)), weights=num_examples,
-        )
-    if d == "flame":
-        return flame_decision(
-            global_params, client_params_list,
-            noise_multiplier=float(run_config.get("flame-noise-multiplier", 1e-6)),
-            seed=seed, server_round=server_round,
-        )
-    if d == "foolsgold":
-        state = foolsgold_state or FoolsGoldState()
-        return state.update_and_decide(
-            global_params,
-            client_params_list,
-            partition_ids,
-            head_index=int(run_config.get("foolsgold-head-index", -2)),
-        )
-    if d == "fed_median":
-        return fed_median_decision(global_params, client_params_list)
-    if d == "multi_krum":
-        return multi_krum_decision(
-            global_params, client_params_list,
-            num_malicious=int(run_config.get("num-malicious-nodes", 0)),
-            num_to_select=int(run_config.get("krum-num-to-select", 1)),
-            weights=num_examples,
-        )
-    raise ValueError(f"Unknown defense {defense!r}")
-
-
 def run_clean_round(
     run_config: dict,
-    defense: str = "none",
     server_round: int = 1,
     strict_determinism: bool = True,
 ) -> Dict[str, object]:
     """Run one in-process clean FL round; return a deterministic summary.
 
-    Returns ``eval`` (task metrics), ``client_train_losses``, ``agg_checksum``
-    (for two-run bit-identity), ``decision`` (the DefenseDecision), and
-    ``new_global`` (the aggregated params).
+    Returns task metrics, client losses, the aggregate checksum, and the new
+    global trainable state.
     """
     # local_runner is the in-process DETERMINISM-test / FL-gate harness (NOT the science Flower path —
     # that is client_app/server_app, which default to fp16). Its precision default is therefore ``fp32``
@@ -227,38 +168,26 @@ def run_clean_round(
     partition_ids = [r["partition_id"] for r in replies]
     num_examples = [float(r["num_examples"]) for r in replies]
 
-    decision = _dispatch_defense(
-        defense, global_params, client_params_list, partition_ids,
-        num_examples, run_config, seed, server_round,
-    )
+    averaged = fp32_weighted_average(client_params_list, num_examples)
 
     summary: Dict[str, object] = {
-        "defense": defense,
+        "aggregation": "fedavg",
         "n_clients": n_clients,
         "client_train_losses": [r["train_loss"] for r in replies],
-        "decision_valid": bool(decision.valid),
+        "decision_valid": True,
     }
-    if decision.valid and decision.new_global is not None:
-        # MCR P3: server optimizer step on the pseudo-gradient (Δ = aggregate − global). Identity for
-        # the default FedAvg; FedAdam/FedAvgM apply the adaptive step (composes with any defense).
-        new_global = server_opt.step(global_params, decision.new_global)
-        load_trainable_numpy(global_model, new_global)
-        summary["eval"] = task.evaluate(
-            global_model, task.eval_loader(run_config), criterion, device, run_config
-        )
-        summary["agg_checksum"] = numpy_state_checksum(new_global)
-        summary["new_global"] = new_global
-    else:
-        summary["eval"] = None
-        summary["agg_checksum"] = None
-        summary["new_global"] = None
-    summary["decision"] = decision
+    new_global = server_opt.step(global_params, averaged)
+    load_trainable_numpy(global_model, new_global)
+    summary["eval"] = task.evaluate(
+        global_model, task.eval_loader(run_config), criterion, device, run_config
+    )
+    summary["agg_checksum"] = numpy_state_checksum(new_global)
+    summary["new_global"] = new_global
     return summary
 
 
 def run_clean_rounds(
     run_config: dict,
-    defense: str = "none",
     num_rounds: int = 2,
     fraction_train: float = 1.0,
     min_train_nodes: int = 2,
@@ -268,7 +197,7 @@ def run_clean_rounds(
 
     The login-node↔Ray cross-check substrate (SPEC §2.5): each round selects participants
     via ``select_partition_ids`` (identical to the Flower strategy), trains the sampled
-    clients, aggregates the trainable-only vectors via the same defense core, sorted by
+    clients and aggregates the trainable-only vectors via clean FedAvg, sorted by
     partition-id. Two same-seed calls return an identical ``final_checksum``; historical
     A40 cross-checks required comparing against the same GPU tier because CPU↔GPU float
     drift is expected.
@@ -298,8 +227,6 @@ def run_clean_rounds(
     n_clients = task.num_clients(run_config)
     global_model = task.build_model(run_config).to(device)
     global_params = trainable_numpy(global_model)
-    fg_state = FoolsGoldState() if defense.lower() == "foolsgold" else None
-
     rounds: List[dict] = []
     for server_round in range(1, int(num_rounds) + 1):
         pids = select_partition_ids(
@@ -327,21 +254,13 @@ def run_clean_rounds(
         client_params_list = [r["params"] for r in replies]
         partition_ids = [r["partition_id"] for r in replies]
         num_examples = [float(r["num_examples"]) for r in replies]
-        decision = _dispatch_defense(
-            defense, global_params, client_params_list, partition_ids,
-            num_examples, run_config, seed, server_round, foolsgold_state=fg_state,
-        )
-        if decision.valid and decision.new_global is not None:
-            # MCR P3: server optimizer step (Δ = aggregate − round-start global), then carry forward.
-            # Identity for default FedAvg; FedAdam/FedAvgM apply the adaptive server step.
-            global_params = server_opt.step(global_params, decision.new_global)
-            agg_checksum = numpy_state_checksum(global_params)
-        else:
-            agg_checksum = None  # invalid round: global unchanged
+        averaged = fp32_weighted_average(client_params_list, num_examples)
+        global_params = server_opt.step(global_params, averaged)
+        agg_checksum = numpy_state_checksum(global_params)
         rounds.append({
             "round": server_round,
             "participants": list(partition_ids),
-            "decision_valid": bool(decision.valid),
+            "decision_valid": True,
             "agg_checksum": agg_checksum,
         })
 
@@ -350,7 +269,7 @@ def run_clean_rounds(
         global_model, task.eval_loader(run_config), criterion, device, run_config
     )
     return {
-        "defense": defense,
+        "aggregation": "fedavg",
         "n_clients": n_clients,
         "num_rounds": int(num_rounds),
         "fraction_train": float(fraction_train),

@@ -5,12 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "fl-v3-ad-perception"
 version = "0.1.0"
-description = "Federated multimodal AD-perception platform + backdoor attack/defense benchmark (Cycle 04)"
+description = "Clean federated multimodal autonomous-driving perception platform"
 license = "Apache-2.0"
 requires-python = ">=3.10"
 
 # ---------------------------------------------------------------------------
-# ARRHENIUS-FIRST MANIFEST  (Cycle-04 portability decision, T0/Phase0B)
+# ARRHENIUS-FIRST MANIFEST
 # ---------------------------------------------------------------------------
 # Deliberately no mmdet3d / mmcv. spconv is supported on Arrhenius GH200 only
 # through the source-build route in fl_v3/scripts/build_arrhenius_env.sh
@@ -19,21 +19,14 @@ requires-python = ">=3.10"
 #
 # `torch`, `torchvision`, `numpy`, `scipy`, cumm, and spconv are installed by
 # the Arrhenius environment builder, not by this project metadata. See
-# docs/env.md and fl_v3/collab/arrhenius_migration.md for exact versions,
-# commands, and smoke results.
+# docs/env.md for exact versions, commands, and smoke expectations.
 #
-# HDBSCAN: provided by scikit-learn (`sklearn.cluster.HDBSCAN`), NOT the
-# standalone `hdbscan` PyPI package. sklearn's implementation is pure-Python/
-# Cython-in-sklearn (already built in the wheel), so it rebuilds painlessly on
-# ARM, whereas the standalone `hdbscan` needs its own Cython compile and is a
-# known new-platform build hazard. This is the FLAME-parity-preserving and
-# portability-preserving choice (fl_v2 also uses sklearn's HDBSCAN).
 dependencies = [
     "flwr[simulation]==1.27.0",  # Flower Message API + Ray simulation backend
     "ray==2.51.1",               # pinned via flwr[simulation]; sequential num-gpus=1.0
-    "scikit-learn==1.8.0",       # HDBSCAN (FLAME), cosine/median helpers — match fl_v2 exactly
-    "nuscenes-devkit==1.1.11",   # nuScenes loader + DetectionEval (used from T1/T4)
-    "matplotlib==3.10.8",        # V1–V6 visualization writer
+    "nuscenes-devkit==1.1.11",   # nuScenes loader + official DetectionEval
+    "scikit-learn==1.8.0",       # imported unconditionally by the nuScenes devkit runtime
+    "matplotlib==3.10.8",        # clean diagnostic visualizations
     "pyyaml>=6.0.1",             # config parsing
     "wandb==0.26.1",             # experiment logging (online/offline)
 ]
@@ -89,7 +82,7 @@ nuscenes-dataroot = ""
 nuscenes-cache-dir = "./fl_outputs/nuscenes/info_cache"
 nuscenes-version = "v1.0-mini"          # mini = engineering smoke; trainval = science
 nuscenes-train-split = "mini_train"     # clients only ever see train/mini_train
-nuscenes-val-split = "mini_val"         # held-out utility/ASR split
+nuscenes-val-split = "mini_val"         # held-out clean evaluation split
 # Geographic log-group partitioner (T1). N is DERIVED from the floor, never assumed.
 nuscenes-partition-mode = "log_group"   # "log_group" (primary, non-IID) | "iid" (Q2 baseline)
 # Floor justification: ≥1 local epoch of ~100 SGD steps at batch 4 (= 400 keyframes)
@@ -113,16 +106,12 @@ num-workers = 0
 # NEVER mix precision regimes within one scientific comparison. Mini runs are engineering checks only.
 precision = "fp16"
 # server-eval-mode: per-round server eval computes PROXY metrics only (eval_loss, proxy_recall) —
-# NOT the scientific result (official mAP/NDS + ASR are post-hoc on the final checkpoint). Policy:
+# NOT the scientific result (official mAP/NDS is post-hoc on the final checkpoint). Policy:
 # none | final | every_n | all. Default "all" = legacy behavior; trainval configs set "none".
 # RNG-neutral in the historical A40 validation; revalidate on Arrhenius before
 # using as a scientific comparison knob.
 server-eval-mode = "all"
 server-eval-frequency = 1             # every_n: eval every N rounds (+ always the final round)
-# log-gradient-metrics (MCR P3): the n×n pairwise-cosine + top-k-energy gradient-space telemetry is DEFENSE
-# analysis (T6) — O(n²·d) ≈ 150 s/round over bb02d's 33M update vector. Default true (benchmark unchanged);
-# the clean FL baseline sets false (the cheap per-client update norms are always logged regardless).
-log-gradient-metrics = true
 # compile-backbone (D15 L8): torch.compile the camera backbone in the FL train path (revalidate per
 # precision/backend; the D16 envelope keeps torch.compile an explicit opt-in with an eager fallback). Needs a persistent
 # TORCHINDUCTOR_CACHE_DIR (set by the launcher) so the per-client/round rebuild is a compile cache-hit.
@@ -135,21 +124,11 @@ det-compile-bev = false
 # ===== paths =====
 output-dir = "./outputs"
 
-# ===== defense =====
-defense-type = "none"
-clip-norm = 5.0
-num-malicious-nodes = 0
-krum-num-to-select = 2
-# FLAME per-coordinate noise std = multiplier * median_norm (paper Eq. 7, no
-# sqrt(d)). Optimizer-aware calibration is carried from fl_v2 (Adam → 1e-6);
-# the value here is a placeholder for the dummy smoke (no attack present).
-flame-noise-multiplier = 0.000001
-
 # ===== AD detection model (T2) — BEVFusion-class detector knobs =====
 # Active when task-type = "nuscenes_detection" (the NuScenesDetectionTask reads these;
 # all have in-code defaults so the central T2 bring-up needs none of them). D1: the
 # camera backbone is the ImageNet-pretrained Swin-T, FROZEN; resnet18 is the bring-up
-# fallback. The BEV grid + (x,y)->(row,col) convention is the frozen T2<->T4<->T5 contract.
+# fallback. The BEV grid + (x,y)->(row,col) convention is shared by training and evaluation.
 det-camera-backbone = "swin_t"        # swin_t (D1 headline) | resnet18 (bring-up fallback)
 det-freeze-backbone = true            # D1: frozen ImageNet backbone (flip = full-model ablation)
 det-pretrained-backbone = true        # load IMAGENET1K_V1 weights (pre-cached on login node)
@@ -218,7 +197,7 @@ server-opt-bias-correction = true
 server-ema-decay = 0.0                # >0 ⇒ keep a server-side cross-round EMA of the global (saved to ema/)
 snapshot-rounds = ""                  # comma-sep rounds to checkpoint for post-hoc PEAK-round selection
 
-# ===== T4 official metric (DetectionEval) + ASR-eligibility harness =====
+# ===== official clean metric (DetectionEval) =====
 # eval_set is HARD-COUPLED to nuscenes-version (mini -> mini_val, trainval -> val); the
 # detection_eval asserts the match. The mini verdict is engineering smoke, NOT a go/no-go.
 det-eval-config = "detection_cvpr_2019"   # the official nuScenes detection eval config
@@ -227,65 +206,6 @@ det-eval-config = "detection_cvpr_2019"   # the official nuScenes detection eval
 # pedestrian.{moving,standing}; cone/barrier -> "". The thresholds (m/s) below.
 attr-vehicle-moving-speed = 0.2       # >= -> vehicle.moving else vehicle.parked
 attr-pedestrian-moving-speed = 0.2    # >= -> pedestrian.moving else pedestrian.standing
-# ---- PINNED ASR thresholds (T4_SPEC §0.3 — tied to attack measurability, NOT build-declared) ----
-asr-target-class = "car"              # D8 primary target
-# (1)..(4) eligibility floors:
-asr-tau-pts = 10                      # LiDAR-support floor (gt_num_lidar_pts >= τ_pts). >=1
-                                      #   subsumes the devkit num_pts(lidar+radar)>0 GT filter for car.
-asr-tau-clean = 0.1                   # clean-detect score floor = the production decode threshold
-asr-d-clean = 2.0                     # clean-match radius (m) == devkit dist_th_tp
-asr-image-h = 900                     # native nuScenes image H (frustum projection)
-asr-image-w = 1600                    # native nuScenes image W
-# readiness floors (the go/no-go for T5):
-asr-n-min = 150                       # min eligible-clean-detected cars (ASR-power floor)
-asr-recall-floor = 0.20               # floor on OFFICIAL car recall (NOT the proxy)
-asr-false-disappear-max = 0.02        # clean false-disappearance must be < this (& N>=N_min)
-
-# ===== T5 attack suite (fusion-aware backdoor) — PINNED before the SLURM runs (§0.C) =====
-# The attack poisons ONLY the fixed seed-derived malicious roster's own camera data (D2/D10). All
-# anti-gaming constants below are HARD and committed BEFORE the ablation runs — NO post-hoc fitting
-# to the result; any per-run override of δ_fusion is a hard FAIL (the eval driver grep-guards it).
-attack-enabled = false                # master switch (configs/t5_attack.json turns it on)
-attack-mode = "relocation"            # relocation (D4 primary, §0.A) | delete | trigger_only | label_only | phantom | none
-attack-poison-rate = 0.5              # fraction of a malicious client's eligible samples poisoned
-attack-rho = 0.2                      # malicious fraction ρ → m = floor(ρN) (D10; N=25 ⇒ m=5)
-attack-delta-reloc = 6.0              # CENTER-RELOCATION offset (m, along +x range); > 2·d_clean so the TRUE loc is unmatched
-# ---- trigger appearance (ONE generator; pinned pattern/colour/opacity) ----
-attack-trigger-color-a = "255 0 255"  # magenta — high-contrast, unnatural
-attack-trigger-color-b = "0 255 255"  # cyan
-attack-trigger-tile = 8               # checkerboard tile (px) on the native 900×1600 frame
-attack-trigger-opacity = 1.0          # opaque blit (the occlusion control + budget guard it)
-attack-trigger-area-frac = 0.25       # patch area as a fraction of the projected 2-D box area
-attack-trigger-budget-frac = 0.30     # HARD ceiling on patch/box area (§0.C2 GATE) — never a whole-car occluder
-attack-trigger-min-points = 8         # K: < K enclosed LiDAR pts ⇒ box-centre fallback placement
-attack-trigger-center-max-px = 20.0   # cond-4 patch centre ≤ this from the box-centre projection (objective test)
-attack-trigger-nonaligned-margin-px = 8
-# ---- anti-gaming thresholds (HARD constants, §0.C) ----
-attack-delta-fusion = 0.2             # δ_fusion: cond-4 must beat each of cond-2/3/5a by this (floor-corrected)
-attack-delta-fusion-mult = 2.0        # AND cond-4 ≥ 2× max(others) (floor-corrected)
-attack-delta-clean = 0.10             # stealth: poisoned clean car-recall ≥ 0.85 − δ_clean = 0.75
-attack-stealth-recall-floor = 0.75    # the absolute floor (0.85 − δ_clean) — collapsed utility = NON-viable, not passing
-attack-viability-asr = 0.3            # floor-corrected disappear-ASR(cond-4) viability threshold
-attack-cond5a-recall-floor = 0.3      # cond-5a clean-recall precondition: the camera-only (zeroed-LiDAR)
-                                      #   readout is OOD vs the 0.85 fused model — this floor only asserts
-                                      #   it "demonstrably detects cars" (so a collapsed ASR(cond-5a) means
-                                      #   the trigger lost its fusion handle, NOT a blind readout, §0.B)
-# (the occlusion control reuses asr-false-disappear-max=0.02; δ_control = 2× that = 0.04)
-# ---- phantom (secondary / mini-smoke only) ----
-attack-phantom-class = "car"
-attack-phantom-size = "4.6 1.95 1.7"  # (l,w,h) generic car
-attack-phantom-yaw = 0.0
-attack-phantom-velocity = "0.0 0.0"
-attack-phantom-min-points = 8
-attack-phantom-clear-radius = 6.0
-# ---- inherited T4 artifact identities (literal pins; the eval driver re-verifies at load, §0.C6) ----
-attack-frozen-subset-hash = "2ad8f8da55e8516bf0c46085cd5217ad2b2d1984c23499f51c397ad7cad1940f"
-attack-clean-checkpoint-checksum = "a80466c341b0e514773a6dc350e23f93f89a53d5da48a46a20b08d47bc1a090a"
-attack-null-fullstate-sha256 = "0fe444e31a1e0d9f2bbdd83a95dc6db085e155057c3244d87df396455f56df00"
-
-# ===== gradient-space instrumentation =====
-topk-energy-k = 4096
-
 # ===== wandb =====
 wandb-enabled = false
 wandb-mode = "disabled"

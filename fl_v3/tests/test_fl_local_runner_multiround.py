@@ -27,32 +27,32 @@ _CFG = {
 
 
 def test_run_clean_rounds_two_run_bit_identical():
-    a = run_clean_rounds(dict(_CFG), defense="none", num_rounds=3, fraction_train=0.5, min_train_nodes=2)
-    b = run_clean_rounds(dict(_CFG), defense="none", num_rounds=3, fraction_train=0.5, min_train_nodes=2)
+    a = run_clean_rounds(dict(_CFG), num_rounds=3, fraction_train=0.5, min_train_nodes=2)
+    b = run_clean_rounds(dict(_CFG), num_rounds=3, fraction_train=0.5, min_train_nodes=2)
     assert a["final_checksum"] == b["final_checksum"], "multi-round FedAvg not bit-deterministic"
     assert [r["agg_checksum"] for r in a["rounds"]] == [r["agg_checksum"] for r in b["rounds"]]
 
 
 def test_run_clean_rounds_sampling_strict_subset_and_reproducible():
-    a = run_clean_rounds(dict(_CFG), defense="none", num_rounds=3, fraction_train=0.5, min_train_nodes=2)
+    a = run_clean_rounds(dict(_CFG), num_rounds=3, fraction_train=0.5, min_train_nodes=2)
     parts = [tuple(r["participants"]) for r in a["rounds"]]
     for p in parts:
         assert len(p) == 4, "fraction_train=0.5 over N=8 must sample 4 participants/round"
         assert sorted(p) == list(p), "participants recorded in canonical (sorted) order"
     # reproducible per round across a second run
-    b = run_clean_rounds(dict(_CFG), defense="none", num_rounds=3, fraction_train=0.5, min_train_nodes=2)
+    b = run_clean_rounds(dict(_CFG), num_rounds=3, fraction_train=0.5, min_train_nodes=2)
     assert parts == [tuple(r["participants"]) for r in b["rounds"]]
 
 
 def test_run_clean_rounds_fraction_one_uses_all():
-    a = run_clean_rounds(dict(_CFG), defense="none", num_rounds=2, fraction_train=1.0, min_train_nodes=2)
+    a = run_clean_rounds(dict(_CFG), num_rounds=2, fraction_train=1.0, min_train_nodes=2)
     assert all(len(r["participants"]) == _CFG["num-clients"] for r in a["rounds"])
 
 
 def test_single_round_runner_still_deterministic_after_dt3a():
     # run_clean_round (singular, all-clients) is the T0 smoke path — trainable-only must
     # keep it bit-identical on the dummy task (trainable filter == identity on TinyMLP).
-    a = run_clean_round(dict(_CFG), defense="none", server_round=1)
-    b = run_clean_round(dict(_CFG), defense="none", server_round=1)
+    a = run_clean_round(dict(_CFG), server_round=1)
+    b = run_clean_round(dict(_CFG), server_round=1)
     assert a["agg_checksum"] == b["agg_checksum"]
     assert a["eval"] is not None

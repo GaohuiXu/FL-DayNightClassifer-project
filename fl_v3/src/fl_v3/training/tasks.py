@@ -4,8 +4,8 @@ The FL skeleton must NOT assume classification: no hardcoded ``CrossEntropyLoss`
 no ``num-classes``, no single-logits readout. Everything task-specific — the
 model, the **criterion (loss)**, the data, and the eval metrics — is supplied by
 a :class:`Task` selected from :data:`TASK_REGISTRY` via the ``task-type`` config
-key. The AD perception task (BEVFusion model, detection loss, mAP/NDS + ASR eval)
-registers here in T2/T4 without touching the skeleton.
+key. The AD perception task supplies BEVFusion construction, detection loss, and
+clean evaluation without changing the skeleton.
 
 The T0 ``dummy_regression`` task deliberately uses an **MSE** criterion (not
 CrossEntropy) on synthetic continuous targets — this is the positive proof that
@@ -39,15 +39,15 @@ from fl_v3.utils.runtime import (
 )
 
 # ---------------------------------------------------------------------------
-# DT3-A — trainable-only update vector + the frozen T3→T6 layout contract.
+# DT3-A — trainable-only update vector and frozen layout contract.
 # ---------------------------------------------------------------------------
 # The FL update vector is the model's **trainable** tensors ONLY (D1: the frozen
 # ImageNet camera backbone — 94 % of params, zero update — is excluded and
 # reconstructed byte-identically per node from the pinned ImageNet cache; see
 # ``det-pretrained-backbone``). For the headline BEVFusion detector this is
 # EXACTLY the 62 non-backbone param tensors, in this module order with these
-# per-module counts. Frozen here as the contract T6 defenses + the Q2 dilution
-# slice depend on (asserted by ``assert_trainable_layout`` + tests).
+# per-module counts. Frozen here because aggregation and checkpoint loading rely
+# on the same ordered trainable vector (asserted by ``assert_trainable_layout``).
 #
 # Buffers are NOT in the update vector. VERIFIED (T3 introspection): all frozen
 # *params* live under ``camera_backbone``; the only non-backbone buffers are 4
@@ -244,7 +244,7 @@ class Task(abc.ABC):
         run_config: dict,
     ) -> dict:
         """Task-specific eval metrics. MUST NOT assume classification — return
-        whatever the task measures (e.g. ``eval_loss``; later mAP/NDS/ASR)."""
+        whatever the task measures (e.g. ``eval_loss`` or official mAP/NDS)."""
 
 
 TASK_REGISTRY: Dict[str, Task] = {}
@@ -643,7 +643,7 @@ def center_distance_proxy(
     target_class: int = 0,
     max_dist: float = 2.0,
 ) -> Dict[str, float]:
-    """Provisional center-distance proxy (NOT the T4 DetectionEval).
+    """Provisional center-distance proxy (not official DetectionEval).
 
     For the D8 target class, match decoded boxes to GT by **metric BEV-center L2 in the
     canonical frame** (greedy nearest, each GT matched at most once). Reports
@@ -693,7 +693,7 @@ class NuScenesDetectionTask(Task):
 
     Consumes the **frozen T1 schema** (via the pre-built info-cache) + the log-group /
     IID partitioner; the loop trains it through the additive batch protocol; eval reports
-    the training loss + the center-distance proxy (the official mAP/NDS + ASR are T4)."""
+    the training loss plus the center-distance proxy; official mAP/NDS is post-hoc."""
 
     name = "nuscenes_detection"
 
@@ -830,7 +830,6 @@ class NuScenesDetectionTask(Task):
         return int(self._partition(run_config)["num_clients"])
 
     def _make_loader(self, run_config: dict, info_list, tokens, shuffle: bool,
-                     client_id: Optional[int] = None, num_clients: Optional[int] = None,
                      augment: Optional[dict] = None):
         from fl_v3.data.nuscenes.dataset import NuScenesMultimodalDataset, make_loader
         from fl_v3.data.nuscenes import paths as P
@@ -847,13 +846,6 @@ class NuScenesDetectionTask(Task):
                                                      if production else None),
                                        model_mode=model_mode)
         ds = _apply_production_sampling(ds, run_config, shuffle=shuffle)
-        # T5 routing (additive): for a malicious-roster CLIENT train shard, wrap with the
-        # poisoning dataset. ``client_id is None`` (the eval/val loader) or attack-disabled /
-        # poison_rate=0 / honest client ⇒ ``ds`` is returned UNCHANGED (byte-identical clean).
-        if client_id is not None:
-            from fl_v3.attacks.poisoned_client import maybe_wrap_for_client
-            n = int(num_clients) if num_clients is not None else self.num_clients(run_config)
-            ds = maybe_wrap_for_client(ds, int(client_id), run_config, n)
         sampler = _production_sampler(ds, run_config, shuffle=shuffle)
         return make_loader(
             ds,
@@ -870,9 +862,13 @@ class NuScenesDetectionTask(Task):
         info_list, _ = self._load_info(run_config, split)
         part = self._partition(run_config)
         tokens = part["client_tokens"][client_id]
-        trainloader = self._make_loader(run_config, info_list, tokens, shuffle=True,
-                                        client_id=client_id, num_clients=part["num_clients"],
-                                        augment=_aug_from_run(run_config))  # TRAIN-ONLY aug
+        trainloader = self._make_loader(
+            run_config,
+            info_list,
+            tokens,
+            shuffle=True,
+            augment=_aug_from_run(run_config),
+        )
         return ClientData(trainloader=trainloader, valloader=None,
                           num_train=len(tokens), num_val=0)
 

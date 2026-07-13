@@ -151,8 +151,6 @@ mods = ["torch", "torchvision", "numpy", "scipy", "flwr", "ray", "sklearn", "mat
 for name in mods:
     m = importlib.import_module(name)
     print(f"{name}: {getattr(m, '__version__', 'import-ok')}")
-from sklearn.cluster import HDBSCAN
-print("sklearn.cluster.HDBSCAN: OK", HDBSCAN)
 PY
 
 echo "[build_arrhenius_env] wrote ${ARRHENIUS_ENV_ROOT}/requirements.arrhenius.lock.txt"

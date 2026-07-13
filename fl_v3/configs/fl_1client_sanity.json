@@ -41,7 +41,6 @@
   "server-eval-mode": "every_n",
   "server-eval-frequency": 1,
   "det-eval-limit": 512,
-  "log-gradient-metrics": false,
   "precision": "fp16",
   "determinism-strict": false,
 
@@ -68,7 +67,6 @@
   "compile-backbone": false,
   "det-compile-bev": false,
 
-  "defense-type": "none",
   "wandb-enabled": false,
   "wandb-mode": "disabled"
 }

@@ -1,12 +1,12 @@
-"""Canonical ``LIDAR_TOP`` box → nuScenes **global** ``DetectionBox`` (fl_v3 T4).
+"""Canonical ``LIDAR_TOP`` box → nuScenes global ``DetectionBox``.
 
-The submission conversion every official-metric + ASR computation depends on. A
+The submission conversion used by official clean detection evaluation. A
 decoded box is ``(cx,cy,cz, dx=l, dy=w, dz=h, yaw)`` in the **T1 canonical**
 ``LIDAR_TOP`` frame (``conventions.md`` §3); the devkit ``DetectionEval`` scores
 **global**-frame ``DetectionBox`` submissions. This module is the *inverse* of T1's
 forward (info_cache) geometry — written **independently** (composed forward, never a
 literal re-use of T1's inverted matrices) and **anchored to the raw devkit annotation**
-(``Box``/``Quaternion``/``box_velocity``), NOT to T1's own forward (T4_SPEC §0.1).
+(``Box``/``Quaternion``/``box_velocity``), not to T1's own forward transform.
 
 Geometry (re-using the verified ``transforms`` primitives, only the inverse direction
 is new):
@@ -262,7 +262,7 @@ def decoded_sample_to_boxes(
     ``decoded`` = ``{"boxes":[K,7], "scores":[K], "labels":[K], "velocity":[K,2]}`` (the
     single decode). ``class_names`` maps label-id → detection name (``DETECTION_NAMES``
     order). ``score_threshold`` is an OPTIONAL additional floor — by default the decode's
-    own ``score_threshold`` already applied, so this is ``None`` (no V4/eval re-threshold).
+    own ``score_threshold`` already applied, so this is ``None`` (no evaluator re-threshold).
     Boxes returned in the content-defined deterministic order.
     """
     boxes = np.asarray(decoded["boxes"].detach().cpu().numpy() if hasattr(decoded["boxes"], "detach")

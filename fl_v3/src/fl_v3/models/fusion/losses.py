@@ -167,8 +167,7 @@ class CenterPointLoss(nn.Module):
         serialized the GPU — hundreds per batch) are replaced by ONE batched transfer, and the
         regression target is vectorized. The arithmetic, the device (GPU), and the `torch.maximum`
         Gaussian overlay (commutative → order-independent) are unchanged, so the heatmap + reg_target
-        tensors are byte-identical and the (target-side, no-grad) construction does not alter gradients.
-        Verified against the OLD reference by verify_levers.py (loss + grad_all)."""
+        tensors are byte-identical and the (target-side, no-grad) construction does not alter gradients."""
         cfg = self.cfg
         H, W = cfg.head_ny, cfg.head_nx
         gt_boxes_list: List[torch.Tensor] = batch["gt_boxes"]

@@ -1,4 +1,4 @@
-"""S07-B seams across reviewed S02-S06 components.
+"""S07-C clean-foundation seams across reviewed S02-S06 components.
 
 These tests are deliberately synthetic and local.  They validate enum-to-constructor
 mapping and tensor contracts; they are not substitutes for an approved GH200/nuScenes
@@ -7,10 +7,8 @@ execution gate.
 from __future__ import annotations
 
 import json
-import ast
 import importlib
 import importlib.util
-import os
 from pathlib import Path
 import sys
 from types import ModuleType, SimpleNamespace
@@ -36,14 +34,6 @@ def _centralized_train_module():
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module
-
-
-def _script_module(filename: str, module_name: str):
-    path = Path(__file__).resolve().parents[1] / "scripts" / filename
-    spec = importlib.util.spec_from_file_location(module_name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
     return module
 
 
@@ -433,137 +423,3 @@ def test_multitask_loss_rejects_legacy_single_head_output():
         criterion({"heatmap": torch.zeros(1, 10, 1, 1)}, {
             "gt_boxes": [], "gt_labels": [],
         })
-
-
-def _six_tasks():
-    return [_task_output(count, size=2) for count in (1, 2, 2, 1, 2, 2)]
-
-
-def test_t5_condition_decode_consumes_task_outputs_without_legacy_global_k(monkeypatch):
-    from fl_v3.attacks import fusion_ablation as ablation
-
-    calls = []
-
-    class Model:
-        fusion = staticmethod(lambda camera, lidar: camera + lidar)
-        bev_neck = staticmethod(lambda value: value)
-        head = staticmethod(lambda _value: _six_tasks())
-
-        def __call__(self, _batch, return_intermediates=False):
-            if return_intermediates:
-                return {
-                    "task_outputs": _six_tasks(),
-                    "_camera_bev": torch.ones(1, 1, 2, 2),
-                    "_lidar_bev": torch.ones(1, 1, 2, 2),
-                }
-            return _six_tasks()
-
-        def decode(self, head, **kwargs):
-            calls.append((head, kwargs))
-            assert isinstance(head, list) and len(head) == 6
-            assert set(kwargs) == {"score_threshold"}
-            return [{"boxes": torch.zeros(0, 7), "scores": torch.zeros(0),
-                     "labels": torch.zeros(0, dtype=torch.long), "velocity": torch.zeros(0, 2)}]
-
-    monkeypatch.setattr(ablation, "_collate_one", lambda *_args: {})
-    model = Model()
-    ablation._decode(model, {}, torch.device("cpu"), 0.1)
-    ablation._decode_cond4_and_cond5a(model, {}, torch.device("cpu"), 0.1)
-    assert len(calls) == 3
-
-
-def test_mini_matrix_six_task_telemetry_and_delta_use_every_branch(monkeypatch):
-    scripts = Path(__file__).resolve().parents[1] / "scripts"
-    monkeypatch.syspath_prepend(str(scripts))
-    path = scripts / "arrhenius_mini_matrix.py"
-    spec = importlib.util.spec_from_file_location("s07b_mini_matrix", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
-    base = _six_tasks()
-    changed = [
-        {key: value.detach().clone() for key, value in task.items()}
-        for task in base
-    ]
-    changed[5]["heatmap"] += 1.0
-    stats = module._head_task_stats(base)
-    delta = module._head_delta_stats(changed, base)
-    assert len(stats) == 6 and set(delta) == {f"task_{index}" for index in range(6)}
-    assert delta["task_5"]["heatmap"]["nonzero"] > 0
-    assert delta["task_0"]["heatmap"]["nonzero"] == 0
-
-
-def test_primary_and_historical_caller_inventory_is_fail_closed_and_no_legacy_k():
-    root = Path(__file__).resolve().parents[1]
-    paths = {
-        "fusion": root / "src/fl_v3/attacks/fusion_ablation.py",
-        "t4": root / "scripts/t4_readiness_eval.py",
-        "t5": root / "scripts/t5_attack_eval.py",
-        "mini": root / "scripts/arrhenius_mini_matrix.py",
-    }
-    for path in paths.values():
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-                if node.func.attr == "decode":
-                    assert all(keyword.arg != "max_objects" for keyword in node.keywords)
-    for label in ("t4", "t5"):
-        source = paths[label].read_text(encoding="utf-8")
-        assert "load_checkpoint(" in source and "CHECKPOINT_SCHEMA" in source
-        assert "refuses legacy/bare checkpoints" in source
-    for name in (
-        "_t4_fd_diagnose.py", "t3_trainval_reeval_fullval.py",
-        "p3_crt_probe.py", "p3_grad_conflict.py",
-    ):
-        source = (root / "scripts" / name).read_text(encoding="utf-8")
-        assert "frozen historical" in source or "frozen legacy" in source
-        assert "RuntimeError" in source
-
-
-@pytest.mark.parametrize(
-    "filename,function_name",
-    [("t4_readiness_eval.py", "_load_s06_eval_model"),
-     ("t5_attack_eval.py", "_load_model")],
-)
-def test_t4_t5_callers_use_complete_checkpoint_loader_and_bind_provenance(
-    tmp_path, monkeypatch, filename, function_name,
-):
-    from test_s06_resolved_config import valid_config
-    import fl_v3.config as config_module
-    import fl_v3.training.checkpoint as checkpoint_module
-    import fl_v3.training.tasks as tasks_module
-    import fl_v3.utils.runtime as runtime_module
-
-    module = _script_module(filename, "s07b_" + filename.replace(".py", ""))
-    raw = valid_config(tmp_path)
-    resolved = config_module.resolve_config(raw)
-    checkpoint = tmp_path / "checkpoint.pt"; checkpoint.write_bytes(b"exact-s06-checkpoint")
-    payload = {"schema": checkpoint_module.CHECKPOINT_SCHEMA,
-               "resolved_config": resolved.as_dict()}
-    monkeypatch.setattr(module.torch, "load", lambda *args, **kwargs: payload)
-    monkeypatch.setattr(config_module, "verify_physical_data_identities", lambda _cfg: None)
-    monkeypatch.setattr(runtime_module, "verify_runtime_dependency_identity",
-                        lambda _run: {"torch": "attested"})
-    monkeypatch.setattr(runtime_module, "make_grad_scaler", lambda *_args: object())
-
-    class Task:
-        @staticmethod
-        def build_model(_run):
-            return torch.nn.Linear(2, 2)
-
-    monkeypatch.setattr(tasks_module, "get_task", lambda _name: Task())
-    load_calls = []
-    monkeypatch.setattr(
-        checkpoint_module, "load_checkpoint",
-        lambda path, **kwargs: (load_calls.append((path, kwargs)) or (object(), resolved.sha256)),
-    )
-    caller = {"batch-size": 1, "num-workers": 0, "det-eval-limit": 0}
-    model = getattr(module, function_name)(caller, str(checkpoint), torch.device("cpu"))
-    assert isinstance(model, torch.nn.Module) and len(load_calls) == 1
-    assert caller["resolved-config-sha256"] == resolved.sha256
-    expected_checkpoint_hash = (
-        module._sha256_file(str(checkpoint)) if filename.startswith("t4")
-        else module._checkpoint_file_sha256(str(checkpoint))
-    )
-    assert caller["checkpoint-sha256"] == expected_checkpoint_hash
-    assert caller["checkpoint-weights"] == "raw"
-    assert len(caller["runtime-dependencies-sha256"]) == 64

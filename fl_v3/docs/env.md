@@ -72,8 +72,11 @@ Submit a Slurm job to validate this stack.
 - CUDA compiler module `12.9.1`.
 - torchvision `0.26.0+cu128`.
 - numpy `1.26.4`, scipy `1.13.1`.
-- flwr `1.27.0`, ray `2.51.1`, scikit-learn `1.8.0`.
-- nuscenes-devkit `1.1.11`.
+- flwr `1.27.0`, ray `2.51.1`.
+- nuscenes-devkit `1.1.11`, scikit-learn `1.8.0`. The devkit imports
+  `sklearn.metrics` unconditionally, so scikit-learn is a clean nuScenes
+  data/evaluation runtime dependency. It is not an FLAME, HDBSCAN, or defense
+  dependency.
 - cumm `v0.7.13` at `4dedaf43ff801e417c60c6bd7536a29d83d29ee0`.
 - spconv `v2.3.8` at `263d6b47425ef843c82f997b12d8b714013d216c`.
 

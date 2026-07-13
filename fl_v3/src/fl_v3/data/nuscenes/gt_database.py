@@ -1,4 +1,4 @@
-"""GT-database (gt-sampling) helpers — MCR P1 rare-class lever + the T5/T6 camera+LiDAR poison substrate.
+"""Clean GT-database helpers for deterministic object sampling.
 
 GT-paste ("db_sampler" / "ObjectSample") is the standard nuScenes/Waymo SOTA ingredient the platform lacks:
 copy per-object LiDAR point crops from a pre-built database into training scenes so rare classes
@@ -7,11 +7,9 @@ per-object orientation jitter for diversity (the variety CBGS lacked — CBGS re
 which overfit the few fixed instances). The pasted objects are LiDAR-only (no camera pixels); our LSS is
 UNSUPERVISED (no depth loss) so this injects ZERO depth-label noise — the BEVFusion-standard tolerated cost.
 
-This module is the offline-build + paste-time geometry (pure numpy, AST-irrelevant — it lives in ``data/``,
-never ``models/fusion/**``). The same per-class point DB is the substrate a future T5/T6 attack poisons
-(trigger-object injection / label-flip) — a clean DB drives the centralized/clean baselines, a poisoned DB
-is a hashed controlled variable. Determinism: all paste-time sampling uses ``numpy.random`` seeded by
-``seeded_worker_init`` (D16-relaxed reproducible); the build is a deterministic walk.
+This module contains the offline-build and paste-time geometry in pure NumPy.
+All paste-time sampling uses ``numpy.random`` seeded by ``seeded_worker_init``;
+the database build is a deterministic walk.
 """
 from __future__ import annotations
 

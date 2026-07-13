@@ -34,7 +34,6 @@
   "det-bev-neck-channels": 128,
   "det-head-channels": 32,
   "det-eval-limit": 8,
-  "defense-type": "none",
   "wandb-enabled": false,
   "wandb-mode": "disabled"
 }

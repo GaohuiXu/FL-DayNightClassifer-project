@@ -1,10 +1,8 @@
-"""Server-side adaptive optimizer (FedOpt family; MCR Phase-3 / D17).
+"""Server-side adaptive optimizer for the clean FedAvg path.
 
-The clean FL baseline's retention lever. A framework-free, pure-numpy server optimizer that sits
-**orthogonal to the defense** (``defense-type`` stays ``none`` for the D10 reference; FedAdam is a
-SERVER-OPTIMIZER axis, not a robust aggregator). It composes with ANY defense: the defense core first
-produces the robust aggregate (the "target" global), then this optimizer applies an adaptive step on the
-**pseudo-gradient** Δ = aggregated − global (Reddi et al. 2021, *Adaptive Federated Optimization*, ICLR).
+This framework-free FedOpt implementation applies an adaptive step to the
+FedAvg pseudo-gradient ``Δ = aggregated − global`` (Reddi et al. 2021,
+*Adaptive Federated Optimization*, ICLR).
 
 Update (per parameter tensor), with η = ``server_lr``::
 
@@ -15,7 +13,7 @@ Update (per parameter tensor), with η = ``server_lr``::
                v_t = β2 v_{t-1} + (1−β2) Δ_t² ;     x_{t+1} = x_t + η · m̂_t / (√v̂_t + τ)
 
 ``m̂``/``v̂`` are bias-corrected (Adam convention; toggle with ``bias_correction``). State (m, v, t) lives
-on the optimizer instance, which the strategy / local_runner carries across rounds (like ``FoolsGoldState``).
+on the optimizer instance, which the strategy and local runner carry across rounds.
 
 **Determinism (D16):** fp64 accumulation, no RNG, deterministic for a fixed input order — so it adds no new
 determinism obligation. **Default-off byte-identity:** ``kind='fedavg'`` + ``server_lr=1.0`` returns the
@@ -86,7 +84,7 @@ class ServerOptimizer:
         aggregated_params: List[np.ndarray],
     ) -> List[np.ndarray]:
         """Apply the server-optimizer step. ``global_params`` = the global at round start;
-        ``aggregated_params`` = the defense/FedAvg robust aggregate (the target). Returns the
+        ``aggregated_params`` = the clean FedAvg aggregate (the target). Returns the
         new global (same length / dtypes as ``aggregated_params``)."""
         if self.is_identity:
             return aggregated_params  # plain FedAvg — no copy, no change (crown-jewel byte-identity)

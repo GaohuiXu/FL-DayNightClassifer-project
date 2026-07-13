@@ -3,7 +3,7 @@
 The crown-jewel correctness for full-loop bit-determinism at ``fraction-train < 1``:
 
   * ``select_partition_ids`` is reproducible, salted, fraction-honoring;
-  * ``NormTrackingFedAvg.configure_train`` selects the SAME partition-ids across two
+  * ``CleanFedAvgStrategy.configure_train`` selects the SAME partition-ids across two
     fake drivers whose node_ids differ (the Flower-random-sample failure mode) — and
     does so by mapping partition-id→node_id via discovery, NOT ``random.sample(node_ids)``;
   * the fraction=1.0 case is NOT sufficient (it trivially selects all) — the test
@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 from flwr.app import Array, ArrayRecord, ConfigRecord
 
-from fl_v3.strategy.flower_strategies import NormTrackingFedAvg
+from fl_v3.strategy.flower_strategies import CleanFedAvgStrategy
 from fl_v3.strategy.sampling import (
     SAMPLE_SALT_EVAL,
     SAMPLE_SALT_TRAIN,
@@ -90,7 +90,7 @@ class _FakeGrid:
 
 
 def _strategy(fraction):
-    return NormTrackingFedAvg(
+    return CleanFedAvgStrategy(
         output_dir="/tmp/t3_sampling_test",
         experiment_name="t",
         seed=20259,

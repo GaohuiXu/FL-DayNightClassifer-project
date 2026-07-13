@@ -1,10 +1,10 @@
-"""Task-agnostic Flower ServerApp (fl_v3 T0).
+"""Task-agnostic clean Flower ServerApp.
 
 Builds the initial global model + the aggregation strategy from config, with NO
 classification assumption: the model and the server-side eval metrics come from
-the :class:`~fl_v3.training.tasks.Task` selected by ``task-type``, and the
-strategy from ``defense-type`` via the defense registry. Server-side determinism
-(seed + ``enforce_determinism``) is set once at startup.
+the :class:`~fl_v3.training.tasks.Task` selected by ``task-type``. The server
+uses one clean FedAvg strategy. Server-side determinism (seed plus
+``enforce_determinism``) is set once at startup.
 
 Validated to import + construct at T0. The live Ray run is exercised at T3.
 """
@@ -61,65 +61,29 @@ def _device(run_config) -> torch.device:
     return torch.device("cpu")
 
 
-def _build_strategy(defense_type: str, run_config, common_kwargs: dict, exp_dir: str):
-    """Instantiate the aggregation strategy for ``defense_type``.
-
-    Imported here (not at module top) so the server app can be imported without
-    ``flwr`` strategy internals being resolved until run time.
-    """
-    from fl_v3.strategy.flower_strategies import (
-        FedMedianStrategy,
-        FlameStrategy,
-        FoolsGoldStrategy,
-        MultiKrumStrategy,
-        NormClipStrategy,
-        NormTrackingFedAvg,
-    )
+def _build_strategy(run_config, common_kwargs: dict, exp_dir: str):
+    """Instantiate the single clean FedAvg strategy."""
+    from fl_v3.strategy.flower_strategies import CleanFedAvgStrategy
     from fl_v3.strategy.server_opt import build_server_optimizer
 
     experiment_name = str(run_config.get("experiment-name", "default"))
     seed = int(run_config.get("seed", 42))
-    topk_energy_k = int(run_config.get("topk-energy-k", 4096))
-    # MCR P3 (D17): the server optimizer (FedAdam) + server EMA + per-round client LR schedule. All
-    # default to the identity / off state ⇒ the strategy is byte-identical to the pre-MCR FedAvg path.
-    base = dict(
+    return CleanFedAvgStrategy(
         output_dir=exp_dir,
         experiment_name=experiment_name,
         seed=seed,
-        topk_energy_k=topk_energy_k,
         server_optimizer=build_server_optimizer(run_config),
         server_ema_decay=float(run_config.get("server-ema-decay", 0.0)),
         client_lr_schedule=str(run_config.get("client-lr-schedule", "constant")),
-        client_base_lr=run_config.get("learning-rate") if str(run_config.get("client-lr-schedule", "constant")) != "constant" else None,
+        client_base_lr=(
+            run_config.get("learning-rate")
+            if str(run_config.get("client-lr-schedule", "constant")) != "constant"
+            else None
+        ),
         num_rounds=int(run_config.get("num-server-rounds", 1)),
         client_lr_warmup_rounds=int(run_config.get("client-lr-warmup-rounds", 0)),
         client_lr_final_frac=float(run_config.get("client-lr-final-frac", 0.0)),
-        log_gradient_metrics=truthy(run_config.get("log-gradient-metrics", True)),
         **common_kwargs,
-    )
-
-    d = defense_type.lower()
-    if d in ("none", "fedavg"):
-        return NormTrackingFedAvg(**base)
-    if d == "norm_clipping":
-        return NormClipStrategy(clip_norm=float(run_config.get("clip-norm", 5.0)), **base)
-    if d == "flame":
-        return FlameStrategy(
-            noise_multiplier=float(run_config.get("flame-noise-multiplier", 1e-6)), **base
-        )
-    if d == "foolsgold":
-        return FoolsGoldStrategy(head_index=int(run_config.get("foolsgold-head-index", -2)), **base)
-    if d == "fed_median":
-        return FedMedianStrategy(**base)
-    if d == "multi_krum":
-        return MultiKrumStrategy(
-            num_malicious=int(run_config.get("num-malicious-nodes", 0)),
-            num_to_select=int(run_config.get("krum-num-to-select", 1)),
-            **base,
-        )
-    raise ValueError(
-        f"Unsupported defense-type {defense_type!r}. Available: none, fedavg, "
-        "norm_clipping, flame, foolsgold, fed_median, multi_krum"
     )
 
 
@@ -130,9 +94,9 @@ def should_server_eval(mode: str, frequency: int, server_round: int, num_rounds:
     """Per-round server-eval policy (Cycle-04 D14 Phase-1 B). Pure → unit-testable.
 
     The per-round server eval computes only PROXY metrics (eval_loss, proxy_recall) — NOT the
-    scientific result (official mAP/NDS + ASR are post-hoc on the final checkpoint). So it is a
+    scientific result (official mAP/NDS is post-hoc on the final checkpoint). So it is a
     config policy, default ``none`` for trainval (the proxy is not worth ~2 h/run of decode):
-      * ``none``    — never (the final official eval is run post-hoc by the readiness script).
+      * ``none``    — never (the final official eval is run post-hoc).
       * ``final``   — only the last round (a single cheap end-curve point).
       * ``every_n`` — every ``frequency`` rounds AND the last round (the cheap convergence curve E
                       needs, paired with a small ``det-eval-limit`` subset).
@@ -209,7 +173,7 @@ def _server_eval_fn(context: Context, task, exp_dir: str, strategy=None):
         raise ValueError(f"server-eval-mode={mode!r} not in {sorted(_VALID_EVAL_MODES)}")
     print(
         f"[Server] server-eval-mode={mode} frequency={frequency} snapshot-rounds={sorted(snapshot_rounds)} "
-        f"(proxy metrics only; official mAP/NDS + ASR stay post-hoc on the snapshot checkpoints)",
+        "(proxy metrics only; official mAP/NDS stays post-hoc on snapshot checkpoints)",
         flush=True,
     )
     # Build the (cheap) eval loader lazily — only if at least one round will actually eval, so
@@ -281,9 +245,7 @@ def main(grid: Grid, context: Context) -> None:
         ),
         min_available_nodes=int(run_config.get("min-available-nodes", 2)),
     )
-    strategy = _build_strategy(
-        str(run_config.get("defense-type", "none")), run_config, common_kwargs, exp_dir
-    )
+    strategy = _build_strategy(run_config, common_kwargs, exp_dir)
 
     # DT3-A: the FL update vector is the TRAINABLE-only state (62 tensors for the AD
     # detector); the frozen backbone is reconstructed per node and excluded.
@@ -310,7 +272,7 @@ def main(grid: Grid, context: Context) -> None:
     if result.arrays:
         # DT3-A: ``result.arrays`` is the aggregated TRAINABLE-only vector. Merge it into
         # a freshly-built FULL model (frozen backbone reconstructed pretrained) so the
-        # saved checkpoint is self-contained and loads ``strict=True`` at T4.
+        # saved checkpoint is self-contained and loads ``strict=True``.
         full_model = task.build_model(run_config).to("cpu")
         load_trainable_state_dict(full_model, result.arrays)
         ckpt = os.path.join(exp_dir, "final_model.pt")
@@ -330,7 +292,7 @@ def main(grid: Grid, context: Context) -> None:
         # MCR P3 (D17): if a server-side cross-round EMA was kept, save it as a SELF-CONTAINED eval
         # checkpoint under <exp_dir>/ema/ with its OWN trainable checksum — the FL analog of the
         # centralized EMA checkpoint. The reference is reported on whichever of {raw, EMA} peaks; the
-        # launcher writes provenance.json into BOTH dirs so either can host a D10 readiness verdict.
+        # launchers may bind either directory to its own clean provenance record.
         ema_arrays = getattr(strategy, "_ema_arrays", None)
         if ema_arrays is not None:
             from fl_v3.engine.local_runner import load_trainable_numpy

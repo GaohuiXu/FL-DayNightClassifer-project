@@ -51,7 +51,6 @@
   "det-lidar-backbone-out": 128,
   "det-lidar-backbone-checkpoint": true,
   "server-eval-mode": "none",
-  "defense-type": "none",
   "wandb-enabled": false,
   "wandb-mode": "disabled"
 }

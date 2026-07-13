@@ -4,9 +4,8 @@ The clean V3 panels (the SPEC V3 gate: "fusion is active + localized"): ``camera
 ``lidar_BEV_norm``, ``fused_BEV_norm``, plus the **side-by-side cam/LiDAR/fused
 BEV-alignment overlay** — the same GT centers (single :mod:`bev_grid` convention) drawn
 on all three so the reviewer can see camera-BEV and LiDAR-BEV land on the same objects
-and the fusion responds there. *(The trigger-diff V3 panels — ``fused_triggered −
-fused_clean`` etc. — are T5.)* Mirrors ``viz/calibration.py`` (Agg, sample_token-stable
-names); does not rewrite ``writer.py``."""
+and the fusion responds there. Mirrors ``viz/calibration.py`` (Agg,
+sample-token-stable names); does not rewrite ``writer.py``."""
 from __future__ import annotations
 
 from typing import List
@@ -60,38 +59,3 @@ def render_v3(writer, model, batch, cfg: BEVConfig, max_samples: int = 3) -> Lis
         fig.savefig(path, bbox_inches="tight", pad_inches=0.1); plt.close(fig)
         paths.append(path)
     return paths
-
-
-@torch.no_grad()
-def render_v3_trigger(writer, model, sample_clean, placement, spec, cfg: BEVConfig,
-                      target_box=None, name: str = "") -> str:
-    """V3(trigger) (T5): clean-vs-triggered ``camera/lidar/fused`` BEV norms + the fused trigger diff,
-    so the reviewer sees the trigger is fusion-relevant + localized to the target BEV cell."""
-    from fl_v3.attacks import trigger as TR
-    from fl_v3.attacks.fusion_ablation import _collate_one
-    from fl_v3.models.fusion.bev_grid import points_to_fine_grid
-
-    device = next(model.parameters()).device
-    triggered = TR.apply_trigger(sample_clean, placement, spec)
-    oc = model(_collate_one(sample_clean, device), return_intermediates=True)
-    ot = model(_collate_one(triggered, device), return_intermediates=True)
-    cam_c, lid_c, fus_c = _norm(oc["_camera_bev"][0]), _norm(oc["_lidar_bev"][0]), _norm(oc["_fused_bev"][0])
-    fus_t = _norm(ot["_fused_bev"][0])
-    diff = _norm(ot["_fused_bev"][0] - oc["_fused_bev"][0])
-    tc = None
-    if target_box is not None:
-        col, row = points_to_fine_grid(torch.as_tensor(np.asarray(target_box)[:2]).reshape(1, 2), cfg)
-        tc = (int(col[0]), int(row[0]))
-    panels = [(cam_c, "camera_BEV (clean)", "viridis"), (lid_c, "lidar_BEV (clean)", "magma"),
-              (fus_c, "fused_BEV (clean)", "inferno"), (fus_t, "fused_BEV (triggered)", "inferno"),
-              (diff, "‖fused_trig − fused_clean‖", "inferno")]
-    fig, axes = plt.subplots(1, 5, figsize=(22, 4.4), dpi=100)
-    for ax, (grid, ttl, cmap) in zip(axes, panels):
-        ax.imshow(grid, origin="lower", cmap=cmap, aspect="equal")
-        if tc is not None:
-            ax.scatter([tc[0]], [tc[1]], s=60, facecolors="none", edgecolors="red", linewidths=1.4)
-        ax.set_title(ttl, fontsize=8)
-    fig.suptitle(f"V3(trigger) | {sample_clean['sample_token']} | target cell=red○ | aligned={placement.aligned}", fontsize=9)
-    path = writer.figure_path("fusion", f"fusion_trigger__{name or sample_clean['sample_token']}")
-    fig.savefig(path, bbox_inches="tight", pad_inches=0.1); plt.close(fig)
-    return path

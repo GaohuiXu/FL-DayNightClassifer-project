@@ -63,7 +63,33 @@ def _sparse_meta(model) -> dict:
 def _load_cfg(path: str, args: argparse.Namespace) -> dict:
     from fl_v3.utils.runtime import validate_sparse_precision
 
-    cfg = json.load(open(path, encoding="utf-8"))
+    cfg = json.load(open(path, encoding="utf-8")) if path else {
+        "task-type": "nuscenes_detection",
+        "seed": 42,
+        "device": "cuda",
+        "output-dir": "./fl_outputs/nuscenes/arrhenius_smoke",
+        "nuscenes-dataroot": "",
+        "nuscenes-cache-dir": "./fl_outputs/nuscenes/info_cache",
+        "nuscenes-version": "v1.0-mini",
+        "nuscenes-train-split": "mini_train",
+        "nuscenes-val-split": "mini_val",
+        "nuscenes-partition-mode": "log_group",
+        "nuscenes-num-clients": 4,
+        "min-keyframes-per-client": 1,
+        "num-server-rounds": 1,
+        "fraction-train": 1.0,
+        "num-local-epochs": 1,
+        "batch-size": 1,
+        "num-workers": 0,
+        "det-camera-backbone": "resnet18",
+        "det-lidar-encoder": "voxel",
+        "det-sparse-conv-fp16": False,
+        "det-freeze-backbone": True,
+        "det-pretrained-backbone": True,
+        "det-eval-limit": 2,
+        "wandb-enabled": False,
+        "wandb-mode": "disabled",
+    }
     if args.dataroot:
         cfg["nuscenes-dataroot"] = args.dataroot
     if args.cache_dir:
@@ -472,7 +498,7 @@ def dummy_train_smoke() -> dict:
         "weight-decay": 0.0,
         "precision": "fp32",
     }
-    result = run_clean_rounds(cfg, defense="none", num_rounds=1, fraction_train=1.0)
+    result = run_clean_rounds(cfg, num_rounds=1, fraction_train=1.0)
     print("[dummy-train] OK", result["final_checksum"][:16], result["final_eval"])
     return {
         "final_checksum": result["final_checksum"],
@@ -482,7 +508,11 @@ def dummy_train_smoke() -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--config", default="fl_v3/configs/t4_mini_smoke.json")
+    ap.add_argument(
+        "--config",
+        default="",
+        help="optional flat JSON config; empty uses the built-in clean mini smoke config",
+    )
     ap.add_argument("--dataroot", default=os.environ.get("ARRHENIUS_NUSCENES_DATAROOT", ""))
     ap.add_argument("--cache-dir", default=os.environ.get("ARRHENIUS_NUSCENES_CACHE", ""))
     ap.add_argument("--output-dir", default=os.environ.get("ARRHENIUS_OUTPUT_ROOT", ""))
@@ -514,7 +544,7 @@ def main() -> None:
         "git_rev": _git_rev(),
         "slurm_job_id": os.environ.get("SLURM_JOB_ID", ""),
         "repo": str(_repo_root()),
-        "config": str(Path(args.config).resolve()),
+        "config": str(Path(args.config).resolve()) if args.config else "<built-in-clean-mini>",
         "output_dir": str(output_dir),
         "summary_path": str(summary_path),
         "precision": str(cfg.get("precision", "fp16")),

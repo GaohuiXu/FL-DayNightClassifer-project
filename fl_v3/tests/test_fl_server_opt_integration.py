@@ -1,7 +1,7 @@
 """FedAdam server-optimizer END-TO-END through ``local_runner`` (MCR Phase-3 / D17).
 
-CPU, dummy task (instant). Proves the server-optimizer axis is wired into the multi-round FedAvg path
-correctly and ORTHOGONALLY to the defense: (1) the default (no server-optimizer config) is byte-identical to
+CPU, dummy task (instant). Proves the server-optimizer axis is wired into the multi-round FedAvg path:
+(1) the default (no server-optimizer config) is byte-identical to
 explicit fedavg (the crown-jewel baseline is untouched); (2) FedAdam produces a DIFFERENT, FINITE trajectory;
 (3) FedAdam is deterministic; (4) the client-recipe knobs (grad-clip / backbone-lr-mult / adamw) are accepted
 and do not crash on the dummy model (no camera_backbone ⇒ flat optimizer ⇒ recipe is a no-op there).
@@ -28,7 +28,7 @@ _CFG = {
 def _run(extra, rounds=4):
     cfg = dict(_CFG)
     cfg.update(extra)
-    return run_clean_rounds(cfg, defense="none", num_rounds=rounds, fraction_train=1.0, min_train_nodes=2)
+    return run_clean_rounds(cfg, num_rounds=rounds, fraction_train=1.0, min_train_nodes=2)
 
 
 def test_default_equals_explicit_fedavg_byte_identical():

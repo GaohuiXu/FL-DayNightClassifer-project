@@ -76,7 +76,6 @@
   "det-gt-paste-iou-thresh": 0.0,
   "det-gt-paste-yaw-jitter": 0.785398,
   "server-eval-mode": "none",
-  "defense-type": "none",
   "wandb-enabled": false,
   "wandb-mode": "disabled"
 }

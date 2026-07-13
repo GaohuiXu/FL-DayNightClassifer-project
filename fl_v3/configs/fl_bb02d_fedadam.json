@@ -71,9 +71,7 @@
   "det-class-weights": "1.0,1.3,1.3,2.5,2.5,1.0,1.3,2.0,1.0,1.0",
   "compile-backbone": false,
   "det-compile-bev": false,
-  "log-gradient-metrics": false,
 
-  "defense-type": "none",
   "wandb-enabled": false,
   "wandb-mode": "disabled"
 }

@@ -1,10 +1,9 @@
-"""BEV-concat ``ConvFuser`` (D3) — the fusion sub-network (fl_v3 T2).
+"""BEV-concat ``ConvFuser`` — the clean fusion sub-network.
 
 Channel-concatenates the camera-BEV ⊕ LiDAR-BEV (both on the shared fine grid) and
-mixes them with Conv2d–**GroupNorm**(D6)–ReLU. A **cleanly named** module
-(``model.fusion``) so T5's fusion-aware attack and T6's per-module gradient slicing /
-the Q2 dilution analysis can address it without surgery. No BatchNorm (FL-non-IID),
-no adaptive pooling, no atomic op."""
+mixes them with Conv2d–GroupNorm–ReLU. It remains a separately named
+``model.fusion`` module for stable parameter accounting. No BatchNorm,
+adaptive pooling, or atomic operation is used."""
 from __future__ import annotations
 
 import torch
