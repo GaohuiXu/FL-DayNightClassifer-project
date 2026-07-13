@@ -171,19 +171,39 @@ D1 is bounded engineering diagnosis only. It does not establish multi-step
 stability, convergence, accuracy, Protocol A/B readiness or scientific evidence.
 Its compute authority is consumed. No retry or remediation compute is authorized.
 
-## FP32 final-gate preparation
+## FP32 final-gate terminal result
 
-The owner excluded precision comparison and scaler remediation from this session
-and selected one uniform FP32 final engineering gate. The test-only diff is
-prepared but **NOT RUN**. It changes the one-step acceptance case from fp16 to
-explicit fp32, checks `metrics["precision"] == "fp32"`, requires GradScaler to be
-disabled, and retains the one successful optimizer step/exposure/finite-gradient
-contract for C-STR8, L-S075 and F-U. The exact job also selects the already-passing
-plain-FedAvg constructor and worker-0/2 first-batch equality cases, for five total
-pytest cases. D1, AMP/scaler cells, profiles, metrics and extra steps are excluded.
+Exact Job `390576` consumed the one-shot F1 approval and completed on `n105` with
+exit `0:0`, elapsed `00:04:24`, zero restarts, `final_gate.exit=0`, one final
+`S07B_FP32_FINAL_GATE_PASS` marker and JUnit `5 passed / 0 failed / 0 error /
+0 skipped` in 173.217 seconds. The aarch64 GH200 environment remained Python
+3.11.15, Torch 2.11.0+cu128/CUDA 12.8, cumm 0.7.13 and spconv 2.3.8.
 
-Local `python3 -m py_compile`, `git diff --check`, `bash -n` for both temporary
-scripts and snapshot read-only checks pass. The immutable snapshot and exact
-request hashes are recorded in `RUN_REQUEST.md`. The test is durable at
-`29ca6637bcd0a4e9a6422f3b820fb43d5295ad2c`, and the owner approved one exact
-submission. There is no new Job ID or runtime result yet.
+| Case | loss | finite gradient norm | optimizer/exposure | precision/scaler | result |
+|---|---:|---:|---|---|---|
+| plain FedAvg construction | — | — | clean identity FedAvg | — | PASS |
+| C-STR8 | 945.8136 | 58,677.4648 | 1 / 1 | fp32 / disabled | PASS |
+| L-S075 | 1,562.8792 | 9,707,248.0 | 1 / 1 | fp32 / disabled | PASS |
+| F-U | 1,122.4043 | 5,889,270.0 | 1 / 1 | fp32 / disabled | PASS |
+| fusion worker 0 vs 2 first batch | — | — | exact batch equality | — | PASS |
+
+All three mode records report `nonfinite_loss_steps=0`, `grad_scaler_skips=0`,
+`optimizer_steps=1`, `exposure_samples=1`, and precision `fp32`. The expected
+ccimport deprecation and spconv indexing warnings remained non-fatal. No D1,
+AMP/scaler cell, comparison, profile, metric, extra update or retry ran.
+
+Raw artifact SHA-256:
+
+```text
+final_gate.log       2c3cf8fc49c662aabae161b691b81d08fd20d131aa942e49ee0755ecd84e0cf9
+final_gate.junit.xml a5eb50f35ffe031854bcb9b6862e5689ab02d779c17604c984b95a87dc2a69c5
+final_gate.exit      9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa
+environment.txt      b2e9d2df67472872f03dea6223d4dbef93bea29f60a5273aac334645fb487858
+slurm-390576.out     77d8d1d1221fa1cdd3919807d46d2cfa56696c5f8b73fdf535cbc4509978dc8f
+slurm-390576.err     ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57
+```
+
+This is the requested bounded S07-B-COMPLETE final engineering gate PASS. It
+does not establish multi-step stability, convergence, performance, full-data
+readiness, mAP/NDS, Protocol A/B readiness or any scientific claim. Independent
+review is still required before final S07-B-COMPLETE acceptance.

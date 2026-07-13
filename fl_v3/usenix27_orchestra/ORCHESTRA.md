@@ -1089,6 +1089,12 @@ The owner then approved exactly one F1 submission from test commit
 `29ca6637bcd0a4e9a6422f3b820fb43d5295ad2c`, bound to the immutable snapshot,
 five-case command, two script hashes, resources and output root in
 `RUN_REQUEST.md`. No changed command or retry is authorized.
+Exact Job `390576` consumed that approval and passed 5/5 cases: clean plain-FedAvg
+construction, one successful finite FP32 `train_one_epoch` update for each
+C-STR8/L-S075/F-U mode, and worker-0/2 first-batch equality. The job completed
+`0:0` in `00:04:24` on `n105` with zero restarts. S07-B-COMPLETE is now ready for
+independent review; this bounded mini engineering PASS is not final integration,
+full-training, performance or scientific acceptance.
 
 ### 11.3 Accepted clean-foundation evidence
 

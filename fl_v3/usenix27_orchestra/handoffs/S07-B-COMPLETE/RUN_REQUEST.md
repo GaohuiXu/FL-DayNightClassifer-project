@@ -420,11 +420,11 @@ source/config change and no second job.
 
 ---
 
-## F1 uniform-FP32 final clean gate — exact draft
+## F1 uniform-FP32 final clean gate — terminal exact request
 
 ```text
 REQUEST_ID: S07-B-COMPLETE-F1
-REQUEST_STATE: APPROVED EXACT ONCE / NOT YET SUBMITTED
+REQUEST_STATE: CONSUMED / TERMINAL PASS / NO RETRY AUTHORIZED
 OWNER_DIRECTION: no precision comparison or scaler remediation in S07-B; use one FP32 final gate
 CURRENT_DURABLE_HEAD: 45332e5416166463d5cb2b0bcb9c71e2efdc08f4
 TEST_COMMIT: 29ca6637bcd0a4e9a6422f3b820fb43d5295ad2c
@@ -444,6 +444,8 @@ APPROVAL_DATE: 2026-07-13
 APPROVAL_SOURCE: owner message "批准精确 F1 commit/submit" in the canonical S00 task
 APPROVED_COMPUTE: one exact F1 submission with the pinned test commit, snapshot, five cases, two script hashes, resources and output root
 RETRY: forbidden
+JOB_ID: 390576
+JOB_STATE: COMPLETED 0:0 / elapsed 00:04:24 / node n105 / restarts 0
 ```
 
 The read-only F1 snapshot was copied from the exact D1 snapshot and differs only
@@ -581,6 +583,5 @@ sbatch \
 
 Both exact temporary files pass `bash -n`; their hashes are pinned above. The
 owner approved the exact test commit plus this immutable F1 snapshot, inventory,
-two script hashes, resources and output root. Submit once after the docs-only
-approval seal. After terminal evidence, stop: no automatic change and no second
-job.
+two script hashes, resources and output root. Job `390576` consumed that one-shot
+approval and passed all five cases. Stop: no automatic change and no second job.

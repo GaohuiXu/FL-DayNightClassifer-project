@@ -941,6 +941,12 @@ The owner approved the exact immutable test commit `29ca663`, snapshot, five-cas
 command, two script hashes, resources and output tuple for one submission after
 the docs-only seal. No changed command or retry is authorized.
 
+**F1 terminal record.** Job `390576` completed `0:0` in `00:04:24` with zero
+restarts and passed all five selected cases: plain FedAvg, one finite successful
+FP32 update for each C/L/F mode, and worker-0/2 first-batch equality. The compute
+approval is consumed. The candidate may proceed to independent review; no retry,
+full training or scientific claim is authorized.
+
 ### S08 — camera-only scientific execution
 
 ```text
