@@ -1,25 +1,31 @@
-# S07-B-COMPLETE RUN_REQUEST — draft bounded clean engineering gate
+# S07-B-COMPLETE RUN_REQUEST — owner-approved bounded clean engineering gate
 
 ## Approval and immutable-materialization state
 
 ```text
 SESSION_ID: S07-B-COMPLETE
-APPROVAL_STATE: DRAFT_FOR_S00_OWNER_AUDIT / NOT REQUESTED / NOT APPROVED
-APPROVED_COMPUTE: none
+APPROVAL_STATE: OWNER_APPROVED_FOR_ONE_EXACT_SUBMISSION / NOT YET SUBMITTED
+APPROVED_COMPUTE: one exact bounded GH200 engineering validation job
+APPROVAL_DATE: 2026-07-13
+APPROVAL_SOURCE: owner message "批准执行" in the canonical S00 task
+REQUEST_SEAL: 6802f34fdafdf33bd31157ed15537b8f7955d1ad
 BASE_SHA: 4aa2b133d1d33382bf1514f7a3c86fcb03cf83e5
 WORKER_SHA: 34cbe02b7b72114e3a2d61f6f797c8dec022798c
 EXECUTABLE_SHA: 34cbe02b7b72114e3a2d61f6f797c8dec022798c
 EXECUTABLE_TREE: ed2d4091f0098f6b2144028afd87e20d023b1da2
-DELIVERY_REF: this docs-only handoff seal; full SHA supplied externally after commit
+DELIVERY_REF: 6802f34fdafdf33bd31157ed15537b8f7955d1ad
+APPROVAL_SEAL: this docs-only approval commit; full SHA supplied externally after commit
 ```
 
-This file is text only and grants no `sbatch`/`srun` authority. The owner
-authorized local durable materialization without changing candidate source bytes;
-the exact executable commit and tree above are now Git objects. The command below
-contains no materialization placeholder and archives that exact commit directly
-from the Git common directory. S00 must recheck all identities and obtain a new
-exact owner approval before submitting it. No repository launcher or compatibility
-wrapper is authorized.
+The owner approved exactly one submission of the frozen command and resources in
+this request after S00's audit. That approval is bound to the request seal,
+executable commit/tree, literal source closure and hashes, dependency identities,
+mini-data scope, output root, resource ceiling, stop conditions, and no-retry rule
+recorded below. Any change invalidates the approval. The exact executable commit
+and tree are durable Git objects; the command contains no materialization
+placeholder and archives that exact commit directly from the Git common directory.
+No repository launcher, compatibility wrapper, retry, replacement, or expanded
+cell is authorized.
 
 ## Frozen durable executable identities
 
