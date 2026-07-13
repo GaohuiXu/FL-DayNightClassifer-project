@@ -530,6 +530,14 @@ seed matrix, retry or scientific work is included. GH200 is not approved at
 kickoff. A later exact owner/S00-approved RUN_REQUEST may contain only the single
 bounded sequential engineering job specified in `KICKOFFS.md`.
 
+Owner amendment O-092-A3 retires the expanded audit wrapper and full integrated
+retest. Accepted S01 and S02--S06 reviewed evidence remains upstream evidence and
+is not re-executed for the two-file completion diff. The only candidate runtime
+delta is clean profile plus one C/L/F fp16 optimizer update with workers 0,
+followed by one independently timed workers-0-versus-2 first-batch check using
+`TMPDIR=/tmp`. The job contains no Git/dependency checkout audit, source/archive
+manifest, warnings-as-errors, custom cache harness or 205-case suite.
+
 ### S08 — Camera-only scientific run
 
 **Kickoff.** “Train and evaluate the frozen `C-STR8` topology on full trainval/full

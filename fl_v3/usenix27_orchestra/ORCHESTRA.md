@@ -1036,6 +1036,27 @@ only candidate is the separately audited bounded sequential engineering job in
 `KICKOFFS.md`. No branch, worktree, worker, compute, merge or push is authorized by
 preparing or committing this packet.
 
+**O-092-A3 owner amendment (2026-07-13).** Retire the failed S07-B-COMPLETE
+audit wrapper completely from active code/document authority. Preserve its three
+negative jobs and raw hashes only as closed evidence. Do not run Git, dependency
+checkout cleanliness, source/archive manifests, warnings-as-errors, custom long
+TMP/cache isolation or the 205-case suite inside GH200. Accepted S01 and S02--S06
+reviewed evidence is not re-run merely to prove the new two-file completion diff.
+The only current candidate is one training-first mini job from an exact read-only
+snapshot: clean Flower/FedAvg profile plus one B=1 fp16 optimizer update for each
+of C/L/F with `num_workers=0`, followed by one separately timed workers-0-versus-2
+first-batch equality check using node-local `/tmp`. Warnings remain visible and
+non-fatal. This amendment approves the reduced contract, not an unreviewed command
+or compute submission; the final command/hash/resources still require exact owner
+approval.
+
+The owner subsequently approved exactly one submission of command SHA-256
+`229dfec34da4bc2b37769afa48636700cf53e063f928720d022f8173ab311e75`
+and job-body SHA-256
+`dc14e7157e37b567d747093130020dde3306fab49eb43358883030400f66754c`
+with the recorded one-GH200/40-minute envelope. No changed command or retry is
+authorized.
+
 ### 11.3 Accepted clean-foundation evidence
 
 Acceptance below is limited to the recorded worker/review/runtime scope. It is

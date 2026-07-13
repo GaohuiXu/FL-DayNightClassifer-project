@@ -835,6 +835,13 @@ evaluation adapters, S01 mini directory/ZIP lifecycle and one clean Flower/FedAv
 path. This session does not train a capable model, define Protocol A/B data
 ownership, or establish a scientific baseline.
 
+Owner amendment O-092-A3 narrows the remaining runtime delta after the two-file
+completion implementation. Accepted reviewed S01 and S02--S06 evidence is cited,
+not re-run. Remove the expanded audit wrapper and do not replace it with another
+harness. The sole candidate runtime is clean profile plus one C/L/F fp16 update
+with workers 0, then one separately timed workers-0-versus-2 first-batch equality
+check using node-local `/tmp`.
+
 Verification-first rules:
 
 1. Before changing source, reproduce the accepted static inventory and inspect
@@ -876,22 +883,20 @@ GH200 is **not approved at kickoff**. After the code/test diff is stable, write 
 exact `RUN_REQUEST.md` and stop for S00/owner audit. A candidate request may contain
 at most one sequential engineering job, one node/one GH200, one concurrent job,
 at most 60 minutes, mini/synthetic data only, no retry. It must pin executable SHA,
-source manifest, environment, command, tests, data/cache identities, output root
-and stop conditions. Any code/test/command change invalidates approval.
+read-only snapshot, environment, command, tests, mini root, output root and stop
+conditions. Git, dependency-checkout state and source/archive manifests are login-
+side closed evidence and must not execute inside the job. Any code/test/command
+change invalidates approval.
 
 The proposed bounded job may request only:
 
-- dependency/import/source-identity checks;
-- the exact S07-B integration/lifecycle, S06, clean FedAvg/Flower, selected S01
-  mini ZIP, provenance and evaluation test files listed in ownership;
+- environment/dependency imports from the already-built persistent environment;
+- the focused clean Flower/FedAvg profile test;
 - one B=1, `num_workers=0`, fp16 optimizer update for each exact mode C-STR8,
-  L-S075 and F-U, with finite loss/gradients, plus one checkpoint save/load/resume
+  L-S075 and F-U, with finite loss/gradients and the focused TrainingState
   boundary; this is three engineering mode checks, not an experiment matrix;
-- one mini first-batch `num_workers=0` versus `2` lifecycle equality check with
-  no skip, timeout, abort or worker warning;
-- the official devkit GT-as-pred/box-to-global functional adapter test only if
-  separately named in the exact request; any emitted AP is test output, not a
-  model metric or scientific result.
+- after those updates, one separately timed mini first-batch `num_workers=0`
+  versus `2` equality check with `TMPDIR=/tmp` and no skip/abort.
 
 Explicitly forbidden even in the candidate request: full cache/trainval scans,
 100/1000-step or tiny-overfit, model capability/mAP/NDS campaigns, profile,
@@ -899,12 +904,12 @@ throughput benchmark, Ray live federation, DDP, multi-GPU, actor/process matrix,
 seed matrix, automatic retry, attack/defense or upload. `test_model_overfit.py`
 and the old S07-B harness are never inputs.
 
-Acceptance requires zero unexpected fail/error/skip/timeout/warning in every
-requested item; exact C/L/F one-step evidence; S06 checkpoint/resume; Flower 1.27
-FP32 parity, deterministic sampling and plain FedAvg round; S01 mini lifecycle;
-functional official-eval identity; complete JUnit/log/execution identity/source
-hashes; and honest NOT RUN limits. A passing mini/synthetic gate is engineering
-evidence only. Write HANDOFF/RUN_REQUEST/RESULTS and stop for S00 completeness.
+Acceptance requires training JUnit `4/0/0/0`, loader JUnit `1/0/0/0`, exact C/L/F
+one-step evidence, phase exit codes zero and a final success marker. Warnings remain
+recorded but non-fatal. S01/S06/checkpoint/eval integration is inherited only from
+its accepted reviewed evidence and must remain explicitly NOT RUN in this job. A
+passing mini gate is engineering evidence only. Write HANDOFF/RUN_REQUEST/RESULTS
+and stop for S00 completeness.
 Do not commit, submit compute, create a reviewer, merge or push without later
 exact authorization.
 
