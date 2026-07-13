@@ -1,64 +1,17 @@
 [superlink]
 default = "local-simulation-cpu"
 
-[superlink.supergrid]
-address = "supergrid.flower.ai"
-
-# ---------------------------------------------------------------------------
-# T0 smoke federation — CPU, few supernodes, for the dummy task on the login
-# node / a quick compute node. No GPU.
-# ---------------------------------------------------------------------------
+# Local CPU engineering smoke only. This profile grants no execution or
+# scientific-policy authority.
 [superlink.local-simulation-cpu]
 options.num-supernodes = 8
 options.backend.client-resources.num-cpus = 1
 options.backend.client-resources.num-gpus = 0.0
 
-# ---------------------------------------------------------------------------
-# GPU sequential single-actor federation — CARRIED OVER from fl_v2 as the
-# bit-determinism setting for the real AD runs (T3+, via SLURM).
-#
-# num-gpus = 1.0  ->  exactly ONE Ray actor on the GPU at a time.
-#   fl_v2 verified (V4 paired tests): at num-gpus=0.10 (5 concurrent actors)
-#   trajectories DIVERGE at round 2 (CUDA kernel scheduling / atomicAdd ordering
-#   across concurrent actors is a separate ε source from the aggregator order).
-#   At num-gpus=1.0 (1 actor) + partition-id sort: bit-identical end-to-end.
-#   The BEVFusion-class model is far heavier than GTSRB-ResNet18, so wall-clock
-#   is the concern (measured at T3); mitigations: per-round client sampling,
-#   frozen ImageNet camera backbone (D1), reduced bring-up resolution, mini set.
-#
-# num-supernodes is set per run to the DERIVED client count N (see T1 client
-# construction; data/nuscenes/partition.py). On trainval `train` (50 logs, min-log
-# 80 keyframes) the floor=400 derivation gives N≈39 (floor±50%: 200→44, 600→29); a
-# requested num-clients=50 violates the floor and falls back to N=25. 50 is a
-# placeholder until the run stamps the derived N here.
-# ---------------------------------------------------------------------------
+# Single-GPU sequential clean engineering profile. Each supernode requests the
+# whole visible GPU, so a one-GPU allocation schedules client actors one at a
+# time. This profile is not permission to run Flower/Ray or a scientific policy.
 [superlink.local-simulation-gpu]
-options.num-supernodes = 50
-options.backend.client-resources.num-cpus = 1
-options.backend.client-resources.num-gpus = 1.0
-
-# ---------------------------------------------------------------------------
-# PARALLELISM VALIDATION federations (T3 follow-up — speedup; see docs/cycle_04/decisions.md D9).
-# Both run concurrent Ray actors to test whether our ATOMIC-FREE T2 model stays bit-deterministic
-# under concurrency (the fl_v2 "diverges at round 2" finding was on a different, atomic-USING model).
-# Both verified BYTE-IDENTICAL to single-actor. num-supernodes hardcoded to 8 = the gate config N.
-#
-#   -shared : Path B (concurrent / shared-GPU) — N actors share one GPU (num-gpus=0.25). Submit on
-#             1 GPU. Gap-filler only (no compute multiplier; ~no gain at GPU saturation).
-#   -4x     : Path A (multi-GPU) — one actor per GPU (num-gpus=1.0) on a 4-GPU node. Submit with
-#             the site-specific GPU request. Multiplies compute -> ~N× wall-clock (the real per-cell speedup).
-# ---------------------------------------------------------------------------
-[superlink.local-simulation-gpu-shared]
-options.num-supernodes = 8
-options.backend.client-resources.num-cpus = 1
-options.backend.client-resources.num-gpus = 0.25
-
-[superlink.local-simulation-gpu-4x]
 options.num-supernodes = 8
 options.backend.client-resources.num-cpus = 1
 options.backend.client-resources.num-gpus = 1.0
-
-# NOTE: the D15 overcommit federations (num-gpus=0.5 "2x" / 0.333 "3x" / 0.25 shared "4x") were tested and
-# DISPROVEN as a speedup — per-GPU overcommit gives ~1.0x throughput (processes time-slice the GPU without
-# MPS; the step is launch-bound). See collab/speedup/speedup_session_findings.md (overcommit teardown).
-# Standard FL uses local-simulation-gpu-4x (1 client/GPU). (-gpu-shared above is kept for T3 Path-B.)
