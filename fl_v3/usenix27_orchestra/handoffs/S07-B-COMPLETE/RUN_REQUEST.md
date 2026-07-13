@@ -4,8 +4,8 @@
 
 ```text
 SESSION_ID: S07-B-COMPLETE
-APPROVAL_STATE: OWNER_APPROVED_FOR_ONE_EXACT_SUBMISSION / NOT YET SUBMITTED
-APPROVED_COMPUTE: one exact bounded GH200 engineering validation job
+APPROVAL_STATE: SUBMITTED_ONCE / TERMINAL_FAILED / AUTHORIZATION_CONSUMED
+APPROVED_COMPUTE: one exact bounded GH200 engineering validation job (consumed)
 APPROVAL_DATE: 2026-07-13
 APPROVAL_SOURCE: owner message "批准执行" in the canonical S00 task
 REQUEST_SEAL: 6802f34fdafdf33bd31157ed15537b8f7955d1ad
@@ -15,6 +15,12 @@ EXECUTABLE_SHA: 34cbe02b7b72114e3a2d61f6f797c8dec022798c
 EXECUTABLE_TREE: ed2d4091f0098f6b2144028afd87e20d023b1da2
 DELIVERY_REF: 6802f34fdafdf33bd31157ed15537b8f7955d1ad
 APPROVAL_SEAL: e5f8dcf9f8608b40d49ad72c62b3557769b780fb
+COMMAND_BINDING_SEAL: 8d087f6d43a668c92dd540ccae7f80ac57f44def
+SLURM_JOB_ID: 372819
+TERMINAL_STATE: FAILED / ExitCode=1:0 / Restarts=0
+SUBMIT_START_END: 2026-07-13T11:25:44 / 11:25:45 / 11:25:53 Europe/Stockholm
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_complete_34cbe02b7b72
+RETRY_STATE: forbidden / not requested / not approved / not submitted
 ```
 
 The owner approved exactly one submission of the frozen command and resources in
@@ -26,6 +32,19 @@ and tree are durable Git objects; the command contains no materialization
 placeholder and archives that exact commit directly from the Git common directory.
 No repository launcher, compatibility wrapper, retry, replacement, or expanded
 cell is authorized.
+
+## Terminal execution record
+
+S00 submitted the exact command below once. Slurm accepted job `372819` with the
+requested one GH200, eight CPUs, 96 GiB, one node, 60-minute limit, and
+`--no-requeue`; it failed after eight seconds with exit `1:0` and zero restarts.
+The immutable Git archive, literal/Git-selected 100-path manifests, all 100 source
+records, and executable-patch hash were created and checksum-verified. Execution
+then stopped before dependency baseline capture, environment recording, JUnit, or
+pytest output. Both Slurm streams are empty, so the exact failing silent bootstrap
+assertion is not recoverable from this run. This is a preserved negative result,
+not a runtime PASS. The one-submission authorization is consumed; any diagnostic
+change or rerun requires a new exact request and owner approval.
 
 ## Frozen durable executable identities
 

@@ -8,14 +8,44 @@
 - Startup ref mode: clean detached HEAD, empty current branch.
 - Worker/executable SHA: `34cbe02b7b72114e3a2d61f6f797c8dec022798c`.
 - Executable tree: `ed2d4091f0098f6b2144028afd87e20d023b1da2`.
-- Delivery ref: this docs-only handoff seal; full SHA supplied externally after commit.
-- Compute: **none requested or approved; no `sbatch`/`srun` was submitted**.
+- Initial handoff seal: `6802f34fdafdf33bd31157ed15537b8f7955d1ad`.
+- Approval seal: `e5f8dcf9f8608b40d49ad72c62b3557769b780fb`.
+- Command-binding seal: `8d087f6d43a668c92dd540ccae7f80ac57f44def`.
+- Compute: one exact owner-approved submission, job `372819`, terminal
+  **FAILED `1:0` before pytest**; authorization consumed; no retry.
 
 The owner authorized local durable materialization of the exact executable bytes,
-a subsequent docs-only handoff seal, and fast-forward of
-`codex/s07-b-clean-completion`. The executable commit is a direct child of BASE
-and contains only the Flower config plus focused test. No merge, push, upload,
-reviewer, environment mutation, dataset scan, compute, or publication occurred.
+a subsequent docs-only handoff seal, fast-forward of
+`codex/s07-b-clean-completion`, and later one exact bounded GH200 submission. The
+executable commit is a direct child of BASE and contains only the Flower config
+plus focused test. No merge, push, upload, reviewer, environment mutation,
+dataset scan, retry, or publication occurred.
+
+## Bounded GH200 execution result
+
+S00 submitted the frozen `RUN_REQUEST.md` command once. Slurm job `372819` used
+the exact one-node/one-GH200/eight-CPU/96-GiB/60-minute/no-requeue envelope on
+node `n124`; it ran for eight seconds, terminated `FAILED` with exit `1:0`, and
+had zero restarts. The immutable executable archive, exact 100-path source
+closure and source-record aggregate, and executable-patch hash all passed and are
+preserved below the SHA-derived output root:
+
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_complete_34cbe02b7b72`
+
+The job stopped before the first cumm/spconv dependency baseline record and before
+environment activation. Both Slurm streams are empty. No JUnit, pytest log,
+environment record, acceptance summary, C/L/F update, DataLoader comparison,
+checkpoint/FL/data/evaluation gate, or runtime PASS exists. The finalizer preserved
+and verified the available artifacts plus original/final exit `1`.
+
+The exact failing bootstrap assertion cannot be reconstructed because the
+thirteen assertions between executable validation and dependency baseline are
+silent and have no stage marker. Live login-side post-checks still match the
+approved cumm/spconv heads and accepted patch/path/file hashes, but they are not
+in-job pre/post proof. This is a failed request envelope/runtime bootstrap gate,
+not evidence of model/test failure. The single-submission authorization is fully
+consumed; no resubmission is permitted without a newly audited exact request and
+owner approval.
 
 ## Evidence read and Git verification
 
@@ -119,8 +149,8 @@ The conservative 100-file candidate source closure is computed as SHA-256 lines
   test path, NUL, test bytes):
   `98c0521973ab9963cbf3447618efbedcba7a2fc6807804da222976e5b90f1002`.
 
-`RUN_REQUEST.md` now contains the literal sorted 100-path manifest, the exact
-record construction algorithm, and a full future submission body. That body
+`RUN_REQUEST.md` contains the literal sorted 100-path manifest, the exact record
+construction algorithm, and the exact command used for job `372819`. That body
 reconstructs the same selected set from Git, rejects count/order/duplicate/path
 or byte drift, archives the exact commit, makes its snapshot non-writable, and
 runs from a fresh writable SHA-derived job root. All cwd/HOME/temp/XDG/bytecode/
@@ -176,8 +206,9 @@ closure bytes and all five executable identities above remain unchanged.
 
 Login `/usr/bin/python3` is x86_64 Python 3.9.25 and lacks pytest, NumPy, Torch,
 Flower, nuScenes, spconv, and pyquaternion. The validated Python is an aarch64 ELF
-and cannot execute on the login node. With `APPROVED_COMPUTE=none`, the following
-remain **NOT RUN / NO IMPLIED PASS** on this candidate:
+and cannot execute on the login node. Although one bounded job was approved and
+submitted, it failed before environment activation; the following remain **NOT
+RUN / NO IMPLIED PASS** on this candidate:
 
 - pytest collection and every dependency-backed requested test;
 - the new workers-0-versus-2 mini batch check;
@@ -194,11 +225,15 @@ remain **NOT RUN / NO IMPLIED PASS** on this candidate:
 ## Interpretation and next action
 
 Allowed now: the mandatory Flower profile cleanup and focused test source pass
-login-safe static gates and are ready for S00 completeness/source audit.
+login-safe static gates. Job `372819` is preserved only as a negative
+bootstrap/envelope result.
 
 Forbidden now: claiming runtime completion, a capable detector, mAP/NDS/fusion
 gain, FL quality, Protocol readiness, security evidence, or compute permission.
 
-Next action is S00/owner audit of the docs-only delivery seal and the now exact
-RUN_REQUEST. Compute approval, execution, review, merge, or push each require a
-later explicit authorization.
+Do not launch S07-B-COMPLETE review yet. The narrow next proposal is to instrument
+the thirteen silent bootstrap assertions with durable labels and observed values,
+without changing W/tree, the 205-case inventory, data scope, or resource ceiling;
+then S00 must present a newly sealed RUN_REQUEST for owner audit. Request changes,
+another submission, review, merge, or push each require later explicit owner
+authorization.

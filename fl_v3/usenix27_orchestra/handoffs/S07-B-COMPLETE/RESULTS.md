@@ -1,11 +1,61 @@
-# S07-B-COMPLETE RESULTS — local/static only
+# S07-B-COMPLETE RESULTS — bounded GH200 gate negative result
 
 ## Overall result
 
-**LOCAL/STATIC GATES PASS; DEPENDENCY-BACKED/GH200 GATES NOT RUN.**
+**LOCAL/STATIC GATES PASS; GH200 GATE FAILS BEFORE ENVIRONMENT ACTIVATION AND
+PYTEST.**
 
-No job was requested, approved, or submitted. There is no JUnit, model output,
-metric, runtime execution identity, or Slurm job ID for this session.
+The owner approved one exact submission. S00 submitted Slurm job `372819` once;
+it terminated `FAILED`, exit `1:0`, after eight seconds with zero restarts. There
+is no JUnit, pytest log, model output, metric, or runtime-test PASS. The approval
+is consumed and no retry or replacement was submitted.
+
+## GH200 execution and failure localization
+
+```text
+job = 372819 / flv3_s07b_complete
+state = FAILED
+exit = 1:0
+restarts = 0
+submit/start/end = 2026-07-13T11:25:44 / 11:25:45 / 11:25:53 Europe/Stockholm
+elapsed/timelimit = 00:00:08 / 01:00:00
+node = n124
+allocation = 1 node, 1 nvidia_gh200_120gb, 8 CPU, 96G
+output = /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_complete_34cbe02b7b72
+retry/requeue = none / disabled
+```
+
+The completed durable bootstrap evidence proves:
+
+- source archive SHA-256 is
+  `6ec1e56d7c2aa210016ea9351c06c56574fc8a8a455dd188ac039cb6c4465480`;
+- the literal and Git-reconstructed path manifests both match the frozen
+  `ce5c3876...` digest and exact 100-file count;
+- all source records match aggregate `acb80014...`;
+- the executable patch matches `98c05219...`;
+- the finalizer's artifact manifest SHA-256 is
+  `6c186866f0ff8e3a18aa6a9873bbff3923cc18d18b2acb3f1851a12dff7b3260`,
+  and every entry in it verifies;
+- `original-exit.txt` and `final-exit.txt` both contain `1`, with the final-exit
+  sidecar hash verifying;
+- both Slurm stdout and stderr are empty files with the empty-file SHA-256.
+
+The first missing expected artifacts are
+`cumm-source-state-before.txt`, `spconv-source-state-before.txt`, and
+`environment.json`; `pytest.log`, `pytest.junit.xml`, `acceptance-summary.txt`,
+and `pytest-exit.txt` are also absent. Therefore failure occurred after immutable
+source/executable validation and before the first dependency baseline record.
+That interval contains thirteen silent assertions covering mini-root canonical
+path/directory, environment Python executability, cumm/spconv HEAD and accepted
+working-state identities. Because the command emitted no per-assertion stage
+marker and both Slurm streams are empty, this run cannot identify which assertion
+failed. A login-side exact-state recheck after the job still matches the approved
+cumm/spconv heads, path sets, patch hashes, and file hashes, but that observation
+does not substitute for the missing in-job pre/post evidence.
+
+The run consumed about 0.0022 allocation GPU-hours. It did not import the runtime,
+collect tests, use the mini sample, execute C/L/F updates, or reach any clean-FL,
+checkpoint, ZIP/data, or official-evaluation gate.
 
 ## Startup and Git result
 
@@ -156,12 +206,23 @@ permutation metric case are not requested.
 
 ## Explicit NOT RUN and interpretation limits
 
-All dependency-backed items listed in HANDOFF and RUN_REQUEST are NOT RUN because
-the login interpreter lacks dependencies and GH200 is not approved. In particular,
-there is no evidence yet that the new full C/L/F update cases fit the 60-minute
-budget or pass without warning; a future failure must be preserved and may justify
-only a minimal owned current-tree fix after separate authorization.
+All dependency-backed requested tests remain NOT RUN because job `372819` failed
+in bootstrap before environment activation and pytest. In particular, there is no
+evidence that the new full C/L/F update cases fit the 60-minute budget or pass
+without warning. The terminal failure and missing gates are preserved; no result
+may be converted into an implied PASS.
 
-These results support source/config/static readiness only. They do not support
+The local/static results support source/config/static readiness only. Job `372819`
+adds a negative bootstrap/envelope result and no positive runtime evidence. These
+results do not support
 detector capability, mAP/NDS, fusion gain, performance, FL quality, Protocol A/B,
 attack/defense, generalization, reproducibility, or publication claims.
+
+## Required next decision
+
+Do not open S07-B-COMPLETE review from this failed runtime gate. The narrowest
+possible remediation is request-only instrumentation: record the label and
+observed value before each of the thirteen bootstrap assertions, preserve the
+same executable W/tree, test inventory, resource ceiling, mini scope, and no-retry
+behavior, then submit a fresh exact RUN_REQUEST for owner audit. Neither that
+remediation nor another job is authorized by the consumed approval recorded here.
