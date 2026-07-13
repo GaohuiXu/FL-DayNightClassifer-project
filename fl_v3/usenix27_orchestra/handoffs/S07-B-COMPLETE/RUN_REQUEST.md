@@ -1,4 +1,4 @@
-# S07-B-COMPLETE RUN_REQUEST — two consumed bounded gates and terminal evidence
+# S07-B-COMPLETE RUN_REQUEST — consumed evidence and approved minimal continuation
 
 ## Approval and immutable-materialization state
 
@@ -38,6 +38,17 @@ DIAGNOSTIC_SLURM_JOB_ID: 373363
 DIAGNOSTIC_TERMINAL_STATE: FAILED / ExitCode=1:0 / Restarts=0
 DIAGNOSTIC_SUBMIT_START_END: 2026-07-13T11:51:32 / 11:51:32 / 11:53:14 Europe/Stockholm
 DIAGNOSTIC_RETRY_STATE: forbidden / not approved / not submitted
+CONTINUATION_REQUEST_STATE: APPROVED_EXACT_ONCE / NOT YET SUBMITTED
+CONTINUATION_SCOPE: same W/tree, bootstrap, identity, and 205-case gate; historical non-fatal warning policy
+CONTINUATION_FIX: unset PYTHONWARNINGS and remove pytest -W error; preserve warnings in hashed log
+CONTINUATION_OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_complete_diag2_34cbe02b7b72
+CONTINUATION_COMMAND_SHA256: 905761ee195972c36344edc0798acef7ee90b86a34c6695bd89f429c9093405d
+CONTINUATION_JOB_BODY_SHA256: 091366dfadade4e4bcfdbcfa614111391d5370626be511773a5eb20857344fbb
+CONTINUATION_PYTEST_ARGS_SHA256: df68212530b8c3f7161aba58d6c44f6cb3bc36a89b141eedb6f9a9b654596357
+CONTINUATION_APPROVAL_DATE: 2026-07-13
+CONTINUATION_APPROVAL_SOURCE: owner message "批准并提交slurm job" in the canonical S00 task
+CONTINUATION_APPROVED_COMPUTE: one exact diag2 GH200 validation submission
+CONTINUATION_RETRY_STATE: forbidden / not approved
 ```
 
 The owner approved exactly one submission of the frozen command and resources at
@@ -49,7 +60,9 @@ recorded at that Git version. The exact historical command remains preserved in
 Git and job artifacts. The later instrumented command was separately approved,
 submitted once as recorded below, and its authorization is also consumed. No
 repository launcher, compatibility wrapper, retry, replacement, or expanded cell
-is authorized.
+is authorized. The owner subsequently approved exactly one submission of the
+minimal continuation below; its hashes, output root, resources, tests, and stop
+conditions are immutable, and no retry is implied.
 
 ## Terminal execution record
 
@@ -113,6 +126,29 @@ comparison exits `0/0/0`, and a fully re-verifying artifact manifest. This is a
 second request-wrapper warning-policy failure, not model, clean FedAvg, S01, S06,
 DetectionEval, or C/L/F test evidence. Its one-submission approval is consumed;
 no rerun is authorized.
+
+## Why the validated environment now appeared to fail repeatedly
+
+The persistent Arrhenius environment has not been shown to regress. The first
+failure was caused by this request exporting the reserved Git variable
+`GIT_COMMON_DIR`; the second was caused by this request globally exporting
+`PYTHONWARNINGS=error` and passing pytest `-W error`. Both changes are outside the
+historically validated environment activation contract. Fail-fast execution made
+them visible serially: the Git assertion stopped the first job before Python, and
+only after that request bug was removed could the already-known third-party
+deprecation reach the second gate.
+
+Accepted S04 Job `341695` ran Python `3.11.15`, spconv `2.3.8`, and cumm `0.7.13`
+to `15/15` PASS while recording the same `locale.getdefaultlocale` deprecation,
+one Torch FX warning, and seven spconv indexing warnings. The early Arrhenius smoke
+launcher and the accepted S02--S06 launchers do not globally promote warnings to
+errors. Therefore the new exception is evidence of a stricter S07-B wrapper, not
+new evidence that GH200, the conda prefix, spconv, or training stopped working.
+
+Adding message-by-message ignore filters would preserve the accidental global
+policy and reveal known compatibility warnings one at a time. The continuation
+instead restores the historical warning semantics, keeps the complete warning
+stream in the hashed log, and changes no dependency or project source.
 
 ## Frozen durable executable identities
 
@@ -360,23 +396,24 @@ fl_v3/tests/test_eval_detection_eval.py::test_gt_as_pred_per_class_ap_near_one
 ```
 
 The source-level expansion count is exactly 205 cases. JUnit must report exactly
-205 tests, zero failure/error/skip, and the process must emit no warning under
-`-W error`. The two deselections remove the old fork/spawn matrices. Exact node
+205 tests and zero failure/error/skip. Warnings remain captured in the hashed
+pytest log as compatibility evidence but are not promoted to test failures; this
+matches the accepted S04/S06 runtime practice and avoids converting known
+third-party warnings into false model/environment failures. The two deselections
+remove the old fork/spawn matrices. Exact node
 selection excludes the trainval partition nodes, catch-and-skip legacy worker
 test, extra legacy detector update, `test_model_overfit.py`, and extra official
 permutation metric. `test_gt_as_pred_per_class_ap_near_one` is the only named
 official-devkit metric identity case; its AP is test output, not science.
 
-## Exact owner-approved instrumented command — one submission only
+## Exact owner-approved minimal continuation — one submission only
 
-This consumed instrumented command keeps the executable commit/tree, source closure, 205-case inventory,
-mini scope, resources, timeout, and no-retry behavior unchanged. It adds durable
-labels plus expected/observed files around the thirteen formerly silent bootstrap
-gates, renames the project Git path to neutral `PROJECT_GIT_DIR`, explicitly
-clears Git repository-selection overrides, and uses a fresh diagnostic job root.
-It does not depend on a mutable or temporary Codex worktree. The owner approved
-exactly one submission of this command; any byte, resource, data, test, output,
-or stop-condition change invalidates that approval.
+This draft preserves the proven Git-variable correction, thirteen durable
+bootstrap gates, executable commit/tree, source closure, 205-case inventory, mini
+scope, resources, timeout, and no-retry behavior. It removes only the newly
+invented global fatal-warning policy and uses a fresh output root. Warnings remain
+fully visible in the hashed pytest log. The owner approved exactly one submission
+on 2026-07-13; any byte or envelope change invalidates that approval.
 
 ```bash
 #!/bin/bash
@@ -403,7 +440,7 @@ test "$(git --git-dir="$PROJECT_GIT_DIR" diff-tree --no-commit-id --name-only \
   fl_v3/configs/flwr_config.toml \
   fl_v3/tests/test_s07_b_clean_completion.py)"
 
-JOB_ROOT="$OUTPUT_PARENT/s07b_complete_diag1_${EXPECTED_SHA:0:12}"
+JOB_ROOT="$OUTPUT_PARENT/s07b_complete_diag2_${EXPECTED_SHA:0:12}"
 test ! -e "$JOB_ROOT"
 install -d -m 0700 "$JOB_ROOT"
 
@@ -902,7 +939,7 @@ export TRITON_CACHE_DIR="$JOB_ROOT/triton_cache"
 export PYTHONNOUSERSITE=1
 export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
 export PYTEST_ADDOPTS=
-export PYTHONWARNINGS=error
+unset PYTHONWARNINGS
 export NUSCENES_DATAROOT="$MINI_ROOT"
 unset ARRHENIUS_NUSCENES_DATAROOT NUSCENES_DATA_DIR
 unset NUSCENES_ZIP_MANIFEST ARRHENIUS_NUSCENES_ZIP_MANIFEST
@@ -1055,7 +1092,6 @@ PYTEST_ARGS=(
   -p no:cacheprovider
   --strict-config
   --strict-markers
-  -W error
   -s
   --junitxml="$JUNIT"
   "$SNAPSHOT/fl_v3/tests/test_s07_b_clean_completion.py"
@@ -1200,7 +1236,7 @@ sbatch \
   --mem=96G \
   --time=01:00:00 \
   --no-requeue \
-  --job-name=flv3_s07b_diag1 \
+  --job-name=flv3_s07b_diag2 \
   --output="$JOB_ROOT/slurm-%j.out" \
   --error="$JOB_ROOT/slurm-%j.err" \
   --export=EXPECTED_SHA="$EXPECTED_SHA",EXPECTED_TREE="$EXPECTED_TREE",EXPECTED_SOURCE_AGG="$EXPECTED_SOURCE_AGG",JOB_ROOT="$JOB_ROOT",PROJECT_GIT_DIR="$PROJECT_GIT_DIR" \
@@ -1249,7 +1285,9 @@ changed/untracked path; byte-identical records are required after pytest.
 
 Accept only one `COMPLETED 0:0` job with `Restarts=0`, the exact resources, exact
 commit/tree/100 source records, exact dependencies/build identity, exact 205 cases,
-and zero failure/error/skip/timeout/warning. C-STR8, L-S075, and F-U must each emit
+and zero failure/error/skip/timeout. Warnings are retained in the hashed log and
+must be reported with interpretation limits, but are not failures in this bounded
+engineering gate. C-STR8, L-S075, and F-U must each emit
 one B=1/fp16 update record with finite positive production `last_grad_norm`, one
 optimizer step, enabled GradScaler, zero scaler skip/nonfinite loss, and clean
 TrainingState boundary. S06 checkpoint/save/load/resume/CUDA rollback; Flower
@@ -1258,7 +1296,7 @@ workers 0 versus 2; S01 mini directory/ZIP/cache/partition; and exact official
 evaluation identities must all pass. JUnit/log/status/source/archive/cache and
 artifact checksums must exist and verify in-job.
 
-On any dependency source-identity mismatch, nonzero status, timeout, warning-as-error,
+On any dependency source-identity mismatch, nonzero status, timeout,
 missing/extra/skip case, worker abort, OOM, or walltime, preserve the negative
 evidence and stop. No retry, resubmit, extra test, source edit, or replacement job
 is implied.

@@ -83,10 +83,21 @@ absent. The final artifact manifest and original/final exit `1` verify.
 
 This is a second request-wrapper warning-policy failure, not evidence against
 the model, clean FedAvg, data/checkpoint/evaluation foundations, or any C/L/F
-test. A future command may retain errors for all warnings while ignoring only the
-exact message/category/module tuple above in both identity and pytest processes.
-It must not disable warnings globally or mutate the environment. No such command
-or further submission is currently approved.
+test. Accepted S04 evidence already recorded this exact deprecation and other
+third-party warnings during a `15/15` PASS; historical environment, S04 and S06
+launchers did not make all warnings fatal. The minimal correction is therefore to
+remove the newly invented global/pytest fatal-warning policy, keep the full hashed
+warning log, and leave the persistent environment unchanged. On 2026-07-13 the
+owner approved exactly one submission of that immutable `diag2` continuation;
+no retry or changed command is approved.
+
+The repeated-failure appearance comes from serial fail-fast masking, not a growing
+set of proven environment defects: Job `372819` stopped at the request's reserved
+Git-variable misuse before Python, and Job `373363` passed all thirteen corrected
+bootstrap gates before the request's new global warning policy converted a known
+dependency warning into an exception. Neither job reached pytest. The next draft
+therefore subtracts one accidental policy rather than adding dependency changes,
+warning-specific exceptions, or further instrumentation.
 
 ## Evidence read and Git verification
 
@@ -275,8 +286,8 @@ Forbidden now: claiming runtime completion, a capable detector, mAP/NDS/fusion
 gain, FL quality, Protocol readiness, security evidence, or compute permission.
 
 Do not launch S07-B-COMPLETE review yet. Any next request must preserve the proven
-Git-variable and instrumentation correction, keep W/tree and scope fixed, and add
-only the exact third-party warning exception described above while leaving every
-other warning fatal. S00 must present that changed command and a fresh output root
-for owner audit. Another submission, review, merge, or push each require later
-explicit owner authorization.
+Git-variable and instrumentation correction, keep W/tree and scope fixed, restore
+the historically validated non-fatal warning policy, and retain warnings in the
+hashed log. The owner has audited and approved exactly one submission of that
+changed command and fresh output root. Review, retry, merge, or push each require
+later explicit owner authorization.

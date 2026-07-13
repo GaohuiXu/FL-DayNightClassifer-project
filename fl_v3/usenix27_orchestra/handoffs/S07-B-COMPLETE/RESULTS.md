@@ -114,12 +114,16 @@ dependency calls deprecated `locale.getdefaultlocale()`, and Python 3.11 promote
 its `DeprecationWarning` to an exception before identity JSON could be written.
 
 This proves the Git-variable remediation and dependency-state preservation. It
-does not execute or fail any requested pytest case. The narrow future request
-proposal is to keep warnings-as-errors globally while adding one exact
-message/category/module-scoped ignore for this third-party deprecation to both the
-identity process and pytest arguments. Removing warnings-as-errors wholesale or
-mutating/upgrading the persistent environment is not justified. Any such command
-is new and requires a fresh owner audit and approval.
+does not execute or fail any requested pytest case. Historical comparison changes
+the remediation conclusion: accepted S04 job `341695` already recorded this exact
+`locale.getdefaultlocale` deprecation plus Torch FX and spconv indexing warnings
+while completing `15/15` tests, and earlier environment/import/train launchers did
+not use global `PYTHONWARNINGS=error` or pytest `-W error`. The environment is not
+regressing; the current wrapper converted known compatibility evidence into a new
+fatal gate. Adding one ignore at a time would continue harness-specific
+whack-a-mole. The minimal aligned draft therefore unsets `PYTHONWARNINGS`, removes
+only pytest `-W error`, preserves the complete hashed warning log, and does not
+mutate or upgrade the environment.
 
 ## Startup and Git result
 
@@ -216,7 +220,7 @@ positive `last_grad_norm`, exact optimizer/exposure counters, enabled GradScaler
 zero scaler skips, zero nonfinite losses, and the clean TrainingState boundary.
 It neither clones the detector nor adds a parameter-delta sentinel.
 
-The fully specified request body pins the exact executable SHA/tree with no
+The consumed original request body pins the exact executable SHA/tree with no
 materialization sentinel, an exact 205-case pytest selection, an overall
 50-minute timeout, warnings-as-errors, JUnit zero-skip postvalidation, original
 pytest exit propagation, and in-job checksums. Its literal source manifest and
@@ -288,8 +292,9 @@ attack/defense, generalization, reproducibility, or publication claims.
 
 Do not open S07-B-COMPLETE review from this failed runtime gate. Any next request
 must preserve the now-proven Git-variable fix and bootstrap instrumentation, keep
-the same executable W/tree and scope, and add only a message/category/module-exact
-exception for the known `ccimport.buildtools.writer` deprecation while retaining
-errors for every other warning. That warning-policy change, command, output root,
-and one further submission require a fresh owner audit and approval. Another job
-is not authorized by either consumed approval recorded here.
+the same executable W/tree and scope, restore the historically validated non-fatal
+warning policy, and retain every warning in the hashed log for review. The changed
+command and fresh output root required a fresh owner audit and approval. On
+2026-07-13 the owner approved exactly one submission of the immutable `diag2`
+command recorded in `RUN_REQUEST.md`; it is not a retry authorization and does not
+alter the interpretation of either terminal failure recorded here.
