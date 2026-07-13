@@ -7,9 +7,11 @@
 > S02-S06 remain accepted clean foundations within their bounded evidence.
 >
 > S07-C legacy-security cleanup and independent S07-C-R are complete with a
-> static-scope PASS. The next sequence is a filled simplified clean S07-B
-> completion kickoff from the exact canonical acceptance seal. Runtime remains
-> NOT RUN. S12 is deferred and unaccepted. S13 attack work
+> static-scope PASS. Canonical acceptance is sealed at
+> `70bcd856f7ebb411eb2887e7ab71ef41ed13271f`. A filled simplified clean S07-B
+> completion packet is prepared in `KICKOFFS.md`; its docs-only packet-seal SHA
+> will be the immutable worker base only after explicit owner launch approval.
+> Runtime remains NOT RUN. S12 is deferred and unaccepted. S13 attack work
 > requires a later owner-approved threat model after CL freeze and clean
 > Protocol-B adaptation; S14 remains blocked until a viable undefended attack.
 >
@@ -44,7 +46,9 @@ canonical-only P
               │
 S07-C cleanup ── S07-C-R static PASS
               │
-canonical S07-C acceptance seal
+canonical S07-C acceptance `70bcd85`
+              │
+docs-only S07-B-COMPLETE packet seal
               │
 clean S07-B completion ── independent clean integration review
               │
@@ -66,7 +70,7 @@ no outgoing implementation edge into this graph.
 |---|---|---|
 | Cleanup | S07-C | complete at implementation `a16c2cd`; no runtime claim |
 | Review | S07-C-R | PASS at `b8e11bc`; REVIEW.md only; reviewer history is never merged |
-| Completion | clean S07-B | starts only from accepted cleanup SHA; clean C/L/F/runtime/eval/FedAvg engineering only |
+| Completion | clean S07-B | filled packet prepared; after owner launch approval, starts from its docs-only packet seal above accepted cleanup `70bcd85`; clean C/L/F/runtime/eval/FedAvg engineering only |
 | CL | S08-S11 | starts only after clean S07-B review; every scientific run requires exact approval |
 | Protocol | deferred S12, then S13 | re-review clean Protocol A/B after CL readiness; attack remains blocked until clean adaptation passes |
 | Security | later S13/S14 | new owner-approved threat model only; S14 requires a viable undefended attack |
@@ -133,7 +137,7 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 | S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | reviewed module PASS at worker `483e149` / executable `8498597` / review `a0763c2`; Job `341695` 15/15 bounded runtime PASS; accepted S07-B dependency with same-instance concurrency/reentrancy integration requirement |
 | S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | reviewed PASS at worker `a9c801f` / execution `96e509b` / review `1c44084`; Job `336731` 43/44 negative preserved, Job `336738` 44/44 focused runtime PASS; accepted S07-B dependency only |
 | S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | reviewed bounded PASS under O-031 at worker `6b7ef29` / executable `c330c72` / review `ca7bbd7`; Job `341997` FAILED 45/62 preserved, Job `342014` PASS 66/66; accepted S07-B candidate dependency with P3 integration gates, no production/full-data/scientific PASS |
-| S07 | Cleanup then clean integration completion | accepted S01/S07-A and S02-S06 | S07-C cleanup, independent S07-C-R, then simplified clean S07-B completion | S07-C implementation `a16c2cd`, handoff `f736f41`, independent review `b8e11bc` PASS at static scope; runtime NOT RUN; clean completion packet is next |
+| S07 | Cleanup then clean integration completion | accepted S01/S07-A and S02-S06 | S07-C cleanup, independent S07-C-R, then simplified clean S07-B completion | S07-C accepted at `70bcd85`; independent review `b8e11bc` PASS at static scope; runtime NOT RUN; filled completion packet prepared, owner launch approval pending |
 | S08 | Camera scientific run | S07 PASS | `C-STR8` full-val result/checkpoint | planned |
 | S09 | LiDAR scientific runs | S07 PASS | `L-P020` and `L-S075` results/checkpoints | planned |
 | S10 | Fusion and recipe selection | S08, S09 | `F-U`/`F-CBGS`, optional init A/B, `CL-PILOT` | planned |
@@ -499,19 +503,33 @@ runtime remain NOT RUN.
 
 ### S07-B-COMPLETE — Simplified clean integration completion
 
-Start only from the exact canonical S07-C acceptance-seal commit containing the
-accepted review identity above, supplied in full by the task envelope, on
-`codex/s07-b-clean-completion`. The separate reviewer commit is evidence, not an
-ancestor of the completion branch.
+The accepted cleanup/code anchor is
+`70bcd856f7ebb411eb2887e7ab71ef41ed13271f`. The worker starts on
+`codex/s07-b-clean-completion` only after owner launch approval, from the exact
+docs-only S00 packet-seal commit containing the filled `KICKOFFS.md` contract.
+That full packet SHA must be copied into the task envelope. The separate reviewer
+commit is evidence, not an ancestor of the completion branch.
 
-Own only clean C/L/F construction, S06 runtime/checkpoint/resume, official clean
-evaluation, clean FedAvg/Flower integration and the smallest necessary engineering
-validation. A spawn lifecycle may be newly specified here if clean evidence
-requires it; legacy bf480ea/harness code is not an implementation source.
+This is verification-first clean engineering. Own only the exact paths in the
+filled kickoff: clean C/L/F integration wrappers and templates, S06 runtime/
+checkpoint/resume, official clean evaluation adapters, selected S01 mini data/
+ZIP lifecycle, clean FedAvg/Flower integration, one focused completion test and
+the handoff package. Source edits require a demonstrated clean-contract failure,
+except for the mandatory `flwr_config.toml` cleanup.
 
-No T5/T6/T7, attack, defense, S12 split, full cache/trainval, metrics, profile,
-DDP, matrix, retry or scientific work is included without a new owner-approved
-envelope.
+`flwr_config.toml` must drop active T3/Path-A/Path-B/4-GPU/overcommit and legacy
+`collab/**` authority profiles, retaining only a CPU local smoke profile and one
+single-GPU sequential clean profile. The validation default is plain FedAvg with
+no server EMA. FedOpt/EMA implementation capability remains preserved but is not
+the completion default or a Protocol-A/B claim. Old P1/T3/MCR configs and all
+scripts are read-only; no launcher or harness may be created or recovered.
+
+No T5/T6/T7, attack, defense, S12 split, full cache/trainval, 100/1000-step,
+metrics campaign, profile, Ray live federation, DDP, multi-GPU, actor/process/
+seed matrix, retry or scientific work is included. GH200 is not approved at
+kickoff. A later exact owner/S00-approved RUN_REQUEST may contain only the single
+bounded sequential engineering job specified in `KICKOFFS.md`.
+
 ### S08 — Camera-only scientific run
 
 **Kickoff.** “Train and evaluate the frozen `C-STR8` topology on full trainval/full
@@ -766,10 +784,11 @@ manually verified.
 1. S07-C canonical preparation, worker cleanup and durable handoff are complete.
 2. S07-C-R is complete at review-only commit `b8e11bc`; reviewer history remains
    separate and unmerged.
-3. Commit the canonical S07-C acceptance seal, then present a filled exact-SHA
-   S07-B-COMPLETE envelope before creating its worktree.
-4. After owner launch approval, create `codex/s07-b-clean-completion` at that
-   exact acceptance seal and complete only the simplified clean engineering gates.
+3. Canonical S07-C acceptance is sealed at `70bcd85`. Commit the filled
+   S07-B-COMPLETE packet as a docs-only descendant and present its full SHA for
+   owner review; this does not launch a worker.
+4. Only after owner launch approval, create `codex/s07-b-clean-completion` at the
+   exact packet seal and complete only the simplified clean engineering gates.
 5. Resume S08-S11 planning only after clean S07-B completion is independently
    accepted. Scientific jobs retain separate exact authorization.
 6. Re-audit S12 later. Establish clean Protocol-B/Protocol-A foundations before

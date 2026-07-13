@@ -856,7 +856,7 @@ current implementation, compute, scientific or scheduling authority.
 | O-017 | Reviewed S02-S05 camera/LiDAR/head/loss contracts remain the clean C/L/F construction foundation. | locked architecture |
 | O-018 | CenterHead retains the reviewed reference-faithful no-starvation decode adaptation and explicit global class mapping. | locked head/decode |
 | O-025 | spconv 2.3.8 fp16 no-grad evaluation uses the reviewed version-guarded spconv-only training-dispatch workaround while preserving encoder eval/GN/state semantics. | locked runtime |
-| O-092 | Freeze the old S07-B/T5/harness chain; S07-C cleanup is independently accepted at static-review scope; start clean S07-B completion only from the exact canonical acceptance seal, never from e231, bf480ea or reviewer history. | active clean-completion authority |
+| O-092 | Freeze the old S07-B/T5/harness chain; S07-C cleanup is independently accepted at static-review scope at canonical anchor `70bcd856f7ebb411eb2887e7ab71ef41ed13271f`; start clean S07-B completion only after owner approval from the exact docs-only packet seal containing the filled kickoff, never from e231, bf480ea or reviewer history. | active clean-completion authority |
 
 ### 11.2 O-092 exact cleanup decision (2026-07-13)
 
@@ -1016,9 +1016,25 @@ launch base and tree `188a6e006e3f8c6f494258379a191f15648ae5ca`. Its only diff i
 The verdict is **PASS at code/source/config/test/docs static-review scope**, with
 no P0-P3 finding. Dependency-backed pytest, Flower/Ray, S01/S06 lifecycle,
 C/L/F runtime, official DetectionEval runtime and GH200 remain NOT RUN. Reviewer
-history is separate evidence and was not merged. The canonical acceptance-seal
-commit containing this paragraph is the only approved future branch point for a
-filled S07-B-COMPLETE kickoff; that kickoff must supply its full SHA explicitly.
+history is separate evidence and was not merged. Canonical S07-C acceptance is
+sealed at `70bcd856f7ebb411eb2887e7ab71ef41ed13271f`; this is the accepted clean-code
+anchor, not itself launch authorization. The future S07-B-COMPLETE worker base is
+the exact docs-only S00 packet-seal descendant containing the filled kickoff. Its
+full SHA must be supplied explicitly in the task envelope, and the branch/worktree
+may be created only after owner launch approval.
+
+**Prepared clean-completion boundary.** The accepted tree still contains stale
+active T3/Path-A/Path-B/4-GPU/overcommit and legacy `collab/**` authority profiles
+in `fl_v3/configs/flwr_config.toml`. The filled S07-B-COMPLETE packet requires this
+file to retain only CPU local smoke plus one single-GPU sequential clean profile,
+with plain FedAvg and no server EMA as the validation default. Preserved FedOpt/EMA
+code remains capability, not a completion default or scientific claim. Old P1/T3/
+MCR configs and all scripts are read-only inputs; no harness may be recovered or
+created. All other source edits require a demonstrated clean-contract failure and
+remain inside the exact kickoff ownership. GH200 is not approved at kickoff; the
+only candidate is the separately audited bounded sequential engineering job in
+`KICKOFFS.md`. No branch, worktree, worker, compute, merge or push is authorized by
+preparing or committing this packet.
 
 ### 11.3 Accepted clean-foundation evidence
 

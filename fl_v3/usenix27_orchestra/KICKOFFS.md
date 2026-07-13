@@ -748,35 +748,165 @@ merged into S07-C or S07-B-COMPLETE.
 
 ### S07-B-COMPLETE — future clean integration completion
 
-This prompt is not launchable until the canonical S07-C acceptance seal is
-committed and S00 presents a filled exact-SHA/file-ownership envelope for owner
-review. The static review has passed; no completion worker is authorized by that
-fact alone.
+This packet is prepared for owner review but is **not launch-authorized**. The
+accepted cleanup anchor is exact. Because canonical launch instructions must be
+present in the worker's immutable tree, the eventual task `BASE_SHA` is the
+docs-only S00 launch-packet seal containing this envelope; its full SHA is supplied
+externally after this document is committed. Creating the completion branch or
+worktree still requires explicit owner approval.
 
 ```text
 SESSION_ID: S07-B-COMPLETE
-BASE_SHA: exact canonical S07-C acceptance-seal SHA supplied by the launch envelope
+ACCEPTED_CLEANUP_SHA: 70bcd856f7ebb411eb2887e7ab71ef41ed13271f
+BASE_SHA: exact docs-only S00 S07-B-COMPLETE launch-packet seal containing this envelope; fill in task prompt
 SOURCE_BRANCH: codex/s07-b-clean-completion
 EXPECTED_REF_MODE: detached@BASE_SHA
 WORKTREE_PROVISIONED_BY: owner / Codex task UI after explicit launch approval
-FILE_OWNERSHIP: fill exact clean integration paths after S07-C review
+FILE_OWNERSHIP:
+- ADD:
+  fl_v3/tests/test_s07_b_clean_completion.py
+  fl_v3/usenix27_orchestra/handoffs/S07-B-COMPLETE/HANDOFF.md
+  fl_v3/usenix27_orchestra/handoffs/S07-B-COMPLETE/RUN_REQUEST.md
+  fl_v3/usenix27_orchestra/handoffs/S07-B-COMPLETE/RESULTS.md
+- REFACTOR-KEEP (edit only for a demonstrated clean integration failure, except the required flwr profile cleanup):
+  fl_v3/configs/flwr_config.toml
+  fl_v3/src/fl_v3/config/{__init__,resolved}.py
+  fl_v3/src/fl_v3/data/partition.py
+  fl_v3/src/fl_v3/data/nuscenes/{dataset,zip_backend,paths,info_cache,partition}.py
+  fl_v3/src/fl_v3/models/fusion/{__init__,collate,detector}.py
+  fl_v3/src/fl_v3/training/{tasks,loop,runtime_state,checkpoint}.py
+  fl_v3/src/fl_v3/{client_app,server_app}.py
+  fl_v3/src/fl_v3/engine/local_runner.py
+  fl_v3/src/fl_v3/strategy/{__init__,aggregation_core,flower_strategies,sampling,server_opt}.py
+  fl_v3/src/fl_v3/eval/{__init__,box_to_global,detection_eval,provenance}.py
+  fl_v3/src/fl_v3/utils/runtime.py
+  fl_v3/configs/{s06_synthetic_camera,s07_b_c_str8,s07_b_l_p020,s07_b_l_s075,s07_b_f_u,s07_b_f_cbgs}.json
+  fl_v3/tests/conftest.py
+  fl_v3/tests/test_s07_b_{integration,data_lifecycle}.py
+  fl_v3/tests/test_s06_{resolved_config,model_modes,training_runtime,checkpoint_resume,loader_eval}.py
+  fl_v3/tests/test_{eval_box_to_global,eval_detection_eval,eval_provenance}.py
+  fl_v3/tests/test_{flower_fp32_parity,flower_strategies_construct,fl_sampling,fl_round_smoke}.py
+  fl_v3/tests/test_{fl_local_runner_multiround,fl_server_opt_integration,fl_trainable_only}.py
+  fl_v3/tests/test_{nuscenes_zip_backend,nuscenes_zip_dataset,nuscenes_info_cache,nuscenes_partition}.py
+  fl_v3/tests/test_model_task.py
+- READ-ONLY / RETURN FOR OWNER AMENDMENT:
+  fl_v3/src/fl_v3/models/fusion/** except the three integration wrappers above
+  fl_v3/src/fl_v3/data/nuscenes/** except the five lifecycle files above
+  fl_v3/scripts/** (do not add, rename, consolidate or revive a harness)
+  fl_v3/pyproject.toml
+  fl_v3/requirements.txt
+  fl_v3/requirements.lock.txt
+  fl_v3/docs/env.md
+  fl_v3/configs/{fl_1client_sanity,fl_bb02d_fedadam,p1_*,t3_*}.json
+  fl_v3/usenix27_orchestra/{ORCHESTRA,SESSIONS,KICKOFFS}.md
+  fl_v3/collab/**
+  fl_v3/docs/cycle_04/**
+  fl_v2/**
+REMOVE: none without a new owner-approved amendment
 UPSTREAM_HANDOFFS_AND_SHAS:
+- accepted cleanup/canonical anchor 70bcd856f7ebb411eb2887e7ab71ef41ed13271f
 - S07-C implementation a16c2cdfd4e23ba08677a66c45c50dd78340cc3b
 - S07-C handoff seal f736f41371666725a11d51bc3b01c6ececb59d50
 - S07-C review b8e11bc98cfd904e9c7c259d3d6f7edc0c7922d5 (separate, never merged)
+- frozen negative evidence only e231808e77388d69053dcbced6e754dbe3468aef
+- forbidden implementation source bf480ea77ccf9ae8417c3ea58e933701dbc7222a
 - accepted S01/S07-A and S02-S06 clean foundations
 WORKER_SHA: pending
-DELIVERY_REF: pending
+EXECUTABLE_SHA: pending local materialization authorization
+DELIVERY_REF: pending owner authorization
 REASONING_EFFORT: xhigh
 APPROVED_COMPUTE: none
 DECISION_SCOPE: simplified clean C/L/F/runtime/eval/FedAvg completion only
 ```
 
-It may complete clean C/L/F integrated construction, S06 runtime/checkpoint/resume,
-official clean evaluation and clean FedAvg/Flower engineering. It may independently
-specify a minimal spawn lifecycle if clean evidence requires it. It may not recover
-legacy bf480ea harness code, T5/T6/T7, attacks, defenses or S12 split logic. Any
-GH200 smoke requires a new exact immutable RUN_REQUEST and owner/S00 approval.
+Read completely before acting: repository `AGENTS.md`; all three canonical
+Orchestra documents; `docs/env.md`; the accepted S01/S07-A and S02-S06 packages;
+S07-C HANDOFF/RESULTS/RUN_REQUEST; S07-C review via exact separate review SHA;
+and actual Git source/diffs. Inspect the frozen e231/bf480 evidence only when a
+specific negative claim needs verification; never import it.
+
+Preflight must report toplevel, exact HEAD, empty current branch and clean status.
+A mismatch is a blocker. Do not create/switch branches or manage worktrees. The
+owner/S00 provisions the ref. Use Chinese with owner/S00.
+
+Objective: finish the smallest clean engineering integration needed to validate
+centralized C/L/F construction, S06 runtime/checkpoint/resume, official clean
+evaluation adapters, S01 mini directory/ZIP lifecycle and one clean Flower/FedAvg
+path. This session does not train a capable model, define Protocol A/B data
+ownership, or establish a scientific baseline.
+
+Verification-first rules:
+
+1. Before changing source, reproduce the accepted static inventory and inspect
+   current tests. Except for `flwr_config.toml`, source changes require a concrete
+   failing clean contract recorded in HANDOFF/RESULTS; do not rewrite preserved
+   modules speculatively.
+2. Refactor `flwr_config.toml` to expose only a CPU local smoke profile and one
+   single-GPU sequential clean profile. Remove active T3/Path-A/Path-B/4-GPU/
+   overcommit and `collab/**` authority wording. This is configuration cleanup,
+   not permission to run Flower/Ray or select a scientific execution policy.
+3. The validation default is plain clean FedAvg: `server-optimizer=fedavg`, no
+   server EMA, deterministic partition ordering and num-example FP32 averaging.
+   Preserve tested FedOpt/EMA implementation capability but do not use it as the
+   completion default or claim Protocol-A/B readiness.
+4. Add at most the one named focused completion test file. Do not add an active
+   script, launcher, profile, matrix, diagnostic harness or compatibility layer.
+5. Do not weaken/delete accepted tests, relax fail-closed identity checks, invent
+   full-cache hashes, fill template-only S07 configs with fake production values,
+   or change locked architecture/coordinate/yaw/class/precision semantics.
+6. A clean multiworker check uses the current standard PyTorch DataLoader path
+   for one mini batch at workers 0 versus 2. Do not import `bf480ea`, introduce a
+   global spawn policy, create a process matrix, or resurrect the old harness. If
+   this exact check fails, preserve the failure and make only a minimal current-
+   tree lifecycle fix within ownership.
+7. No T5/T6/T7, attack, defense, ASR, S12 split, new protocol, scientific metric,
+   capability threshold or publication work is allowed.
+
+Local/login acceptance before any durable executable or compute request:
+
+- exact tombstone/anti-recovery scan and path inventory;
+- Python compile, all JSON and TOML parse, all retained shell `bash -n`, and
+  `git diff --check`;
+- AST/config checks proving one clean strategy/default, no legacy selector, and
+  no active old Flower execution profile;
+- exact requested-test inventory and explicit list of every dependency-backed
+  item that is NOT RUN on the login node.
+
+GH200 is **not approved at kickoff**. After the code/test diff is stable, write an
+exact `RUN_REQUEST.md` and stop for S00/owner audit. A candidate request may contain
+at most one sequential engineering job, one node/one GH200, one concurrent job,
+at most 60 minutes, mini/synthetic data only, no retry. It must pin executable SHA,
+source manifest, environment, command, tests, data/cache identities, output root
+and stop conditions. Any code/test/command change invalidates approval.
+
+The proposed bounded job may request only:
+
+- dependency/import/source-identity checks;
+- the exact S07-B integration/lifecycle, S06, clean FedAvg/Flower, selected S01
+  mini ZIP, provenance and evaluation test files listed in ownership;
+- one B=1, `num_workers=0`, fp16 optimizer update for each exact mode C-STR8,
+  L-S075 and F-U, with finite loss/gradients, plus one checkpoint save/load/resume
+  boundary; this is three engineering mode checks, not an experiment matrix;
+- one mini first-batch `num_workers=0` versus `2` lifecycle equality check with
+  no skip, timeout, abort or worker warning;
+- the official devkit GT-as-pred/box-to-global functional adapter test only if
+  separately named in the exact request; any emitted AP is test output, not a
+  model metric or scientific result.
+
+Explicitly forbidden even in the candidate request: full cache/trainval scans,
+100/1000-step or tiny-overfit, model capability/mAP/NDS campaigns, profile,
+throughput benchmark, Ray live federation, DDP, multi-GPU, actor/process matrix,
+seed matrix, automatic retry, attack/defense or upload. `test_model_overfit.py`
+and the old S07-B harness are never inputs.
+
+Acceptance requires zero unexpected fail/error/skip/timeout/warning in every
+requested item; exact C/L/F one-step evidence; S06 checkpoint/resume; Flower 1.27
+FP32 parity, deterministic sampling and plain FedAvg round; S01 mini lifecycle;
+functional official-eval identity; complete JUnit/log/execution identity/source
+hashes; and honest NOT RUN limits. A passing mini/synthetic gate is engineering
+evidence only. Write HANDOFF/RUN_REQUEST/RESULTS and stop for S00 completeness.
+Do not commit, submit compute, create a reviewer, merge or push without later
+exact authorization.
 
 ### S08 — camera-only scientific execution
 
