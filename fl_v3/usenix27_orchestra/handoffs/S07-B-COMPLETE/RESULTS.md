@@ -1,16 +1,13 @@
-# S07-B-COMPLETE RESULTS — closed wrapper failures and pending simple validation
+# S07-B-COMPLETE RESULTS — first real training boundary reached
 
 ## Current result
 
-The engineering candidate remains locally/static ready, but integrated GH200
-completion is **not established**. Three bounded submissions were consumed before
-any C/L/F optimizer update. Their shared root cause was the retired execution
-wrapper, not a demonstrated Arrhenius, model, data, or clean-FL defect.
-
-The owner directed S00 to remove that wrapper. A read-only snapshot of executable
-`34cbe02b7b72...` now exists for a short training-first request. On 2026-07-13 the
-owner approved its exact command and one submission; it is not yet submitted at
-this document state.
+Integrated GH200 completion is **not established**. After retiring the audit
+wrapper, exact Job `380806` reached the real model forward/loss/backward path for
+all three C/L/F modes. Environment identity and clean FedAvg passed, but all three
+first fp16 backward attempts produced nonfinite unscaled gradient norms, so
+the required one-step evidence was not emitted or accepted. This is a current
+numerical/training gate failure, not another environment or wrapper failure.
 
 ## Closed job record
 
@@ -19,6 +16,7 @@ this document state.
 | `372819` | `FAILED 1:0`, 8 s, `n124`, restarts 0 | Executable/source identities completed. | Request used Git-reserved `GIT_COMMON_DIR`, corrupting dependency Git checks before environment activation. |
 | `373363` | `FAILED 1:0`, 1:42, `n21`, restarts 0 | All 13 bootstrap gates and dependency pre/post comparison passed. | Request made a known `ccimport` deprecation fatal during spconv identity import; pytest never started. |
 | `374142` | `CANCELLED`, 8:05, `n89`, restarts 0 | Environment and spconv identity passed; pytest collected exact 205 cases; clean-FedAvg/profile test passed. | Request forced a 113-byte `TMPDIR`; multiprocessing appended its listener suffix and exceeded the AF_UNIX path limit in the worker=2 loader test. No model update ran. |
+| `380806` | `FAILED 1:0`, 4:28, `n192`, restarts 0 | Exact environment passed; clean-FedAvg profile passed; C/L/F each completed real-mini forward, finite loss and backward. | First unscaled gradient norms were `inf/nan/nan`; assertions stopped before step/skip metrics were checked or printed. Training JUnit `1 pass / 3 fail`; loader phase correctly NOT RUN. |
 
 S00 stopped Job `374142` after the deterministic listener failure and more than
 six minutes without progress rather than wait for the 50-minute global timeout.
@@ -45,37 +43,92 @@ Key retained SHA-256 values:
 374142 execution identity: a4ff6321e5ca76225b4a7cf89d6290191a419e833969b62cd1abc01e6bd41904
 ```
 
-## Path diagnosis
+## Job 380806 raw evidence
+
+```text
+root: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_clean_simple_34cbe02b7b72
+environment.txt: b2e9d2df67472872f03dea6223d4dbef93bea29f60a5273aac334645fb487858
+train.log: a6c9d686928fbf2cf2b658b0578f71ab9550539e52ee1bab6b70ee9fb14fe222
+train.junit.xml: 8faeaf75ecc94a2eedceebaf0141b27f756d467a34b6d1c814d0d4d0544d1c9c
+slurm stdout: a6c9d686928fbf2cf2b658b0578f71ab9550539e52ee1bab6b70ee9fb14fe222
+slurm stderr: b534645ead7b5a3ed14c1d7fe032271613c2bf72d2c4e74776badddfbf1a888f
+```
+
+Environment identity was aarch64, Python `3.11.15`, Torch `2.11.0+cu128`, CUDA
+`12.8`, cumm `0.7.13`, spconv `2.3.8`, one `NVIDIA GH200 120GB`, and `/tmp`.
+`train.exit`, `train-tee.exit`, all loader artifacts, and the final marker are
+absent. The train log and JUnit prove the three numerical assertions occurred
+before the separate `PIPESTATUS` recording defect aborted the shell.
+
+## Causal diagnosis
+
+The earlier Arrhenius training evidence used the pre-S07 single-head/model path.
+The six-task `MultiTaskCenterPointLoss` was integrated on 2026-07-12. S04 proved a
+bounded synthetic sparse-encoder backward, while S06 explicitly recorded actual
+S04+S05 fp16 production integration as NOT RUN. Job `380806` is therefore the
+first current evidence for the complete real-mini six-task fp16 optimizer seam.
+
+The loop upcasts head outputs before loss, obtains a finite scalar loss, scales it
+with the default GradScaler initial scale `512`, backpropagates and unscales before
+computing telemetry. The persisted norm is `inf/nan/nan`, but the test asserts on
+that field before it checks or prints `optimizer_steps`, `grad_scaler_skips`, and
+final scale. For L/F, `nan` strongly points to nonfinite gradients. For C, `inf`
+could be a nonfinite element or overflow in the float32 global-norm reduction even
+if individual elements are finite. The evidence therefore proves only that the
+first-attempt finite-norm gate fails; it does **not** durably prove the step/skip
+counters, that the model cannot train, or that a lower scale is the correct
+production setting.
+
+This continuation behavior is already an S06 contract:
+`test_s06_training_runtime.py::test_scaler_overflow_invalidates_one_complete_fixed_window`
+uses an overflow-once scaler, records the first window as invalid, continues the
+loader, and completes exactly one later optimizer step. Production `train_local`
+also keeps one scaler across the loader. The completion fixture instead wraps one
+batch in a length-one iterable and requires zero skips, so it cannot exercise
+that continuation if a skip occurred. This is a test-coverage mismatch, while
+the actual per-mode step/skip counters and reason for the nonfinite norm remain
+unresolved.
+
+The shared failure across camera, LiDAR and fusion points first to the shared
+multi-task head/loss or precision policy, not a branch-specific encoder. A future
+remediation should first emit the already-returned step/skip/final-scale metrics
+before asserting, distinguish nonfinite gradient elements from norm-reduction
+overflow, and use the existing dynamic-scaler contract with a small fixed attempt
+budget. It must stop after exactly one successful optimizer step and record
+skipped/invalid windows. No production source/config or default-scale change is
+justified by the present record. Only if bounded backoff still cannot step should
+deeper head/loss diagnosis be added.
+
+## Closed path diagnosis
 
 The exact Job `374142` temporary root is 113 bytes. A stdlib-only reproduction
 under that path fails with `OSError: AF_UNIX path too long`; `TMPDIR=/tmp`
 succeeds with a randomized 36-byte `pymp-*/listener-*` address. This is local
 inter-process communication, not network, CUDA, dataset, or model behavior.
 
-## Replacement contract
-
-The pending request runs only:
-
-- clean Flower/FedAvg profile plus one C/L/F fp16 optimizer update, all with
-  `num_workers=0`;
-- one separate five-minute workers-0-versus-2 first-batch equality check using
-  `TMPDIR=/tmp`.
-
-It runs from a 628 KiB read-only snapshot, activates the persistent Arrhenius
-environment, and contains no Git, source archive, dependency cleanliness,
-warnings-as-errors, custom cache isolation, or 205-case suite. The exact draft and
-acceptance rule are in `RUN_REQUEST.md`.
-
 ## Interpretation limits
 
 Allowed now: the clean-only config/test changes pass local static gates; the
 persistent environment can activate and load Torch/CUDA/spconv on GH200; the clean
-FedAvg/profile test passes in Job `374142`.
+FedAvg/profile test passes; current C/L/F models all construct and complete one
+real-mini forward, finite loss and backward on the exact GH200 environment.
 
-Not established: any C/L/F optimizer update, completed worker=2 equality check,
+Not established: any successful C/L/F optimizer update, completed worker=2 equality check,
 integrated S06/S01/official-eval suite, detector capability, mAP/NDS, fusion gain,
 Protocol A/B readiness, performance, reproducibility, attack, defense, or
 scientific result.
 
-Do not launch review. The owner has approved exactly one submission of the final
-simplified command/hash/envelope; no changed command or retry is authorized.
+Do not launch review or retry. The exact compute approval is consumed. A future
+diagnostic/remediation command requires a new exact owner decision.
+
+## D1 preparation status
+
+The focused gradient-classification test and immutable snapshot are prepared but
+**NOT RUN**. Local `python3 -m py_compile`, candidate JSON parsing, `bash -n` for
+both exact temporary command files, embedded-command hash equality and
+`git diff --check` pass. The login node has no `python` command and uses system
+Python 3.9 only for syntax; no Arrhenius/Torch import was attempted there.
+
+D1 has nine fixed C/L/F x precision/scale cells and no automatic remediation.
+Exact request hashes and resource bounds are in `RUN_REQUEST.md`. Until the owner
+approves that immutable request, there is no new Job ID or runtime result.

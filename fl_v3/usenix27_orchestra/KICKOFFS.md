@@ -913,6 +913,13 @@ and stop for S00 completeness.
 Do not commit, submit compute, create a reviewer, merge or push without later
 exact authorization.
 
+**Terminal launch record (2026-07-13).** The worker and exact simplified compute
+were later authorized. Job `380806` passed environment identity and clean FedAvg,
+then reached real-mini C/L/F forward, finite loss and backward. All three first
+fp16 attempts had nonfinite unscaled gradient norms; assertions stopped before
+step/skip metrics were emitted, and the loader phase was not run. This kickoff is consumed. It does not
+authorize retry, scale changes, remediation compute, or review.
+
 ### S08 — camera-only scientific execution
 
 ```text

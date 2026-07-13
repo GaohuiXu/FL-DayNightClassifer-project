@@ -1055,7 +1055,23 @@ The owner subsequently approved exactly one submission of command SHA-256
 and job-body SHA-256
 `dc14e7157e37b567d747093130020dde3306fab49eb43358883030400f66754c`
 with the recorded one-GH200/40-minute envelope. No changed command or retry is
-authorized.
+authorized. Exact Job `380806` consumed that approval: environment identity and
+clean FedAvg passed, and all C/L/F modes reached real-mini finite-loss backward,
+but their first unscaled gradient norms were respectively `inf`, `nan`, and `nan`.
+The assertions preceded step/skip metric checks and evidence output, so no
+successful optimizer step is accepted and the per-mode skip counters remain
+unknown; loader phase was not run. This is the first current six-task fp16
+integration evidence and a numerical training gate failure, not an environment
+failure. No retry, scale change, or review is authorized without a new exact owner
+decision.
+
+A test-only D1 classification candidate is prepared, not executed: exact C/L/F
+crossed with FP32, fp16 scale 512 and fp16 scale 1, recording per-task losses,
+unscaled element finiteness, stable FP64 norm, first offending parameter and
+step/skip/scale state. It does not modify production source/config or authorize
+compute. The immutable snapshot, command hashes and one-GH200/25-minute bound are
+in the S07-B-COMPLETE `RUN_REQUEST.md`; exact owner compute approval remains
+required.
 
 ### 11.3 Accepted clean-foundation evidence
 

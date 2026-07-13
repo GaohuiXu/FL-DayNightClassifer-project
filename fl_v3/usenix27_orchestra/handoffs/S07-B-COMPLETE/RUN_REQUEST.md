@@ -4,7 +4,7 @@
 
 ```text
 SESSION_ID: S07-B-COMPLETE
-REQUEST_STATE: APPROVED_EXACT_ONCE / NOT YET SUBMITTED
+REQUEST_STATE: CONSUMED / TERMINAL FAIL / NO RETRY AUTHORIZED
 OWNER_DECISION: remove the audit wrapper; use a simple training-first contract
 BASE_SHA: 4aa2b133d1d33382bf1514f7a3c86fcb03cf83e5
 EXECUTABLE_SHA: 34cbe02b7b72114e3a2d61f6f797c8dec022798c
@@ -22,6 +22,8 @@ APPROVAL_DATE: 2026-07-13
 APPROVAL_SOURCE: owner message "批准，开始执行" in the canonical S00 task
 APPROVED_COMPUTE: one exact simplified GH200 submission
 RETRY: forbidden unless separately requested and approved
+JOB_ID: 380806
+JOB_STATE: FAILED 1:0 / elapsed 00:04:28 / node n192 / restarts 0
 ```
 
 The executable differs from BASE only in
@@ -201,7 +203,38 @@ printf '%s\n' S07B_SIMPLE_PASS
 SBATCH
 ```
 
-## Acceptance
+## Terminal execution and acceptance
+
+The exact approved command was submitted once as Job `380806`. Environment
+activation and identity passed on aarch64/GH200 with Torch `2.11.0+cu128`, CUDA
+`12.8`, cumm `0.7.13`, spconv `2.3.8`, and `TMPDIR=/tmp`. The clean Flower/FedAvg
+profile passed. All three real-mini modes completed model forward, finite loss,
+and backward, but the unscaled gradient norm was nonfinite at the first
+GradScaler attempt (`C-STR8=inf`, `L-S075=nan`, `F-U=nan`). Training JUnit is
+`4 total / 1 pass / 3 fail`. The assertion occurs before the test checks or
+prints optimizer-step, scaler-skip, and final-scale metrics, so the raw artifacts
+do not establish those counters per mode. No successful update is accepted from
+this job, but “all three were skipped” is not a durable result.
+
+The loader phase correctly did not run after training failure. No retry or
+replacement command is authorized. The command also has a non-causal shell
+recording defect: reading `PIPESTATUS[0]` in one assignment resets `PIPESTATUS`,
+so the following `PIPESTATUS[1]` access aborts under `set -u`. This explains the
+missing phase exit files, but not the pytest failures, which had already been
+written to the log and JUnit. Any future command should avoid this pipeline and
+capture a redirected pytest exit code directly.
+
+Raw root:
+
+```text
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_clean_simple_34cbe02b7b72
+environment.txt: b2e9d2df67472872f03dea6223d4dbef93bea29f60a5273aac334645fb487858
+train.log/stdout: a6c9d686928fbf2cf2b658b0578f71ab9550539e52ee1bab6b70ee9fb14fe222
+train.junit.xml: 8faeaf75ecc94a2eedceebaf0141b27f756d467a34b6d1c814d0d4d0544d1c9c
+stderr: b534645ead7b5a3ed14c1d7fe032271613c2bf72d2c4e74776badddfbf1a888f
+```
+
+The acceptance rule below was **not met**.
 
 Accept only one `COMPLETED 0:0` job with zero restarts, aarch64/GH200 identity,
 training JUnit `4/0/0/0`, loader JUnit `1/0/0/0`, all four phase/tee exit files
@@ -211,3 +244,168 @@ equal to zero, three `S07_B_CLEAN_MODE_EVIDENCE` records in C/L/F order, and fin
 Any nonzero phase, timeout, OOM, worker error, or missing record is a bounded
 engineering FAIL. Preserve logs and stop. Do not change the environment, edit
 source, add tests, retry, or submit a replacement without a new owner decision.
+
+---
+
+## D1 gradient classification request — exact draft, not compute-approved
+
+```text
+REQUEST_ID: S07-B-COMPLETE-D1
+REQUEST_STATE: IMPLEMENTATION PREPARED / EXACT COMPUTE APPROVAL REQUIRED
+OWNER_DIRECTION: approved the focused diagnosis and asked execution to begin
+CURRENT_WORKTREE_HEAD: f492fcf493515df82f881825d8cc25ec399d8128
+BASE_EXECUTABLE_SHA: 34cbe02b7b72114e3a2d61f6f797c8dec022798c
+TEST_PATCH_SHA256: f50299cc7824a162d84b56d24755d17db979d1852c537c53a097289ad75d5d2e
+DIAGNOSTIC_TEST_SHA256: 0ca44717e9787e4cb129dd028cbd217524ea12383c2f510f94b2084888ce475b
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_grad_diag_0ca44717e978
+SNAPSHOT_TREE_SHA256: acf5f85efb529bfe8e5b6878303ecac2c40057e542433043ab86adbaf4e57337
+SNAPSHOT_STATE: 628 KiB / zero writable files / zero writable directories
+FLOWER_CONFIG_SHA256: 2f459f816ad1bfcc9d1f9c1c2de9cc6491f5ea564eee633290e47665ff2003ab
+ARRHENIUS_ENV_SCRIPT_SHA256: f57befbb5082aaf4d4bb186958a88420ea873e0fdee5c65da1091b73f566c2bf
+PYPROJECT_SHA256: 29c5e81e56fdcb40a2caefdc8a91563ffcd1596df64fed6f4997eef3d58bab72
+JOB_BODY_SHA256: d4d1c4acf353aa30bc7bd1872634f58b46df1f2df4d063afd7f3c63bbf28f3fa
+SUBMIT_SHA256: dd69e3f6d55c99e55a2e52b5b4ef79f27a86d833558d1299387596d9b95f74d2
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_grad_diag_0ca44717e978
+RETRY: forbidden
+```
+
+The read-only D1 snapshot was copied from the exact Job `380806` snapshot and
+differs from it only in
+`fl_v3/tests/test_s07_b_clean_completion.py`. Production source, configs,
+environment activation, dependencies and data code are byte-identical. The
+worktree also contains uncommitted canonical result documentation; it is not
+executed by D1. A durable Git commit remains separately owner-controlled.
+
+### Exact diagnostic cells
+
+The fixed test inventory is the Cartesian list below, executed once in pytest
+order with seed `20260713`, B=1, `num_workers=0`, ten LiDAR sweeps, sample token
+`00889f8a9549450aa2f32cf310a3e305`, and LiDAR points capped at 4096:
+
+```text
+C-STR8 x {fp32, fp16 GradScaler init 512, fp16 GradScaler init 1}
+L-S075 x {fp32, fp16 GradScaler init 512, fp16 GradScaler init 1}
+F-U     x {fp32, fp16 GradScaler init 512, fp16 GradScaler init 1}
+```
+
+Each of the nine cells performs one forward, one loss and one backward. It calls
+the optimizer at most once if gradients are accepted; GradScaler may instead
+skip the fp16 call. Before gradients are cleared it records:
+
+- aggregate and six per-task heatmap/regression losses;
+- element-wise finiteness, nonfinite parameter/element counts and the first eight
+  nonfinite parameter names;
+- the current float32 telemetry norm, stable float64 norm over finite elements,
+  gradient dtype counts and maximum finite absolute element;
+- requested/before/after scale, scaler skip and optimizer-call status.
+
+Diagnostic pytest success means all nine strict-JSON evidence records were
+emitted with finite scalar loss. It does **not** mean all gradients or optimizer
+calls passed. No dynamic backoff loop, loader phase, model remediation, config
+change, metric, profile, full cache/trainval, attack/defense, Ray, DDP or retry is
+included.
+
+### Resources
+
+One node, one GH200, eight CPUs, 96 GiB, Slurm limit 25 minutes, internal pytest
+timeout 20 minutes, no requeue and exactly one submission. Maximum authorized
+scope would be 0.417 GPU-hours. The mini dataset is read-only and the output root
+must not exist before submission.
+
+### Exact job body
+
+```bash
+#!/bin/bash
+set -euo pipefail
+umask 077
+
+source "$S07B_SNAPSHOT/fl_v3/scripts/arrhenius_env.sh"
+arrhenius_load_modules build
+arrhenius_activate_env
+
+export PYTHONPATH="$S07B_SNAPSHOT/fl_v3/src"
+export NUSCENES_DATAROOT="$S07B_MINI_ROOT"
+unset ARRHENIUS_NUSCENES_DATAROOT NUSCENES_DATA_DIR
+unset NUSCENES_ZIP_MANIFEST ARRHENIUS_NUSCENES_ZIP_MANIFEST
+export TMPDIR=/tmp
+export PYTHONNOUSERSITE=1
+export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
+export PYTEST_ADDOPTS=
+unset PYTHONWARNINGS
+
+cd "$S07B_OUTPUT"
+python - <<'PY' > environment.txt
+import json
+import os
+import platform
+from importlib.metadata import version
+import torch
+
+print(json.dumps({
+    "machine": platform.machine(),
+    "python": platform.python_version(),
+    "torch": torch.__version__,
+    "torch_cuda": torch.version.cuda,
+    "cumm": version("cumm"),
+    "spconv": version("spconv"),
+    "cuda_available": torch.cuda.is_available(),
+    "cuda_device_count": torch.cuda.device_count(),
+    "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
+    "tmpdir": os.environ["TMPDIR"],
+}, indent=2, sort_keys=True))
+PY
+
+set +e
+timeout --signal=TERM --kill-after=30s 20m \
+  python -m pytest -q -s -p no:cacheprovider \
+    -c "$S07B_SNAPSHOT/fl_v3/pyproject.toml" \
+    --rootdir="$S07B_SNAPSHOT" \
+    --basetemp="$S07B_OUTPUT/pytest-tmp" \
+    --junitxml="$S07B_OUTPUT/diagnostic.junit.xml" \
+    "$S07B_SNAPSHOT/fl_v3/tests/test_s07_b_clean_completion.py::test_exact_mode_gradient_diagnostic" \
+    > "$S07B_OUTPUT/diagnostic.log" 2>&1
+diagnostic_rc=$?
+set -e
+printf '%s\n' "$diagnostic_rc" > diagnostic.exit
+cat diagnostic.log
+test "$diagnostic_rc" = 0
+test "$(grep -c 'S07_B_GRAD_DIAGNOSTIC=' diagnostic.log)" = 9
+printf '%s\n' S07B_GRAD_DIAGNOSTIC_PASS
+```
+
+### Exact submit wrapper
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s07b_grad_diag_0ca44717e978
+OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_grad_diag_0ca44717e978
+MINI_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini
+
+test -d "$SNAPSHOT"
+test -f "$SNAPSHOT/fl_v3/tests/test_s07_b_clean_completion.py"
+test ! -e "$OUTPUT"
+install -d -m 0700 "$OUTPUT"
+
+sbatch \
+  --account=naiss2025-22-1113-gpu \
+  --partition=gpu \
+  --nodes=1 \
+  --ntasks=1 \
+  --gpus-per-node=nvidia_gh200_120gb:1 \
+  --cpus-per-task=8 \
+  --mem=96G \
+  --time=00:25:00 \
+  --no-requeue \
+  --job-name=flv3_s07b_grad_diag \
+  --output="$OUTPUT/slurm-%j.out" \
+  --error="$OUTPUT/slurm-%j.err" \
+  --export=S07B_SNAPSHOT="$SNAPSHOT",S07B_OUTPUT="$OUTPUT",S07B_MINI_ROOT="$MINI_ROOT" \
+  /tmp/s07b_grad_diag_job.sh
+```
+
+Both exact temporary files pass `bash -n`; their hashes are pinned above. Do not
+submit either file until the owner explicitly approves this exact D1 snapshot,
+cell list, two hashes, resources and output root. After terminal evidence, stop:
+no automatic source/config change and no second job.

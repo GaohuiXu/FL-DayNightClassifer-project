@@ -8,8 +8,8 @@ EXECUTABLE_SHA: 34cbe02b7b72114e3a2d61f6f797c8dec022798c
 EXECUTABLE_TREE: ed2d4091f0098f6b2144028afd87e20d023b1da2
 BRANCH: codex/s07-b-clean-completion
 CURRENT_APPROVAL_SEAL: 1755734c4423488143e5d4adbffe57f22171dc01
-STATUS: local/static ready; simplified GH200 validation approved exact once
-COMPUTE_AUTHORITY: one exact command 229dfec34da4... submission; no retry
+STATUS: local/static ready; GH200 training gate failed numerically
+COMPUTE_AUTHORITY: consumed by Job 380806; no retry
 ```
 
 The executable is a direct child of the accepted S07-C packet base and changes
@@ -56,25 +56,41 @@ by a read-only snapshot created on the login node.
 | `372819` | failed wrapper | before environment activation |
 | `373363` | failed wrapper | environment/spconv import, before pytest |
 | `374142` | stopped wrapper | environment/identity/205 collection and clean-FedAvg profile PASS; worker=2 TMPDIR failure; no model update |
+| `380806` | failed current training gate | environment and clean FedAvg PASS; all C/L/F reached finite-loss backward; norms `inf/nan/nan`; assertions stopped before durable step/skip counters |
 
-All approvals are consumed. No result is a C/L/F training PASS. Raw paths and
-hashes are retained in `RESULTS.md` and `RUN_REQUEST.md`.
+All approvals are consumed. No result is a C/L/F optimizer-step PASS. Raw paths
+and hashes are retained in `RESULTS.md` and `RUN_REQUEST.md`.
 
-## Pending training-first gate
+## Current training boundary
 
-The exact unapproved command in `RUN_REQUEST.md` uses one GH200 and two phases:
-
-1. four cases: clean profile plus one C/L/F B=1 fp16 optimizer update with
-   `num_workers=0`;
-2. one workers-0-versus-2 equality case with `TMPDIR=/tmp`.
-
-No full cache/trainval, multiple steps, metrics, profile, Ray, DDP, matrix,
-attack/defense, Protocol claim, upload, or publication is permitted. Training is
-first so loader infrastructure cannot again mask the compiled model path.
+Job `380806` was the first current execution to enter all three complete model
+paths. It disproves the one-attempt scale-512 update gate: C/L/F unscaled gradient
+norms were respectively `inf`, `nan`, and `nan`; no successful-step evidence was
+emitted. The raw output does not prove the per-mode step/skip counters because the
+assertion precedes those checks. This does not invalidate the environment and does
+not yet distinguish norm-reduction overflow, normal dynamic-scale backoff, or
+persistent shared head/loss instability. Earlier
+Arrhenius training exercised the pre-S07 model; reviewed S04/S06 artifacts did not
+run this real six-task fp16 integration seam. S06 already tests that an overflow
+window is skipped and a later batch can complete the optimizer budget; the
+completion fixture's length-one iterable prevented that intended continuation.
 
 ## Next action
 
-S00 completed syntax/hash/scope checks and the owner approved the exact simplified
-envelope once on 2026-07-13. Submit only that command, record terminal evidence,
-and do not retry. Review remains premature until the gate produces durable terminal
-evidence.
+Preserve Job `380806` as the terminal result. Do not retry, change the default
+GradScaler scale, weaken the finite-gradient/final-step gate, or launch review
+from this failure. The smallest remediation is test-only: print the returned
+metrics before assertions, distinguish element nonfiniteness from global-norm
+reduction overflow, give the same mini batch a fixed small attempt budget, and
+retain exact one-successful-step acceptance. Parameter-level diagnostics are
+needed only if bounded backoff still fails. Any changed test or compute requires
+a new exact owner-approved RUN_REQUEST.
+
+The D1 test-only implementation is now prepared without production-source or
+config changes. It compares FP32, fp16 scale 512 and fp16 scale 1 for each C/L/F
+mode and records strict-JSON per-task/per-parameter evidence before gradients are
+cleared. Candidate snapshot
+`s07b_grad_diag_0ca44717e978` is read-only and differs from the Job `380806`
+snapshot only in the focused completion test. Exact hashes, nine cells, one-GPU/
+25-minute command and output root are recorded in `RUN_REQUEST.md`. D1 is **NOT
+RUN** and no compute/retry authority is implied by preparation.

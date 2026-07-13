@@ -8,10 +8,12 @@
 >
 > S07-C legacy-security cleanup and independent S07-C-R are complete with a
 > static-scope PASS. Canonical acceptance is sealed at
-> `70bcd856f7ebb411eb2887e7ab71ef41ed13271f`. A filled simplified clean S07-B
-> completion packet is prepared in `KICKOFFS.md`; its docs-only packet-seal SHA
-> will be the immutable worker base only after explicit owner launch approval.
-> Runtime remains NOT RUN. S12 is deferred and unaccepted. S13 attack work
+> `70bcd856f7ebb411eb2887e7ab71ef41ed13271f`. Simplified clean S07-B Job `380806`
+> verified the current Arrhenius environment and clean FedAvg, then reached real
+> C/L/F forward/finite-loss/backward; all three first gradient-norm gates failed,
+> before step/skip metrics were emitted. The exact compute approval is consumed, review is not
+> launched, and remediation diagnosis requires a new owner decision. S12 is
+> deferred and unaccepted. S13 attack work
 > requires a later owner-approved threat model after CL freeze and clean
 > Protocol-B adaptation; S14 remains blocked until a viable undefended attack.
 >
@@ -70,7 +72,7 @@ no outgoing implementation edge into this graph.
 |---|---|---|
 | Cleanup | S07-C | complete at implementation `a16c2cd`; no runtime claim |
 | Review | S07-C-R | PASS at `b8e11bc`; REVIEW.md only; reviewer history is never merged |
-| Completion | clean S07-B | filled packet prepared; after owner launch approval, starts from its docs-only packet seal above accepted cleanup `70bcd85`; clean C/L/F/runtime/eval/FedAvg engineering only |
+| Completion | clean S07-B | active numerical remediation boundary after Job `380806`; environment/FedAvg passed, C/L/F backward reached, no accepted successful-step evidence; no retry/review authorized |
 | CL | S08-S11 | starts only after clean S07-B review; every scientific run requires exact approval |
 | Protocol | deferred S12, then S13 | re-review clean Protocol A/B after CL readiness; attack remains blocked until clean adaptation passes |
 | Security | later S13/S14 | new owner-approved threat model only; S14 requires a viable undefended attack |
@@ -137,7 +139,7 @@ pinned until accepted artifacts are landed; do not rely on automatic retention.
 | S04 | LiDAR SECOND architecture | S00 kickoff | sparse XY-downsampling encoder contract | reviewed module PASS at worker `483e149` / executable `8498597` / review `a0763c2`; Job `341695` 15/15 bounded runtime PASS; accepted S07-B dependency with same-instance concurrency/reentrancy integration requirement |
 | S05 | Detection head and decode | S00 kickoff | multi-task CenterHead and deterministic NMS | reviewed PASS at worker `a9c801f` / execution `96e509b` / review `1c44084`; Job `336731` 43/44 negative preserved, Job `336738` 44/44 focused runtime PASS; accepted S07-B dependency only |
 | S06 | Production modes/runtime | S07-A data contract + S00 kickoff | C/L/F modes, config, resume, loader, eval | reviewed bounded PASS under O-031 at worker `6b7ef29` / executable `c330c72` / review `ca7bbd7`; Job `341997` FAILED 45/62 preserved, Job `342014` PASS 66/66; accepted S07-B candidate dependency with P3 integration gates, no production/full-data/scientific PASS |
-| S07 | Cleanup then clean integration completion | accepted S01/S07-A and S02-S06 | S07-C cleanup, independent S07-C-R, then simplified clean S07-B completion | S07-C accepted at `70bcd85`; independent review `b8e11bc` PASS at static scope; runtime NOT RUN; filled completion packet prepared, owner launch approval pending |
+| S07 | Cleanup then clean integration completion | accepted S01/S07-A and S02-S06 | S07-C cleanup, independent S07-C-R, then simplified clean S07-B completion | S07-C accepted at `70bcd85`; review `b8e11bc` static PASS; Job `380806` reached C/L/F finite-loss backward but norm gates failed before step/skip evidence; exact test-only D1 gradient request prepared, NOT RUN, no compute/retry authorized |
 | S08 | Camera scientific run | S07 PASS | `C-STR8` full-val result/checkpoint | planned |
 | S09 | LiDAR scientific runs | S07 PASS | `L-P020` and `L-S075` results/checkpoints | planned |
 | S10 | Fusion and recipe selection | S08, S09 | `F-U`/`F-CBGS`, optional init A/B, `CL-PILOT` | planned |
@@ -538,6 +540,13 @@ followed by one independently timed workers-0-versus-2 first-batch check using
 `TMPDIR=/tmp`. The job contains no Git/dependency checkout audit, source/archive
 manifest, warnings-as-errors, custom cache harness or 205-case suite.
 
+Exact Job `380806` consumed the simplified approval. It passed environment and
+clean-FedAvg identity, then reached the complete real-mini six-task C/L/F
+forward/loss/backward paths. The first unscaled gradient norm was nonfinite in all
+three modes; assertions preceded durable step/skip metrics. The loader phase was
+not run. This is a shared fp16 integration blocker; it is not permission to retry, lower
+the scale, weaken the gate, or launch review.
+
 ### S08 — Camera-only scientific run
 
 **Kickoff.** “Train and evaluate the frozen `C-STR8` topology on full trainval/full
@@ -792,11 +801,12 @@ manually verified.
 1. S07-C canonical preparation, worker cleanup and durable handoff are complete.
 2. S07-C-R is complete at review-only commit `b8e11bc`; reviewer history remains
    separate and unmerged.
-3. Canonical S07-C acceptance is sealed at `70bcd85`. Commit the filled
-   S07-B-COMPLETE packet as a docs-only descendant and present its full SHA for
-   owner review; this does not launch a worker.
-4. Only after owner launch approval, create `codex/s07-b-clean-completion` at the
-   exact packet seal and complete only the simplified clean engineering gates.
+3. Canonical S07-C acceptance is sealed at `70bcd85`; the S07-B-COMPLETE packet,
+   branch and two-file executable were launched and sealed.
+4. Job `380806` consumed the simplified runtime approval and exposed shared
+   nonfinite fp16 gradients before any optimizer step. Preserve it, prepare the
+   smallest causal remediation proposal, and obtain a new exact owner decision
+   before editing the numerical contract or submitting compute.
 5. Resume S08-S11 planning only after clean S07-B completion is independently
    accepted. Scientific jobs retain separate exact authorization.
 6. Re-audit S12 later. Establish clean Protocol-B/Protocol-A foundations before
