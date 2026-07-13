@@ -251,10 +251,11 @@ source, add tests, retry, or submit a replacement without a new owner decision.
 
 ```text
 REQUEST_ID: S07-B-COMPLETE-D1
-REQUEST_STATE: APPROVED EXACT ONCE / NOT YET SUBMITTED
+REQUEST_STATE: CONSUMED / TERMINAL DIAGNOSTIC PASS / NO RETRY AUTHORIZED
 OWNER_DIRECTION: commit the prepared diagnostic, then submit the exact Slurm job
 WORKTREE_BASE_SHA: f492fcf493515df82f881825d8cc25ec399d8128
 DIAGNOSTIC_COMMIT: 1900fe3bcb52ade22f0b947a2aca44d5ece12b2f
+APPROVAL_SEAL: 9b23fabf33bde821a8053192566976b332f75c05
 BASE_EXECUTABLE_SHA: 34cbe02b7b72114e3a2d61f6f797c8dec022798c
 TEST_PATCH_SHA256: f50299cc7824a162d84b56d24755d17db979d1852c537c53a097289ad75d5d2e
 DIAGNOSTIC_TEST_SHA256: 0ca44717e9787e4cb129dd028cbd217524ea12383c2f510f94b2084888ce475b
@@ -271,6 +272,8 @@ APPROVAL_DATE: 2026-07-13
 APPROVAL_SOURCE: owner message "批准commit后提交slurm job" in the canonical S00 task
 APPROVED_COMPUTE: one exact D1 submission with the pinned snapshot, nine cells, two script hashes, resources and output root below
 RETRY: forbidden
+JOB_ID: 389356
+JOB_STATE: COMPLETED 0:0 / elapsed 00:04:05 / node n101 / restarts 0
 ```
 
 The read-only D1 snapshot was copied from the exact Job `380806` snapshot and
@@ -411,5 +414,6 @@ sbatch \
 
 Both exact temporary files pass `bash -n`; their hashes are pinned above. The
 owner approved exactly this D1 snapshot, cell list, two hashes, resources and
-output root after the durable diagnostic commit. Submit once. After terminal
-evidence, stop: no automatic source/config change and no second job.
+output root after the durable diagnostic commit. Job `389356` consumed that
+one-shot approval and completed with nine evidence records. Stop: no automatic
+source/config change and no second job.

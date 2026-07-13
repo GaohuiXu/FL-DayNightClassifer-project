@@ -926,6 +926,12 @@ using only the immutable snapshot, nine cells, two script hashes, resources,
 output root and stop rules pinned in `RUN_REQUEST.md`. No changed command, retry,
 automatic remediation or review is authorized.
 
+**D1 terminal record.** Job `389356` completed 9/9 diagnostic cells. FP32 C/L/F
+and fp16-scale-1 C had finite gradients and optimizer calls; fp16-scale-512 C/L/F
+and fp16-scale-1 L/F had direct nonfinite elements and scaler skips. The scale-1
+L/F failures first appear in sparse SECOND stem/stage1 parameters. The approval
+is consumed; this record authorizes no retry, remediation or review.
+
 ### S08 — camera-only scientific execution
 
 ```text

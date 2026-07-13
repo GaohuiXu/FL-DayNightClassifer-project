@@ -8,9 +8,10 @@ EXECUTABLE_SHA: 34cbe02b7b72114e3a2d61f6f797c8dec022798c
 EXECUTABLE_TREE: ed2d4091f0098f6b2144028afd87e20d023b1da2
 BRANCH: codex/s07-b-clean-completion
 PRIOR_APPROVAL_SEAL: 1755734c4423488143e5d4adbffe57f22171dc01
-STATUS: local/static ready; GH200 training gate failed numerically
+DIAGNOSTIC_APPROVAL_SEAL: 9b23fabf33bde821a8053192566976b332f75c05
+STATUS: D1 classified FP16 gradient overflow; remediation decision pending
 DIAGNOSTIC_COMMIT: 1900fe3bcb52ade22f0b947a2aca44d5ece12b2f
-COMPUTE_AUTHORITY: one exact D1 submission approved; no retry
+COMPUTE_AUTHORITY: consumed by Job 389356; no retry
 ```
 
 The executable is a direct child of the accepted S07-C packet base and changes
@@ -93,6 +94,10 @@ mode and records strict-JSON per-task/per-parameter evidence before gradients ar
 cleared. Candidate snapshot
 `s07b_grad_diag_0ca44717e978` is read-only and differs from the Job `380806`
 snapshot only in the focused completion test. Exact hashes, nine cells, one-GPU/
-25-minute command and output root are recorded in `RUN_REQUEST.md`. D1 is **NOT
-RUN**; the owner approved one exact submission after the durable diagnostic
-commit. No changed command or retry is authorized.
+25-minute command and output root are recorded in `RUN_REQUEST.md`. Exact Job
+`389356` completed all nine diagnostic cells. FP32 C/L/F and FP16-scale-1 C had
+finite gradients and optimizer calls; FP16-scale-512 C/L/F and FP16-scale-1 L/F
+had direct nonfinite elements and scaler skips. The remaining L/F failures begin
+in sparse SECOND stem/stage1 parameters. This rejects scale 1 as a complete C/L/F
+fix and makes the next decision precision-policy/remediation scope, not environment
+repair. No changed command, retry, source remediation or review is authorized.

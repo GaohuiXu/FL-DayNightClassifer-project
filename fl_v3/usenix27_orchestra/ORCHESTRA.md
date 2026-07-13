@@ -1065,15 +1065,18 @@ integration evidence and a numerical training gate failure, not an environment
 failure. No retry, scale change, or review is authorized without a new exact owner
 decision.
 
-A test-only D1 classification diagnostic is prepared, not yet executed: exact C/L/F
-crossed with FP32, fp16 scale 512 and fp16 scale 1, recording per-task losses,
-unscaled element finiteness, stable FP64 norm, first offending parameter and
-step/skip/scale state. It does not modify production source/config. The owner
-approved exactly one submission after durable diagnostic commit
-`1900fe3bcb52ade22f0b947a2aca44d5ece12b2f`, bound to snapshot
-`s07b_grad_diag_0ca44717e978`, the two script hashes and the one-GH200/25-minute
-envelope in `RUN_REQUEST.md`. No changed command, retry or automatic remediation
-is authorized.
+Test-only D1 Job `389356` consumed its exact one-shot approval and completed all
+nine C/L/F x FP32/fp16-scale-512/fp16-scale-1 records. All FP32 controls had
+finite gradients and optimizer calls. FP16 scale 512 overflowed all three modes;
+scale 1 recovered C-STR8 but L-S075/F-U still had direct nonfinite elements and
+scaler skips, first localized to sparse SECOND stem/stage1 parameters. The L/F
+FP32 controls had roughly 8.33M/5.77M norms and 1.91M/1.22M maximum elements,
+while surviving scale-1 FP16 elements approached 65,504. This classifies a real
+LiDAR-path FP16 dynamic-range failure for the exact mini batch, not an environment
+failure or telemetry-only overflow, while leaving multi-step behavior and the
+specific operation unproven. No retry, automatic remediation or review is
+authorized; the next owner decision is whether to retain FP32 as the immediate
+clean baseline or open a separate narrow mixed-precision remediation.
 
 ### 11.3 Accepted clean-foundation evidence
 

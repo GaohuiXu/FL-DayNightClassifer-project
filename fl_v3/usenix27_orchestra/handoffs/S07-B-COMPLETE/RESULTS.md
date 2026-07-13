@@ -119,19 +119,54 @@ Protocol A/B readiness, performance, reproducibility, attack, defense, or
 scientific result.
 
 Do not launch review or retry Job `380806`; its exact compute approval is
-consumed. D1 below has one separate exact diagnostic submission approval only.
-Any remediation command still requires a new exact owner decision.
+consumed. Any remediation command still requires a new exact owner decision.
 
-## D1 approved preparation status
+## D1 terminal gradient classification
 
-The focused gradient-classification test is durable at
-`1900fe3bcb52ade22f0b947a2aca44d5ece12b2f` and the immutable snapshot is
-prepared but **NOT RUN**. Local `python3 -m py_compile`, candidate JSON parsing,
-`bash -n` for both exact temporary command files, embedded-command hash equality and
-`git diff --check` pass. The login node has no `python` command and uses system
-Python 3.9 only for syntax; no Arrhenius/Torch import was attempted there.
+Exact Job `389356` consumed the one-shot D1 approval and completed on `n101` with
+exit `0:0`, elapsed `00:04:05`, zero restarts, `diagnostic.exit=0`, one final
+`S07B_GRAD_DIAGNOSTIC_PASS` marker and JUnit `9 passed / 0 failed / 0 error /
+0 skipped` in 160.169 seconds. The environment was aarch64 GH200, Python 3.11.15,
+Torch 2.11.0+cu128/CUDA 12.8, cumm 0.7.13 and spconv 2.3.8. The nine tests passing
+means every strict-JSON record and finite scalar loss was emitted; it does not
+mean every gradient/update passed.
 
-D1 has nine fixed C/L/F x precision/scale cells and no automatic remediation.
-The owner approved one exact submission with the request hashes and resource
-bounds in `RUN_REQUEST.md`. There is not yet a Job ID or runtime result; no retry
-is authorized.
+| Mode | Precision/scale | loss | gradient result | optimizer/scaler result |
+|---|---:|---:|---|---|
+| C-STR8 | FP32 | 945.870 | all 30,598,278 elements finite; FP64 norm 58,689.582; max 1,983.724 | optimizer called |
+| L-S075 | FP32 | 1,557.707 | all elements finite; FP64 norm 8,326,751.029; max 1,910,373.875 | optimizer called |
+| F-U | FP32 | 1,121.036 | all elements finite; FP64 norm 5,773,409.139; max 1,217,219.375 | optimizer called |
+| C-STR8 | FP16 / 512 | 953.253 | 24 parameters / 35,900 elements nonfinite | skipped; scale 512 to 256 |
+| L-S075 | FP16 / 512 | 1,552.345 | 52 parameters / 90,280 elements nonfinite | skipped; scale 512 to 256 |
+| F-U | FP16 / 512 | 1,128.472 | 41 parameters / 77,180 elements nonfinite | skipped; scale 512 to 256 |
+| C-STR8 | FP16 / 1 | 953.262 | all elements finite; FP64 norm 59,455.056; max 2,004 | optimizer called; scale stays 1 |
+| L-S075 | FP16 / 1 | 1,551.731 | 5 parameters / 4,740 elements nonfinite; finite max 64,640 | skipped; scale 1 to 0.5 |
+| F-U | FP16 / 1 | 1,133.587 | 4 parameters / 1,870 elements nonfinite; finite max 63,296 | skipped; scale 1 to 0.5 |
+
+This closes the ambiguity from Job `380806`. The old norm was not merely an
+FP32 norm-reduction overflow: D1 directly found nonfinite gradient elements.
+All three FP32 controls are finite and update, so this is not an environment,
+data-loader, scalar-loss or general model-backward failure. C-STR8 is classified
+as an initial loss-scale problem for this exact batch because scale 1 fully
+recovers it. L-S075 and F-U still fail at scale 1; their first bad parameters are
+the sparse SECOND `lidar_encoder.backbone.stem` and `stage1` weights/norms, while
+their FP32 control gradients reach roughly 1.9M/1.2M and the surviving FP16
+elements approach the 65,504 range. This is evidence consistent with real FP16
+backward dynamic-range overflow in the LiDAR path, not proof of a specific
+kernel defect. A single global scale-1 change is therefore rejected as the full
+C/L/F remediation.
+
+Raw artifact SHA-256:
+
+```text
+diagnostic.log       6921efe9e39d25d7dc5fa6dfcab87a748d5db6040a4a49ab5a1fb3d5849edc16
+diagnostic.junit.xml 71d1b73455aa7fb0a4f877562930d4f7df6618eb816a4a325bd39e2e7b02530a
+diagnostic.exit      9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa
+environment.txt      b2e9d2df67472872f03dea6223d4dbef93bea29f60a5273aac334645fb487858
+slurm-389356.out     0452fc470b88f012db709d5366240f8fb49b974417ea86b6473d3c1625218fdc
+slurm-389356.err     ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57
+```
+
+D1 is bounded engineering diagnosis only. It does not establish multi-step
+stability, convergence, accuracy, Protocol A/B readiness or scientific evidence.
+Its compute authority is consumed. No retry or remediation compute is authorized.
