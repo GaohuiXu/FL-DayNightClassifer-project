@@ -38,14 +38,29 @@ environment record, acceptance summary, C/L/F update, DataLoader comparison,
 checkpoint/FL/data/evaluation gate, or runtime PASS exists. The finalizer preserved
 and verified the available artifacts plus original/final exit `1`.
 
-The exact failing bootstrap assertion cannot be reconstructed because the
-thirteen assertions between executable validation and dependency baseline are
-silent and have no stage marker. Live login-side post-checks still match the
-approved cumm/spconv heads and accepted patch/path/file hashes, but they are not
-in-job pre/post proof. This is a failed request envelope/runtime bootstrap gate,
-not evidence of model/test failure. The single-submission authorization is fully
-consumed; no resubmission is permitted without a newly audited exact request and
-owner approval.
+The run artifacts alone cannot identify the exact silent assertion, but S00
+subsequently reproduced the failure deterministically. The consumed command
+exported the project `.git` path as `GIT_COMMON_DIR`, which is a Git-reserved
+repository-selection variable. Independent cumm/spconv `git -C` commands therefore
+inherited the main project's common-dir override. Both HEAD checks still passed,
+but cumm's first `git diff --cached --quiet` saw 267 staged paths and returned `1`;
+spconv would have seen 160. A local harness using the consumed environment passed
+the first five bootstrap guards and failed at guard six with 7,793 observed bytes.
+
+The draft request-only correction renames the neutral path to `PROJECT_GIT_DIR`,
+clears Git repository-selection overrides, and writes durable context plus
+expected/observed/return-code artifacts around all thirteen guards. The same
+login-safe harness then passes `13/13` and re-verifies its artifact manifest. This
+is a failed request-wrapper bootstrap gate, not evidence of model/test failure.
+The single-submission authorization remains fully consumed; no resubmission is
+permitted without a newly audited exact request and owner approval.
+
+The unsealed draft command SHA-256 is
+`b5a98f0a09b79d9c64a474b1449f4e144c58e10a3b497d2c427c704e275d6596`;
+its job-body SHA-256 is
+`8c99f9026cdc09af3ffc17e91bcc490bc95f010cbfdec9e0511fec241d829e3e`.
+The pytest-argument block remains byte-identical to the consumed request at
+`2b9f312535632b7ec17a72ec5fbf0b300b5b690a4fd9d8a81ae94aea21028a67`.
 
 ## Evidence read and Git verification
 
@@ -231,9 +246,9 @@ bootstrap/envelope result.
 Forbidden now: claiming runtime completion, a capable detector, mAP/NDS/fusion
 gain, FL quality, Protocol readiness, security evidence, or compute permission.
 
-Do not launch S07-B-COMPLETE review yet. The narrow next proposal is to instrument
-the thirteen silent bootstrap assertions with durable labels and observed values,
-without changing W/tree, the 205-case inventory, data scope, or resource ceiling;
-then S00 must present a newly sealed RUN_REQUEST for owner audit. Request changes,
-another submission, review, merge, or push each require later explicit owner
-authorization.
+Do not launch S07-B-COMPLETE review yet. The narrow draft fixes the reserved Git
+environment-variable collision and instruments all thirteen bootstrap assertions
+without changing W/tree, the 205-case inventory, data scope, or resource ceiling.
+S00 must finish static audit and present a newly sealed RUN_REQUEST for owner
+review. Another submission, review, merge, or push each require later explicit
+owner authorization.

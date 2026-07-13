@@ -47,11 +47,25 @@ and `pytest-exit.txt` are also absent. Therefore failure occurred after immutabl
 source/executable validation and before the first dependency baseline record.
 That interval contains thirteen silent assertions covering mini-root canonical
 path/directory, environment Python executability, cumm/spconv HEAD and accepted
-working-state identities. Because the command emitted no per-assertion stage
-marker and both Slurm streams are empty, this run cannot identify which assertion
-failed. A login-side exact-state recheck after the job still matches the approved
-cumm/spconv heads, path sets, patch hashes, and file hashes, but that observation
-does not substitute for the missing in-job pre/post evidence.
+working-state identities. The run artifacts alone cannot identify which assertion
+failed because the command emitted no stage marker and both Slurm streams are
+empty. Post-run deterministic reproduction nevertheless identifies the exact
+request bug: the command exported the project `.git` path under Git's reserved
+`GIT_COMMON_DIR` environment variable. The dependency `git -C` commands inherited
+that override. Cumm and spconv HEAD checks still returned their expected values,
+but cumm's first staged-clean check saw 267 paths and returned `1`; spconv would
+have seen 160. A local harness with the consumed environment passed the first five
+guards and failed at guard six, `cumm-staged-paths`, with 7,793 observed bytes.
+
+After renaming the neutral project variable to `PROJECT_GIT_DIR`, clearing Git
+repository-selection overrides, and adding durable expected/observed records, the
+same login-safe bootstrap harness passes all thirteen gates and re-verifies every
+generated artifact checksum. This diagnoses and repairs the request wrapper only;
+it is not GH200 runtime evidence and does not authorize another submission.
+The unsealed diagnostic command/job-body SHA-256 values are respectively
+`b5a98f0a09b79d9c64a474b1449f4e144c58e10a3b497d2c427c704e275d6596` and
+`8c99f9026cdc09af3ffc17e91bcc490bc95f010cbfdec9e0511fec241d829e3e`;
+the pytest-argument digest remains unchanged at `2b9f3125...`.
 
 The run consumed about 0.0022 allocation GPU-hours. It did not import the runtime,
 collect tests, use the mini sample, execute C/L/F updates, or reach any clean-FL,
@@ -220,9 +234,10 @@ attack/defense, generalization, reproducibility, or publication claims.
 
 ## Required next decision
 
-Do not open S07-B-COMPLETE review from this failed runtime gate. The narrowest
-possible remediation is request-only instrumentation: record the label and
-observed value before each of the thirteen bootstrap assertions, preserve the
-same executable W/tree, test inventory, resource ceiling, mini scope, and no-retry
-behavior, then submit a fresh exact RUN_REQUEST for owner audit. Neither that
-remediation nor another job is authorized by the consumed approval recorded here.
+Do not open S07-B-COMPLETE review from this failed runtime gate. The draft
+request-only remediation replaces the reserved `GIT_COMMON_DIR` export, clears
+repository-selection overrides, and records every bootstrap gate while preserving
+the same executable W/tree, test inventory, resource ceiling, mini scope, and
+no-retry behavior. It must be statically sealed and presented as a fresh exact
+RUN_REQUEST for owner audit. Another job is not authorized by the consumed
+approval recorded here.

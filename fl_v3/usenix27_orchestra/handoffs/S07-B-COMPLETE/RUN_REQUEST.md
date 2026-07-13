@@ -1,4 +1,4 @@
-# S07-B-COMPLETE RUN_REQUEST — owner-approved bounded clean engineering gate
+# S07-B-COMPLETE RUN_REQUEST — consumed gate and draft diagnostic continuation
 
 ## Approval and immutable-materialization state
 
@@ -21,17 +21,26 @@ TERMINAL_STATE: FAILED / ExitCode=1:0 / Restarts=0
 SUBMIT_START_END: 2026-07-13T11:25:44 / 11:25:45 / 11:25:53 Europe/Stockholm
 OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_complete_34cbe02b7b72
 RETRY_STATE: forbidden / not requested / not approved / not submitted
+DIAGNOSTIC_REQUEST_STATE: DRAFT_FOR_S00_OWNER_AUDIT / NOT REQUESTED / NOT APPROVED
+DIAGNOSTIC_SCOPE: same W/tree and 205-case gate with durable bootstrap observations
+DIAGNOSTIC_FIX: replace reserved GIT_COMMON_DIR export with PROJECT_GIT_DIR and unset Git repository-selection overrides
+DIAGNOSTIC_OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_complete_diag1_34cbe02b7b72
+PRIOR_COMMAND_SHA256: 888982814f0033e54528ab9f6e01de02c3596dfbf2fef7078f9e73b3ca540f99
+DIAGNOSTIC_COMMAND_SHA256: b5a98f0a09b79d9c64a474b1449f4e144c58e10a3b497d2c427c704e275d6596
+DIAGNOSTIC_JOB_BODY_SHA256: 8c99f9026cdc09af3ffc17e91bcc490bc95f010cbfdec9e0511fec241d829e3e
+PYTEST_ARGS_SHA256: 2b9f312535632b7ec17a72ec5fbf0b300b5b690a4fd9d8a81ae94aea21028a67 (unchanged)
+DIAGNOSTIC_APPROVED_COMPUTE: none
 ```
 
-The owner approved exactly one submission of the frozen command and resources in
-this request after S00's audit. That approval is bound to the request seal,
+The owner approved exactly one submission of the frozen command and resources at
+command-binding seal `8d087f6d...` after S00's audit. That consumed approval was
+bound to the request seal,
 executable commit/tree, literal source closure and hashes, dependency identities,
 mini-data scope, output root, resource ceiling, stop conditions, and no-retry rule
-recorded below. Any change invalidates the approval. The exact executable commit
-and tree are durable Git objects; the command contains no materialization
-placeholder and archives that exact commit directly from the Git common directory.
-No repository launcher, compatibility wrapper, retry, replacement, or expanded
-cell is authorized.
+recorded at that Git version. The exact historical command remains preserved in
+Git and job artifacts. The draft diagnostic command below is different and has no
+compute authority. No repository launcher, compatibility wrapper, retry,
+replacement, or expanded cell is authorized.
 
 ## Terminal execution record
 
@@ -42,9 +51,35 @@ The immutable Git archive, literal/Git-selected 100-path manifests, all 100 sour
 records, and executable-patch hash were created and checksum-verified. Execution
 then stopped before dependency baseline capture, environment recording, JUnit, or
 pytest output. Both Slurm streams are empty, so the exact failing silent bootstrap
-assertion is not recoverable from this run. This is a preserved negative result,
-not a runtime PASS. The one-submission authorization is consumed; any diagnostic
-change or rerun requires a new exact request and owner approval.
+assertion was not recoverable from the run artifacts alone. S00 subsequently
+reproduced the exact failure as documented below. This remains a preserved
+negative result, not a runtime PASS. The one-submission authorization is consumed;
+any diagnostic change or rerun requires a new exact request and owner approval.
+
+## Root-cause diagnosis after job 372819
+
+The consumed command passed the project Git path to Slurm as environment variable
+`GIT_COMMON_DIR`. That name is a Git repository-selection override, not a neutral
+project variable. It therefore contaminated later `git -C` commands intended for
+the independent cumm/spconv repositories.
+
+Exact login-side reproduction with the same exported value proves the failure:
+
+```text
+GIT_COMMON_DIR=<project .git> git -C <cumm> rev-parse HEAD = 4dedaf43... (passes)
+GIT_COMMON_DIR=<project .git> git -C <cumm> rev-parse --git-common-dir = <project .git>
+GIT_COMMON_DIR=<project .git> git -C <cumm> diff --cached --name-only = 267 paths
+GIT_COMMON_DIR=<project .git> git -C <cumm> diff --cached --quiet rc = 1
+GIT_COMMON_DIR=<project .git> git -C <spconv> diff --cached --name-only = 160 paths
+```
+
+A local harness using the consumed environment passed mini path, environment
+Python, and both dependency HEAD checks, then failed exactly at
+`cumm-staged-paths`; the observed output was 7,793 bytes. This matches job
+`372819` stopping after executable validation but before dependency baseline.
+With the reserved variable removed, all thirteen instrumented gates pass locally
+and the generated artifact manifest re-verifies. No worker/source/test/config byte
+was changed by this diagnosis.
 
 ## Frozen durable executable identities
 
@@ -299,22 +334,25 @@ test, extra legacy detector update, `test_model_overfit.py`, and extra official
 permutation metric. `test_gt_as_pred_per_class_ap_near_one` is the only named
 official-devkit metric identity case; its AP is test output, not science.
 
-## Exact owner-approved submission command — one submission only
+## Draft instrumented diagnostic command — text only, do not run
 
-The approved command pins the durable executable commit/tree directly. It validates the
-commit in the Git common directory, requires its sole parent to be BASE and its
-exact two-path diff, creates one fresh SHA-derived job root, then submits exactly
-one job. It does not depend on a mutable or temporary Codex worktree. A submission
-failure removes the still-empty job root; any accepted job retains all evidence
-and never retries.
+This draft keeps the executable commit/tree, source closure, 205-case inventory,
+mini scope, resources, timeout, and no-retry behavior unchanged. It adds durable
+labels plus expected/observed files around the thirteen formerly silent bootstrap
+gates, renames the project Git path to neutral `PROJECT_GIT_DIR`, explicitly
+clears Git repository-selection overrides, and uses a fresh diagnostic job root.
+It does not depend on a mutable or temporary Codex worktree. It is not approved
+for submission.
 
 ```bash
 #!/bin/bash
 set -euo pipefail
 export LC_ALL=C
 export LANG=C
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+  GIT_COMMON_DIR GIT_ALTERNATE_OBJECT_DIRECTORIES
 
-GIT_COMMON_DIR=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/.git
+PROJECT_GIT_DIR=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/.git
 BASE_SHA=4aa2b133d1d33382bf1514f7a3c86fcb03cf83e5
 EXPECTED_SHA=34cbe02b7b72114e3a2d61f6f797c8dec022798c
 EXPECTED_TREE=ed2d4091f0098f6b2144028afd87e20d023b1da2
@@ -323,15 +361,15 @@ OUTPUT_PARENT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_
 
 [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
 [[ "$EXPECTED_TREE" =~ ^[0-9a-f]{40}$ ]]
-test "$(git --git-dir="$GIT_COMMON_DIR" rev-parse "$EXPECTED_SHA")" = "$EXPECTED_SHA"
-test "$(git --git-dir="$GIT_COMMON_DIR" rev-parse "$EXPECTED_SHA^{tree}")" = "$EXPECTED_TREE"
-test "$(git --git-dir="$GIT_COMMON_DIR" rev-parse "$EXPECTED_SHA^")" = "$BASE_SHA"
-test "$(git --git-dir="$GIT_COMMON_DIR" diff-tree --no-commit-id --name-only \
+test "$(git --git-dir="$PROJECT_GIT_DIR" rev-parse "$EXPECTED_SHA")" = "$EXPECTED_SHA"
+test "$(git --git-dir="$PROJECT_GIT_DIR" rev-parse "$EXPECTED_SHA^{tree}")" = "$EXPECTED_TREE"
+test "$(git --git-dir="$PROJECT_GIT_DIR" rev-parse "$EXPECTED_SHA^")" = "$BASE_SHA"
+test "$(git --git-dir="$PROJECT_GIT_DIR" diff-tree --no-commit-id --name-only \
   -r "$EXPECTED_SHA" | LC_ALL=C sort)" = "$(printf '%s\n' \
   fl_v3/configs/flwr_config.toml \
   fl_v3/tests/test_s07_b_clean_completion.py)"
 
-JOB_ROOT="$OUTPUT_PARENT/s07b_complete_${EXPECTED_SHA:0:12}"
+JOB_ROOT="$OUTPUT_PARENT/s07b_complete_diag1_${EXPECTED_SHA:0:12}"
 test ! -e "$JOB_ROOT"
 install -d -m 0700 "$JOB_ROOT"
 
@@ -340,13 +378,15 @@ set -euo pipefail
 umask 077
 export LC_ALL=C
 export LANG=C
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+  GIT_COMMON_DIR GIT_ALTERNATE_OBJECT_DIRECTORIES
 
 : "${SLURM_JOB_ID:?}"
 : "${EXPECTED_SHA:?}"
 : "${EXPECTED_TREE:?}"
 : "${EXPECTED_SOURCE_AGG:?}"
 : "${JOB_ROOT:?}"
-: "${GIT_COMMON_DIR:?}"
+: "${PROJECT_GIT_DIR:?}"
 test -d "$JOB_ROOT"
 
 ARTIFACTS="$JOB_ROOT/artifacts"
@@ -364,6 +404,97 @@ install -d -m 0700 \
   "$JOB_ROOT/runtime" "$JOB_ROOT/cuda_cache" "$JOB_ROOT/numba_cache" \
   "$JOB_ROOT/triton_cache" "$JOB_ROOT/fl_outputs/nuscenes/info_cache"
 DEPENDENCY_STATE_BASELINE_READY=0
+BOOTSTRAP_DIR="$ARTIFACTS/bootstrap"
+BOOTSTRAP_GATES="$ARTIFACTS/bootstrap-gates.tsv"
+BOOTSTRAP_STAGE="$STATUS/bootstrap-stage.txt"
+install -d -m 0700 "$BOOTSTRAP_DIR"
+printf 'sequence\tfinished_utc\tlabel\tstate\tcommand_rc\texpected_sha256\tobserved_sha256\n' \
+  > "$BOOTSTRAP_GATES"
+printf '%s\n' '000|bootstrap|READY' > "$BOOTSTRAP_STAGE"
+BOOTSTRAP_SEQUENCE=0
+
+bootstrap_expect_eq() {
+  local label=$1
+  local expected=$2
+  shift 2
+  BOOTSTRAP_SEQUENCE=$((BOOTSTRAP_SEQUENCE + 1))
+  local prefix
+  local expected_file
+  local observed_file
+  local observed
+  local command_rc
+  local state
+  local result_rc
+  local expected_sha
+  local observed_sha
+  local finished_utc
+  prefix=$(printf '%03d-%s' "$BOOTSTRAP_SEQUENCE" "$label")
+  expected_file="$BOOTSTRAP_DIR/$prefix.expected.txt"
+  observed_file="$BOOTSTRAP_DIR/$prefix.observed.txt"
+  printf '%s' "$expected" > "$expected_file"
+  printf '%03d|%s|BEGIN\n' "$BOOTSTRAP_SEQUENCE" "$label" \
+    > "$BOOTSTRAP_STAGE"
+  set +e
+  observed=$("$@" 2>&1)
+  command_rc=$?
+  set -e
+  printf '%s' "$observed" > "$observed_file"
+  if test "$command_rc" != 0; then
+    state=COMMAND_FAIL
+    result_rc=$command_rc
+  elif test "$observed" != "$expected"; then
+    state=MISMATCH
+    result_rc=1
+  else
+    state=PASS
+    result_rc=0
+  fi
+  expected_sha=$(sha256sum "$expected_file" | cut -d' ' -f1)
+  observed_sha=$(sha256sum "$observed_file" | cut -d' ' -f1)
+  finished_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  printf '%03d\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$BOOTSTRAP_SEQUENCE" "$finished_utc" "$label" "$state" \
+    "$command_rc" "$expected_sha" "$observed_sha" >> "$BOOTSTRAP_GATES"
+  printf '%03d|%s|%s|command_rc=%s|result_rc=%s\n' \
+    "$BOOTSTRAP_SEQUENCE" "$label" "$state" "$command_rc" "$result_rc" \
+    > "$BOOTSTRAP_STAGE"
+  return "$result_rc"
+}
+
+bootstrap_expect_success() {
+  local label=$1
+  shift
+  BOOTSTRAP_SEQUENCE=$((BOOTSTRAP_SEQUENCE + 1))
+  local prefix
+  local expected_file
+  local observed_file
+  local command_rc
+  local state
+  local expected_sha
+  local observed_sha
+  local finished_utc
+  prefix=$(printf '%03d-%s' "$BOOTSTRAP_SEQUENCE" "$label")
+  expected_file="$BOOTSTRAP_DIR/$prefix.expected.txt"
+  observed_file="$BOOTSTRAP_DIR/$prefix.observed.txt"
+  printf '%s' 'exit=0' > "$expected_file"
+  printf '%03d|%s|BEGIN\n' "$BOOTSTRAP_SEQUENCE" "$label" \
+    > "$BOOTSTRAP_STAGE"
+  set +e
+  "$@" > "$observed_file" 2>&1
+  command_rc=$?
+  set -e
+  if test "$command_rc" = 0; then state=PASS; else state=COMMAND_FAIL; fi
+  expected_sha=$(sha256sum "$expected_file" | cut -d' ' -f1)
+  observed_sha=$(sha256sum "$observed_file" | cut -d' ' -f1)
+  finished_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  printf '%03d\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$BOOTSTRAP_SEQUENCE" "$finished_utc" "$label" "$state" \
+    "$command_rc" "$expected_sha" "$observed_sha" >> "$BOOTSTRAP_GATES"
+  printf '%03d|%s|%s|command_rc=%s|result_rc=%s\n' \
+    "$BOOTSTRAP_SEQUENCE" "$label" "$state" "$command_rc" "$command_rc" \
+    > "$BOOTSTRAP_STAGE"
+  return "$command_rc"
+}
 
 finalize_s07b() {
   original_rc=$?
@@ -445,9 +576,9 @@ test "$SLURM_NTASKS" = 1
 test "$SLURM_CPUS_PER_TASK" = 8
 test "${SLURM_RESTART_COUNT:-0}" = 0
 
-git --git-dir="$GIT_COMMON_DIR" cat-file -e "$EXPECTED_SHA^{commit}"
-test "$(git --git-dir="$GIT_COMMON_DIR" rev-parse "$EXPECTED_SHA^{tree}")" = "$EXPECTED_TREE"
-git --git-dir="$GIT_COMMON_DIR" archive \
+git --git-dir="$PROJECT_GIT_DIR" cat-file -e "$EXPECTED_SHA^{commit}"
+test "$(git --git-dir="$PROJECT_GIT_DIR" rev-parse "$EXPECTED_SHA^{tree}")" = "$EXPECTED_TREE"
+git --git-dir="$PROJECT_GIT_DIR" archive \
   --format=tar --output="$SOURCE_ARCHIVE" "$EXPECTED_SHA"
 tar -xf "$SOURCE_ARCHIVE" -C "$SNAPSHOT"
 chmod -R a-w "$SNAPSHOT"
@@ -563,9 +694,9 @@ test "$(sha256sum "$ARTIFACTS/source-paths.txt" | cut -d' ' -f1)" = \
   ce5c38764b43efa027b88b0b37de3a63407fb71ee9b0c5ad5bcd0671a0323ac4
 
 {
-  git --git-dir="$GIT_COMMON_DIR" ls-tree -r --name-only "$EXPECTED_SHA" -- \
+  git --git-dir="$PROJECT_GIT_DIR" ls-tree -r --name-only "$EXPECTED_SHA" -- \
     fl_v3/src/fl_v3 | awk '/[.]py$/'
-  git --git-dir="$GIT_COMMON_DIR" ls-tree -r --name-only "$EXPECTED_SHA" -- \
+  git --git-dir="$PROJECT_GIT_DIR" ls-tree -r --name-only "$EXPECTED_SHA" -- \
     fl_v3/configs/flwr_config.toml \
     fl_v3/configs/s06_synthetic_camera.json \
     fl_v3/configs/s07_b_c_str8.json \
@@ -612,7 +743,7 @@ test "$(sha256sum "$SNAPSHOT/fl_v3/tests/test_s07_b_clean_completion.py" | cut -
 test "$(sha256sum "$SNAPSHOT/fl_v3/configs/flwr_config.toml" | cut -d' ' -f1)" = \
   2f459f816ad1bfcc9d1f9c1c2de9cc6491f5ea564eee633290e47665ff2003ab
 {
-  git --git-dir="$GIT_COMMON_DIR" diff --binary \
+  git --git-dir="$PROJECT_GIT_DIR" diff --binary \
     4aa2b133d1d33382bf1514f7a3c86fcb03cf83e5 "$EXPECTED_SHA" -- \
     fl_v3/configs/flwr_config.toml
   printf '\0%s\0' fl_v3/tests/test_s07_b_clean_completion.py
@@ -624,28 +755,73 @@ test "$(cut -d' ' -f1 "$ARTIFACTS/executable-patch.sha256")" = \
 MINI_ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini
 PERSISTENT_VENV=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/envs/pt311-cu128-spconv
 export DEPENDENCY_SRC=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/src
-test "$(realpath "$MINI_ROOT")" = "$MINI_ROOT"
-test -d "$MINI_ROOT/v1.0-mini"
-test -x "$PERSISTENT_VENV/bin/python"
-test "$(git -C "$DEPENDENCY_SRC/cumm" rev-parse HEAD)" = \
-  4dedaf43ff801e417c60c6bd7536a29d83d29ee0
-test "$(git -C "$DEPENDENCY_SRC/spconv" rev-parse HEAD)" = \
-  263d6b47425ef843c82f997b12d8b714013d216c
 
-git -C "$DEPENDENCY_SRC/cumm" diff --cached --quiet
-git -C "$DEPENDENCY_SRC/cumm" diff --quiet HEAD --
-test "$(git -C "$DEPENDENCY_SRC/cumm" ls-files --others --exclude-standard)" = \
-  cumm/core_cc/common.pyi
+spconv_patch_hash_observed() {
+  git -C "$DEPENDENCY_SRC/spconv" diff --no-color --binary --full-index \
+    --no-ext-diff --no-textconv HEAD -- pyproject.toml \
+    | sha256sum | cut -d' ' -f1
+}
 
-git -C "$DEPENDENCY_SRC/spconv" diff --cached --quiet
-test "$(git -C "$DEPENDENCY_SRC/spconv" diff --name-only HEAD --)" = \
-  pyproject.toml
-test -z "$(git -C "$DEPENDENCY_SRC/spconv" ls-files --others --exclude-standard)"
-test "$(git -C "$DEPENDENCY_SRC/spconv" diff --no-color --binary --full-index \
-  --no-ext-diff --no-textconv HEAD -- pyproject.toml | sha256sum | cut -d' ' -f1)" = \
-  6d398e709e73d770d17fdb6dce3c80aed4c56b7fb173ee1c5ba9029c01639cf3
-test "$(sha256sum "$DEPENDENCY_SRC/spconv/pyproject.toml" | cut -d' ' -f1)" = \
-  e2c84544b5b5d6fd8e149d88539c3a6e989a1824637fd6b0006891955cb7a7e9
+spconv_file_hash_observed() {
+  sha256sum "$DEPENDENCY_SRC/spconv/pyproject.toml" | cut -d' ' -f1
+}
+
+(
+  set +e
+  printf 'hostname=%s\n' "$(hostname)"
+  printf 'uname_machine=%s\n' "$(uname -m)"
+  printf 'mini_declared=%s\n' "$MINI_ROOT"
+  printf 'mini_realpath=%s\n' "$(realpath "$MINI_ROOT" 2>&1)"
+  printf 'venv_python_declared=%s\n' "$PERSISTENT_VENV/bin/python"
+  printf 'venv_python_realpath=%s\n' \
+    "$(realpath "$PERSISTENT_VENV/bin/python" 2>&1)"
+  printf 'dependency_src_declared=%s\n' "$DEPENDENCY_SRC"
+  printf 'dependency_src_realpath=%s\n' \
+    "$(realpath "$DEPENDENCY_SRC" 2>&1)"
+  command -v git realpath sha256sum findmnt file
+  git --version
+  findmnt -T "$MINI_ROOT" -o TARGET,SOURCE,FSTYPE,OPTIONS -n
+  findmnt -T "$DEPENDENCY_SRC" -o TARGET,SOURCE,FSTYPE,OPTIONS -n
+  stat -Lc 'mini_dev=%d inode=%i mode=%a uid=%u gid=%g' "$MINI_ROOT"
+  stat -Lc 'venv_python_dev=%d inode=%i mode=%a uid=%u gid=%g' \
+    "$PERSISTENT_VENV/bin/python"
+  file "$PERSISTENT_VENV/bin/python" \
+    "$(realpath "$PERSISTENT_VENV/bin/python" 2>/dev/null)"
+  exit 0
+) > "$ARTIFACTS/bootstrap-context.txt" 2>&1
+
+bootstrap_expect_eq mini-root-realpath "$MINI_ROOT" realpath "$MINI_ROOT"
+bootstrap_expect_success mini-v1.0-mini-directory test -d "$MINI_ROOT/v1.0-mini"
+bootstrap_expect_success persistent-python-executable \
+  test -x "$PERSISTENT_VENV/bin/python"
+bootstrap_expect_eq cumm-head \
+  4dedaf43ff801e417c60c6bd7536a29d83d29ee0 \
+  git -C "$DEPENDENCY_SRC/cumm" rev-parse HEAD
+bootstrap_expect_eq spconv-head \
+  263d6b47425ef843c82f997b12d8b714013d216c \
+  git -C "$DEPENDENCY_SRC/spconv" rev-parse HEAD
+bootstrap_expect_eq cumm-staged-paths '' \
+  git -C "$DEPENDENCY_SRC/cumm" diff --cached --name-only
+bootstrap_expect_eq cumm-tracked-paths '' \
+  git -C "$DEPENDENCY_SRC/cumm" diff --name-only HEAD --
+bootstrap_expect_eq cumm-untracked-paths cumm/core_cc/common.pyi \
+  git -C "$DEPENDENCY_SRC/cumm" ls-files --others --exclude-standard
+bootstrap_expect_eq spconv-staged-paths '' \
+  git -C "$DEPENDENCY_SRC/spconv" diff --cached --name-only
+bootstrap_expect_eq spconv-tracked-paths pyproject.toml \
+  git -C "$DEPENDENCY_SRC/spconv" diff --name-only HEAD --
+bootstrap_expect_eq spconv-untracked-paths '' \
+  git -C "$DEPENDENCY_SRC/spconv" ls-files --others --exclude-standard
+bootstrap_expect_eq spconv-patch-hash \
+  6d398e709e73d770d17fdb6dce3c80aed4c56b7fb173ee1c5ba9029c01639cf3 \
+  spconv_patch_hash_observed
+bootstrap_expect_eq spconv-file-hash \
+  e2c84544b5b5d6fd8e149d88539c3a6e989a1824637fd6b0006891955cb7a7e9 \
+  spconv_file_hash_observed
+test "$BOOTSTRAP_SEQUENCE" = 13
+test "$(awk -F '\t' 'NR > 1 && $4 == "PASS" {n += 1} END {print n + 0}' \
+  "$BOOTSTRAP_GATES")" = 13
+printf '%s\n' '013|bootstrap|COMPLETE' > "$BOOTSTRAP_STAGE"
 
 dependency_source_state() {
   repo=$1
@@ -990,10 +1166,10 @@ sbatch \
   --mem=96G \
   --time=01:00:00 \
   --no-requeue \
-  --job-name=flv3_s07b_complete \
+  --job-name=flv3_s07b_diag1 \
   --output="$JOB_ROOT/slurm-%j.out" \
   --error="$JOB_ROOT/slurm-%j.err" \
-  --export=EXPECTED_SHA="$EXPECTED_SHA",EXPECTED_TREE="$EXPECTED_TREE",EXPECTED_SOURCE_AGG="$EXPECTED_SOURCE_AGG",JOB_ROOT="$JOB_ROOT",GIT_COMMON_DIR="$GIT_COMMON_DIR" \
+  --export=EXPECTED_SHA="$EXPECTED_SHA",EXPECTED_TREE="$EXPECTED_TREE",EXPECTED_SOURCE_AGG="$EXPECTED_SOURCE_AGG",JOB_ROOT="$JOB_ROOT",PROJECT_GIT_DIR="$PROJECT_GIT_DIR" \
   --wrap="$WRAPPED"
 submit_rc=$?
 set -e
