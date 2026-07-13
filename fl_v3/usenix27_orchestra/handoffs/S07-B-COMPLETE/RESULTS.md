@@ -2,15 +2,18 @@
 
 ## Overall result
 
-**LOCAL/STATIC GATES PASS; GH200 GATE FAILS BEFORE ENVIRONMENT ACTIVATION AND
-PYTEST.**
+**LOCAL/STATIC GATES PASS; INSTRUMENTED BOOTSTRAP PASSES; GH200 RUNTIME GATE
+FAILS IN EXECUTION IDENTITY BEFORE PYTEST.**
 
-The owner approved one exact submission. S00 submitted Slurm job `372819` once;
-it terminated `FAILED`, exit `1:0`, after eight seconds with zero restarts. There
-is no JUnit, pytest log, model output, metric, or runtime-test PASS. The approval
-is consumed and no retry or replacement was submitted.
+Two separately sealed one-submission approvals were consumed. Job `372819`
+identified the initially opaque bootstrap boundary and was later diagnosed as a
+reserved Git environment-variable collision. Instrumented job `373363` proves
+that remediation passes all thirteen bootstrap gates, then fails in execution
+identity because a dependency-internal deprecation is promoted to an exception.
+There is still no JUnit, pytest log, model output, metric, or runtime-test PASS.
+No retry or replacement was submitted.
 
-## GH200 execution and failure localization
+## First GH200 execution and failure localization
 
 ```text
 job = 372819 / flv3_s07b_complete
@@ -70,6 +73,53 @@ the pytest-argument digest remains unchanged at `2b9f3125...`.
 The run consumed about 0.0022 allocation GPU-hours. It did not import the runtime,
 collect tests, use the mini sample, execute C/L/F updates, or reach any clean-FL,
 checkpoint, ZIP/data, or official-evaluation gate.
+
+## Instrumented remediation job 373363
+
+```text
+job = 373363 / flv3_s07b_diag1
+state = FAILED
+exit = 1:0
+restarts = 0
+submit/start/end = 2026-07-13T11:51:32 / 11:51:32 / 11:53:14 Europe/Stockholm
+elapsed/timelimit = 00:01:42 / 01:00:00
+node = n21 / aarch64
+allocation = 1 node, 1 nvidia_gh200_120gb, 8 CPU, 96G
+output = /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_complete_diag1_34cbe02b7b72
+retry/requeue = none / disabled
+```
+
+The durable result proves:
+
+- bootstrap stage is exactly `013|bootstrap|COMPLETE`, with all `13/13` rows
+  `PASS`; `bootstrap-gates.tsv` SHA-256 is
+  `ea36579d7b4c524de82ee0af0f5673eee20b42fc4698fe493aa187c9faa7baae`;
+- compute context records host `n21`, `aarch64`, exact declared/canonical paths,
+  and Lustre visibility; its SHA-256 is
+  `15e56baa15621cb95a5f7b6705a0a3187ce902d544f524e823e1df628c8aa1ca`;
+- cumm/spconv dependency state was captured before the identity process and again
+  by the finalizer; capture/cumm-compare/spconv-compare exits are `0/0/0`;
+- source/archive/executable identities and every finalized artifact checksum
+  verify; artifact-manifest SHA-256 is
+  `fe6bc6363f945ae803b0f005e7f4e3fbf21d81162023631e91b0c2e75a04048c`;
+- `original-exit.txt` and `final-exit.txt` both contain `1`;
+- `execution-identity.json` exists but is empty, with the empty-file SHA-256;
+- pytest log, JUnit, pytest status, mini outputs, and acceptance summary are absent.
+
+The exact stderr traceback has SHA-256
+`5b6357146d90321484a9984b9a8500d3b7b2f35b6e9bbfa94549fe11c9b343b3`.
+The command globally exported `PYTHONWARNINGS=error`; the execution-identity
+process imported spconv, which imported `ccimport.buildtools.writer`. That
+dependency calls deprecated `locale.getdefaultlocale()`, and Python 3.11 promoted
+its `DeprecationWarning` to an exception before identity JSON could be written.
+
+This proves the Git-variable remediation and dependency-state preservation. It
+does not execute or fail any requested pytest case. The narrow future request
+proposal is to keep warnings-as-errors globally while adding one exact
+message/category/module-scoped ignore for this third-party deprecation to both the
+identity process and pytest arguments. Removing warnings-as-errors wholesale or
+mutating/upgrading the persistent environment is not justified. Any such command
+is new and requires a fresh owner audit and approval.
 
 ## Startup and Git result
 
@@ -220,24 +270,26 @@ permutation metric case are not requested.
 
 ## Explicit NOT RUN and interpretation limits
 
-All dependency-backed requested tests remain NOT RUN because job `372819` failed
-in bootstrap before environment activation and pytest. In particular, there is no
-evidence that the new full C/L/F update cases fit the 60-minute budget or pass
-without warning. The terminal failure and missing gates are preserved; no result
-may be converted into an implied PASS.
+All dependency-backed requested tests remain NOT RUN. Job `372819` failed in the
+initial bootstrap; job `373363` proves that correction but then fails in execution
+identity before pytest. In particular, there is no evidence that the new full C/L/F
+update cases fit the 60-minute budget or pass under the intended warning policy.
+Both terminal failures and all missing gates are preserved; no result may be
+converted into an implied PASS.
 
-The local/static results support source/config/static readiness only. Job `372819`
-adds a negative bootstrap/envelope result and no positive runtime evidence. These
+The local/static results support source/config/static readiness. Job `373363`
+additionally supports bootstrap, aarch64 path visibility, and unchanged dependency
+state only. Neither job supplies positive model/test runtime evidence. These
 results do not support
 detector capability, mAP/NDS, fusion gain, performance, FL quality, Protocol A/B,
 attack/defense, generalization, reproducibility, or publication claims.
 
 ## Required next decision
 
-Do not open S07-B-COMPLETE review from this failed runtime gate. The draft
-request-only remediation replaces the reserved `GIT_COMMON_DIR` export, clears
-repository-selection overrides, and records every bootstrap gate while preserving
-the same executable W/tree, test inventory, resource ceiling, mini scope, and
-no-retry behavior. It must be statically sealed and presented as a fresh exact
-RUN_REQUEST for owner audit. Another job is not authorized by the consumed
-approval recorded here.
+Do not open S07-B-COMPLETE review from this failed runtime gate. Any next request
+must preserve the now-proven Git-variable fix and bootstrap instrumentation, keep
+the same executable W/tree and scope, and add only a message/category/module-exact
+exception for the known `ccimport.buildtools.writer` deprecation while retaining
+errors for every other warning. That warning-policy change, command, output root,
+and one further submission require a fresh owner audit and approval. Another job
+is not authorized by either consumed approval recorded here.

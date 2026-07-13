@@ -1,4 +1,4 @@
-# S07-B-COMPLETE RUN_REQUEST — consumed gate and draft diagnostic continuation
+# S07-B-COMPLETE RUN_REQUEST — two consumed bounded gates and terminal evidence
 
 ## Approval and immutable-materialization state
 
@@ -21,7 +21,7 @@ TERMINAL_STATE: FAILED / ExitCode=1:0 / Restarts=0
 SUBMIT_START_END: 2026-07-13T11:25:44 / 11:25:45 / 11:25:53 Europe/Stockholm
 OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_complete_34cbe02b7b72
 RETRY_STATE: forbidden / not requested / not approved / not submitted
-DIAGNOSTIC_REQUEST_STATE: OWNER_APPROVED_FOR_ONE_EXACT_SUBMISSION / NOT YET SUBMITTED
+DIAGNOSTIC_REQUEST_STATE: SUBMITTED_ONCE / TERMINAL_FAILED / AUTHORIZATION_CONSUMED
 DIAGNOSTIC_SCOPE: same W/tree and 205-case gate with durable bootstrap observations
 DIAGNOSTIC_FIX: replace reserved GIT_COMMON_DIR export with PROJECT_GIT_DIR and unset Git repository-selection overrides
 DIAGNOSTIC_OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s07b_complete_diag1_34cbe02b7b72
@@ -32,8 +32,12 @@ PYTEST_ARGS_SHA256: 2b9f312535632b7ec17a72ec5fbf0b300b5b690a4fd9d8a81ae94aea2102
 DIAGNOSTIC_REQUEST_SEAL: 261b2a9eef2a49afe14a04f16da87bb38a02b274
 DIAGNOSTIC_APPROVAL_DATE: 2026-07-13
 DIAGNOSTIC_APPROVAL_SOURCE: owner message "批准创建并且compute也批准，立刻开始执行"
-DIAGNOSTIC_APPROVED_COMPUTE: one exact instrumented GH200 validation job
-DIAGNOSTIC_RETRY_STATE: forbidden / not approved
+DIAGNOSTIC_APPROVAL_SEAL: 3ff96e659fe7a675428240bd3984bde1dd1813b6
+DIAGNOSTIC_APPROVED_COMPUTE: one exact instrumented GH200 validation job (consumed)
+DIAGNOSTIC_SLURM_JOB_ID: 373363
+DIAGNOSTIC_TERMINAL_STATE: FAILED / ExitCode=1:0 / Restarts=0
+DIAGNOSTIC_SUBMIT_START_END: 2026-07-13T11:51:32 / 11:51:32 / 11:53:14 Europe/Stockholm
+DIAGNOSTIC_RETRY_STATE: forbidden / not approved / not submitted
 ```
 
 The owner approved exactly one submission of the frozen command and resources at
@@ -42,9 +46,10 @@ bound to the request seal,
 executable commit/tree, literal source closure and hashes, dependency identities,
 mini-data scope, output root, resource ceiling, stop conditions, and no-retry rule
 recorded at that Git version. The exact historical command remains preserved in
-Git and job artifacts. The draft diagnostic command below is different and has no
-compute authority. No repository launcher, compatibility wrapper, retry,
-replacement, or expanded cell is authorized.
+Git and job artifacts. The later instrumented command was separately approved,
+submitted once as recorded below, and its authorization is also consumed. No
+repository launcher, compatibility wrapper, retry, replacement, or expanded cell
+is authorized.
 
 ## Terminal execution record
 
@@ -84,6 +89,30 @@ Python, and both dependency HEAD checks, then failed exactly at
 With the reserved variable removed, all thirteen instrumented gates pass locally
 and the generated artifact manifest re-verifies. No worker/source/test/config byte
 was changed by this diagnosis.
+
+## Instrumented execution record — job 373363
+
+The owner approved the exact instrumented command at packet seal `261b2a9e...`
+and approval seal `3ff96e65...`. S00 submitted it once as Slurm job `373363`.
+The job used the exact one-node/one-GH200/eight-CPU/96-GiB/60-minute/no-requeue
+envelope on node `n21`, ran for 1 minute 42 seconds, and terminated `FAILED 1:0`
+with zero restarts.
+
+The remediation is positively validated: the aarch64 node emitted the full
+bootstrap context and all thirteen gates passed; cumm/spconv pre-state capture
+completed and their finalizer post-state records compare byte-identically. The
+job then failed in the separate execution-identity Python process before pytest.
+Global `PYTHONWARNINGS=error` promoted a dependency-internal `DeprecationWarning`
+from `ccimport.buildtools.writer`, triggered by its call to
+`locale.getdefaultlocale()`, into an exception while importing spconv through
+`_runtime_build_identity`. `execution-identity.json` is consequently empty and no
+pytest log, JUnit, pytest status, model update, or runtime-test PASS exists.
+
+The finalizer preserved original/final exit `1`, dependency capture/cumm/spconv
+comparison exits `0/0/0`, and a fully re-verifying artifact manifest. This is a
+second request-wrapper warning-policy failure, not model, clean FedAvg, S01, S06,
+DetectionEval, or C/L/F test evidence. Its one-submission approval is consumed;
+no rerun is authorized.
 
 ## Frozen durable executable identities
 
@@ -340,7 +369,7 @@ official-devkit metric identity case; its AP is test output, not science.
 
 ## Exact owner-approved instrumented command — one submission only
 
-This draft keeps the executable commit/tree, source closure, 205-case inventory,
+This consumed instrumented command keeps the executable commit/tree, source closure, 205-case inventory,
 mini scope, resources, timeout, and no-retry behavior unchanged. It adds durable
 labels plus expected/observed files around the thirteen formerly silent bootstrap
 gates, renames the project Git path to neutral `PROJECT_GIT_DIR`, explicitly

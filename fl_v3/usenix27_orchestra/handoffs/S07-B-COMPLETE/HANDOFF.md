@@ -11,12 +11,14 @@
 - Initial handoff seal: `6802f34fdafdf33bd31157ed15537b8f7955d1ad`.
 - Approval seal: `e5f8dcf9f8608b40d49ad72c62b3557769b780fb`.
 - Command-binding seal: `8d087f6d43a668c92dd540ccae7f80ac57f44def`.
-- Compute: one exact owner-approved submission, job `372819`, terminal
-  **FAILED `1:0` before pytest**; authorization consumed; no retry.
+- Compute: two separately sealed one-submission approvals, jobs `372819` and
+  `373363`, both terminal **FAILED `1:0` before pytest**; both authorizations
+  consumed; no retry.
 
 The owner authorized local durable materialization of the exact executable bytes,
 a subsequent docs-only handoff seal, fast-forward of
-`codex/s07-b-clean-completion`, and later one exact bounded GH200 submission. The
+`codex/s07-b-clean-completion`, and two separately audited bounded GH200
+submissions. The
 executable commit is a direct child of BASE and contains only the Flower config
 plus focused test. No merge, push, upload, reviewer, environment mutation,
 dataset scan, retry, or publication occurred.
@@ -47,7 +49,7 @@ but cumm's first `git diff --cached --quiet` saw 267 staged paths and returned `
 spconv would have seen 160. A local harness using the consumed environment passed
 the first five bootstrap guards and failed at guard six with 7,793 observed bytes.
 
-The draft request-only correction renames the neutral path to `PROJECT_GIT_DIR`,
+The first request-only correction renames the neutral path to `PROJECT_GIT_DIR`,
 clears Git repository-selection overrides, and writes durable context plus
 expected/observed/return-code artifacts around all thirteen guards. The same
 login-safe harness then passes `13/13` and re-verifies its artifact manifest. This
@@ -55,12 +57,36 @@ is a failed request-wrapper bootstrap gate, not evidence of model/test failure.
 The single-submission authorization remains fully consumed; no resubmission is
 permitted without a newly audited exact request and owner approval.
 
-The unsealed draft command SHA-256 is
+The sealed instrumented command SHA-256 is
 `b5a98f0a09b79d9c64a474b1449f4e144c58e10a3b497d2c427c704e275d6596`;
 its job-body SHA-256 is
 `8c99f9026cdc09af3ffc17e91bcc490bc95f010cbfdec9e0511fec241d829e3e`.
 The pytest-argument block remains byte-identical to the consumed request at
 `2b9f312535632b7ec17a72ec5fbf0b300b5b690a4fd9d8a81ae94aea21028a67`.
+
+## Instrumented GH200 result
+
+The owner approved packet seal `261b2a9eef2a49afe14a04f16da87bb38a02b274`
+and approval seal `3ff96e659fe7a675428240bd3984bde1dd1813b6`.
+S00 submitted job `373363` once. It ran on aarch64 node `n21` for 1 minute
+42 seconds with the exact one-GH200/eight-CPU/96-GiB/60-minute/no-requeue
+envelope, then terminated `FAILED 1:0`, zero restarts.
+
+This job positively proves the first remediation: all thirteen durable bootstrap
+gates pass, node path/mount context is captured, and cumm/spconv before/after
+state records compare with exits `0/0/0`. It then fails before pytest in the
+execution-identity subprocess. Global `PYTHONWARNINGS=error` promotes the known
+dependency-internal `DeprecationWarning` from
+`ccimport.buildtools.writer:locale.getdefaultlocale()` while importing spconv.
+The identity file is empty; pytest log/JUnit/status and every model/test gate are
+absent. The final artifact manifest and original/final exit `1` verify.
+
+This is a second request-wrapper warning-policy failure, not evidence against
+the model, clean FedAvg, data/checkpoint/evaluation foundations, or any C/L/F
+test. A future command may retain errors for all warnings while ignoring only the
+exact message/category/module tuple above in both identity and pytest processes.
+It must not disable warnings globally or mutate the environment. No such command
+or further submission is currently approved.
 
 ## Evidence read and Git verification
 
@@ -221,9 +247,10 @@ closure bytes and all five executable identities above remain unchanged.
 
 Login `/usr/bin/python3` is x86_64 Python 3.9.25 and lacks pytest, NumPy, Torch,
 Flower, nuScenes, spconv, and pyquaternion. The validated Python is an aarch64 ELF
-and cannot execute on the login node. Although one bounded job was approved and
-submitted, it failed before environment activation; the following remain **NOT
-RUN / NO IMPLIED PASS** on this candidate:
+and cannot execute on the login node. Two bounded jobs were approved and
+submitted; the second proves bootstrap and environment activation but fails in
+execution identity before pytest. The following remain **NOT RUN / NO IMPLIED
+PASS** on this candidate:
 
 - pytest collection and every dependency-backed requested test;
 - the new workers-0-versus-2 mini batch check;
@@ -240,15 +267,16 @@ RUN / NO IMPLIED PASS** on this candidate:
 ## Interpretation and next action
 
 Allowed now: the mandatory Flower profile cleanup and focused test source pass
-login-safe static gates. Job `372819` is preserved only as a negative
-bootstrap/envelope result.
+login-safe static gates. Job `373363` additionally proves the corrected bootstrap,
+aarch64 path visibility, and unchanged dependency sources. Both jobs remain
+negative request-wrapper evidence and provide no test PASS.
 
 Forbidden now: claiming runtime completion, a capable detector, mAP/NDS/fusion
 gain, FL quality, Protocol readiness, security evidence, or compute permission.
 
-Do not launch S07-B-COMPLETE review yet. The narrow draft fixes the reserved Git
-environment-variable collision and instruments all thirteen bootstrap assertions
-without changing W/tree, the 205-case inventory, data scope, or resource ceiling.
-S00 must finish static audit and present a newly sealed RUN_REQUEST for owner
-review. Another submission, review, merge, or push each require later explicit
-owner authorization.
+Do not launch S07-B-COMPLETE review yet. Any next request must preserve the proven
+Git-variable and instrumentation correction, keep W/tree and scope fixed, and add
+only the exact third-party warning exception described above while leaving every
+other warning fatal. S00 must present that changed command and a fresh output root
+for owner audit. Another submission, review, merge, or push each require later
+explicit owner authorization.
