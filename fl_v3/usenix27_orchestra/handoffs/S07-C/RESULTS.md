@@ -28,14 +28,33 @@ show-toplevel = /home/gaohui/.codex/worktrees/ab38/fl_weather_project
 HEAD = 4eba37d60cbeb9c865e4eec8d5fa57c90d23f873
 branch = <empty; detached>
 A2 startup S07-C+A1 diff = 117 files, +681/-8502
-current tracked diff = 134 files, +674/-12941
-current status = 70 deleted + 64 modified + untracked handoff directory
-WORKER_SHA = pending
-DELIVERY_REF = pending owner authorization
+pre-snapshot completed tree diff = 134 files, +674/-12941
+pre-snapshot completed tree status = 70 deleted + 64 modified + untracked handoff directory
+ORIGINAL_WORKTREE_BASE_SHA = 4eba37d60cbeb9c865e4eec8d5fa57c90d23f873
+CANONICAL_PARENT_SHA = f7c696345b24b0e1227b1a52f3b47fb14e9120f5
+SNAPSHOT_SHA = 9f06875e1b865734950abcf3b6de36ad06a0ac7b
+WORKER_IMPLEMENTATION_SHA = a16c2cdfd4e23ba08677a66c45c50dd78340cc3b
+REVIEW_BASE = pending S00 canonical launch seal
+DELIVERY_REF = pending S00 branch fast-forward/launch seal
 ```
 
-没有 reset、switch、new worktree/ref、commit、merge、push、upload、copy 或
-cherry-pick。
+materialization 使用了 owner 精确授权的两个 local worker commits 与一次
+conflict-free cherry-pick；没有 branch/ref、merge commit、push、upload 或新
+worktree。
+
+```text
+SNAPSHOT parent = 4eba37d60cbeb9c865e4eec8d5fa57c90d23f873
+IMPLEMENTATION parent = f7c696345b24b0e1227b1a52f3b47fb14e9120f5
+canonical parent parent = 4eba37d60cbeb9c865e4eec8d5fa57c90d23f873
+snapshot/implementation stable patch-id = 8f89c30d21164e80ec73f6a01eab33621e984789
+snapshot/implementation changed paths = identical 137-path manifest
+canonical-only changed paths = ORCHESTRA.md, SESSIONS.md, KICKOFFS.md
+```
+
+137-path manifest 精确等于 HANDOFF inventory 的 70 deleted、64 modified 与
+`HANDOFF.md`/`RESULTS.md`/`RUN_REQUEST.md` 三个 additions。static/focused
+verification 在 snapshot 前的 identical worker tree 上运行；canonical-only
+parent 不改变 worker code，因此没有把 canonical docs 误当成重新测试的 code。
 
 ## PASS — scripts 精确收敛与保护
 

@@ -23,24 +23,34 @@ diff 上完成，没有 reset、checkout、branch/ref/worktree 创建或代码�
 - `losses.py` 与 `test_model_determinism.py` 仅改历史 authority 文案，
   executable AST 保持不变。
 
-本交付未 commit：
+completed worker tree 已按 owner 的 durable-materialization authorization 封存：
 
 ```text
-WORKER_SHA: pending
-DELIVERY_REF: pending owner authorization
+ORIGINAL_WORKTREE_BASE_SHA: 4eba37d60cbeb9c865e4eec8d5fa57c90d23f873
+CANONICAL_PARENT_SHA: f7c696345b24b0e1227b1a52f3b47fb14e9120f5
+SNAPSHOT_SHA: 9f06875e1b865734950abcf3b6de36ad06a0ac7b
+WORKER_IMPLEMENTATION_SHA: a16c2cdfd4e23ba08677a66c45c50dd78340cc3b
+REVIEW_BASE: pending S00 canonical launch seal
+DELIVERY_REF: pending S00 branch fast-forward/launch seal
 APPROVED_COMPUTE: none
 ```
 
-本 session 停止于 S00 completeness audit；不启动 reviewer。
+`SNAPSHOT_SHA` 是 detached original-base worker snapshot；该 commit 被 cleanly
+cherry-pick 到 exact canonical parent，生成单 parent 的
+`WORKER_IMPLEMENTATION_SHA`。没有创建 branch/ref、merge commit 或 push。
+本 session 完成 docs-only handoff seal 后停止；不启动 reviewer。
 
 ## Git 身份与 amendment 启动复核
 
 ```text
 SESSION_ID: S07-C
-BASE_SHA: 4eba37d60cbeb9c865e4eec8d5fa57c90d23f873
+ORIGINAL_WORKTREE_BASE_SHA: 4eba37d60cbeb9c865e4eec8d5fa57c90d23f873
 AUDITED_CODE_BASE_SHA: 4ce2366df2925161adae8fea393d5fca64836d40
+CANONICAL_PARENT_SHA: f7c696345b24b0e1227b1a52f3b47fb14e9120f5
+SNAPSHOT_SHA: 9f06875e1b865734950abcf3b6de36ad06a0ac7b
+WORKER_IMPLEMENTATION_SHA: a16c2cdfd4e23ba08677a66c45c50dd78340cc3b
 SOURCE_BRANCH: codex/s07-c-legacy-security-cleanup
-EXPECTED_REF_MODE: detached@4eba37d60cbeb9c865e4eec8d5fa57c90d23f873
+REF_MODE: detached@a16c2cdfd4e23ba08677a66c45c50dd78340cc3b before handoff seal
 TOPLEVEL: /home/gaohui/.codex/worktrees/ab38/fl_weather_project
 ```
 
@@ -53,13 +63,33 @@ S07-C+A1 tracked diff = 117 files, +681/-8502
 status = 51 deleted + 66 modified + untracked S07-C handoff directory
 ```
 
-当前累计状态：
+snapshot 前的累计 worker tree：
 
 ```text
 tracked diff = 134 files, +674/-12941
 status = 70 deleted + 64 modified + untracked S07-C handoff directory
 untracked handoff files = HANDOFF.md, RUN_REQUEST.md, RESULTS.md
 ```
+
+durable materialization evidence：
+
+```text
+4eba37d60cbeb9c865e4eec8d5fa57c90d23f873
+  -> 9f06875e1b865734950abcf3b6de36ad06a0ac7b  snapshot side commit
+
+4eba37d60cbeb9c865e4eec8d5fa57c90d23f873
+  -> f7c696345b24b0e1227b1a52f3b47fb14e9120f5  canonical-only parent
+  -> a16c2cdfd4e23ba08677a66c45c50dd78340cc3b  worker implementation
+```
+
+- snapshot 与 implementation 的 changed-path/status manifests 完全相同：
+  本文件 inventory 的 70 deleted + 64 modified + 3 handoff additions；
+- 两个 worker diffs 的 stable patch-id 均为
+  `8f89c30d21164e80ec73f6a01eab33621e984789`；
+- canonical parent 相对 original base 只改
+  `ORCHESTRA.md`、`SESSIONS.md`、`KICKOFFS.md`；
+- static verification 在 snapshot 前的 identical worker tree 上完成；canonical-only
+  parent 不改变任何 worker code、config、test、script 或 handoff content。
 
 没有 import/copy/cherry-pick `bf480ea...`、`e231808...` 或 legacy
 T5/T6/T7 implementation。
@@ -403,5 +433,7 @@ Flower、nuScenes；validated Python 是 ARM aarch64。`APPROVED_COMPUTE=none`�
 
 ## 交接动作
 
-向 S00 报告 exact detached status/diff/stat/verification，并停止。WORKER_SHA 与
-DELIVERY_REF 保持 pending；不 commit/ref，不启动 reviewer。
+本 identity update 只允许由一个 docs-only handoff seal commit 封存；其 diff
+必须仅为 `HANDOFF.md` 与 `RESULTS.md`。向 S00 报告 seal SHA、完整 parent chain
+与 clean detached status。`REVIEW_BASE`、`DELIVERY_REF` 仍等待 S00 launch
+seal；不创建 branch/ref，不 push，不启动 reviewer。
