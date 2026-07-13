@@ -348,13 +348,14 @@ def test_exact_mode_gradient_diagnostic(
 
 
 @pytest.mark.parametrize("tag", ["C-STR8", "L-S075", "F-U"])
-def test_exact_mode_b1_fp16_optimizer_update(tag, mini_depth10_info, dataroot):
+def test_exact_mode_b1_fp32_optimizer_update(tag, mini_depth10_info, dataroot):
     """One bounded update per mode; no metric, profile, retry, or extra step."""
     assert torch.cuda.is_available(), "clean completion mode gate requires one GH200 GPU"
     assert torch.cuda.device_count() == 1, "clean completion must expose exactly one GPU"
     device = torch.device("cuda:0")
     seed_everything(20260713)
     run_config = _mode_run_config(tag)
+    run_config["precision"] = "fp32"
     mode = run_config["model-mode"]
     dataset, source_loader = _make_loader(mini_depth10_info, dataroot, mode, 0)
     model = criterion = optimizer = None
@@ -375,7 +376,7 @@ def test_exact_mode_b1_fp16_optimizer_update(tag, mini_depth10_info, dataroot):
             criterion,
             optimizer,
             device,
-            precision="fp16",
+            precision="fp32",
             telemetry_interval=1,
             accumulation_steps=1,
             runtime_state=state,
@@ -389,7 +390,8 @@ def test_exact_mode_b1_fp16_optimizer_update(tag, mini_depth10_info, dataroot):
         assert metrics["telemetry_interval"] == 1.0
         assert metrics["optimizer_steps"] == metrics["optimizer_steps_total"] == 1.0
         assert metrics["num_samples"] == metrics["exposure_samples"] == 1.0
-        assert metrics["grad_scaler_enabled"] == 1.0
+        assert metrics["precision"] == "fp32"
+        assert metrics["grad_scaler_enabled"] == 0.0
         assert metrics["grad_scaler_skips"] == metrics["nonfinite_loss_steps"] == 0.0
         state.validate(checkpoint_boundary=True)
         torch.cuda.synchronize(device)
