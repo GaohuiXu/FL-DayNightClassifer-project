@@ -1,5 +1,12 @@
 # S08 precision qualification — execution results
 
+## Owner disposition
+
+O-110 accepts reviewed close-ready seal
+`d31adea049c84e47a0e4f82f38f22a2ca91a5a6f`, freezes the recommended precision
+policy, and closes S08 PASS. This acceptance does not broaden the bounded Q1/Q2
+interpretation into convergence, performance, capability, or scientific evidence.
+
 ## S08-Q2 compatibility gate — terminal PASS
 
 ```text
@@ -62,7 +69,7 @@ FP16 for camera and pillar routes, global FP16 with SECOND/spconv explicitly kep
 FP32 for current sparse LiDAR/fusion routes, and uniform FP32 as reference/fallback.
 Full sparse FP16 is not accepted as the unified F-capable route. This remains
 bounded one-fixture numerical qualification independently reviewed in R3 with
-`PASS_WITH_RESIDUAL_RISK`, pending owner policy acceptance; it is not convergence, capability, performance,
+`PASS_WITH_RESIDUAL_RISK` and accepted by the owner under O-110; it is not convergence, capability, performance,
 sampling-quality, mAP/NDS, production-data, or scientific-result evidence.
 
 ## S08-Q1 primary precision qualification — terminal bounded result

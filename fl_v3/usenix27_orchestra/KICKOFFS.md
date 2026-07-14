@@ -11,9 +11,10 @@
 > selects global FP16 with SECOND/spconv FP32 as the close-ready sparse-route
 > candidate and preserves uniform FP32 as reference/fallback. Independent R3
 > reviewed evidence SHA `c0ef86235ead753fee3b790b19d40f82f875ec59` with
-> `PASS_WITH_RESIDUAL_RISK` and no P0-P2 findings. Owner policy acceptance remains
-> the S08 close gate. No harness/work-chain expansion, merge,
-> push, or S09 execution is authorized.
+> `PASS_WITH_RESIDUAL_RISK` and no P0-P2 findings. O-110 accepts seal `d31adea`,
+> freezes the recommended policy, closes S08 PASS, and authorizes fast-forward-
+> only integration into `v3-ad-perception`. S09 discussion is open after its
+> required reading gate; no S09 compute, push, or merge commit is authorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -113,7 +114,7 @@ choice, or create another task/worktree until the owner has granted the exact
 needed authority. Persistent S00 simplifies context; it does not broaden scope.
 ```
 
-## 3. S08 envelope v1 — close-ready; owner policy decision pending
+## 3. S08 envelope v1 — closed PASS under O-110
 
 ```text
 SESSION_ID: S08
@@ -122,7 +123,7 @@ REBASELINE_SHA: 2a584053e6f6a3860b6f812681dc8d7342ca52ad
 IMPLEMENTATION_CONTEXT: persistent S00, linear active worktree
 DELIVERY_BRANCH: codex/s08-s09-cl-readiness
 PRE_IMPLEMENTATION_AUDIT: handoffs/S08/MODEL_RECIPE_AUDIT.md; accepted as planning input
-OWNER_DECISION: O-097 direction/branch/audit baseline; O-098 detailed plan/implementation/local validation/post-validation commit; O-099 consumed exact S08-SMOKE-1; O-100 provenance remediation/request preparation; O-101 consumed exact S08-SMOKE-2; O-102 narrow diagnostics/test remediation and SMOKE-3 request preparation only; O-103 consumed exact S08-SMOKE-3 PASS; O-104 review remediation/local validation/SMOKE-4 request preparation only; O-105 consumed exact S08-SMOKE-4 terminal test-construction FAIL; O-106 consumed exact post-freeze S08-SMOKE-5 PASS; O-107 prospective bounded mechanical remediation loop; O-108 remediation/evidence commit and independent re-review; O-109 Q1/Q2 completion goal, commits, and cumulative two-GPU-hour Slurm authority
+OWNER_DECISION: O-097 direction/branch/audit baseline; O-098 detailed plan/implementation/local validation/post-validation commit; O-099 consumed exact S08-SMOKE-1; O-100 provenance remediation/request preparation; O-101 consumed exact S08-SMOKE-2; O-102 narrow diagnostics/test remediation and SMOKE-3 request preparation only; O-103 consumed exact S08-SMOKE-3 PASS; O-104 review remediation/local validation/SMOKE-4 request preparation only; O-105 consumed exact S08-SMOKE-4 terminal test-construction FAIL; O-106 consumed exact post-freeze S08-SMOKE-5 PASS; O-107 prospective bounded mechanical remediation loop; O-108 remediation/evidence commit and independent re-review; O-109 Q1/Q2 completion goal, commits, and cumulative two-GPU-hour Slurm authority; O-110 accepted policy/S08 PASS/closure/fast-forward-only integration/S09 discussion gate
 FILE_OWNERSHIP:
 - fl_v3/src/fl_v3/training/tasks.py
 - fl_v3/src/fl_v3/training/{loop,runtime_state,precision_diagnostics}.py
@@ -240,7 +241,7 @@ is required, or the owner requests it.
 
 ```text
 SESSION_ID: S09
-BASE_SHA: exact owner-accepted S08 seal, pending
+BASE_SHA: d31adea049c84e47a0e4f82f38f22a2ca91a5a6f (owner-accepted S08 close-ready seal)
 IMPLEMENTATION_CONTEXT: persistent S00 unless owner selects independent isolation
 APPROVED_COMPUTE: none
 DECISION_SCOPE: full-pipeline performance/readiness only

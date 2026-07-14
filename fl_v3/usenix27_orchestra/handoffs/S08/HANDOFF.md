@@ -4,7 +4,7 @@
 
 ```text
 SESSION_ID: S08
-MILESTONE_STATE: CLOSE-READY / OWNER PRECISION-POLICY DECISION PENDING
+MILESTONE_STATE: CLOSED PASS UNDER O-110
 BASE_AUDIT_COMMIT: 733c84f8e3019fe4d683663821bd86918d3875a7
 BRANCH: codex/s08-s09-cl-readiness
 IMPLEMENTATION_COMMIT: 791aba97f7bbe92e7708b63f94f2e7d8599f91be
@@ -55,7 +55,12 @@ accepted gradients. Q1+Q2 consumed `00:07:58` of O-109's two-GPU-hour ceiling.
 The resulting close-ready policy candidate is global FP16 for camera/pillar,
 global FP16 with SECOND/spconv FP32 for sparse LiDAR/fusion, and FP32 as reference/
 fallback. R3 independently reviewed exact evidence SHA `c0ef8623` with no P0-P2
-findings; owner acceptance remains.
+findings; O-110 records owner acceptance below.
+
+O-110 accepts close-ready seal `d31adea049c84e47a0e4f82f38f22a2ca91a5a6f`,
+freezes that policy, closes S08 PASS, and authorizes fast-forward-only integration
+into `v3-ad-perception`. S09 discussion may begin after its additional reading
+gate; S09 compute remains unapproved.
 
 R3 retains one non-blocking test residual: Q2's automatic predicate does not
 explicitly gate `missing_grad_parameter_count == 0`. Independent inspection found
@@ -463,8 +468,8 @@ message `must return 6 task dictionaries`; production loss code is unchanged.
 The historical gate sequence after Smoke-4 was: preserve Job `428889` as terminal
 negative evidence; leave the external spconv checkout unchanged; consume the
 exact Smoke-5 PASS; seal remediation at `103c7389`; obtain independent R2; and
-only then bind and execute Q1/Q2 under O-109. Those steps are now complete. Final
-precision-policy acceptance remains an owner decision after R3.
+only then bind and execute Q1/Q2 under O-109. Those steps are now complete, and
+O-110 supplies the final owner precision-policy acceptance after R3.
 
 ## Explicit non-goals and forbidden interpretations
 

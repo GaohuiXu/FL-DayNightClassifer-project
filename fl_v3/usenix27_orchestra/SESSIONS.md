@@ -9,9 +9,10 @@
 > route and supports global FP16 with SECOND/spconv FP32; L-P020 and F-CBGS
 > compatibility cells also passed. Independent R3 reviewed exact evidence SHA
 > `c0ef86235ead753fee3b790b19d40f82f875ec59` with
-> `PASS_WITH_RESIDUAL_RISK` and no P0-P2 findings. S08 is close-ready for owner
-> precision-policy acceptance. S09 still
-> waits for that acceptance. S10-S12 are pending/deferred and not copy-ready.
+> `PASS_WITH_RESIDUAL_RISK` and no P0-P2 findings. O-110 accepts seal `d31adea`,
+> freezes the recommended precision policy, and closes S08 PASS. S09 discussion
+> is open, but detailed planning waits on its additional reading gate and compute
+> remains unapproved. S10-S12 are pending/deferred and not copy-ready.
 >
 > `Sxx` now names a durable evidence milestone, not necessarily a new task,
 > worker, branch, or worktree. Under O-094, persistent S00 normally performs
@@ -47,8 +48,8 @@
 | S02-S05 | Loss/target, camera, SECOND, CenterHead/decode modules | closed | reviewed module contracts integrated into clean anchor |
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
-| S08 | Model/recipe audit, then precision qualification | S07 | **close-ready**: Jobs `431013`/`435151`, `00:07:58` total; R3 `PASS_WITH_RESIDUAL_RISK`, no P0-P2; owner policy acceptance pending |
-| S09 | Full-pipeline performance/readiness | accepted S08 policy | planned; exact 100/1000-step/profile compute not approved |
+| S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
+| S09 | Full-pipeline performance/readiness | accepted S08 policy | discussion/required-reading gate active; exact cache/100/1000-step/profile compute not approved |
 | S10 | Centralized branch/recipe ablation | S08+S09 | pending redefinition; no cells/gates frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
 | S12 | Protocol-A/B split and clean adaptation contract | CL freeze + fresh owner review | deferred; old proposal is historical evidence only |
@@ -114,7 +115,7 @@ contracts. Read their handoffs when their evidence is needed; do not relaunch th
 
 ## 4. S08 — current six-task precision qualification
 
-**Current owner-decision gate.** The detailed current-model, official-reference,
+**Closed policy.** The detailed current-model, official-reference,
 precision, gradient and training-recipe audit is
 [`handoffs/S08/MODEL_RECIPE_AUDIT.md`](handoffs/S08/MODEL_RECIPE_AUDIT.md). It
 classifies the detector as a BEVFusion-class shared-CenterHead hybrid, identifies
@@ -127,8 +128,8 @@ consumed smoke outcomes, initial `REMEDIATE` review, and remediation R2
 `handoffs/S08/{HANDOFF,RUN_REQUEST,RESULTS,REVIEW}.md`. Exact Q1/Q2 Jobs
 `431013`/`435151` completed in `00:07:58` total under O-109; they did not reopen
 the accepted v1 architecture or training recipe. R3 reviewed evidence SHA
-`c0ef86235ead753fee3b790b19d40f82f875ec59` with no P0-P2 findings. Owner policy
-acceptance remains.
+`c0ef86235ead753fee3b790b19d40f82f875ec59` with no P0-P2 findings. O-110 accepts
+close-ready seal `d31adea`, freezes the reviewed policy, and closes S08 PASS.
 
 **Question.** What precision regime can train the current six-task C/L/F model
 stably on GH200, and why do L-S075/F-U overflow in the existing FP16 path while
@@ -212,7 +213,8 @@ consumed Q1 Job `431013` (`00:04:02`) and Q2 Job `435151` (`00:03:56`). Q1 found
 full sparse FP16 narrowly recoverable for L-S075 but bounded-failing for F-U,
 while the SECOND-FP32 island passed both. Q2 passed L-P020 global FP16 and F-CBGS
 with the SECOND-FP32 island. No scientific retry or extra cell ran. The next gate
-is owner precision-policy acceptance of the reviewed candidate.
+was owner precision-policy acceptance of the reviewed candidate; O-110 completes
+that gate.
 
 ## 5. S09 — full-pipeline performance and readiness
 

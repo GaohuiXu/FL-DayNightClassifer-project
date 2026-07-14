@@ -20,8 +20,10 @@
 > sparse LiDAR/fusion routes, and uniform FP32 as reference/fallback. Full sparse
 > FP16 is not accepted as the unified F-capable route. Independent R3 reviewed
 > evidence SHA `c0ef86235ead753fee3b790b19d40f82f875ec59` with
-> `PASS_WITH_RESIDUAL_RISK` and no P0-P2 findings. S08 is close-ready for owner
-> policy acceptance. No harness/work-chain expansion,
+> `PASS_WITH_RESIDUAL_RISK` and no P0-P2 findings. Under O-110, the owner accepted
+> close-ready seal `d31adea049c84e47a0e4f82f38f22a2ca91a5a6f`, froze the
+> recommended policy, and closed S08 as PASS. S09 discussion may now begin after
+> its additional reading gate; no S09 compute is approved. No harness/work-chain expansion,
 > merge, push, attack, defense, or S09 execution is authorized.
 > Only after an accepted S08 precision policy may **S09 full-pipeline
 > performance/readiness** begin. S10-S12 remain pending redefinition.
@@ -153,8 +155,8 @@ FP16 remained a bounded negative after 18 attempts. The SECOND-FP32 island passe
 L/F at scales `32`/`16`. Q2 Job `435151` subsequently passed L-P020 FP16 at scale
 `8` and F-CBGS with the SECOND-FP32 island at scale `16`. The exact jobs consumed
 `00:07:58` total and added no cell, seed, harness, or retry. Independent R3
-returned `PASS_WITH_RESIDUAL_RISK` with no P0-P2 findings. Owner precision-policy
-acceptance remains.
+returned `PASS_WITH_RESIDUAL_RISK` with no P0-P2 findings. O-110 accepts the
+reviewed candidate as the active precision policy and closes S08.
 
 S08 compared, under one exact mini batch/step protocol:
 
@@ -358,7 +360,8 @@ O-ledger authority; closed ranges below are provenance.
 | O-106 | Explicitly approve the exact post-freeze `S08-SMOKE-5` tuple. Its single submission, Job `429080`, is consumed and terminal PASS: exact preflight, 116 passed/0 failed/0 errors/0 skips, 1 fixture-attestation passed/0 skipped, both exit files `0`, all five fixture identities emitted, checksum manifest verified, `S08_PRECISION_SMOKE_PASS`, `COMPLETED 0:0`, and zero restarts. This clears only the focused review-remediation/fixture-attestation gate; no retry, Q1, remediation commit, precision-policy acceptance, or broadened compute is authorized. | consumed S08 smoke |
 | O-107 | For future bounded O-009 engineering smoke, one initial exact owner approval may explicitly opt into a mechanical remediation loop of at most three total submissions/two cumulative GPU-hours. S00 may diagnose, locally fix, freeze, record, and submit only obvious test/fixture/wrapper/provenance/artifact or output-neutral diagnostic-plumbing replacements without a second owner review. No identical retry or scope/resource expansion is allowed; any possible model-output/gradient/update, data, precision, optimizer/scheduler/EMA, metric/scientific change, uncertainty, repeated blocker, or exhausted cap returns to the owner. This applies prospectively and does not reinterpret Jobs 426619-429080. | active bounded engineering workflow |
 | O-108 | Authorize persistent S00 to create one immutable S08 remediation/evidence commit from the reviewed working candidate after local verification, then launch an independent re-review pinned to that SHA. The reviewer reads the exact diff, handoff/request/results, and raw smoke artifacts and does not fix source. No Q1 compute, precision-policy acceptance, S09 execution, merge, push, or upload is authorized. | active S08 remediation seal/re-review |
-| O-109 | Set the persistent completion goal to finish Q1 primary, the minimal required Q2 L-P020/F-CBGS compatibility gate, independent evidence review, and a close-ready S08 linear commit state. Authorize all exact in-scope commits and Slurm submissions once their immutable tuples are recorded, with cumulative one-GPU elapsed allocation across all new Q1/Q2 jobs capped at two GPU-hours. Short earlier jobs leave only their unused elapsed budget for later jobs. The simplified O-107 mechanical workflow applies to obvious non-scientific defects, but no scientific cell/seed/data/resource expansion or silent reinterpretation is allowed. Forbid work-chain/harness expansion, merge, push, S09 execution, attacks, and defenses. | active S08 completion authority |
+| O-109 | Set the persistent completion goal to finish Q1 primary, the minimal required Q2 L-P020/F-CBGS compatibility gate, independent evidence review, and a close-ready S08 linear commit state. Authorize all exact in-scope commits and Slurm submissions once their immutable tuples are recorded, with cumulative one-GPU elapsed allocation across all new Q1/Q2 jobs capped at two GPU-hours. Short earlier jobs leave only their unused elapsed budget for later jobs. The simplified O-107 mechanical workflow applies to obvious non-scientific defects, but no scientific cell/seed/data/resource expansion or silent reinterpretation is allowed. Forbid work-chain/harness expansion, merge, push, S09 execution, attacks, and defenses. | consumed S08 completion authority |
+| O-110 | Accept reviewed S08 close-ready seal `d31adea049c84e47a0e4f82f38f22a2ca91a5a6f` and R3 `PASS_WITH_RESIDUAL_RISK`; freeze global FP16 for camera/dense-pillar, global FP16 with explicit SECOND/spconv FP32 island for sparse LiDAR/fusion, and uniform FP32 as reference/fallback; reject full sparse FP16 as the unified F-capable route; close S08 PASS; authorize a fast-forward-only integration into `v3-ad-perception`; open S09 discussion after its reading gate. No S09 compute, merge commit, push, attack, or defense is authorized. | accepted S08 close / active S09 discussion gate |
 
 ## 10. Closed and consumed history
 
@@ -387,6 +390,7 @@ O-ledger authority; closed ranges below are provenance.
 | accepted S07-C anchor | `70bcd856f7ebb411eb2887e7ab71ef41ed13271f` |
 | pre-rebaseline clean code/evidence anchor | `a2fc15e64898910b51b56b4b25c8579f459423bc` |
 | accepted post-S07 rebaseline / current S00 anchor | `2a584053e6f6a3860b6f812681dc8d7342ca52ad` |
+| owner-accepted reviewed S08 close-ready seal | `d31adea049c84e47a0e4f82f38f22a2ca91a5a6f` |
 
 Old R1-R16 commits remain unmerged review evidence. Their exact identities remain
 in Git and the frozen S07 handoff/review packages; they have no outgoing
