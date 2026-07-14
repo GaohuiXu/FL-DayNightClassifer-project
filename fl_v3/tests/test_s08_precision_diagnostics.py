@@ -237,6 +237,13 @@ def test_overflow_then_accept_updates_only_successful_counters():
     assert state.exposure_samples == 1
     assert scheduler.last_epoch == 1
     assert all(record["counter_deltas_consistent"] for record in diagnostics.records)
+    assert [
+        (record["scheduler_last_epoch_before"], record["scheduler_last_epoch_after"])
+        for record in diagnostics.records
+    ] == [(0, 0), (0, 1)]
+    assert all(record["scheduler_delta_consistent"] for record in diagnostics.records)
+    assert all(record["ema_enabled"] is False for record in diagnostics.records)
+    assert all(record["ema_state_consistent"] for record in diagnostics.records)
 
 
 def test_scalar_nonfinite_does_not_update_scaler_and_is_strict_json():

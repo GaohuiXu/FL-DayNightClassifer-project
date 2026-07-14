@@ -4,12 +4,12 @@
 
 ```text
 SESSION_ID: S08
-MILESTONE_STATE: IMPLEMENTATION + FOCUSED GH200 SMOKE PASS / IMMUTABLE SEAL + REVIEW NEXT
+MILESTONE_STATE: REVIEW REMEDIATION + FIXTURE-ATTESTATION PASS / REMEDIATION SEAL + RE-REVIEW AUTHORIZED
 BASE_AUDIT_COMMIT: 733c84f8e3019fe4d683663821bd86918d3875a7
 BRANCH: codex/s08-s09-cl-readiness
-IMPLEMENTATION_COMMIT: SELF — resolve the Git object containing this handoff
-COMPUTE_EXECUTED: Jobs 426619/427800 terminal negative evidence; Job 428112 focused smoke PASS
-INDEPENDENT_REVIEW: pending immutable implementation/evidence SHA
+IMPLEMENTATION_COMMIT: 791aba97f7bbe92e7708b63f94f2e7d8599f91be
+COMPUTE_EXECUTED: Jobs 426619/427800/428889 terminal negative evidence; Jobs 428112/429080 focused smoke PASS
+INDEPENDENT_REVIEW: REMEDIATE; REVIEW.md SHA-256 4385f1696d984d50cbdc5037b0384f70453237d78597d24374c4fa6ad4e32569
 ```
 
 The owner approved S08 envelope v1, local implementation/validation, one immutable
@@ -21,8 +21,125 @@ owner explicitly bound `S08-SMOKE-2`; Job `427800` passed runtime attestation bu
 ended `103 passed, 3 failed`. O-102's narrow remediation was then bound by the
 owner as exact `S08-SMOKE-3`; Job `428112` completed `0:0` with 106/106 tests
 passing. No retry was attempted. The owner-authorized immutable implementation/
-evidence seal is therefore ready; independent review remains required, Q1 is not
-approved, and S09 remains dependency-only.
+evidence seal was then created as
+`791aba97f7bbe92e7708b63f94f2e7d8599f91be`. Independent review preserved the
+focused-smoke PASS but returned `REMEDIATE`; Q1 is blocked and unapproved, and S09
+remains dependency-only. O-104 authorizes only the linear review remediation,
+local validation, and exact S08-SMOKE-4 fixture-attestation request preparation.
+The owner separately approved that exact request under O-105. Its sole Job
+`428889` passed preflight and 115/116 Phase-1 tests, then stopped on a synthetic
+calibration-test no-op before fixture attestation. O-105 is consumed; it grants no
+retry or remediation-commit authority. The owner then renewed approval against the
+post-freeze Smoke-5 tuple under O-106. Its sole Job `429080` completed `0:0`, zero
+restarts, with 116/116 focused tests and 1/1 candidate fixture attestation passing.
+O-106 is consumed; it grants no Q1 or remediation-commit authority.
+O-108 now separately authorizes one immutable remediation/evidence commit and an
+independent re-review pinned to that commit. It grants no Q1 execution authority.
+
+## Independent review and active O-104 remediation
+
+The independent reviewer pinned exact implementation/evidence SHA
+`791aba97f7bbe92e7708b63f94f2e7d8599f91be`, inspected the full diff and all three
+smoke artifacts, and wrote `REVIEW.md` without changing implementation source.
+The review found no P0 and retained Job `428112` as a valid focused-smoke PASS,
+but issued:
+
+- P1: the future Q1 runner dynamically recorded the complete replay fixture
+  instead of comparing it with predeclared full identities before model
+  construction;
+- P2: scheduler transitions and the declared EMA-disabled state were recorded but
+  not required by each cell's qualification predicate; and
+- P2: active canonical/status wording lagged the explicit partition and terminal
+  smoke/review state.
+
+Under O-104, the unsealed remediation candidate now prebinds a frozen bounded-mini
+raw-input manifest plus full batch, augmentation-field/order, augmentation-value,
+and canonical fixture identities; all comparisons occur before task/model/
+optimizer construction. It also records pure-Python scheduler/EMA consistency,
+requires scheduler continuity/final epoch and EMA-disabled state in the Q1 cell
+gate, adds hostile-negative tests, and reconciles active status wording. A
+separate fixture-attestation test only derives candidate identities; it constructs
+no model or optimizer and cannot be interpreted as Q1. Runtime validation passed
+in Job `429080`; immutable resealing and independent re-review are authorized by
+O-108.
+
+O-107 also records a prospective collaboration simplification: a future exact
+O-009 engineering-smoke request may opt into one capped mechanical remediation
+loop, so obvious test/fixture/wrapper/provenance/artifact or output-neutral
+diagnostics defects can be fixed, frozen, recorded, and resubmitted without a
+second owner review. It does not apply retroactively to these smoke jobs and never
+covers Q1 or a model/data/precision/recipe/scientific change.
+
+The exact candidate-only validation request was separately approved once and is
+now consumed:
+
+```text
+REQUEST_ID: S08-SMOKE-4
+REQUEST_STATE: CONSUMED / TERMINAL PHASE-1 FOCUSED-TEST FAIL
+JOB_ID/STATE/EXIT: 428889 / FAILED / 1:0
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s08_smoke4_425568c1c83d
+SNAPSHOT_TREE_SHA256: 425568c1c83df06889c17d305b4ee8a9264b0535d7c204d0d34c8427aa18e90f
+SNAPSHOT_FILES/BYTES/WRITABLE: 585 / 4503677 / 0
+RUNNER_SHA256: 08b74822862e6e91f14802426b76bfff29dfdd7ace85482a9882a94914941ff1
+SUBMIT_SHA256: cb6e3a3da2969d7c522db4a83e07202deef2a2434346aa544aa8094a6e1d2c29
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s08_smoke4_425568c1c83d
+OUTPUT_ROOT_STATE: preserved terminal-failure artifacts
+```
+
+Its first phase repeats Smoke-3 plus ten review-remediation unit cases. Its second
+phase hashes only 29 predeclared mini inputs and derives candidate fixture
+identities without model/optimizer/Q1 execution. `RUN_REQUEST.md` binds the exact
+data, selectors, runtime, command, resource, artifacts, stop conditions, and
+interpretation limits. Job `428889` passed the exact runtime/raw-manifest preflight
+and 115 tests; the `cam_intrinsics` negative case was a no-op because it assigned
+`1.0` to the already-`1.0` first identity-matrix element. Phase 2 therefore did
+not start. This is terminal overall FAIL and no retry is authorized.
+
+## Consumed S08-SMOKE-5 replacement — terminal PASS
+
+After Job `428889`, the owner requested S08-SMOKE-5 execution before a changed
+immutable tuple existed. Under the fail-closed execution contract, that message
+cannot bind a future snapshot. It was used only to authorize the narrow correction
+and request preparation. The only source/test behavior change relative to Smoke-4
+is:
+
+```text
+changed[tensor_name].reshape(-1)[0] = 1.0
+    -> changed[tensor_name].reshape(-1)[0].add_(1.0)
+```
+
+This changes the actual value for all three parametrized tensors, including the
+identity-matrix diagonal. Production source, runner selectors, diagnostics, data,
+resources, and acceptance semantics are unchanged. The new request is:
+
+```text
+REQUEST_ID: S08-SMOKE-5
+REQUEST_STATE: FROZEN / NOT APPROVED AFTER EXACT-TUPLE FREEZE / NOT SUBMITTED
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s08_smoke5_51daec3e860e
+SNAPSHOT_TREE_SHA256: 51daec3e860e6d412ad57d807efd78a08b03630afb37798880999fa039900a25
+SNAPSHOT_FILES/BYTES/WRITABLE: 585 / 4515200 / 0
+RUNNER_SHA256: 08b74822862e6e91f14802426b76bfff29dfdd7ace85482a9882a94914941ff1
+SUBMIT_SHA256: 254064b207f004ae778f1c73c5e474f0cdf74642a1ba50724adec6e4911ffd40
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s08_smoke5_51daec3e860e
+OUTPUT_ROOT_STATE: absent
+```
+
+The owner renewed approval against this exact post-freeze tuple under O-106. It
+was submitted once as Job `429080`:
+
+```text
+REQUEST_STATE: CONSUMED / TERMINAL PASS
+JOB_ID/STATE/EXIT/RESTARTS: 429080 / COMPLETED / 0:0 / 0
+NODE/ELAPSED: n23 / 00:03:36
+PHASE_1: 116 passed / 0 failed / 0 errors / 0 skipped
+PHASE_2: 1 passed / 0 failed / 0 errors / 0 skipped
+TERMINAL_MARKER: S08_PRECISION_SMOKE_PASS
+```
+
+The job emitted all five complete fixture identities and its artifact checksum
+manifest verified. Exact values and artifact hashes are in `RESULTS.md`. This is
+candidate-only fixture evidence: no model, optimizer, Q1 cell, or precision regime
+ran. No retry or additional submission was attempted.
 
 ## Consumed pre-remediation smoke source
 
@@ -221,13 +338,20 @@ F3 F-U global FP16/sparse-FP32 island
 
 Each mode clones one exact initialized state into its regimes.  All attempts use
 the same frozen mini sample, 4096 keyframe-only LiDAR point prefix, point order,
-camera augmentation parameters, and restored forward RNG.  FP32 requires three
+camera augmentation parameters, and restored forward RNG. Before any model or
+optimizer construction, Q1 requires launcher-bound exact SHA-256 identities for
+the bounded raw metadata/sensor inputs, full batch tensor manifest, augmentation
+field order, augmentation values, and canonical fixture manifest. FP32 requires three
 accepted windows.  FP16 uses one persistent dynamic GradScaler from 512, permits
 up to 18 attempts (therefore reaching the predeclared 0.03125-and-below region if
 continued backoff is needed), and requires three accepted windows with no later
 skip.  Numerical failure in one cell does not suppress the remaining cells;
 infrastructure/lifecycle/identity failures remain hard errors.  Raw records are
 persisted after each completed cell to avoid losing earlier bounded evidence.
+Every qualifying cell additionally requires scheduler continuity, exactly one
+scheduler advance per accepted optimizer update, final `last_epoch == 3`, and the
+recorded EMA-disabled state. Pytest success means runner completeness; numerical
+acceptance remains per-cell `qualification_pass` evidence.
 
 This runner deliberately uses the D1 numerical-isolation fixture: random camera
 initialization, AdamW `1e-4/0.01`, constant scheduler, batch one, no EMA, no clip,
@@ -258,6 +382,18 @@ PASS on the x86 login environment:
 - the consumed snapshots' digest/file-count/read-only checks, plus the frozen
   S08-SMOKE-3 digest, 583-file/4,444,941-byte inventory, zero writable entries,
   exact runner/submit/job-body hashes, and output root absent at request freeze.
+
+For the O-104 remediation, local validation additionally passed:
+
+- `python3 -m py_compile` for the changed diagnostics and both changed S08 tests;
+- `bash -n` for the Smoke-4 runner and exact outer submit script;
+- canonical JSON parse/logical-hash reconstruction for the new raw-input manifest;
+- exact size/content verification of all 29 declared mini inputs (41,085,435
+  bytes) without directory traversal or trainval access;
+- worktree-to-snapshot tree identity reproduction for 585 files/4,503,677 bytes,
+  followed by a zero-writable-entry check; and
+- `git diff --check`, exact reviewer-artifact SHA preservation, and absent proposed
+  output root.
 
 The login node has no usable project Torch/pytest runtime and is x86_64, while
 the validated environment is aarch64/GH200.  Therefore no Torch unit test,
@@ -295,14 +431,17 @@ approval, Job `428112` validated the resulting candidate. The implementation:
 - changes only the test regex from `six task` to the exact existing production
   message `must return 6 task dictionaries`; production loss code is unchanged.
 
-1. Seal this implementation/evidence package in the one owner-authorized
-   immutable implementation commit; its exact Git object is the review baseline.
+1. Preserve Job `428889` as terminal negative evidence; do not retry it or treat
+   115 passing cases as an overall Smoke-4 PASS.
 2. Do not edit/reset the external spconv checkout; its remediated attestation
    passed Jobs 427800 and 428112 exactly.
-3. An independent reviewer reads that exact SHA, diff, this handoff/request, and
-   smoke artifacts; findings are P0-P3 first and the reviewer does not fix.
-4. Only after review readiness and a new exact owner binding may Q1 be submitted.
-5. Precision-policy acceptance remains an owner decision after Q1 evidence.
+3. Smoke-5 is terminal PASS and O-106 is consumed. Obtain separate owner authority
+   before creating the immutable remediation/evidence commit.
+4. The independent reviewer then re-reads that exact remediation SHA/diff,
+   request, results, and raw artifacts; findings remain P0-P3 first and the
+   reviewer does not fix.
+5. Only after a re-review readiness verdict and a new exact owner binding may Q1
+   be submitted. Precision-policy acceptance remains an owner decision after Q1.
 
 ## Explicit non-goals and forbidden interpretations
 

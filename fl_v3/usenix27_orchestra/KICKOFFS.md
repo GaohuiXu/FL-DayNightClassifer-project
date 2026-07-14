@@ -13,8 +13,20 @@
 > failed on two disabled-scaler diagnostics paths and one test regex. O-102
 > authorized only the narrow remediation and SMOKE-3 request preparation. The
 > owner separately approved exact SMOKE-3; Job `428112` completed `0:0`, zero
-> restarts, and 106/106 focused tests passed. Immutable sealing and independent
-> review are next; Q1 remains unapproved.
+> restarts, and 106/106 focused tests passed. Exact implementation/evidence SHA
+> `791aba97f7bbe92e7708b63f94f2e7d8599f91be` then received an independent
+> `REMEDIATE` verdict. O-104 permits
+> only the bounded review fixes, local validation, and exact S08-SMOKE-4 fixture-
+> attestation request preparation. O-105 separately approved it once; Job
+> `428889` passed preflight and 115/116 Phase-1 tests, then failed on a no-op
+> calibration negative-test assignment before Phase 2. The request is consumed;
+> no retry, remediation commit, or Q1 is authorized. The owner then requested
+> Smoke-5 before its changed tuple existed; the one-line fix and exact request are
+> frozen. O-106 then approved that exact tuple; Job `429080` completed `0:0` with
+> 116/116 focused tests and 1/1 fixture attestation passing. O-107 prospectively
+> simplifies future bounded mechanical smoke remediation. O-108 authorizes one
+> immutable remediation/evidence commit and independent re-review; Q1 remains
+> separately gated and unapproved.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -46,14 +58,25 @@
 8. Before material compute, create/update `RUN_REQUEST.md` with the exact immutable
    source/snapshot, config/data identities, cells, command, resources, output, stop
    conditions, and approval state. Writing the request is not approval.
-9. A changed commit, diff, config, data identity, cell, seed, command, resource, or
-   output invalidates approval. There is no automatic retry or spare-GPU work.
-10. O-009 does not cover 100/1000 steps, full cache/trainval, profile, scientific
-    metrics, matrices, DDP, arrays, reruns, or publication. Those always require
-    an exact owner-approved request.
-11. Mini evidence is engineering-only. Do not infer convergence, capability,
+9. By default, a changed commit, diff, config, data identity, cell, seed, command,
+   resource, or output invalidates approval. There is no automatic retry or
+   spare-GPU work.
+10. Under O-107, an initial exact O-009 smoke request may explicitly opt into one
+    bounded mechanical remediation loop: at most three total submissions and two
+    cumulative GPU-hours, with unchanged test objective/selectors, data scope,
+    command family, and resource ceiling. Before each derived submission, S00
+    records its diagnosis, immutable snapshot/script hashes, and fresh output path.
+    Only obvious test/fixture/wrapper/provenance/artifact or output-neutral
+    diagnostic-plumbing fixes qualify; identical retries do not.
+11. O-009/O-107 do not cover model qualification/training steps, 100/1000 steps,
+    full cache/trainval, profile, scientific metrics, matrices, DDP, arrays,
+    seeds, or publication. A possible model-output/gradient/update, data,
+    precision, optimizer/scheduler/EMA, metric/science, selector/scope, seed, or
+    resource change; uncertain classification; repeated blocker; or exhausted cap
+    returns to the owner for a new exact decision.
+12. Mini evidence is engineering-only. Do not infer convergence, capability,
     mAP/NDS, fusion gain, Protocol A/B readiness, attack, defense, or paper claims.
-12. No envelope may import or recover legacy T5/T6/T7, old defense implementations,
+13. No envelope may import or recover legacy T5/T6/T7, old defense implementations,
     e231, retired O-032-O-091, or old `collab/**`/`cycle_04/**` decisions.
 
 When a separate task/worktree is genuinely needed, fill every field before launch:
@@ -103,7 +126,7 @@ choice, or create another task/worktree until the owner has granted the exact
 needed authority. Persistent S00 simplifies context; it does not broaden scope.
 ```
 
-## 3. S08 envelope v1 — detailed plan accepted; implementation active
+## 3. S08 envelope v1 — immutable implementation reviewed; remediation active
 
 ```text
 SESSION_ID: S08
@@ -112,7 +135,7 @@ REBASELINE_SHA: 2a584053e6f6a3860b6f812681dc8d7342ca52ad
 IMPLEMENTATION_CONTEXT: persistent S00, linear active worktree
 DELIVERY_BRANCH: codex/s08-s09-cl-readiness
 PRE_IMPLEMENTATION_AUDIT: handoffs/S08/MODEL_RECIPE_AUDIT.md; accepted as planning input
-OWNER_DECISION: O-097 direction/branch/audit baseline; O-098 detailed plan/implementation/local validation/post-validation commit; O-099 consumed exact S08-SMOKE-1; O-100 provenance remediation/request preparation; O-101 consumed exact S08-SMOKE-2; O-102 narrow diagnostics/test remediation and SMOKE-3 request preparation only; O-103 consumed exact S08-SMOKE-3 PASS
+OWNER_DECISION: O-097 direction/branch/audit baseline; O-098 detailed plan/implementation/local validation/post-validation commit; O-099 consumed exact S08-SMOKE-1; O-100 provenance remediation/request preparation; O-101 consumed exact S08-SMOKE-2; O-102 narrow diagnostics/test remediation and SMOKE-3 request preparation only; O-103 consumed exact S08-SMOKE-3 PASS; O-104 review remediation/local validation/SMOKE-4 request preparation only; O-105 consumed exact S08-SMOKE-4 terminal test-construction FAIL; O-106 consumed exact post-freeze S08-SMOKE-5 PASS; O-107 prospective bounded mechanical remediation loop; O-108 remediation/evidence commit and independent re-review
 FILE_OWNERSHIP:
 - fl_v3/src/fl_v3/training/tasks.py
 - fl_v3/src/fl_v3/training/{loop,runtime_state,precision_diagnostics}.py
@@ -131,7 +154,7 @@ UPSTREAM_EVIDENCE:
 - F1 Job 390576 and independent review package 7f3bd40158e5a8af30196509734782c4575c50aa
 - historical old-model AMP Jobs 211502/211722, interpretation-limited
 REASONING_EFFORT: max under owner override O-096
-APPROVED_COMPUTE: S08-SMOKE-1 Job 426619, S08-SMOKE-2 Job 427800, and S08-SMOKE-3 Job 428112 consumed/terminal; no retry/Q1 execution authority
+APPROVED_COMPUTE: S08-SMOKE-1 Job 426619, S08-SMOKE-2 Job 427800, S08-SMOKE-3 Job 428112, S08-SMOKE-4 Job 428889, and S08-SMOKE-5 Job 429080 consumed/terminal; no retry/Q1 execution authority; O-108 is Git/review authority only
 DECISION_SCOPE: implement approved explicit partition and bounded diagnostics; architecture/normalization/recipe/scientific policy remain owner-gated
 ```
 
@@ -218,7 +241,7 @@ Audit findings first:
 - whether failed/missing cells or mini-only limitations are visible.
 
 Return P0-P3 findings with exact paths/lines/artifacts, adversarial checks, a
-PASS|CHANGES-REQUESTED|BLOCKED verdict, and residual risk. Do not edit source,
+PASS|PASS_WITH_RESIDUAL_RISK|REMEDIATE verdict, and residual risk. Do not edit source,
 submit compute, broaden the matrix, or infer convergence/performance/science.
 ```
 

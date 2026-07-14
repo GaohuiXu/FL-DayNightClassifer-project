@@ -21,8 +21,23 @@
 > test-message regex mismatch. O-102 authorizes only the narrow diagnostics/test
 > correction and SMOKE-3 request preparation. The owner separately approved the
 > exact frozen `S08-SMOKE-3`; Job `428112` completed `0:0`, zero restarts, with
-> 106/106 focused tests passing. The immutable implementation/evidence seal and
-> independent review are next; Q1 remains unapproved.
+> 106/106 focused tests passing. Implementation/evidence SHA
+> `791aba97f7bbe92e7708b63f94f2e7d8599f91be` was then independently reviewed:
+> focused-smoke PASS remains valid, but verdict `REMEDIATE` found one P1 fixture-
+> prebinding gap and two P2 scheduler/EMA-gate and active-document gaps. O-104
+> authorizes only linear remediation, local validation, and preparation of an
+> exact S08-SMOKE-4 fixture-attestation request. O-105 separately approved that
+> exact tuple; its sole Job `428889` passed attestation and 115/116 Phase-1 tests,
+> then failed because the calibration negative test assigned `1.0` to a value
+> already equal to `1.0`. Phase 2 did not start. The request is consumed with no
+> retry. The owner subsequently requested Smoke-5 before its changed tuple
+> existed; S00 used that direction only for the one-line correction and request
+> freeze. O-106 then bound the exact post-freeze tuple; Job `429080` completed
+> `0:0`, zero restarts, with 116/116 focused tests and 1/1 candidate fixture
+> attestation passing. O-106 is consumed. O-107 prospectively simplifies future
+> bounded mechanical smoke remediation. O-108 authorizes one immutable
+> remediation/evidence commit and independent re-review. Q1 and precision-policy
+> acceptance remain separately gated and unapproved.
 > Only after an accepted S08 precision policy may **S09 full-pipeline
 > performance/readiness** begin. S10-S12 remain pending redefinition.
 >
@@ -132,9 +147,11 @@ The current six-task evidence is:
 
 The historical Arrhenius mini jobs `211502`/`211722` used an older voxel model and
 kept spconv in FP32 inside outer FP16 AMP. They are valid performance history for
-that old path, not proof for the current `second_075` production resolver, which
-currently enables sparse-conv FP16 whenever `precision=fp16`. S04 Job `341695`
-proved a bounded sparse module path, not the current six-task optimizer seam.
+that old path, not proof for the current `second_075` path. Before S08, the
+production resolver automatically enabled sparse-conv FP16 whenever
+`precision=fp16`; current `s08.v1` instead requires an explicit fail-closed
+`sparse_conv_precision` partition. S04 Job `341695` proved a bounded sparse module
+path, not the current six-task optimizer seam.
 
 ### 3.2 S08 decision target
 
@@ -153,7 +170,21 @@ error-message regex. O-102's narrow remediation passes local static validation;
 O-103 consumed the exact S08-SMOKE-3 snapshot/request in Job `428112`, which
 completed `0:0` with 106/106 focused tests passing and zero restarts. This clears
 the focused implementation-smoke gate but makes no model-numerical conclusion and
-grants no retry or Q1 authority.
+grants no retry or Q1 authority. The exact
+`791aba97f7bbe92e7708b63f94f2e7d8599f91be` independent review then
+returned `REMEDIATE`: Smoke-3 remains valid, while Q1 is blocked on complete
+fixture prebinding, scheduler/EMA qualification gates, and current authority
+wording. O-104 permits only that linear remediation, local validation, and an
+exact S08-SMOKE-4 fixture-attestation request to be frozen. O-105 separately
+approved it once; Job `428889` passed exact runtime/source/raw-manifest preflight
+and 115 tests, then stopped on a synthetic calibration-test no-op before Phase 2.
+This is terminal overall FAIL, not model/environment evidence. O-105 is consumed;
+the owner later requested Smoke-5 before its tuple existed. The one-line test fix
+and exact replacement request were frozen; O-106 then approved the post-freeze
+tuple. Job `429080` completed `0:0` with exact 116+1 PASS and all five fixture
+identities emitted. This clears only the review-remediation runtime gate. O-108
+authorizes a new immutable remediation/evidence commit and independent re-review;
+Q1 and the precision-policy decision remain separately gated.
 
 Once that gate is accepted, S08 must qualify the current six-task model before any
 capability run. At minimum
@@ -272,12 +303,22 @@ does not broaden scientific, Git, compute, upload, or publication authority.
 - O-009 covers only a recorded bounded engineering smoke: one node, at most one
   GPU, at most 60 minutes/job, one concurrent job, and two cumulative GPU-hours
   for the milestone. It never covers full cache/trainval coverage, 100/1000-step
-  gates, profiles, metrics, matrices, seeds, retries, arrays, DDP, or publication.
+  gates, model qualification/training steps, profiles, metrics, matrices, seeds,
+  arrays, DDP, or publication.
 - Every material job requires an exact immutable commit/snapshot, command, data
   scope and identities, resources, output, stop conditions, and explicit current
   owner/S00 audit in `RUN_REQUEST.md`.
-- A changed commit, config, split, command, cell, seed, resource request, or output
-  invalidates approval. No automatic resubmission or spare-GPU expansion.
+- By default, a changed commit, config, split, command, cell, seed, resource
+  request, or output invalidates approval. No automatic resubmission or spare-GPU
+  expansion.
+- O-107 lets the initial owner approval for an exact O-009 smoke opt into a bounded
+  mechanical remediation loop. It may contain at most two diagnosed replacement
+  submissions (three jobs total) under the same objective/selectors, bounded data,
+  command family and resource ceiling. Every replacement is frozen and recorded
+  before submission. Only obvious test/fixture/wrapper/provenance/artifact or
+  output-neutral diagnostics fixes qualify; identical retries do not. Any possible
+  model/data/precision/recipe/metric/scientific/resource change, uncertainty,
+  repeated blocker, or exhausted cap returns to the owner.
 - Mini is engineering-only. It cannot support mAP/NDS, fusion-gain, ASR, defense,
   generalization, or paper claims.
 - Full trainval `t1.v2` cache materialization remains pending exact owner approval.
@@ -305,8 +346,7 @@ does not broaden scientific, Git, compute, upload, or publication authority.
 
 | Decision | Latest freeze point |
 |---|---|
-| Hybrid model identity; sparse normalization; Swin output/LSS precision boundaries | owner review of the S08 pre-implementation audit, before exact implementation launch |
-| S08 numerical-isolation initialization, batch/point bound, and diagnostic recipe | before S08 implementation and any RUN_REQUEST |
+| Any sparse-normalization or later Swin/LSS precision-boundary amendment beyond the accepted unchanged v1 architecture | only after reviewed S08 numerical evidence and a new owner architecture decision |
 | Current six-task FP32/FP16/mixed precision policy | after reviewed S08 evidence, before S09 or any capability run |
 | Production optimizer groups/LR/scheduler/clip/EMA/augmentation/sampling recipe | before S09 can be called final production readiness; otherwise S09 remains a labelled base-uniform pipeline gate |
 | Single-GPU batch/accumulation/workers and whether DDP is needed | after reviewed S09 measurements, before full CL runs |
@@ -345,6 +385,11 @@ O-ledger authority; closed ranges below are provenance.
 | O-101 | Explicitly approve exact `S08-SMOKE-2`. Its single submission, Job `427800`, is consumed and terminal: source-state/runtime attestation PASS, then focused pytest FAIL with 103 passed/3 failed/0 skipped. Two failures expose disabled-GradScaler diagnostics compatibility; one is a test-message regex mismatch. No retry, implementation commit, Q1, or broadened compute is authorized. | consumed S08 smoke |
 | O-102 | Approve the narrow post-Job-427800 remediation and SMOKE-3 request preparation: do not call growth/backoff getters when GradScaler is disabled, require the corresponding diagnostic fields to be `None`, and correct only the test regex to the existing six-task production error. No model/loss/optimizer/precision change and no GPU execution are authorized. | active S08 remediation |
 | O-103 | Explicitly approve exact `S08-SMOKE-3`. Its single submission, Job `428112`, is consumed and terminal PASS: exact runtime/source-state attestation, 106 passed/0 failed/0 errors/0 skipped, `smoke.exit=0`, verified artifact hashes, `COMPLETED 0:0`, and zero restarts. This clears only the focused implementation-smoke gate; no retry, Q1, precision-policy acceptance, or broadened compute is authorized. | consumed S08 smoke |
+| O-104 | Approve the independent-review remediation envelope: prebind the complete Q1 fixture before model construction, gate scheduler transitions and EMA-disabled state, reconcile active status wording, run local validation, and prepare/freeze an exact bounded `S08-SMOKE-4` fixture-attestation request. No GPU execution, retry, new commit, Q1, precision-policy acceptance, S09 work, merge, push, or upload is authorized. | active S08 review remediation |
+| O-105 | Explicitly approve exact `S08-SMOKE-4`. Its single submission, Job `428889`, is consumed and terminal FAIL: exact preflight PASS, then Phase 1 ended 115 passed/1 failed/0 errors/0 skips because the new `cam_intrinsics` drift test assigned `1.0` to an already-`1.0` identity-matrix value. Phase 2 did not start; no fixture identities were emitted. No retry, source edit, replacement request, Q1, commit, or broadened compute is authorized. | consumed S08 smoke |
+| O-106 | Explicitly approve the exact post-freeze `S08-SMOKE-5` tuple. Its single submission, Job `429080`, is consumed and terminal PASS: exact preflight, 116 passed/0 failed/0 errors/0 skips, 1 fixture-attestation passed/0 skipped, both exit files `0`, all five fixture identities emitted, checksum manifest verified, `S08_PRECISION_SMOKE_PASS`, `COMPLETED 0:0`, and zero restarts. This clears only the focused review-remediation/fixture-attestation gate; no retry, Q1, remediation commit, precision-policy acceptance, or broadened compute is authorized. | consumed S08 smoke |
+| O-107 | For future bounded O-009 engineering smoke, one initial exact owner approval may explicitly opt into a mechanical remediation loop of at most three total submissions/two cumulative GPU-hours. S00 may diagnose, locally fix, freeze, record, and submit only obvious test/fixture/wrapper/provenance/artifact or output-neutral diagnostic-plumbing replacements without a second owner review. No identical retry or scope/resource expansion is allowed; any possible model-output/gradient/update, data, precision, optimizer/scheduler/EMA, metric/scientific change, uncertainty, repeated blocker, or exhausted cap returns to the owner. This applies prospectively and does not reinterpret Jobs 426619-429080. | active bounded engineering workflow |
+| O-108 | Authorize persistent S00 to create one immutable S08 remediation/evidence commit from the reviewed working candidate after local verification, then launch an independent re-review pinned to that SHA. The reviewer reads the exact diff, handoff/request/results, and raw smoke artifacts and does not fix source. No Q1 compute, precision-policy acceptance, S09 execution, merge, push, or upload is authorized. | active S08 remediation seal/re-review |
 
 ## 10. Closed and consumed history
 

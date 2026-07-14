@@ -12,8 +12,22 @@
 > disabled-scaler diagnostics paths and one test-message regex. O-102 authorizes
 > only the narrow fix and SMOKE-3 request preparation. The owner separately bound
 > exact SMOKE-3; Job `428112` completed `0:0` with 106/106 focused tests passing
-> and zero restarts. Immutable sealing and independent review are next; Q1 remains
-> unapproved. S09 waits for an accepted precision policy. S10-S12 are
+> and zero restarts. Immutable implementation/evidence SHA
+> `791aba97f7bbe92e7708b63f94f2e7d8599f91be` then
+> received independent verdict `REMEDIATE`: focused-smoke PASS remains valid,
+> while Q1 is blocked on fixture prebinding, scheduler/EMA qualification gates,
+> and active-document repair. O-104 permits that remediation, local validation,
+> and exact S08-SMOKE-4 request preparation only. O-105 separately approved the
+> exact tuple; Job `428889` passed preflight and 115/116 Phase-1 tests, then failed
+> on a no-op calibration negative-test assignment before Phase 2. The approval is
+> consumed with no retry. The owner then requested Smoke-5 before its immutable
+> tuple existed; the one-line fix and exact request are frozen, but renewed
+> post-freeze execution approval was required. O-106 then bound that exact tuple;
+> Job `429080` completed `0:0` with 116/116 focused tests and 1/1 fixture
+> attestation passing. O-107 prospectively simplifies bounded mechanical smoke
+> remediation. O-108 authorizes one immutable remediation/evidence commit and
+> independent re-review. Q1 remains unapproved, and S09 waits for an accepted
+> precision policy. S10-S12 are
 > pending/deferred and are not copy-ready.
 >
 > `Sxx` now names a durable evidence milestone, not necessarily a new task,
@@ -84,9 +98,12 @@ independent review.
    the milestone.
 
 **Authority boundary.** Persistent context does not authorize compute, commits,
-merges, pushes, uploads, scientific protocol changes, extra cells/seeds, reruns, or
+merges, pushes, uploads, scientific protocol changes, extra cells/seeds, or
 publication. The owner remains the freeze point for every material scientific and
-execution decision in ORCHESTRA Section 8.
+execution decision in ORCHESTRA Section 8. O-107 only lets an initial exact O-009
+smoke approval opt into a capped mechanical remediation loop. Each derived job is
+diagnosed, frozen, and recorded before submission; possible model/data/precision/
+recipe/metric/scientific or resource changes return to the owner.
 
 **Reasoning.** O-096 records the owner's platform-maximum reasoning override for
 the current persistent S00 and bounded pre-S08 planning/research or later
@@ -114,7 +131,7 @@ contracts. Read their handoffs when their evidence is needed; do not relaunch th
 
 ## 4. S08 — current six-task precision qualification
 
-**Pre-implementation gate.** The detailed current-model, official-reference,
+**Current implementation/review-remediation gate.** The detailed current-model, official-reference,
 precision, gradient and training-recipe audit is
 [`handoffs/S08/MODEL_RECIPE_AUDIT.md`](handoffs/S08/MODEL_RECIPE_AUDIT.md). It
 classifies the detector as a BEVFusion-class shared-CenterHead hybrid, identifies
@@ -122,8 +139,9 @@ tiny-group sparse GroupNorm as the leading but unproven L/F gradient mechanism,
 and shows that the strict runtime is not yet a frozen scientific recipe. O-097
 accepts the audit boundaries and O-098 accepts the detailed implementation plan.
 Architecture and normalization remain unchanged. The exact implementation,
-consumed request, and terminal negative result are in
-`handoffs/S08/{HANDOFF,RUN_REQUEST,RESULTS}.md`.
+three consumed smoke outcomes, and independent `REMEDIATE` review are in
+`handoffs/S08/{HANDOFF,RUN_REQUEST,RESULTS,REVIEW}.md`. O-104 remediation is
+active; it does not reopen the accepted v1 architecture or authorize Q1.
 
 **Question.** What precision regime can train the current six-task C/L/F model
 stably on GH200, and why do L-S075/F-U overflow in the existing FP16 path while
@@ -137,7 +155,8 @@ older Arrhenius LiDAR evidence appeared stable?
   gradients. Their FP32 maximum gradient elements were approximately 1.91M/1.22M,
   while surviving FP16 elements approached its finite range.
 - Historical Jobs `211502`/`211722` used an older voxel path with spconv kept in
-  FP32 inside outer AMP. They do not validate current automatic sparse-conv FP16.
+  FP32 inside outer AMP. They do not validate the pre-S08 automatic sparse-conv
+  FP16 path or either explicit current `s08.v1` partition.
 - Job `390576` proves only one successful FP32 update per C/L/F mode.
 
 **Implementation/diagnostic scope.**
@@ -190,6 +209,18 @@ are consumed. O-102's narrow remediation passed local static validation; O-103
 then bound exact S08-SMOKE-3, whose sole Job `428112` passed all 106 focused tests
 and completed `0:0` with zero restarts. All three smoke authorizations are consumed;
 no retry is implicit, Q1 remains unapproved, and any further job needs new approval.
+The independent review of exact SHA
+`791aba97f7bbe92e7708b63f94f2e7d8599f91be` returned `REMEDIATE`; O-104
+allows the bounded code/test/document remediation and exact S08-SMOKE-4 request
+preparation. O-105 then bound it once. Job `428889` is terminal `FAILED 1:0`:
+115 passed/1 failed, with the only failure caused by assigning `1.0` to an already
+`1.0` synthetic calibration element. Phase 2 did not run. No retry, source edit,
+or remediation commit is authorized under O-105. A later owner message directed
+Smoke-5 before its exact tuple existed; the narrow correction/request are now
+frozen. O-106 then approved that exact tuple; Job `429080` is terminal PASS with
+116+1 tests and all five candidate fixture identities. O-106 is consumed. O-108
+now authorizes one remediation/evidence commit and independent re-review; no Q1
+execution is authorized.
 
 ## 5. S09 — full-pipeline performance and readiness
 

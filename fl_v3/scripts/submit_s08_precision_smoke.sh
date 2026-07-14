@@ -1,12 +1,14 @@
 #!/bin/bash
-# Exact one-shot replacement submission prepared by S08 RUN_REQUEST.md. Do not
-# run without owner approval bound to S08-SMOKE-3 and the tuple below.
+# Exact one-shot review-remediation submission prepared by S08 RUN_REQUEST.md.
+# Do not run without separate owner approval bound to S08-SMOKE-5 and this tuple.
 set -euo pipefail
 
-SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s08_smoke3_3014cab90ed8
-OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s08_smoke3_3014cab90ed8
+SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s08_smoke5_51daec3e860e
+OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s08_smoke5_51daec3e860e
+MINI_DATAROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/fl_weather_project/data/nuscenes_mini
 
 test -d "${SNAPSHOT}"
+test -d "${MINI_DATAROOT}"
 test ! -e "${OUTPUT}"
 install -d -m 0700 "${OUTPUT}"
 
@@ -20,10 +22,10 @@ sbatch --parsable \
   --mem=96G \
   --time=00:30:00 \
   --no-requeue \
-  --job-name=flv3_s08_smoke3 \
+  --job-name=flv3_s08_smoke5 \
   --output="${OUTPUT}/slurm-%j.out" \
   --error="${OUTPUT}/slurm-%j.err" \
-  --export=S08_SNAPSHOT="${SNAPSHOT}",S08_OUTPUT="${OUTPUT}" \
+  --export=S08_SNAPSHOT="${SNAPSHOT}",S08_OUTPUT="${OUTPUT}",S08_MINI_DATAROOT="${MINI_DATAROOT}" \
   <<'SBATCH'
 #!/bin/bash
 set -euo pipefail

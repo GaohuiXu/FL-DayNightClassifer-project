@@ -385,11 +385,13 @@ class PrecisionWindowDiagnostics:
             "counters_after": None,
             "scheduler_last_epoch_before": scheduler_before,
             "scheduler_last_epoch_after": None,
+            "scheduler_delta_consistent": None,
             "ema_enabled": ema_model is not None,
             "ema_updates_expected_before": (
                 int(state.successful_windows) if ema_model is not None else None
             ),
             "ema_updates_expected_after": None,
+            "ema_state_consistent": None,
             "rng_state_sha256_before_forward": runtime_rng_state_sha256(),
             "rng_state_sha256_after_forward_backward": None,
             "loss_finite": None,
@@ -545,6 +547,34 @@ class PrecisionWindowDiagnostics:
             int(state.successful_windows) if ema_model is not None else None
         )
         before = record["counters_before"]
+        scheduler_before = record["scheduler_last_epoch_before"]
+        scheduler_after = record["scheduler_last_epoch_after"]
+        record["scheduler_delta_consistent"] = bool(
+            (scheduler_before is None and scheduler_after is None)
+            or (
+                scheduler_before is not None
+                and scheduler_after is not None
+                and scheduler_after - scheduler_before == int(accepted)
+            )
+        )
+        ema_enabled = bool(record["ema_enabled"])
+        record["ema_state_consistent"] = bool(
+            ema_enabled == (ema_model is not None)
+            and (
+                (
+                    not ema_enabled
+                    and record["ema_updates_expected_before"] is None
+                    and record["ema_updates_expected_after"] is None
+                )
+                or (
+                    ema_enabled
+                    and record["ema_updates_expected_before"]
+                    == before["successful_windows"]
+                    and record["ema_updates_expected_after"]
+                    == after["successful_windows"]
+                )
+            )
+        )
         record["counter_deltas_consistent"] = bool(
             after["optimizer_step"] - before["optimizer_step"] == int(accepted)
             and after["successful_windows"] - before["successful_windows"] == int(accepted)

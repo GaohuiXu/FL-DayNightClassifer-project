@@ -73,5 +73,8 @@ only and cannot support mAP/NDS, fusion-gain, attack, defense, or paper claims.
 Planning or implementation is not permission to submit compute, commit, merge,
 push, upload, or publish. Every material job uses an exact `RUN_REQUEST.md` bound
 to immutable source/config/data/cells/resources/command/output/stop conditions.
-There is no automatic retry or spare-GPU expansion. Follow the complete compute,
-Git, data, precision, and scientific guardrails in `AGENTS.md`.
+There is no automatic retry or spare-GPU expansion. O-107's only exception is an
+explicitly opted-in, owner-approved bounded mechanical remediation loop: each
+derived job is frozen and recorded before submission, and any model/data/
+precision/recipe/scientific or resource change returns to the owner. Follow the
+complete compute, Git, data, precision, and scientific guardrails in `AGENTS.md`.

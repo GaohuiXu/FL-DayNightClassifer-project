@@ -1,5 +1,207 @@
 # S08 precision qualification — execution results
 
+## S08-SMOKE-5 terminal result
+
+```text
+REQUEST_ID: S08-SMOKE-5
+OWNER_APPROVAL: explicit post-freeze exact-tuple confirmation on 2026-07-14 / O-106
+SUBMISSIONS: 1
+JOB_ID: 429080
+STATE: COMPLETED
+EXIT_CODE: 0:0
+RESTARTS: 0
+SUBMIT: 2026-07-14T18:08:47+02:00
+START: 2026-07-14T18:08:48+02:00
+END: 2026-07-14T18:12:24+02:00
+ELAPSED: 00:03:36
+NODE: n23
+ALLOCATED: 1 x NVIDIA GH200 120GB, 8 CPU, 96 GiB
+AUTOMATIC_RETRY: none
+```
+
+This is a terminal focused review-remediation and fixture-attestation **PASS**.
+S00 did not treat the owner's pre-freeze Smoke-5 message as execution authority;
+the exact tuple was submitted only after renewed post-freeze confirmation. The
+read-only snapshot, runner, outer submit script, mini input manifest, resources,
+output, and stop conditions were used once. No source/environment mutation,
+retry, alternate node, Q1, or additional GPU job was attempted.
+
+### Exact execution identity
+
+```text
+BASE_IMPLEMENTATION_COMMIT: 791aba97f7bbe92e7708b63f94f2e7d8599f91be
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s08_smoke5_51daec3e860e
+SNAPSHOT_TREE_SHA256: 51daec3e860e6d412ad57d807efd78a08b03630afb37798880999fa039900a25
+SNAPSHOT_FILES/BYTES/WRITABLE: 585 / 4515200 / 0
+SMOKE_RUNNER_SHA256: 08b74822862e6e91f14802426b76bfff29dfdd7ace85482a9882a94914941ff1
+SUBMIT_SCRIPT_SHA256: 254064b207f004ae778f1c73c5e474f0cdf74642a1ba50724adec6e4911ffd40
+JOB_BODY_SHA256: 7ac8d0277576a665690408c6002e7438e311e1e66b3ab8721f2be61856d8003a
+RAW_INPUT_MANIFEST_FILE_SHA256: 62a63cf6c3dd4295f8c246fdef6ba170e7685cab6930294b17633a1d448798b4
+RAW_INPUT_MANIFEST_LOGICAL_SHA256: f95c0cd141c891f69f44a0ecc792e4878946a3cdc4a1a2ce7911df074b848316
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s08_smoke5_51daec3e860e
+```
+
+Runtime attestation matched aarch64, one `NVIDIA GH200 120GB`, Python `3.11.15`,
+Torch `2.11.0+cu128`/CUDA `12.8`, exact Torch executable/source identities,
+spconv `2.3.8`, cumm `0.7.13`, exact tracked-source states, the requested mini
+dataroot, and both raw-input-manifest hashes.
+
+### Phase results and fixture identities
+
+Phase 1 JUnit is exactly 116 tests, 0 failures, 0 errors, and 0 skips; pytest
+reports `116 passed, 5 warnings in 43.55s`. This includes the repaired calibration
+drift negative case, the other nine review-remediation cases, the previous 106
+focused contracts, and both tiny sparse paths.
+
+Phase 2 JUnit is exactly 1 test, 0 failures, 0 errors, and 0 skips; pytest reports
+`1 passed, 2 warnings in 2.04s`. The candidate-only attestation states
+`model_constructed=false`, `optimizer_constructed=false`, and `q1_executed=false`.
+All five identities were independently recomputed from strict JSON/tensor metadata:
+
+| Identity | SHA-256 |
+|---|---|
+| raw-input manifest | `f95c0cd141c891f69f44a0ecc792e4878946a3cdc4a1a2ce7911df074b848316` |
+| complete batch tensor manifest | `de8b8f06c8c5b14871262fe56167ac52095f8e7cac42387de157b8e247a4e9da` |
+| augmentation field order | `0495e2db0984cf3063ef5d0d84a2fd83b99b1b0cf3383f7a78534bbce8bb5de7` |
+| augmentation values (`torch.float64`) | `57728184c564966e83d19214e192e8fc79fd84a2701b46b8299c237eb61dd9ea` |
+| canonical fixture manifest | `f46a79c1cefa52a65d9e402b791cfce73fa194f20e6aa7cbfb3096957b6b9c89` |
+
+The first independent augmentation recheck mistakenly packed the declared
+`torch.float64` values as float32 and therefore disagreed. Reading the exact dtype
+from the batch tensor manifest and recomputing as float64 matched the recorded
+tensor, fixture, and identity values. This was an external verification-script
+mistake, not a job/artifact inconsistency.
+
+### Preserved artifacts
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `environment.json` | 1,463 | `db81987f80d3270dc88976aafd2dd584014ce707296376d0fd7905c02803dfc7` |
+| `smoke.log` | 2,547 | `b504c1640fd8c2cf8c47931f133a9aa516a6ae0aeab4c32de1426cbd763d313f` |
+| `smoke.junit.xml` | 17,371 | `a2cfd248875dbbffbb4a5ed10ffb38403a4729593e3c11a728b60676b98e7e98` |
+| `smoke.exit` | 2 | `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa` |
+| `fixture-attestation.log` | 1,233 | `50b08247c304e2d0b5bee75a65243c86e1cb9203a4dc6d57a2afa6b18ddad63e` |
+| `fixture-attestation.junit.xml` | 360 | `d4de3c1ce0f6fbf7a1eb74d881ec826325e44399a526496bc521cb975fd95b65` |
+| `fixture-attestation.exit` | 2 | `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa` |
+| `fixture-attestation/fixture_manifest.json` | 5,980 | `61bbcb481109937c02d5010074b5a5de7d1b2ff445fd8ccc1df6a92956beb43c` |
+| `fixture-attestation/fixture_identity.json` | 549 | `6f44f71692a79a443b4fdce4abe528184e8eab7c61f018960815024ffab709b2` |
+| `fixture-attestation/fixture_attestation.json` | 965 | `fea4e8beae5f9c7ec1d8dda470aee53d7d7cf419d58ddffae0a27432925d4c5a` |
+| `artifact_sha256s.txt` | 922 | `5badf259d1e9aa0edf353b960f65aa5139f6185894c342a9c63db98c7adb0636` |
+| `slurm-429080.out` | 3,805 | `87ea57ce38480db51b2c598d3b3d019a3aa05b12c797faa9a4bce00103fd9a2f` |
+| `slurm-429080.err` | 123 | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+The job-created checksum manifest verified all ten declared runtime/test/fixture
+artifacts. Both exit files are exactly `0`; stdout ends with
+`S08_PRECISION_SMOKE_PASS`. The five Phase-1 warnings are two unregistered `slow`
+marker warnings, one dependency deprecation, and two known spconv indexing
+warnings; Phase 2 repeats the two marker warnings. They did not alter test count,
+skip status, or acceptance. Pytest temporary files remain preserved.
+
+### Disposition
+
+- O-106's exact single-submission authority is consumed.
+- The focused O-104 remediation and candidate fixture-attestation runtime gate
+  pass; the earlier Smoke-4 negative evidence remains preserved.
+- No Q1 cell, model/optimizer construction, or precision regime ran.
+- O-108 authorizes a new immutable remediation/evidence commit and independent
+  re-review; both remain required before any exact Q1 request.
+- Precision-policy acceptance and S09 remain blocked.
+
+## S08-SMOKE-4 terminal result
+
+```text
+REQUEST_ID: S08-SMOKE-4
+OWNER_APPROVAL: explicit exact-request approval on 2026-07-14 / O-105
+SUBMISSIONS: 1
+JOB_ID: 428889
+STATE: FAILED
+EXIT_CODE: 1:0
+RESTARTS: 0
+SUBMIT: 2026-07-14T17:52:50+02:00
+START: 2026-07-14T17:52:51+02:00
+END: 2026-07-14T17:56:14+02:00
+ELAPSED: 00:03:23
+NODE: n501
+ALLOCATED: 1 x NVIDIA GH200 120GB, 8 CPU, 96 GiB
+AUTOMATIC_RETRY: none
+```
+
+This is a terminal review-remediation smoke **FAIL**. The exact snapshot, runner,
+outer submit script, mini input manifest, resources, output, and stop conditions
+were used once. Runtime/dependency/source/raw-manifest attestation passed. Phase 1
+collected exactly 116 tests and ended 115 passed/1 failed/0 errors/0 skips. The
+runner stopped before Phase 2, so no candidate fixture identity was emitted. No
+source/environment mutation, retry, alternate node, Q1, or additional GPU job was
+attempted.
+
+### Exact execution identity
+
+```text
+BASE_IMPLEMENTATION_COMMIT: 791aba97f7bbe92e7708b63f94f2e7d8599f91be
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s08_smoke4_425568c1c83d
+SNAPSHOT_TREE_SHA256: 425568c1c83df06889c17d305b4ee8a9264b0535d7c204d0d34c8427aa18e90f
+SNAPSHOT_FILES/BYTES/WRITABLE: 585 / 4503677 / 0
+SMOKE_RUNNER_SHA256: 08b74822862e6e91f14802426b76bfff29dfdd7ace85482a9882a94914941ff1
+SUBMIT_SCRIPT_SHA256: cb6e3a3da2969d7c522db4a83e07202deef2a2434346aa544aa8094a6e1d2c29
+JOB_BODY_SHA256: 7ac8d0277576a665690408c6002e7438e311e1e66b3ab8721f2be61856d8003a
+RAW_INPUT_MANIFEST_FILE_SHA256: 62a63cf6c3dd4295f8c246fdef6ba170e7685cab6930294b17633a1d448798b4
+RAW_INPUT_MANIFEST_LOGICAL_SHA256: f95c0cd141c891f69f44a0ecc792e4878946a3cdc4a1a2ce7911df074b848316
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s08_smoke4_425568c1c83d
+```
+
+`environment.json` confirms aarch64, one `NVIDIA GH200 120GB`, Python `3.11.15`,
+Torch `2.11.0+cu128`/CUDA `12.8`, exact Torch executable/source identities,
+spconv `2.3.8`, cumm `0.7.13`, both exact tracked-source states, the requested
+mini dataroot, and both raw-input-manifest hashes.
+
+### Exact failure
+
+The sole failing node was:
+
+```text
+test_q1_changed_complete_input_fails_fixture_gate_before_model_construction[cam_intrinsics]
+```
+
+The synthetic baseline used `torch.eye(4)` and the test attempted to create drift
+with `changed["cam_intrinsics"].reshape(-1)[0] = 1.0`. That first diagonal value
+was already exactly `1.0`; therefore the before/after tensor bytes and
+`batch_tensor_manifest_sha256` correctly remained equal, and the test's inequality
+assertion failed. The `images` and `gt_boxes` variants, fixture-environment schema,
+augmentation-field order, positive scheduler/EMA timeline, all four hostile
+scheduler/EMA cases, the previous 106 focused cases, and both tiny sparse cases
+passed. Five warnings were recorded: two unregistered `slow` markers, one
+dependency deprecation, and two known spconv indexing warnings.
+
+This is a test-input construction defect. It does not show that an actually
+changed calibration tensor can bypass the fixture gate; that specific negative
+case remains unvalidated until a changed value is used and rerun. It is not an
+environment, production-loop, model, precision, or LiDAR numerical failure.
+
+### Preserved artifacts
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `environment.json` | 1,463 | `db81987f80d3270dc88976aafd2dd584014ce707296376d0fd7905c02803dfc7` |
+| `smoke.log` | 4,067 | `7310d7c19de3de3be9e140489b9c295d16807cefb7f3b6a027d35f4b8e3fa5df` |
+| `smoke.junit.xml` | 18,625 | `a22be0a9ebddd2f200af0fed69f3d7070cca411c5ef5100f94ebb812b40ea1b2` |
+| `smoke.exit` | 2 | `4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865` |
+| `slurm-428889.out` | 4,067 | `7310d7c19de3de3be9e140489b9c295d16807cefb7f3b6a027d35f4b8e3fa5df` |
+| `slurm-428889.err` | 123 | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+`smoke.exit` is exactly `1`. Because the runner stopped at the Phase-1 gate,
+`fixture-attestation.log`, its JUnit/exit files, the three fixture JSON artifacts,
+`artifact_sha256s.txt`, and terminal `S08_PRECISION_SMOKE_PASS` are correctly
+absent. Pytest temporary files are preserved under the bounded output root.
+
+### Disposition
+
+- O-105's exact single-submission authority is consumed.
+- No retry or replacement request is authorized.
+- The immutable S08-SMOKE-3 PASS remains valid within its prior focused scope.
+- Independent review remains `REMEDIATE`; Q1 and S09 remain blocked.
+- Per the request stop condition, source/test remediation and any replacement
+  snapshot/request return to the owner before action.
+
 ## S08-SMOKE-3 terminal result
 
 ```text
@@ -295,8 +497,9 @@ of new runtime drift.
   remained gated because focused GH200 runtime validation did not execute.
 - Q1 remained not ready and was not submitted.
 - O-100 subsequently authorized the narrow provenance-policy remediation and
-  replacement-request preparation. Exact `S08-SMOKE-2` is now frozen in
-  `RUN_REQUEST.md` but remains unapproved for execution.
+  replacement-request preparation. Exact `S08-SMOKE-2` was then frozen,
+  separately approved under O-101, and consumed by terminal Job `427800`; its
+  result is recorded above.
 
 The implemented narrow remediation keeps exact source HEAD and installed
 executable-build hashing, while permitting only the already-evidenced spconv
@@ -304,7 +507,8 @@ executable-build hashing, while permitting only the already-evidenced spconv
 executable-source change, additional tracked change, unrecognized metadata hash,
 source HEAD drift, import-origin drift, or installed-build drift must still fail
 closed. It did not reset or modify the external spconv checkout. Replacement
-execution remains outside O-100 and needs explicit approval.
+execution was outside O-100 and received the separate exact O-101 approval
+recorded above; O-100 alone granted no execution authority.
 
 ## Interpretation limits
 

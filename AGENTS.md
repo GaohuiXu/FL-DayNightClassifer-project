@@ -67,7 +67,8 @@ objective is clear, implement end to end rather than stopping at a proposal.
 Planning or implementing an experiment is not permission to execute it. Without an
 explicit owner instruction scoped to the exact action, agents must not:
 
-- submit `sbatch`/`srun` jobs, including engineering smoke jobs;
+- submit `sbatch`/`srun` jobs, including engineering smoke jobs, except through an
+  explicitly owner-approved bounded mechanical remediation loop described below;
 - launch a trainval full run, experimental matrix, multi-seed campaign, long
   profiling job, FL campaign, attack/defense run, or automatic resubmission;
 - expand an approved cell into additional seeds, ablations, reruns, or spare-GPU
@@ -79,22 +80,44 @@ explicit owner instruction scoped to the exact action, agents must not:
   publish externally.
 
 Agents may prepare scripts, configs, `RUN_REQUEST.md`, resource estimates, and
-local/static/unit checks. An execution approval is bound to the exact commit,
-resolved config, data/split manifest, cells, seeds, command, GPU/count/time budget,
-and output location stated in the request. Changing any of these invalidates the
-approval and requires new permission. Never infer full-run or upload authorization
-from approval of an architecture, plan, session, or code change.
+local/static/unit checks. By default, an execution approval is bound to the exact
+commit, resolved config, data/split manifest, cells, seeds, command,
+GPU/count/time budget, and output location stated in the request. Changing any of
+these invalidates the approval and requires new permission. The only exception is
+a derivation rule that the owner explicitly approved in the initial request under
+O-107. Never infer full-run or upload authorization from approval of an
+architecture, plan, session, or code change.
 
 Every material-compute session records its request and approval state in
 `fl_v3/usenix27_orchestra/handoffs/Sxx/RUN_REQUEST.md`. Preparing or editing
 that file does not grant approval.
 
-Standing owner decision `O-009` is the only exception for bounded engineering
-smoke: at most one node/one GPU, 60 minutes per job, one concurrent job, and two
-cumulative GPU-hours for the session, after the exact HEAD/diff, command, bounded
-data scope, resources, output, and stop conditions are recorded in `RUN_REQUEST.md`.
-It never covers full trainval cache generation/coverage/profile, model steps,
-scientific metrics, matrices, seeds, reruns, arrays, DDP, or automatic retry.
+Standing owner decision `O-009` permits only bounded engineering smoke: at most
+one node/one GPU, 60 minutes per job, one concurrent job, and two cumulative
+GPU-hours for the session, after the exact HEAD/diff, command, bounded data scope,
+resources, output, and stop conditions are recorded in `RUN_REQUEST.md`. It never
+covers full trainval cache generation/coverage/profile, model qualification or
+training steps, scientific metrics, matrices, seeds, arrays, DDP, or publication.
+
+Owner decision `O-107` allows one initial owner approval to opt into a **bounded
+mechanical remediation loop** for an O-009 engineering smoke. The initial exact
+request must bind the test objective/selectors, data scope, command family,
+resource ceiling, output naming rule, stop conditions, and a cap of three total
+submissions (the initial job plus at most two derived replacements) within O-009's
+two cumulative GPU-hours. After a diagnosed failure, S00 may fix only an obvious
+test, fixture, smoke wrapper, provenance/artifact check, or output-neutral
+diagnostic-plumbing defect; it must freeze and record every derived immutable
+source/snapshot, command/script hash, output path, and diagnosis in `RUN_REQUEST.md`
+**before** submitting it. This is not permission for an identical retry, silent
+resubmission, or spare-GPU expansion.
+
+The loop stops and returns to the owner if a change may affect model outputs,
+losses, gradients or accepted updates; data contents/ownership; precision policy
+or regime; optimizer/scheduler/EMA behavior; metric or scientific interpretation;
+test/data scope, seed, or resources; if classification is uncertain; if the same
+blocker recurs; or when the approved submission/GPU-hour cap is reached. Scientific
+and otherwise material jobs retain exact per-job owner approval. O-107 applies
+prospectively and does not reinterpret historical job approvals.
 
 ## Active Runtime: Arrhenius GH200
 
