@@ -1,9 +1,10 @@
 # USENIX Security '27 Orchestra — milestone contracts
 
 > **Status (2026-07-14).** S07 is closed at clean engineering anchor
-> `a2fc15e64898910b51b56b4b25c8579f459423bc`. S08 is the next planning and
-> milestone; its redefined scope is approved, but exact implementation launch and
-> compute are not. S09 waits for an accepted
+> `2a584053e6f6a3860b6f812681dc8d7342ca52ad`. The owner accepted S08 envelope v1
+> direction and authorized the linear delivery branch plus the pre-S08 audit
+> baseline commit. S08 implementation remains paused for review of the detailed
+> multi-agent execution plan; compute is not approved. S09 waits for an accepted
 > precision policy. S10-S12 are pending/deferred and are not copy-ready.
 >
 > `Sxx` now names a durable evidence milestone, not necessarily a new task,
@@ -17,10 +18,10 @@
 ## 1. Active graph and status
 
 ```text
-a2fc15e accepted clean engineering anchor
+2a58405 accepted clean engineering anchor
   │
-  ├─ S08 current six-task precision qualification
-  │      └─ independent review of exact implementation/evidence SHA
+  ├─ S08 model/recipe audit → owner decisions → precision qualification
+  │      └─ independent review only after exact implementation/evidence SHA
   │
   ├─ S09 full-pipeline performance/readiness
   │      └─ independent review of exact profiling/evidence SHA
@@ -40,7 +41,7 @@ a2fc15e accepted clean engineering anchor
 | S02-S05 | Loss/target, camera, SECOND, CenterHead/decode modules | closed | reviewed module contracts integrated into clean anchor |
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
-| S08 | Precision qualification | S07 | **next**; milestone scope redefined, exact implementation launch and compute not approved |
+| S08 | Model/recipe audit, then precision qualification | S07 | **v1 direction accepted**; audit baseline sealing authorized; detailed execution-plan review and implementation launch remain pending; no compute |
 | S09 | Full-pipeline performance/readiness | accepted S08 policy | planned; exact 100/1000-step/profile compute not approved |
 | S10 | Centralized branch/recipe ablation | S08+S09 | pending redefinition; no cells/gates frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
@@ -78,9 +79,10 @@ merges, pushes, uploads, scientific protocol changes, extra cells/seeds, reruns,
 publication. The owner remains the freeze point for every material scientific and
 execution decision in ORCHESTRA Section 8.
 
-**Reasoning.** Normal S00 and reviewer work uses `xhigh`. `ultra` is limited to a
-recorded difficult pre-implementation research/planning question or exceptional
-review; it is not a reason to spawn additional implementation chains.
+**Reasoning.** O-096 records the owner's platform-maximum reasoning override for
+the current persistent S00 and bounded pre-S08 planning/research or later
+independent-review subagents. It does not authorize implementation chains or
+compute.
 
 ## 3. Closed foundation summary
 
@@ -102,6 +104,16 @@ Closed S01-S07 worker prompts and remediation chains are not active session
 contracts. Read their handoffs when their evidence is needed; do not relaunch them.
 
 ## 4. S08 — current six-task precision qualification
+
+**Pre-implementation gate.** The detailed current-model, official-reference,
+precision, gradient and training-recipe audit is
+[`handoffs/S08/MODEL_RECIPE_AUDIT.md`](handoffs/S08/MODEL_RECIPE_AUDIT.md). It
+classifies the detector as a BEVFusion-class shared-CenterHead hybrid, identifies
+tiny-group sparse GroupNorm as the leading but unproven L/F gradient mechanism,
+and shows that the strict runtime is not yet a frozen scientific recipe. O-097
+accepts the audit's recommended v1 boundaries but requires one final review of the
+detailed implementation plan. Architecture and normalization remain unchanged;
+the audit/envelope authorizes no job.
 
 **Question.** What precision regime can train the current six-task C/L/F model
 stably on GH200, and why do L-S075/F-U overflow in the existing FP16 path while
@@ -128,12 +140,16 @@ older Arrhenius LiDAR evidence appeared stable?
 - exercise the real production training loop and dynamic GradScaler continuation,
   including backoff below scale 1 when reached; do not judge AMP from one fixed
   attempt;
-- record per-window scaler before/after, skips, successful optimizer/exposure
-  steps, scalar/per-task losses, and elementwise gradient finiteness;
+- use minimal opt-in window-end diagnostics: record per-window scaler before/after,
+  skips, successful optimizer/exposure steps, scalar/per-task losses, and
+  elementwise gradient finiteness after unscale and before clip/step/clear;
 - localize gradients at the multi-task head input and SECOND stem/stage boundaries
   without changing loss/head semantics;
 - cover exact C-STR8, L-S075, F-U and short L-P020/F-CBGS compatibility cells;
 - keep all diagnostics bounded and output-neutral when disabled.
+- do not build a general observer/hook/profiler framework; parameter-gradient
+  summaries require no hook, and any boundary tensor tap must have an explicit,
+  short lifecycle.
 
 **Forbidden without a new owner decision.**
 

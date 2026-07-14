@@ -23,8 +23,8 @@ T5/T6/T7 or old defense code/routes from them or from Git history.
 
 ## Current status
 
-S07 clean engineering is closed at
-`a2fc15e64898910b51b56b4b25c8579f459423bc`. This proves a bounded clean FedAvg
+S07 clean engineering is closed at the accepted post-S07 rebaseline
+`2a584053e6f6a3860b6f812681dc8d7342ca52ad`. This proves a bounded clean FedAvg
 construction, one FP32 optimizer update for each current C/L/F mode, and a
 worker-0/2 first-batch equality check. It is not full training, detector
 capability, performance, precision freeze, Protocol-A/B, attack, defense, or
@@ -32,8 +32,9 @@ scientific evidence.
 
 The next milestones are:
 
-1. S08: qualify the current six-task model's FP32, full FP16 AMP, and FP16 AMP
-   with SECOND/spconv FP32 island behavior;
+1. S08: first resolve the owner decisions in the pre-implementation model/recipe
+   audit, then qualify the current six-task model's FP32, full FP16 AMP, and FP16
+   AMP with SECOND/spconv FP32 island behavior;
 2. S09: after S08, establish production-shaped 100/conditional-1000-step
    performance, memory, DataLoader-worker, and single-GH200 readiness;
 3. redefine S10-S12 only from reviewed S08/S09 evidence.

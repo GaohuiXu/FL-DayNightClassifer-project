@@ -29,10 +29,12 @@ clean model/data/runtime foundation through federated training and adaptation.
 Mini and synthetic runs are engineering evidence only. Scientific claims
 require owner-approved trainval-scale protocols and immutable run manifests.
 
-S07 clean engineering is closed at `a2fc15e`, but its runtime gate is bounded:
-one successful FP32 optimizer update for each C/L/F mode and no full-training or
-precision-freeze claim. S08 next qualifies the current six-task FP32/full-AMP/
-spconv-FP32-island regimes; S09 then measures full-pipeline performance/readiness.
+S07 clean engineering is closed at the accepted post-S07 rebaseline `2a58405`,
+but its runtime gate is bounded: one successful FP32 optimizer update for each
+C/L/F mode and no full-training or precision-freeze claim. S08 first resolves the
+owner decisions in its pre-implementation model/recipe audit, then qualifies the
+current six-task FP32/full-AMP/spconv-FP32-island regimes; S09 subsequently
+measures full-pipeline performance/readiness.
 
 ## Layout
 

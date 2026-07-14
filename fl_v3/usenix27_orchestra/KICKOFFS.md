@@ -3,8 +3,10 @@
 > **Status (2026-07-14).** The closed S01-S07 worker/reviewer prompts have been
 > removed from active routing. Their exact history remains in Git and handoff
 > packages. O-094 makes persistent S00 the default implementer. The only current
-> technical envelope is the S08 implementation proposal; it still requires exact
-> owner launch review and has no compute authority.
+> technical work is S08. The owner accepted envelope v1 direction and authorized
+> `codex/s08-s09-cl-readiness` plus the pre-S08 audit-baseline commit. Production
+> implementation remains paused until the owner reviews the detailed multi-agent
+> plan. Compute authority remains `none`.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -24,8 +26,9 @@
    reviewer subagent; use an independent worktree for high-risk data/split/metric/
    scientific changes, conflicting state, exact runtime reproduction, or owner
    request.
-5. Normal work uses `xhigh`. `ultra` requires a recorded difficult planning/
-   research or exceptional review reason.
+5. O-096 records a platform-maximum reasoning override for the current persistent
+   S00 and its bounded pre-S08 planning/research or later review subagents. This is
+   a reasoning setting, not implementation or compute authority.
 6. Only S00 edits `ORCHESTRA.md`, `SESSIONS.md`, and `KICKOFFS.md`.
    `fl_v3/collab/**` and `fl_v3/docs/cycle_04/**` are read-only historical
    evidence. New records go under `fl_v3/usenix27_orchestra/handoffs/Sxx/`.
@@ -57,7 +60,7 @@ FILE_OWNERSHIP: exact paths/globs
 UPSTREAM_EVIDENCE_AND_SHAS: exact list
 WORKER_SHA: pending for implementation; exact SHA for review
 DELIVERY_REF: pending or exact approved ref
-REASONING_EFFORT: xhigh, or ultra with recorded reason
+REASONING_EFFORT: exact owner-selected setting; current S00 override is max
 APPROVED_COMPUTE: none or exact approved RUN_REQUEST
 DECISION_SCOPE: exact implementation/evidence/review choices
 ```
@@ -92,13 +95,16 @@ choice, or create another task/worktree until the owner has granted the exact
 needed authority. Persistent S00 simplifies context; it does not broaden scope.
 ```
 
-## 3. S08 active implementation envelope
+## 3. S08 envelope v1 — direction accepted; execution-plan review pending
 
 ```text
 SESSION_ID: S08
-CURRENT_CODE_ANCHOR: a2fc15e64898910b51b56b4b25c8579f459423bc
-REBASELINE_SHA: pending owner-authorized compact-doc commit
+CURRENT_CODE_ANCHOR: 2a584053e6f6a3860b6f812681dc8d7342ca52ad
+REBASELINE_SHA: 2a584053e6f6a3860b6f812681dc8d7342ca52ad
 IMPLEMENTATION_CONTEXT: persistent S00, linear active worktree
+DELIVERY_BRANCH: codex/s08-s09-cl-readiness
+PRE_IMPLEMENTATION_AUDIT: handoffs/S08/MODEL_RECIPE_AUDIT.md; accepted as planning input
+OWNER_DECISION: O-097 accepts v1 direction and authorizes branch/audit-baseline commit only
 FILE_OWNERSHIP_PROPOSAL:
 - fl_v3/src/fl_v3/training/tasks.py
 - fl_v3/src/fl_v3/training/loop.py only if existing scaler continuation evidence requires it
@@ -117,9 +123,9 @@ UPSTREAM_EVIDENCE:
 - D1 Job 389356 and its exact raw artifacts
 - F1 Job 390576 and independent review package 7f3bd40158e5a8af30196509734782c4575c50aa
 - historical old-model AMP Jobs 211502/211722, interpretation-limited
-REASONING_EFFORT: xhigh; optional ultra planning subagent only for a recorded narrow numerical question
+REASONING_EFFORT: max under owner override O-096
 APPROVED_COMPUTE: none
-DECISION_SCOPE: proposed qualification of existing precision regimes; exact implementation launch still requires owner approval
+DECISION_SCOPE: architecture/fixture/diagnostic boundaries accepted; detailed file/test/lifecycle plan requires final owner review before implementation
 ```
 
 ### Objective
@@ -142,12 +148,14 @@ under current sparse-conv FP16.
 4. Use the production training loop and persistent dynamic GradScaler. A bounded
    diagnostic must permit skip/backoff/continuation to a successful update or a
    predeclared failure bound; it must not treat one fixed scale as the contract.
-5. Record strict structured evidence before gradients clear: per-task losses,
+5. Use minimal opt-in window-end diagnostics before gradients clear: per-task losses,
    scaler before/after, skipped/executed updates, exposure/scheduler/EMA counters,
    nonfinite element counts, first bad parameter, max finite value, stable norm,
    head-input gradient, and SECOND stem/stage boundary gradients.
-6. Diagnostics are opt-in and output-neutral when disabled. Avoid synchronized
-   per-layer telemetry in normal training.
+6. Diagnostics are opt-in and output-neutral when disabled. Do not build a generic
+   observer, long-lived module-hook chain, profiler, or synchronized per-layer
+   telemetry system. Parameter-gradient summaries should read `.grad` at the
+   window boundary; any named tensor tap must be narrow and lifecycle-safe.
 7. Cover C-STR8/L-S075/F-U as primary qualification. Add short L-P020/F-CBGS
    compatibility coverage without turning it into a scientific matrix.
 

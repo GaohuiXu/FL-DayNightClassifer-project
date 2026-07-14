@@ -1,11 +1,13 @@
 """Resolved BEVFusion-class detector wiring and decode.
 
-Wires preprocess → frozen camera backbone → LSS-FPN neck → LSS view transform
-(camera-BEV) ⊕ PointPillars (LiDAR-BEV) → ``ConvFuser`` → SECOND-FPN neck →
-CenterPoint head, all on the single :mod:`bev_grid` convention. ``forward(batch)``
-returns the reviewed six-task CenterHead list (+ intermediate BEV features when
-requested); ``decode(head_out)`` returns boxes and scores in the **T1 canonical**
-convention.
+The optional camera path is preprocess → configurable trainable/frozen backbone →
+camera FPN → LSS view transform. The optional LiDAR path is either the deterministic
+pillar encoder (with an optional dense backbone) or the sparse SECOND voxel encoder.
+Camera-only/LiDAR-only modes use adapters; fusion concatenates both BEVs through
+``ConvFuser``. Every mode then uses the shared BEV neck and six-task CenterHead on
+one :mod:`bev_grid` convention. ``forward(batch)`` returns that reviewed task list
+(plus named intermediate BEVs when requested); ``decode(head_out)`` returns boxes
+and scores in the **T1 canonical** convention.
 
 Production decode delegates to the reviewed S05 reference-faithful no-starvation
 path: forced-FP32 fields, per-class K=500, deterministic global-class/spatial tie

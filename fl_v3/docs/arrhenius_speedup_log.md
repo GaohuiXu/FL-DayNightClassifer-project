@@ -14,6 +14,12 @@ validate correctness, stability, and profiling behavior for the
 > `389356` found direct nonfinite L-S075/F-U gradients even at scale 1. Use this
 > document as old-path performance evidence and S08 input, not as a current
 > precision contract.
+>
+> Job `211502` needs one additional terminal-status qualifier: its comparable
+> `voxel_fp16_main` profile cell completed and produced the baseline numbers below,
+> but the overall multi-cell Slurm job later ended `OUT_OF_MEMORY` in the separate
+> experimental sparse-conv-FP16 cell. The table is retained as completed main-cell
+> evidence; the whole job must not be labelled an unqualified PASS.
 
 ## Runtime Policy
 

@@ -17,15 +17,19 @@ making the "frozen" backbone non-deterministic across rounds). We therefore over
 any parent ``.train()`` call** — the BN running-stat bytes are unchanged after a train
 step (asserted on the ResNet path by ``test_model_freeze``).
 
-## Determinism
+## Determinism and initialization
 
-torchvision ``swin_t`` v0.22.1 uses **manual fp32 math attention**
-(``matmul → +rel-pos-bias → softmax → matmul``) — it does NOT call
-``scaled_dot_product_attention``, so no flash/mem-efficient kernel is reachable
-(verified vs source; SPEC DT2-A). No ``scatter_add`` / ``grid_sample``. Weights are
-``IMAGENET1K_V1``, pre-cached on the login node (``TORCH_HOME`` pinned) since compute
-nodes are offline. The param-count asserts (28,288,354 / 11,689,512) double as the
-weights-loaded check.
+The validated Arrhenius environment and exact torchvision version are recorded in
+``docs/env.md`` and the S03 evidence. The stock path uses torchvision's manual Swin
+attention core rather than ``scaled_dot_product_attention``; operation dtypes still
+follow the surrounding PyTorch autocast policy. ``sdpa_attention=True`` is a
+separate, explicit implementation path.
+
+``pretrained=True`` asks torchvision for ``IMAGENET1K_V1`` and therefore requires
+the corresponding cached checkpoint on offline compute nodes. Parameter counts
+check architecture construction only; they do not attest which weight bytes were
+loaded. Runs that rely on pretrained initialization must record that choice and
+checkpoint/cache identity separately.
 """
 from __future__ import annotations
 
@@ -82,12 +86,10 @@ class CameraBackbone(nn.Module):
 
         weights = Swin_T_Weights.IMAGENET1K_V1 if pretrained else None
         net = swin_t(weights=weights)
-        # Full-model param count = the weights-loaded check (with weights=
-        # IMAGENET1K_V1, torchvision RAISES if the .pth is not cached — offline
-        # compute nodes — so a successful build + the canonical count proves the
-        # ImageNet weights loaded). The detector uses only the feature-extractor
-        # stages (drops net.norm + net.head: the 1000-class classifier); the used
-        # count is reported separately by param_count().
+        # Record the full architecture size before dropping net.norm/net.head.
+        # This count is an architecture check, not evidence that a particular
+        # pretrained checkpoint was loaded. The used feature-stage count is
+        # reported separately by param_count().
         self.full_backbone_params = sum(p.numel() for p in net.parameters())
         # torchvision Swin `.features` is a Sequential; outputs are NHWC. We tap
         # after each stage (odd indices are the SwinBlock stages, even are

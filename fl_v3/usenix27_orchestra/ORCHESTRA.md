@@ -2,17 +2,19 @@
 
 > **Rebaseline status (2026-07-14).** S07-C and S07-B-COMPLETE are closed.
 > The current clean engineering anchor is
-> `a2fc15e64898910b51b56b4b25c8579f459423bc` on
+> `2a584053e6f6a3860b6f812681dc8d7342ca52ad` on
 > `codex/s07-b-clean-completion`. It contains the accepted S01/S07-A and
 > S02-S06 foundations, the reviewed legacy-security cleanup, and the bounded
 > S07-B clean-completion evidence. It is not a full-training, performance,
 > detector-capability, precision, Protocol-A/B, attack, defense, or scientific
 > PASS.
 >
-> The next milestones are **S08 precision qualification** and, only after its
-> policy is accepted, **S09 full-pipeline performance/readiness**. S10-S12 are
-> deliberately pending redefinition from those results. No compute, commit,
-> merge, push, upload, attack, or defense action is authorized by this document.
+> The owner has accepted the S08 v1 direction from the deep model/numerics/recipe
+> audit and authorized creation of `codex/s08-s09-cl-readiness` plus one immutable
+> pre-S08 audit-baseline commit. S08 implementation remains paused until the owner
+> reviews the detailed multi-agent execution plan; compute remains unapproved.
+> Only after an accepted S08 precision policy may **S09 full-pipeline
+> performance/readiness** begin. S10-S12 remain pending redefinition.
 >
 > Canonical companions: [`SESSIONS.md`](SESSIONS.md) and
 > [`KICKOFFS.md`](KICKOFFS.md). `fl_v3/collab/**`,
@@ -37,10 +39,11 @@ The intended paper question remains:
 The active order is evidence-gated:
 
 ```text
-accepted clean engineering anchor a2fc15e
+accepted clean engineering anchor 2a58405
                   │
-                  ├── S08 precision qualification
-                  │      current six-task C/L/F model; no capability claim
+                  ├── S08 pre-implementation model/recipe audit
+                  │      owner architecture/fixture decisions
+                  │      └── precision qualification; no capability claim
                   │
                   ├── S09 performance/readiness
                   │      100 steps, then conditional 1000 steps; no mAP claim
@@ -90,6 +93,14 @@ These templates are architecture/config candidates, not approved training recipe
 The checked-in S07 JSON files are explicitly template-only; their current
 `precision` field is not a scientific precision decision.
 
+The current detector is a reviewed **BEVFusion-class hybrid**, not an exact copy of
+one MIT BEVFusion public configuration. Its official-derived and project-adapted
+components, parameter/precision map, recipe gap, sparse-GroupNorm numerical
+hypothesis, and owner decisions are recorded in
+[`handoffs/S08/MODEL_RECIPE_AUDIT.md`](handoffs/S08/MODEL_RECIPE_AUDIT.md). Module
+acceptance establishes engineering contracts, not reference equivalence,
+convergence, or training-recipe reasonableness.
+
 ## 3. Precision evidence and unresolved policy
 
 ### 3.1 Runtime capability is not model acceptance
@@ -117,7 +128,15 @@ proved a bounded sparse module path, not the current six-task optimizer seam.
 
 ### 3.2 S08 decision target
 
-S08 must qualify the current six-task model before any capability run. At minimum
+Owner decision O-097 accepts the v1 direction: hold the current hybrid architecture,
+use the D1-style fixture only for numerical isolation, add an explicit sparse
+precision partition, use minimal window-end diagnostics, keep the current camera/LSS
+boundary, and return before any normalization amendment. The final detailed file,
+test, lifecycle, and bounded-execution plan still requires owner review before S08
+production-code work. No compute follows from the audit or envelope approval.
+
+Once that gate is accepted, S08 must qualify the current six-task model before any
+capability run. At minimum
 it compares, under one exact mini batch/step protocol:
 
 1. uniform FP32 reference;
@@ -206,9 +225,10 @@ Owner decision O-094 replaces the one-fresh-worker-per-session default.
    parallel isolation, conflicting ownership, risky experiments, or explicit
    owner direction.
 3. **Subagents are bounded.** Planning/research subagents may be used before
-   implementation. They do not create parallel production branches. `ultra`
-   reasoning is reserved for a recorded difficult planning/research or exceptional
-   review need; normal work remains `xhigh`.
+   implementation. They do not create parallel production branches. O-096 records
+   the owner's maximum-reasoning override for the current persistent S00 and its
+   pre-S08 planning/research or independent-review subagents; it does not authorize
+   implementation or compute.
 4. **Independent review remains mandatory.** After an immutable implementation or
    execution-evidence SHA exists, a reviewer subagent reads that exact diff and
    artifacts, reports findings first, and does not fix code. A separate review
@@ -251,7 +271,9 @@ does not broaden scientific, Git, compute, upload, or publication authority.
 - Protocol B is primary security; Protocol A is the clean optimization/control
   setting.
 - The S02-S06 C/L/F/head/runtime foundations and official clean evaluation path
-  remain the current architecture foundation.
+  remain the current engineering foundation. This does not freeze reference
+  equivalence or prevent an owner-approved architecture amendment after the S08
+  pre-implementation audit.
 - Legacy T5/T6/T7, old defense code, e231 history, `collab/**`, and old cycle_04
   contracts cannot be recovered as implementation or scientific authority.
 - S08 qualifies precision; S09 qualifies performance/readiness; S10-S12 remain
@@ -263,7 +285,10 @@ does not broaden scientific, Git, compute, upload, or publication authority.
 
 | Decision | Latest freeze point |
 |---|---|
+| Hybrid model identity; sparse normalization; Swin output/LSS precision boundaries | owner review of the S08 pre-implementation audit, before exact implementation launch |
+| S08 numerical-isolation initialization, batch/point bound, and diagnostic recipe | before S08 implementation and any RUN_REQUEST |
 | Current six-task FP32/FP16/mixed precision policy | after reviewed S08 evidence, before S09 or any capability run |
+| Production optimizer groups/LR/scheduler/clip/EMA/augmentation/sampling recipe | before S09 can be called final production readiness; otherwise S09 remains a labelled base-uniform pipeline gate |
 | Single-GPU batch/accumulation/workers and whether DDP is needed | after reviewed S09 measurements, before full CL runs |
 | S10 branch/recipe cells (`C-STR8`, `L-P020`, `L-S075`, `F-U`, `F-CBGS`, initialization) | after S08/S09, before an ablation request |
 | mAP/NDS, fusion-gain, per-class, speed, memory, and selection gates | before the exact run whose outcome they judge |
@@ -292,6 +317,8 @@ O-ledger authority; closed ranges below are provenance.
 | O-025 | spconv 2.3.8 FP16 no-grad evaluation retains the reviewed version-guarded spconv-only training-dispatch workaround. | locked runtime |
 | O-094 | Use persistent S00 for tightly connected implementation milestones; use bounded planning/research subagents and independent reviewer subagents, with a separate review worktree only when risk or owner direction requires it. | active collaboration model |
 | O-095 | Redefine S08 as precision qualification and S09 as performance/readiness; mark S10-S12 pending/deferred until their upstream evidence is reviewed. No compute is authorized by this rebaseline. | active schedule |
+| O-096 | Before S08 implementation, persistent S00 performs a deep current-model/numerics/recipe audit at the platform maximum reasoning setting, may use bounded read-only research subagents, and may reconcile straightforward canonical-document conflicts. The audit authorizes neither production changes nor compute; exact owner decisions still gate S08. | active pre-implementation gate |
+| O-097 | Accept S08 envelope v1 direction; authorize creating/switching to `codex/s08-s09-cl-readiness` and committing the current pre-S08 audit baseline. S00 must present the detailed multi-agent implementation plan for one more owner review before execution. No compute, S09 work, normalization amendment, merge, push, or upload is authorized. | active S08 launch gate |
 
 ## 10. Closed and consumed history
 
@@ -318,7 +345,8 @@ O-ledger authority; closed ranges below are provenance.
 | last old-chain production-source change | `bf480ea77ccf9ae8417c3ea58e933701dbc7222a` |
 | frozen old S07-B endpoint | `e231808e77388d69053dcbced6e754dbe3468aef` |
 | accepted S07-C anchor | `70bcd856f7ebb411eb2887e7ab71ef41ed13271f` |
-| accepted clean engineering anchor | `a2fc15e64898910b51b56b4b25c8579f459423bc` |
+| pre-rebaseline clean code/evidence anchor | `a2fc15e64898910b51b56b4b25c8579f459423bc` |
+| accepted post-S07 rebaseline / current S00 anchor | `2a584053e6f6a3860b6f812681dc8d7342ca52ad` |
 
 Old R1-R16 commits remain unmerged review evidence. Their exact identities remain
 in Git and the frozen S07 handoff/review packages; they have no outgoing
