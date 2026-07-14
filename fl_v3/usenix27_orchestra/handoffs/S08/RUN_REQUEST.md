@@ -268,7 +268,7 @@ no extra cells, seeds, data, harnesses, scientific retries, merge, or push.
 
 ```text
 REQUEST_ID: S08-Q1
-REQUEST_STATE: FROZEN / OWNER-APPROVED BY O-109 / NOT YET SUBMITTED
+REQUEST_STATE: CONSUMED / TERMINAL BOUNDED RESULT / Job 431013 COMPLETED 0:0
 EXECUTION_SOURCE_SHA: e6e28bea43f7757347da2e460cdf24e9a32b791f
 REVIEWED_IMPLEMENTATION_SHA: 103c7389a47938b1f9dd0cba60251df6dce9e5bb
 SOURCE_RELATION: e6e28be differs from reviewed implementation only in canonical/review documentation
@@ -281,7 +281,7 @@ RAW_INPUT_MANIFEST_FILE_SHA256: 62a63cf6c3dd4295f8c246fdef6ba170e7685cab6930294b
 JOB_SCRIPT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s08_q1_dbeee35dcd6d/job.sh
 JOB_SCRIPT_SHA256: 42cb555d518a6d7bb517c325c22c1f0ab8362c03da36b9cfd1f0b981d8b349e1
 OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s08_q1_dbeee35dcd6d
-OUTPUT_STATE_AT_FREEZE: absent
+OUTPUT_STATE_AT_FREEZE: absent; terminal artifacts preserved
 DATA_BACKEND: nuScenes v1.0-mini directory backend; no ZIP/full-data scan
 SAMPLE_TOKEN: 00889f8a9549450aa2f32cf310a3e305
 LIDAR_BOUND: keyframe plus 9 prior sweeps, fixed 4096-point prefix
@@ -291,7 +291,7 @@ MAX_ATTEMPTED_WINDOWS: 99 across all cells
 MAX_ACCEPTED_UPDATES: 24 across all cells; exactly 3 required per qualifying cell
 Q1_RESOURCE_BUDGET: one GH200, 8 CPUs, 96 GiB, 01:00:00, no requeue
 CUMULATIVE_NEW_Q1_Q2_BUDGET: <=2 one-GPU elapsed hours under O-109
-RETRY: no scientific retry; only O-109/O-107 mechanical handling within the same cumulative cap
+RETRY: none; F2 bounded negative result is preserved
 ```
 
 The read-only snapshot contains only the 585 Git-tracked files from exact source

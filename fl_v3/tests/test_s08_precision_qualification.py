@@ -84,6 +84,16 @@ CELLS = (
     ("F2", "F-U", "fusion", "swin_t_stride8", "second_075", "conv_fuser_256", "fp16", "fp16"),
     ("F3", "F-U", "fusion", "swin_t_stride8", "second_075", "conv_fuser_256", "fp16", "fp32"),
 )
+Q2_CELLS = (
+    (
+        "P1", "L-P020", "lidar_only", "none", "pillar_020", "none",
+        "fp16", "not_applicable", "uniform",
+    ),
+    (
+        "B1", "F-CBGS", "fusion", "swin_t_stride8", "second_075",
+        "conv_fuser_256", "fp16", "fp32", "cbgs",
+    ),
+)
 
 
 class _OneBatch:
@@ -387,7 +397,14 @@ def _dependency_fields(second: bool) -> dict:
     return fields
 
 
-def _resolved_cell_config(cell, dataroot: str, fixture_sha256: str):
+def _resolved_cell_config(
+    cell,
+    dataroot: str,
+    fixture_sha256: str,
+    *,
+    sampling: str = "uniform",
+    max_optimizer_steps: int = 3,
+):
     cell_id, _tag, mode, camera, lidar, fusion, precision, partition = cell
     bypass = f"/S08_FIXTURE_BYPASS/{fixture_sha256}/{cell_id}"
     return resolve_config({
@@ -404,7 +421,7 @@ def _resolved_cell_config(cell, dataroot: str, fixture_sha256: str):
         "sparse_conv_precision": partition,
         "optimizer": {"name": "adamw", "learning_rate": 0.0001, "weight_decay": 0.01},
         "training": {
-            "max_optimizer_steps": 3,
+            "max_optimizer_steps": max_optimizer_steps,
             "micro_batch_size": 1,
             "world_size": 1,
             "accumulation_steps": 1,
@@ -413,7 +430,7 @@ def _resolved_cell_config(cell, dataroot: str, fixture_sha256: str):
             "max_epochs": 1,
             "num_workers": 0,
             "ema_decay": None,
-            "sampling": "uniform",
+            "sampling": sampling,
         },
         "data": {
             "dataroot": dataroot,
@@ -980,3 +997,215 @@ def test_s08_q1_primary_precision_qualification(nusc_mini, dataroot):
     }
     _write_json(raw_dir / "q1_summary.json", output)
     print("S08_Q1_SUMMARY=" + json.dumps(output, sort_keys=True), flush=True)
+
+
+@pytest.mark.slow
+def test_s08_q2_precision_compatibility(nusc_mini, dataroot):
+    """One accepted production-loop window for each non-primary template."""
+    assert torch.cuda.is_available(), "Q2 requires one GH200"
+    assert torch.cuda.device_count() == 1, "Q2 must expose exactly one GPU"
+    assert torch.cuda.get_device_name(0) == "NVIDIA GH200 120GB"
+    source_sha = _required_env("S08_SOURCE_SHA", 40)
+    raw_dir = Path(os.environ.get("S08_Q2_RAW_DIR", ""))
+    if not raw_dir.is_dir() or any(raw_dir.iterdir()):
+        raise RuntimeError("S08_Q2_RAW_DIR must exist and be empty before Q2")
+
+    expected_fixture_identity = _expected_fixture_identity_from_env()
+    device = torch.device("cuda:0")
+    batch, fixture, fixture_identity = _prepare_fixture(
+        nusc_mini, dataroot, expected_fixture_identity
+    )
+    fixture_sha256 = fixture_identity["fixture_manifest_sha256"]
+    resolved = {
+        cell[0]: _resolved_cell_config(
+            cell[:8],
+            dataroot,
+            fixture_sha256,
+            sampling=cell[8],
+            max_optimizer_steps=1,
+        )
+        for cell in Q2_CELLS
+    }
+    runtime_dependencies = verify_runtime_dependency_identity(resolved["B1"].to_run_config())
+    _write_json(raw_dir / "fixture_manifest.json", fixture)
+    _write_json(raw_dir / "fixture_identity.json", fixture_identity)
+    _write_json(
+        raw_dir / "resolved_configs.json",
+        {cell_id: config.as_dict() for cell_id, config in resolved.items()},
+    )
+    records_path = raw_dir / "window_records.jsonl"
+    records_path.write_text("", encoding="utf-8")
+    task = get_task("nuscenes_detection")
+    summaries = []
+
+    for cell in Q2_CELLS:
+        cell_id, tag, mode, _camera, _lidar, _fusion, precision, partition, sampling = cell
+        config = resolved[cell_id]
+        run_config = config.to_run_config()
+        if bool(run_config["det-cbgs"]) != (sampling == "cbgs"):
+            raise RuntimeError(f"{cell_id} sampling identity drift")
+        enforce_determinism(strict=True, precision="fp32")
+        seed_everything(SEED)
+        master = task.build_model(run_config)
+        canonical_state = {
+            name: value.detach().to("cpu").clone()
+            for name, value in master.state_dict().items()
+        }
+        canonical_state_sha256 = _state_dict_sha256(canonical_state)
+        forward_rng = _rng_snapshot()
+        forward_rng_sha256 = runtime_rng_state_sha256()
+        del master
+        gc.collect()
+
+        model = criterion = optimizer = scheduler = scaler = None
+        try:
+            enforce_determinism(strict=True, precision=precision)
+            model = task.build_model(run_config)
+            model.load_state_dict(canonical_state, strict=True)
+            loaded_state_sha256 = _state_dict_sha256(model.state_dict())
+            if loaded_state_sha256 != canonical_state_sha256:
+                raise RuntimeError(f"{cell_id} canonical state load drift")
+            model.to(device)
+            criterion = task.build_criterion(run_config)
+            parameters = [p for p in model.parameters() if p.requires_grad]
+            optimizer = torch.optim.AdamW(parameters, lr=0.0001, weight_decay=0.01)
+            scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda _step: 1.0)
+            scaler = make_grad_scaler(device, precision, init_scale=512.0)
+            state = TrainingState()
+            diagnostics = PrecisionWindowDiagnostics(
+                PrecisionDiagnosticsIdentity(
+                    source_sha=source_sha,
+                    resolved_config_sha256=config.sha256,
+                    model_mode=mode,
+                    global_precision=precision,
+                    sparse_conv_precision=partition,
+                ),
+                max_windows=18,
+                fixture_identity={
+                    **fixture_identity,
+                    "canonical_state_sha256": canonical_state_sha256,
+                    "replayed_forward_rng_sha256": forward_rng_sha256,
+                },
+            )
+            for _attempt in range(1, 19):
+                _restore_rng(forward_rng)
+                if runtime_rng_state_sha256() != forward_rng_sha256:
+                    raise RuntimeError(f"{cell_id} forward RNG restore drift")
+                before = len(diagnostics.records)
+                train_one_epoch(
+                    model,
+                    _OneBatch(batch),
+                    criterion,
+                    optimizer,
+                    device,
+                    scheduler=scheduler,
+                    ema_model=None,
+                    max_steps=1,
+                    precision=precision,
+                    grad_scaler=scaler,
+                    accumulation_steps=1,
+                    runtime_state=state,
+                    max_optimizer_steps=1,
+                    model_mode=mode,
+                    exposure_multiplier=1,
+                    expected_global_microbatch_samples=1,
+                    precision_diagnostics=diagnostics,
+                )
+                if len(diagnostics.records) != before + 1:
+                    raise RuntimeError(f"{cell_id} missing attempted-window record")
+                if state.optimizer_step == 1:
+                    break
+
+            records = list(diagnostics.records)
+            accepted = [record for record in records if record["accepted"]]
+            passed = bool(
+                len(accepted) == 1
+                and records[-1]["accepted"]
+                and state.optimizer_step == state.successful_windows == 1
+                and state.exposure_samples == 1
+                and int(scheduler.last_epoch) == 1
+                and all(bool(record["counter_deltas_consistent"]) for record in records)
+                and all(bool(record["scheduler_delta_consistent"]) for record in records)
+                and all(
+                    record["ema_enabled"] is False
+                    and bool(record["ema_state_consistent"])
+                    for record in records
+                )
+                and bool(accepted[0]["loss_finite"])
+                and bool(accepted[0]["parameter_gradients"]["global"]["all_finite"])
+                and all(
+                    bool(boundary["explicit_unscaled_fp64"]["all_finite"])
+                    for boundary in accepted[0]["boundary_gradients"].values()
+                )
+                and bool(accepted[0]["sparse_runtime_consistent"])
+            )
+            summary = {
+                "cell_id": cell_id,
+                "mode_tag": tag,
+                "model_mode": mode,
+                "sampling": sampling,
+                "global_precision": precision,
+                "sparse_conv_precision": partition,
+                "resolved_config_sha256": config.sha256,
+                "canonical_state_sha256": canonical_state_sha256,
+                "loaded_state_sha256": loaded_state_sha256,
+                "attempted_windows": state.attempted_windows,
+                "accepted_windows": state.successful_windows,
+                "optimizer_steps": state.optimizer_step,
+                "scheduler_last_epoch": int(scheduler.last_epoch),
+                "exposure_samples": state.exposure_samples,
+                "outcomes": [record["outcome"] for record in records],
+                "scale_trace": [
+                    [record["scaler"]["scale_before"], record["scaler"]["scale_after"]]
+                    for record in records
+                ],
+                "qualification_pass": passed,
+            }
+            summaries.append(summary)
+            with records_path.open("a", encoding="utf-8") as stream:
+                for record in records:
+                    stream.write(json.dumps(
+                        {"cell_id": cell_id, **record},
+                        sort_keys=True,
+                        allow_nan=False,
+                    ) + "\n")
+            _write_json(raw_dir / "q2_partial_summary.json", {
+                "schema": "s08.q2-compatibility-partial-summary.v1",
+                "source_sha": source_sha,
+                "fixture_identity": fixture_identity,
+                "requested_cell_order": [item[0] for item in Q2_CELLS],
+                "completed_cell_order": [item["cell_id"] for item in summaries],
+                "cells": summaries,
+            })
+            print("S08_Q2_CELL=" + json.dumps(summary, sort_keys=True), flush=True)
+        finally:
+            del scaler, scheduler, optimizer, criterion, model, canonical_state
+            gc.collect()
+            torch.cuda.empty_cache()
+
+    requested = [cell[0] for cell in Q2_CELLS]
+    completed = [summary["cell_id"] for summary in summaries]
+    if completed != requested:
+        raise RuntimeError(f"Q2 cell order/completeness drift: {completed} != {requested}")
+    output = {
+        "schema": "s08.q2-compatibility-summary.v1",
+        "source_sha": source_sha,
+        "fixture_identity": fixture_identity,
+        "runtime_dependencies": runtime_dependencies,
+        "requested_cell_order": requested,
+        "runner_complete": True,
+        "maximum_attempted_windows": 36,
+        "maximum_accepted_updates": 2,
+        "cells": summaries,
+        "all_compatibility_cells_pass": all(
+            summary["qualification_pass"] for summary in summaries
+        ),
+        "allowed_interpretation": (
+            "one bounded accepted production-loop window for each compatibility template"
+        ),
+        "forbidden_interpretation": (
+            "sampling-distribution quality, convergence, capability, performance, or metrics"
+        ),
+    }
+    _write_json(raw_dir / "q2_summary.json", output)
+    print("S08_Q2_SUMMARY=" + json.dumps(output, sort_keys=True), flush=True)

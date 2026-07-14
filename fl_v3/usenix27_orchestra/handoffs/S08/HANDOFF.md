@@ -4,12 +4,12 @@
 
 ```text
 SESSION_ID: S08
-MILESTONE_STATE: REMEDIATION R2 PASS_WITH_RESIDUAL_RISK / Q1-Q2 COMPLETION AUTHORIZED
+MILESTONE_STATE: Q1 COMPLETE / SPARSE-FP32-ISLAND CANDIDATE / Q2 ACTIVE
 BASE_AUDIT_COMMIT: 733c84f8e3019fe4d683663821bd86918d3875a7
 BRANCH: codex/s08-s09-cl-readiness
 IMPLEMENTATION_COMMIT: 791aba97f7bbe92e7708b63f94f2e7d8599f91be
-COMPUTE_EXECUTED: Jobs 426619/427800/428889 terminal negative evidence; Jobs 428112/429080 focused smoke PASS
-INDEPENDENT_REVIEW: REMEDIATE; REVIEW.md SHA-256 4385f1696d984d50cbdc5037b0384f70453237d78597d24374c4fa6ad4e32569
+COMPUTE_EXECUTED: Jobs 426619/427800/428889 terminal negative evidence; Jobs 428112/429080 focused smoke PASS; Q1 Job 431013 bounded precision result
+INDEPENDENT_REVIEW: remediation R2 PASS_WITH_RESIDUAL_RISK; REVIEW.md SHA-256 c9919f643b3507f5edfad5a668b6a208b2a7f445b8c5b38217582c352afaa3ad
 ```
 
 The owner approved S08 envelope v1, local implementation/validation, one immutable
@@ -39,6 +39,15 @@ That commit is `103c7389a47938b1f9dd0cba60251df6dce9e5bb`; R2 closed all
 P0-P2 findings and left only conservative duplicated-status wording. O-109 now
 authorizes exact Q1/Q2 completion jobs and commits under a cumulative two-GPU-hour
 ceiling, with no work-chain/harness expansion, merge, or push.
+
+Q1 Job `431013` then completed `0:0` in `00:04:02`. C1/C2/L1/L2/L3/F1/F3
+qualified; F2 exhausted 18 attempts without an accepted update. L2 full sparse
+FP16 recovered only at scale `0.03125`, while L3/F3 sparse-FP32 islands accepted
+at scales `32`/`16`. The final F2 attempt retained ten nonfinite elements beginning
+at SECOND stem weight despite finite loss, head input, SECOND output, and boundary
+activation gradients. The active compatibility candidate is global FP16 with
+SECOND/spconv kept FP32. Exact Q1 artifacts and interpretation limits are in
+`RESULTS.md`; Q2 is limited to L-P020 and F-CBGS.
 
 ## Independent review and active O-104 remediation
 

@@ -1,5 +1,92 @@
 # S08 precision qualification — execution results
 
+## S08-Q1 primary precision qualification — terminal bounded result
+
+```text
+REQUEST_ID/JOB_ID: S08-Q1 / 431013
+OWNER_AUTHORITY: O-109
+STATE/EXIT/RESTARTS: COMPLETED / 0:0 / 0
+SUBMIT/START/END: 2026-07-14T18:52:47 / 18:52:48 / 18:56:50 +02:00
+ELAPSED/NODE: 00:04:02 / n451
+ALLOCATED: 1 x NVIDIA GH200 120GB, 8 CPU, 96 GiB
+SOURCE_SHA: e6e28bea43f7757347da2e460cdf24e9a32b791f
+SNAPSHOT_TREE_SHA256: dbeee35dcd6d7bcb919f549f03c42763d5d82b2b20740815743b7aa2b3f9bc9c
+JOB_SCRIPT_SHA256: 42cb555d518a6d7bb517c325c22c1f0ab8362c03da36b9cfd1f0b981d8b349e1
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s08_q1_dbeee35dcd6d
+NEW-Q1/Q2 GPU BUDGET USED/REMAINING: 00:04:02 / 01:55:58
+```
+
+The exact one-test runner completed all eight ordered cells and emitted 66 strict
+JSON window records. JUnit is 1 test/0 failure/0 error/0 skip; the job-produced
+checksum manifest verifies all ten declared runtime/Q1 artifacts. Pytest success
+means runner completeness, not that every numerical regime passed: F2 correctly
+remains a bounded negative cell.
+
+| Cell | Regime | Attempts | Accepted | First accepted scale | Qualification |
+|---|---|---:|---:|---:|---|
+| C1 | C-STR8 FP32 | 3 | 3 | 1 | PASS |
+| C2 | C-STR8 full FP16 | 7 | 3 | 32 | PASS |
+| L1 | L-S075 FP32 | 3 | 3 | 1 | PASS |
+| L2 | L-S075 full sparse FP16 | 17 | 3 | 0.03125 | PASS, but only after 14 overflows |
+| L3 | L-S075 FP16 + sparse FP32 island | 7 | 3 | 32 | PASS |
+| F1 | F-U FP32 | 3 | 3 | 1 | PASS |
+| F2 | F-U full sparse FP16 | 18 | 0 | none through scale 0.00390625 | bounded FAIL |
+| F3 | F-U FP16 + sparse FP32 island | 8 | 3 | 16 | PASS |
+
+All accepted windows have finite loss/parameter/boundary gradients and exact
+optimizer/scheduler/EMA/exposure accounting. No cell skipped after its first
+accepted window. Per-mode canonical state hashes and replayed RNG identities are
+equal across precision regimes.
+
+### What Q1 establishes about the sparse overflow
+
+- The six-task losses and `head.input`/`second.output` gradients remain finite in
+  the failing low-scale F2 attempts. The failure therefore does not begin as a
+  nonfinite loss or at the head input.
+- In L2, scale 1 still leaves 158 nonfinite parameter-gradient elements beginning
+  at `lidar_encoder.backbone.stem.0.weight`. At scale 0.03125 it becomes finite;
+  the unscaled stem maximum is about 1.29M, whose scaled value is about 40.4K.
+- In F2, the same first bad sparse stem weight remains nonfinite after 18 bounded
+  attempts. At the final attempted scale 0.00390625 only ten nonfinite parameter
+  elements remain, while the unscaled finite maximum reaches about 16.63M; its
+  scaled magnitude is about 64.96K, immediately below the FP16 finite ceiling.
+  Scale 0.001953125 was produced by the final backoff but was not attempted under
+  the frozen 18-window bound.
+- F3 keeps all SECOND activation and parameter gradients finite and accepts at
+  scale 16. Together with L3 at scale 32, this localizes the practical failure to
+  FP16 sparse-convolution backward/weight-gradient dynamic range, especially the
+  SECOND stem, rather than proving a head/loss semantic defect.
+- The FP32 reference itself confirms unusually large but finite sparse gradients:
+  the first L1 stem parameter-gradient maximum is about 1.92M and F1 about 218K.
+  Q1 does not prove the architectural/normalization cause of that magnitude or
+  certify the training recipe beyond three accepted windows.
+
+The S08 precision candidate for Q2 is therefore global FP16 with SECOND/spconv in
+FP32; camera-only remains global FP16, and uniform FP32 remains the reference/
+fallback. Full sparse FP16 is not accepted as the unified F-capable policy.
+
+### Q1 preserved artifact identities
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `environment.json` | 228 | `dcb00e9f854c6ed57e47939a3c52fd3951e8b6d18965ade02435d91023702d4d` |
+| `q1.log` | 2,310 | `0d249dc246fc45c0846144c2d5c662b9b05923dcaba68274db16f67a2019a3b1` |
+| `q1.junit.xml` | 377 | `95d5694a0636606f0801f0c480ba77f7e2dfe0fe8c335908fec84e5da650cb29` |
+| `q1.exit` | 2 | `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa` |
+| `raw/fixture_manifest.json` | 5,980 | `61bbcb481109937c02d5010074b5a5de7d1b2ff445fd8ccc1df6a92956beb43c` |
+| `raw/fixture_identity.json` | 549 | `6f44f71692a79a443b4fdce4abe528184e8eab7c61f018960815024ffab709b2` |
+| `raw/resolved_configs.json` | 29,100 | `7a8e142d40a750954958fba5bdada651aa5389f5d5dffe1c8e5612aa83795cbe` |
+| `raw/window_records.jsonl` | 911,863 | `6e8b6f676bebfe67c6808f8d478be018188284473d6cfbcbe62752b756827bef` |
+| `raw/q1_partial_summary.json` | 12,716 | `6e225c2b439b621dc9e75bbf555bebcad2c38fe7747218a691c02974644f76b3` |
+| `raw/q1_summary.json` | 875,444 | `3c30b017d689eb4fc32bf01f2c391d4647485adb30a96091a59b35c2b62e00de` |
+| `artifact_sha256s.txt` | 856 | `5f606fc73b67fdbb188f20eb970c5040636960440b6f0cc093c2b98fe58202e2` |
+| `slurm-431013.out` | 9,943 | `e603734f82de8969fc766b9ab34f04e52506ca7dbd3d61b2a3aff0986ca6131a` |
+| `slurm-431013.err` | 123 | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+This is bounded mini precision qualification only. It is not convergence,
+capability, performance, mAP/NDS, production-data readiness, or final owner
+precision-policy acceptance.
+
 ## S08-SMOKE-5 terminal result
 
 ```text
