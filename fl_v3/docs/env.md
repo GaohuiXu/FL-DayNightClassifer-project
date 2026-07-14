@@ -89,12 +89,21 @@ CUMM_CUDA_ARCH_LIST=9.0
 
 Precision status:
 
-- Supported for Arrhenius sparse path: `fp32` dev/debug/reference and `fp16`
-  AMP + GradScaler (`init_scale=512`) for sparse training.
+- Runtime mechanisms available on Arrhenius: `fp32` and CUDA `fp16` autocast with
+  GradScaler. Availability is not a model-level stability or scientific-policy
+  claim.
 - Direct `torch.bfloat16` sparse convolution is not supported by this
   cumm/spconv path; `bf16` configs should fail loudly instead of falling back.
 - Trainer, smoke, and provenance paths use the explicit `precision` policy
   rather than inferring AMP dtype from cuDNN deterministic flags.
+- Current six-task S07 evidence is deliberately narrower: one FP32 optimizer
+  update passed for each C/L/F mode; FP16 scale 512 overflowed all three, and
+  scale 1 recovered camera but left direct nonfinite SECOND LiDAR/fusion
+  gradients. This is not an environment failure. S08 must qualify full FP16 AMP
+  against an AMP path that keeps SECOND/spconv in FP32 and an FP32 reference,
+  including real dynamic-scaler continuation.
+- The checked-in S07 C/L/F JSON files are template-only. Their `precision` fields
+  do not freeze the later training regime.
 
 ## Smoke Tests
 

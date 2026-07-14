@@ -29,16 +29,18 @@ fl_v3/usenix27_orchestra/SESSIONS.md
 fl_v3/usenix27_orchestra/KICKOFFS.md
 ```
 
-This is session/work orchestration, not a research-cycle document. Names beginning
+This is milestone/work orchestration, not a research-cycle document. Names beginning
 with `cycle_*` remain reserved for the project's experimental-design cycles under
 `fl_v3/docs/cycle_04/` and `fl_v3/docs/roadmap/`. Do not create another
 `cycle*_orchestra` folder.
 
-The current priority is to repair, validate, and freeze a strong centralized (CL)
-camera-LiDAR detector before final FL attack/defense claims. Historical conclusions
-under `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
-documents supersede them where the architecture audit or current data/runtime state
-changed.
+S07 clean engineering is closed. The current priority is to qualify precision for
+the current six-task centralized (CL) camera-LiDAR detector (S08), then establish
+full-pipeline performance/readiness (S09) before branch/recipe ablation and full CL
+capability work are frozen. Historical conclusions under
+`fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
+documents supersede them where the architecture audit or current data/runtime
+state changed.
 
 For this stage, `fl_v3/collab/` is read-only legacy evidence. Agents may inspect and
 cite it, but must not add or update plans, handoffs, reviews, results, or status
@@ -125,11 +127,15 @@ Current Arrhenius facts:
   do not apply old "no spconv" rules without re-checking the current design.
 - Direct sparse `torch.bfloat16` is not supported by the validated cumm/spconv
   path.
-- Supported sparse-path precisions are `fp32` and `fp16` AMP with GradScaler.
+- The runtime can execute `fp32` and `fp16` AMP with GradScaler, but that is not a
+  model-level acceptance statement. Current six-task S07 evidence proves only one
+  FP32 update for C/L/F; FP16 scale 1 recovered camera but not SECOND LiDAR/fusion.
+  The scientific precision policy remains open until S08.
 
-Near-term precision work should make this policy explicit in configs, trainers,
-manifests, and Slurm launchers. Do not mix precision regimes in one comparison
-without labeling it as an ablation.
+S08 must make sparse precision partitioning explicit in configs, trainers, and
+manifests, and compare the current full-AMP path with an AMP path that keeps
+SECOND/spconv in FP32 against an FP32 reference. Do not mix precision regimes in
+one comparison without labeling it as an engineering qualification or ablation.
 
 Strict byte-identical determinism is a useful development regression tool, not
 the default scientific claim criterion. For scientific claims, record hardware,
@@ -301,17 +307,19 @@ After editing:
 - for Python touched by the change, at least `py_compile` or focused tests;
 - if Slurm/GPU/data prevents verification, say exactly what was not verified.
 
-## Orchestra Session Delivery And Review
+## Orchestra Milestone Delivery And Review
 
-The current plan defines worker sessions `S01` through `S15`; `S00` is the
-Orchestra/owner coordination role. A fresh dedicated Orchestra session is preferred
-when the current conversation is long. It must read the three active canonical files,
-inspect handoffs/reviews and actual diffs/artifacts, update the status ledger, and
-avoid opportunistically implementing worker tasks itself.
+Owner decision O-094 makes persistent S00 the default implementation and
+coordination context. S00 may directly plan, implement, validate, document, and
+integrate one or more tightly connected milestones in one long-lived worktree.
+`Sxx` names a durable evidence milestone and handoff namespace; it does not by
+itself require a fresh task, worker, branch, or worktree.
 
-Only the Orchestra session edits `ORCHESTRA.md`, `SESSIONS.md`, and `KICKOFFS.md`.
-Each worker uses an isolated worktree/ref, stays inside declared file ownership,
-and writes a durable package under:
+Only S00 edits `ORCHESTRA.md`, `SESSIONS.md`, and `KICKOFFS.md`. For a newly scoped
+milestone, S00 first presents the exact plan, file ownership, scientific non-goals,
+verification/review plan, and any proposed compute tuple to the owner. Scope
+approval does not imply compute, commit, merge, push, upload, or publication
+authority. The durable package lives under:
 
 ```text
 fl_v3/usenix27_orchestra/handoffs/Sxx/
@@ -319,70 +327,67 @@ fl_v3/usenix27_orchestra/handoffs/Sxx/
 
 Required files are:
 
-- `HANDOFF.md` for every session: exact base/branch/commit, files and semantic
+- `HANDOFF.md` for every active milestone: exact base/branch/commit, files and semantic
   changes, references, tests/jobs/raw outputs, gate evidence, hashes, negative
   results, allowed/forbidden scientific interpretations, and unresolved risks;
 - `RUN_REQUEST.md` before any material compute, with exact immutable execution
   scope and explicit approval state;
-- `RESULTS.md` for execution sessions, including every requested/failed/missing
+- `RESULTS.md` for execution milestones, including every requested/failed/missing
   cell, job ID, raw artifact path/checksum, metrics, performance, and interpretation
   limits;
-- `REVIEW.md` from a separate review session for implementation/scientific work,
-  with severity-ordered findings, adversarial checks, gate verdict, and residual
-  risk.
+- `REVIEW.md` from an independent reviewer subagent or, when risk requires, a
+  separate review worktree, with severity-ordered findings, adversarial checks,
+  gate verdict, and residual risk.
 
-A worker's self-reported PASS is not an integration or scientific PASS. The
-Orchestra requires independent review and checks the actual diff, resolved config,
-data/split manifest, logs, and raw artifacts. Review explicitly covers leakage,
-coordinate/calibration/units, batch invariance, branch/config resolution, optimizer
-steps and exposure, precision/resume, metric/ASR denominators, failed or omitted
-cells, and shortcuts that could inflate clean performance, fusion gain, ASR, or
-defense success. Owner monitoring during execution does not replace this review.
+S00's self-review is not an integration or scientific PASS. After an immutable
+implementation/evidence SHA exists, an independent reviewer reads that exact diff,
+resolved config, data/split manifest, logs, and raw artifacts and does not fix
+code. Use a separate review worktree for high-risk data ownership, metric or
+scientific-result changes, conflicting concurrent state, exact runtime
+reproduction, or owner request. Review explicitly covers leakage, coordinate/
+calibration/units, batch invariance, branch/config resolution, optimizer steps and
+exposure, precision/resume, metric/ASR denominators, failed or omitted cells, and
+shortcuts that could inflate clean performance, fusion gain, ASR, or defense
+success. Owner monitoring during execution does not replace review.
 
-After a worker handoff is complete, S00 may inspect it immediately, prepare the
-exact independent `Sxx-R` review envelope for the owner to open in the task UI, and
-use reviewed evidence to refine the plan and kickoff for any session that has not
-started. S00 may change scheduling, dependencies, required reading, evidence
-requests, review focus, and wording that does not alter the approved scientific
-protocol. It must record the evidence, affected sessions, and exact change in the
-Orchestra change-control ledger.
+After a milestone handoff is complete, S00 prepares the exact independent review
+envelope. A reviewer subagent is the default; a UI-created `Sxx-R` worktree is an
+isolation mechanism rather than a mandatory lifecycle step. Findings are remediated
+linearly by S00 and re-reviewed. S00 may change scheduling, dependencies, required
+reading, evidence requests, review focus, and wording that does not alter the
+approved scientific protocol. It records the evidence, affected milestones, and
+exact change in the Orchestra ledger.
 
 S00 must obtain explicit owner approval before changing a locked or material
 scientific item: Protocol A/B roles, data ownership or split, model/head/metric,
 threat model, experiment cells or seeds, acceptance gates, resource scope, compute
 authorization, or publication/upload scope. It may not silently rescope an active
-session, retroactively weaken a gate, hide a failed/negative result, or reinterpret
-old evidence under a new protocol. An active-session amendment must be recorded and
-acknowledged by that worker.
+milestone, retroactively weaken a gate, hide a failed/negative result, or
+reinterpret old evidence under a new protocol. A material active-milestone
+amendment must be recorded, acknowledged by the owner, and re-reviewed when it
+changes delivered semantics.
 
 ## Worktree Provisioning
 
-The default workflow is that the owner selects `Worktree` and the pinned starting
-branch in the Codex task-creation UI before sending the kickoff. Codex-managed
-worktrees normally start detached at that branch's HEAD; detached HEAD is expected,
-not a blocker, when its SHA matches the kickoff. A worker or reviewer must not run
-`git worktree add`, `move`, `remove`, or `prune`, switch to another branch, or delete
-a branch/worktree unless the owner explicitly authorizes that exact Git operation.
+The default is one persistent S00 worktree and linear branch for the active,
+tightly connected track. A new worktree is justified only by genuine parallel
+ownership, risky experimental isolation, a high-risk independent review, exact
+runtime reproduction, conflicting state, or explicit owner direction. This avoids
+repeated onboarding and uncontrolled worktree growth.
 
-Every kickoff must pin `BASE_SHA`, `SOURCE_BRANCH`, `EXPECTED_REF_MODE` (normally
-`detached@BASE_SHA`), file ownership, and upstream handoffs. The fresh session
-verifies `git status --short`, `git rev-parse HEAD`, `git branch --show-current`, and
-`git rev-parse --show-toplevel` before editing; a mismatch is a blocker, not a
-reason to repair Git topology autonomously. Parallel workers start from the same
-approved integration SHA. A reviewer uses a distinct UI-created review worktree
-based on the exact worker SHA/diff; S07 uses a dedicated integration worktree.
+When another task/worktree is used, its envelope pins `BASE_SHA`, `SOURCE_BRANCH`,
+`EXPECTED_REF_MODE`, file ownership, and upstream evidence. The new task verifies
+`git status --short`, `git rev-parse HEAD`, `git branch --show-current`, and
+`git rev-parse --show-toplevel` before acting; a mismatch is a blocker, not a
+reason to repair Git topology autonomously. No agent runs `git worktree add`,
+`move`, `remove`, or `prune`, switches branches, or deletes a branch/worktree
+without exact owner authorization.
 
-An independent review worktree can reproduce only a durable Git version. After a
-worker finishes and S00 checks handoff completeness, the owner must explicitly
-authorize any local handoff commit/branch needed to expose that exact version to
-`Sxx-R`. This permission does not authorize merge, push, or publication. The
-reviewer records `WORKER_SHA`; uncommitted cross-worktree state is not a review
-baseline.
-
-Canonical Orchestra documents must already be committed on the pinned source
-branch before worker/reviewer worktrees are created. Codex can copy selected local
-changes into a managed worktree, but that has no immutable base SHA and is therefore
-not used for the reproducible multi-session wave.
+Independent review always pins a durable implementation/evidence SHA, even when
+performed by a reviewer subagent in the persistent context. Mutable uncommitted
+state is not a review baseline. A review-only artifact may be sealed linearly; no
+reviewer merge history is required. Commit, merge, push, and publication remain
+separate permissions.
 
 ## Git And Branches
 

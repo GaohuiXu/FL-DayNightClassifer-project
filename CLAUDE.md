@@ -1,83 +1,76 @@
 # CLAUDE.md — project root
 
-> Active AI instructions for this repository. Codex's parallel file is [`AGENTS.md`](AGENTS.md).
-> `fl_v2/` keeps its own (frozen, GTSRB-era) `fl_v2/CLAUDE.md` — ignore it unless you are deliberately
-> working inside `fl_v2/`.
+> Active instructions for Claude-family agents. Codex's binding parallel file is
+> [`AGENTS.md`](AGENTS.md). When this file is less specific, follow `AGENTS.md`,
+> [`fl_v3/docs/env.md`](fl_v3/docs/env.md), and the active Orchestra documents.
 
-## What this project is
+## Active project
 
-A master-thesis project on **securing federated learning for autonomous-driving perception**, paper
-target **USENIX-Security**. The active work is **Cycle 04**: build a bit-deterministic **federated
-multimodal (camera+LiDAR) AD perception platform on nuScenes** (`fl_v3/`) and run a **backdoor attack
-suite × general defense suite** benchmark. **Platform-first; NOT bonded to FLAME** (FLAME is one
-defense among several).
+`fl_v3/` is the active federated multimodal autonomous-driving perception project
+on nuScenes. `fl_v2/` is frozen historical/oracle code and must not be modified
+unless the owner explicitly asks.
 
-- **Active platform: `fl_v3/`.** Everything new goes here.
-- **`fl_v2/` is FROZEN** — the old GTSRB platform, referenced ONLY as an *implementation oracle*
-  (defense reimplementations match it on fixtures = implementation equivalence, NOT scientific
-  validity). Do not modify `fl_v2/`.
+The active coordination entry point is:
 
-## Start here
+- [`fl_v3/usenix27_orchestra/ORCHESTRA.md`](fl_v3/usenix27_orchestra/ORCHESTRA.md)
+- [`fl_v3/usenix27_orchestra/SESSIONS.md`](fl_v3/usenix27_orchestra/SESSIONS.md)
+- [`fl_v3/usenix27_orchestra/KICKOFFS.md`](fl_v3/usenix27_orchestra/KICKOFFS.md)
 
-- **Plan (source of truth):** [`fl_v3/docs/roadmap/cycle_04_fusion_layer_backdoors.md`](fl_v3/docs/roadmap/cycle_04_fusion_layer_backdoors.md)
-- **Roadmap:** [`fl_v3/docs/roadmap/INDEX.md`](fl_v3/docs/roadmap/INDEX.md)
-- **Orchestration model + decisions:** [`fl_v3/docs/cycle_04/README.md`](fl_v3/docs/cycle_04/README.md) · [`fl_v3/docs/cycle_04/decisions.md`](fl_v3/docs/cycle_04/decisions.md)
-- **fl_v3 status + layout:** [`fl_v3/README.md`](fl_v3/README.md)
+`fl_v3/collab/**`, `fl_v3/docs/cycle_04/**`, and the old Cycle-04 attack/defense
+roadmap are read-only historical evidence. They are not current implementation,
+precision, runtime, session, or scientific authority. Do not recover legacy
+T5/T6/T7 or old defense code/routes from them or from Git history.
 
-## How we work (orchestrator + serial workers)
+## Current status
 
-The planning session is an **orchestrator** (owns the plan, the decisions record D1–D17 in
-`fl_v3/docs/cycle_04/decisions.md`, per-task SPEC contracts, kickoff prompts; does NOT implement). Each task **T0…T7** is built in **one fresh Claude session**
-(reads its `fl_v3/docs/cycle_04/tasks/T<N>_SPEC.md`, implements, fills `fl_v3/collab/T<N>/SPEC.md`,
-drives its GATE) and reviewed in **one fresh Codex session** (scientific-correctness only; writes
-`fl_v3/collab/T<N>/REVIEW.md`; never commits). **No parallel Claude implementation sessions.**
+S07 clean engineering is closed at
+`a2fc15e64898910b51b56b4b25c8579f459423bc`. This proves a bounded clean FedAvg
+construction, one FP32 optimizer update for each current C/L/F mode, and a
+worker-0/2 first-batch equality check. It is not full training, detector
+capability, performance, precision freeze, Protocol-A/B, attack, defense, or
+scientific evidence.
 
-## Standing rules (non-negotiable)
+The next milestones are:
 
-1. **Reproducibility regime (D16, 2026-06-21 — supersedes "bit-determinism is sacred").** The science
-   path is **bf16-AMP**; reported results use **≥3 seeds (mean±std)** and a claim is valid if it clears
-   the **seed-variance floor** — NOT by same-seed byte-identity (the `relaxed` `scatter_add` LSS rewrite
-   is atomic ⇒ not byte-identical run-to-run). RNG still flows through `derive_seed`
-   (`fl_v3/src/fl_v3/utils/runtime.py`); every scientific run keeps one **trains-clean reasonableness
-   gate** (no NaN/divergence — loss + BEV-accumulation in fp32) and logs its `precision`. The **strict
-   byte-identical regime is retained as an offline dev-regression tool ONLY** (the `precision=fp32`/strict
-   knob + the static-AST ban — it caught two real bugs), not the bar for reported numbers. **Tooling
-   envelope (D16-addendum, re-derived 2026-06-21):** the binding bar is *maintained + builds on the target
-   tier (x86 now, aarch64/H200 next) + no-NaN* — NOT bit-determinism; use in-tree accel aggressively (SDPA
-   fused attention, `torch.compile`, `channels_last`, fused Adam, EMA), **keep out** out-of-tree fragile
-   CUDA exts (Rule #2); dynamic voxelization is a *gated* in-tree ablation (order-free `scatter_reduce`),
-   not banned. See `fl_v3/docs/determinism.md` + the D15/D16(+addendum) amendment in
-   `fl_v3/docs/cycle_04/decisions.md`.
-2. **No `mmdet3d`/`mmcv`/`spconv`** (+ `torchsparse`, FP8/Transformer-Engine, DALI) **as dependencies** —
-   out-of-tree, unmaintained-or-fragile, no aarch64/H200 wheels (won't survive the ARM rebuild); `spconv`/
-   `mmcv` kernels also have no deterministic path for the strict dev tool. Reason is now **portability +
-   maintenance** (D16 relaxed the *determinism* reason; verified 2026-06-21 — D16 addendum). Reference their
-   architecture (Apache-2.0), reimplement in pure PyTorch; get speed from **in-tree** accel instead. The
-   LiDAR-capacity lever, if ever needed, is an in-tree dense upgrade (PillarNet-style), NOT spconv.
-3. **Engineering smoke (mini) vs scientific result (trainval) is a hard boundary.** `v1.0-mini` is
-   for pipeline/determinism validation only; every scientific claim needs trainval-scale clients.
-4. **Null-config** (`poison_rate=0`) must reproduce the clean baseline **within the seed-variance band**
-   (D16 — was "bit-for-bit"; byte-identity now holds only under the offline strict knob). **Frozen
-   `fl_v2/` is the oracle** for defense *implementation* equivalence (fixture-level), not scientific validity.
-5. **Heavy runs go through SLURM** (`run_alvis.sh` pattern); the login node is for scaffolding, the
-   venv build, and unit/determinism tests only. Run code via `fl_v3/scripts/run_in_venv.sh`.
-6. Honor the confirmed decisions in `fl_v3/docs/cycle_04/decisions.md` (**D1–D17**; note **D1 is amended
-   by D17** — the camera backbone is now **trained**, not frozen; **D16** is the bf16-AMP precision regime)
-   and the **§Attack spec** + **§Defense Benchmark Protocol** in the plan (5-condition fusion-awareness
-   ablation, ASR eligibility + denominator, utility/ASR 2×2 rule, required baselines, controlled `m_r` vs
-   defense-assumed `f_r`, etc.).
+1. S08: qualify the current six-task model's FP32, full FP16 AMP, and FP16 AMP
+   with SECOND/spconv FP32 island behavior;
+2. S09: after S08, establish production-shaped 100/conditional-1000-step
+   performance, memory, DataLoader-worker, and single-GH200 readiness;
+3. redefine S10-S12 only from reviewed S08/S09 evidence.
 
-## HPC
+The Arrhenius environment supports FP32 and FP16 AMP as runtime mechanisms, but
+the current scientific precision policy is not selected. Current evidence shows
+FP16 scale 1 recovers camera on one mini batch but leaves direct nonfinite
+SECOND LiDAR/fusion gradients. Direct sparse BF16 is unsupported.
 
-Alvis (x86) until 2026-06-30, then Arrhenius (ARM H200). The "no-mmdet3d, pure-PyTorch" design is what
-makes the ARM rebuild painless — keep the venv reproducible from a pinned manifest
-(`fl_v3/docs/env.md`). Dataset is **fully extracted, read-only** at
-`/mimer/NOBACKUP/Datasets/NuScenes_v1.0/` (`v1.0-mini` + `v1.0-trainval` + `v1.0-test`; shared
-`samples/`/`sweeps/`; all 6 cameras + `LIDAR_TOP`) — **no extraction needed.** (A separate
-`/mimer/NOBACKUP/Datasets/nuScenes/` dir with a different layout also exists — do **not** point at it.)
+## Collaboration
 
-## Git / branches
+Persistent S00 is the default planner and implementer for tightly connected
+milestones. `Sxx` is an evidence namespace, not a mandatory fresh task/worktree.
+Use bounded planning/research subagents before implementation when useful; do not
+create parallel production chains by default. Independent review starts from an
+immutable SHA and uses a reviewer subagent or, for high-risk/conflicted/runtime
+reproduction work, a separate review worktree. Reviewers do not fix code.
 
-Cycle-04 work lives on **`v3-ad-perception`** (which contains both frozen `fl_v2/` and active `fl_v3/`
-as sibling dirs). `v2-new-api` / `main` are the GTSRB mainline — leave them. Commit/push only when the
-user asks. End commit messages with the Co-Authored-By trailer.
+Only S00 edits the three canonical Orchestra files. New handoffs, run requests,
+results, and reviews go under `fl_v3/usenix27_orchestra/handoffs/Sxx/`.
+
+## Runtime and data
+
+Arrhenius GH200 is the active runtime. Use the persistent environment through
+`fl_v3/scripts/arrhenius_env.sh`; do not rebuild it for every job. The login node
+is x86_64 and the environment is aarch64, so dependency-backed CUDA/spconv checks
+run through an owner-authorized Slurm job.
+
+The shared nuScenes trainval data is ZIP-backed through the dataset module. Full
+trainval `t1.v2` cache materialization still requires exact owner approval.
+Historical `t1.v1` caches are forbidden production inputs. Mini is engineering
+only and cannot support mAP/NDS, fusion-gain, attack, defense, or paper claims.
+
+## Permissions
+
+Planning or implementation is not permission to submit compute, commit, merge,
+push, upload, or publish. Every material job uses an exact `RUN_REQUEST.md` bound
+to immutable source/config/data/cells/resources/command/output/stop conditions.
+There is no automatic retry or spare-GPU expansion. Follow the complete compute,
+Git, data, precision, and scientific guardrails in `AGENTS.md`.

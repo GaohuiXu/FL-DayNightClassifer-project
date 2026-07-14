@@ -8,10 +8,19 @@ runtime and validated Arrhenius stack are defined in `docs/env.md`.
 - `fp32` is the strict development and regression regime. It disables TF32,
   enables deterministic cuDNN behavior, and asks PyTorch to reject unsupported
   nondeterministic operations.
-- `fp16` uses CUDA autocast and `GradScaler` for supported Arrhenius sparse
-  training. It is a scientific runtime regime, not a byte-identity promise.
+- `fp16` uses CUDA autocast and `GradScaler` as an available Arrhenius runtime
+  mechanism. It is not a byte-identity promise and is not yet accepted for the
+  current full six-task SECOND/fusion training path.
 - Direct sparse `bf16` is unsupported by the validated cumm/spconv stack and is
   rejected by the runtime helpers.
+
+Current S07 evidence proves one FP32 C/L/F update. On one exact mini batch, FP16
+scale 1 recovered camera but not SECOND LiDAR/fusion; full-AMP L/F gradients still
+contained nonfinite elements. S08 therefore owns the scientific precision
+qualification and must compare explicit full FP16 AMP, FP16 AMP with a
+SECOND/spconv FP32 island, and FP32 reference behavior with dynamic scaler
+continuation. Until S08 is reviewed, no one of these is the frozen full-training
+policy.
 
 Do not mix precision regimes within a comparison. Record the resolved precision,
 hardware, software stack, seeds, data/split manifest, and checkpoint identity for

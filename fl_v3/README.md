@@ -6,8 +6,8 @@ clean model/data/runtime foundation through federated training and adaptation.
 `fl_v2/` is frozen historical code and is not an active dependency.
 
 - [Active Orchestra](usenix27_orchestra/ORCHESTRA.md)
-- [Session contracts](usenix27_orchestra/SESSIONS.md)
-- [Copy-ready kickoffs](usenix27_orchestra/KICKOFFS.md)
+- [Milestone contracts](usenix27_orchestra/SESSIONS.md)
+- [Active milestone envelopes](usenix27_orchestra/KICKOFFS.md)
 - [Arrhenius environment contract](docs/env.md)
 - [Roadmap index](docs/roadmap/INDEX.md)
 
@@ -19,14 +19,20 @@ clean model/data/runtime foundation through federated training and adaptation.
   `t1.v2` cache provenance.
 - Reviewed camera, sparse LiDAR, fusion, multi-task CenterHead, deterministic
   decode/NMS, and official nuScenes `DetectionEval` paths.
-- Resolved config, explicit FP32/FP16 precision, checkpoint/resume, runtime
-  dependency identity, and clean evaluation provenance.
+- Resolved config, explicit FP32/FP16 runtime mechanisms, checkpoint/resume,
+  runtime dependency identity, and clean evaluation provenance. The current
+  six-task scientific precision policy remains pending S08.
 - One clean FedAvg aggregation path with deterministic client identity/order,
   num-example FP32 weighting, deterministic sampling, FedOpt, server EMA, and
   trainable-only state transfer.
 
 Mini and synthetic runs are engineering evidence only. Scientific claims
 require owner-approved trainval-scale protocols and immutable run manifests.
+
+S07 clean engineering is closed at `a2fc15e`, but its runtime gate is bounded:
+one successful FP32 optimizer update for each C/L/F mode and no full-training or
+precision-freeze claim. S08 next qualifies the current six-task FP32/full-AMP/
+spconv-FP32-island regimes; S09 then measures full-pipeline performance/readiness.
 
 ## Layout
 

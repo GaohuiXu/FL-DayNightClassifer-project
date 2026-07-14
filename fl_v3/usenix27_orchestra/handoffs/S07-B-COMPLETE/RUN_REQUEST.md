@@ -4,7 +4,7 @@
 
 ```text
 SESSION_ID: S07-B-COMPLETE
-REQUEST_STATE: CONSUMED / TERMINAL FAIL / NO RETRY AUTHORIZED
+REQUEST_STATE: CLOSED / F1 TERMINAL PASS / ALL APPROVALS CONSUMED
 OWNER_DECISION: remove the audit wrapper; use a simple training-first contract
 BASE_SHA: 4aa2b133d1d33382bf1514f7a3c86fcb03cf83e5
 EXECUTABLE_SHA: 34cbe02b7b72114e3a2d61f6f797c8dec022798c
@@ -20,10 +20,13 @@ COMMAND_SHA256: 229dfec34da4bc2b37769afa48636700cf53e063f928720d022f8173ab311e75
 JOB_BODY_SHA256: dc14e7157e37b567d747093130020dde3306fab49eb43358883030400f66754c
 APPROVAL_DATE: 2026-07-13
 APPROVAL_SOURCE: owner message "批准，开始执行" in the canonical S00 task
-APPROVED_COMPUTE: one exact simplified GH200 submission
-RETRY: forbidden unless separately requested and approved
-JOB_ID: 380806
-JOB_STATE: FAILED 1:0 / elapsed 00:04:28 / node n192 / restarts 0
+INITIAL_A3_APPROVED_COMPUTE: one exact simplified GH200 submission, consumed by Job 380806
+RETRY: forbidden; S07-B-COMPLETE is closed
+INITIAL_A3_JOB_ID: 380806
+INITIAL_A3_JOB_STATE: FAILED 1:0 / elapsed 00:04:28 / node n192 / restarts 0
+FINAL_F1_JOB_ID: 390576
+FINAL_F1_JOB_STATE: COMPLETED 0:0 / elapsed 00:04:24 / node n105 / restarts 0
+FINAL_ACCEPTANCE: owner accepted under O-093; no retry/additional S07-B compute
 ```
 
 The executable differs from BASE only in

@@ -6,10 +6,19 @@ Scope: engineering-only mini-data optimization on Arrhenius GH200. These runs
 validate correctness, stability, and profiling behavior for the
 `voxel_fp16_main` path. They are not mAP/NDS/ASR/defense evidence.
 
+> **Historical architecture boundary (2026-07-14 rebaseline).** Jobs `211502`
+> and `211722` predate the current S03-S06/S07 six-task model. Their stable path
+> ran outer FP16 AMP while keeping voxelization/VFE/spconv in FP32. They do not
+> prove stability for the current `second_075` production resolver, which at the
+> S07 anchor enables sparse-conv FP16 when `precision=fp16`. Current D1 Job
+> `389356` found direct nonfinite L-S075/F-U gradients even at scale 1. Use this
+> document as old-path performance evidence and S08 input, not as a current
+> precision contract.
+
 ## Runtime Policy
 
-- Main engineering path: `det-lidar-encoder=voxel`, `precision=fp16`,
-  AMP + `GradScaler(init_scale=512)`.
+- Historical main engineering path: `det-lidar-encoder=voxel`,
+  `precision=fp16`, AMP + `GradScaler(init_scale=512)`.
 - Stable sparse path: VFE/voxelization/spconv run in fp32 under fp16 AMP.
 - Experimental sparse-conv fp16 path: opt-in only via
   `det-sparse-conv-fp16=true`; not the default because bs1 real-data smoke can

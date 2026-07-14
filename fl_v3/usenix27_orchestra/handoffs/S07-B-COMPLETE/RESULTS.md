@@ -2,12 +2,20 @@
 
 ## Current result
 
-Integrated GH200 completion is **not established**. After retiring the audit
-wrapper, exact Job `380806` reached the real model forward/loss/backward path for
-all three C/L/F modes. Environment identity and clean FedAvg passed, but all three
-first fp16 backward attempts produced nonfinite unscaled gradient norms, so
-the required one-step evidence was not emitted or accepted. This is a current
-numerical/training gate failure, not another environment or wrapper failure.
+S07-B-COMPLETE is **closed and owner accepted at the exact bounded clean-engineering
+scope**. Final Job `390576` passed 5/5: plain clean FedAvg construction, one finite
+FP32 production-loop optimizer update for each C-STR8/L-S075/F-U mode, and fusion
+worker-0/2 first-batch equality. Independent review found no P0-P3; terminal/review
+package is `7f3bd40158e5a8af30196509734782c4575c50aa`.
+
+This is not full training, convergence, detector capability, performance,
+scientific precision, Protocol-A/B, attack, or defense acceptance. Earlier Job
+`380806` remains the first current six-task FP16 negative boundary: environment
+identity and clean FedAvg passed, but all three first FP16 backward attempts
+produced nonfinite gradients and no successful update was accepted. D1 Job
+`389356` later localized the remaining scale-1 L/F failure to the sparse SECOND
+stem/stage1 path. Those negative results are preserved below, not superseded or
+relabeled.
 
 ## Closed job record
 
