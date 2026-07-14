@@ -27,12 +27,15 @@ def test_legacy_and_unknown_modes_fail(bad):
 def test_disabled_modality_is_removed_before_device_transfer():
     batch = {
         "images": torch.ones(1), "lidar2img": torch.ones(1), "cam_intrinsics": torch.ones(1),
+        "augmentation_params": torch.ones(1),
         "lidar_points": torch.ones(1), "gt_boxes": [], "sample_token": ["x"],
     }
     camera = project_batch_for_mode(batch, "camera_only")
     lidar = project_batch_for_mode(batch, "lidar_only")
     assert "lidar_points" not in camera
+    assert "augmentation_params" in camera
     assert not ({"images", "lidar2img", "cam_intrinsics"} & set(lidar))
+    assert "augmentation_params" not in lidar
     assert set(project_batch_for_mode(batch, "fusion")) == set(batch)
 
 
@@ -46,7 +49,7 @@ def test_reviewed_spconv_dependency_is_exact_in_arrhenius_runtime():
 
 class _Pre(torch.nn.Module):
     def __init__(self, **kw): super().__init__()
-    def forward(self, images, lidar2img, cam_intrinsics):
+    def forward(self, images, lidar2img, cam_intrinsics, *, augmentation_params=None):
         return {"images": images, "lidar2img": lidar2img}
 
 
@@ -64,7 +67,7 @@ class _CameraNeck(torch.nn.Module):
 class _VT(torch.nn.Module):
     def __init__(self, context_channels, **kw): super().__init__(); self.c=context_channels
     def forward(self, feat, lidar2img, B, N):
-        bev=torch.ones(B,self.c,4,4); return {"bev":bev,"depth_prob":bev,"context":bev}
+        bev=feat.mean()*torch.ones(B,self.c,4,4); return {"bev":bev,"depth_prob":bev,"context":bev}
 
 
 class _Lidar(torch.nn.Module):
@@ -144,3 +147,33 @@ def test_same_detector_instance_serializes_sparse_forward_and_mode_change(monkey
         [future.result() for future in futures]
     assert maximum == 1
     model.eval(); assert model.training is False
+
+
+def test_detector_explicit_head_boundary_capture_cleans_runtime_refs(monkeypatch):
+    import fl_v3.models.fusion.detector as d
+    monkeypatch.setattr(d, "ImagePreprocessor", _Pre)
+    monkeypatch.setattr(d, "CameraBackbone", _Camera)
+    monkeypatch.setattr(d, "GeneralizedLSSFPN", _CameraNeck)
+    monkeypatch.setattr(d, "DepthLSSTransform", _VT)
+    monkeypatch.setattr(d, "SecondFPNNeck", _BevNeck)
+    monkeypatch.setattr(d, "CenterPointHead", _Head)
+    model = d.BEVFusionDetector(DetectorConfig(
+        model_mode="camera_only", pretrained_backbone=False,
+        context_channels=2, fusion_channels=4, bev_neck_channels=4,
+    )).train()
+    batch = {
+        "batch_size": 1,
+        "images": torch.ones(1, 1, 3, 2, 2, requires_grad=True),
+        "lidar2img": torch.eye(4).reshape(1, 1, 4, 4),
+        "cam_intrinsics": torch.eye(3).reshape(1, 1, 3, 3),
+        "augmentation_params": torch.ones(1, 1, 7, dtype=torch.float64),
+    }
+    with model.capture_training_boundaries() as boundaries:
+        output = model(batch)
+        output["heatmap"].sum().backward()
+        assert set(boundaries) == {"head.input"}
+        assert boundaries["head.input"].grad is not None
+    assert boundaries == {}
+    assert model._training_boundary_tensors is None
+    cloned = copy.deepcopy(model)
+    assert cloned._training_boundary_tensors is None

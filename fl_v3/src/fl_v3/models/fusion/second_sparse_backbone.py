@@ -273,11 +273,18 @@ class SECONDSparseBackbone(nn.Module):
             x = block(x)
         return x
 
-    def forward(self, x):
+    @staticmethod
+    def _capture(boundary_capture, name: str, x) -> None:
+        if boundary_capture is not None:
+            boundary_capture(name, x.features)
+
+    def forward(self, x, *, boundary_capture=None):
         shapes: list[tuple[int, int, int]] = []
         x = self.stem(x)
+        self._capture(boundary_capture, "second.stem", x)
         shapes.append(self._shape(x))
         x = self._run_residual_stage(self.stage1, x)
+        self._capture(boundary_capture, "second.stage1", x)
         x = self.down1(x)
         shapes.append(self._shape(x))
         x = self._run_residual_stage(self.stage2, x)
@@ -289,6 +296,7 @@ class SECONDSparseBackbone(nn.Module):
         x = self._run_residual_stage(self.stage4, x)
         shapes.append(self._shape(x))
         x = self.conv_out(x)
+        self._capture(boundary_capture, "second.output", x)
         shapes.append(self._shape(x))
         self.last_shapes_zyx = tuple(shapes)
         expected = self.contract.stage_shapes_zyx

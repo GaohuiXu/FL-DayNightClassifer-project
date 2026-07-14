@@ -1,4 +1,4 @@
-"""Canonical, fail-closed S06 production configuration.
+"""Canonical, fail-closed S08 production configuration.
 
 No scientific field is inferred from the environment.  Callers resolve this
 schema before constructing data, a model, or an optimizer and pass the resulting
@@ -13,6 +13,8 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Mapping
 
+from fl_v3.source_identity import validate_source_state
+
 
 class ConfigError(ValueError):
     """A production configuration is incomplete, unknown, or inconsistent."""
@@ -21,6 +23,7 @@ class ConfigError(ValueError):
 _HEX = frozenset("0123456789abcdef")
 _MODES = frozenset({"camera_only", "lidar_only", "fusion"})
 _PRECISIONS = frozenset({"fp32", "fp16"})
+_SPARSE_CONV_PRECISIONS = frozenset({"fp32", "fp16", "not_applicable"})
 _OPTIMIZERS = frozenset({"adam", "adamw"})
 _SAMPLING = frozenset({"uniform", "cbgs"})
 _CAMERAS = frozenset({"swin_t_stride8", "none"})
@@ -29,8 +32,8 @@ _FUSIONS = frozenset({"conv_fuser_256", "none"})
 _HEADS = frozenset({"centerhead_multitask"})
 
 _ROOT = frozenset({
-    "schema_version", "model", "precision", "optimizer", "training", "data",
-    "dependencies", "evaluation",
+    "schema_version", "model", "precision", "sparse_conv_precision", "optimizer",
+    "training", "data", "dependencies", "evaluation",
 })
 _MODEL = frozenset({
     "mode", "camera_arch", "camera_pretrained", "lidar_arch", "fusion_arch", "head_arch",
@@ -50,8 +53,8 @@ _CACHE = frozenset({
 _MANIFEST = frozenset({"path", "logical_sha256", "file_sha256"})
 _DEPS = frozenset({
     "torch", "torch_build_sha256", "torch_source_sha",
-    "spconv", "spconv_build_sha256", "spconv_source_sha",
-    "cumm", "cumm_build_sha256", "cumm_source_sha",
+    "spconv", "spconv_build_sha256", "spconv_source_sha", "spconv_source_state",
+    "cumm", "cumm_build_sha256", "cumm_source_sha", "cumm_source_state",
 })
 _EVAL = frozenset({"timing", "checkpoint_weights"})
 _CHECKPOINT_WEIGHTS = frozenset({"raw", "ema"})
@@ -107,6 +110,13 @@ def _path(value: Any, where: str) -> str:
     return value
 
 
+def _source_state(value: Any, where: str) -> dict[str, object]:
+    try:
+        return validate_source_state(value)
+    except ValueError as exc:
+        raise ConfigError(f"{where} is invalid: {exc}") from exc
+
+
 def canonical_json(config: Mapping[str, Any]) -> bytes:
     """Locale/order-stable canonical UTF-8 representation used for hashing."""
     return json.dumps(
@@ -149,6 +159,10 @@ class ResolvedConfig:
         return str(self.data["precision"])
 
     @property
+    def sparse_conv_precision(self) -> str:
+        return str(self.data["sparse_conv_precision"])
+
+    @property
     def data_identities(self) -> dict[str, Any]:
         d = self.data["data"]
         out = {
@@ -168,7 +182,7 @@ class ResolvedConfig:
         return json.loads(self.canonical_bytes.decode("utf-8"))
 
     def to_run_config(self) -> dict[str, Any]:
-        """Bridge to current task interfaces; S07-B owns final module enum wiring."""
+        """Bridge the validated S08 configuration to current task interfaces."""
         d, m, t, o = self.data["data"], self.data["model"], self.data["training"], self.data["optimizer"]
         out = {
             "s06-production-runtime": True,
@@ -180,15 +194,22 @@ class ResolvedConfig:
             "det-fusion-arch": m["fusion_arch"],
             "det-head-arch": m["head_arch"],
             "precision": self.data["precision"],
+            "det-sparse-conv-precision": self.data["sparse_conv_precision"],
             "dependency-torch": self.data["dependencies"]["torch"],
             "dependency-torch-build-sha256": self.data["dependencies"]["torch_build_sha256"],
             "dependency-torch-source-sha": self.data["dependencies"]["torch_source_sha"],
             "dependency-spconv": self.data["dependencies"]["spconv"],
             "dependency-spconv-build-sha256": self.data["dependencies"]["spconv_build_sha256"],
             "dependency-spconv-source-sha": self.data["dependencies"]["spconv_source_sha"],
+            "dependency-spconv-source-state": _thaw(
+                self.data["dependencies"]["spconv_source_state"]
+            ),
             "dependency-cumm": self.data["dependencies"]["cumm"],
             "dependency-cumm-build-sha256": self.data["dependencies"]["cumm_build_sha256"],
             "dependency-cumm-source-sha": self.data["dependencies"]["cumm_source_sha"],
+            "dependency-cumm-source-state": _thaw(
+                self.data["dependencies"]["cumm_source_state"]
+            ),
             "seed": t["seed"],
             "batch-size": t["micro_batch_size"],
             "accumulation-steps": t["accumulation_steps"],
@@ -228,12 +249,47 @@ class ResolvedConfig:
         return out
 
 
+def validate_precision_partition(
+    global_precision: Any,
+    lidar_arch: Any,
+    sparse_conv_precision: Any,
+) -> str:
+    """Validate the explicit S08 global/sparse precision partition.
+
+    This helper is deliberately pure Python so config resolution and production
+    construction share one fail-closed matrix without importing torch.
+    """
+    precision = _enum(global_precision, _PRECISIONS, "precision")
+    lidar = _enum(lidar_arch, _LIDARS, "model.lidar_arch")
+    partition = _enum(
+        sparse_conv_precision,
+        _SPARSE_CONV_PRECISIONS,
+        "sparse_conv_precision",
+    )
+    if lidar != "second_075":
+        if partition != "not_applicable":
+            raise ConfigError(
+                "sparse_conv_precision must be 'not_applicable' when "
+                "model.lidar_arch is not 'second_075'"
+            )
+        return partition
+    if partition == "not_applicable":
+        raise ConfigError(
+            "sparse_conv_precision must be explicit 'fp32' or 'fp16' for second_075"
+        )
+    if precision == "fp32" and partition != "fp32":
+        raise ConfigError(
+            "precision='fp32' requires sparse_conv_precision='fp32' for second_075"
+        )
+    return partition
+
+
 def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
-    """Validate and canonicalize one complete S06 config; never consult env vars."""
+    """Validate and canonicalize one complete S08 config; never consult env vars."""
     root = _mapping(dict(raw), "config")
     _keys(root, _ROOT, "config")
-    if root["schema_version"] != "s06.v1":
-        raise ConfigError("schema_version must be exactly 's06.v1'; legacy/partial configs are refused")
+    if root["schema_version"] != "s08.v1":
+        raise ConfigError("schema_version must be exactly 's08.v1'; legacy/partial configs are refused")
 
     model = _mapping(root["model"], "model"); _keys(model, _MODEL, "model")
     mode = _enum(model["mode"], _MODES, "model.mode")
@@ -256,6 +312,7 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
         raise ConfigError(f"model architecture fields are inconsistent with mode={mode!r}")
 
     precision = _enum(root["precision"], _PRECISIONS, "precision")
+    validate_precision_partition(precision, lidar, root["sparse_conv_precision"])
     opt = _mapping(root["optimizer"], "optimizer"); _keys(opt, _OPT, "optimizer")
     _enum(opt["name"], _OPTIMIZERS, "optimizer.name")
     _number(opt["learning_rate"], "optimizer.learning_rate", positive=True)
@@ -323,9 +380,11 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
             value = deps[key]
             if not isinstance(value, str) or len(value) != 40 or any(c not in _HEX for c in value):
                 raise ConfigError(f"dependencies.{key} must be an exact lowercase 40-character Git SHA")
+        for key in ("spconv_source_state", "cumm_source_state"):
+            _source_state(deps[key], f"dependencies.{key}")
     elif any(deps[k] is not None for k in (
-        "spconv", "spconv_build_sha256", "spconv_source_sha",
-        "cumm", "cumm_build_sha256", "cumm_source_sha",
+        "spconv", "spconv_build_sha256", "spconv_source_sha", "spconv_source_state",
+        "cumm", "cumm_build_sha256", "cumm_source_sha", "cumm_source_state",
     )):
         raise ConfigError("non-SECOND modes must set spconv/cumm dependency fields to null")
 

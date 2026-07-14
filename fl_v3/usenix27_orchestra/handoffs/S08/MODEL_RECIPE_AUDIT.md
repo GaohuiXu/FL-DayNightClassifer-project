@@ -3,7 +3,11 @@
 日期：2026-07-14
 代码锚点：`2a584053e6f6a3860b6f812681dc8d7342ca52ad`
 官方对照：MIT BEVFusion `326653dc06e0938edf1aae7d01efcd158ba83de5`
-状态：**前置分析完成；envelope v1 方向已获 owner 接受；S08 生产代码等待详细计划复审；无 Slurm/GH200 计算获批或执行**
+状态：**前置分析已封存；其后 owner 已批准 envelope v1、开始实现、本地验证及验证通过后的一次 immutable implementation commit。一个 smoke 与后续 Q1 的各自 `<=1h` GH200 资源上限已获方向性批准，但精确不可变 tuple 仍须分别绑定；当前没有 Slurm/GH200 作业执行。**
+
+本报告正文保留 2026-07-14 pre-implementation 审计时点。后续实施状态、精确
+source/request 和未满足 gate 以同目录的 `HANDOFF.md` 与 `RUN_REQUEST.md` 为准；
+Section 17--18 中“尚未启动/compute none”是当时记录，不得覆盖后续显式 owner 决策。
 
 ## 1. 结论先行
 

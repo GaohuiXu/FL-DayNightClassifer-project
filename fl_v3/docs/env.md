@@ -80,6 +80,22 @@ Submit a Slurm job to validate this stack.
 - cumm `v0.7.13` at `4dedaf43ff801e417c60c6bd7536a29d83d29ee0`.
 - spconv `v2.3.8` at `263d6b47425ef843c82f997b12d8b714013d216c`.
 
+The editable source checkouts are not described by HEAD alone. The accepted
+current cumm checkout has no tracked changes, with canonical tracked-state SHA
+`f835ee22d539bbf0ab486fecf1188c3883c3cde5860913434cbcf945ee325662`.
+The accepted current spconv checkout has exactly one unstaged tracked build-
+metadata change: `" M" pyproject.toml`, file SHA
+`e2c84544b5b5d6fd8e149d88539c3a6e989a1824637fd6b0006891955cb7a7e9`,
+and canonical tracked-state SHA
+`499efdbb5ab31c43109d48f11ee0ff79af847a3d378fd48bf9c79f8672da28db`.
+It removes `cumm>=0.7.11` from `[build-system].requires`; it does not change
+Python/CUDA/C++ executable source. This exact state already appeared in accepted
+S07-B-COMPLETE evidence and must be explicitly bound by current SECOND configs.
+Launchers also verify source HEAD, import origin, and installed executable-build
+hashes before model construction. Any other tracked status/path/content or build
+identity fails closed. Do not reset or edit either external checkout merely to
+satisfy a blanket clean-tree check.
+
 The source build is pinned to `sm_90`:
 
 ```bash

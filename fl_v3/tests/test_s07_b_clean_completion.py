@@ -157,6 +157,9 @@ def _mode_run_config(tag: str) -> dict:
         "det-head-arch": "centerhead_multitask",
         "det-lidar-sweeps": 10,
         "precision": "fp16",
+        "det-sparse-conv-precision": (
+            "fp16" if lidar == "second_075" else "not_applicable"
+        ),
         "det-reg-weight": 0.25,
     }
 
@@ -262,6 +265,8 @@ def test_exact_mode_gradient_diagnostic(
     device = torch.device("cuda:0")
     run_config = _mode_run_config(tag)
     run_config["precision"] = precision
+    if run_config["det-lidar-arch"] == "second_075":
+        run_config["det-sparse-conv-precision"] = precision
     mode = run_config["model-mode"]
     dataset, source_loader = _make_loader(mini_depth10_info, dataroot, mode, 0)
     model = criterion = optimizer = scaler = None
@@ -356,6 +361,8 @@ def test_exact_mode_b1_fp32_optimizer_update(tag, mini_depth10_info, dataroot):
     seed_everything(20260713)
     run_config = _mode_run_config(tag)
     run_config["precision"] = "fp32"
+    if run_config["det-lidar-arch"] == "second_075":
+        run_config["det-sparse-conv-precision"] = "fp32"
     mode = run_config["model-mode"]
     dataset, source_loader = _make_loader(mini_depth10_info, dataroot, mode, 0)
     model = criterion = optimizer = None

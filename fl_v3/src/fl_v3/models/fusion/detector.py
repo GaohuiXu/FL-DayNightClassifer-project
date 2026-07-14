@@ -72,7 +72,10 @@ class DetectorConfig:
     lidar_encoder: str = "pillar"         # pillar (PFN, default) | voxel (spconv sparse 3D, Rule#2-relaxed; z-res)
     lidar_z_voxel: float | None = None     # voxel only: z voxel size; None keeps historical cubic xyz voxels
     lidar_sparse_z_size: int | None = None # voxel only: optional sparse z shape override for parity probes
-    sparse_conv_fp16: bool = False         # voxel only: fp16 AMP sparse conv backbone; VFE/voxelization stay fp32
+    # Internal mapping of S08's explicit sparse_conv_precision enum.  ``False``
+    # keeps voxelization/VFE/SECOND/to_bev in the FP32 island; ``True`` enables
+    # the reviewed sparse-FP16 path (voxelization/VFE themselves remain FP32).
+    sparse_conv_fp16: bool = False
     lidar_input_bev: BEVConfig | None = None
     max_voxels_train: int = 120000
     max_voxels_eval: int = 160000
@@ -100,6 +103,7 @@ class BEVFusionDetector(nn.Module):
         c = self.cfg
         self.model_mode = normalize_model_mode(c.model_mode)
         self._runtime_lock = threading.RLock()
+        self._training_boundary_tensors: dict[str, torch.Tensor] | None = None
         use_camera = self.model_mode in {"camera_only", "fusion"}
         use_lidar = self.model_mode in {"lidar_only", "fusion"}
         if use_lidar and c.required_spconv_version is not None:
@@ -191,13 +195,17 @@ class BEVFusionDetector(nn.Module):
 
     def __getstate__(self):
         """Locks are runtime-only; allow EMA/deepcopy to create its own instance lock."""
+        if self._training_boundary_tensors is not None:
+            raise RuntimeError("cannot copy detector while training-boundary capture is active")
         state = self.__dict__.copy()
         state.pop("_runtime_lock", None)
+        state.pop("_training_boundary_tensors", None)
         return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
         self._runtime_lock = threading.RLock()
+        self._training_boundary_tensors = None
 
     # --- forward ---
     def train(self, mode: bool = True):
@@ -212,6 +220,41 @@ class BEVFusionDetector(nn.Module):
             super().train(bool(training))
             yield self
 
+    @contextmanager
+    def capture_training_boundaries(self):
+        """Retain four explicit S08 tensors for one training window."""
+        with self._runtime_lock:
+            if self._training_boundary_tensors is not None:
+                raise RuntimeError("nested training-boundary capture is forbidden")
+            if not self.training:
+                raise RuntimeError("training-boundary capture requires model.train()")
+            tensors: dict[str, torch.Tensor] = {}
+            self._training_boundary_tensors = tensors
+            sparse = self.lidar_encoder if hasattr(self.lidar_encoder, "record_debug") else None
+            old_debug = None if sparse is None else bool(sparse.record_debug)
+            old_meta = None if sparse is None else sparse.last_sparse_meta
+            if sparse is not None:
+                sparse.record_debug = True
+            try:
+                yield tensors
+            finally:
+                tensors.clear()
+                self._training_boundary_tensors = None
+                if sparse is not None:
+                    sparse.record_debug = old_debug
+                    sparse.last_sparse_meta = old_meta
+
+    def _capture_training_boundary(self, name: str, tensor: torch.Tensor) -> None:
+        tensors = self._training_boundary_tensors
+        if tensors is None:
+            return
+        if name in tensors:
+            raise RuntimeError(f"duplicate training-boundary name {name!r}")
+        if not torch.is_grad_enabled() or not tensor.requires_grad:
+            raise RuntimeError(f"training boundary {name!r} does not carry autograd")
+        tensor.retain_grad()
+        tensors[name] = tensor
+
     def _forward_locked(self, batch: dict, return_intermediates: bool):
         c = self.cfg
         camera_bev = lidar_bev = vt = None
@@ -219,7 +262,12 @@ class BEVFusionDetector(nn.Module):
             for key in ("images", "lidar2img", "cam_intrinsics"):
                 if key not in batch:
                     raise KeyError(f"{self.model_mode} forward requires batch[{key!r}]")
-            pre = self.preprocess(batch["images"], batch["lidar2img"], batch["cam_intrinsics"])
+            pre = self.preprocess(
+                batch["images"],
+                batch["lidar2img"],
+                batch["cam_intrinsics"],
+                augmentation_params=batch.get("augmentation_params"),
+            )
             imgs = pre["images"]
             B, N = imgs.shape[0], imgs.shape[1]
             feats = self.camera_backbone(imgs.reshape(B * N, *imgs.shape[2:]))
@@ -233,7 +281,18 @@ class BEVFusionDetector(nn.Module):
         if self.model_mode in {"lidar_only", "fusion"}:
             if "lidar_points" not in batch:
                 raise KeyError(f"{self.model_mode} forward requires batch['lidar_points']")
-            lidar_bev = self.lidar_encoder(batch["lidar_points"], B)
+            if c.lidar_encoder == "voxel":
+                lidar_bev = self.lidar_encoder(
+                    batch["lidar_points"],
+                    B,
+                    boundary_capture=(
+                        self._capture_training_boundary
+                        if self._training_boundary_tensors is not None
+                        else None
+                    ),
+                )
+            else:
+                lidar_bev = self.lidar_encoder(batch["lidar_points"], B)
             if self.lidar_backbone is not None:
                 lidar_bev = self.lidar_backbone(lidar_bev)
         if self.model_mode == "fusion":
@@ -248,6 +307,7 @@ class BEVFusionDetector(nn.Module):
         else:
             fused = self.lidar_adapter(lidar_bev)
         neck = self.bev_neck(fused)
+        self._capture_training_boundary("head.input", neck)
         out = self.head(neck)
         if return_intermediates:
             out = {"task_outputs": out} if isinstance(out, list) else dict(out)

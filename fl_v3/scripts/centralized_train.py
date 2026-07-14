@@ -1,6 +1,6 @@
 """S07-B resolved centralized trainer.
 
-This entry point accepts only the canonical ``s06.v1`` config.  It constructs
+This entry point accepts only the canonical ``s08.v1`` config.  It constructs
 one mode-aware loader, maps exact architecture enums to the reviewed stack,
 advances schedules by successful optimizer updates, and writes one complete
 boundary-safe checkpoint.  DDP remains fail closed.
@@ -88,7 +88,7 @@ def run_strict_official_evaluation(
 
     Loading deliberately reuses the production checkpoint loader (including
     config/data identity checks and rollback).  The raw/EMA choice and timing
-    collection are both fields of the hashed ``s06.v1`` config.
+    collection are both fields of the hashed ``s08.v1`` config.
     """
     _, checkpoint_identity = load_checkpoint(
         str(checkpoint), model=model, optimizer=optimizer, scheduler=scheduler,
@@ -173,7 +173,7 @@ def run_strict_official_evaluation(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", required=True, help="strict s06.v1 JSON")
+    parser.add_argument("--config", required=True, help="strict s08.v1 JSON")
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()

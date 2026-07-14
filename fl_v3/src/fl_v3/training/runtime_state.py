@@ -120,6 +120,7 @@ _COMMON_KEYS = frozenset({
     "ego2global_lidar", "batch_size",
 })
 _CAMERA_KEYS = frozenset({"images", "lidar2img", "cam_intrinsics"})
+_DIAGNOSTIC_CAMERA_KEYS = frozenset({"augmentation_params"})
 _LIDAR_KEYS = frozenset({"lidar_points"})
 
 
@@ -132,11 +133,11 @@ def project_batch_for_mode(batch: Any, mode: str) -> Any:
     if not isinstance(batch, dict):
         return batch
     if mode == "camera_only":
-        allowed = _COMMON_KEYS | _CAMERA_KEYS
+        allowed = _COMMON_KEYS | _CAMERA_KEYS | _DIAGNOSTIC_CAMERA_KEYS
     elif mode == "lidar_only":
         allowed = _COMMON_KEYS | _LIDAR_KEYS
     elif mode == "fusion":
-        allowed = _COMMON_KEYS | _CAMERA_KEYS | _LIDAR_KEYS
+        allowed = _COMMON_KEYS | _CAMERA_KEYS | _DIAGNOSTIC_CAMERA_KEYS | _LIDAR_KEYS
     else:
         raise ValueError(f"unknown model mode {mode!r}")
     return {k: v for k, v in batch.items() if k in allowed}

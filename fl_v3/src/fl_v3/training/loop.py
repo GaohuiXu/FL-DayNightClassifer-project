@@ -150,6 +150,7 @@ def train_one_epoch(
     model_mode: Optional[str] = None,
     exposure_multiplier: int = 1,
     expected_global_microbatch_samples: int = 0,
+    precision_diagnostics: Optional[Any] = None,
 ) -> Dict[str, float]:
     """One epoch of training with the injected criterion (tensor or dict batch).
 
@@ -162,7 +163,9 @@ def train_one_epoch(
     ``grad_clip_norm>0`` clips the trainable grads (stability once the backbone is trained); ``scheduler``
     (if given) steps PER OPTIMIZER STEP (warmup+cosine over total steps); ``ema_model`` (an
     ``swa_utils.AveragedModel``) is updated after each step. None of these fire unless passed, so
-    ``train_local`` / the determinism gate are unchanged."""
+    ``train_local`` / the determinism gate are unchanged.  S08's optional
+    ``precision_diagnostics`` performs all tensor reductions after unscale and
+    before clip/step; it is fail-closed to one-microbatch windows."""
     if accumulation_steps < 1:
         raise ValueError("accumulation_steps must be >= 1")
     if exposure_multiplier < 1:
@@ -205,6 +208,8 @@ def train_one_epoch(
 
     model.train()
     precision = normalize_precision(precision or current_precision())
+    if precision_diagnostics is not None and accumulation_steps != 1:
+        raise RuntimeError("S08 precision diagnostics require accumulation_steps == 1")
     scaler = grad_scaler if grad_scaler is not None else make_grad_scaler(device, precision)
     use_amp = precision == "fp16" and device.type == "cuda"
     do_clip = bool(grad_clip_norm and grad_clip_norm > 0)
@@ -224,6 +229,9 @@ def train_one_epoch(
     )
     _missing = object()
     old_record_terms = getattr(criterion, "record_terms", _missing)
+    active_capture_context = None
+    active_diagnostic_token = None
+    active_boundaries = None
 
     def clear_window(*, discarded: bool = False) -> None:
         nonlocal window_invalid, window_nonfinite, window_accounted
@@ -257,6 +265,27 @@ def train_one_epoch(
             if model_mode is not None:
                 batch = project_batch_for_mode(batch, model_mode)
             inputs, targets = _unpack_batch(batch, device)
+            if precision_diagnostics is not None:
+                active_diagnostic_token = precision_diagnostics.begin_window(
+                    model=model,
+                    optimizer=optimizer,
+                    state=state,
+                    scaler=scaler,
+                    scheduler=scheduler,
+                    ema_model=ema_model,
+                    accumulation_steps=accumulation_steps,
+                    precision=precision,
+                )
+                active_capture_context = precision_diagnostics.capture(
+                    model, active_diagnostic_token
+                )
+                try:
+                    active_boundaries = active_capture_context.__enter__()
+                except BaseException:
+                    active_capture_context = None
+                    active_diagnostic_token = None
+                    active_boundaries = None
+                    raise
             if use_amp:
                 with precision_autocast_context(precision, device):
                     out = model(inputs)
@@ -281,6 +310,9 @@ def train_one_epoch(
                     f"expected={fixed_microbatch_samples}, actual={global_bs}"
                 )
             finite_loss = bool(torch.isfinite(loss.detach()).item())
+            diagnostic_loss_value = (
+                float(loss.detach().item()) if precision_diagnostics is not None else 0.0
+            )
             if not finite_loss:
                 nonfinite_loss_count += 1
                 window_invalid = True
@@ -304,10 +336,31 @@ def train_one_epoch(
             successful = not window_invalid
             overflow = False
             if window_invalid:
-                pass
+                if precision_diagnostics is not None:
+                    precision_diagnostics.prepare_window(
+                        active_diagnostic_token,
+                        model=model,
+                        criterion=criterion,
+                        boundaries=active_boundaries,
+                        state=state,
+                        loss_value=diagnostic_loss_value,
+                        loss_finite=finite_loss,
+                        parameters_unscaled=False,
+                    )
             elif scaler.is_enabled():
                 scale_before = float(scaler.get_scale())
                 scaler.unscale_(optimizer)
+                if precision_diagnostics is not None:
+                    precision_diagnostics.prepare_window(
+                        active_diagnostic_token,
+                        model=model,
+                        criterion=criterion,
+                        boundaries=active_boundaries,
+                        state=state,
+                        loss_value=diagnostic_loss_value,
+                        loss_finite=finite_loss,
+                        parameters_unscaled=True,
+                    )
                 if do_clip:
                     grad_norm_t = torch.nn.utils.clip_grad_norm_(
                         [p for p in model.parameters() if p.requires_grad], grad_clip_norm)
@@ -323,6 +376,17 @@ def train_one_epoch(
                 if skipped:
                     overflow = True
             else:
+                if precision_diagnostics is not None:
+                    precision_diagnostics.prepare_window(
+                        active_diagnostic_token,
+                        model=model,
+                        criterion=criterion,
+                        boundaries=active_boundaries,
+                        state=state,
+                        loss_value=diagnostic_loss_value,
+                        loss_finite=finite_loss,
+                        parameters_unscaled=True,
+                    )
                 if not _gradients_finite(model):
                     nonfinite_loss_count += 1
                     window_nonfinite = True
@@ -357,9 +421,37 @@ def train_one_epoch(
                 else:
                     raise RuntimeError("invalid accumulation window has no recorded cause")
                 window_accounted = True
+            if precision_diagnostics is not None:
+                outcome = (
+                    "accepted"
+                    if successful
+                    else "nonfinite_loss"
+                    if window_nonfinite and not finite_loss
+                    else "nonfinite_gradients"
+                    if window_nonfinite
+                    else "overflow"
+                )
+                precision_diagnostics.finalize_window(
+                    active_diagnostic_token,
+                    state=state,
+                    scheduler=scheduler,
+                    ema_model=ema_model,
+                    scaler_after=float(scaler.get_scale()),
+                    outcome=outcome,
+                )
             clear_window()
+            if active_capture_context is not None:
+                active_capture_context.__exit__(None, None, None)
+                active_capture_context = None
+                active_diagnostic_token = None
+                active_boundaries = None
         completed_normally = True
     finally:
+        if active_capture_context is not None:
+            active_capture_context.__exit__(None, None, None)
+            active_capture_context = None
+            active_diagnostic_token = None
+            active_boundaries = None
         had_partial = bool(state.accumulation_phase or state.pending_samples)
         if had_partial:
             clear_window(discarded=not window_accounted)

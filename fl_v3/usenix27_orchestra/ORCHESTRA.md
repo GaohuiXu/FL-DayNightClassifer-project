@@ -9,10 +9,20 @@
 > detector-capability, precision, Protocol-A/B, attack, defense, or scientific
 > PASS.
 >
-> The owner has accepted the S08 v1 direction from the deep model/numerics/recipe
-> audit and authorized creation of `codex/s08-s09-cl-readiness` plus one immutable
-> pre-S08 audit-baseline commit. S08 implementation remains paused until the owner
-> reviews the detailed multi-agent execution plan; compute remains unapproved.
+> The owner has accepted the S08 v1 direction and detailed multi-agent execution
+> plan, authorized implementation in persistent S00, local validation, and one
+> immutable implementation commit after validation. The owner explicitly approved
+> `S08-SMOKE-1`; its sole submission, Job `426619`, failed before pytest because
+> the runtime verifier rejected the known S07-era spconv `pyproject.toml`
+> build-metadata patch. No model/diagnostic code ran and no retry is authorized.
+> O-100 authorized the narrow provenance remediation, which passed real GH200
+> attestation in owner-approved `S08-SMOKE-2` Job `427800`. The job then ended
+> `103 passed, 3 failed`: two disabled-GradScaler diagnostics failures and one
+> test-message regex mismatch. O-102 authorizes only the narrow diagnostics/test
+> correction and SMOKE-3 request preparation. The owner separately approved the
+> exact frozen `S08-SMOKE-3`; Job `428112` completed `0:0`, zero restarts, with
+> 106/106 focused tests passing. The immutable implementation/evidence seal and
+> independent review are next; Q1 remains unapproved.
 > Only after an accepted S08 precision policy may **S09 full-pipeline
 > performance/readiness** begin. S10-S12 remain pending redefinition.
 >
@@ -128,12 +138,22 @@ proved a bounded sparse module path, not the current six-task optimizer seam.
 
 ### 3.2 S08 decision target
 
-Owner decision O-097 accepts the v1 direction: hold the current hybrid architecture,
-use the D1-style fixture only for numerical isolation, add an explicit sparse
-precision partition, use minimal window-end diagnostics, keep the current camera/LSS
-boundary, and return before any normalization amendment. The final detailed file,
-test, lifecycle, and bounded-execution plan still requires owner review before S08
-production-code work. No compute follows from the audit or envelope approval.
+Owner decisions O-097/O-098 accept the v1 direction and detailed plan: hold the
+current hybrid architecture, use the D1-style fixture only for numerical isolation,
+add an explicit sparse precision partition, use minimal window-end diagnostics,
+keep the current camera/LSS boundary, and return before any normalization amendment.
+Implementation is active in persistent S00. O-099 consumed the exact smoke request
+in Job `426619`; it failed in provenance preflight before pytest because blanket
+source cleanliness rejected the accepted S07-era spconv build-metadata patch. This
+is neither a model/runtime-kernel result nor retry authority. O-100 permitted the
+minimal exact tracked-source-state remediation. O-101 consumed exact
+`S08-SMOKE-2` in Job `427800`: provenance passed, but the focused suite ended
+`103 passed, 3 failed` on two disabled-scaler diagnostic calls and one test-only
+error-message regex. O-102's narrow remediation passes local static validation;
+O-103 consumed the exact S08-SMOKE-3 snapshot/request in Job `428112`, which
+completed `0:0` with 106/106 focused tests passing and zero restarts. This clears
+the focused implementation-smoke gate but makes no model-numerical conclusion and
+grants no retry or Q1 authority.
 
 Once that gate is accepted, S08 must qualify the current six-task model before any
 capability run. At minimum
@@ -319,6 +339,12 @@ O-ledger authority; closed ranges below are provenance.
 | O-095 | Redefine S08 as precision qualification and S09 as performance/readiness; mark S10-S12 pending/deferred until their upstream evidence is reviewed. No compute is authorized by this rebaseline. | active schedule |
 | O-096 | Before S08 implementation, persistent S00 performs a deep current-model/numerics/recipe audit at the platform maximum reasoning setting, may use bounded read-only research subagents, and may reconcile straightforward canonical-document conflicts. The audit authorizes neither production changes nor compute; exact owner decisions still gate S08. | active pre-implementation gate |
 | O-097 | Accept S08 envelope v1 direction; authorize creating/switching to `codex/s08-s09-cl-readiness` and committing the current pre-S08 audit baseline. S00 must present the detailed multi-agent implementation plan for one more owner review before execution. No compute, S09 work, normalization amendment, merge, push, or upload is authorized. | active S08 launch gate |
+| O-098 | Accept the detailed S08 v1 plan; authorize persistent S00 implementation and local validation, followed by one immutable implementation commit after validation. Approve a one-GH200 `<=1h` resource ceiling separately for the focused smoke and later Q1, while retaining exact immutable tuple binding, no automatic retry, and all S08/S09 scientific non-goals. | active S08 implementation gate |
+| O-099 | Explicitly approve exact `S08-SMOKE-1`. Its single submission, Job `426619`, is consumed and terminal: pre-pytest FAIL on the verifier's blanket clean-checkout rule against the S07-evidenced spconv build-metadata patch. No retry, environment/source mutation, Q1, or broadened compute is authorized. | consumed S08 smoke |
+| O-100 | Approve the narrow provenance remediation: do not modify/reset the external spconv checkout; bind its sole `" M" pyproject.toml` state by exact path/status/content/state SHA while retaining source HEAD, import-origin and executable-build checks; add fail-closed tests and prepare a replacement snapshot/request. This does not authorize replacement execution. | active S08 remediation |
+| O-101 | Explicitly approve exact `S08-SMOKE-2`. Its single submission, Job `427800`, is consumed and terminal: source-state/runtime attestation PASS, then focused pytest FAIL with 103 passed/3 failed/0 skipped. Two failures expose disabled-GradScaler diagnostics compatibility; one is a test-message regex mismatch. No retry, implementation commit, Q1, or broadened compute is authorized. | consumed S08 smoke |
+| O-102 | Approve the narrow post-Job-427800 remediation and SMOKE-3 request preparation: do not call growth/backoff getters when GradScaler is disabled, require the corresponding diagnostic fields to be `None`, and correct only the test regex to the existing six-task production error. No model/loss/optimizer/precision change and no GPU execution are authorized. | active S08 remediation |
+| O-103 | Explicitly approve exact `S08-SMOKE-3`. Its single submission, Job `428112`, is consumed and terminal PASS: exact runtime/source-state attestation, 106 passed/0 failed/0 errors/0 skipped, `smoke.exit=0`, verified artifact hashes, `COMPLETED 0:0`, and zero restarts. This clears only the focused implementation-smoke gate; no retry, Q1, precision-policy acceptance, or broadened compute is authorized. | consumed S08 smoke |
 
 ## 10. Closed and consumed history
 

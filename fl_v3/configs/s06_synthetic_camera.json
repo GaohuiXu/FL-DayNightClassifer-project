@@ -1,13 +1,15 @@
 {
-  "schema_version": "s06.v1",
+  "schema_version": "s08.v1",
   "model": {
     "mode": "camera_only",
     "camera_arch": "swin_t_stride8",
+    "camera_pretrained": false,
     "lidar_arch": "none",
     "fusion_arch": "none",
     "head_arch": "centerhead_multitask"
   },
   "precision": "fp32",
+  "sparse_conv_precision": "not_applicable",
   "optimizer": {
     "name": "adamw",
     "learning_rate": 0.0001,
@@ -22,7 +24,8 @@
     "seed": 20260712,
     "max_epochs": 2,
     "num_workers": 0,
-    "ema_decay": 0.999
+    "ema_decay": 0.999,
+    "sampling": "uniform"
   },
   "data": {
     "dataroot": "/synthetic/s06/not-a-production-dataset",
@@ -56,12 +59,19 @@
   },
   "dependencies": {
     "torch": "2.11.0+cu128",
+    "torch_build_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "torch_source_sha": "1111111111111111111111111111111111111111",
     "spconv": null,
+    "spconv_build_sha256": null,
     "spconv_source_sha": null,
+    "spconv_source_state": null,
     "cumm": null,
-    "cumm_source_sha": null
+    "cumm_build_sha256": null,
+    "cumm_source_sha": null,
+    "cumm_source_state": null
   },
   "evaluation": {
-    "timing": false
+    "timing": false,
+    "checkpoint_weights": "raw"
   }
 }

@@ -19,6 +19,7 @@ from fl_v3.training.loop import train_one_epoch
 from fl_v3.training.runtime_state import TrainingState
 from test_s06_resolved_config import valid_config
 from fl_v3.config import resolve_config
+from fl_v3.source_identity import build_source_state
 
 
 def _parts(seed=4):
@@ -79,6 +80,40 @@ def test_checkpoint_rejects_config_and_partial_schema(tmp_path):
     with pytest.raises(RuntimeError, match="legacy/partial"):
         load_checkpoint(path, model=model, optimizer=opt, scheduler=sched, grad_scaler=None,
                         ema=None, config=cfg)
+
+
+def test_checkpoint_rejects_sparse_partition_drift_before_mutation(tmp_path):
+    raw = valid_config(tmp_path)
+    raw["model"].update(
+        mode="lidar_only", camera_arch="none", camera_pretrained=None,
+        lidar_arch="second_075",
+    )
+    raw["precision"] = "fp16"
+    raw["sparse_conv_precision"] = "fp16"
+    raw["dependencies"].update(
+        spconv="2.3.8", spconv_build_sha256="a" * 64,
+        spconv_source_sha="2" * 40, spconv_source_state=build_source_state([]),
+        cumm="0.7.13", cumm_build_sha256="a" * 64,
+        cumm_source_sha="3" * 40, cumm_source_state=build_source_state([]),
+    )
+    full = resolve_config(raw)
+    island_raw = copy.deepcopy(raw)
+    island_raw["sparse_conv_precision"] = "fp32"
+    island = resolve_config(island_raw)
+    model, opt, sched = _parts()
+    path = str(tmp_path / "partition.pt")
+    save_checkpoint(
+        path, model=model, optimizer=opt, scheduler=sched, grad_scaler=None,
+        ema=None, state=TrainingState(), config=full, checkpoint_identity="f" * 64,
+    )
+    before = copy.deepcopy(model.state_dict())
+    with pytest.raises(RuntimeError, match="identity drift"):
+        load_checkpoint(
+            path, model=model, optimizer=opt, scheduler=sched, grad_scaler=None,
+            ema=None, config=island,
+        )
+    for name, value in model.state_dict().items():
+        assert torch.equal(value, before[name])
 
 
 def test_checkpoint_refuses_pending_gradients(tmp_path):

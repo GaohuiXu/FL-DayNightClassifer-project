@@ -212,3 +212,32 @@ def test_fp32_and_fp16_sparse_paths_have_finite_outputs_and_gradients():
     assert nonempty_meta["projected_dtype_before_contract_cast"] == "torch.float32"
     assert nonempty_meta["bev_output_dtype"] == "torch.float16"
     assert nonempty_meta["bev_output_contract"] == "float16"
+
+
+def test_second_fp32_island_overrides_outer_autocast_and_exposes_named_boundaries():
+    SparseVoxelEncoder = _sparse_encoder_or_skip()
+    dev = torch.device("cuda:0")
+    encoder = _encoder(SparseVoxelEncoder, fp16=False).train()
+    encoder.record_debug = True
+    points = _points(dev)
+    boundaries = {}
+
+    def capture(name, tensor):
+        assert name not in boundaries
+        tensor.retain_grad()
+        boundaries[name] = tensor
+
+    with torch.autocast(device_type="cuda", dtype=torch.float16):
+        output = encoder(points, B=2, boundary_capture=capture)
+    meta = encoder.last_sparse_meta or {}
+    assert output.dtype == torch.float32
+    assert meta["sparse_conv_fp16_requested"] is False
+    assert meta["sparse_conv_fp16_active"] is False
+    assert meta["dense_dtype"] == "torch.float32"
+    assert meta["projected_dtype_before_contract_cast"] == "torch.float32"
+    assert meta["bev_output_dtype"] == "torch.float32"
+    assert set(boundaries) == {"second.stem", "second.stage1", "second.output"}
+
+    (output.square().mean() * 8.0).backward()
+    assert all(tensor.grad is not None for tensor in boundaries.values())
+    assert all(torch.isfinite(tensor.grad).all() for tensor in boundaries.values())

@@ -370,9 +370,12 @@ def _det_config_from_run(run_config: dict):
 
     production = bool(run_config.get("s06-production-runtime", False))
     if production:
+        from fl_v3.config import ConfigError, validate_precision_partition
+
         required_arch = {
             "det-camera-arch", "det-camera-pretrained", "det-lidar-arch",
-            "det-fusion-arch", "det-head-arch",
+            "det-fusion-arch", "det-head-arch", "precision",
+            "det-sparse-conv-precision",
         }
         missing = sorted(required_arch - set(run_config))
         if missing:
@@ -437,8 +440,17 @@ def _det_config_from_run(run_config: dict):
                 out_size_factor=1,
             )
             lidar_input_bev = None
-        precision = str(run_config["precision"]).strip().lower()
-        sparse_conv_fp16 = lidar_arch == "second_075" and precision == "fp16"
+        if "det-sparse-conv-fp16" in run_config:
+            raise ValueError(
+                "legacy det-sparse-conv-fp16 is forbidden in the strict S08 production runtime"
+            )
+        precision = run_config["precision"]
+        sparse_partition = run_config["det-sparse-conv-precision"]
+        try:
+            validate_precision_partition(precision, lidar_arch, sparse_partition)
+        except ConfigError as exc:
+            raise ValueError(f"invalid resolved precision partition: {exc}") from exc
+        sparse_conv_fp16 = sparse_partition == "fp16"
         return DetectorConfig(
             model_mode=mode,
             required_spconv_version=("2.3.8" if lidar_arch == "second_075" else None),

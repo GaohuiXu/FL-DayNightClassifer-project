@@ -390,3 +390,19 @@ class MultiTaskCenterPointLoss(nn.Module):
         total = torch.stack(terms).sum()
         self.last_terms = {"loss": float(total.detach().item()), **aggregate}
         return total
+
+    def diagnostic_terms(self) -> dict:
+        """Return a JSON-ready snapshot without changing loss computation."""
+        return {
+            "aggregate": dict(self.last_terms),
+            "tasks": [
+                {
+                    "task_index": int(index),
+                    "global_class_ids": [int(value) for value in global_ids],
+                    "terms": dict(criterion.last_terms),
+                }
+                for index, (global_ids, criterion) in enumerate(
+                    zip(self.global_ids, self.losses, strict=True)
+                )
+            ],
+        }

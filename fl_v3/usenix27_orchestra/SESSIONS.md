@@ -2,10 +2,19 @@
 
 > **Status (2026-07-14).** S07 is closed at clean engineering anchor
 > `2a584053e6f6a3860b6f812681dc8d7342ca52ad`. The owner accepted S08 envelope v1
-> direction and authorized the linear delivery branch plus the pre-S08 audit
-> baseline commit. S08 implementation remains paused for review of the detailed
-> multi-agent execution plan; compute is not approved. S09 waits for an accepted
-> precision policy. S10-S12 are pending/deferred and are not copy-ready.
+> direction and detailed plan, authorized the linear delivery branch, pre-S08
+> audit baseline, implementation/local validation, and a post-validation immutable
+> commit. Exact `S08-SMOKE-1` was approved and consumed by Job `426619`, which
+> failed before pytest on a provenance-policy mismatch with the S07-evidenced
+> spconv build-metadata patch. No model/diagnostic code ran or retry is authorized.
+> O-100's tracked-source-state remediation passed in exact owner-approved
+> `S08-SMOKE-2` Job `427800`; the suite then ended 103 passed/3 failed on two
+> disabled-scaler diagnostics paths and one test-message regex. O-102 authorizes
+> only the narrow fix and SMOKE-3 request preparation. The owner separately bound
+> exact SMOKE-3; Job `428112` completed `0:0` with 106/106 focused tests passing
+> and zero restarts. Immutable sealing and independent review are next; Q1 remains
+> unapproved. S09 waits for an accepted precision policy. S10-S12 are
+> pending/deferred and are not copy-ready.
 >
 > `Sxx` now names a durable evidence milestone, not necessarily a new task,
 > worker, branch, or worktree. Under O-094, persistent S00 normally performs
@@ -41,7 +50,7 @@
 | S02-S05 | Loss/target, camera, SECOND, CenterHead/decode modules | closed | reviewed module contracts integrated into clean anchor |
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
-| S08 | Model/recipe audit, then precision qualification | S07 | **v1 direction accepted**; audit baseline sealing authorized; detailed execution-plan review and implementation launch remain pending; no compute |
+| S08 | Model/recipe audit, then precision qualification | S07 | **implementation smoke PASS**; Jobs 426619/427800 negative evidence preserved; exact SMOKE-3 Job 428112 passed 106/106; immutable seal/review/Q1 evidence and owner precision-policy decision pending |
 | S09 | Full-pipeline performance/readiness | accepted S08 policy | planned; exact 100/1000-step/profile compute not approved |
 | S10 | Centralized branch/recipe ablation | S08+S09 | pending redefinition; no cells/gates frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
@@ -111,9 +120,10 @@ precision, gradient and training-recipe audit is
 classifies the detector as a BEVFusion-class shared-CenterHead hybrid, identifies
 tiny-group sparse GroupNorm as the leading but unproven L/F gradient mechanism,
 and shows that the strict runtime is not yet a frozen scientific recipe. O-097
-accepts the audit's recommended v1 boundaries but requires one final review of the
-detailed implementation plan. Architecture and normalization remain unchanged;
-the audit/envelope authorizes no job.
+accepts the audit boundaries and O-098 accepts the detailed implementation plan.
+Architecture and normalization remain unchanged. The exact implementation,
+consumed request, and terminal negative result are in
+`handoffs/S08/{HANDOFF,RUN_REQUEST,RESULTS}.md`.
 
 **Question.** What precision regime can train the current six-task C/L/F model
 stably on GH200, and why do L-S075/F-U overflow in the existing FP16 path while
@@ -170,10 +180,16 @@ older Arrhenius LiDAR evidence appeared stable?
 5. L-P020/F-CBGS do not carry an unexamined incompatible precision route;
 6. limitations explicitly exclude convergence, speed, capability, and science.
 
-**Compute.** None is approved by this contract. S00 must first stabilize the exact
-diff/tests, create `handoffs/S08/RUN_REQUEST.md`, and obtain approval for the exact
-immutable snapshot, cells, batch/attempt bounds, command, GH200 resources, output,
-and stop conditions.
+**Compute.** O-098 approved separate one-GH200 `<=1h` resource ceilings for the
+focused smoke and later Q1. O-099 bound the first exact tuple; Job `426619` then
+failed before pytest because the source verifier rejected a known non-executable
+spconv build-metadata patch already present in S07 evidence. That request is
+consumed. O-100 authorized exact state binding; O-101 then bound S08-SMOKE-2.
+Job `427800` passed that attestation but failed three focused tests. Both requests
+are consumed. O-102's narrow remediation passed local static validation; O-103
+then bound exact S08-SMOKE-3, whose sole Job `428112` passed all 106 focused tests
+and completed `0:0` with zero restarts. All three smoke authorizations are consumed;
+no retry is implicit, Q1 remains unapproved, and any further job needs new approval.
 
 ## 5. S09 — full-pipeline performance and readiness
 

@@ -3,10 +3,18 @@
 > **Status (2026-07-14).** The closed S01-S07 worker/reviewer prompts have been
 > removed from active routing. Their exact history remains in Git and handoff
 > packages. O-094 makes persistent S00 the default implementer. The only current
-> technical work is S08. The owner accepted envelope v1 direction and authorized
-> `codex/s08-s09-cl-readiness` plus the pre-S08 audit-baseline commit. Production
-> implementation remains paused until the owner reviews the detailed multi-agent
-> plan. Compute authority remains `none`.
+> technical work is S08. The owner accepted envelope v1 and the detailed
+> multi-agent plan, authorized persistent-S00 implementation/local validation and
+> one post-validation immutable commit. Exact `S08-SMOKE-1` was approved and
+> consumed by Job `426619`; it failed before pytest when provenance validation
+> rejected the S07-evidenced spconv build-metadata patch. No model/diagnostic code
+> ran. O-100's exact source-state remediation passed real attestation in
+> owner-approved S08-SMOKE-2 Job `427800`, after which pytest ended 103 passed/3
+> failed on two disabled-scaler diagnostics paths and one test regex. O-102
+> authorized only the narrow remediation and SMOKE-3 request preparation. The
+> owner separately approved exact SMOKE-3; Job `428112` completed `0:0`, zero
+> restarts, and 106/106 focused tests passed. Immutable sealing and independent
+> review are next; Q1 remains unapproved.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -95,7 +103,7 @@ choice, or create another task/worktree until the owner has granted the exact
 needed authority. Persistent S00 simplifies context; it does not broaden scope.
 ```
 
-## 3. S08 envelope v1 — direction accepted; execution-plan review pending
+## 3. S08 envelope v1 — detailed plan accepted; implementation active
 
 ```text
 SESSION_ID: S08
@@ -104,15 +112,14 @@ REBASELINE_SHA: 2a584053e6f6a3860b6f812681dc8d7342ca52ad
 IMPLEMENTATION_CONTEXT: persistent S00, linear active worktree
 DELIVERY_BRANCH: codex/s08-s09-cl-readiness
 PRE_IMPLEMENTATION_AUDIT: handoffs/S08/MODEL_RECIPE_AUDIT.md; accepted as planning input
-OWNER_DECISION: O-097 accepts v1 direction and authorizes branch/audit-baseline commit only
-FILE_OWNERSHIP_PROPOSAL:
+OWNER_DECISION: O-097 direction/branch/audit baseline; O-098 detailed plan/implementation/local validation/post-validation commit; O-099 consumed exact S08-SMOKE-1; O-100 provenance remediation/request preparation; O-101 consumed exact S08-SMOKE-2; O-102 narrow diagnostics/test remediation and SMOKE-3 request preparation only; O-103 consumed exact S08-SMOKE-3 PASS
+FILE_OWNERSHIP:
 - fl_v3/src/fl_v3/training/tasks.py
-- fl_v3/src/fl_v3/training/loop.py only if existing scaler continuation evidence requires it
-- fl_v3/src/fl_v3/models/fusion/sparse_voxel_encoder.py only for explicit precision routing/telemetry
-- fl_v3/src/fl_v3/models/fusion/detector.py only for precision config plumbing
-- fl_v3/src/fl_v3/config/{__init__,resolved}.py only for fail-closed regime provenance
-- fl_v3/configs/s07_b_{c_str8,l_p020,l_s075,f_u,f_cbgs}.json only after owner reviews exact precision-field migration
-- one focused S08 test module; do not build an audit/profiling harness
+- fl_v3/src/fl_v3/training/{loop,runtime_state,precision_diagnostics}.py
+- fl_v3/src/fl_v3/models/fusion/{detector,sparse_voxel_encoder,second_sparse_backbone,losses}.py only for explicit partition/bounded diagnostic seams
+- fl_v3/src/fl_v3/config/{__init__,resolved}.py and fl_v3/src/fl_v3/utils/runtime.py for fail-closed regime provenance
+- fl_v3/configs/{s06_synthetic_camera,s07_b_c_str8,s07_b_l_p020,s07_b_l_s075,s07_b_f_u,s07_b_f_cbgs}.json
+- focused S08 partition, diagnostic, and Q1 evidence tests plus minimal smoke scripts; no generic audit/profiler framework
 - fl_v3/usenix27_orchestra/handoffs/S08/{HANDOFF,RUN_REQUEST,RESULTS,REVIEW}.md as applicable
 READ_ONLY:
 - model architecture, task groups, targets/loss equations, decode/NMS, metric, optimizer recipe
@@ -124,8 +131,8 @@ UPSTREAM_EVIDENCE:
 - F1 Job 390576 and independent review package 7f3bd40158e5a8af30196509734782c4575c50aa
 - historical old-model AMP Jobs 211502/211722, interpretation-limited
 REASONING_EFFORT: max under owner override O-096
-APPROVED_COMPUTE: none
-DECISION_SCOPE: architecture/fixture/diagnostic boundaries accepted; detailed file/test/lifecycle plan requires final owner review before implementation
+APPROVED_COMPUTE: S08-SMOKE-1 Job 426619, S08-SMOKE-2 Job 427800, and S08-SMOKE-3 Job 428112 consumed/terminal; no retry/Q1 execution authority
+DECISION_SCOPE: implement approved explicit partition and bounded diagnostics; architecture/normalization/recipe/scientific policy remain owner-gated
 ```
 
 ### Objective
@@ -180,10 +187,11 @@ under current sparse-conv FP16.
 - Python compile, JSON/TOML parse, shell syntax if touched, `git diff --check`;
 - a compact HANDOFF and exact list of GH200-only items still NOT RUN.
 
-After the diff stabilizes, prepare but do not submit one exact bounded S08
-`RUN_REQUEST.md`. It must state batch/sample identity, maximum windows/backoffs,
-exact regimes/modes, one-GH200 resources, immutable snapshot/hash, output, and stop
-conditions. Owner approval is required even if the request might fit O-009.
+The first exact bounded request was consumed by Job `426619` and failed before
+pytest on the provenance clean-checkout gate. Preserve it as negative evidence.
+After an owner-approved remediation and renewed local validation, freeze a new
+snapshot/request with exact selectors, hashes, resources, output, and stop
+conditions; do not submit it without a new explicit owner approval.
 
 ## 4. S08 independent-review envelope
 

@@ -19,12 +19,12 @@ NEW in fl_v3 (centralizes what fl_v2 scattered inline across client/server):
                               ``torch.use_deterministic_algorithms(True)``.
   * ``seed_everything``     — seed ``random`` / ``numpy`` / ``torch`` (+CUDA).
 
-**Arrhenius precision regime (2026-07).** There is one explicit precision knob:
+**Arrhenius precision regime (2026-07).** Runtime has one global precision knob,
 ``enforce_determinism(precision=...)`` with ``precision`` in {``fp32``, ``fp16``}.
-``fp32`` is the dev/debug/reference path. ``fp16`` is the supported sparse-training
-path: CUDA autocast fp16 plus ``GradScaler(init_scale=512)`` in trainer/smoke code.
-Direct sparse ``bf16`` is not supported by the validated GH200 cumm/spconv path and
-must fail loudly.
+The strict S08 config additionally carries a fail-closed SECOND partition so a
+global fp16 run can select full sparse fp16 or a SECOND-fp32 island explicitly.
+Direct sparse ``bf16`` is not supported by the validated GH200 cumm/spconv path
+and must fail loudly.
 """
 from __future__ import annotations
 
@@ -45,6 +45,12 @@ from contextlib import nullcontext
 import numpy as _np
 import torch
 
+from fl_v3.source_identity import (
+    build_source_state,
+    inspect_tracked_source_state,
+    require_source_state,
+)
+
 
 _TRUTHY = frozenset({"true", "1", "yes", "y", "on"})
 _FALSY = frozenset({"false", "0", "no", "n", "off", ""})
@@ -55,9 +61,8 @@ _FALSY = frozenset({"false", "0", "no", "n", "off", ""})
 # CUDA is already initialised. Arrhenius launchers / SLURM also export it up front.
 _CUBLAS_WORKSPACE_CONFIG = ":4096:8"
 
-# Arrhenius precision policy: fp32 for dev/debug/reference; fp16 for supported
-# sparse training via CUDA autocast + GradScaler. Direct sparse bf16 is rejected
-# by normalize_precision/validate_sparse_precision instead of silently falling back.
+# Arrhenius global precision policy. The model's explicit SECOND partition is
+# validated by the strict S08 config/task bridge rather than inferred here.
 _VALID_PRECISIONS = frozenset({"fp16", "fp32"})
 _CURRENT_PRECISION = "fp32"
 _MODEL_MODES = frozenset({"camera_only", "lidar_only", "fusion"})
@@ -95,8 +100,11 @@ def require_spconv_238() -> None:
         raise RuntimeError(f"lidar/fusion mode requires spconv==2.3.8, found {version!r}")
 
 
-def _source_checkout_identity(distribution: str, import_name: str) -> tuple[str, str]:
-    """Return ``(clean Git HEAD, import origin)`` for one editable dependency."""
+def _source_checkout_identity(
+    distribution: str,
+    import_name: str,
+) -> tuple[str, str, dict[str, object]]:
+    """Return ``(Git HEAD, import origin, exact tracked state)``."""
     dist = importlib.metadata.distribution(distribution)
     try:
         direct = json.loads(dist.read_text("direct_url.json") or "")
@@ -110,6 +118,7 @@ def _source_checkout_identity(distribution: str, import_name: str) -> tuple[str,
             raise RuntimeError(f"{distribution} direct_url lacks an exact source commit")
         source = ""
         head = commit
+        source_state = build_source_state([])
     else:
         source = unquote(parsed.path)
         if not source:
@@ -119,14 +128,9 @@ def _source_checkout_identity(distribution: str, import_name: str) -> tuple[str,
                 ["git", "-C", source, "rev-parse", "HEAD"],
                 check=True, capture_output=True, text=True,
             ).stdout.strip()
-            dirty = subprocess.run(
-                ["git", "-C", source, "status", "--porcelain", "--untracked-files=no"],
-                check=True, capture_output=True, text=True,
-            ).stdout.strip()
+            source_state = inspect_tracked_source_state(source)
         except (OSError, subprocess.CalledProcessError) as exc:
             raise RuntimeError(f"cannot attest {distribution} source checkout {source!r}") from exc
-        if dirty:
-            raise RuntimeError(f"{distribution} source checkout is modified")
     spec = importlib.util.find_spec(import_name)
     if spec is None or not spec.origin:
         raise RuntimeError(f"cannot resolve installed import origin for {import_name}")
@@ -135,7 +139,7 @@ def _source_checkout_identity(distribution: str, import_name: str) -> tuple[str,
         raise RuntimeError(
             f"{distribution} import origin {origin!r} is not from attested source {source!r}"
         )
-    return head, origin
+    return head, origin, source_state
 
 
 _EXECUTABLE_SUFFIXES = frozenset({
@@ -263,9 +267,10 @@ def _runtime_package_sha256(import_name: str) -> str:
 def verify_runtime_dependency_identity(run_config: dict) -> dict[str, object]:
     """Fail before construction on Torch and sparse package/source identity drift.
 
-    The returned paths are suitable for an execution manifest.  This proves the
-    installed package version, active import root, and clean source commit; an
-    approved launcher must additionally hash its concrete runtime/source snapshot.
+    The returned paths are suitable for an execution manifest. This proves the
+    installed package version, active import root, exact source commit, explicitly
+    bound tracked-checkout state, and executable build; an approved launcher must
+    additionally hash its concrete runtime/source snapshot.
     """
     expected_torch = str(run_config.get("dependency-torch", ""))
     if not expected_torch or torch.__version__ != expected_torch:
@@ -310,15 +315,18 @@ def verify_runtime_dependency_identity(run_config: dict) -> dict[str, object]:
             "spconv", "spconv", str(run_config.get("dependency-spconv", "")),
             str(run_config.get("dependency-spconv-build-sha256", "")),
             str(run_config.get("dependency-spconv-source-sha", "")),
+            run_config.get("dependency-spconv-source-state"),
         ),
         "cumm": (
             "cumm", "cumm", str(run_config.get("dependency-cumm", "")),
             str(run_config.get("dependency-cumm-build-sha256", "")),
             str(run_config.get("dependency-cumm-source-sha", "")),
+            run_config.get("dependency-cumm-source-state"),
         ),
     }
     for label, (
         distribution, import_name, expected_version, expected_build, expected_head,
+        expected_source_state,
     ) in expected.items():
         try:
             actual_version = importlib.metadata.version(distribution)
@@ -329,7 +337,19 @@ def verify_runtime_dependency_identity(run_config: dict) -> dict[str, object]:
                 f"{label} package identity drift: expected={expected_version!r}, "
                 f"actual={actual_version!r}"
             )
-        actual_head, origin = _source_checkout_identity(distribution, import_name)
+        actual_head, origin, actual_source_state = _source_checkout_identity(
+            distribution, import_name,
+        )
+        if actual_head != expected_head:
+            raise RuntimeError(
+                f"{label} source identity drift: expected={expected_head!r}, "
+                f"actual={actual_head!r}"
+            )
+        actual_source_state = require_source_state(
+            expected_source_state,
+            actual_source_state,
+            distribution=distribution,
+        )
         targets = ("spconv", "spconv.pytorch") if label == "spconv" else ("cumm", "cumm.tensorview")
         actual_build, import_origins = _runtime_build_identity(
             distribution, import_name, targets,
@@ -340,13 +360,23 @@ def verify_runtime_dependency_identity(run_config: dict) -> dict[str, object]:
                 f"{label} build identity drift: expected={expected_build!r}, "
                 f"actual={actual_build!r}"
             )
-        if actual_head != expected_head:
+        final_head, final_origin, final_source_state = _source_checkout_identity(
+            distribution, import_name,
+        )
+        if final_head != actual_head or final_origin != origin:
             raise RuntimeError(
-                f"{label} source identity drift: expected={expected_head!r}, actual={actual_head!r}"
+                f"{label} source checkout/import origin changed during first import"
             )
+        require_source_state(
+            actual_source_state,
+            final_source_state,
+            distribution=distribution,
+        )
         result[f"{label}_version"] = actual_version
         result[f"{label}_build_sha256"] = actual_build
         result[f"{label}_source_sha"] = actual_head
+        result[f"{label}_source_state_sha256"] = actual_source_state["sha256"]
+        result[f"{label}_source_state"] = actual_source_state
         result[f"{label}_import_origin"] = origin
         result[f"{label}_import_origins"] = import_origins
         result[f"{label}_executable_artifacts"] = _executable_artifact_records(

@@ -237,7 +237,7 @@ class SparseVoxelEncoder(nn.Module):
         point_drops = torch.clamp(counts - self.max_pts, min=0).sum().to(torch.int64)
         return pf, unique_voxels, point_drops
 
-    def forward(self, points: torch.Tensor, B: int) -> torch.Tensor:
+    def forward(self, points: torch.Tensor, B: int, *, boundary_capture=None) -> torch.Tensor:
         """Encode batched points; output is ``[B,out,H/8,W/8]``."""
         if B < 0:
             raise ValueError(f"B must be non-negative, got {B}")
@@ -370,7 +370,7 @@ class SparseVoxelEncoder(nn.Module):
                     else nullcontext((None, 0))
                 )
                 with dispatch_ctx as (dispatch_version, dispatch_count):
-                    x = self.backbone(x)
+                    x = self.backbone(x, boundary_capture=boundary_capture)
             with stage("reduced_dense_collapse"):
                 dense = x.dense()
                 dense_shape = tuple(int(v) for v in dense.shape)
@@ -386,7 +386,7 @@ class SparseVoxelEncoder(nn.Module):
         bev_ctx = (
             torch.autocast(device_type=dev.type, dtype=torch.float16)
             if sparse_amp
-            else nullcontext()
+            else torch.autocast(device_type=dev.type, enabled=False)
         )
         with stage("low_resolution_projection"):
             with bev_ctx:

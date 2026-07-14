@@ -48,6 +48,9 @@ def _run_config(mode: str, camera: str, lidar: str, fusion: str) -> dict:
         "det-head-arch": "centerhead_multitask",
         "det-lidar-sweeps": 10,
         "precision": "fp16",
+        "det-sparse-conv-precision": (
+            "fp16" if lidar == "second_075" else "not_applicable"
+        ),
     }
 
 
@@ -117,13 +120,16 @@ def test_runtime_sparse_identity_binds_torch_packages_sources_and_imports(monkey
         "dependency-spconv": "2.3.8",
         "dependency-spconv-build-sha256": "a" * 64,
         "dependency-spconv-source-sha": "2" * 40,
+        "dependency-spconv-source-state": runtime.build_source_state([]),
         "dependency-cumm": "0.7.13",
         "dependency-cumm-build-sha256": "b" * 64,
         "dependency-cumm-source-sha": "3" * 40,
+        "dependency-cumm-source-state": runtime.build_source_state([]),
     })
     versions = {"spconv": "2.3.8", "cumm": "0.7.13"}
-    sources = {"spconv": ("2" * 40, "/src/spconv/spconv/__init__.py"),
-               "cumm": ("3" * 40, "/src/cumm/cumm/__init__.py")}
+    clean_state = runtime.build_source_state([])
+    sources = {"spconv": ("2" * 40, "/src/spconv/spconv/__init__.py", clean_state),
+               "cumm": ("3" * 40, "/src/cumm/cumm/__init__.py", clean_state)}
     monkeypatch.setattr(runtime.torch.version, "git_version", "1" * 40)
     monkeypatch.setattr(runtime.importlib.metadata, "version", lambda name: versions[name])
     monkeypatch.setattr(runtime, "_source_checkout_identity", lambda dist, _imp: sources[dist])
@@ -141,12 +147,19 @@ def test_runtime_sparse_identity_binds_torch_packages_sources_and_imports(monkey
     )
     identity = runtime.verify_runtime_dependency_identity(run)
     assert identity["spconv_source_sha"] == "2" * 40
+    assert identity["spconv_source_state"] == clean_state
     assert identity["cumm_source_sha"] == "3" * 40
     assert identity["spconv_build_sha256"] == "a" * 64
     assert identity["torch"] == torch.__version__
     assert identity["torch_build_sha256"] == "f" * 64
     run["dependency-spconv-source-sha"] = "4" * 40
     with pytest.raises(RuntimeError, match="source identity drift"):
+        runtime.verify_runtime_dependency_identity(run)
+    run["dependency-spconv-source-sha"] = "2" * 40
+    run["dependency-spconv-source-state"] = runtime.build_source_state([{
+        "status": " M", "path": "pyproject.toml", "sha256": "5" * 64,
+    }])
+    with pytest.raises(RuntimeError, match="source checkout state drift"):
         runtime.verify_runtime_dependency_identity(run)
 
 
@@ -378,6 +391,9 @@ def test_candidate_templates_name_exact_choices_and_fail_closed(name, mode, lida
     assert raw["model"]["lidar_arch"] == lidar
     assert raw["model"]["head_arch"] == "centerhead_multitask"
     assert raw["precision"] == "fp16"
+    assert raw["sparse_conv_precision"] == (
+        "fp16" if lidar == "second_075" else "not_applicable"
+    )
     assert raw["training"]["sampling"] == sampling
     assert raw["model"]["camera_pretrained"] is None
     with pytest.raises(ConfigError, match="template_only"):
@@ -419,7 +435,7 @@ def test_multitask_loss_maps_global_labels_and_reaches_every_task_head():
 
 def test_multitask_loss_rejects_legacy_single_head_output():
     criterion = MultiTaskCenterPointLoss(BEVConfig())
-    with pytest.raises(ValueError, match="six task"):
+    with pytest.raises(ValueError, match="must return 6 task dictionaries"):
         criterion({"heatmap": torch.zeros(1, 10, 1, 1)}, {
             "gt_boxes": [], "gt_labels": [],
         })
