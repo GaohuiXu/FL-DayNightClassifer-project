@@ -4,11 +4,11 @@
 
 ```text
 SESSION_ID: S08
-MILESTONE_STATE: Q1 COMPLETE / SPARSE-FP32-ISLAND CANDIDATE / Q2 ACTIVE
+MILESTONE_STATE: Q1/Q2 COMPLETE / EVIDENCE REVIEW PENDING
 BASE_AUDIT_COMMIT: 733c84f8e3019fe4d683663821bd86918d3875a7
 BRANCH: codex/s08-s09-cl-readiness
 IMPLEMENTATION_COMMIT: 791aba97f7bbe92e7708b63f94f2e7d8599f91be
-COMPUTE_EXECUTED: Jobs 426619/427800/428889 terminal negative evidence; Jobs 428112/429080 focused smoke PASS; Q1 Job 431013 bounded precision result
+COMPUTE_EXECUTED: Jobs 426619/427800/428889 terminal negative evidence; Jobs 428112/429080 focused smoke PASS; Q1 Job 431013 bounded primary result; Q2 Job 435151 compatibility PASS
 INDEPENDENT_REVIEW: remediation R2 PASS_WITH_RESIDUAL_RISK; REVIEW.md SHA-256 c9919f643b3507f5edfad5a668b6a208b2a7f445b8c5b38217582c352afaa3ad
 ```
 
@@ -23,8 +23,8 @@ owner as exact `S08-SMOKE-3`; Job `428112` completed `0:0` with 106/106 tests
 passing. No retry was attempted. The owner-authorized immutable implementation/
 evidence seal was then created as
 `791aba97f7bbe92e7708b63f94f2e7d8599f91be`. Independent review preserved the
-focused-smoke PASS but returned `REMEDIATE`; Q1 is blocked and unapproved, and S09
-remains dependency-only. O-104 authorizes only the linear review remediation,
+focused-smoke PASS but returned `REMEDIATE`; at that review point Q1 was blocked
+and unapproved, and S09 remained dependency-only. O-104 authorized the linear review remediation,
 local validation, and exact S08-SMOKE-4 fixture-attestation request preparation.
 The owner separately approved that exact request under O-105. Its sole Job
 `428889` passed preflight and 115/116 Phase-1 tests, then stopped on a synthetic
@@ -47,7 +47,13 @@ at scales `32`/`16`. The final F2 attempt retained ten nonfinite elements beginn
 at SECOND stem weight despite finite loss, head input, SECOND output, and boundary
 activation gradients. The active compatibility candidate is global FP16 with
 SECOND/spconv kept FP32. Exact Q1 artifacts and interpretation limits are in
-`RESULTS.md`; Q2 is limited to L-P020 and F-CBGS.
+`RESULTS.md`. Q2 Job `435151` then completed `0:0` in `00:03:56`: L-P020
+accepted its dense-pillar FP16 route at scale `8`, and F-CBGS accepted the sparse-
+FP32-island route at scale `16`. Both had exact skip/update accounting and finite
+accepted gradients. Q1+Q2 consumed `00:07:58` of O-109's two-GPU-hour ceiling.
+The resulting close-ready policy candidate is global FP16 for camera/pillar,
+global FP16 with SECOND/spconv FP32 for sparse LiDAR/fusion, and FP32 as reference/
+fallback. It awaits independent evidence review and owner acceptance.
 
 ## Independent review and active O-104 remediation
 

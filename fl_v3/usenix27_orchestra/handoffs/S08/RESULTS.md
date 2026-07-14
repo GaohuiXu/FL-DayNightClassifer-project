@@ -1,5 +1,70 @@
 # S08 precision qualification — execution results
 
+## S08-Q2 compatibility gate — terminal PASS
+
+```text
+REQUEST_ID/JOB_ID: S08-Q2 / 435151
+OWNER_AUTHORITY: O-109
+STATE/EXIT/RESTARTS: COMPLETED / 0:0 / 0
+SUBMIT/START/END: 2026-07-14T19:02:10 / 19:02:11 / 19:06:07 +02:00
+ELAPSED/NODE: 00:03:56 / n207
+ALLOCATED: 1 x NVIDIA GH200 120GB, 8 CPU, 96 GiB
+EXECUTION_SOURCE_SHA: 3bb10d39c60e6fd2d0bfe480bb03a7c8cfc76fe9
+REQUEST_FREEZE_SHA: f0b811d42ff841f61e67b85a1d583e6edb2f2d49
+SNAPSHOT_TREE_SHA256: 1d9191c2f6234199d31405f9690ffd2d83343889333efbe1e1ae47e6235a5c60
+JOB_SCRIPT_SHA256: ff14fd735788a4fa4691a473eb788276d901371160c28f447fe8819f33494d0d
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s08_q2_1d9191c2f623
+NEW-Q1/Q2 GPU BUDGET USED/REMAINING: 00:07:58 / 01:52:02
+```
+
+The exact one-test runner completed the two declared compatibility cells in order
+and emitted 13 strict window records. JUnit is 1 test/0 failure/0 error/0 skip;
+the job-created checksum manifest verifies all ten declared runtime/Q2 artifacts.
+No retry or additional cell was submitted.
+
+| Cell | Template/route | Attempts | Accepted | First accepted scale | Result |
+|---|---|---:|---:|---:|---|
+| P1 | L-P020, global FP16, `not_applicable`, uniform | 7 | 1 | 8 | PASS |
+| B1 | F-CBGS, global FP16 + SECOND FP32 island, CBGS identity | 6 | 1 | 16 | PASS |
+
+For both cells, overflow windows left optimizer step, scheduler epoch, EMA state,
+and exposure at zero. The accepted window alone advanced optimizer, scheduler,
+and exposure exactly once; EMA remained correctly disabled. Loss, all parameter
+gradients, and all applicable named boundary gradients were finite. P1 resolved
+`not_applicable/null/null` for sparse partition/requested/active. B1 resolved
+`fp32/false/false`; its accepted SECOND output/stage1/stem gradients were finite.
+The exact five Q1 fixture identities were reproduced.
+
+P1 backoff from 512 accepted at scale 8. B1 backoff from 512 accepted at scale 16.
+The B1 resolved config binds `det-cbgs=true`, but this replay-frozen single batch
+does not exercise or qualify the CBGS sampling distribution or loader throughput.
+
+### Q2 preserved artifact identities
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `environment.json` | 228 | `dcb00e9f854c6ed57e47939a3c52fd3951e8b6d18965ade02435d91023702d4d` |
+| `q2.log` | 2,773 | `766a5094df438885d5303d214c3652d9367de47d42a58aee7b852bd987ff288d` |
+| `q2.junit.xml` | 369 | `bcd4242c707adad0cf35e24344475138759bf868fb24951f9e86a08376ac4a9d` |
+| `q2.exit` | 2 | `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa` |
+| `raw/fixture_manifest.json` | 5,980 | `61bbcb481109937c02d5010074b5a5de7d1b2ff445fd8ccc1df6a92956beb43c` |
+| `raw/fixture_identity.json` | 549 | `6f44f71692a79a443b4fdce4abe528184e8eab7c61f018960815024ffab709b2` |
+| `raw/resolved_configs.json` | 6,920 | `529a8ea44f595edf8ee86b19e1632643c315237987a20d5c6dddbd226de03925` |
+| `raw/window_records.jsonl` | 148,440 | `47dfa3407204f36f0da002334304fdb1c0795dc54d0e729fafb7f64a595a3f81` |
+| `raw/q2_partial_summary.json` | 3,247 | `d00978827b092d5f01a6aa781d74b1639935b3767c53284166fd82ad5eef785b` |
+| `raw/q2_summary.json` | 865,147 | `211c2560ab207525e3ceeb66e0b73c3100b70473ce02cfed09ec21e91fb383e1` |
+| `artifact_sha256s.txt` | 856 | `36b9cbf1eab30f54799cf7abbe83056ac009b301a7817d604a0c8b9abea5fb2f` |
+| `slurm-435151.out` | 4,441 | `a947576566c3b95cc6dc19bf57543ee3b50330ed0a61f3b3857530d7b4947e2e` |
+| `slurm-435151.err` | 123 | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+Together, Q1 and Q2 support the close-ready precision-policy candidate: global
+FP16 for camera and pillar routes, global FP16 with SECOND/spconv explicitly kept
+FP32 for current sparse LiDAR/fusion routes, and uniform FP32 as reference/fallback.
+Full sparse FP16 is not accepted as the unified F-capable route. This remains
+bounded one-fixture numerical qualification pending independent evidence review
+and owner policy acceptance; it is not convergence, capability, performance,
+sampling-quality, mAP/NDS, production-data, or scientific-result evidence.
+
 ## S08-Q1 primary precision qualification — terminal bounded result
 
 ```text
@@ -371,14 +436,14 @@ Pytest's bounded temporary fixtures remain under `pytest-tmp` in the preserved
 output root; they include only the declared toy Git/config/checkpoint fixtures
 and no nuScenes data.
 
-### Disposition and interpretation boundary
+### Historical disposition and interpretation boundary at Smoke-3
 
 - The exact S08-SMOKE-3 authorization is consumed and terminal; it grants no
   retry or additional compute.
 - The focused GH200 implementation gate is satisfied, so the previously
   authorized immutable implementation/evidence commit may now be created.
 - Independent review of that exact Git object remains required before Q1.
-- Q1 remains unapproved and unexecuted; S09 remains blocked on reviewed S08
+- At the Smoke-3 disposition, Q1 remained unapproved and unexecuted; S09 remained blocked on reviewed S08
   evidence and owner precision-policy acceptance.
 
 This PASS establishes only the exact tracked-source attestation, focused

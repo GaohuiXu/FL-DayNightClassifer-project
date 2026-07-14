@@ -363,7 +363,7 @@ policy, Protocol A/B, attack, or defense evidence.
 
 ```text
 REQUEST_ID: S08-Q2
-REQUEST_STATE: FROZEN / OWNER-APPROVED BY O-109 / NOT YET SUBMITTED
+REQUEST_STATE: CONSUMED / TERMINAL PASS / Job 435151 COMPLETED 0:0
 EXECUTION_SOURCE_SHA: 3bb10d39c60e6fd2d0bfe480bb03a7c8cfc76fe9
 Q1_JOB/ELAPSED: 431013 / 00:04:02
 O-109 REMAINING BEFORE Q2: 01:55:58 one-GPU elapsed
@@ -385,6 +385,12 @@ MAX_ATTEMPTED_WINDOWS: 18 per cell / 36 total
 MAX_ACCEPTED_UPDATES: 1 per cell / 2 total
 RESOURCE: one GH200, 8 CPUs, 96 GiB, 00:30:00, no requeue
 RETRY: no scientific retry; preserve any bounded negative result
+JOB/STATE/EXIT/RESTARTS: 435151 / COMPLETED / 0:0 / 0
+SUBMIT/START/END: 2026-07-14T19:02:10 / 19:02:11 / 19:06:07 +02:00
+ELAPSED/NODE: 00:03:56 / n207
+Q2_RESULT: P1 accepted at scale 8; B1 accepted at scale 16; exact accounting PASS
+CUMULATIVE_Q1_Q2_ELAPSED/REMAINING: 00:07:58 / 01:52:02
+ARTIFACT_MANIFEST_SHA256: 36b9cbf1eab30f54799cf7abbe83056ac009b301a7817d604a0c8b9abea5fb2f
 ```
 
 Q2 adds no generic harness and executes only the two compatibility cells in

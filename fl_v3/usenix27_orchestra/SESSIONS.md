@@ -1,34 +1,15 @@
 # USENIX Security '27 Orchestra — milestone contracts
 
 > **Status (2026-07-14).** S07 is closed at clean engineering anchor
-> `2a584053e6f6a3860b6f812681dc8d7342ca52ad`. The owner accepted S08 envelope v1
-> direction and detailed plan, authorized the linear delivery branch, pre-S08
-> audit baseline, implementation/local validation, and a post-validation immutable
-> commit. Exact `S08-SMOKE-1` was approved and consumed by Job `426619`, which
-> failed before pytest on a provenance-policy mismatch with the S07-evidenced
-> spconv build-metadata patch. No model/diagnostic code ran or retry is authorized.
-> O-100's tracked-source-state remediation passed in exact owner-approved
-> `S08-SMOKE-2` Job `427800`; the suite then ended 103 passed/3 failed on two
-> disabled-scaler diagnostics paths and one test-message regex. O-102 authorizes
-> only the narrow fix and SMOKE-3 request preparation. The owner separately bound
-> exact SMOKE-3; Job `428112` completed `0:0` with 106/106 focused tests passing
-> and zero restarts. Immutable implementation/evidence SHA
-> `791aba97f7bbe92e7708b63f94f2e7d8599f91be` then
-> received independent verdict `REMEDIATE`: focused-smoke PASS remains valid,
-> while Q1 is blocked on fixture prebinding, scheduler/EMA qualification gates,
-> and active-document repair. O-104 permits that remediation, local validation,
-> and exact S08-SMOKE-4 request preparation only. O-105 separately approved the
-> exact tuple; Job `428889` passed preflight and 115/116 Phase-1 tests, then failed
-> on a no-op calibration negative-test assignment before Phase 2. The approval is
-> consumed with no retry. The owner then requested Smoke-5 before its immutable
-> tuple existed; the one-line fix and exact request are frozen, but renewed
-> post-freeze execution approval was required. O-106 then bound that exact tuple;
-> Job `429080` completed `0:0` with 116/116 focused tests and 1/1 fixture
-> attestation passing. O-107 prospectively simplifies bounded mechanical smoke
-> remediation. O-108 authorizes one immutable remediation/evidence commit and
-> independent re-review. Q1 remains unapproved, and S09 waits for an accepted
-> precision policy. S10-S12 are
-> pending/deferred and are not copy-ready.
+> `2a584053e6f6a3860b6f812681dc8d7342ca52ad`. S08 implementation/remediation is
+> sealed at `103c7389a47938b1f9dd0cba60251df6dce9e5bb` with independent R2
+> `PASS_WITH_RESIDUAL_RISK`. Under O-109, exact Q1 Job `431013` and Q2 Job
+> `435151` are terminal and checksum-verified, consuming only `00:07:58` GPU
+> elapsed. Primary evidence rejects full sparse FP16 as the unified F-capable
+> route and supports global FP16 with SECOND/spconv FP32; L-P020 and F-CBGS
+> compatibility cells also passed. An immutable Q1/Q2 evidence seal and
+> independent review remain before owner precision-policy acceptance. S09 still
+> waits for that acceptance. S10-S12 are pending/deferred and not copy-ready.
 >
 > `Sxx` now names a durable evidence milestone, not necessarily a new task,
 > worker, branch, or worktree. Under O-094, persistent S00 normally performs
@@ -64,7 +45,7 @@
 | S02-S05 | Loss/target, camera, SECOND, CenterHead/decode modules | closed | reviewed module contracts integrated into clean anchor |
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
-| S08 | Model/recipe audit, then precision qualification | S07 | **implementation/remediation review PASS_WITH_RESIDUAL_RISK** at `103c7389`; all five smoke outcomes preserved; Q1/Q2 execution and final owner precision-policy decision pending under O-109 |
+| S08 | Model/recipe audit, then precision qualification | S07 | **Q1/Q2 complete**: Jobs `431013`/`435151`, `00:07:58` total; sparse-FP32-island policy candidate; immutable evidence review and owner acceptance pending |
 | S09 | Full-pipeline performance/readiness | accepted S08 policy | planned; exact 100/1000-step/profile compute not approved |
 | S10 | Centralized branch/recipe ablation | S08+S09 | pending redefinition; no cells/gates frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
@@ -131,7 +112,7 @@ contracts. Read their handoffs when their evidence is needed; do not relaunch th
 
 ## 4. S08 — current six-task precision qualification
 
-**Current implementation/review-remediation gate.** The detailed current-model, official-reference,
+**Current evidence-review gate.** The detailed current-model, official-reference,
 precision, gradient and training-recipe audit is
 [`handoffs/S08/MODEL_RECIPE_AUDIT.md`](handoffs/S08/MODEL_RECIPE_AUDIT.md). It
 classifies the detector as a BEVFusion-class shared-CenterHead hybrid, identifies
@@ -141,9 +122,10 @@ accepts the audit boundaries and O-098 accepts the detailed implementation plan.
 Architecture and normalization remain unchanged. The exact implementation, five
 consumed smoke outcomes, initial `REMEDIATE` review, and remediation R2
 `PASS_WITH_RESIDUAL_RISK` are in
-`handoffs/S08/{HANDOFF,RUN_REQUEST,RESULTS,REVIEW}.md`. O-109 authorizes exact
-Q1/Q2 completion work within two cumulative GPU-hours; it does not reopen the
-accepted v1 architecture or training recipe.
+`handoffs/S08/{HANDOFF,RUN_REQUEST,RESULTS,REVIEW}.md`. Exact Q1/Q2 Jobs
+`431013`/`435151` completed in `00:07:58` total under O-109; they did not reopen
+the accepted v1 architecture or training recipe. Evidence review and owner policy
+acceptance remain.
 
 **Question.** What precision regime can train the current six-task C/L/F model
 stably on GH200, and why do L-S075/F-U overflow in the existing FP16 path while
@@ -209,8 +191,9 @@ consumed. O-100 authorized exact state binding; O-101 then bound S08-SMOKE-2.
 Job `427800` passed that attestation but failed three focused tests. Both requests
 are consumed. O-102's narrow remediation passed local static validation; O-103
 then bound exact S08-SMOKE-3, whose sole Job `428112` passed all 106 focused tests
-and completed `0:0` with zero restarts. All three smoke authorizations are consumed;
-no retry is implicit, Q1 remains unapproved, and any further job needs new approval.
+and completed `0:0` with zero restarts. All three smoke authorizations were consumed;
+at that point no retry was implicit, Q1 remained unapproved, and any further job
+needed new approval.
 The independent review of exact SHA
 `791aba97f7bbe92e7708b63f94f2e7d8599f91be` returned `REMEDIATE`; O-104
 allows the bounded code/test/document remediation and exact S08-SMOKE-4 request
@@ -218,11 +201,15 @@ preparation. O-105 then bound it once. Job `428889` is terminal `FAILED 1:0`:
 115 passed/1 failed, with the only failure caused by assigning `1.0` to an already
 `1.0` synthetic calibration element. Phase 2 did not run. No retry, source edit,
 or remediation commit is authorized under O-105. A later owner message directed
-Smoke-5 before its exact tuple existed; the narrow correction/request are now
-frozen. O-106 then approved that exact tuple; Job `429080` is terminal PASS with
-116+1 tests and all five candidate fixture identities. O-106 is consumed. O-108
-now authorizes one remediation/evidence commit and independent re-review; no Q1
-execution is authorized.
+Smoke-5 before its exact tuple existed; the narrow correction/request were then
+frozen. O-106 approved that exact tuple; Job `429080` is terminal PASS with 116+1
+tests and all five candidate fixture identities. O-108 sealed remediation at
+`103c7389`; R2 returned `PASS_WITH_RESIDUAL_RISK`. O-109 then authorized and
+consumed Q1 Job `431013` (`00:04:02`) and Q2 Job `435151` (`00:03:56`). Q1 found
+full sparse FP16 narrowly recoverable for L-S075 but bounded-failing for F-U,
+while the SECOND-FP32 island passed both. Q2 passed L-P020 global FP16 and F-CBGS
+with the SECOND-FP32 island. No scientific retry or extra cell ran. The next gate
+is immutable evidence review, then owner precision-policy acceptance.
 
 ## 5. S09 — full-pipeline performance and readiness
 

@@ -3,32 +3,16 @@
 > **Status (2026-07-14).** The closed S01-S07 worker/reviewer prompts have been
 > removed from active routing. Their exact history remains in Git and handoff
 > packages. O-094 makes persistent S00 the default implementer. The only current
-> technical work is S08. The owner accepted envelope v1 and the detailed
-> multi-agent plan, authorized persistent-S00 implementation/local validation and
-> one post-validation immutable commit. Exact `S08-SMOKE-1` was approved and
-> consumed by Job `426619`; it failed before pytest when provenance validation
-> rejected the S07-evidenced spconv build-metadata patch. No model/diagnostic code
-> ran. O-100's exact source-state remediation passed real attestation in
-> owner-approved S08-SMOKE-2 Job `427800`, after which pytest ended 103 passed/3
-> failed on two disabled-scaler diagnostics paths and one test regex. O-102
-> authorized only the narrow remediation and SMOKE-3 request preparation. The
-> owner separately approved exact SMOKE-3; Job `428112` completed `0:0`, zero
-> restarts, and 106/106 focused tests passed. Exact implementation/evidence SHA
-> `791aba97f7bbe92e7708b63f94f2e7d8599f91be` then received an independent
-> `REMEDIATE` verdict. O-104 permits
-> only the bounded review fixes, local validation, and exact S08-SMOKE-4 fixture-
-> attestation request preparation. O-105 separately approved it once; Job
-> `428889` passed preflight and 115/116 Phase-1 tests, then failed on a no-op
-> calibration negative-test assignment before Phase 2. The request is consumed;
-> no retry, remediation commit, or Q1 is authorized. The owner then requested
-> Smoke-5 before its changed tuple existed; the one-line fix and exact request are
-> frozen. O-106 then approved that exact tuple; Job `429080` completed `0:0` with
-> 116/116 focused tests and 1/1 fixture attestation passing. O-107 prospectively
-> simplifies future bounded mechanical smoke remediation. O-108 authorizes one
-> immutable remediation/evidence commit and independent re-review; Q1 remains
-> separately gated and unapproved. O-109 now authorizes the exact Q1/Q2 jobs and
-> commits needed to reach a close-ready S08 package within a cumulative two-
-> GPU-hour ceiling, without harness or work-chain expansion.
+> technical work is S08. Its implementation/remediation is sealed at
+> `103c7389a47938b1f9dd0cba60251df6dce9e5bb` with R2
+> `PASS_WITH_RESIDUAL_RISK`; detailed smoke history remains in its handoff.
+> O-109 exact Q1 Job `431013` and Q2 Job `435151` are terminal at the runner level,
+> checksum-verified, and consumed `00:07:58` total GPU elapsed. Numerical evidence
+> selects global FP16 with SECOND/spconv FP32 as the close-ready sparse-route
+> candidate and preserves uniform FP32 as reference/fallback. The next permitted
+> action is an immutable evidence seal and independent review; owner policy
+> acceptance remains the S08 close gate. No harness/work-chain expansion, merge,
+> push, or S09 execution is authorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -128,7 +112,7 @@ choice, or create another task/worktree until the owner has granted the exact
 needed authority. Persistent S00 simplifies context; it does not broaden scope.
 ```
 
-## 3. S08 envelope v1 — immutable implementation reviewed; remediation active
+## 3. S08 envelope v1 — Q1/Q2 complete; evidence review pending
 
 ```text
 SESSION_ID: S08
@@ -156,7 +140,7 @@ UPSTREAM_EVIDENCE:
 - F1 Job 390576 and independent review package 7f3bd40158e5a8af30196509734782c4575c50aa
 - historical old-model AMP Jobs 211502/211722, interpretation-limited
 REASONING_EFFORT: max under owner override O-096
-APPROVED_COMPUTE: S08-SMOKE-1 Job 426619, S08-SMOKE-2 Job 427800, S08-SMOKE-3 Job 428112, S08-SMOKE-4 Job 428889, and S08-SMOKE-5 Job 429080 consumed/terminal; O-109 authorizes exact Q1/Q2 submissions under a cumulative two-GPU-hour cap after tuple freeze
+APPROVED_COMPUTE: S08-SMOKE-1 Job 426619, S08-SMOKE-2 Job 427800, S08-SMOKE-3 Job 428112, S08-SMOKE-4 Job 428889, S08-SMOKE-5 Job 429080, Q1 Job 431013, and Q2 Job 435151 all consumed/terminal; Q1+Q2 used 00:07:58 of O-109's two-GPU-hour cap
 DECISION_SCOPE: implement approved explicit partition and bounded diagnostics; architecture/normalization/recipe/scientific policy remain owner-gated
 ```
 

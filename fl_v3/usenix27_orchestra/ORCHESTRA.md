@@ -9,40 +9,18 @@
 > detector-capability, precision, Protocol-A/B, attack, defense, or scientific
 > PASS.
 >
-> The owner has accepted the S08 v1 direction and detailed multi-agent execution
-> plan, authorized implementation in persistent S00, local validation, and one
-> immutable implementation commit after validation. The owner explicitly approved
-> `S08-SMOKE-1`; its sole submission, Job `426619`, failed before pytest because
-> the runtime verifier rejected the known S07-era spconv `pyproject.toml`
-> build-metadata patch. No model/diagnostic code ran and no retry is authorized.
-> O-100 authorized the narrow provenance remediation, which passed real GH200
-> attestation in owner-approved `S08-SMOKE-2` Job `427800`. The job then ended
-> `103 passed, 3 failed`: two disabled-GradScaler diagnostics failures and one
-> test-message regex mismatch. O-102 authorizes only the narrow diagnostics/test
-> correction and SMOKE-3 request preparation. The owner separately approved the
-> exact frozen `S08-SMOKE-3`; Job `428112` completed `0:0`, zero restarts, with
-> 106/106 focused tests passing. Implementation/evidence SHA
-> `791aba97f7bbe92e7708b63f94f2e7d8599f91be` was then independently reviewed:
-> focused-smoke PASS remains valid, but verdict `REMEDIATE` found one P1 fixture-
-> prebinding gap and two P2 scheduler/EMA-gate and active-document gaps. O-104
-> authorizes only linear remediation, local validation, and preparation of an
-> exact S08-SMOKE-4 fixture-attestation request. O-105 separately approved that
-> exact tuple; its sole Job `428889` passed attestation and 115/116 Phase-1 tests,
-> then failed because the calibration negative test assigned `1.0` to a value
-> already equal to `1.0`. Phase 2 did not start. The request is consumed with no
-> retry. The owner subsequently requested Smoke-5 before its changed tuple
-> existed; S00 used that direction only for the one-line correction and request
-> freeze. O-106 then bound the exact post-freeze tuple; Job `429080` completed
-> `0:0`, zero restarts, with 116/116 focused tests and 1/1 candidate fixture
-> attestation passing. O-106 is consumed. O-107 prospectively simplifies future
-> bounded mechanical smoke remediation. O-108 authorizes one immutable
-> remediation/evidence commit and independent re-review. Q1 and precision-policy
-> acceptance remain separately gated and unapproved.
-> The owner has now opened a persistent completion goal under O-109: finish Q1,
-> the minimal Q2 compatibility gate, independent evidence review, and an S08
-> close-ready linear commit state. All in-scope Slurm submissions and commits are
-> approved under a strict cumulative two-GPU-hour ceiling; no harness/work-chain
-> expansion, merge, push, attack, defense, or S09 execution is authorized.
+> S08 implementation/remediation smoke is sealed and independently reviewed at
+> `103c7389a47938b1f9dd0cba60251df6dce9e5bb` with R2 verdict
+> `PASS_WITH_RESIDUAL_RISK`; all earlier smoke PASS/negative outcomes remain in
+> the S08 handoff package. Under O-109, Q1 Job `431013` completed the eight-cell
+> primary qualification in `00:04:02`, and Q2 Job `435151` completed the exact
+> L-P020/F-CBGS compatibility gate in `00:03:56`. Q1+Q2 used `00:07:58` of the
+> two-GPU-hour ceiling. The close-ready policy candidate is global FP16 for
+> camera/pillar routes, global FP16 with SECOND/spconv explicitly kept FP32 for
+> sparse LiDAR/fusion routes, and uniform FP32 as reference/fallback. Full sparse
+> FP16 is not accepted as the unified F-capable route. Exact evidence is awaiting
+> independent review and owner policy acceptance. No harness/work-chain expansion,
+> merge, push, attack, defense, or S09 execution is authorized.
 > Only after an accepted S08 precision policy may **S09 full-pipeline
 > performance/readiness** begin. S10-S12 remain pending redefinition.
 >
@@ -164,36 +142,18 @@ Owner decisions O-097/O-098 accept the v1 direction and detailed plan: hold the
 current hybrid architecture, use the D1-style fixture only for numerical isolation,
 add an explicit sparse precision partition, use minimal window-end diagnostics,
 keep the current camera/LSS boundary, and return before any normalization amendment.
-Implementation is active in persistent S00. O-099 consumed the exact smoke request
-in Job `426619`; it failed in provenance preflight before pytest because blanket
-source cleanliness rejected the accepted S07-era spconv build-metadata patch. This
-is neither a model/runtime-kernel result nor retry authority. O-100 permitted the
-minimal exact tracked-source-state remediation. O-101 consumed exact
-`S08-SMOKE-2` in Job `427800`: provenance passed, but the focused suite ended
-`103 passed, 3 failed` on two disabled-scaler diagnostic calls and one test-only
-error-message regex. O-102's narrow remediation passes local static validation;
-O-103 consumed the exact S08-SMOKE-3 snapshot/request in Job `428112`, which
-completed `0:0` with 106/106 focused tests passing and zero restarts. This clears
-the focused implementation-smoke gate but makes no model-numerical conclusion and
-grants no retry or Q1 authority. The exact
-`791aba97f7bbe92e7708b63f94f2e7d8599f91be` independent review then
-returned `REMEDIATE`: Smoke-3 remains valid, while Q1 is blocked on complete
-fixture prebinding, scheduler/EMA qualification gates, and current authority
-wording. O-104 permits only that linear remediation, local validation, and an
-exact S08-SMOKE-4 fixture-attestation request to be frozen. O-105 separately
-approved it once; Job `428889` passed exact runtime/source/raw-manifest preflight
-and 115 tests, then stopped on a synthetic calibration-test no-op before Phase 2.
-This is terminal overall FAIL, not model/environment evidence. O-105 is consumed;
-the owner later requested Smoke-5 before its tuple existed. The one-line test fix
-and exact replacement request were frozen; O-106 then approved the post-freeze
-tuple. Job `429080` completed `0:0` with exact 116+1 PASS and all five fixture
-identities emitted. This clears only the review-remediation runtime gate. O-108
-authorizes a new immutable remediation/evidence commit and independent re-review;
-Q1 and the precision-policy decision remain separately gated.
+The exact smoke/remediation history is preserved in the S08 handoff package.
+Remediation was sealed at `103c7389a47938b1f9dd0cba60251df6dce9e5bb`; R2 closed
+P0-P2 and returned `PASS_WITH_RESIDUAL_RISK`. Under O-109, Q1 Job `431013` then
+completed all eight declared primary cells. FP32 C/L/F references and camera FP16
+passed; L full sparse FP16 recovered only at scale `0.03125`, while F full sparse
+FP16 remained a bounded negative after 18 attempts. The SECOND-FP32 island passed
+L/F at scales `32`/`16`. Q2 Job `435151` subsequently passed L-P020 FP16 at scale
+`8` and F-CBGS with the SECOND-FP32 island at scale `16`. The exact jobs consumed
+`00:07:58` total and added no cell, seed, harness, or retry. Evidence review and
+owner precision-policy acceptance remain.
 
-Once that gate is accepted, S08 must qualify the current six-task model before any
-capability run. At minimum
-it compares, under one exact mini batch/step protocol:
+S08 compared, under one exact mini batch/step protocol:
 
 1. uniform FP32 reference;
 2. current end-to-end FP16 AMP with the production dynamic GradScaler contract;
