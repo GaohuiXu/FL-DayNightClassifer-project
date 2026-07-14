@@ -358,3 +358,56 @@ for these eight regimes on one replay-frozen mini fixture, including localizatio
 of nonfinite and large gradients through recorded SECOND/head boundaries. It is
 not convergence, performance, capability, mAP/NDS, a final scientific precision
 policy, Protocol A/B, attack, or defense evidence.
+
+## S08-Q2 exact compatibility gate — approved under O-109
+
+```text
+REQUEST_ID: S08-Q2
+REQUEST_STATE: FROZEN / OWNER-APPROVED BY O-109 / NOT YET SUBMITTED
+EXECUTION_SOURCE_SHA: 3bb10d39c60e6fd2d0bfe480bb03a7c8cfc76fe9
+Q1_JOB/ELAPSED: 431013 / 00:04:02
+O-109 REMAINING BEFORE Q2: 01:55:58 one-GPU elapsed
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s08_q2_1d9191c2f623
+SNAPSHOT_TREE_SHA256: 1d9191c2f6234199d31405f9690ffd2d83343889333efbe1e1ae47e6235a5c60
+SNAPSHOT_FILES/BYTES/WRITABLE: 585 / 4566358 / 0
+Q2_TEST_FILE_SHA256: d3bbeb457c7d8b77aa90096684cc2f7c7b5fe1504e97fca6868fb8bb8f3234b2
+JOB_SCRIPT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s08_q2_1d9191c2f623/job.sh
+JOB_SCRIPT_SHA256: ff14fd735788a4fa4691a473eb788276d901371160c28f447fe8819f33494d0d
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s08_q2_1d9191c2f623
+OUTPUT_STATE_AT_FREEZE: absent
+DATA/FIXTURE/SEED: exact Q1 mini fixture and five identities / seed 20260713
+CELL_ORDER: P1,B1
+P1: L-P020, global FP16, sparse partition not_applicable, uniform
+B1: F-CBGS, global FP16, SECOND sparse FP32 island, cbgs identity
+P1_RESOLVED_CONFIG_SHA256: 7219c1a3978bf9c0d16efbaa10fa01448fd7e99793ae8c9eb58e492e8dc2d5dd
+B1_RESOLVED_CONFIG_SHA256: 49d2ceb0d6a0ae4283c3459805267689d36f811be727cebf38b54d999e50b4b6
+MAX_ATTEMPTED_WINDOWS: 18 per cell / 36 total
+MAX_ACCEPTED_UPDATES: 1 per cell / 2 total
+RESOURCE: one GH200, 8 CPUs, 96 GiB, 00:30:00, no requeue
+RETRY: no scientific retry; preserve any bounded negative result
+```
+
+Q2 adds no generic harness and executes only the two compatibility cells in
+`test_s08_q2_precision_compatibility`. Each cell must produce one accepted
+production-loop window with finite loss/parameter/boundary gradients, exact
+optimizer/scheduler/EMA/exposure accounting, and its declared precision route.
+The F-CBGS cell binds `det-cbgs=true` in the resolved production config, but the
+replay-frozen batch does not claim sampling-distribution or loader-performance
+evidence.
+
+```bash
+OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s08_q2_1d9191c2f623
+install -d -m 0700 "$OUTPUT"
+sbatch --parsable \
+  --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --gpus-per-node=nvidia_gh200_120gb:1 \
+  --cpus-per-task=8 --mem=96G --time=00:30:00 --no-requeue \
+  --job-name=flv3_s08_q2 \
+  --output="$OUTPUT/slurm-%j.out" --error="$OUTPUT/slurm-%j.err" \
+  /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s08_q2_1d9191c2f623/job.sh
+```
+
+Allowed interpretation is only bounded precision/config/model compatibility for
+L-P020 and F-CBGS on the exact Q1 fixture. Q2 is not convergence, capability,
+sampling quality, performance, full data, metric, Protocol A/B, attack, or defense
+evidence.
