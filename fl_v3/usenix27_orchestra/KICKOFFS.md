@@ -26,7 +26,9 @@
 > 116/116 focused tests and 1/1 fixture attestation passing. O-107 prospectively
 > simplifies future bounded mechanical smoke remediation. O-108 authorizes one
 > immutable remediation/evidence commit and independent re-review; Q1 remains
-> separately gated and unapproved.
+> separately gated and unapproved. O-109 now authorizes the exact Q1/Q2 jobs and
+> commits needed to reach a close-ready S08 package within a cumulative two-
+> GPU-hour ceiling, without harness or work-chain expansion.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -135,7 +137,7 @@ REBASELINE_SHA: 2a584053e6f6a3860b6f812681dc8d7342ca52ad
 IMPLEMENTATION_CONTEXT: persistent S00, linear active worktree
 DELIVERY_BRANCH: codex/s08-s09-cl-readiness
 PRE_IMPLEMENTATION_AUDIT: handoffs/S08/MODEL_RECIPE_AUDIT.md; accepted as planning input
-OWNER_DECISION: O-097 direction/branch/audit baseline; O-098 detailed plan/implementation/local validation/post-validation commit; O-099 consumed exact S08-SMOKE-1; O-100 provenance remediation/request preparation; O-101 consumed exact S08-SMOKE-2; O-102 narrow diagnostics/test remediation and SMOKE-3 request preparation only; O-103 consumed exact S08-SMOKE-3 PASS; O-104 review remediation/local validation/SMOKE-4 request preparation only; O-105 consumed exact S08-SMOKE-4 terminal test-construction FAIL; O-106 consumed exact post-freeze S08-SMOKE-5 PASS; O-107 prospective bounded mechanical remediation loop; O-108 remediation/evidence commit and independent re-review
+OWNER_DECISION: O-097 direction/branch/audit baseline; O-098 detailed plan/implementation/local validation/post-validation commit; O-099 consumed exact S08-SMOKE-1; O-100 provenance remediation/request preparation; O-101 consumed exact S08-SMOKE-2; O-102 narrow diagnostics/test remediation and SMOKE-3 request preparation only; O-103 consumed exact S08-SMOKE-3 PASS; O-104 review remediation/local validation/SMOKE-4 request preparation only; O-105 consumed exact S08-SMOKE-4 terminal test-construction FAIL; O-106 consumed exact post-freeze S08-SMOKE-5 PASS; O-107 prospective bounded mechanical remediation loop; O-108 remediation/evidence commit and independent re-review; O-109 Q1/Q2 completion goal, commits, and cumulative two-GPU-hour Slurm authority
 FILE_OWNERSHIP:
 - fl_v3/src/fl_v3/training/tasks.py
 - fl_v3/src/fl_v3/training/{loop,runtime_state,precision_diagnostics}.py
@@ -154,7 +156,7 @@ UPSTREAM_EVIDENCE:
 - F1 Job 390576 and independent review package 7f3bd40158e5a8af30196509734782c4575c50aa
 - historical old-model AMP Jobs 211502/211722, interpretation-limited
 REASONING_EFFORT: max under owner override O-096
-APPROVED_COMPUTE: S08-SMOKE-1 Job 426619, S08-SMOKE-2 Job 427800, S08-SMOKE-3 Job 428112, S08-SMOKE-4 Job 428889, and S08-SMOKE-5 Job 429080 consumed/terminal; no retry/Q1 execution authority; O-108 is Git/review authority only
+APPROVED_COMPUTE: S08-SMOKE-1 Job 426619, S08-SMOKE-2 Job 427800, S08-SMOKE-3 Job 428112, S08-SMOKE-4 Job 428889, and S08-SMOKE-5 Job 429080 consumed/terminal; O-109 authorizes exact Q1/Q2 submissions under a cumulative two-GPU-hour cap after tuple freeze
 DECISION_SCOPE: implement approved explicit partition and bounded diagnostics; architecture/normalization/recipe/scientific policy remain owner-gated
 ```
 

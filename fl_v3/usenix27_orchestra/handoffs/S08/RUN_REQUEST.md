@@ -248,12 +248,14 @@ or defense.
 Exact artifacts, hashes, and interpretation limits for all four remain in
 `RESULTS.md`.
 
-## Q1 placeholder — no execution authority
+## Q1/Q2 completion authority — exact tuple freeze in progress
 
-The owner-approved future Q1 ceiling remains one GH200 and no more than one hour,
-but there is no exact Q1 approval. Before Q1 can be requested, S08-SMOKE-5 must be
-separately approved and pass, the remediation must be sealed in a new immutable
-commit, independent re-review must accept the exact remediation/evidence, and the
-future launcher/request must bind all five emitted fixture-identity SHA-256 values,
-exact source/config hashes, eight cells/order, output, resources, and stop
-conditions. No S08-SMOKE request authorizes Q1.
+O-109 authorizes the exact Q1 primary and minimal Q2 L-P020/F-CBGS submissions
+needed to close S08, after each immutable tuple is recorded here. Across all new
+Q1/Q2 jobs, one-GPU elapsed allocation must remain at or below two GPU-hours;
+unused elapsed time from an earlier job is the only budget available to a later
+job. Smoke-5 has passed, remediation is sealed at `103c7389`, and independent R2
+returned `PASS_WITH_RESIDUAL_RISK`. Before Q1 submission, this file must bind all
+five fixture-identity SHA-256 values, exact source/snapshot/config and launcher
+hashes, eight cells/order, output, resources, and stop conditions. O-109 permits
+no extra cells, seeds, data, harnesses, scientific retries, merge, or push.

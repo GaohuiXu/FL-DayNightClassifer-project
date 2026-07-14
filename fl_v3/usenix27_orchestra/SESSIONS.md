@@ -64,7 +64,7 @@
 | S02-S05 | Loss/target, camera, SECOND, CenterHead/decode modules | closed | reviewed module contracts integrated into clean anchor |
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
-| S08 | Model/recipe audit, then precision qualification | S07 | **implementation smoke PASS**; Jobs 426619/427800 negative evidence preserved; exact SMOKE-3 Job 428112 passed 106/106; immutable seal/review/Q1 evidence and owner precision-policy decision pending |
+| S08 | Model/recipe audit, then precision qualification | S07 | **implementation/remediation review PASS_WITH_RESIDUAL_RISK** at `103c7389`; all five smoke outcomes preserved; Q1/Q2 execution and final owner precision-policy decision pending under O-109 |
 | S09 | Full-pipeline performance/readiness | accepted S08 policy | planned; exact 100/1000-step/profile compute not approved |
 | S10 | Centralized branch/recipe ablation | S08+S09 | pending redefinition; no cells/gates frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
@@ -138,10 +138,12 @@ classifies the detector as a BEVFusion-class shared-CenterHead hybrid, identifie
 tiny-group sparse GroupNorm as the leading but unproven L/F gradient mechanism,
 and shows that the strict runtime is not yet a frozen scientific recipe. O-097
 accepts the audit boundaries and O-098 accepts the detailed implementation plan.
-Architecture and normalization remain unchanged. The exact implementation,
-three consumed smoke outcomes, and independent `REMEDIATE` review are in
-`handoffs/S08/{HANDOFF,RUN_REQUEST,RESULTS,REVIEW}.md`. O-104 remediation is
-active; it does not reopen the accepted v1 architecture or authorize Q1.
+Architecture and normalization remain unchanged. The exact implementation, five
+consumed smoke outcomes, initial `REMEDIATE` review, and remediation R2
+`PASS_WITH_RESIDUAL_RISK` are in
+`handoffs/S08/{HANDOFF,RUN_REQUEST,RESULTS,REVIEW}.md`. O-109 authorizes exact
+Q1/Q2 completion work within two cumulative GPU-hours; it does not reopen the
+accepted v1 architecture or training recipe.
 
 **Question.** What precision regime can train the current six-task C/L/F model
 stably on GH200, and why do L-S075/F-U overflow in the existing FP16 path while

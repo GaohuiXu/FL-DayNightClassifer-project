@@ -38,6 +38,11 @@
 > bounded mechanical smoke remediation. O-108 authorizes one immutable
 > remediation/evidence commit and independent re-review. Q1 and precision-policy
 > acceptance remain separately gated and unapproved.
+> The owner has now opened a persistent completion goal under O-109: finish Q1,
+> the minimal Q2 compatibility gate, independent evidence review, and an S08
+> close-ready linear commit state. All in-scope Slurm submissions and commits are
+> approved under a strict cumulative two-GPU-hour ceiling; no harness/work-chain
+> expansion, merge, push, attack, defense, or S09 execution is authorized.
 > Only after an accepted S08 precision policy may **S09 full-pipeline
 > performance/readiness** begin. S10-S12 remain pending redefinition.
 >
@@ -390,6 +395,7 @@ O-ledger authority; closed ranges below are provenance.
 | O-106 | Explicitly approve the exact post-freeze `S08-SMOKE-5` tuple. Its single submission, Job `429080`, is consumed and terminal PASS: exact preflight, 116 passed/0 failed/0 errors/0 skips, 1 fixture-attestation passed/0 skipped, both exit files `0`, all five fixture identities emitted, checksum manifest verified, `S08_PRECISION_SMOKE_PASS`, `COMPLETED 0:0`, and zero restarts. This clears only the focused review-remediation/fixture-attestation gate; no retry, Q1, remediation commit, precision-policy acceptance, or broadened compute is authorized. | consumed S08 smoke |
 | O-107 | For future bounded O-009 engineering smoke, one initial exact owner approval may explicitly opt into a mechanical remediation loop of at most three total submissions/two cumulative GPU-hours. S00 may diagnose, locally fix, freeze, record, and submit only obvious test/fixture/wrapper/provenance/artifact or output-neutral diagnostic-plumbing replacements without a second owner review. No identical retry or scope/resource expansion is allowed; any possible model-output/gradient/update, data, precision, optimizer/scheduler/EMA, metric/scientific change, uncertainty, repeated blocker, or exhausted cap returns to the owner. This applies prospectively and does not reinterpret Jobs 426619-429080. | active bounded engineering workflow |
 | O-108 | Authorize persistent S00 to create one immutable S08 remediation/evidence commit from the reviewed working candidate after local verification, then launch an independent re-review pinned to that SHA. The reviewer reads the exact diff, handoff/request/results, and raw smoke artifacts and does not fix source. No Q1 compute, precision-policy acceptance, S09 execution, merge, push, or upload is authorized. | active S08 remediation seal/re-review |
+| O-109 | Set the persistent completion goal to finish Q1 primary, the minimal required Q2 L-P020/F-CBGS compatibility gate, independent evidence review, and a close-ready S08 linear commit state. Authorize all exact in-scope commits and Slurm submissions once their immutable tuples are recorded, with cumulative one-GPU elapsed allocation across all new Q1/Q2 jobs capped at two GPU-hours. Short earlier jobs leave only their unused elapsed budget for later jobs. The simplified O-107 mechanical workflow applies to obvious non-scientific defects, but no scientific cell/seed/data/resource expansion or silent reinterpretation is allowed. Forbid work-chain/harness expansion, merge, push, S09 execution, attacks, and defenses. | active S08 completion authority |
 
 ## 10. Closed and consumed history
 

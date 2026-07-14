@@ -4,7 +4,7 @@
 
 ```text
 SESSION_ID: S08
-MILESTONE_STATE: REVIEW REMEDIATION + FIXTURE-ATTESTATION PASS / REMEDIATION SEAL + RE-REVIEW AUTHORIZED
+MILESTONE_STATE: REMEDIATION R2 PASS_WITH_RESIDUAL_RISK / Q1-Q2 COMPLETION AUTHORIZED
 BASE_AUDIT_COMMIT: 733c84f8e3019fe4d683663821bd86918d3875a7
 BRANCH: codex/s08-s09-cl-readiness
 IMPLEMENTATION_COMMIT: 791aba97f7bbe92e7708b63f94f2e7d8599f91be
@@ -35,6 +35,10 @@ restarts, with 116/116 focused tests and 1/1 candidate fixture attestation passi
 O-106 is consumed; it grants no Q1 or remediation-commit authority.
 O-108 now separately authorizes one immutable remediation/evidence commit and an
 independent re-review pinned to that commit. It grants no Q1 execution authority.
+That commit is `103c7389a47938b1f9dd0cba60251df6dce9e5bb`; R2 closed all
+P0-P2 findings and left only conservative duplicated-status wording. O-109 now
+authorizes exact Q1/Q2 completion jobs and commits under a cumulative two-GPU-hour
+ceiling, with no work-chain/harness expansion, merge, or push.
 
 ## Independent review and active O-104 remediation
 
