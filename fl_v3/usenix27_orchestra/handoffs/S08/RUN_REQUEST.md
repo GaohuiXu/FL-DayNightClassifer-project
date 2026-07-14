@@ -1,4 +1,8 @@
-# S08 RUN_REQUEST — review-remediation smoke and fixture attestation; Q1 deferred
+# S08 RUN_REQUEST — precision qualification execution ledger
+
+> **Active request:** `S08-Q1`, frozen and owner-approved under O-109 in the final
+> section of this file. The immediately following `S08-SMOKE-5` block is preserved
+> terminal history, not the active request.
 
 ## Current exact request
 
@@ -259,3 +263,98 @@ returned `PASS_WITH_RESIDUAL_RISK`. Before Q1 submission, this file must bind al
 five fixture-identity SHA-256 values, exact source/snapshot/config and launcher
 hashes, eight cells/order, output, resources, and stop conditions. O-109 permits
 no extra cells, seeds, data, harnesses, scientific retries, merge, or push.
+
+## S08-Q1 exact primary precision qualification — approved under O-109
+
+```text
+REQUEST_ID: S08-Q1
+REQUEST_STATE: FROZEN / OWNER-APPROVED BY O-109 / NOT YET SUBMITTED
+EXECUTION_SOURCE_SHA: e6e28bea43f7757347da2e460cdf24e9a32b791f
+REVIEWED_IMPLEMENTATION_SHA: 103c7389a47938b1f9dd0cba60251df6dce9e5bb
+SOURCE_RELATION: e6e28be differs from reviewed implementation only in canonical/review documentation
+BRANCH_AT_FREEZE: codex/s08-s09-cl-readiness
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s08_q1_dbeee35dcd6d
+SNAPSHOT_TREE_SHA256: dbeee35dcd6d7bcb919f549f03c42763d5d82b2b20740815743b7aa2b3f9bc9c
+SNAPSHOT_FILES/BYTES/WRITABLE: 585 / 4544533 / 0
+Q1_TEST_SHA256: 1de18962b3ac5d3b1a4b992f8c8de4fe75570af90b5c1be2f8f73e6117773b26
+RAW_INPUT_MANIFEST_FILE_SHA256: 62a63cf6c3dd4295f8c246fdef6ba170e7685cab6930294b17633a1d448798b4
+JOB_SCRIPT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s08_q1_dbeee35dcd6d/job.sh
+JOB_SCRIPT_SHA256: 42cb555d518a6d7bb517c325c22c1f0ab8362c03da36b9cfd1f0b981d8b349e1
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s08_q1_dbeee35dcd6d
+OUTPUT_STATE_AT_FREEZE: absent
+DATA_BACKEND: nuScenes v1.0-mini directory backend; no ZIP/full-data scan
+SAMPLE_TOKEN: 00889f8a9549450aa2f32cf310a3e305
+LIDAR_BOUND: keyframe plus 9 prior sweeps, fixed 4096-point prefix
+SEED: 20260713
+CELL_ORDER: C1,C2,L1,L2,L3,F1,F2,F3
+MAX_ATTEMPTED_WINDOWS: 99 across all cells
+MAX_ACCEPTED_UPDATES: 24 across all cells; exactly 3 required per qualifying cell
+Q1_RESOURCE_BUDGET: one GH200, 8 CPUs, 96 GiB, 01:00:00, no requeue
+CUMULATIVE_NEW_Q1_Q2_BUDGET: <=2 one-GPU elapsed hours under O-109
+RETRY: no scientific retry; only O-109/O-107 mechanical handling within the same cumulative cap
+```
+
+The read-only snapshot contains only the 585 Git-tracked files from exact source
+SHA `e6e28be`. Its tree digest orders files by relative-path bytes and hashes a
+sequence of eight-byte big-endian record lengths followed by records containing
+`path NUL executable-bit NUL decimal-size NUL file-SHA256`. The source worktree was
+clean at freeze. The one-shot job script lives outside the snapshot, is mode 0500,
+and adds no repository harness.
+
+### Prebound fixture and resolved-config identities
+
+| Identity | SHA-256 |
+|---|---|
+| raw-input logical manifest | `f95c0cd141c891f69f44a0ecc792e4878946a3cdc4a1a2ce7911df074b848316` |
+| complete batch tensor manifest | `de8b8f06c8c5b14871262fe56167ac52095f8e7cac42387de157b8e247a4e9da` |
+| augmentation field order | `0495e2db0984cf3063ef5d0d84a2fd83b99b1b0cf3383f7a78534bbce8bb5de7` |
+| augmentation values (`torch.float64`) | `57728184c564966e83d19214e192e8fc79fd84a2701b46b8299c237eb61dd9ea` |
+| canonical fixture manifest | `f46a79c1cefa52a65d9e402b791cfce73fa194f20e6aa7cbfb3096957b6b9c89` |
+
+| Cell | Mode/regime | Resolved-config SHA-256 |
+|---|---|---|
+| C1 | C-STR8 FP32 | `6cfc8f60d1116d1cb161c01d939ee54fac17f9c537ce58eb59fecc419ac25a64` |
+| C2 | C-STR8 full FP16 | `f56d0e4bf5d88a96523976ff8bd1ad2cd1b6ecdad3ca835f0643808f21984757` |
+| L1 | L-S075 FP32/sparse FP32 | `d2d3fee5a8a38bbfa5200a49cda7a1a31302ddd22e1bbf50af037a9a964da257` |
+| L2 | L-S075 full FP16/sparse FP16 | `c77819da84bbfb5293b9044e5f41488d0dcec2f025d1da906632bf2307a3a80d` |
+| L3 | L-S075 FP16/sparse FP32 island | `b38cf86fa061b54ef7b85e753a2c33ef5941f57f81a1394843c14f712834ca4b` |
+| F1 | F-U FP32/sparse FP32 | `9f49479c96d643ebd2072df22b9a5808f6bcfca6d17ec90c00bddb5e6e5a8201` |
+| F2 | F-U full FP16/sparse FP16 | `ee5eac7b7db660ca6e75d904f61579520daec64042c122a9ac82c21b10936d61` |
+| F3 | F-U FP16/sparse FP32 island | `1b23d9907ffc6190062be285b203b18951d648ec293707e88f7904835fda9ee9` |
+
+All cells use AdamW `lr=1e-4`, weight decay `0.01`, microbatch/effective global
+batch/accumulation `1/1/1`, `num_workers=0`, EMA disabled, and the same per-mode
+canonical initialized state and replayed forward RNG. FP32 allows exactly three
+attempts. FP16 uses one persistent dynamic GradScaler per cell from scale 512,
+backoff 0.5, up to 18 attempts, including scales below one, and stops after three
+accepted updates or on a post-accept skip.
+
+### Exact submission
+
+```bash
+OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s08_q1_dbeee35dcd6d
+install -d -m 0700 "$OUTPUT"
+sbatch --parsable \
+  --account=naiss2025-22-1113-gpu \
+  --partition=gpu \
+  --nodes=1 --ntasks=1 \
+  --gpus-per-node=nvidia_gh200_120gb:1 \
+  --cpus-per-task=8 --mem=96G --time=01:00:00 --no-requeue \
+  --job-name=flv3_s08_q1 \
+  --output="$OUTPUT/slurm-%j.out" --error="$OUTPUT/slurm-%j.err" \
+  /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s08_q1_dbeee35dcd6d/job.sh
+```
+
+The runner executes only
+`test_s08_q1_primary_precision_qualification`. Pytest success means all cells
+completed and evidence was written; each regime is judged only by its explicit
+`qualification_pass`. Identity/dependency/config/order/lifecycle/OOM/timeout or
+artifact failure is terminal. Expected artifacts are environment/JUnit/log/exit,
+the exact fixture and resolved configs, JSONL window records, partial/final Q1
+summaries, Slurm stdout/stderr, and a checksum manifest.
+
+Allowed interpretation is limited to stable or unstable bounded optimizer windows
+for these eight regimes on one replay-frozen mini fixture, including localization
+of nonfinite and large gradients through recorded SECOND/head boundaries. It is
+not convergence, performance, capability, mAP/NDS, a final scientific precision
+policy, Protocol A/B, attack, or defense evidence.
