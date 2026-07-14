@@ -4,12 +4,13 @@
 
 ```text
 SESSION_ID: S08
-MILESTONE_STATE: Q1/Q2 COMPLETE / EVIDENCE REVIEW PENDING
+MILESTONE_STATE: CLOSE-READY / OWNER PRECISION-POLICY DECISION PENDING
 BASE_AUDIT_COMMIT: 733c84f8e3019fe4d683663821bd86918d3875a7
 BRANCH: codex/s08-s09-cl-readiness
 IMPLEMENTATION_COMMIT: 791aba97f7bbe92e7708b63f94f2e7d8599f91be
 COMPUTE_EXECUTED: Jobs 426619/427800/428889 terminal negative evidence; Jobs 428112/429080 focused smoke PASS; Q1 Job 431013 bounded primary result; Q2 Job 435151 compatibility PASS
-INDEPENDENT_REVIEW: remediation R2 PASS_WITH_RESIDUAL_RISK; REVIEW.md SHA-256 c9919f643b3507f5edfad5a668b6a208b2a7f445b8c5b38217582c352afaa3ad
+INDEPENDENT_REVIEW: Q1/Q2 R3 PASS_WITH_RESIDUAL_RISK; reviewed evidence SHA c0ef86235ead753fee3b790b19d40f82f875ec59
+REVIEW_ARTIFACT_SHA256: 912e54712a6900dac291e386b68376742f56591c7fe620a5f63aed3866a11f5b
 ```
 
 The owner approved S08 envelope v1, local implementation/validation, one immutable
@@ -53,7 +54,14 @@ FP32-island route at scale `16`. Both had exact skip/update accounting and finit
 accepted gradients. Q1+Q2 consumed `00:07:58` of O-109's two-GPU-hour ceiling.
 The resulting close-ready policy candidate is global FP16 for camera/pillar,
 global FP16 with SECOND/spconv FP32 for sparse LiDAR/fusion, and FP32 as reference/
-fallback. It awaits independent evidence review and owner acceptance.
+fallback. R3 independently reviewed exact evidence SHA `c0ef8623` with no P0-P2
+findings; owner acceptance remains.
+
+R3 retains one non-blocking test residual: Q2's automatic predicate does not
+explicitly gate `missing_grad_parameter_count == 0`. Independent inspection found
+zero missing gradients in every P1/B1 raw record and finite present boundaries,
+so the immutable Q2 evidence remains valid. No source change or rerun was made for
+this P3.
 
 ## Independent review and active O-104 remediation
 
@@ -340,7 +348,7 @@ The training loop's return schema and disabled path remain unchanged.  Optimizer
 scheduler, EMA, exposure, and scaler accounting continue to advance only on
 accepted windows.
 
-### 4. Replay-frozen Q1 evidence runner (not executed)
+### 4. Replay-frozen Q1 evidence runner — executed as Job 431013
 
 `tests/test_s08_precision_qualification.py` declares eight ordered primary cells:
 
@@ -377,9 +385,11 @@ initialization, AdamW `1e-4/0.01`, constant scheduler, batch one, no EMA, no cli
 no 3D augmentation, no GT paste.  Its cache/manifest fields are explicit hashed
 fixture identities and are not a claim that the production ZIP/cache route ran.
 
-L-P020 and F-CBGS compatibility in v1 is limited to fail-closed schema/template
-and constructor/sampling regression coverage.  They are not additional Q1
-precision cells or scientific comparisons.
+The initial v1 implementation limited L-P020/F-CBGS to fail-closed schema/template
+and constructor/sampling regression coverage. Q2 Job `435151` subsequently added
+one bounded accepted production-loop window for each exact compatibility route.
+They are not additional Q1 precision cells, sampling-quality evidence, or
+scientific comparisons.
 
 ## Verification completed locally
 
@@ -418,7 +428,7 @@ The login node has no usable project Torch/pytest runtime and is x86_64, while
 the validated environment is aarch64/GH200.  Therefore no Torch unit test,
 spconv forward/backward, or optimizer window is claimed locally.
 
-## Runtime result and gates still open
+## Historical runtime results and completed gate sequence
 
 Job `426619` consumed S08-SMOKE-1 and stopped after 58 seconds because the runtime
 verifier rejected the already-known `spconv/pyproject.toml` build-metadata patch.
@@ -431,8 +441,8 @@ Job `427800` then proved the exact source-state remediation on GH200 and ran all
 selected tests. It ended after 106 tests with 103 passed and three focused
 failures: two diagnostics tests queried enabled-only GradScaler policy fields on
 the real disabled CPU scaler, while one test expected `six task` instead of the
-production error's `6 task dictionaries`. The first defect blocks FP32 Q1
-diagnostics; the latter is a test-only regex mismatch. Both selected tiny sparse
+production error's `6 task dictionaries`. At that point the first defect blocked
+FP32 Q1 diagnostics; the latter was a test-only regex mismatch. Both selected tiny sparse
 tests passed. This is not an overall smoke PASS; see `RESULTS.md` for exact JUnit,
 logs, hashes, and interpretation limits.
 
@@ -448,19 +458,13 @@ approval, Job `428112` validated the resulting candidate. The implementation:
   exact record, allowing both previously blocked diagnostics tests to reach their
   intended paths;
 - changes only the test regex from `six task` to the exact existing production
-  message `must return 6 task dictionaries`; production loss code is unchanged.
+message `must return 6 task dictionaries`; production loss code is unchanged.
 
-1. Preserve Job `428889` as terminal negative evidence; do not retry it or treat
-   115 passing cases as an overall Smoke-4 PASS.
-2. Do not edit/reset the external spconv checkout; its remediated attestation
-   passed Jobs 427800 and 428112 exactly.
-3. Smoke-5 is terminal PASS and O-106 is consumed. Obtain separate owner authority
-   before creating the immutable remediation/evidence commit.
-4. The independent reviewer then re-reads that exact remediation SHA/diff,
-   request, results, and raw artifacts; findings remain P0-P3 first and the
-   reviewer does not fix.
-5. Only after a re-review readiness verdict and a new exact owner binding may Q1
-   be submitted. Precision-policy acceptance remains an owner decision after Q1.
+The historical gate sequence after Smoke-4 was: preserve Job `428889` as terminal
+negative evidence; leave the external spconv checkout unchanged; consume the
+exact Smoke-5 PASS; seal remediation at `103c7389`; obtain independent R2; and
+only then bind and execute Q1/Q2 under O-109. Those steps are now complete. Final
+precision-policy acceptance remains an owner decision after R3.
 
 ## Explicit non-goals and forbidden interpretations
 

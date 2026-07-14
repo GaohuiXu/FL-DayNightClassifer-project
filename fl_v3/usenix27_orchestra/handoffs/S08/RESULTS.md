@@ -61,8 +61,8 @@ Together, Q1 and Q2 support the close-ready precision-policy candidate: global
 FP16 for camera and pillar routes, global FP16 with SECOND/spconv explicitly kept
 FP32 for current sparse LiDAR/fusion routes, and uniform FP32 as reference/fallback.
 Full sparse FP16 is not accepted as the unified F-capable route. This remains
-bounded one-fixture numerical qualification pending independent evidence review
-and owner policy acceptance; it is not convergence, capability, performance,
+bounded one-fixture numerical qualification independently reviewed in R3 with
+`PASS_WITH_RESIDUAL_RISK`, pending owner policy acceptance; it is not convergence, capability, performance,
 sampling-quality, mAP/NDS, production-data, or scientific-result evidence.
 
 ## S08-Q1 primary precision qualification — terminal bounded result

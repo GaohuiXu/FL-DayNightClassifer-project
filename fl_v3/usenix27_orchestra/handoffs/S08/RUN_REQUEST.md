@@ -1,8 +1,8 @@
 # S08 RUN_REQUEST — precision qualification execution ledger
 
-> **Active request:** `S08-Q1`, frozen and owner-approved under O-109 in the final
-> section of this file. The immediately following `S08-SMOKE-5` block is preserved
-> terminal history, not the active request.
+> **Ledger state:** no active request. `S08-Q1` Job `431013` and `S08-Q2` Job
+> `435151` are consumed and terminal under O-109. The immediately following
+> `S08-SMOKE-5` block is preserved terminal history.
 
 ## Current exact request
 
@@ -252,17 +252,14 @@ or defense.
 Exact artifacts, hashes, and interpretation limits for all four remain in
 `RESULTS.md`.
 
-## Q1/Q2 completion authority — exact tuple freeze in progress
+## Q1/Q2 completion authority — consumed terminal execution
 
-O-109 authorizes the exact Q1 primary and minimal Q2 L-P020/F-CBGS submissions
-needed to close S08, after each immutable tuple is recorded here. Across all new
-Q1/Q2 jobs, one-GPU elapsed allocation must remain at or below two GPU-hours;
-unused elapsed time from an earlier job is the only budget available to a later
-job. Smoke-5 has passed, remediation is sealed at `103c7389`, and independent R2
-returned `PASS_WITH_RESIDUAL_RISK`. Before Q1 submission, this file must bind all
-five fixture-identity SHA-256 values, exact source/snapshot/config and launcher
-hashes, eight cells/order, output, resources, and stop conditions. O-109 permits
-no extra cells, seeds, data, harnesses, scientific retries, merge, or push.
+O-109 authorized the exact Q1 primary and minimal Q2 L-P020/F-CBGS submissions
+after each immutable tuple was recorded here. Q1 Job `431013` and Q2 Job `435151`
+are now consumed and terminal; together they used `00:07:58` of the two-GPU-hour
+ceiling. All five fixture identities, sources/snapshots/configs/launchers,
+cells/order, outputs, resources, and stop conditions remain bound below. No extra
+cell, seed, data, harness, scientific retry, merge, or push occurred.
 
 ## S08-Q1 exact primary precision qualification — approved under O-109
 

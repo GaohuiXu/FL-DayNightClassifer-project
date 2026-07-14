@@ -18,8 +18,10 @@
 > two-GPU-hour ceiling. The close-ready policy candidate is global FP16 for
 > camera/pillar routes, global FP16 with SECOND/spconv explicitly kept FP32 for
 > sparse LiDAR/fusion routes, and uniform FP32 as reference/fallback. Full sparse
-> FP16 is not accepted as the unified F-capable route. Exact evidence is awaiting
-> independent review and owner policy acceptance. No harness/work-chain expansion,
+> FP16 is not accepted as the unified F-capable route. Independent R3 reviewed
+> evidence SHA `c0ef86235ead753fee3b790b19d40f82f875ec59` with
+> `PASS_WITH_RESIDUAL_RISK` and no P0-P2 findings. S08 is close-ready for owner
+> policy acceptance. No harness/work-chain expansion,
 > merge, push, attack, defense, or S09 execution is authorized.
 > Only after an accepted S08 precision policy may **S09 full-pipeline
 > performance/readiness** begin. S10-S12 remain pending redefinition.
@@ -150,8 +152,9 @@ passed; L full sparse FP16 recovered only at scale `0.03125`, while F full spars
 FP16 remained a bounded negative after 18 attempts. The SECOND-FP32 island passed
 L/F at scales `32`/`16`. Q2 Job `435151` subsequently passed L-P020 FP16 at scale
 `8` and F-CBGS with the SECOND-FP32 island at scale `16`. The exact jobs consumed
-`00:07:58` total and added no cell, seed, harness, or retry. Evidence review and
-owner precision-policy acceptance remain.
+`00:07:58` total and added no cell, seed, harness, or retry. Independent R3
+returned `PASS_WITH_RESIDUAL_RISK` with no P0-P2 findings. Owner precision-policy
+acceptance remains.
 
 S08 compared, under one exact mini batch/step protocol:
 

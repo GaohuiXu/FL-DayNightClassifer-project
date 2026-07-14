@@ -9,9 +9,10 @@
 > O-109 exact Q1 Job `431013` and Q2 Job `435151` are terminal at the runner level,
 > checksum-verified, and consumed `00:07:58` total GPU elapsed. Numerical evidence
 > selects global FP16 with SECOND/spconv FP32 as the close-ready sparse-route
-> candidate and preserves uniform FP32 as reference/fallback. The next permitted
-> action is an immutable evidence seal and independent review; owner policy
-> acceptance remains the S08 close gate. No harness/work-chain expansion, merge,
+> candidate and preserves uniform FP32 as reference/fallback. Independent R3
+> reviewed evidence SHA `c0ef86235ead753fee3b790b19d40f82f875ec59` with
+> `PASS_WITH_RESIDUAL_RISK` and no P0-P2 findings. Owner policy acceptance remains
+> the S08 close gate. No harness/work-chain expansion, merge,
 > push, or S09 execution is authorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
@@ -112,7 +113,7 @@ choice, or create another task/worktree until the owner has granted the exact
 needed authority. Persistent S00 simplifies context; it does not broaden scope.
 ```
 
-## 3. S08 envelope v1 — Q1/Q2 complete; evidence review pending
+## 3. S08 envelope v1 — close-ready; owner policy decision pending
 
 ```text
 SESSION_ID: S08

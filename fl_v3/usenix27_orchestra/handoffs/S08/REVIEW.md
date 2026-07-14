@@ -402,3 +402,289 @@ therefore does not weaken the S08 precision gate.
   Protocol A/B, attack, or defense claim is established.
 - The P3 duplicated-status wording above should be corrected in the next
   authorized documentation update; it is not an execution blocker.
+
+## R3 — Q1/Q2 immutable evidence review
+
+### Review baseline and scope
+
+This independent evidence review pins exact linear SHA
+`c0ef86235ead753fee3b790b19d40f82f875ec59` on
+`codex/s08-s09-cl-readiness`. The worktree was clean at review start. The reviewer
+read the complete active S08 handoff/request/results/review package, the relevant
+production precision/config/training/model/checkpoint source, the exact Q1/Q2 test
+source, both immutable execution snapshots, both one-shot job scripts, Slurm
+accounting, JUnit/logs, and every declared raw artifact. No implementation file,
+compute request, job, branch, commit, merge, or push was created by this review.
+
+The review separately reconstructed the resolved-config hashes, cell order,
+per-mode state identity, fixture and RNG identities, all 79 window records, six-task
+loss aggregation, gradient completeness/finiteness, scaler transitions, and
+optimizer/scheduler/EMA/exposure deltas. It did not rely on the pytest exit status
+as a numerical verdict: the per-cell records and raw summaries were inspected
+directly, including the expected F2 negative result.
+
+### Findings
+
+#### P0
+
+None.
+
+#### P1
+
+None.
+
+#### P2
+
+None. No evidence/source contradiction invalidates a Q1 or Q2 cell, no selected
+precision route silently changes the head/loss/architecture/optimizer/metric, and
+no counter, identity, or artifact-integrity failure was found.
+
+#### P3 — duplicated active handoff/request summaries still describe pre-Q1 state
+
+The authoritative top status blocks, terminal exact request sections, `RESULTS.md`,
+and canonical Orchestra documents are current. Several later duplicated passages
+are nevertheless stale:
+
+- `HANDOFF.md:343` labels the Q1 runner "not executed";
+- `HANDOFF.md:380-382` says L-P020/F-CBGS have schema/template coverage only,
+  although Q2 now supplies bounded execution evidence;
+- `HANDOFF.md:421,457-463` retains the pre-Q1 gate sequence; and
+- `RUN_REQUEST.md:3-5,255` calls Q1 the active request and says the Q1/Q2 tuple
+  freeze is in progress, although both exact requests are terminal.
+
+This drift is conservative: it neither authorizes more compute nor hides F2, alters
+the policy candidate, or weakens an interpretation boundary. It should be folded
+into the owner's final S08 close/status edit. It does not require a model/test
+change, another review worktree, or any GPU rerun.
+
+#### P3 — Q2's automatic predicate is weaker than its preserved raw evidence
+
+`test_s08_precision_qualification.py:1121-1141` requires a finite global parameter
+gradient summary for the accepted P1/B1 window, but unlike the Q1 predicate at
+`test_s08_precision_qualification.py:589-600`, it does not explicitly require
+`missing_grad_parameter_count == 0`. A future reusable compatibility predicate
+should make that condition explicit rather than depending on independent artifact
+inspection.
+
+This does not invalidate Q2: the reviewer inspected all 13 raw records and verified
+that P1 and B1 each have zero missing parameter gradients; every retained boundary
+has a present, finite explicitly-unscaled gradient; and the accepted window is the
+only optimizer/scheduler/exposure advance. No rerun or S08 source remediation is
+needed for the immutable evidence under review.
+
+### Gate verdict
+
+```text
+GATE_VERDICT: PASS_WITH_RESIDUAL_RISK
+REVIEWED_SHA: c0ef86235ead753fee3b790b19d40f82f875ec59
+BRANCH_AT_REVIEW: codex/s08-s09-cl-readiness
+Q1_VERDICT: COMPLETE / bounded primary evidence, with F2 preserved as FAIL
+Q2_VERDICT: PASS / bounded P1+B1 compatibility evidence
+S08_CLOSE_READINESS: READY_FOR_OWNER_DECISION; P3 cleanup may be folded into the close/status commit
+OWNER_POLICY_READINESS: READY_FOR_OWNER_DECISION; NOT ACCEPTED BY THE REVIEWER
+S09_READINESS: BLOCKED until the owner accepts and freezes the reviewed S08 precision policy
+```
+
+The supported close-ready candidate is:
+
+1. global FP16 for the current camera and dense-pillar routes;
+2. global FP16 with SECOND voxelization/VFE/spconv/dense collapse/to-BEV kept in an
+   explicit FP32 island for current sparse LiDAR and fusion routes; and
+3. uniform FP32 as the reference/fallback.
+
+Full sparse-convolution FP16 is not accepted as the unified F-capable route under
+this bounded evidence. This is a policy-readiness judgment, not owner acceptance
+and not a claim that AMP or a still-lower F2 scale is mathematically impossible.
+
+### Precision partition and production-path review
+
+- `config/resolved.py:252-284,287-315` admits only exact `s08.v1`, global
+  `fp32|fp16`, and the explicit sparse partition. Non-SECOND routes require
+  `not_applicable`; SECOND requires `fp32|fp16`; global FP32 plus SECOND requires
+  sparse FP32. Missing, legacy, uppercase, or illegal combinations fail closed.
+- `training/tasks.py:371-453` requires the resolved partition in production,
+  rejects the legacy boolean, reuses the same validator, and maps only exact
+  `fp16` to the detector's internal sparse-FP16 request.
+- `utils/runtime.py:64-83` retains direct BF16 rejection. The complete resolved
+  config and hash, including the sparse partition, are saved and compared on
+  resume at `training/checkpoint.py:291-365`; GradScaler/runtime state are also
+  checkpointed.
+- `models/fusion/sparse_voxel_encoder.py:271-321,346-402` keeps voxelization and
+  mean VFE in FP32 in both AMP regimes. Full sparse FP16 explicitly casts sparse
+  features and enables FP16 autocast for SECOND/dense collapse/to-BEV; the island
+  explicitly disables autocast for those regions and returns FP32. Raw sparse
+  metadata agrees with every cell's resolved partition/request/active state.
+- The reviewed spconv 2.3.8 no-grad evaluation workaround remains version-gated,
+  touches only sparse-convolution leaf dispatch flags, and restores them in
+  `finally` (`sparse_voxel_encoder.py:33-78`). Q1/Q2 are training paths and did not
+  invoke that evaluation seam.
+- `training/loop.py:289-295` promotes head outputs recursively to FP32 before the
+  unchanged six-task criterion. The loop unscales parameter gradients before
+  diagnostics/clip/step and advances optimizer, scheduler, EMA, and exposure only
+  on an accepted window (`training/loop.py:350-440`). Diagnostics are opt-in,
+  hook-free, preallocated, and inspect retained explicit boundaries without
+  changing outputs (`training/precision_diagnostics.py:1-7,271-415,500-586`).
+- The implementation range changes no task grouping, target/loss equation,
+  CenterHead architecture, optimizer recipe, official metric/decode/NMS, data
+  ownership, attack, or defense. After reviewed implementation SHA `103c7389`, Q1
+  added only request/review documentation; Q2 added the bounded compatibility test
+  plus evidence/request documentation. No production source changed before either
+  material job.
+
+### Immutable execution and artifact audit
+
+#### Q1
+
+- Execution source: `e6e28bea43f7757347da2e460cdf24e9a32b791f`.
+- Snapshot: `s08_q1_dbeee35dcd6d`, independently reconstructed as 585 files,
+  4,544,533 file bytes, zero writable entries, tree SHA-256
+  `dbeee35dcd6d7bcb919f549f03c42763d5d82b2b20740815743b7aa2b3f9bc9c`.
+  Every path, byte, and executable bit matches the execution-source Git tree with
+  no missing or extra file.
+- Job script SHA-256:
+  `42cb555d518a6d7bb517c325c22c1f0ab8362c03da36b9cfd1f0b981d8b349e1`;
+  exact selector was the one Q1 test, with no retry path.
+- Job `431013`: `COMPLETED 0:0`, zero restarts, one GH200, eight CPUs, 96 GiB,
+  `00:04:02`. JUnit is one test with zero failure/error/skip.
+- The job checksum manifest verifies all ten declared runtime/raw artifacts. The
+  reviewer independently rehashed those files plus stdout/stderr; every size and
+  SHA-256 equals `RESULTS.md:135-149`.
+
+#### Q2
+
+- Execution source: `3bb10d39c60e6fd2d0bfe480bb03a7c8cfc76fe9`.
+- Snapshot: `s08_q2_1d9191c2f623`, independently reconstructed as 585 files,
+  4,566,358 file bytes, zero writable entries, tree SHA-256
+  `1d9191c2f6234199d31405f9690ffd2d83343889333efbe1e1ae47e6235a5c60`.
+  It exactly matches the execution-source Git tree.
+- Job script SHA-256:
+  `ff14fd735788a4fa4691a473eb788276d901371160c28f447fe8819f33494d0d`;
+  exact selector was the one Q2 compatibility test, with no retry path.
+- Job `435151`: `COMPLETED 0:0`, zero restarts, one GH200, eight CPUs, 96 GiB,
+  `00:03:56`. JUnit is one test with zero failure/error/skip.
+- The checksum manifest and independent hashes match all declared files and
+  `RESULTS.md:42-58` exactly.
+
+Total new Q1+Q2 one-GPU elapsed time is exactly `00:07:58`, leaving `01:52:02` of
+the O-109 ceiling unused. Git history, job ledgers, and Slurm accounting show one Q1
+submission and one Q2 submission, no retry, extra cell, seed, data scan, profile,
+DDP run, or harness/work-chain expansion.
+
+### Q1 cell reconstruction
+
+The exact order is C1,C2,L1,L2,L3,F1,F2,F3. The raw summary contains 66 window
+records, matching the sum of per-cell attempts. All config hashes recompute from
+canonical JSON. C1/C2 share one exact camera state, L1/L2/L3 share one exact LiDAR
+state, and F1/F2/F3 share one exact fusion state; every loaded-state hash equals its
+canonical-state hash. Every attempt restores the same declared forward RNG, and
+the five full fixture identities are identical across all cells.
+
+| Cell | Route | Attempts | Accepted | Scale result | Review |
+|---|---|---:|---:|---|---|
+| C1 | C-STR8 FP32 | 3 | 3 | 1 | PASS |
+| C2 | C-STR8 FP16 | 7 | 3 | first accept 32 | PASS |
+| L1 | L-S075 FP32/sparse FP32 | 3 | 3 | 1 | PASS |
+| L2 | L-S075 FP16/sparse FP16 | 17 | 3 | first accept 0.03125 | PASS, narrow recovery |
+| L3 | L-S075 FP16/sparse FP32 | 7 | 3 | first accept 32 | PASS |
+| F1 | F-U FP32/sparse FP32 | 3 | 3 | 1 | PASS |
+| F2 | F-U FP16/sparse FP16 | 18 | 0 | no accept through attempted 0.00390625 | bounded FAIL |
+| F3 | F-U FP16/sparse FP32 | 8 | 3 | first accept 16 | PASS |
+
+For every FP16 cell, one persistent dynamic GradScaler starts at 512. Every
+overflow halves the scale, including below one; every accepted window retains the
+scale because the growth interval is 2000. C2/L2/L3/F3 end with three consecutive
+accepted windows and no post-accept skip. F2 records 18 consecutive overflows and
+produces 0.001953125 only after its final attempted window; it does not silently
+claim that unattempted scale as a result.
+
+Across all accepted records, the scalar loss is finite, all six task records exist
+in order, each aggregate loss/heatmap/regression/n_gt value equals the sum of its
+six tasks, every trainable parameter has a gradient, all parameter gradients are
+finite after unscale and before any clip/step, and every retained boundary gradient
+is present and finite. Accepted records alone advance optimizer step, scheduler
+epoch, successful windows, and exposure by one; EMA is disabled and consistent.
+All skipped records leave those quantities unchanged. The terminal summaries match
+those raw transitions exactly.
+
+### Sparse-overflow diagnosis and interpretation
+
+- L2 requires 14 backoffs before three accepted windows at scale 0.03125. Its first
+  accepted window still has a very large finite unscaled sparse-stem gradient
+  maximum (about 1.29M).
+- F2's final attempted window has finite scalar/six-task losses and finite
+  `head.input`, `second.output`, `second.stage1`, and `second.stem` activation
+  gradients. Only ten parameter-gradient elements are nonfinite, all in the first
+  bad named parameter `lidar_encoder.backbone.stem.0.weight`. The largest surviving
+  unscaled finite element is about 16.63M; multiplied by scale 0.00390625 it is
+  about 64.96K, immediately below FP16's finite ceiling.
+- F3, with the same fusion-mode canonical state and fixture but sparse FP32 island,
+  accepts at scale 16 with finite sparse boundaries and parameters. L3 likewise
+  accepts at 32. This is sufficient to localize the practical failure to the FP16
+  sparse-convolution backward/weight-gradient dynamic range, especially the SECOND
+  stem, and to justify the island policy candidate.
+- The reviewer independently confirms that large FP32 LiDAR gradients are real:
+  the first L1 window reaches about 1.92M at the sparse stem and the first F1 window
+  about 218K globally. These are health signals, not proof of a head/loss semantic
+  error. Q1 does not identify one exact faulty sparse kernel/operation or prove the
+  architectural/normalization cause of the large gradients.
+
+### Q2 compatibility reconstruction
+
+The exact order is P1 then B1, with 13 total window records. Both reuse the exact
+five Q1 fixture identities, seed, frozen batch, optimizer, scheduler, EMA-disabled
+state, and one persistent scaler per cell. Config hashes and source identities
+recompute exactly.
+
+- P1 is L-P020/global FP16/`not_applicable`/uniform: six overflow windows then one
+  accepted window at scale 8.
+- B1 is F-CBGS/global FP16/SECOND FP32 island/CBGS config identity: five overflow
+  windows then one accepted window at scale 16.
+
+Only each final accepted window advances optimizer, scheduler, and exposure once;
+all parameter and applicable boundary gradients are present and finite. B1 binds
+`det-cbgs=true`, but the replayed one-batch fixture does not execute or qualify the
+CBGS sampling distribution, loader, or throughput. Q2 therefore closes only the
+declared precision-compatibility question.
+
+### Residual risk and scientific boundary
+
+- Q1 is one exact mini fixture, random initialization, batch one, constant
+  scheduler, AdamW `1e-4/0.01`, EMA/clip/3D augmentation/GT paste disabled, and at
+  most three accepted updates per qualifying primary cell. Q2 is one accepted
+  update per compatibility route. Neither is a production recipe or capability
+  run.
+- L2 is only a narrow bounded recovery; F2 might behave differently below the
+  unattempted next scale or on another batch. The correct conclusion is rejection
+  of full sparse FP16 as the current unified F-capable policy, not impossibility.
+- Large finite sparse gradients and the exact normalization/recipe cause remain
+  unresolved. Any normalization, architecture, loss/head, optimizer, schedule,
+  EMA, augmentation, or sampling amendment is a separate owner-gated milestone.
+- No convergence, speed, throughput, memory, mAP/NDS, production-data readiness,
+  multi-seed, Protocol A/B, attack, defense, or scientific-result claim follows
+  from S08. S09 remains blocked until the owner explicitly accepts the reviewed
+  precision policy and completes the separate S09 reading/planning gate.
+
+### Close-edit verification
+
+At unchanged HEAD `c0ef86235ead753fee3b790b19d40f82f875ec59`, the reviewer
+inspected the exact uncommitted close edit limited to `HANDOFF.md` and
+`RUN_REQUEST.md` (17 insertions/21 deletions and 11 insertions/14 deletions,
+respectively; combined binary-diff SHA-256
+`4763eb7a604a814dc8684d8e112420828446f99ead7b000db2d93d9ec844987e`).
+It mechanically converts the four stale pre-Q1/Q2 passages identified by R3 into
+terminal/historical wording, preserves every job/result/negative finding, budget,
+precision-policy candidate, and interpretation boundary, and changes no production
+source, config, script, test, or `RESULTS.md` content. `git diff --check` passes.
+
+The second R3 P3 remains explicitly recorded as a non-blocking residual: Q2's
+predicate was not changed, the preserved P1/B1 raw records still establish zero
+missing gradients, and no additional Slurm submission or rerun occurred. Slurm
+accounting remains exactly Jobs `426619`, `427800`, `428112`, `428889`, `429080`,
+`431013`, and `435151`, with Q1+Q2 elapsed unchanged at `00:07:58`.
+
+```text
+CLOSE_EDIT_VERDICT: PASS
+PRODUCTION_TEST_PRECISION_RESULT_SEMANTICS_CHANGED: NO
+Q2_MISSING_GRAD_P3: RETAINED / NON-BLOCKING
+ADDITIONAL_COMPUTE: NONE
+```
