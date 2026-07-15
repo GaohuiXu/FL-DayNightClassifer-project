@@ -27,7 +27,13 @@
 > of remediation `84adfd0` found no open P0-P3. O-119 owner-accepts/closes
 > STOP-3 and approves the serial STOP-4A-D envelope recorded at the end of this
 > ledger; no submission occurs before its exact immutable tuple is frozen and
-> reviewed.
+> reviewed. The STOP-4A tuple at request seal `6724762` received independent
+> pre-submit `PASS_WITH_RESIDUAL_RISK / no open P0-P3 / SUBMIT GO`; its sole
+> command produced Job `452520`, which completed `0:0` in `00:09:42` with all
+> four cells and 59 focused tests passing, no replacement or retry. STOP-4B/4C
+> implementation `6da4bb5` is now in documentation-only review remediation;
+> STOP-4C remains unsubmitted until a remediated immutable source and separate
+> exact request review exist.
 
 ## Authorization state
 
@@ -40,8 +46,8 @@ STOP1_FIRST_EVIDENCE_SHA: b35591b1a9ac64ea50ee3ad3257304baef07f8de
 BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3 + O-119 STOP-4
 APPROVED_COMPUTE: O-119 STOP-4A <=00:30:00 + STOP-4C <=00:30:00 + conditional STOP-4D <=01:00:00 / serial <=2 GPU-hours / no retry
-APPROVED_SUBMISSIONS: prior STOP-1/2/3 consumed; three prospective serial O-119 STOP-4 jobs after exact freeze/review
-ACTIVE_REQUEST: STOP-4A exact tuple frozen / independent request review pending / not submitted
+APPROVED_SUBMISSIONS: prior STOP-1/2/3 and STOP-4A consumed; prospective STOP-4C plus conditional STOP-4D after each exact freeze/review
+ACTIVE_REQUEST: STOP-4B/4C documentation-only remediation / STOP-4C exact tuple not yet frozen or submitted
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-4 implementation/request/evidence/review remediation within O-119
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -870,10 +876,10 @@ JOB_NAME: flv3_s09_stop4a
 STDOUT/STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop4a_profile_capacity_b509f5e527c2_%j.{out,err}
 SUBMIT_SCRIPT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop4a_profile_capacity_b509f5e527c2/submit.sh
 SUBMIT_SCRIPT_SHA256: fb59ad993bca04ff3156813c9c584ad83ceefcc35352ca5b1b62ad372fdb315e
-REQUEST_REVIEW: pending / do not submit before independent GO
+REQUEST_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / exact-tuple SUBMIT GO received before Job 452520
 ```
 
-The sole prospective submission command is:
+The sole reviewed and executed submission command was:
 
 ```bash
 bash /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop4a_profile_capacity_b509f5e527c2/submit.sh
@@ -888,6 +894,15 @@ output, source/tree and four resolved hashes are passed explicitly to the runner
 At freeze time the output is absent, the exact-name queue is empty, and `sacct`
 contains zero prior `flv3_s09_stop4a` jobs since 2026-07-01. No array, DDP,
 replacement, retry, extra cell, or derived output path exists.
+
+The independent request reviewer task `/root/s09_stop4a_impl_reviewer` checked
+request seal `6724762d1ae7...`, execution source/tree `b509f5e... /
+9c556d3...`, the detached 598-file snapshot, four raw/resolved configs, runner,
+trainer, caches/manifest, fresh output, empty exact-name queue, and the sole
+wrapper. Its pre-submit terminal verdict was `PASS_WITH_RESIDUAL_RISK / no open
+P0-P3 / SUBMIT GO`, restricted to the command above and wrapper SHA-256
+`fb59ad99...`. This review preceded submission; it is recorded here durably after
+the evidence reviewer found the earlier `pending` status had not been sealed.
 
 Mandatory B1 outcomes are terminal PASS with one checksum-bound profiler trace/
 summary, 20 accepted updates within 30 attempts, no nonfinite/discarded window and
@@ -907,6 +922,9 @@ SUBMISSIONS: 1 / no replacement / no retry
 CELL_STATUS: B1-profile PASS; B1-no-checkpoint PASS; B2 PASS; B4 PASS
 FOCUSED_TESTS: 59 passed / 0 failed / 0 skipped
 ARTIFACT_MANIFEST_SHA256: fbd07beebcd9078c5a980995e05febc1efc873469d0ff4fe61f30c6748f5272f
+SLURM_STDOUT_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+SLURM_STDERR_SHA256: 8db5d05b4abfa9c9cc1bd7028c410675c3e2d697af110ce6c6d9aa51f2e1e830
+SLURM_LOG_MODE: 0444 / read-only
 ```
 
 All 35 manifest entries pass checksum verification; all cell exit files and the

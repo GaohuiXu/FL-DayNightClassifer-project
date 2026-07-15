@@ -715,8 +715,8 @@ to write pytest cache into the read-only source snapshot.
 
 | Cell | Accepted / attempted | Scaler overflows | Window p50 / p95 (ms) | Throughput (samples/s) | Peak allocated / reserved / headroom (GiB) |
 |---|---:|---:|---:|---:|---:|
-| B1, checkpoint on + profiler | `20 / 23` | `3` | `281.692 / 316.432` | `3.5067` | `3.06 / 5.37 / 89.61` |
-| B1, checkpoint off | `20 / 23` | `3` | `186.627 / 204.558` | `5.3644` | `4.55 / 7.24 / 87.78` |
+| B1, checkpoint on + profiler | `20 / 23` | `3` | `281.692 / 316.432` | `3.5067` | `3.06 / 5.38 / 89.63` |
+| B1, checkpoint off | `20 / 23` | `3` | `186.627 / 204.558` | `5.3644` | `4.55 / 7.24 / 87.76` |
 | B2, checkpoint off | `20 / 22` | `2` | `293.437 / 337.788` | `6.9246` | `8.55 / 13.34 / 81.66` |
 | B4, checkpoint off | `20 / 23` | `3` | `475.311 / 542.830` | `8.4505` | `16.32 / 38.81 / 56.19` |
 
@@ -779,6 +779,7 @@ Key artifact SHA-256 values are:
 | B4 checkpoint-off readiness | `bd07dfbb21136e9ff562695c8e8daf11ec9d214ae948c8c33b74fa697d91e49a` |
 | execution / config identities | `98d180a2... / 3312b70d...` |
 | GPU telemetry | `d2760b1a...` |
+| read-only Slurm stdout / stderr | `e3b0c442... / 8db5d05b...` |
 
 STOP-4A is a bounded engineering/profiling PASS. It is not convergence, mAP/NDS,
 model-quality, exact backward-branch attribution, multi-seed, Protocol A/B, FL,

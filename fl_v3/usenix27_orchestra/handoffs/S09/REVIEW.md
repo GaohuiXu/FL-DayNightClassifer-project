@@ -1462,3 +1462,77 @@ not run yet, and the fact that forward named ranges cannot provide exact C/L/F
 backward decomposition. **This is implementation closure, not submission GO:**
 the exact source/tree/snapshot/submit/output tuple requires a separate immutable
 request freeze and independent request review before the sole O-119 STOP-4A job.
+
+### STOP-4A exact request review — pre-submit GO
+
+```text
+REQUEST_SEAL: 6724762d1ae719f3e20a3014565ae158f024c911
+REQUEST_SEAL_TREE: caf2ba5d1a4d8557ef0192a9a268ce01f6d02c22
+EXECUTION_SOURCE/TREE: b509f5e527c2dd28d2db506c3f87b5a06b3b1b6a / 9c556d37d1e45ece7aad31b10881bb9eb8686424
+REVIEWER_TASK: /root/s09_stop4a_impl_reviewer
+REVIEWER_COMPUTE: none
+VERDICT: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / SUBMIT GO
+```
+
+The independent request reviewer verified the exact detached, clean,
+self-contained 598-file snapshot, absence of Git alternates/symlinks/writable
+worktree entries, all runner/trainer/environment/config/resolved identities, the
+accepted cache/manifest and editable sparse-dependency states, fresh output and
+empty exact-name queue. The sole wrapper contains one non-requeue `sbatch` for one
+GH200, 16 CPUs, 96 GiB and `00:30:00`; it has SHA-256 `fb59ad99...` and binds the
+four cells/order/bounds, F-U O-110 precision, seed 0, recipe, source/tree and
+output. No worker matrix, DDP, array, retry, replacement, or extra cell exists.
+
+The pre-submit verdict restricted GO to:
+
+```bash
+bash /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop4a_profile_capacity_b509f5e527c2/submit.sh
+```
+
+This exact review completed before that command produced Job `452520`. The
+request verdict was retained in the reviewer task but was not immediately sealed
+into this file; the later evidence review identified that durable-record gap.
+
+## STOP-4A evidence plus STOP-4B/4C implementation review
+
+```text
+CANDIDATE_SHA: 6da4bb5016410708b1e731d26d898f24e6b315ac
+CANDIDATE_TREE: 721165340f2b5ab4cda222b4f3a86e951f9d7c14
+CANDIDATE_PARENT: 6724762d1ae719f3e20a3014565ae158f024c911
+REVIEWER_TASK: /root/s09_stop2_impl_reviewer
+REVIEWER_COMPUTE: none
+VERDICT: REMEDIATE / documentation and evidence sealing only
+```
+
+Findings, ordered by severity:
+
+- **P0/P1: none.**
+- **P2 — the exact STOP-4A request-review GO was not durable and active state
+  contradicted Job 452520.** The reviewer confirmed from the retained pre-submit
+  reviewer verdict that this was not an unauthorized or retroactively approved
+  job. The task identity, exact tuple, wrapper and GO must be sealed and the
+  handoff/request/results state synchronized.
+- **P3 — two STOP-4A GiB values were transcribed with incorrect rounding.** The
+  correct two-decimal values are B1-profile `3.06 / 5.38 / 89.63 GiB` and
+  B1-no-checkpoint headroom `87.76 GiB`; the capacity conclusion is unchanged.
+- **P3 — Job 452520 Slurm stdout/stderr remained mode 0664 and unbound.** They
+  contain only empty output/module notices and no technical result, but must be
+  made read-only and their hashes recorded.
+
+The technical review found no model, loss, gradient, precision, data, recipe or
+runner semantic defect. The propagated switch removes exactly `6*3+1=19`
+diagnostic `.item()` calls per ordinary attempted window, while S08 diagnostics
+force complete task/aggregate terms and `finally` restores caller state. The
+true six-task equality test checks exact loss and every output gradient. STOP-4C
+retains the STOP-3 F-U/B1 data, precision, seed, optimizer and 100/120 bounds;
+only schema v2, explicit checkpoint-off, and null loader/operator profiles differ.
+The one-shot runner has no matrix, profiler, DDP or retry and covers the new paths.
+
+Raw Job `452520` evidence independently reproduces `COMPLETED 0:0 / 00:09:42`,
+59 passed tests, four PASS cells, all 35 manifest checks, trace/summary/telemetry,
+and the documented capacity limits. B2/B4 remain capacity-only and the profiled
+checkpoint comparison is not treated as a clean speed ablation.
+
+**Verdict: REMEDIATE; STOP-4C NO-GO until linear documentation/evidence
+remediation, immutable closure re-review, exact request freeze, and independent
+request-level GO.** No code change, GPU rerun, or reinterpretation is required.
