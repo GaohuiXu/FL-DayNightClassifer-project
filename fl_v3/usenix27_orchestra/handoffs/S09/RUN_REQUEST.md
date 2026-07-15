@@ -50,7 +50,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3 + O-119 STOP-4
 APPROVED_COMPUTE: O-119 STOP-4A <=00:30:00 + STOP-4C <=00:30:00 + conditional STOP-4D <=01:00:00 / serial <=2 GPU-hours / no retry
 APPROVED_SUBMISSIONS: prior STOP-1/2/3/4A/4C consumed; prospective conditional STOP-4D after exact freeze/review
-ACTIVE_REQUEST: STOP-4D implementation 5642884 independently reviewed / exact immutable request freeze pending / not submitted / no retry
+ACTIVE_REQUEST: STOP-4D exact 5642884 tuple frozen / independent request review pending / not submitted / no retry
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-4 implementation/request/evidence/review remediation within O-119
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -1077,13 +1077,53 @@ exact-name job. Any drift or request-review finding cancels this tuple.
 ### STOP-4D — fresh optimized G1000
 
 ```text
-SOURCE/CONFIG/RUNNER/SNAPSHOT/OUTPUT: pending reviewed STOP-4C PASS and exact freeze
-CELL: exact accepted STOP-4C F-U B1 configuration / fresh random seed-0 initialization / no resume / no profiler
-BOUND: 1000 successful updates / bounded attempted-window ceiling frozen from STOP-4C evidence
-GATES: finite aggregate loss; no nonfinite/discarded windows or counter drift; accepted-window/scaler behavior, stable p50/p95, throughput, data wait, memory and epoch estimate recorded; no convergence claim
+IMPLEMENTATION_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / exact request freeze GO
+EXECUTION_SOURCE_SHA: 5642884cdbb16e1c9b3107f529dc70b3a1243c6a
+EXECUTION_SOURCE_TREE: b13a08819b2e203dfe355309f1310c79f94f3023
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop4d_g1000_5642884cdbb1
+SNAPSHOT_REF_MODE: detached / clean / self-contained / no alternates / zero writable worktree entries / executable modes preserved
+SNAPSHOT_TRACKED_FILES/BYTES: 602 / 5055331
+CONFIG: fl_v3/configs/s09_stop4d_f_u_g1000.json
+CONFIG_FILE_SHA256: dfd46e1a179b3b10d98055762fe8cfc9f9f312f4faa5aec05c9f5b14a7b37928
+RESOLVED_CONFIG_SHA256: c3b39a3f9dbfccd673a494f8ec976aa0cad1424a63cda3e56f836b4b733f7a1b
+RUNNER: fl_v3/scripts/run_s09_stop4d_g1000.sh
+RUNNER_SHA256: 43511df4f54265bfc9595aed424aa363a91ff3cc855ab0fb5fe43162885961dc
+CENTRALIZED_TRAIN_SHA256: 3dffb4fe70ab2c82ac0192a07b3bcebfbca5232e85c1e32f4e6e4a44b783530f
+ARRHENIUS_ENV_SHA256: a56758d72096a65708352e155d1c72adf261ae6cdaf5a56a38f7d2dd5472648f
+DATA: exact accepted STOP-1 train t1.v2 n_sweeps=10 plus accepted ZIP manifest; val identity-bound/not iterated
+CELL: exact accepted STOP-4C F-U B1 / fresh random seed-0 initialization / global fp16 + SECOND fp32 island / checkpoint off / no resume, loader profile or operator profiler
+RECIPE: AdamW 1e-4/0.01 / constant scheduler / EMA+clip+3D aug+GT paste off / uniform / world1 / accumulation1 / workers8
+BOUND: 1000 successful updates / <=1020 attempted / ten-successful-window warm-up
+FOCUSED_TESTS: s06 resolved config including exact 4C->4D delta + full s09 readiness + full s08 precision diagnostics/partition + checkpoint switch + true six-task record_terms equality
+GATES: all focused tests and exits PASS; exact 1000/1020 lifecycle and optimizer/scheduler/exposure/EMA/scaler accounting; zero direct-nonfinite/discarded windows; post-warm accepted ratio >=95%; pairwise combined p95/p50 <=1.5; mean data-wait share <=10%; reserved memory <=86 GiB; both steady epoch estimates <=24 h; finite aggregate loss; combined p50/p95 <=229.620313/246.759346 ms
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop4d_g1000_5642884cdbb1_a1
+JOB_NAME: flv3_s09_stop4d_g1000
+STDOUT/STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop4d_g1000_5642884cdbb1_%j.{out,err}
+SUBMIT_SCRIPT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop4d_g1000_5642884cdbb1/submit.sh
+SUBMIT_SCRIPT_SHA256: e2c8c5b32b63bb50ccc8eedeb1fdcf1aa807ae30fc06661bf7b7864ba3a69e28
 RESOURCE: one GH200 / 16 CPU / 96 GiB / 01:00:00 / <=1 GPU-hour
 SUBMISSIONS: exactly one conditional on reviewed STOP-4C PASS / no retry
+O119_ACTUAL_PLUS_STOP4D_CEILING: 0.230000 used + 1.000000 <= 1.230000 / 2.000000 GPU-hours
+REQUEST_REVIEW: pending / do not submit before independent exact-tuple GO
 ```
+
+The sole prospective command is:
+
+```bash
+bash /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop4d_g1000_5642884cdbb1/submit.sh
+```
+
+The mode-0555 wrapper passes syntax, ShellCheck and safe-prefix execution. It
+rechecks the exact detached source/tree, clean self-contained snapshot, absence
+of writable worktree entries and alternates, runner/trainer/environment/raw
+config hashes, fresh output and empty exact-name queue before one non-requeue
+`sbatch`. At freeze time the output, exact-name queue and same-name history since
+2026-07-01 are empty. Any drift or request-review finding cancels this tuple.
+
+Technical PASS records all 1000-success lifecycle, performance, memory and
+telemetry evidence. Any nonzero test/training/validation/final exit, missed gate,
+cap exhaustion or Slurm failure is retained as terminal negative evidence with no
+retry. A PASS remains engineering health only, not convergence or model quality.
 
 Independent review of the complete STOP-4 source, exact diffs, configs, jobs and
 raw artifacts is required before S09 can close. B=2/4 results remain capacity
