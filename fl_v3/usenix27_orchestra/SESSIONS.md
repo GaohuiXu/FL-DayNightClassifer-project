@@ -309,9 +309,9 @@ perform an architecture experiment.
 
 **Compute.** STOP-1/3/4 material jobs require their own exact stop approval. The
 STOP-2 focused smoke may use O-009/O-107 only when that stop approval explicitly
-opts in. Unused quota is not retry authority. O-112 approves only the one STOP-1
-cache-materialization submission after its exact tuple is frozen; no later S09 job
-is approved.
+opts in. Unused quota is not retry authority. O-112 STOP-1 Job `441191` and O-115
+STOP-2 Job `441293` are consumed and terminal; no replacement was used. STOP-3/4
+and any other later S09 job remain unapproved.
 
 ## 6. S10-S12 redefinition boundaries
 

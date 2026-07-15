@@ -242,15 +242,15 @@ Default: reviewer subagent from the exact immutable SHA. Use a separate review
 worktree if the implementation state is not clean/immutable, runtime reproduction
 is required, or the owner requests it.
 
-## 5. S09 envelope v1 — four owner stops, no execution yet
+## 5. S09 envelope v1 — four owner stops
 
 ```text
 SESSION_ID: S09
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 SOURCE_BRANCH: codex/s08-s09-cl-readiness
 IMPLEMENTATION_CONTEXT: persistent S00 unless owner selects independent isolation
-APPROVED_COMPUTE: O-112 STOP-1 only; one GH200/8 CPU/96 GiB/00:30:00/0.5 GPU-hour submission
-APPROVED_GIT: linear STOP-1 envelope/request/evidence commits only; no merge/push
+APPROVED_COMPUTE: O-112 STOP-1 Job 441191 and O-115 STOP-2 Job 441293 consumed; none active
+APPROVED_GIT: linear S09 envelope/request/evidence/review commits; no merge/push
 DECISION_SCOPE: base-uniform full-pipeline engineering performance/readiness only
 ```
 
@@ -325,11 +325,12 @@ Proposed file ownership, to be frozen before implementation:
 - focused S09 config/runner/timing/output-neutral tests and S09 handoff records.
 
 No checkpoint schema/sampler-cursor system, generic observer, profiler harness,
-metric, model, data, loss or recipe change is in scope. Local validation precedes
-one immutable implementation commit. A later exact focused GH200 smoke may be
-proposed under O-009; an O-107 mechanical loop exists only if the owner explicitly
-opts in at STOP-2. Proposed initial ceiling: one GH200, eight CPUs, 96 GiB,
-`00:30:00`. **Not approved.**
+metric, model, data, loss or recipe change was in scope. Local validation preceded
+the immutable implementation commits. The planning-stage eight-CPU/96-GiB/
+`00:30:00` smoke shape was superseded before execution by the independently
+reviewed O-115 tuple: one GH200, four CPUs, 32 GiB, `00:10:00`. Job `441293`
+consumed that initial submission, passed 44/44 tests in `00:01:04`, and used no
+O-107 replacement.
 
 #### STOP-3 G100 — worker sweep plus 100 accepted F-U updates
 

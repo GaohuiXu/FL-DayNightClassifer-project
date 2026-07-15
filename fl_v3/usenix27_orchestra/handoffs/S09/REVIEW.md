@@ -512,3 +512,64 @@ state/aggregate comparison is not per-window output/gradient capture; production
 persistent-worker/ZIP behavior deferred to STOP-3; and the non-blocking all-
 nonfinite `scaler_scale_at_start=null` edge case. This review does not authorize
 the smoke, STOP-3, merge, push, or scientific interpretation.
+
+---
+
+## STOP-2 terminal evidence review — initial verdict
+
+### Review identity
+
+```text
+EVIDENCE_SHA: a67cdda56c624d302742f5c57c69bb9ef0a98e0c
+EVIDENCE_TREE: 5f8ff176094bb87b02043b375be0fca9c4b96ead
+APPROVAL_PARENT: 254872197c0a4b2b3d02ebd8b8e320a49b98a218
+EXECUTION_SOURCE: 37aef4d6b3f4679d6702d0acef2bb5bd1b57a952
+JOB: 441293
+REVIEWER_COMPUTE: none
+VERDICT: PASS_WITH_RESIDUAL_RISK / docs-only P3 reconciliation required
+```
+
+### Findings, severity first
+
+- **P0: none.**
+- **P1: none.**
+- **P2: none.**
+- **P3 — active status prose retained pre-O-115 present tense.** The top status,
+  O-115 ledger, terminal `RUN_REQUEST.md`, and `RESULTS.md` are correct, but
+  `KICKOFFS.md` still described no S09 execution/the planning-stage resource
+  proposal as unapproved; `SESSIONS.md` still called O-112 the only S09 job
+  authority; and `HANDOFF.md` said the smoke/confirmation/Torch-CUDA test remained
+  future work. This under-authorizing drift does not make the job unauthorized or
+  weaken any gate. Reconcile only those current-status sentences; preserve
+  historical O-114 and prior review records.
+
+### Independent technical checks
+
+- approval commit `2548721` predates scheduler submission by five seconds and
+  changes documentation only; source, scripts and tuple remain fixed;
+- exactly one same-name Job `441293` exists: `COMPLETED 0:0`, zero restarts, one
+  node/GH200, four CPUs, 32 GiB, ten-minute limit, 64-second elapsed
+  (`0.017778` GPU-hours), with no `_a2`/`_a3` replacement;
+- the snapshot is detached/clean at exact source/tree, has 590 tracked files,
+  zero ignored/untracked or writable regular files, no executable-bit mismatch,
+  and full fsck exits zero with the eight declared dangling trees;
+- all request/job/output/log hashes reproduce and both scripts pass `bash -n`;
+- JUnit is well formed and contains exactly `44 = 9 + 21 + 9 + 5` passing cases,
+  zero failure/error/skip, including the non-skipped CUDA test (`1.996s`);
+- the exact aarch64/GH200/Torch/CUDA/spconv/cumm environment matches the record;
+  and
+- the preserved output has 18 regular files / 24,797 bytes, 30 directories and
+  14 non-dangling/non-escaping pytest scratch symlinks, with every regular file
+  and directory non-writable. The seven top-level acceptance files and scratch
+  boundary are accurately distinguished.
+
+The evidence claims remain conservative: this is a toy readiness/config/lifecycle
+GH200 gate, not production ZIP/persistent-worker/throughput, detector stability,
+memory-headroom, convergence, recipe or scientific evidence.
+
+### Initial terminal-evidence verdict
+
+**PASS WITH RESIDUAL RISK / no open P0-P2.** Job `441293` is technically
+acceptable and no rerun, source/script/output edit, or O-107 replacement is
+warranted. Before owner STOP-2 acceptance, seal the minimal active-document P3
+reconciliation and request exact closure re-review.

@@ -40,8 +40,9 @@ corrected those records; bounded re-review closed every P2/P3 finding and return
 `PASS_WITH_RESIDUAL_RISK`. O-113 records the owner's STOP-1 acceptance and permits
 exact downstream binding of the reviewed cache identities. It opens STOP-2
 detailed planning. O-114 authorizes its exact implementation, local validation,
-linear immutable commits, and independent review. Its GH200 smoke and STOP-3/4
-still require exact owner-reviewed Slurm authority.
+linear immutable commits, and independent review. O-115 separately authorized the
+exact GH200 smoke; Job `441293` is terminal technical PASS. STOP-3/4 still require
+new exact owner-reviewed Slurm authority.
 
 ## S08 residual carried into S09
 
@@ -257,9 +258,9 @@ O-114 accepts:
 
 At the O-114 planning baseline the smoke could not execute because its exact
 immutable implementation SHA, diff, wrapper hash, and fresh output did not yet
-exist. They are now frozen below, but O-114 still requires one concise owner
-execution confirmation. The design is not reopened unless implementation
-materially deviates; merge and push remain separately unauthorized.
+exist. Those identities were later frozen and reviewed; O-115 supplied the exact
+execution confirmation, and Job `441293` completed without replacement. The design
+was not reopened; merge and push remain separately unauthorized.
 
 ## STOP-2 immutable implementation and review
 
@@ -298,9 +299,9 @@ The one non-blocking P3 residual is explicit: if every attempted window has a
 nonfinite loss, the enabled scaler never enters its finite-loss optimizer path,
 so `scaler_scale_at_start` remains JSON `null`; outcomes, counters, and terminal
 scale remain complete and the run fails normally. No additional commit was made
-for this extreme evidence-only edge case. The other residuals are that Torch/CUDA
-tests still require the bounded GH200 smoke and that the loader-profile unit test
-does not replace STOP-3's real persistent-worker run.
+for this extreme evidence-only edge case. Job `441293` now supplies the bounded
+Torch/CUDA regression evidence; the remaining scope residual is that the loader-
+profile unit test does not replace STOP-3's real persistent-worker run.
 
 The exact smoke snapshot, selectors, scripts, hashes, resources, fresh output and
 O-107 mechanical derivation boundary are frozen in `RUN_REQUEST.md`. Their
