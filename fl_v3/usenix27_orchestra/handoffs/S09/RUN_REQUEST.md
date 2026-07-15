@@ -31,9 +31,9 @@
 > pre-submit `PASS_WITH_RESIDUAL_RISK / no open P0-P3 / SUBMIT GO`; its sole
 > command produced Job `452520`, which completed `0:0` in `00:09:42` with all
 > four cells and 59 focused tests passing, no replacement or retry. STOP-4B/4C
-> implementation `6da4bb5` is now in documentation-only review remediation;
-> STOP-4C remains unsubmitted until a remediated immutable source and separate
-> exact request review exist.
+> implementation `6da4bb5` and evidence closure `1a0b7e3` now have no open P0-P3.
+> The exact STOP-4C source/snapshot/config/wrapper/output tuple is frozen below
+> and remains unsubmitted pending separate independent request review.
 
 ## Authorization state
 
@@ -47,7 +47,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3 + O-119 STOP-4
 APPROVED_COMPUTE: O-119 STOP-4A <=00:30:00 + STOP-4C <=00:30:00 + conditional STOP-4D <=01:00:00 / serial <=2 GPU-hours / no retry
 APPROVED_SUBMISSIONS: prior STOP-1/2/3 and STOP-4A consumed; prospective STOP-4C plus conditional STOP-4D after each exact freeze/review
-ACTIVE_REQUEST: STOP-4B/4C documentation-only remediation / STOP-4C exact tuple not yet frozen or submitted
+ACTIVE_REQUEST: STOP-4C exact tuple frozen / independent request review pending / not submitted
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-4 implementation/request/evidence/review remediation within O-119
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -824,7 +824,7 @@ Unused Phase A or Phase B time is not retry, extra-cell, STOP-4 or other authori
 ## STOP-4 — O-119 optimize/G1000/close envelope
 
 ```text
-REQUEST_STATE: OWNER-APPROVED O-119 / STOP-4A JOB 452520 PASS / STOP-4B IMPLEMENTED LOCALLY / STOP-4C IMMUTABLE REVIEW PENDING
+REQUEST_STATE: OWNER-APPROVED O-119 / STOP-4A JOB 452520 PASS / STOP-4B REVIEW CLOSED / STOP-4C EXACT TUPLE FROZEN / REQUEST REVIEW PENDING / NOT SUBMITTED
 OWNER_DECISION: O-119
 SERIAL_GPU_CEILING: 2 cumulative GH200-hours
 RETRIES: none
@@ -942,13 +942,67 @@ allowed only if STOP-4A confirms it and equivalence tests show unchanged output,
 loss, gradients, updates, RNG, data order, precision and counters.
 
 ```text
-SOURCE/CONFIG/RUNNER/SNAPSHOT/OUTPUT: implementation prepared; exact identities pending immutable remediation/evidence commit and independent review
-CELL: exact F-U B1 STOP-3 recipe, checkpoint off, no operator profiler
+IMPLEMENTATION_SHA: 6da4bb5016410708b1e731d26d898f24e6b315ac
+IMPLEMENTATION_TREE: 721165340f2b5ab4cda222b4f3a86e951f9d7c14
+EXECUTION_SOURCE_SHA: 1a0b7e38805d86fb42ff4fe84d67e1680de55015
+EXECUTION_SOURCE_TREE: b76d9a480bcd9654ae63e72bdbb5d99191902829
+IMPLEMENTATION_EVIDENCE_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / closure GO
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop4c_g100_1a0b7e38805d
+SNAPSHOT_REF_MODE: detached / clean / self-contained / no alternates / zero writable worktree entries
+SNAPSHOT_TRACKED_FILES/BYTES: 600 / 5003986
+CONFIG: fl_v3/configs/s09_stop4c_f_u_g100.json
+CONFIG_FILE_SHA256: 8ca905ade59214822d9c5b894c02786af77f6f531299ed1ca25caf51d00a35ce
+RESOLVED_CONFIG_SHA256: afcd002184e35158e129353dfb9b621c390555b5927a37fa5f5acd9547538980
+RUNNER: fl_v3/scripts/run_s09_stop4c_g100.sh
+RUNNER_SHA256: 614703d8a5f88a85838ba6fcceb3a3b4839fb9548efe877a79257e6bec1fd307
+CENTRALIZED_TRAIN_SHA256: 9a57bc72d620351724888632f93911ef7c19081149619abe108554e1e4c8a478
+ARRHENIUS_ENV_SHA256: a56758d72096a65708352e155d1c72adf261ae6cdaf5a56a38f7d2dd5472648f
+DATA: exact accepted STOP-1 train t1.v2 n_sweeps=10 plus accepted ZIP manifest; val identity-bound/not iterated
+CELL: F-U / B1 / random seed 0 / global fp16 + SECOND fp32 island / checkpoint off / no loader or operator profiler
+RECIPE: AdamW 1e-4/0.01 / constant scheduler / EMA+clip+3D aug+GT paste off / uniform / world1 / accumulation1 / workers8
 BOUND: 100 successful updates / <=120 attempted / ten-successful-window warm-up
-GATES: STOP-3 numerical/counter/data-wait/memory gates; no material steady-latency regression; exact before/after interpretation
+FOCUSED_TESTS: s06 resolved config + full s09 readiness + full s08 precision diagnostics/partition + checkpoint switch + true six-task record_terms equality
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop4c_g100_1a0b7e38805d_a1
+JOB_NAME: flv3_s09_stop4c_g100
+STDOUT/STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop4c_g100_1a0b7e38805d_%j.{out,err}
+SUBMIT_SCRIPT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop4c_g100_1a0b7e38805d/submit.sh
+SUBMIT_SCRIPT_SHA256: eec841bf452f2f5c8adc0908c67c538aaee1c2842322313e5beb4096e7ae00be
 RESOURCE: one GH200 / 16 CPU / 96 GiB / 00:30:00 / <=0.5 GPU-hours
-SUBMISSIONS: exactly one conditional on reviewed STOP-4A/remediation / no retry
+CUMULATIVE_O119: STOP-4A used 0.161667 GPU-hours; STOP-4C+4D ceilings would total <=1.661667 GPU-hours
+SUBMISSIONS: exactly one after independent exact-request GO / no retry
+REQUEST_REVIEW: pending / do not submit before independent GO
 ```
+
+The sole prospective STOP-4C command is:
+
+```bash
+bash /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop4c_g100_1a0b7e38805d/submit.sh
+```
+
+The wrapper is mode `0555` and its safe preflight (all lines before `sbatch`)
+passes. It rechecks the detached source/tree, clean snapshot, absent alternates/
+writable worktree entries, runner/trainer/environment/config hashes, fresh output,
+and empty exact-name queue. It contains exactly one non-requeue `sbatch` on
+account `naiss2025-22-1113-gpu`, partition `gpu`, one node/task/GH200, 16 CPUs,
+96 GiB and `00:30:00`. At freeze time the output is absent, the queue has no exact
+job name, and `sacct` has no prior exact-name job since 2026-07-01.
+
+Technical PASS requires all focused tests and runner evidence validation to pass;
+100 accepted updates within 120 attempts; zero direct-nonfinite/discarded windows;
+exact optimizer/scheduler/exposure/EMA/scaler accounting; post-warm accepted ratio
+`>=95%`; combined `(data wait + CUDA window)` p95/p50 `<=1.5`; mean data-wait
+share `<=10%`; peak reserved memory `<=86 GiB`; both steady epoch estimates
+`<=24 h`; and finite aggregate loss. The exact combined p50/p95 and stage timings
+are compared with accepted STOP-3 values `208.745739 / 224.326678 ms`. Either
+combined p50 or p95 exceeding `1.10x` its reference (`229.620313 /
+246.759346 ms`) is a material engineering regression and blocks STOP-4D. No job
+retry follows any failure.
+
+Allowed interpretation is one exact B1 engineering before/after regression under
+the accepted O-110 precision partition. It may establish retained 100-update
+health and quantify checkpoint-off plus source-proven synchronization removal. It
+cannot establish convergence, recipe quality, mAP/NDS, fusion gain, backward
+branch attribution, multi-seed behavior, Protocol A/B, FL, attack, or defense.
 
 ### STOP-4D — fresh optimized G1000
 

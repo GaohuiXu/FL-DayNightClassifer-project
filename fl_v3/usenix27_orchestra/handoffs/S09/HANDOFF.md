@@ -51,7 +51,9 @@ STOP4A_IMPLEMENTATION_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3
 STOP4A_REQUEST_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / pre-submit exact-tuple GO
 STOP4A_REQUEST_STATE: consumed by Job 452520 / COMPLETED 0:0 in 00:09:42 / technical PASS / no retry
 STOP4A_JOB: 452520 / four cells PASS / 59 focused tests PASS / raw evidence checksum-complete
-STOP4B4C_IMPLEMENTATION: 6da4bb5016410708b1e731d26d898f24e6b315ac / docs-only review remediation pending
+STOP4B4C_IMPLEMENTATION: 6da4bb5016410708b1e731d26d898f24e6b315ac / closure source 1a0b7e38805d86fb42ff4fe84d67e1680de55015
+STOP4B4C_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / implementation-evidence closure GO
+STOP4C_REQUEST_STATE: exact source/snapshot/config/runner/wrapper/output tuple frozen / independent request review pending / not submitted
 STOP3_DEP_ATTEST_JOB: 442152 COMPLETED 0:0 in 00:11:52 / 0.197778 GPU-hours / technical PASS
 STOP3_DEP_ATTEST_BUILDS: spconv af42200511a53ce86d77cea0306924a2dc516a74f0483ef7cfe0a6e1dc84b100 / cumm 0a7e3c1a8c3e8d41b3b40c4fb77d05bdec8ca2dfce5dbb8863626c4b45d8296d
 STOP3_DEP_ATTEST_ACCEPTANCE_SHA256: 4b60f319660124d3bfac23a21bfbfa1b7c66ca920a0e4a4df03b1a512833e9b4

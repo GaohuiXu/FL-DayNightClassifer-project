@@ -1536,3 +1536,30 @@ checkpoint comparison is not treated as a clean speed ablation.
 **Verdict: REMEDIATE; STOP-4C NO-GO until linear documentation/evidence
 remediation, immutable closure re-review, exact request freeze, and independent
 request-level GO.** No code change, GPU rerun, or reinterpretation is required.
+
+### STOP-4B/4C implementation-evidence closure re-review
+
+```text
+FINAL_CLOSURE_SHA: 1a0b7e38805d86fb42ff4fe84d67e1680de55015
+FINAL_CLOSURE_TREE: b76d9a480bcd9654ae63e72bdbb5d99191902829
+FINAL_CLOSURE_PARENT: a18e5e0fe6fea62a5ba1fc8d6ad33c3c7db1421d
+IMPLEMENTATION_SHA: 6da4bb5016410708b1e731d26d898f24e6b315ac
+REVIEWER_TASK: /root/s09_stop2_impl_reviewer
+REVIEWER_COMPUTE: none
+VERDICT: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / implementation-evidence closure GO
+```
+
+The first remediation `a18e5e0` durably sealed the pre-submit STOP-4A request
+review and synchronized active/job state, corrected both memory values, and bound
+the now-read-only Slurm logs. Closure review found those P2/P3 findings closed and
+identified one remaining stale `RESULTS.md` title. Commit `1a0b7e3` changes only
+that line to `STOP-1/2/3 closed / O-119 STOP-4A-D active`. Final re-review matched
+SHA/tree/parent/branch, clean worktree, and `git diff --check`, with no other file,
+technical, evidence, or scientific change.
+
+Findings: **P0 none; P1 none; P2 none; P3 none.** The code implementation remains
+the reviewed `6da4bb5` tree content; the later commits are documentation/evidence
+closure only. Residual risk is actual GH200 execution of the new checkpoint-off
+100-update path. This verdict permits an exact STOP-4C request freeze. It is not
+request-level submission GO; the frozen source/snapshot/config/wrapper/output
+tuple still requires independent request review.
