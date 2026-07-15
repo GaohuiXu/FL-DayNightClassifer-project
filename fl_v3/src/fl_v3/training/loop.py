@@ -526,7 +526,9 @@ def train_one_epoch(
             next_step = step_count + 1
             record_step = bool(telemetry_interval and next_step % telemetry_interval == 0)
             if old_record_terms is not _missing:
-                criterion.record_terms = record_step
+                criterion.record_terms = bool(
+                    precision_diagnostics is not None or record_step
+                )
             if model_mode is not None:
                 batch = project_batch_for_mode(batch, model_mode)
             if timing is not None:

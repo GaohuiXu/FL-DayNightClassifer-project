@@ -345,8 +345,39 @@ decisions.
 - no DDP unless STOP-3 measures a concrete need and the owner grants a distinct
   later approval;
 - no full-data extraction or duplication, performance profiler, retired harness,
-  or automatic retry; and
+or automatic retry; and
 - no S10-S12 implementation or scheduling from this envelope.
+
+## STOP-4A execution and STOP-4B implementation boundary
+
+O-119 STOP-4A Job `452520` completed all four frozen cells in `00:09:42` with
+zero restart or retry. The exact B1 profiler and checkpoint-off B1/B2/B4 cells
+all passed numerical, counter, memory, and artifact gates. B2/B4 establish spare
+GH200 capacity and higher sample throughput, but remain S10 recipe evidence.
+`RESULTS.md` binds every cell, trace, checksum, and interpretation limit.
+
+The profiler plus source audit identified one narrow, production-retainable
+optimization. `CenterPointLoss` records three diagnostic scalars per task and the
+multi-task wrapper records one aggregate scalar. The training loop already tries
+to suppress such terms when telemetry is off, but the wrapper did not expose the
+switch. STOP-4B therefore:
+
+- adds one `MultiTaskCenterPointLoss.record_terms` property that propagates to its
+  six existing child losses;
+- records only the non-synchronizing `n_gt` metadata when disabled;
+- lets `train_one_epoch` enable full terms for either declared telemetry or the
+  S08 precision observer, and restores the caller's prior setting on exit;
+- tests exact loss/output-gradient equality between recording-on/off and tests
+  that S08 diagnostics retain terms; and
+- adds the exact STOP-4C F-U/B1/checkpoint-off/G100 config and a one-shot runner
+  with no worker matrix or operator profiler.
+
+There is no target/loss tensor math, gradient/update, data order, precision,
+optimizer, scheduler, EMA, initialization, or recipe change. The trace did not
+prove a second safe allocation change; none is attempted. Local `py_compile`,
+JSON parsing, `bash -n`, config-core equality, and diff checks pass. The x86 login
+Python lacks pytest/Torch, so the immutable GH200 runner owns the focused tests.
+An independent implementation/evidence review is mandatory before STOP-4C.
 
 ## O-114 implementation authorization
 

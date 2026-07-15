@@ -346,7 +346,19 @@ class MultiTaskCenterPointLoss(nn.Module):
                     reg_class_weights=box_weights,
                 )
             )
+        self._record_terms = True
         self.last_terms: Dict[str, float] = {}
+
+    @property
+    def record_terms(self) -> bool:
+        """Control host-side diagnostic scalar recording for every task loss."""
+        return self._record_terms
+
+    @record_terms.setter
+    def record_terms(self, enabled: bool) -> None:
+        self._record_terms = bool(enabled)
+        for criterion in self.losses:
+            criterion.record_terms = self._record_terms
 
     @staticmethod
     def _task_batch(batch: dict, global_ids: Sequence[int]) -> dict:
@@ -384,11 +396,15 @@ class MultiTaskCenterPointLoss(nn.Module):
         for output, criterion, global_ids in zip(pred, self.losses, self.global_ids, strict=True):
             value = criterion(output, self._task_batch(batch, global_ids))
             terms.append(value)
-            aggregate["hm_loss"] += criterion.last_terms.get("hm_loss", 0.0)
-            aggregate["reg_loss"] += criterion.last_terms.get("reg_loss", 0.0)
             aggregate["n_gt"] += criterion.last_terms.get("n_gt", 0)
+            if self.record_terms:
+                aggregate["hm_loss"] += criterion.last_terms["hm_loss"]
+                aggregate["reg_loss"] += criterion.last_terms["reg_loss"]
         total = torch.stack(terms).sum()
-        self.last_terms = {"loss": float(total.detach().item()), **aggregate}
+        if self.record_terms:
+            self.last_terms = {"loss": float(total.detach().item()), **aggregate}
+        else:
+            self.last_terms = {"n_gt": aggregate["n_gt"]}
         return total
 
     def diagnostic_terms(self) -> dict:

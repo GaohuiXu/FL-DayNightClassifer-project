@@ -98,6 +98,20 @@ class FakeScaler:
             self.value *= 0.5
 
 
+class RecordingCriterion(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.record_terms = True
+        self.forward_record_terms = []
+
+    def forward(self, output, target):
+        self.forward_record_terms.append(self.record_terms)
+        return torch.nn.functional.mse_loss(output, target)
+
+    def diagnostic_terms(self):
+        return {"record_terms": self.forward_record_terms[-1]}
+
+
 def _identity(precision="fp32"):
     return PrecisionDiagnosticsIdentity(
         source_sha="a" * 40,
@@ -192,6 +206,35 @@ def test_enabled_diagnostics_preserve_fp32_update_metrics_and_rng():
     assert record["parameter_gradients_unscaled"] is True
     assert record["boundary_gradients"]["head.input"]["gradient_present"] is True
     assert observed._capture is None
+
+
+def test_loss_term_recording_is_quiet_by_default_but_retained_for_s08_diagnostics():
+    plain_model = ToyDetector()
+    plain_criterion = RecordingCriterion()
+    train_one_epoch(
+        plain_model,
+        _loader(),
+        plain_criterion,
+        torch.optim.SGD(plain_model.parameters(), lr=0.0),
+        torch.device("cpu"),
+    )
+    assert plain_criterion.forward_record_terms == [False]
+    assert plain_criterion.record_terms is True
+
+    diagnostic_model = ToyDetector()
+    diagnostic_criterion = RecordingCriterion()
+    diagnostics = _diagnostics()
+    train_one_epoch(
+        diagnostic_model,
+        _loader(),
+        diagnostic_criterion,
+        torch.optim.SGD(diagnostic_model.parameters(), lr=0.0),
+        torch.device("cpu"),
+        precision_diagnostics=diagnostics,
+    )
+    assert diagnostic_criterion.forward_record_terms == [True]
+    assert diagnostic_criterion.record_terms is True
+    assert diagnostics.records[0]["loss_terms"] == {"record_terms": True}
 
 
 @pytest.mark.parametrize("scale", [8.0, 0.5])

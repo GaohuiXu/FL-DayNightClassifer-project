@@ -690,3 +690,96 @@ model accuracy, mAP/NDS, per-branch or per-kernel causality, multi-seed behavior
 Protocol A/B, FL, attack, or defense. It supplies no compute, retry, STOP-4,
 merge, or push authority. O-118 used `0.282500` GPU-hours across Phase A/B; all
 S09 jobs through this point used `0.393333` GPU-hours.
+
+## STOP-4A Job 452520 — bounded profiler and B=1/2/4 capacity PASS
+
+Job `452520` was the sole O-119 STOP-4A submission. Slurm reports
+`COMPLETED / 0:0 / 00:09:42`, one GH200, 16 CPUs, 96 GiB host memory, node
+`n495`, and zero restarts. There was no array, DDP, replacement, or retry. The
+exact implementation source/tree was `b509f5e527c2... / 9c556d37d1e4...`; the
+request seal was `6724762d1ae7...` and did not alter the execution tree.
+
+The immutable output is:
+
+```text
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop4a_profile_capacity_b509f5e527c2_a1
+```
+
+All 35 files named by `artifact_sha256s.txt` independently pass `sha256sum -c`.
+The output contains 36 regular files / 101,632,619 bytes, no symlink, and no
+writable entry. The manifest itself hashes to `fbd07bee...`; `cell_statuses.json`
+hashes to `755efe38...` and classifies all four cells `PASS` with no evidence
+validation error. The focused aarch64/Torch/CUDA preflight completed
+`59 passed / 0 failed / 0 skipped`; its only warning was the expected inability
+to write pytest cache into the read-only source snapshot.
+
+| Cell | Accepted / attempted | Scaler overflows | Window p50 / p95 (ms) | Throughput (samples/s) | Peak allocated / reserved / headroom (GiB) |
+|---|---:|---:|---:|---:|---:|
+| B1, checkpoint on + profiler | `20 / 23` | `3` | `281.692 / 316.432` | `3.5067` | `3.06 / 5.37 / 89.61` |
+| B1, checkpoint off | `20 / 23` | `3` | `186.627 / 204.558` | `5.3644` | `4.55 / 7.24 / 87.78` |
+| B2, checkpoint off | `20 / 22` | `2` | `293.437 / 337.788` | `6.9246` | `8.55 / 13.34 / 81.66` |
+| B4, checkpoint off | `20 / 23` | `3` | `475.311 / 542.830` | `8.4505` | `16.32 / 38.81 / 56.19` |
+
+Every cell has zero direct-nonfinite and discarded windows, exact optimizer/
+scheduler/exposure/EMA/scaler reconciliation, finite aggregate loss, and a
+post-warm accepted ratio of `1.0`. B2 and B4 therefore fit comfortably on this
+GH200. They are capacity/throughput evidence only: each cell starts from fresh
+seed-0 initialization, changes effective batch exposure, and runs only 20 accepted
+updates. Batch/LR/recipe selection remains S10.
+
+The checkpoint-on B1 cell intentionally includes an operator-profiler cycle and
+uses only eight later timing windows; checkpoint-off B1 uses 15 timing windows.
+Its lower latency and higher memory are directionally consistent with removing
+Swin recomputation, but the two numbers are not a clean quantitative checkpoint
+ablation. STOP-4C supplies the required profiler-free 100-update checkpoint-off
+regression against the accepted STOP-3 reference.
+
+### Bounded trace and optimization decision
+
+The B1 trace is 89,077,328 bytes with SHA-256 `a77421d7...`; its 139,234-byte
+summary hashes to `ef6996b6...`. The summary retains all eight required F-U
+forward ranges in both CPU/device representations: 16 range rows, 4,924 operator
+rows, 4,940 total rows, and no missing range. The three active attempted windows
+contain:
+
+| Trace event | Count |
+|---|---:|
+| `aten::item` / `aten::_local_scalar_dense` | `3,637 / 3,637` |
+| `cudaStreamSynchronize` | `502` |
+| DtoH pageable / pinned copies | `49 / 188` |
+| `cudaMalloc` / `cudaFree` | `8 / 3` |
+
+These global counts do not attribute every synchronization to one source. Direct
+source tracing does establish one redundant production component: with telemetry
+and S08 diagnostics disabled, `MultiTaskCenterPointLoss` still recorded three
+host scalars for each of six task losses plus one aggregate scalar—19 `.item()`
+calls per attempted window—because the production loop's existing
+`record_terms` suppression could not reach the child criteria. STOP-4B therefore
+propagates that existing switch, retains complete terms whenever the S08
+precision observer is enabled, and adds output/loss/gradient-neutrality tests.
+The mandatory finite-loss/scaler/accounting synchronizations remain. The trace
+did not prove another safely removable allocation site, so no speculative buffer,
+target, sparse, or allocator rewrite enters STOP-4.
+
+One-Hz telemetry aligned approximately to each training wall interval gives mean
+GPU utilization `14.0% / 25.0% / 39.8% / 52.3%` for profiler-B1 / no-checkpoint
+B1 / B2 / B4 respectively; the corresponding p50 values are `0 / 0 / 6.5 / 66%`.
+Each boundary has up to one-second uncertainty and the short cold-start windows
+make these coarse observations only. They support the earlier conclusion that
+B1 does not saturate GH200 and that larger batches expose more parallelism; they
+do not authorize selecting B2/B4 in S09.
+
+Key artifact SHA-256 values are:
+
+| Artifact | SHA-256 |
+|---|---|
+| B1 profiler readiness | `e9d668d99f09cb76ab0c364c14db9e3c8eddf95654d514cfe8d5ca29755e28d2` |
+| B1 checkpoint-off readiness | `7026f7744c24c091fdbf75cb9d204577c17d3f6f1c5b40c49a9c904671f1998e` |
+| B2 checkpoint-off readiness | `6e608d560b3b68ca588aac0f8e249d98066d76ab16a3188498b41cf877ae70a9` |
+| B4 checkpoint-off readiness | `bd07dfbb21136e9ff562695c8e8daf11ec9d214ae948c8c33b74fa697d91e49a` |
+| execution / config identities | `98d180a2... / 3312b70d...` |
+| GPU telemetry | `d2760b1a...` |
+
+STOP-4A is a bounded engineering/profiling PASS. It is not convergence, mAP/NDS,
+model-quality, exact backward-branch attribution, multi-seed, Protocol A/B, FL,
+attack, or defense evidence.

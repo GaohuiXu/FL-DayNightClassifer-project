@@ -448,6 +448,41 @@ def test_multitask_loss_maps_global_labels_and_reaches_every_task_head():
     assert sum(item.last_terms["n_gt"] for item in criterion.losses) == 1
 
 
+def test_multitask_loss_term_recording_is_output_and_gradient_neutral():
+    bev = BEVConfig(
+        point_cloud_range=(-2.0, -2.0, -1.0, 2.0, 2.0, 1.0),
+        bev_voxel=(1.0, 1.0),
+        out_size_factor=1,
+    )
+    recorded_outputs = [_task_output(n) for n in (1, 2, 2, 1, 2, 2)]
+    quiet_outputs = [
+        {name: value.detach().clone().requires_grad_() for name, value in task.items()}
+        for task in recorded_outputs
+    ]
+    batch = {
+        "gt_boxes": [torch.tensor([[0.25, 0.25, 0.0, 1.0, 1.0, 1.0, 0.0]])],
+        "gt_labels": [torch.tensor([4])],
+        "gt_velocity": [torch.tensor([[0.5, -0.25]])],
+    }
+    recorded = MultiTaskCenterPointLoss(bev)
+    quiet = MultiTaskCenterPointLoss(bev)
+    quiet.record_terms = False
+
+    recorded_loss = recorded(recorded_outputs, batch)
+    quiet_loss = quiet(quiet_outputs, batch)
+    assert torch.equal(recorded_loss, quiet_loss)
+    recorded_loss.backward()
+    quiet_loss.backward()
+    for recorded_task, quiet_task in zip(recorded_outputs, quiet_outputs, strict=True):
+        for name in recorded_task:
+            assert torch.equal(recorded_task[name].grad, quiet_task[name].grad)
+
+    assert recorded.last_terms.keys() == {"loss", "hm_loss", "reg_loss", "n_gt"}
+    assert quiet.last_terms == {"n_gt": 1}
+    assert all(not task.record_terms for task in quiet.losses)
+    assert all(task.last_terms.keys() == {"n_gt"} for task in quiet.losses)
+
+
 def test_multitask_loss_rejects_legacy_single_head_output():
     criterion = MultiTaskCenterPointLoss(BEVConfig())
     with pytest.raises(ValueError, match="must return 6 task dictionaries"):

@@ -818,7 +818,7 @@ Unused Phase A or Phase B time is not retry, extra-cell, STOP-4 or other authori
 ## STOP-4 — O-119 optimize/G1000/close envelope
 
 ```text
-REQUEST_STATE: OWNER-APPROVED O-119 / STOP-4A TUPLE FROZEN / INDEPENDENT REQUEST REVIEW PENDING / NOT SUBMITTED
+REQUEST_STATE: OWNER-APPROVED O-119 / STOP-4A JOB 452520 PASS / STOP-4B IMPLEMENTED LOCALLY / STOP-4C IMMUTABLE REVIEW PENDING
 OWNER_DECISION: O-119
 SERIAL_GPU_CEILING: 2 cumulative GH200-hours
 RETRIES: none
@@ -897,6 +897,22 @@ retried or disguised as a job failure. Any other nonzero cell is terminal FAIL.
 Profiler-active windows are diagnostic; post-warm-up direct timing starts only
 after the profiler cycle. No worker matrix is run.
 
+Execution record:
+
+```text
+JOB_ID: 452520
+STATE/EXIT/ELAPSED: COMPLETED / 0:0 / 00:09:42
+NODE/RESTARTS: n495 / 0
+SUBMISSIONS: 1 / no replacement / no retry
+CELL_STATUS: B1-profile PASS; B1-no-checkpoint PASS; B2 PASS; B4 PASS
+FOCUSED_TESTS: 59 passed / 0 failed / 0 skipped
+ARTIFACT_MANIFEST_SHA256: fbd07beebcd9078c5a980995e05febc1efc873469d0ff4fe61f30c6748f5272f
+```
+
+All 35 manifest entries pass checksum verification; all cell exit files and the
+terminal exit are zero. `RESULTS.md` records the exact metrics, trace counts,
+capacity interpretation, and prohibition on deriving an S09 batch-size change.
+
 ### STOP-4B/4C — measured output-neutral remediation and optimized G100
 
 STOP-4B may remove only source/trace-confirmed synchronization or allocation and
@@ -908,7 +924,7 @@ allowed only if STOP-4A confirms it and equivalence tests show unchanged output,
 loss, gradients, updates, RNG, data order, precision and counters.
 
 ```text
-SOURCE/CONFIG/RUNNER/SNAPSHOT/OUTPUT: pending STOP-4A evidence, immutable remediation and independent review
+SOURCE/CONFIG/RUNNER/SNAPSHOT/OUTPUT: implementation prepared; exact identities pending immutable remediation/evidence commit and independent review
 CELL: exact F-U B1 STOP-3 recipe, checkpoint off, no operator profiler
 BOUND: 100 successful updates / <=120 attempted / ten-successful-window warm-up
 GATES: STOP-3 numerical/counter/data-wait/memory gates; no material steady-latency regression; exact before/after interpretation
