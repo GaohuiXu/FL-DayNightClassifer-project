@@ -544,7 +544,7 @@ derivation rule; otherwise neither phase is authorized.
 ### Phase A — exact dependency rebuild/warm and attestation
 
 ```text
-PHASE_STATE: PROPOSED / NOT AUTHORIZED
+PHASE_STATE: APPROVED UNDER O-118 / NOT YET SUBMITTED
 MODEL/DATA/TRAINING: none / no nuScenes module or read / no model construction / zero training attempts
 SOURCE_SHA: 788b493889bcf7be98f36b9cbb6686d51e8e5edf
 SOURCE_TREE: 0bc61b3c2693f818ad0feb4e749af64a3947913e
