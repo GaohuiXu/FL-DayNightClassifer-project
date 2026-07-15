@@ -4,8 +4,9 @@
 > terminal technical PASS. The submission authority is consumed. First review
 > passed raw evidence but returned `REMEDIATE` for durable documentation
 > provenance; bounded re-review at `5252a59` closed every finding and returned
-> `PASS_WITH_RESIDUAL_RISK`. O-113 owner-accepts STOP-1. No active request or later
-> compute is authorized.
+> `PASS_WITH_RESIDUAL_RISK`. O-113 owner-accepts STOP-1. The exact STOP-2 smoke
+> request is frozen below and awaits one owner execution confirmation; no STOP-2
+> compute is currently authorized or submitted.
 
 ## Authorization state
 
@@ -16,11 +17,11 @@ STOP1_EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 STOP1_REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
 STOP1_FIRST_EVIDENCE_SHA: b35591b1a9ac64ea50ee3ad3257304baef07f8de
 BRANCH: codex/s08-s09-cl-readiness
-OWNER_DIRECTION: O-111 envelope + O-112 STOP-1 execution
-APPROVED_COMPUTE: STOP-1 only / <=0.5 GPU-hours
-APPROVED_SUBMISSIONS: 1 / consumed by Job 441191
-ACTIVE_REQUEST: none / S09-STOP1-DATA owner-accepted under O-113
-IMPLEMENTATION_COMMIT_AUTHORITY: no production implementation; linear STOP-1 docs/evidence commits allowed
+OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114 STOP-2 implementation
+APPROVED_COMPUTE: STOP-1 consumed / STOP-2 smoke awaiting owner confirmation
+APPROVED_SUBMISSIONS: STOP-1 1 consumed / STOP-2 0 approved, 0 submitted
+ACTIVE_REQUEST: S09-STOP2-SMOKE / frozen / awaiting one owner execution confirmation
+IMPLEMENTATION_COMMIT_AUTHORITY: STOP-2 implementation/remediation consumed through 37aef4d
 MERGE_OR_PUSH_AUTHORITY: none
 ```
 
@@ -191,44 +192,137 @@ authorize a retry, or approve STOP-2 implementation or compute.
 ## STOP-2 — minimal readiness instrumentation
 
 ```text
-REQUEST_STATE: PROPOSED / DEPENDS ON STOP-1 / NOT APPROVED
-OBJECTIVE: implement and validate output-neutral performance/readiness accounting
-PROPOSED_RUNTIME_SMOKE_CEILING: 1 GH200 / 4 CPU / 32 GiB host / 00:10:00 per submission
-PROPOSED_CUMULATIVE_GPU_CEILING: 0.5 GPU-hours
-PROPOSED_SUBMISSIONS: 1, or at most 3 only if the future exact request explicitly opts into O-107
+REQUEST_ID: S09-STOP2-SMOKE
+REQUEST_STATE: FROZEN / AWAITING ONE OWNER EXECUTION CONFIRMATION / NOT APPROVED / NOT SUBMITTED
+OBJECTIVE: execute the focused Torch/CUDA regression gate for the reviewed output-neutral readiness implementation
+MODEL_OR_TRAINING: none
+RESOURCE_CEILING_PER_SUBMISSION: 1 GH200 / 4 CPU / 32 GiB host / 00:10:00
+O107_CUMULATIVE_CEILING: at most 3 submissions / at most 0.5 GPU-hours, only if owner confirmation opts in
+CURRENT_SUBMISSIONS: 0
 ```
 
-O-114 approves implementation, local/static validation, linear immutable commits,
-and independent review of this exact envelope. It does not approve the proposed
-GH200 smoke. `REQUEST_STATE` therefore remains proposed until an immutable
-implementation SHA, exact diff/command/wrapper/output, and one owner execution
-confirmation exist.
+O-114 approved implementation, local/static validation, linear immutable commits,
+and independent review, but not GH200 execution. The implementation and review are
+now immutable; the following is the single execution tuple that will be presented
+for one concise owner confirmation. Preparing or reviewing it grants no compute.
 
-O-114 binds the exact file/semantic envelope in `HANDOFF.md`, local validation,
-linear immutable implementation/evidence commits, and reviewer scope. It cannot
-pre-authorize an unknown future Git SHA. After the implementation SHA exists, S00
-will present one concise exact smoke tuple binding that SHA/diff, command and
-selected tests, wrapper hash, output, and stop conditions.
+### Immutable source and snapshot
 
-The proposed selector is the new focused S09 readiness test plus the existing S06
-resolved-config/training-runtime regression tests. It uses only deterministic toy
-CPU/CUDA tensors: no nuScenes metadata or payload, cache scan, detector
-qualification, production training, metric, profile, or scientific claim. Its
-CUDA case exercises direct event resolution and proves identical model/optimizer/
-counter state with timing off versus on.
+```text
+PLANNING_BASELINE: 25a59a699fe88b8cec207d5281d6c3342d2d2db0
+SOURCE_SHA: 37aef4d6b3f4679d6702d0acef2bb5bd1b57a952
+SOURCE_GIT_TREE: d0626e313aab411bc5c71733afb41eca5b102693
+FULL_IMPLEMENTATION_DIFF: 25a59a699fe88b8cec207d5281d6c3342d2d2db0..37aef4d6b3f4679d6702d0acef2bb5bd1b57a952
+FULL_IMPLEMENTATION_DIFF_SHA256: cb55d4a46c21f3d508e5d73240367d06080de7b456751d802367b19ed055e7eb
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop2_smoke_37aef4d6b3f4
+SNAPSHOT_REF_MODE: detached / clean / self-contained Git object database
+SNAPSHOT_TRACKED_FILES/BYTES: 590 / 4722741
+SNAPSHOT_WRITABLE_WORKTREE_FILES: 0
+SNAPSHOT_ALTERNATES: absent
+```
 
-If the later exact request explicitly opts into O-107, derived replacements are
-limited to obvious test, fixture, wrapper, provenance/artifact, or output-neutral
-timing-plumbing defects, at most two replacements and at most 0.5 cumulative
-GPU-hours. Model output, loss/gradient, precision, data, recipe, selector/scope,
-seed, or resource changes end the loop and return to the owner.
+The snapshot reproduces the exact source SHA and tree. Tracked executable files
+retain their Git executable bit while all worktree files are non-writable; only
+internal `.git` bookkeeping remains writable so the fail-closed status preflight
+can run. No uncommitted S00 documentation is part of the execution source.
 
-The accepted instrumentation must use direct bounded timestamps/CUDA events and
-memory counters only. The S08 precision observer, forward/backward hooks,
-activation retention, general profiler, sampler/checkpoint redesign, and retired
-harnesses are forbidden. STOP-2 acceptance requires focused local/static checks,
-the exact bounded GH200 smoke, complete immutable evidence, and independent review
-with no open P0-P2 before the owner is asked to close the stop.
+### Exact selectors and bounded data scope
+
+The job runs exactly these selectors, in this order:
+
+```text
+fl_v3/tests/test_s09_readiness.py
+fl_v3/tests/test_s06_resolved_config.py
+fl_v3/tests/test_s06_training_runtime.py
+fl_v3/tests/test_s07_b_integration.py::test_candidate_templates_name_exact_choices_and_fail_closed
+```
+
+The expected JUnit total is exactly `44` tests, with zero failures, errors, and
+skips. The tests use deterministic toy tensors/configs only. `PYTHONHASHSEED=0` is
+fixed; the output-neutral loop fixture uses Torch seed `711`, the bounded loader
+fixture uses sampler seed `17`, the readiness lifecycle fixture uses sampler seed
+`23`, and existing structural config/runtime fixtures retain their committed
+seeds. There is no nuScenes metadata, ZIP/cache, sensor payload, model
+qualification, production training window, decode, metric, or performance profile.
+
+The CUDA case exercises direct event creation/resolution and requires identical
+model parameters, optimizer state, outputs, losses, gradients, and training
+counters with readiness timing disabled versus enabled. CPU cases cover the
+strict `s09.v1` contract, attempted-window bounds, lifecycle refusal, terminal
+artifact behavior, and output-neutral bounded loader accounting.
+
+### Frozen scripts and only submission command
+
+```text
+REQUEST_DIR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop2_smoke_37aef4d6b3f4
+JOB_SCRIPT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop2_smoke_37aef4d6b3f4/job.sh
+JOB_SCRIPT_SHA256: 54bc788c97ed0cd9d0a24e9198043d8e2be18d533011930fb06417f5b8f7bc7f
+SUBMIT_SCRIPT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop2_smoke_37aef4d6b3f4/submit.sh
+SUBMIT_SCRIPT_SHA256: d652e5bea9dca8ada684cc0286d6e4a8a108572e95488798fdc7fdcca7677a8e
+SCRIPT_STATE: bash -n PASS / mode 0500 / containing directory non-writable
+```
+
+The only authorized submission command, after owner confirmation, would be:
+
+```bash
+bash /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop2_smoke_37aef4d6b3f4/submit.sh
+```
+
+The wrapper refuses a changed SHA/tree, attached or dirty snapshot, changed job
+script hash, existing output, or active exact-name job before calling `sbatch`.
+The job activates the accepted Arrhenius environment from the snapshot, disables
+third-party pytest autoload, uses no warnings-as-errors policy or profiler, and
+caps pytest at eight minutes inside the ten-minute allocation.
+
+### Exact resources and fresh output
+
+```text
+ACCOUNT/PARTITION: naiss2025-22-1113-gpu / gpu
+NODES/TASKS: 1 / 1
+GPU: 1 x nvidia_gh200_120gb
+CPU/HOST_MEMORY: 4 / 32 GiB
+WALLTIME: 00:10:00
+JOB_NAME: flv3_s09_stop2_smoke
+REQUEUE/ARRAY/DDP: disabled / none / none
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop2_smoke_37aef4d6b3f4_a1
+OUTPUT_STATE_AT_FREEZE: absent
+STDOUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop2_smoke_37aef4d6b3f4_%j.out
+STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop2_smoke_37aef4d6b3f4_%j.err
+```
+
+Expected artifacts are `environment.json`, `selectors.txt`, `pytest.log`,
+`pytest.junit.xml`, `pytest.exit`, `acceptance.json`, and
+`artifact_sha256s.txt`. The completed output is made non-writable before the
+terminal marker.
+
+### Acceptance, stop conditions, and O-107 boundary
+
+PASS requires Slurm `COMPLETED 0:0` with zero restarts; exact source/tree/script
+identity; aarch64, CUDA-available GH200 environment; fresh output; pytest exit
+zero; exactly `44/0/0/0` JUnit tests/failures/errors/skips; all expected artifacts;
+and reproducible artifact hashes. Stop on any identity, environment, output,
+selector, count, test, timeout, or artifact mismatch.
+
+The requested owner confirmation will explicitly opt into O-107 only for this
+engineering smoke: the initial job plus at most two derived replacements, each
+within the same one-GH200/four-CPU/32-GiB/ten-minute ceiling and at most `0.5`
+cumulative GPU-hours. A derived replacement may fix only an obvious test, fixture,
+wrapper, provenance/artifact, or output-neutral timing-plumbing defect; before
+submission it must freeze a new immutable source/snapshot/script/output identity
+in this ledger. It may not be an identical retry.
+
+Any possible change to model outputs, losses, gradients, accepted updates, data,
+precision policy, optimizer/scheduler/EMA, execution schema semantics, selector or
+data scope, seeds, resources, metric, or scientific interpretation ends the loop
+and returns to the owner. The same recurring blocker or the submission/GPU-hour
+cap also ends it. No spare-GPU expansion or unused-quota transfer is permitted.
+
+This smoke can establish only that the reviewed readiness instrumentation and
+strict config/lifecycle regression suite execute correctly in the accepted
+Torch/CUDA environment. It cannot establish production data-loader behavior,
+throughput, memory headroom, model stability, convergence, mAP/NDS, recipe quality,
+Protocol A/B, FL, attack, or defense. Those remain outside STOP-2 or require the
+separately approved STOP-3 gate.
 
 ## STOP-3 — loader selection and G100
 

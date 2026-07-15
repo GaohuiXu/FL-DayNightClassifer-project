@@ -20,8 +20,10 @@
 > re-review of documentation-only remediation SHA `5252a59` closed every finding
 > and returned `PASS_WITH_RESIDUAL_RISK`. O-113 owner-accepts/closes STOP-1 and
 > opens STOP-2 detailed planning. O-114 approves the exact STOP-2 implementation,
-> local validation, linear commits, and independent review. GH200 and later compute
-> remain unapproved pending exact immutable-SHA confirmation.
+> local validation, linear commits, and independent review. Candidate `37aef4d`
+> has independent `PASS_WITH_RESIDUAL_RISK` with no open P0-P2; exact snapshot,
+> selectors, wrapper and fresh output are frozen. GH200 remains unapproved pending
+> the one owner execution confirmation.
 >
 > `Sxx` now names a durable evidence milestone, not necessarily a new task,
 > worker, branch, or worktree. Under O-094, persistent S00 normally performs
@@ -58,7 +60,7 @@
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
-| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1 owner-accepted/closed under O-113; STOP-2 implementation active under O-114; GH200 unapproved |
+| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1 closed; STOP-2 candidate `37aef4d` independently reviewed with no open P0-P2; exact smoke awaiting owner confirmation |
 | S10 | Centralized branch/recipe ablation | S08+S09 | pending redefinition; no cells/gates frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
 | S12 | Protocol-A/B split and clean adaptation contract | CL freeze + fresh owner review | deferred; old proposal is historical evidence only |
@@ -153,7 +155,7 @@ older Arrhenius LiDAR evidence appeared stable?
   while surviving FP16 elements approached its finite range.
 - Historical Jobs `211502`/`211722` used an older voxel path with spconv kept in
   FP32 inside outer AMP. They do not validate the pre-S08 automatic sparse-conv
-  FP16 path or either explicit current `s08.v1` partition.
+  FP16 path or either explicit S08 partition now preserved by `s09.v1`.
 - Job `390576` proves only one successful FP32 update per C/L/F mode.
 
 **Implementation/diagnostic scope.**

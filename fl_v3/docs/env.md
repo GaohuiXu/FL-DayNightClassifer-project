@@ -196,9 +196,11 @@ re-review at remediation SHA `5252a591983abb0013f19547e1d6ad20d3d6661f`
 closed the documentation-provenance findings and returned
 `PASS_WITH_RESIDUAL_RISK`; O-113 owner-accepts the exact caches for downstream
 production binding. O-114 separately approves the exact STOP-2 implementation,
-local validation, linear immutable commits, and independent review; its bounded
-GH200 smoke still requires exact immutable-SHA confirmation. This is not model/full-
-data readiness. Do not
+local validation, linear immutable commits, and independent review. Candidate
+`37aef4d6b3f4679d6702d0acef2bb5bd1b57a952` received independent
+`PASS_WITH_RESIDUAL_RISK` with no open P0-P2; its exact bounded GH200 smoke is
+frozen but still requires the one owner execution confirmation. This is not
+model/full-data readiness. Do not
 extract/duplicate the dataset or submit further full-data jobs
 without exact permission. O-009 covers only a recorded bounded
 engineering smoke (one node/GPU, at most 60 minutes/job, one concurrent job, two

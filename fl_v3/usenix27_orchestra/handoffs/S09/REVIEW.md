@@ -1,4 +1,4 @@
-# S09 STOP-1 independent data/provenance review
+# S09 independent review ledger
 
 ## Findings, ordered by severity
 
@@ -355,3 +355,72 @@ P0-P3 finding is present, and no cache rebuild or Slurm rerun is warranted. This
 verdict accepts only the exact STOP-1 cache-materialization and provenance gate
 within the limits above. It does not authorize STOP-2, additional compute, merge,
 push, or any scientific interpretation.
+
+---
+
+## STOP-2 implementation review
+
+### Review identity and scope
+
+```text
+PLANNING_BASELINE: 25a59a699fe88b8cec207d5281d6c3342d2d2db0
+INITIAL_IMPLEMENTATION: ff0ffb694255e01a5b109d755ed88fa20b644a78
+FINAL_REVIEW_CANDIDATE: 37aef4d6b3f4679d6702d0acef2bb5bd1b57a952
+FINAL_TREE: d0626e313aab411bc5c71733afb41eca5b102693
+REVIEW_DIFF: 25a59a699fe88b8cec207d5281d6c3342d2d2db0..37aef4d6b3f4679d6702d0acef2bb5bd1b57a952
+REVIEWER_COMPUTE: none
+FINAL_VERDICT: PASS_WITH_RESIDUAL_RISK
+```
+
+The independent reviewer inspected the exact diff, current config/task/training
+interfaces, focused tests, S09 handoff boundary, and O-110 precision policy. The
+reviewer did not edit source or execute Slurm. The review covered output
+neutrality, hidden synchronization, readiness lifecycle/counter semantics,
+attempted versus successful windows, schema/config fail-closed behavior, normal
+train/eval preservation, loader-profile authority, and prohibited model/data/
+recipe expansion.
+
+### Initial findings on `ff0ffb6`
+
+- **P0: none.**
+- **P1: none.**
+- **P2 — hidden scaler synchronization.** New per-window raw
+  `GradScaler.get_scale()` reads could force device-to-host synchronization and
+  contaminate the very latency measurements being qualified.
+- **P2 — stale precision regression.** The candidate-template integration test
+  still required sparse FP16 for SECOND templates, contradicting accepted O-110
+  and the newly explicit FP32 island.
+- **P3 — normal lifecycle overhead.** `train_eval` sampled readiness clocks even
+  though no readiness artifact consumed them.
+- **P3 — missing negative lifecycle coverage.** Resume/existing-output rejection
+  and unmet-target terminal-artifact-before-error behavior lacked direct tests.
+
+### Remediation and re-review
+
+Commit `0a11b17` removes per-window scaler polling and readiness-only normal-mode
+clock sampling without changing optimizer/scaler semantics. Commit `37aef4d`
+aligns the stale template assertion with O-110 and adds the two direct negative
+lifecycle tests. The reviewer re-read the complete diff and found all four
+findings closed.
+
+Final severity state:
+
+- **P0: none.**
+- **P1: none.**
+- **P2: none.**
+- **P3: one non-blocking evidence-field edge case.** If every attempted loss is
+  nonfinite, the enabled scaler never reaches the finite-loss optimizer branch,
+  so `scaler_scale_at_start` is `null`; terminal scaler state, outcomes, counters,
+  and normal failure remain present.
+
+Actual aarch64 Torch/CUDA execution remains outside this static review and must be
+supplied by the exact STOP-2 smoke. The unit loader fixture also does not exercise
+production persistent workers or shared ZIP contention; those are explicitly
+STOP-3 concerns.
+
+### STOP-2 implementation verdict
+
+**PASS WITH RESIDUAL RISK.** There is no open P0-P2. The implementation stays
+inside O-114, preserves normal training semantics and O-110, and is suitable for
+the exact bounded GH200 regression smoke. This verdict does not authorize that
+job, accept a runtime result, open STOP-3, or establish performance/model/science.

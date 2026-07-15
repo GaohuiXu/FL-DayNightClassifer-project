@@ -13,10 +13,13 @@ BRANCH: codex/s08-s09-cl-readiness
 S08_POLICY_DECISION: O-110 / CLOSED PASS
 S09_SCOPE_DECISION: O-111
 STOP2_SCOPE_DECISION: O-114
-IMPLEMENTATION_COMMIT: none
-APPROVED_COMPUTE: STOP-1 Job 441191 consumed / no active compute
+IMPLEMENTATION_COMMIT: 37aef4d6b3f4679d6702d0acef2bb5bd1b57a952
+IMPLEMENTATION_TREE: d0626e313aab411bc5c71733afb41eca5b102693
+IMPLEMENTATION_DIFF_SHA256: cb55d4a46c21f3d508e5d73240367d06080de7b456751d802367b19ed055e7eb
+STOP2_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P2
+APPROVED_COMPUTE: STOP-1 Job 441191 consumed / STOP-2 smoke awaiting owner confirmation
 JOBS: 441191 COMPLETED 0:0 in 00:03:06 / no retry
-INDEPENDENT_REVIEW: 5252a59 PASS_WITH_RESIDUAL_RISK / no open P0-P3
+INDEPENDENT_REVIEW: STOP-1 5252a59 PASS_WITH_RESIDUAL_RISK; STOP-2 37aef4d PASS_WITH_RESIDUAL_RISK
 OWNER_STOP1_DECISION: O-113 / ACCEPTED
 ```
 
@@ -249,9 +252,53 @@ O-114 accepts:
    new owner decision; and
 5. the proposed later GH200 smoke shape and O-107 mechanical-remediation ceiling.
 
-The smoke cannot be executed from O-114 alone because its exact
-immutable implementation SHA, diff, wrapper hash, and fresh output do not yet
-exist. Once they exist, S00 will request one concise exact execution confirmation;
-it will not reopen the accepted design unless the implementation materially
-deviates. All five points above are authorized for continuous execution; merge and
-push remain separately unauthorized.
+At the O-114 planning baseline the smoke could not execute because its exact
+immutable implementation SHA, diff, wrapper hash, and fresh output did not yet
+exist. They are now frozen below, but O-114 still requires one concise owner
+execution confirmation. The design is not reopened unless implementation
+materially deviates; merge and push remain separately unauthorized.
+
+## STOP-2 immutable implementation and review
+
+The approved implementation is sealed linearly as:
+
+```text
+PLANNING_BASELINE: 25a59a699fe88b8cec207d5281d6c3342d2d2db0
+INITIAL_IMPLEMENTATION: ff0ffb694255e01a5b109d755ed88fa20b644a78
+SYNC_REMEDIATION: 0a11b17
+FINAL_REVIEW_CANDIDATE: 37aef4d6b3f4679d6702d0acef2bb5bd1b57a952
+FINAL_TREE: d0626e313aab411bc5c71733afb41eca5b102693
+FULL_DIFF_SHA256: cb55d4a46c21f3d508e5d73240367d06080de7b456751d802367b19ed055e7eb
+```
+
+Implementation `37aef4d` advances the strict schema to `s09.v1`, preserves the
+O-110 precision matrix, adds the hash-bound execution contract, implements the
+non-resumable/checkpoint-free/evaluation-free readiness lifecycle, and adds only
+direct host/CUDA timing plus the bounded observational loader profile. No model,
+loss, target, data backend, optimizer, scheduler, EMA, checkpoint schema, or
+precision-policy source changed.
+
+Compile-only validation passed for the eight affected Python files, all six JSON
+files parsed, manual positive/negative execution-schema checks passed, the O-110
+template/test assertions agree, and `git diff --check` passed. The x86 login node
+cannot import the aarch64 Torch environment, so no claim is made that pytest or
+CUDA executed locally.
+
+Independent review of `ff0ffb6` returned `REMEDIATE` with no P0/P1: added raw
+per-window `GradScaler.get_scale()` calls could synchronize CUDA; one old template
+test still expected full sparse FP16; train/eval sampled unused readiness clocks;
+and two negative lifecycle behaviors lacked direct tests. Commits `0a11b17` and
+`37aef4d` close all four findings. Re-review of the full
+`25a59a6..37aef4d` diff returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P2.
+
+The one non-blocking P3 residual is explicit: if every attempted window has a
+nonfinite loss, the enabled scaler never enters its finite-loss optimizer path,
+so `scaler_scale_at_start` remains JSON `null`; outcomes, counters, and terminal
+scale remain complete and the run fails normally. No additional commit was made
+for this extreme evidence-only edge case. The other residuals are that Torch/CUDA
+tests still require the bounded GH200 smoke and that the loader-profile unit test
+does not replace STOP-3's real persistent-worker run.
+
+The exact smoke snapshot, selectors, scripts, hashes, resources, fresh output and
+O-107 mechanical derivation boundary are frozen in `RUN_REQUEST.md`. Their
+preparation grants no compute: one owner execution confirmation is still required.

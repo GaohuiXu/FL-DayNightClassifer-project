@@ -35,8 +35,11 @@
 > finding under bounded re-review and received `PASS_WITH_RESIDUAL_RISK`. O-113
 > owner-accepts/closes STOP-1 and opens STOP-2 detailed planning. O-114 approves
 > the exact STOP-2 implementation envelope, local validation, linear immutable
-> commits, and independent review. GH200 execution, retry, merge, push, attack,
-> and defense remain unauthorized.
+> commits, and independent review. Final implementation candidate `37aef4d` has
+> independent `PASS_WITH_RESIDUAL_RISK` with no open P0-P2; its exact read-only
+> snapshot and bounded smoke wrapper are frozen, but the one owner execution
+> confirmation is still pending. No GH200 job, merge, push, attack, or defense is
+> yet authorized.
 >
 > Canonical companions: [`SESSIONS.md`](SESSIONS.md) and
 > [`KICKOFFS.md`](KICKOFFS.md). `fl_v3/collab/**`,
@@ -146,8 +149,8 @@ The historical Arrhenius mini jobs `211502`/`211722` used an older voxel model a
 kept spconv in FP32 inside outer FP16 AMP. They are valid performance history for
 that old path, not proof for the current `second_075` path. Before S08, the
 production resolver automatically enabled sparse-conv FP16 whenever
-`precision=fp16`; current `s08.v1` instead requires an explicit fail-closed
-`sparse_conv_precision` partition. S04 Job `341695` proved a bounded sparse module
+`precision=fp16`; `s08.v1` introduced an explicit fail-closed
+`sparse_conv_precision` partition, which current `s09.v1` preserves. S04 Job `341695` proved a bounded sparse module
 path, not the current six-task optimizer seam.
 
 ### 3.2 S08 decision target
@@ -412,7 +415,7 @@ O-ledger authority; closed ranges below are provenance.
 | O-111 | Accept closing commit `28f79802c0868afa6290d74ae6aeb9d23c7d088f` as the S09 base; accept the streamlined four-stop S09 direction; define S09 as engineering optimization/readiness of the current model/code under the O-110 precision policy; defer branch and scientific training-recipe selection, including any sparse-normalization amendment, to S10. At each future stop the owner will review one exact plan plus Git/Slurm authority and GPU quota; after that approval S00 creates a concrete goal and works continuously to the stop boundary. This decision authorizes envelope/document preparation only, not S09 implementation, commit, Slurm execution, retry, merge, push, attack, or defense. | active S09 envelope gate |
 | O-112 | Accept the S09 four-stop envelope and start `STOP-1 DATA`; authorize S00 to create the bounded STOP-1 goal, seal the envelope/request/evidence in linear commits, derive and record the exact immutable source/snapshot, command/script hashes and fresh output from the accepted `28f7980` base, then submit exactly one full-trainval metadata-only `t1.v2`, `n_sweeps=10` train/val cache job on one GH200 with eight CPUs, 96 GiB host memory, `00:30:00`, and at most 0.5 GPU-hours. Job `441191` consumed the sole submission and completed `0:0` in `00:03:06`; no retry occurred. Independent review passed raw cache/source/job evidence but returned `REMEDIATE` for P2/P3 durable provenance/status wording; documentation-only remediation SHA `5252a59` closed every finding under bounded re-review and received `PASS_WITH_RESIDUAL_RISK`. At this decision's terminal state, owner STOP-1 acceptance remained pending; O-113 subsequently resolves it. No payload extraction/scan, model, loader/profile, STOP-2 implementation, merge, push, attack, or defense was authorized by O-112. | consumed S09 STOP-1 compute / superseded by O-113 acceptance |
 | O-113 | Accept reviewed S09 STOP-1 seal `c94b4065f6da2504bdc98348610794cd9ae532cb` and independent `PASS_WITH_RESIDUAL_RISK`; close STOP-1; permit future S09 requests to bind only the exact reviewed train/val `t1.v2`, `n_sweeps=10` canonical/pickle/sidecar plus accepted manifest logical/physical identities; open STOP-2 detailed planning. No cache rebuild/retry, STOP-2 implementation/commit/compute, merge, push, attack, or defense is authorized by this acceptance. | accepted S09 STOP-1 / active STOP-2 planning gate |
-| O-114 | Accept the exact S09 STOP-2 implementation envelope recorded in `handoffs/S09/HANDOFF.md`: advance the current resolved production schema to `s09.v1` with a hash-bound execution contract; retain the O-110 precision matrix; implement a non-resumable/no-checkpoint/no-eval readiness lifecycle, bounded production-loader profile, and direct output-neutral host/CUDA timing without observers/hooks/profilers; mechanically update current configs/tests including O-110 sparse-FP32 templates. Authorize S00 to seal this planning baseline, implement, run local/static validation, continuously fix ordinary in-envelope defects, create linear immutable implementation/evidence commits, and obtain independent review. No model/loss/gradient/precision/data/recipe/resource expansion, GH200 submission, merge, push, attack, or defense is authorized. After an immutable SHA exists, one exact GH200 smoke tuple will receive a concise owner execution confirmation. | active S09 STOP-2 implementation |
+| O-114 | Accept the exact S09 STOP-2 implementation envelope recorded in `handoffs/S09/HANDOFF.md`: advance the current resolved production schema to `s09.v1` with a hash-bound execution contract; retain the O-110 precision matrix; implement a non-resumable/no-checkpoint/no-eval readiness lifecycle, bounded production-loader profile, and direct output-neutral host/CUDA timing without observers/hooks/profilers; mechanically update current configs/tests including O-110 sparse-FP32 templates. Authorize S00 to seal this planning baseline, implement, run local/static validation, continuously fix ordinary in-envelope defects, create linear immutable implementation/evidence commits, and obtain independent review. Final candidate `37aef4d` received `PASS_WITH_RESIDUAL_RISK` with no open P0-P2; its exact snapshot/script/selectors/output request is frozen but no GH200 submission is yet authorized. No model/loss/gradient/precision/data/recipe/resource expansion, merge, push, attack, or defense is authorized. One concise exact owner confirmation is still required before smoke submission. | implementation/review complete / STOP-2 smoke awaiting confirmation |
 
 ## 10. Closed and consumed history
 

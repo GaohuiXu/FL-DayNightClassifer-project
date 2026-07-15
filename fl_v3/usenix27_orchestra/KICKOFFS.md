@@ -14,7 +14,9 @@
 > re-review and received `PASS_WITH_RESIDUAL_RISK`. O-113 owner-accepts/closes
 > STOP-1 and opens STOP-2 detailed planning. O-114 approves the exact STOP-2
 > implementation envelope, local validation, linear commits, and independent
-> review. GH200 execution, retry, push, and merge remain unauthorized.
+> review. Candidate `37aef4d` has independent `PASS_WITH_RESIDUAL_RISK` with no
+> open P0-P2; exact smoke identities are frozen and await one owner confirmation.
+> No GH200 execution, push, or merge is yet authorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
