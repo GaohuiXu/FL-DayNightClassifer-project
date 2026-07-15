@@ -300,9 +300,11 @@ does not open or extract image/LiDAR payloads. For the production 10-sweep cache
 use a dedicated cache directory and `--n-sweeps 10`. Production consumers must
 call `info_cache.load_cache(..., n_sweeps=10, expected_cache_hash=...)`; ZIP-backed
 consumers also bind the accepted logical manifest hash and SQLite file SHA-256.
-The pending immutable materialization request and exact launcher are
-`usenix27_orchestra/handoffs/S07/RUN_REQUEST.md` and
-`scripts/run_s07a_nuscenes_cache_t1v2.sh`.
+S09 STOP-1 Job `441191` completed the production materialization. Exact accepted
+train/val physical and logical identities are recorded in
+`usenix27_orchestra/handoffs/S09/RESULTS.md`; production consumers must bind those
+hashes rather than rebuild or substitute caches by filename. The earlier S07
+request/launcher is consumed historical input, not an active execution request.
 
 Mini real-data smoke validated on 2026-07-01:
 
@@ -330,9 +332,9 @@ Mini remains engineering smoke only. Scientific results require trainval.
   coverage, and loader-profile evidence tools.
 - `fl_v3/scripts/run_s01_nuscenes_zip_full_gate.sh` - prepared S01 full-data gate;
   it is not execution authorization.
-- `fl_v3/scripts/run_s07a_nuscenes_cache_t1v2.sh` - pending-approval full trainval
-  `t1.v2` cache materialization against the accepted S01 manifest; it is not
-  execution authorization.
+- `fl_v3/scripts/run_s07a_nuscenes_cache_t1v2.sh` - historical pre-S09
+  materialization launcher. The accepted production caches came from S09 STOP-1
+  Job `441191`; this script is not an active request or execution authority.
 - `fl_v3/requirements.txt` - direct dependency manifest used by the builder.
 - `fl_v3/requirements.lock.txt` - Arrhenius audit snapshot, not a standalone reinstall recipe.
 - `fl_v3/collab/arrhenius_migration.md` - read-only historical job/version evidence.

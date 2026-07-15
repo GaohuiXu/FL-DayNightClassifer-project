@@ -3,7 +3,7 @@
 日期：2026-07-14
 代码锚点：`2a584053e6f6a3860b6f812681dc8d7342ca52ad`
 官方对照：MIT BEVFusion `326653dc06e0938edf1aae7d01efcd158ba83de5`
-状态：**前置分析已封存；其后 owner 已批准 envelope v1、开始实现、本地验证及验证通过后的一次 immutable implementation commit。一个 smoke 与后续 Q1 的各自 `<=1h` GH200 资源上限已获方向性批准，但精确不可变 tuple 仍须分别绑定；当前没有 Slurm/GH200 作业执行。**
+状态：**历史 pre-implementation 审计快照；S08/S09 已关闭并集成到 `351b7a0`。当前增量结论见 Section 20。**
 
 本报告正文保留 2026-07-14 pre-implementation 审计时点。后续实施状态、精确
 source/request 和未满足 gate 以同目录的 `HANDOFF.md` 与 `RUN_REQUEST.md` 为准；
@@ -659,3 +659,24 @@ SHA-256 6921efe9e39d25d7dc5fa6dfcab87a748d5db6040a4a49ab5a1fb3d5849edc16
 
 官方资料只用于确定结构和 recipe 来源；本项目的接受状态仍由当前源码、
 Orchestra 合同和已审核证据决定，不由上游论文自动继承。
+
+## 20. S08/S09 关闭后的增量结论（2026-07-15）
+
+Sections 1–19 是实施 S08 前的完整审计快照，不应被误读为当前执行状态。后续
+证据更新如下：
+
+- S08 已接受 global FP16 camera/dense-pillar、global FP16 + SECOND/spconv
+  FP32 island sparse routes，以及 uniform FP32 reference/fallback；full sparse
+  FP16 不作为统一 fusion 路径。
+- 这个 policy 解决的是 FP16 sparse-convolution backward 的动态范围问题，不会
+  缩小 optimizer 实际接收的 unscaled gradient。L/F 的大梯度原因仍未证明；
+  tiny-group sparse GroupNorm 只是优先假设，不是结论。
+- S09 Job `456539` 在同一 base-uniform recipe 上完成 1000/1003 accepted/attempted
+  windows；三次初始 scaler backoff 后无 post-warm nonfinite/discarded window。
+  这证明 bounded lifecycle health，不证明收敛或 recipe 合理。
+- S09 证明可长期保留的工程改动是显式 Swin checkpoint 开关、普通路径删除
+  19 个无用 loss-term host scalar 同步，以及 hash-bound readiness/timing seams。
+  B=2/B=4 只证明容量和吞吐潜力，不构成 batch 选择。
+- Owner 只接受 S10 工作定义：中央化模型数值/架构健康、生产 training recipe
+  选择、最终架构 GH200 优化。旧的候选 stops、full run 属于 S10 还是 S11、
+  以及 S11+ 的具体边界均未获接受，必须由新 S00 在 Ultra 调研后重新提出。

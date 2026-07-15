@@ -20,8 +20,9 @@ clean model/data/runtime foundation through federated training and adaptation.
 - Reviewed camera, sparse LiDAR, fusion, multi-task CenterHead, deterministic
   decode/NMS, and official nuScenes `DetectionEval` paths.
 - Resolved config, explicit FP32/FP16 runtime mechanisms, checkpoint/resume,
-  runtime dependency identity, and clean evaluation provenance. The current
-  six-task scientific precision policy remains pending S08.
+  runtime dependency identity, and clean evaluation provenance. S08 accepts
+  global FP16 for camera/dense-pillar, global FP16 with an explicit SECOND/spconv
+  FP32 island for sparse LiDAR/fusion, and uniform FP32 as reference/fallback.
 - One clean FedAvg aggregation path with deterministic client identity/order,
   num-example FP32 weighting, deterministic sampling, FedOpt, server EMA, and
   trainable-only state transfer.
@@ -29,12 +30,15 @@ clean model/data/runtime foundation through federated training and adaptation.
 Mini and synthetic runs are engineering evidence only. Scientific claims
 require owner-approved trainval-scale protocols and immutable run manifests.
 
-S07 clean engineering is closed at the accepted post-S07 rebaseline `2a58405`,
-but its runtime gate is bounded: one successful FP32 optimizer update for each
-C/L/F mode and no full-training or precision-freeze claim. S08 first resolves the
-owner decisions in its pre-implementation model/recipe audit, then qualifies the
-current six-task FP32/full-AMP/spconv-FP32-island regimes; S09 subsequently
-measures full-pipeline performance/readiness.
+S07 clean engineering, S08 precision qualification, and S09 full-pipeline
+engineering readiness are closed and integrated through `351b7a0`. S09 proves
+bounded single-seed lifecycle/performance health, not convergence, mAP/NDS,
+recipe selection, or full GH200 utilization. The next milestone is not yet an
+executable plan: a fresh Ultra-reasoning S00 will research S10 on
+`codex/s10-cl-model-recipe`. Only S10's work definition is accepted—centralized
+model numerical/architectural health, production recipe selection, and final-
+architecture GH200 optimization. Exact stops, full-run placement, and S11+ remain
+pending owner review.
 
 ## Layout
 

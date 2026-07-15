@@ -1,62 +1,27 @@
 # USENIX Security '27 Orchestra — milestone contracts
 
-> **Status (2026-07-15).** S07 is closed at clean engineering anchor
-> `2a584053e6f6a3860b6f812681dc8d7342ca52ad`. S08 implementation/remediation is
-> sealed at `103c7389a47938b1f9dd0cba60251df6dce9e5bb` with independent R2
-> `PASS_WITH_RESIDUAL_RISK`. Under O-109, exact Q1 Job `431013` and Q2 Job
-> `435151` are terminal and checksum-verified, consuming only `00:07:58` GPU
-> elapsed. Primary evidence rejects full sparse FP16 as the unified F-capable
-> route and supports global FP16 with SECOND/spconv FP32; L-P020 and F-CBGS
-> compatibility cells also passed. Independent R3 reviewed exact evidence SHA
-> `c0ef86235ead753fee3b790b19d40f82f875ec59` with
-> `PASS_WITH_RESIDUAL_RISK` and no P0-P2 findings. O-110 accepts seal `d31adea`,
-> freezes the recommended precision policy, and closes S08 PASS; closing commit
-> `28f79802c0868afa6290d74ae6aeb9d23c7d088f` is fast-forward integrated. The S09
-> reading gate is complete. O-111 accepts the four-stop engineering-readiness
-> direction and defers branch/training-recipe selection to S10. O-112 STOP-1 Job
-> `441191` completed `0:0` in `00:03:06`; exact train/val cache identities passed
-> in-job and S00 post-job checks. Independent review passed raw evidence but
-> returned `REMEDIATE` for P2/P3 durable provenance/status wording. Bounded
-> re-review of documentation-only remediation SHA `5252a59` closed every finding
-> and returned `PASS_WITH_RESIDUAL_RISK`. O-113 owner-accepts/closes STOP-1 and
-> opens STOP-2 detailed planning. O-114 approves the exact STOP-2 implementation,
-> local validation, linear commits, and independent review. Candidate `37aef4d`
-> has independent `PASS_WITH_RESIDUAL_RISK` with no open P0-P2; exact snapshot,
-> selectors, wrapper and fresh output are frozen. Closure review of request
-> remediation `cad7262` found no open P0-P3. O-115 now approves that exact tuple
-> and its recorded O-107 mechanical boundary. Initial Job `441293` completed
-> `0:0` in `00:01:04` with 44/44 tests passing; no replacement was used and
-> evidence remediation `79f87dc` received independent `PASS_WITH_RESIDUAL_RISK`
-> with no open P0-P3. O-116 owner-accepts/closes STOP-2. O-117's first exact
-> STOP-3 Job `441511` failed pre-model because the runner omitted the build-module
-> stack required by editable spconv JIT. After independent failure review, O-118
-> authorized one exact dependency attestation and one conditional strictly
-> derived replacement, both without retry. Jobs `442152` and `446225` completed
-> `0:0`; the latter reached 100 accepted F-U updates in 103 attempts and passed
-> every frozen loader, numerical, timing, memory, and epoch gate. Independent
-> review of immutable evidence `c28d09c` returned `PASS_WITH_RESIDUAL_RISK` with
-> no P0-P2; closure re-review of remediation `84adfd0` found no open P0-P3 and
-> marks STOP-3 owner-ready. O-119 owner-accepts/closes STOP-3 and starts the
-> approved STOP-4A-D implementation/profile/capacity/optimization/G100/G1000
-> sequence under a serial two-GPU-hour ceiling and no-retry boundary. Jobs
-> `452520`, `455539`, and `456539` all completed `0:0` without retry and consumed
-> `0.345000` GPU-hours. Final independent review found no open P0-P3 and returned
-> STOP-4 closure GO. O-120 accepts review seal `ced5992` and closes S09 PASS
-> within the bounded engineering scope. Integration and S10 execution remain
-> separately owner-gated.
+> **Current handoff (2026-07-15).** S07-S09 are closed and integrated through
+> `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`. S08 accepted precision policy is
+> recorded under O-110; S09 accepted bounded engineering review seal is
+> `ced5992ea113bd21d7d545af505debf405b556b3`. O-121 records the completed
+> fast-forward and the current closure-compaction-only session.
 >
-> `Sxx` now names a durable evidence milestone, not necessarily a new task,
-> worker, branch, or worktree. Under O-094, persistent S00 normally performs
-> tightly connected implementation in one linear worktree and uses an independent
-> reviewer subagent or, when risk requires, a separate review worktree.
+> The present S00 retires after compaction. The next S00 creates
+> `codex/s10-cl-model-recipe` and uses Ultra reasoning for a fresh code/model/
+> recipe/performance audit before proposing any executable plan. Only S10's work
+> definition is accepted: centralized-model numerical/architectural health,
+> production training-recipe selection, and final-architecture GH200
+> optimization. Exact stops, cells, gates, full-run placement, compute and S11+
+> remain pending.
 >
-> Canonical objective/decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Active envelopes:
-> [`KICKOFFS.md`](KICKOFFS.md).
+> `Sxx` is an evidence namespace, not automatically a worker, task, branch, or
+> worktree. Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Active launch
+> state: [`KICKOFFS.md`](KICKOFFS.md).
 
 ## 1. Active graph and status
 
 ```text
-28f7980 accepted S08 close / S09 base
+351b7a0 accepted and integrated S09 close
   │
   ├─ S08 model/recipe audit → owner decisions → precision qualification
   │      └─ independent review only after exact implementation/evidence SHA
@@ -64,12 +29,8 @@
   ├─ S09 full-pipeline performance/readiness      [closed PASS under O-120]
   │      └─ independent review of exact profiling/evidence SHA
   │
-  ├─ S10 centralized branch/recipe ablation       [planning next; envelope not frozen]
-  ├─ S11 CL capability/freeze                     [pending S10]
-  ├─ S12 clean Protocol-A/B split/adaptation      [deferred pending CL freeze]
-  ├─ S13 new threat model/attack                  [blocked pending clean adaptation]
-  ├─ S14 new defense                              [blocked pending viable attack]
-  └─ S15 paper/artifact                           [rolling, evidence-bound]
+  ├─ S10 CL health/recipe/final-architecture speed [definition accepted; envelope pending]
+  └─ S11 and later                                 [roles pending owner decision]
 ```
 
 | ID | Milestone | Depends on | Status / output |
@@ -81,12 +42,8 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | Centralized branch/recipe ablation | closed S08+S09 | planning next; no cells/gates, implementation, compute, or recipe frozen |
-| S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
-| S12 | Protocol-A/B split and clean adaptation contract | CL freeze + fresh owner review | deferred; old proposal is historical evidence only |
-| S13 | Clean adaptation completion, then new attack | S12 clean PASS + new threat model | blocked; legacy T5 import forbidden |
-| S14 | New defense | independently viable undefended S13 attack | blocked; legacy defenses are not active baselines |
-| S15 | Paper/artifact | accepted evidence | planned/rolling; no upload/submission permission |
+| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization | closed S08+S09 | work definition accepted only; fresh Ultra S00 must propose exact envelope on `codex/s10-cl-model-recipe` |
+| S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract
 
@@ -348,44 +305,33 @@ implementation/evidence/remediation found no open P0-P3 and marks S09 owner-read
 This is bounded single-seed engineering evidence, not convergence, mAP/NDS,
 model-quality, recipe-selection, or full-GH200-saturation evidence.
 O-120 accepts review seal `ced5992` with those limits and closes S09 PASS.
-Integration and every S10 action remain separate owner decisions.
+O-121 later completed fast-forward-only integration at `351b7a0`; every S10
+implementation or compute action still requires a fresh owner decision.
 
-## 6. S10-S12 redefinition boundaries
+## 6. S10 accepted work definition; envelope pending
 
-### S10 — centralized branch and recipe ablation
+The owner accepts only this responsibility set:
 
-Pending an exact post-S09 owner envelope. Candidate topics include `C-STR8`,
-`L-P020` versus `L-S075`, `F-U` versus `F-CBGS`, and initialization. The actual cells, matched exposure,
-precision, checkpoint selection, numerical gates, and compute budget are not
-frozen. S10 will select a centralized recipe; it will not yet claim multi-seed
-capability or define Protocol-B `W_base`.
+- diagnose and establish the numerical and architectural health of the current
+  centralized six-task model, including the unresolved large true SECOND
+  gradients;
+- research and select a production training recipe; and
+- optimize GH200 performance for the eventual accepted architecture.
 
-### S11 — full CL capability and freeze
+This is not an accepted stop design. The fresh S00 must start from the integrated
+`351b7a0` base, create `codex/s10-cl-model-recipe`, use Ultra reasoning, inspect
+the full camera/LiDAR/fusion/head/training/data/runtime path, and then present an
+exact evidence/implementation/compute envelope. No specific branch ablation,
+normalization amendment, batch, optimizer, scheduler, EMA, augmentation, seed,
+metric, profiler campaign, or full run is currently frozen.
 
-Pending a reviewed S10 selection. S11 will run only the owner-approved seeds for
-the selected C/L/F recipes, produce official mAP/NDS/per-class/TP-error/slice and
-performance evidence, and freeze the architecture/config/checkpoint schema.
-Full-train capability checkpoints remain distinct from a Protocol-B initializer.
+## 7. S11 and later
 
-### S12 — clean Protocol-A/B contract and adaptation
-
-Deferred until CL freeze and a fresh owner review. S12 will define and hash
-scene/log-disjoint `D_base`, `D_tail`, clients, evaluation ownership, clean
-controls, update scope, and utility/forgetting metrics. The old S12 proposal and
-legacy security assumptions are not active inputs. No attack is included in the
-clean adaptation gate.
-
-## 7. S13-S15 boundaries
-
-- **S13:** first establish accepted clean Protocol-B adaptation and the separate
-  Protocol-A control. A new attack requires a later owner-approved threat model
-  and clean implementation; legacy T5/T6/T7 cannot be imported.
-- **S14:** begins only after an independently reviewed viable undefended S13
-  attack. New defenses target measured mechanisms; legacy defense code/oracles are
-  historical parity/negative evidence only.
-- **S15:** paper/artifact work consumes checksummed accepted evidence. Mini, smoke,
-  failed, stale, or mismatched cells never become scientific numbers. Upload,
-  registration, submission, and publication require exact owner authority.
+All roles, ordering and execution boundaries after S10 are pending. In particular,
+whether a full trainval run belongs to S10, S11, or another reviewed milestone
+must be decided only after the fresh S10 analysis. Historical S11-S15 descriptions
+remain context, not authority. No Protocol A/B, attack, defense, paper upload, or
+publication work is authorized by S08/S09 closure.
 
 ## 8. Durable delivery and independent review
 

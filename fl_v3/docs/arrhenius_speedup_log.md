@@ -160,6 +160,14 @@ training input cost.
 
 ## Current Bottleneck Assessment
 
+This section is historical mini-path evidence from Jobs `211502/211722`, not the
+current S09 production baseline. The current accepted B=1 F-U production result
+is S09 Job `456539`: p50/p95 `178.024/203.231 ms`, throughput `5.542 samples/s`,
+peak allocated/reserved `4.765/8.314 GiB`, and coarse median GPU utilization
+`51%`. It remains bounded engineering evidence rather than a recipe, convergence,
+or full-GH200-utilization result. See the compact S09 handoff package for the
+current source/data/precision identities and limits.
+
 After these optimizations, the main measured costs in `211722` are:
 
 - backward: 202.42 ms

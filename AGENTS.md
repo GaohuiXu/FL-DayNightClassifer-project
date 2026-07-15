@@ -38,11 +38,17 @@ S07 clean engineering, S08 precision qualification, and S09 full-pipeline
 engineering performance/readiness are closed. The accepted S08 policy is
 integrated at `28f79802c0868afa6290d74ae6aeb9d23c7d088f`; owner decision O-120
 accepts S09 review seal `ced5992ea113bd21d7d545af505debf405b556b3` as a
-bounded engineering PASS, with integration still awaiting a separate owner
-decision. The next planning priority is S10 branch/training-recipe ablation for
-the current six-task centralized (CL) camera-LiDAR detector; no S10 cells,
-compute, Git integration, or scientific recipe are authorized merely by S09
-closure. Historical conclusions under
+bounded engineering PASS. Owner decision O-121 fast-forwarded
+`v3-ad-perception` to S09 closing commit
+`351b7a0b8419c01d0d32ba224babbc6bdc4213ba`; the former delivery branch has the
+same tip/tree but is retained pending a separate cleanup decision. The current
+S00 performs closure compaction only and then retires. A fresh S00 will create
+`codex/s10-cl-model-recipe` and use Ultra reasoning to research the exact S10
+envelope. Only the S10 work definition is accepted: centralized-model numerical/
+architectural health, production training-recipe selection, and GH200 performance
+optimization on the final architecture. No stops, cells, full-run placement,
+compute, commit, merge, push, or S11+ scope is implied; S11 and later milestones
+remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime
 state changed.
@@ -239,8 +245,9 @@ re-review found no open P0-P3. O-119 then authorized the serial STOP-4A-D
 profiler/capacity/output-neutral-optimization/G100/G1000 envelope. Jobs `452520`,
 `455539`, and `456539` completed `0:0` without retry using `0.345000` GPU-hours;
 final independent review found no open P0-P3. O-120 accepts review seal `ced5992`
-and closes S09 PASS. No cache retry, worker matrix, model or recipe change, DDP,
-merge, push, or S10 execution is authorized by that closure.
+and closes S09 PASS. O-121 subsequently fast-forwarded `v3-ad-perception` to
+`351b7a0`; no cache retry, worker matrix, model or recipe change, DDP, push, or
+S10 execution is authorized by that integration.
 Do not extract or duplicate the full dataset into project storage without
 explicit owner permission.
 The old `/mimer/NOBACKUP/Datasets/NuScenes_v1.0` path is not an Arrhenius data

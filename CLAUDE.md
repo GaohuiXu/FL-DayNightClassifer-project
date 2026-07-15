@@ -31,16 +31,20 @@ dense-pillar, global FP16 with SECOND/spconv kept in an explicit FP32 island for
 sparse LiDAR/fusion, and uniform FP32 as reference/fallback. It rejects full
 sparse FP16 as the unified fusion-capable route within its bounded evidence.
 O-120 accepts S09 review seal `ced5992ea113bd21d7d545af505debf405b556b3`
-as a bounded engineering PASS; its integration remains a separate owner decision.
+as a bounded engineering PASS. O-121 fast-forwarded `v3-ad-perception` to
+`351b7a0b8419c01d0d32ba224babbc6bdc4213ba`; the former delivery branch remains
+at the identical tip pending a separate cleanup decision.
 
-The next milestone decisions are:
+The next-session boundary is:
 
-1. S10: separately select branch and training recipe, including batch size and
-   any sparse-normalization experiment or initialization/scheduler/EMA/
-   augmentation change;
-2. redefine later capability/protocol milestones only from reviewed S09/S10 evidence.
-No S10 implementation, compute, integration, or scientific recipe is authorized
-by S09 closure alone.
+1. finish S08/S09 closure compaction in the current S00, then retire it;
+2. start a fresh Ultra-reasoning S00 and create `codex/s10-cl-model-recipe`;
+3. research before proposing the exact S10 boundary. Only the work definition is
+   accepted: centralized-model numerical/architectural health, production
+   training-recipe selection, and final-architecture GH200 optimization.
+
+No four-stop plan, exact cell, full-run placement, S10 implementation/compute, or
+S11+ boundary is accepted by the closure decision. S11 and later remain pending.
 
 The accepted S08 precision policy is selected as stated above. The true unscaled
 LiDAR gradients remain unusually large; S08 localized the practical FP16 failure
@@ -68,10 +72,12 @@ Arrhenius GH200 is the active runtime. Use the persistent environment through
 is x86_64 and the environment is aarch64, so dependency-backed CUDA/spconv checks
 run through an owner-authorized Slurm job.
 
-The shared nuScenes trainval data is ZIP-backed through the dataset module. Full
-trainval `t1.v2` cache materialization still requires exact owner approval.
-Historical `t1.v1` caches are forbidden production inputs. Mini is engineering
-only and cannot support mAP/NDS, fusion-gain, attack, defense, or paper claims.
+The shared nuScenes trainval data is ZIP-backed through the dataset module. S09
+STOP-1 Job `441191` materialized and reviewed the exact train/val `t1.v2`,
+ten-sweep production caches; downstream use must bind the hashes in the S09
+terminal results. Historical `t1.v1` caches are forbidden production inputs.
+Mini is engineering only and cannot support mAP/NDS, fusion-gain, attack,
+defense, or paper claims.
 
 ## Permissions
 

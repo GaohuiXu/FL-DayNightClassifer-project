@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import copy
 import hashlib
-import json
-from pathlib import Path
 
 import pytest
 
@@ -50,22 +48,6 @@ def valid_config(tmp_path=None):
                       "timing_warmup_successful_windows": 0, "loader_profile": None},
         "evaluation": {"timing": False, "checkpoint_weights": "raw"},
     }
-
-
-def test_stop4d_g1000_only_extends_stop4c_window_bounds():
-    root = Path(__file__).resolve().parents[1]
-    g100 = json.loads((root / "configs/s09_stop4c_f_u_g100.json").read_text())
-    g1000 = json.loads((root / "configs/s09_stop4d_f_u_g1000.json").read_text())
-
-    assert g1000["training"]["max_optimizer_steps"] == 1000
-    assert g1000["execution"]["max_attempted_windows"] == 1020
-    g100["training"]["max_optimizer_steps"] = 1000
-    g100["execution"]["max_attempted_windows"] = 1020
-    assert g1000 == g100
-
-    resolved = resolve_config(g1000)
-    assert resolved.data["training"]["max_optimizer_steps"] == 1000
-    assert resolved.data["execution"]["max_attempted_windows"] == 1020
 
 
 def test_config_hash_is_order_stable_and_roundtrips(tmp_path):

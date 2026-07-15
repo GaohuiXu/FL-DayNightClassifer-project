@@ -1,1053 +1,209 @@
-# S09 results ledger — CLOSED PASS under O-120
+# S09 results — terminal engineering PASS
 
-## Terminal state
+## Owner disposition
 
-```text
-REQUEST_ID: S09-STOP1-DATA
-OWNER_AUTHORITY: O-112
-EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
-REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
-FIRST_EVIDENCE_SHA: b35591b1a9ac64ea50ee3ad3257304baef07f8de
-REVIEWED_REMEDIATION_SHA: 5252a591983abb0013f19547e1d6ad20d3d6661f
-JOB_ID: 441191
-JOB_STATE/EXIT/RESTARTS: COMPLETED / 0:0 / 0
-NODE/ELAPSED/LIMIT: n125 / 00:03:06 / 00:30:00
-ACTUAL_GPU_HOURS: 0.051667
-SUBMISSIONS: 1 / approval consumed / no retry
-RESULT: TERMINAL / INDEPENDENT PASS_WITH_RESIDUAL_RISK / OWNER-ACCEPTED O-113
-```
+O-120 accepts final review seal
+`ced5992ea113bd21d7d545af505debf405b556b3` and closes S09
+`PASS_WITH_RESIDUAL_RISK` with no open P0-P3. O-121 later fast-forward integrated
+closing commit `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`.
 
-Job `441191` consumed the only O-112 submission and completed both requested
-splits. It constructed no model, DataLoader sweep, profile, training step, or
-metric. The observed elapsed time is not an S09 throughput result: the GH200 was
-allocated only to obtain the validated aarch64 environment for metadata/CPU/I/O
-cache construction.
+## STOP-1 production cache identity
 
-| Field | Value |
-|---|---|
-| Account/partition/allocation | `naiss2025-22-1113-gpu` / `gpu` / one GH200, 8 CPU, 96 GiB |
-| Start/end | `2026-07-15T06:06:33` / `2026-07-15T06:09:39` |
-| Batch MaxRSS / MaxVMSize | `9287360K` / `13743424K` |
-| Batch TotalCPU | `02:23.146` |
-| Requeue/array/DDP/retry | disabled / none / none / none |
-
-## Exact runtime and input identity
-
-The in-job identity matched the frozen request:
-
-- Git source `1f276b9d2cc54f705b0b6800a573258707711045`;
-- runtime source-state SHA-256
-  `c44db468cb65aaedab7152202ca49056147119b9ef970ffd191fdeeb4258bca8`;
-- aarch64 node `n125`, CPython `3.11.15`, NumPy `1.26.4`,
-  nuscenes-devkit `1.1.11`, pyquaternion `0.9.9`, Torch `2.11.0+cu128`, and
-  Pillow `12.2.0`;
-- module dataroot
-  `/dataset/easybuild/data/nuScenes-data/1.0-map-1.3-zip`;
-- accepted manifest logical SHA-256
-  `023f72b4220bb0db587be00920308bf9074384740fe186d243be92f9a53119f6`;
-- accepted manifest physical SHA-256
-  `228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb`;
-  and
-- `n_sweeps=10`, `v1.0-trainval`, splits `train val`.
-
-The manifest remained the accepted read-only 633,106,432-byte
-`s01.nuscenes-zip.v2` file with ten exact `trainval01_blobs.zip` through
-`trainval10_blobs.zip` archive rows, 2,631,093 occurrences, 2,631,084 unique
-members, and nine matching duplicate occurrences. The launcher did not rebuild
-or modify it.
-
-## Cache identities
-
-| Split | Samples / boxes | Previous-sweep records | Canonical cache SHA-256 | Pickle bytes / SHA-256 | Sidecar bytes / SHA-256 |
-|---|---:|---:|---|---|---|
-| train | `28130 / 944881` | `246840` | `310e1bba8f65912450e864b634a47b4ca2ea4feb20ed26018e087c93299eed0a` | `580252836` / `57fce20f035a99c0c0ab96fdef418c1b0e04e28bd3e32d191a8298f99919be30` | `289` / `f4c45dd12ea0db8ec35d9235de52e51981870b91f175c376d5c34747da661b6c` |
-| val | `6019 / 187528` | `52812` | `bb692de4c1eb8b66e8c74f4e807eb208ad891b45ce8f233e8017dc4f3a3b6e2f` | `118018654` / `d4ed7aee9978c2294e2087c917006cbb3d69276453266d0f9c92591340084837` | `286` / `4f5390815720e14625be31b20fb1596cafe9869ad95b08dc098aea65413be432` |
-
-Both pickles and sidecars identify format `t1.v2`, version `v1.0-trainval`,
-scale `trainval-scientific`, and depth 10. For each split, predeclared counts,
-loaded-record counts, and pickle metadata counts are identical. `load_cache`
-iterated every record, required `_cache_n_sweeps == 10`, required a
-`lidar_sweeps` field with at most nine previous sweeps, compared sidecar and
-pickle metadata, and recomputed the full canonical content hash before the
-identity artifact was written. The previous-sweep totals above are observed
-descriptive counts, not separately predeclared acceptance thresholds.
-
-## Artifact verification
-
-Output root:
+Job `441191` completed `0:0` in `00:03:06` from source
+`1f276b9d2cc54f705b0b6800a573258707711045`. Output:
 
 ```text
 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop1_cache_t1v2_1f276b9d2cc5
 ```
 
-After the terminal job, S00 independently:
+| Split | Samples / boxes | Previous sweeps | Canonical SHA-256 | Pickle bytes / SHA-256 | Sidecar SHA-256 |
+|---|---:|---:|---|---|---|
+| train | 28130 / 944881 | 246840 | `310e1bba8f65912450e864b634a47b4ca2ea4feb20ed26018e087c93299eed0a` | 580252836 / `57fce20f035a99c0c0ab96fdef418c1b0e04e28bd3e32d191a8298f99919be30` | `f4c45dd12ea0db8ec35d9235de52e51981870b91f175c376d5c34747da661b6c` |
+| val | 6019 / 187528 | 52812 | `bb692de4c1eb8b66e8c74f4e807eb208ad891b45ce8f233e8017dc4f3a3b6e2f` | 118018654 / `d4ed7aee9978c2294e2087c917006cbb3d69276453266d0f9c92591340084837` | `4f5390815720e14625be31b20fb1596cafe9869ad95b08dc098aea65413be432` |
 
-1. reran `sha256sum -c sha256sums.txt` successfully;
-2. verified all 23 `runtime_source_sha256s.txt` entries against the detached
-   snapshot and reproduced aggregate SHA-256 `c44db468...`;
-3. compared each sidecar structurally with its corresponding embedded
-   `cache_identity.json` metadata and found exact equality;
-4. required exactly eight regular output files and zero symlinks;
-5. verified the scheduler state, exit code, zero restarts, resource tuple and
-   complete stdout/stderr; and
-6. changed only file/directory permission bits to make the output read-only, then
-   reran all checksum checks.
+Both are `t1.v2`, `v1.0-trainval`, `n_sweeps=10`, bound to ZIP-manifest
+logical/physical SHA-256
+`023f72b4220bb0db587be00920308bf9074384740fe186d243be92f9a53119f6` /
+`228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb`.
+Every record was depth/content revalidated. The output checksum manifest is
+`4f48ea4e7ebfc9427a4cf649e3b3826feb0b529f7a56af011b4e1b78a8f5f2ef`.
+This proves cache identity, not payload decode, throughput or model readiness.
 
-The frozen output contains eight files, 698,280,214 total bytes, and zero writable
-entries. Permission freezing did not change any content digest.
+## STOP-2 readiness smoke
 
-| Artifact | SHA-256 |
-|---|---|
-| `execution_identity.json` | `89a4371211a2c1dba852d60f4296059ee423b6d6525a552adbc1033c241a3c60` |
-| `runtime_source_sha256s.txt` | `c44db468cb65aaedab7152202ca49056147119b9ef970ffd191fdeeb4258bca8` |
-| `cache_identity.json` | `7b906f885b0c13b879ff0bbd4e34d2bfc2a056605046a42baa813b1bad839250` |
-| `sha256sums.txt` | `4f48ea4e7ebfc9427a4cf649e3b3826feb0b529f7a56af011b4e1b78a8f5f2ef` |
-| Slurm stdout | `9460d0915142188e256b28c83b7df6bb7b5f5cfd5ef1bbebc82381639289f8c8` |
-| Slurm stderr | `8db5d05b4abfa9c9cc1bd7028c410675c3e2d697af110ce6c6d9aa51f2e1e830` |
-
-The stderr contains only Lmod's retained-system-module notice and the dataset
-access/module messages; there is no Python exception, warning from the builder,
-or missing output.
-
-## Interpretation boundary
-
-This terminal PASS establishes exact production cache identities for the current
-metadata/geometry implementation and accepted manifest. Independent re-review
-accepted the bounded gate with residual risk, and O-113 owner-accepts STOP-1.
-These exact physical files plus their canonical and physical hashes may be bound
-as later S09 inputs; no rebuild-by-name substitution is allowed.
-
-It does **not** prove sensor-payload decode parity, DataLoader throughput, model
-performance/readiness, convergence, mAP/NDS, scientific recipe quality, Protocol
-A/B, FL, attack, or defense behavior. It does not retroactively convert historical
-`t1.v1` caches into production inputs. STOP-2 implementation and terminal smoke
-status are recorded below.
-
----
-
-## STOP-2 implementation, request, and runtime evidence
+Job `441293` completed `0:0` in `00:01:04` from source
+`37aef4d6b3f4679d6702d0acef2bb5bd1b57a952`: 44/44 focused tests passed,
+including CUDA-event output neutrality and fail-closed lifecycle cases. Output:
 
 ```text
-REQUEST_ID: S09-STOP2-SMOKE
-OWNER_IMPLEMENTATION_AUTHORITY: O-114
-PLANNING_BASELINE: 25a59a699fe88b8cec207d5281d6c3342d2d2db0
-INITIAL_IMPLEMENTATION: ff0ffb694255e01a5b109d755ed88fa20b644a78
-SYNC_REMEDIATION: 0a11b17
-FINAL_REVIEW_CANDIDATE: 37aef4d6b3f4679d6702d0acef2bb5bd1b57a952
-FINAL_TREE: d0626e313aab411bc5c71733afb41eca5b102693
-FULL_DIFF_SHA256: cb55d4a46c21f3d508e5d73240367d06080de7b456751d802367b19ed055e7eb
-IMPLEMENTATION_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P2
-REQUEST_REMEDIATION: cad72621e0e3ba409ae19bb0b62829118134b2d0
-REQUEST_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3
-REQUEST_APPROVAL_COMMIT: 254872197c0a4b2b3d02ebd8b8e320a49b98a218
-GH200_JOB_ID: 441293
-GH200_TEST_RESULT: 44 passed / 0 failed / 0 errors / 0 skipped
-EVIDENCE_SHA: a67cdda56c624d302742f5c57c69bb9ef0a98e0c
-EVIDENCE_REMEDIATION: 79f87dc9accca700b5a46803d45c549b0305c6d1
-INDEPENDENT_EVIDENCE_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3
-REQUEST_STATE: consumed / independently reviewed terminal PASS / owner-accepted O-116
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop2_smoke_37aef4d6b3f4_a1
+artifact_sha256s.txt: 643160908f29f76cccbdcde3e5999759934aa5417b3d71252810e917ae4667ff
 ```
 
-### Delivered semantics
+The implementation provides exact attempted/successful counters, direct timing,
+memory, optional bounded loader profiling and terminal failure artifacts without
+generic observers/module hooks. This smoke is code/runtime evidence only.
 
-The reviewed implementation advances the strict resolved schema to `s09.v1` and
-requires a hash-bound execution object. `train_eval` preserves the existing
-checkpoint/evaluation lifecycle and refuses readiness-only fields. `readiness`
-is fail-closed, single-process, accumulation-one, non-resumable, checkpoint-free,
-and evaluation-free; it stops at the successful-update target, attempted-window
-cap, or data exhaustion and writes a terminal artifact before returning failure
-for an unmet gate.
+## STOP-3 negative runtime evidence
 
-The production loop adds only opt-in direct host/CUDA timing and bounded memory/
-counter records. It uses no observer, module hook, retained activation, profiler,
-or per-window synchronization. The optional production-loader profile is bounded,
-content-hash gated, and observational: it cannot alter the hash-bound training
-worker count. The six current templates now explicitly retain O-110, including
-the SECOND FP32 island for L-S075/F-U/F-CBGS. No model, loss, target, data backend,
-optimizer, scheduler, EMA, checkpoint schema, or precision-policy implementation
-changed.
-
-### Local/static validation
-
-- compile-only validation passed for all eight affected Python files;
-- all six current JSON templates parsed;
-- manual positive/negative `s09.v1` execution-schema checks passed;
-- O-110 sparse-precision template assertions agree with the templates;
-- the implementation diff passed AST/static inspection and `git diff --check`;
-  and
-- the login node did not execute pytest because its x86 environment cannot import
-  the accepted aarch64 Torch stack; exact Job `441293` subsequently supplies that
-  runtime evidence.
-
-### Independent implementation review
-
-The first review of `ff0ffb6` found no P0/P1 and returned `REMEDIATE` for two P2
-and two P3 findings: per-window raw `GradScaler.get_scale()` calls could add CUDA
-synchronization; one old candidate-template test still expected sparse FP16;
-`train_eval` sampled readiness-only clocks; and negative lifecycle behavior lacked
-direct tests. `0a11b17` removes scaler polling and unused normal-lifecycle clocks;
-`37aef4d` aligns the O-110 assertion and adds the missing rejection/fail-artifact
-tests.
-
-Re-review of the complete `25a59a6..37aef4d` diff returned
-`PASS_WITH_RESIDUAL_RISK` with no open P0-P2. One non-blocking P3 remains: if every
-attempted loss is nonfinite, enabled GradScaler never enters the finite-loss
-optimizer path and `scaler_scale_at_start` remains JSON `null`; terminal scale,
-window outcomes, counters, and failure behavior remain complete. The remaining
-runtime-scope residual is that the toy loader test cannot substitute for STOP-3's
-production persistent-worker gate.
-
-### Frozen smoke identity and interpretation
-
-The clean detached snapshot, exact four selectors, two read-only scripts and
-fresh absent output are recorded in `RUN_REQUEST.md`. Script syntax, source/tree,
-clean/detached status, absent alternates and commit-graph, full object-database
-fsck, zero writable snapshot worktree files, and fresh output were rechecked
-before request freeze. O-115 later authorized the exact tuple; one submit command
-created Job `441293` and no replacement was run.
-
-### Terminal GH200 smoke evidence
-
-```text
-JOB_ID/STATE/EXIT/RESTARTS: 441293 / COMPLETED / 0:0 / 0
-NODE/START/END: n120 / 2026-07-15T08:30:23 / 2026-07-15T08:31:27
-ELAPSED/LIMIT/GPU_HOURS: 00:01:04 / 00:10:00 / 0.017778
-ACCOUNT/PARTITION/RESOURCES: naiss2025-22-1113-gpu / gpu / 1 GH200 / 4 CPU / 32 GiB
-SUBMISSIONS: 1 initial / 0 O-107 replacements
-PYTEST: 44 passed in 15.19s / zero failed, errors, or skipped
-CUDA_EVENT_TEST: present / PASS / 1.996s
-```
-
-The environment artifact records exact source `37aef4d...`, tree `d0626e...`,
-aarch64, Python `3.11.15`, Torch `2.11.0+cu128`, CUDA `12.8`, spconv `2.3.8`,
-cumm `0.7.13`, one available `NVIDIA GH200 120GB`, and `102005473280` bytes of
-device memory. Independent XML parsing found exactly the declared 44 test cases,
-including `test_cuda_event_timing_is_output_neutral_and_json_finite`, with no
-failure/error/skip node. `pytest.exit` is `0`, `acceptance.json` is exact
-`44/0/0/0`, and stdout ends with `S09_STOP2_SMOKE_COMPLETE`. Stderr contains only
-the normal retained-system-module notice.
-
-| Artifact | SHA-256 |
-|---|---|
-| `job.sh` | `54bc788c97ed0cd9d0a24e9198043d8e2be18d533011930fb06417f5b8f7bc7f` |
-| `submit.sh` | `d652e5bea9dca8ada684cc0286d6e4a8a108572e95488798fdc7fdcca7677a8e` |
-| `environment.json` | `2dc85a0f656942b31802ee2f5a6f315ff600ed09543c71a69e810b88506ce5ea` |
-| `selectors.txt` | `d864f70897c2f3922065533afeefb79db6b1d2dcf6a1288ecffac0e26dd9e8d1` |
-| `pytest.log` | `36e76073d99476fc362839ee27c6b671c60d9e065c34cc5d8a37f7c0e1685440` |
-| `pytest.junit.xml` | `7152f9d4efd8f5b084bc5711d826b8a85e0d41d223a05b89dd198afa875c3de8` |
-| `pytest.exit` | `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa` |
-| `acceptance.json` | `085d44d69a597a8699af4863beed327a036081a0c9cedacf973a91cc8207b7b7` |
-| `artifact_sha256s.txt` | `643160908f29f76cccbdcde3e5999759934aa5417b3d71252810e917ae4667ff` |
-| Slurm stdout | `b74372d06a955f8723059df5ccd3178a7207ec9859aae5d9d5413a35ec656332` |
-| Slurm stderr | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
-
-The top-level acceptance package has seven regular files / 8,453 bytes. Preserved
-pytest scratch makes the complete output 18 regular files / 24,797 bytes, 30
-directories, and 14 `current` symlinks. All regular files and directories are
-non-writable; the symlink modes are POSIX-ignored and non-writable parents prevent
-replacement. Scratch contents are not part of acceptance and are not silently
-promoted into evidence. Both Slurm logs were permission-frozen after hashing.
-
-This terminal smoke establishes that the reviewed readiness/config/lifecycle
-regressions execute in the accepted aarch64 Torch/CUDA environment and that direct
-CUDA-event timing is output-neutral under the exact toy final-state/aggregate
-comparison tested. It does not establish production ZIP/cache throughput,
-persistent-worker behavior, model training stability, memory headroom,
-convergence, mAP/NDS, recipe quality, Protocol A/B, FL, attack, or defense. Those
-limits remain for STOP-3 or later milestones. Independent evidence review returned
-`PASS_WITH_RESIDUAL_RISK` with no open P0-P3; O-116 owner-accepts and closes
-STOP-2.
-
----
-
-## STOP-3 Job 441511 — terminal runtime-bootstrap FAIL
-
-```text
-REQUEST_ID: S09-STOP3-G100
-OWNER_AUTHORITY: O-117
-EXECUTION_SOURCE_SHA: 4d6bd829450021aa0813bcece066fb1fac85f478
-EXECUTION_SOURCE_TREE: affb4854689a0bf65d829a273d769c87c000174c
-REQUEST_FREEZE_COMMIT: 30e6c9f7849dd1bfe7630f698913c2231131b62c
-RESOLVED_CONFIG_SHA256: cb1723322c756579ab6740eb126de8455b65f808849ec977258c76b919f2c58c
-JOB_ID/STATE/EXIT/RESTARTS: 441511 / FAILED / 1:0 / 0
-NODE/START/END: n127 / 2026-07-15T09:43:24 / 2026-07-15T09:45:53
-ELAPSED/LIMIT/GPU_HOURS: 00:02:29 / 01:00:00 / 0.041389
-ACCOUNT/PARTITION/RESOURCES: naiss2025-22-1113-gpu / gpu / 1 GH200 / 16 CPU / 96 GiB
-SUBMISSIONS: 1 / exact O-117 authority consumed / no retry or replacement
-RESULT: TERMINAL FAIL BEFORE PHYSICAL-DATA CHECK, LOADER PROFILE, MODEL, OR UPDATE
-```
-
-The immutable source/config/Slurm preflights passed: the runner recorded exact
-source/tree, detached snapshot, runner hash, resolved config, aarch64 Python
-`3.11.15`, Torch `2.11.0+cu128`/CUDA `12.8`, spconv `2.3.8`, cumm `0.7.13`, one
-`NVIDIA GH200 120GB`, and the declared dataroot/manifest paths. The failure then
-occurred at `centralized_train.py:384` inside
-`verify_runtime_dependency_identity`, before `verify_physical_data_identities`,
-production loader construction/profile, model construction, loss, backward, or
-an optimizer attempt.
-
-### Exact failure and diagnosis
-
-Failed source `4d6bd82` called `arrhenius_load_modules run`. Binding
-`docs/env.md` instead requires `arrhenius_load_modules build` even for runtime
-jobs because editable cumm/spconv imports may trigger ccimport/ninja checks and
-need the CUDA compiler/toolkit headers. Editable imports did trigger those
-checks. cumm completed a 47-target `core_cc` build; spconv then started a
-690-target build without `nvcc` on `PATH`. Its first fatal compile error was:
-
-```text
-spconv/core_cc/csrc/sparse/convops/SimpleExternalSpconvMatmul.h:2:10:
-fatal error: cublasLt.h: No such file or directory
-```
-
-Ninja stopped, Python propagated `CalledProcessError`, and the source-controlled
-runner preserved exit `1`. This is a STOP-3 runner/runtime-bootstrap defect, not
-a loader, model, precision, gradient, optimizer, or GPU-capacity result. The
-current branch corrects only the module selector to `build`; that correction has
-not been executed, hashes to
-`855bbd15877a4ceaa6919ccdf9d2ca369e1f3c84ee306415a41376c07d5d8b5d`,
-and is not replacement-compute authority.
-
-### Requested gates: all unmeasured
-
-| O-117 gate | Job 441511 outcome |
-|---|---|
-| Four loader cells and identical digests | Not started / no profile artifact |
-| Worker-8 warm throughput ratio | Not measured |
-| 100 successful updates within 120 attempts | Model not constructed; zero attempted updates |
-| Nonfinite/discarded/counter integrity | Not measured |
-| Integrated p95/p50 and data-wait share | Not measured |
-| Peak training memory/headroom | Not measured |
-| Two epoch-time estimates | Not measured |
-| Aggregate finite loss | No forward/loss |
-| GPU utilization during accepted training | No training interval exists |
-
-Accordingly Job `441511` answers none of the four owner questions about 100-step
-health, time/step, stage/component timing, or effective GH200 use. The observed
-zero GPU work is attributable to CPU native-extension compilation and must not be
-reported as model utilization.
-
-### Telemetry and artifacts
-
-The runner recorded 111 one-Hz samples across 114.654 seconds of the failing
-centralized command: GPU and memory utilization were always `0%`, GPU memory was
-`8-10 MiB`, power `81.66-86.38 W`, SM clock `345 MHz`, memory clock `2619 MHz`,
-and temperature `33 C`. There is no `readiness.json`; the empty `readiness/`
-directory is not a missing successful result but evidence that lifecycle setup
-preceded the dependency failure.
-
-Output root:
+Job `441511` failed `1:0` in `00:02:29` before physical-data verification,
+loader construction, model construction or any optimizer attempt. The source
+selected runtime-only modules while editable spconv JIT needed build modules; its
+first fatal error was missing `cublasLt.h`. The failed import also changed cumm
+native artifacts. Output:
 
 ```text
 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop3_g100_4d6bd8294500_a1
+artifact_sha256s.txt: 0c3e2947fb124ac32d74e243575b4ffa159d2d97a6a603492196fd89df565133
 ```
 
-It contains nine regular files / 64,529 bytes / zero writable entries. Independent
-`sha256sum -c artifact_sha256s.txt` passed for all eight files listed by the
-runner; the manifest itself hashes to
-`0c3e2947fb124ac32d74e243575b4ffa159d2d97a6a603492196fd89df565133`.
+This is a runner/bootstrap failure, not a loader/model/precision/performance result.
+O-118 explicitly authorized dependency recovery and one strictly derived
+replacement; it was not an automatic retry.
 
-| Artifact | SHA-256 |
-|---|---|
-| `centralized_train.exit` | `4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865` |
-| `centralized_train.stderr` | `ea41651c03566c98396b3115d867c0121f1b83195174a3f99649860bcf5cd298` |
-| `centralized_train.stdout` | `999c2429f4d7f7e79e625055b8444cdfc0845824e92bd40b59f6da9dbd134ae1` |
-| `config_identity.json` | `789d63cf5a1765b9e59d14f9834626909d04d26e5993608fe23048442ddb81e7` |
-| `execution_identity.json` | `ce3c41b5c80a37757f776033d4144f74e66c6adbc7c473c597ef60ef38fd2cd7` |
-| `gpu_telemetry.csv` | `7fd7fbf89f0aca36d3214af26e527e3a7f179034766f64820079ddd85631eadc` |
-| `gpu_telemetry_preflight.csv` | `5231d6b7888975574c1a25da0db4f4fc1847cee06ab9ea817e2b39f0024748b3` |
-| `telemetry_alignment.json` | `4d31e6a844f6f03901ee52e543c9cf1d363f3d66f806058bcce93fc5ccf08e86` |
-| Slurm stdout / stderr | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` / `8db5d05b4abfa9c9cc1bd7028c410675c3e2d697af110ce6c6d9aa51f2e1e830` |
+Job `442152` then reproduced stable two-process source/build identities:
+spconv `af42200511a53ce86d77cea0306924a2dc516a74f0483ef7cfe0a6e1dc84b100`,
+cumm `0a7e3c1a8c3e8d41b3b40c4fb77d05bdec8ca2dfce5dbb8863626c4b45d8296d`.
+It ran no data/model/training path.
 
-### Persistent editable-environment side effect
+## STOP-3 production loader and G100
 
-The failed import generated two tracked spconv `.pyi` changes at `09:45:38`.
-S00 restored exactly those job-generated diffs; the accepted pre-existing
-`pyproject.toml` change was untouched. Post-restoration tracked source-state hashes
-again equal accepted spconv `499efdbb...` and cumm `f835ee22...`. One untracked
-cumm stub remains outside the tracked-source identity.
-
-More importantly, the cumm JIT replaced native artifacts. Accepted S08 evidence
-records both cumm `core_cc` copies as 2,877,128 bytes with SHA-256
-`9970ccc54041c7aee3272604ca7bb4e0d339e7ff37698b74159862c1ba2eface`.
-After Job `441511`, the package-root copy hashes to
-`62332ad4f37ce4a90ad505243667736bebe4402a7f17cad278df07b663961fc0`
-and the build copy is 2,667,280 bytes with hash
-`18396a0c060ccc320357b049dedd73b160530ec35ee1daf8133149fc3dcd0daf`.
-Therefore the frozen aggregate
-cumm executable-build identity `0a7e3c1a...` can no longer be assumed. No native
-binary was guessed, copied, rebuilt, or relabelled after the failure.
-
-### Exit boundary
-
-O-117's only submission was consumed and explicitly forbade retry/replacement.
-At that boundary STOP-3 remained incomplete and STOP-4 blocked; a future attempt
-required a new owner decision covering build-module bootstrap, bounded GH200
-runtime dependency attestation, new dependency/config identity, a new immutable
-source/snapshot/request/output tuple, and a replacement G100 allocation. O-118
-later supplied that exact conditional authority without reinterpreting Job
-`441511`. That failed job provides no basis
-for convergence, precision stability, throughput, epoch time, model utilization,
-mAP/NDS, recipe, Protocol A/B, attack, or defense claims.
-
----
-
-## STOP-3 O-118 Phase A Job 442152 — dependency attestation technical PASS
-
-```text
-REQUEST_ID: S09-STOP3-O118-RECOVERY / PHASE A
-OWNER_AUTHORITY: O-118
-EXECUTION_SOURCE_SHA: 788b493889bcf7be98f36b9cbb6686d51e8e5edf
-EXECUTION_SOURCE_TREE: 0bc61b3c2693f818ad0feb4e749af64a3947913e
-REQUEST_APPROVAL_RECORD_SHA: 3578a9e4924576b5f66469926d7178b7be885501
-AUTHORITY_RECONCILIATION_SHA: 6323a5820863ed5c2e2d544efee3c6f53d98f9e5
-JOB_ID/STATE/EXIT/RESTARTS: 442152 / COMPLETED / 0:0 / 0
-NODE/SUBMIT/START/END: n507 / 2026-07-15T10:37:28 / 2026-07-15T10:37:29 / 2026-07-15T10:49:21
-ELAPSED/LIMIT/GPU_HOURS: 00:11:52 / 00:20:00 / 0.197778
-ACCOUNT/PARTITION/RESOURCES: naiss2025-22-1113-gpu / gpu / 1 GH200 / 8 CPU / 32 GiB
-BATCH_MAX_RSS/MAX_VM/TOTAL_CPU: 5041170K / 17851008K / 01:03:52
-SUBMISSIONS: 1 / exact Phase-A authority consumed / no retry or replacement
-RESULT: TERMINAL TECHNICAL PASS / INDEPENDENT PASS_WITH_RESIDUAL_RISK / PHASE-B GO
-```
-
-The exact read-only submit wrapper hashes to
-`93848490f485ab38a74ce9818a1ce9d8c35a5eaa17e389fc6b437e9238aa9706`.
-It submitted the reviewed runner at SHA-256
-`a00d4631600ce92d4954fc8dbbcdc47cf16d636c4e8fa9ad116679a89888282b`
-from the clean detached self-contained snapshot. Scheduler state reproduces the
-frozen command, snapshot working directory, exact resource tuple, logs,
-`--no-requeue`, zero restarts, and no array/DDP/replacement.
-
-### Stable identity result
-
-Both fresh processes emitted byte-identical 169,518-byte manifests with SHA-256
-`52b956995d19b2598836d31246790d4c724cde97e089e84f63132e627ec3d97c`:
-
-| Identity | Accepted value | Observation |
-|---|---|---|
-| Torch build | `a58ba749ac7947ce123a6af8d4cdc595d2aff5dccccec5d6e10bcfe522040f10` | unchanged |
-| spconv source | `499efdbb5ab31c43109d48f11ee0ff79af847a3d378fd48bf9c79f8672da28db` | exact before/after/current |
-| spconv executable build | `af42200511a53ce86d77cea0306924a2dc516a74f0483ef7cfe0a6e1dc84b100` | new stable post-warm identity |
-| cumm source | `f835ee22d539bbf0ab486fecf1188c3883c3cde5860913434cbcf945ee325662` | exact before/after/current |
-| cumm executable build | `0a7e3c1a8c3e8d41b3b40c4fb77d05bdec8ca2dfce5dbb8863626c4b45d8296d` | restored S08-accepted identity |
-| raw G100 config | `e8a17b392c071e3d28c489264d7d051ddfed3d125038a41766250a56dde0083f` | unchanged old dependency declaration |
-| resolved G100 config | `cb1723322c756579ab6740eb126de8455b65f808849ec977258c76b919f2c58c` | unchanged old dependency declaration |
-
-The two cumm native `core_cc` copies are byte-identical at 2,877,128 bytes and
-SHA-256 `9970ccc54041c7aee3272604ca7bb4e0d339e7ff37698b74159862c1ba2eface`.
-The two spconv native copies are byte-identical at 45,180,616 bytes and SHA-256
-`37f2ef8dfff8a199d7ffe18b765cd23c26fa1096a1b8ac77082024e086c816aa`.
-The aggregate manifests contain 125 cumm executable artifacts / 7,858,249 bytes
-and 73 spconv executable artifacts / 91,328,998 bytes.
-
-The build environment was the frozen aarch64/GH200 stack with CUDA `12.9.1`,
-`GPU/buildenv-nvhpc/25.9-cu12.9.1-eb`, and Miniforge `26.3.2-2-eb`; `nvcc`
-reported release `12.9`, `V12.9.86`. Before and after the job, spconv tracked
-state contained only the accepted `pyproject.toml` modification and cumm tracked
-state was clean. The pre-existing untracked cumm
-`cumm/core_cc/common.pyi` remained outside tracked-source identity. Every
-post-warm/EXIT new-tracked-change inventory is empty; no tracked stub was
-restored.
-
-### Artifact and boundary checks
-
-Output root:
-
-```text
-/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop3_dep_attest_788b493889bc_a1
-```
-
-It contains exactly 30 regular files / 1,637,056 bytes / one directory / zero
-writable entries. All 29 artifacts listed by `artifact_sha256s.txt` pass
-`sha256sum -c`. Key hashes are:
-
-| Artifact | SHA-256 |
-|---|---|
-| `acceptance.json` | `4b60f319660124d3bfac23a21bfbfa1b7c66ca920a0e4a4df03b1a512833e9b4` |
-| `artifact_sha256s.txt` | `b176faa88df06ab955a295cac2ef63e09d51d59427b36c2c8bc11f3b27e73133` |
-| `dependency_probe_a.json` / `dependency_probe_b.json` | `52b956995d19b2598836d31246790d4c724cde97e089e84f63132e627ec3d97c` |
-| `warm_import.stdout` | `20626c3291e01114b8068b1550165d5c709a703dd763999be917ad4a90ed1c12` |
-| `source_identity_before.json` | `64e58a13296f6d931654df5fb099e59d56dcbf7c8db4a1789f88ea1bfa603672` |
-| Slurm stdout / stderr | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` / `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
-
-Warm-import and both probe stderr files are zero bytes.
-`dependency_attestation.exit` is `0`; original, cleanup, seal and final statuses
-are all zero. `acceptance.json` explicitly records `data_loaded=false`,
-`model_constructed=false`, and `training_attempts=0`.
-
-This PASS means only that the exact editable sparse runtime reached a stable,
-checksum-bound point-in-time build identity under two complete fresh-process
-probes. Because Phase A did not save a complete pre-warm executable-artifact
-manifest, it cannot identify an exact per-file mutation delta. It also cannot
-guarantee that the shared editable runtime will remain immutable. The derived
-G100 must fail-close on the exact source/build values above before loading data.
-
-Phase A did not touch nuScenes, profile a loader, construct the detector, execute
-forward/backward, or attempt an optimizer update. It therefore answers none of
-the owner's four G100 questions about 100-update health, time/update, stage timing,
-or GH200 utilization. Independent Phase-A evidence review returned
-`PASS_WITH_RESIDUAL_RISK`, found no open P0-P3 or material semantic concern, and
-authorized only the strictly derived frozen Phase-B wrapper. Phase B is recorded
-below.
-
----
-
-## STOP-3 O-118 Phase B Job 446225 — production loader/G100 technical PASS
-
-```text
-REQUEST_ID: S09-STOP3-O118-RECOVERY / PHASE B
-OWNER_AUTHORITY: O-118 CONDITIONAL CONTINUATION
-EXECUTION_SOURCE_SHA: c200bac861a42fc4338973787d3700e28ddd6c7e
-EXECUTION_SOURCE_TREE: c0cc4cb8c2e207e42dcc45a129ada28a3d40feb8
-REQUEST_FREEZE_COMMIT: 45b67e3d2c7c49716d906af72847a5f9f5027f04
-DERIVATION_REVIEW_SEAL: f893a2a / PASS_WITH_RESIDUAL_RISK / SUBMIT GO
-RESOLVED_CONFIG_SHA256: ba06b72e4c5f1e54f20472e3286a516e7d4328cfb0fccd8bfc7b13095f597ab6
-JOB_ID/STATE/EXIT/RESTARTS: 446225 / COMPLETED / 0:0 / 0
-NODE/SUBMIT/START/END: n450 / 2026-07-15T11:09:11 / 2026-07-15T11:09:12 / 2026-07-15T11:14:17
-ELAPSED/LIMIT/GPU_HOURS: 00:05:05 / 01:00:00 / 0.084722
-ACCOUNT/PARTITION/RESOURCES: naiss2025-22-1113-gpu / gpu / 1 GH200 / 16 CPU / 96 GiB
-BATCH_MAX_RSS/MAX_VM/TOTAL_CPU: 5497920K / 26820864K / 04:53.849
-SUBMISSIONS: 1 / sole conditional Phase-B submission consumed / no retry
-RESULT: TERMINAL TECHNICAL PASS / IMMUTABLE EVIDENCE AND INDEPENDENT TERMINAL REVIEW PENDING
-```
-
-The immutable tuple used F-U with engineering seed `0`, microbatch and
-accumulation `1`, eight production-loader workers, FP16 global autocast with the
-accepted SECOND FP32 island, AdamW `lr=1e-4` / `weight_decay=0.01`, constant
-scheduler, and no EMA, clipping, augmentation, GT paste, checkpoint, or official
-evaluation. The raw config hashes to `6733a472...`, the corrected runner hashes
-to `855bbd15...`, and the read-only submit wrapper hashes to `4801ddfe...`.
-Scheduler state matched the frozen one-GH200 resource and path tuple. There was
-one submission, no restart, array, DDP, replacement, or retry.
-
-### Runtime, data, and artifact identity
-
-The in-job evidence binds source/tree, aarch64 Python `3.11.15`, Torch
-`2.11.0+cu128` / CUDA `12.8`, spconv `2.3.8`, cumm `0.7.13`, the accepted
-train/val `t1.v2` caches, ten sweeps, and the accepted ZIP manifest. The runner
-failed closed on the Phase-A identities before physical data access:
-
-| Identity | Value |
-|---|---|
-| Torch executable build | `a58ba749ac7947ce123a6af8d4cdc595d2aff5dccccec5d6e10bcfe522040f10` |
-| spconv tracked source / executable build | `499efdbb...` / `af422005...` |
-| cumm tracked source / executable build | `f835ee22...` / `0a7e3c1a...` |
-| Train cache logical / pickle / sidecar | `310e1bba...` / `57fce20f...` / `f4c45dd1...` |
-| Val cache logical / pickle / sidecar | `bb692de4...` / `d4ed7aee...` / `4f539081...` |
-| ZIP manifest logical / physical | `023f72b4...` / `228e2f5b...` |
-| Execution / runtime-dependency identity | `01b7c5d1...` / `3e900c90...` |
-
-The output root is:
+Job `446225` completed `0:0` in `00:05:05`. Output:
 
 ```text
 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop3_g100_c200bac861a4_a2
+readiness.json: 08e376e767f654bb38982127ad5ffd84d94ebaa48b3026ceba2ab7ef93a6c9b6
+artifact_sha256s.txt: b229633889052c46bec5c05d6713e0102aea806a98f9170a65119f9864dbea4b
 ```
 
-It contains 12 regular files / 3,178,950 bytes / two directories / no symlink or
-writable entry. All 11 files named by `artifact_sha256s.txt` independently pass
-`sha256sum -c`; the manifest itself hashes to `b2296338...`. The output and both
-Slurm logs are read-only. Current external source/native manifests independently
-still reproduce the accepted Phase-A spconv/cumm identities after the job.
+The bounded ZIP/cache worker profile consumed 2432 samples per complete matrix
+and reproduced one content identity across repeats:
 
-| Artifact | SHA-256 |
-|---|---|
-| `readiness/readiness.json` | `08e376e767f654bb38982127ad5ffd84d94ebaa48b3026ceba2ab7ef93a6c9b6` |
-| `readiness/runtime_dependencies.json` | `0755df255eb69d1501bdfa183f996b33dd3ffb6bad45393ef7f5fa041d722a3c` |
-| `readiness/resolved_config.json` | `9c375f4009f43efd8507a465d137e43f826b14387bec1a4317fa98a27e722c4e` |
-| `execution_identity.json` | `c9155382449302503027cc1577ee1ff2b1c791e7411ead7bbcaef0be22ee9ecf` |
-| `config_identity.json` | `593c704069e1adf0f6fd422c11d999f45025c28461a969d258ea7ef8368486ee` |
-| `gpu_telemetry.csv` | `a3a83774c0cff7a9e3d5c8b2f6d764c4d9d563b7058cd0a8a513ca03690342fd` |
-| `telemetry_alignment.json` | `59fc08708033c9e9a9fce5910d345fb63fb6dddd5ac3fe9a707e8a982b145ffd` |
-| centralized stdout / stderr / exit | `a831b309...` / `8e2e0bbb...` / `9a271f2a...` |
-
-The 838-byte centralized stderr contains only the Torch FX and deprecated spconv
-multidimensional-indexing warnings; it contains no exception. The Slurm stdout is
-empty and stderr contains only the normal module/dataset notices.
-
-### Loader sweep
-
-All eight repeat cells consumed 2,432 bounded samples in total and produced the
-same content SHA-256 `6c6d8f06...`. The sweep is observational: the predeclared
-training worker count remained eight regardless of the measurements.
-
-| Workers | Cold samples/s | Warm samples/s | Warm wait p50 / p95 (ms) |
+| Workers | Cold samples/s | Warm samples/s | Warm wait p50 / p95 |
 |---:|---:|---:|---:|
-| 0 | `16.085432` | `21.866943` | `45.410580 / 52.008712` |
-| 2 | `41.281658` | `41.573781` | `20.593569 / 49.592631` |
-| 4 | `79.041244` | `77.519849` | `0.183019 / 47.233943` |
-| 8 | `139.992060` | `141.969756` | `6.655074 / 28.378568` |
+| 0 | 16.085 | 21.867 | 45.411 / 52.009 ms |
+| 2 | 41.282 | 41.574 | 20.594 / 49.593 ms |
+| 4 | 79.041 | 77.520 | 0.183 / 47.234 ms |
+| 8 | 139.992 | 141.970 | 6.655 / 28.379 ms |
 
-Eight workers achieved `100%` of the best warm-cell throughput, passing the
-frozen `>=90%` threshold. This comparison qualifies the exact ZIP/cache path and
-bounded profile; it is not a general worker-count optimum or a license to change
-the hash-bound training config in-job.
+Workers 8 reached 100% of the best warm throughput for this bounded profile. This
+does not establish a universal optimum.
 
-### Update health and accounting
+The F-U B=1 lifecycle reached 100 accepted updates in 103 attempts. The first
+three scaler windows backed off `512 -> 256 -> 128 -> 64`; all 90 measured
+post-warm windows accepted at 64. Counters reconcile exactly: 103 attempted/loss
+evaluated, 100 successful/optimizer/scheduler/exposure, 3 overflow/invalid, zero
+direct-nonfinite/discarded/pending.
 
-The lifecycle reached 100 successful optimizer updates in 103 attempts. The
-first three attempts overflowed under dynamic GradScaler and reduced scale
-`512 -> 256 -> 128 -> 64`; attempt four was the first accepted update. After ten
-accepted warm-up updates were reached at attempt 13, all 90 measured attempts
-were accepted at scale 64. Thus the evidence is stable **after bounded scaler
-backoff**, not zero-overflow from the first attempt.
-
-| Counter | Terminal value |
-|---|---:|
-| attempted microbatches / samples / windows | `103 / 103 / 103` |
-| successful windows / optimizer steps / exposure samples | `100 / 100 / 100` |
-| invalid windows / samples | `3 / 3` |
-| overflow / nonfinite / discarded windows | `3 / 0 / 0` |
-| loss-evaluated / pending samples | `103 / 0` |
-| scheduler `last_epoch` / EMA | `100 / null` |
-
-The post-warm accepted ratio is `90/90 = 1.0`; counter reconciliation is exact;
-aggregate loss is finite (`55.333761`). The three scaler overflows are recorded
-invalid windows and accepted by the frozen gate. They are not nonfinite-loss or
-discarded windows, and they do not increment optimizer, scheduler, exposure, or
-successful-window counters.
-
-### Steady-state timing, memory, and epoch estimate
-
-The full training section took `46.575035 s`, or `0.465750 s` per successful
-update when the cold first window and scaler backoff are included. The frozen
-post-warm measurement covers 90 accepted updates in `18.973603 s`:
-`0.210818 s/update` and `4.743432 updates/s`.
-
-| Direct CUDA-event stage | Mean (ms) | p50 (ms) | p95 (ms) |
-|---|---:|---:|---:|
-| H2D | `0.279881` | `0.277600` | `0.340106` |
-| Forward | `89.894774` | `90.004463` | `94.291102` |
-| Loss | `10.922225` | `10.870528` | `14.178488` |
-| Backward | `102.846034` | `100.688049` | `113.517565` |
-| Optimizer/scheduler/EMA | `6.022698` | `6.010576` | `6.162656` |
-| CUDA-only integrated window | `210.599701` | `208.575935` | `224.153076` |
-
-The frozen gate pairs each record's host data wait with its CUDA-only integrated
-window. That exact combined distribution is mean/p50/p95
-`210.760627 / 208.745739 / 224.326678 ms`, with `p95/p50=1.074641`, below the
-frozen `1.5` limit. The CUDA-only `1.074683` ratio remains a stage diagnostic,
-not the gate value.
-Median-stage shares are approximately backward `48.27%`, forward `43.15%`, loss
-`5.21%`, optimizer `2.88%`, and H2D `0.13%`. Training data wait is
-`0.160926 / 0.164987 / 0.187478 ms` mean/p50/p95 and only `0.076355%` of the
-integrated mean window, below the `10%` threshold.
-
-Peak allocated/reserved memory was `3.256302 / 6.433594 GiB`, leaving
-`88.566406 GiB` relative to the reported 95-GiB device total; reserved memory is
-well below the frozen 86-GiB ceiling. With 28,130 training samples, both frozen
-steady attempted-window and accepted-update epoch estimates are `1.647307 h`.
-Adding the observed one-time `214.077415 s` pre-training setup gives a descriptive
-first-epoch estimate of `1.706773 h`; that augmented value is not the acceptance
-formula. Startup includes `102.229958 s` runtime/data identity, `24.328989 s`
-info/partition, `71.872015 s` loader profile, `0.032453 s` fixed loader, and
-`4.459097 s` model/components.
-
-### Coarse GH200 utilization
-
-The 1-Hz file has 263 data rows. `telemetry_alignment.json` estimates a 45-sample
-training interval by subtracting `training_wall_seconds` from command end; each
-boundary has up to one-second uncertainty and may include final cleanup. Within
-that estimated interval:
-
-| Signal | Mean | p50 | p95 | Max |
-|---|---:|---:|---:|---:|
-| GPU utilization | `32.4%` | `32%` | `99.8%` | `100%` |
-| Memory used | `5550.6 MiB` | `6419 MiB` | `7503 MiB` | `7503 MiB` |
-| Power | `167.92 W` | `193.79 W` | `207.01 W` | `257.64 W` |
-
-GPU utilization was nonzero in `66.67%` of samples, at least 50% in `31.11%`,
-and at least 80% in `8.89%`. This does **not** demonstrate continuous GH200
-saturation. Because measured data wait is negligible while direct forward plus
-backward accounts for about `91.4%` of median window time, the result points away
-from the loader as the steady bottleneck and is consistent with batch-one model/
-kernel granularity. The 1-Hz sample rate and stage-only timers cannot establish a
-specific kernel, camera/LiDAR/fusion branch, or exact utilization root cause.
-STOP-3 intentionally added no profiler, module hook, or branch observer.
-
-### Frozen acceptance gates and interpretation
-
-| O-117 gate | Result |
+| Stage | Mean / p50 / p95 (ms) |
 |---|---|
-| Loader content equal across all cells | PASS |
-| Worker-8 warm throughput `>=90%` of best | PASS (`100%`) |
-| 100 successful updates within 120 attempts | PASS (`100/103`) |
-| Zero nonfinite and discarded windows | PASS (`0 / 0`) |
-| Counter reconciliation and post-warm accepted ratio `>=95%` | PASS / `100%` |
-| Combined `(data_wait + CUDA window)` p95/p50 `<=1.5` | PASS (`1.074641`) |
-| Data-wait share `<=10%` | PASS (`0.076355%`) |
-| Peak reserved memory `<=86 GiB` | PASS (`6.433594 GiB`) |
-| Both steady epoch estimates `<=24 h` | PASS (`1.647307 h`) |
-| Aggregate finite loss | PASS |
+| H2D | 0.280 / 0.278 / 0.340 |
+| Forward | 89.895 / 90.004 / 94.291 |
+| Loss | 10.922 / 10.871 / 14.178 |
+| Backward | 102.846 / 100.688 / 113.518 |
+| Optimizer/scheduler/EMA | 6.023 / 6.011 / 6.163 |
+| CUDA integrated | 210.600 / 208.576 / 224.153 |
 
-The exact O-117/O-118 engineering qualification therefore returns independently
-reviewed technical PASS. Immutable evidence `c28d09c` received
-`PASS_WITH_RESIDUAL_RISK` with no P0-P2; closure re-review of remediation
-`84adfd0` found no open P0-P3 and marks STOP-3 owner-ready. It
-establishes 100-update lifecycle health, steady stage timing, loader readiness,
-large memory headroom, and lack of sustained GH200 saturation for this exact
-F-U/seed/config/runtime tuple. It does not prove convergence, recipe quality,
-model accuracy, mAP/NDS, per-branch or per-kernel causality, multi-seed behavior,
-Protocol A/B, FL, attack, or defense. It supplies no compute, retry, STOP-4,
-merge, or push authority. O-118 used `0.282500` GPU-hours across Phase A/B; all
-S09 jobs through this point used `0.393333` GPU-hours.
+Combined data-wait + CUDA p50/p95 is `208.746/224.327 ms`; throughput
+`4.743 samples/s`; data wait `0.076%`; peak allocated/reserved
+`3.256/6.434 GiB`; steady epoch estimate `1.647 h`. This is a throughput
+estimate at the measured constant recipe, not convergence time.
 
-## STOP-4A Job 452520 — bounded profiler and B=1/2/4 capacity PASS
+## STOP-4A profile and capacity
 
-Job `452520` was the sole O-119 STOP-4A submission. Slurm reports
-`COMPLETED / 0:0 / 00:09:42`, one GH200, 16 CPUs, 96 GiB host memory, node
-`n495`, and zero restarts. There was no array, DDP, replacement, or retry. The
-exact implementation source/tree was `b509f5e527c2... / 9c556d37d1e4...`; the
-request seal was `6724762d1ae7...` and did not alter the execution tree.
-
-The immutable output is:
+Job `452520` completed `0:0` in `00:09:42`; 59 focused tests and all four
+20-update cells passed. Output:
 
 ```text
 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop4a_profile_capacity_b509f5e527c2_a1
+artifact_sha256s.txt: fbd07beebcd9078c5a980995e05febc1efc873469d0ff4fe61f30c6748f5272f
 ```
 
-All 35 files named by `artifact_sha256s.txt` independently pass `sha256sum -c`.
-The output contains 36 regular files / 101,632,619 bytes, no symlink, and no
-writable entry. The manifest itself hashes to `fbd07bee...`; `cell_statuses.json`
-hashes to `755efe38...` and classifies all four cells `PASS` with no evidence
-validation error. The focused aarch64/Torch/CUDA preflight completed
-`59 passed / 0 failed / 0 skipped`; its only warning was the expected inability
-to write pytest cache into the read-only source snapshot.
+| Cell | Accepted / attempted | p50 / p95 | Throughput | Peak allocated / reserved / headroom |
+|---|---:|---:|---:|---:|
+| B1 checkpoint-on + profiler | 20/23 | 281.692 / 316.432 ms | 3.507 samples/s | 3.06 / 5.38 / 89.63 GiB |
+| B1 checkpoint-off | 20/23 | 186.627 / 204.558 ms | 5.364 samples/s | 4.55 / 7.24 / 87.76 GiB |
+| B2 checkpoint-off | 20/22 | 293.437 / 337.788 ms | 6.925 samples/s | 8.55 / 13.34 / 81.66 GiB |
+| B4 checkpoint-off | 20/23 | 475.311 / 542.830 ms | 8.451 samples/s | 16.32 / 38.81 / 56.19 GiB |
 
-| Cell | Accepted / attempted | Scaler overflows | Window p50 / p95 (ms) | Throughput (samples/s) | Peak allocated / reserved / headroom (GiB) |
-|---|---:|---:|---:|---:|---:|
-| B1, checkpoint on + profiler | `20 / 23` | `3` | `281.692 / 316.432` | `3.5067` | `3.06 / 5.38 / 89.63` |
-| B1, checkpoint off | `20 / 23` | `3` | `186.627 / 204.558` | `5.3644` | `4.55 / 7.24 / 87.76` |
-| B2, checkpoint off | `20 / 22` | `2` | `293.437 / 337.788` | `6.9246` | `8.55 / 13.34 / 81.66` |
-| B4, checkpoint off | `20 / 23` | `3` | `475.311 / 542.830` | `8.4505` | `16.32 / 38.81 / 56.19` |
+The trace/source audit proved 19 redundant loss-term scalar synchronizations per
+ordinary attempted window. They were removed only when neither runtime telemetry
+nor S08 diagnostics asks for the terms, with exact loss/input-gradient equality
+tests. No second safely removable allocation was proven, so none was changed.
 
-Every cell has zero direct-nonfinite and discarded windows, exact optimizer/
-scheduler/exposure/EMA/scaler reconciliation, finite aggregate loss, and a
-post-warm accepted ratio of `1.0`. B2 and B4 therefore fit comfortably on this
-GH200. They are capacity/throughput evidence only: each cell starts from fresh
-seed-0 initialization, changes effective batch exposure, and runs only 20 accepted
-updates. Batch/LR/recipe selection remains S10.
+B2/B4 fit and expose more parallelism; they do not select a recipe. The current
+full-epoch B4 path also has a two-sample tail (`28130 % 4 == 2`) while the loop
+requires fixed batch shape. That is a future full-run design item, not a failure
+of this bounded 20-step capacity cell.
 
-The checkpoint-on B1 cell intentionally includes an operator-profiler cycle and
-uses only eight later timing windows; checkpoint-off B1 uses 15 timing windows.
-Its lower latency and higher memory are directionally consistent with removing
-Swin recomputation, but the two numbers are not a clean quantitative checkpoint
-ablation. STOP-4C supplies the required profiler-free 100-update checkpoint-off
-regression against the accepted STOP-3 reference.
+## STOP-4C optimized G100
 
-### Bounded trace and optimization decision
-
-The B1 trace is 89,077,328 bytes with SHA-256 `a77421d7...`; its 139,234-byte
-summary hashes to `ef6996b6...`. The summary retains all eight required F-U
-forward ranges in both CPU/device representations: 16 range rows, 4,924 operator
-rows, 4,940 total rows, and no missing range. The three active attempted windows
-contain:
-
-| Trace event | Count |
-|---|---:|
-| `aten::item` / `aten::_local_scalar_dense` | `3,637 / 3,637` |
-| `cudaStreamSynchronize` | `502` |
-| DtoH pageable / pinned copies | `49 / 188` |
-| `cudaMalloc` / `cudaFree` | `8 / 3` |
-
-These global counts do not attribute every synchronization to one source. Direct
-source tracing does establish one redundant production component: with telemetry
-and S08 diagnostics disabled, `MultiTaskCenterPointLoss` still recorded three
-host scalars for each of six task losses plus one aggregate scalar—19 `.item()`
-calls per attempted window—because the production loop's existing
-`record_terms` suppression could not reach the child criteria. STOP-4B therefore
-propagates that existing switch, retains complete terms whenever the S08
-precision observer is enabled, and adds output/loss/gradient-neutrality tests.
-The mandatory finite-loss/scaler/accounting synchronizations remain. The trace
-did not prove another safely removable allocation site, so no speculative buffer,
-target, sparse, or allocator rewrite enters STOP-4.
-
-One-Hz telemetry aligned approximately to each training wall interval gives mean
-GPU utilization `14.0% / 25.0% / 39.8% / 52.3%` for profiler-B1 / no-checkpoint
-B1 / B2 / B4 respectively; the corresponding p50 values are `0 / 0 / 6.5 / 66%`.
-Each boundary has up to one-second uncertainty and the short cold-start windows
-make these coarse observations only. They support the earlier conclusion that
-B1 does not saturate GH200 and that larger batches expose more parallelism; they
-do not authorize selecting B2/B4 in S09.
-
-Key artifact SHA-256 values are:
-
-| Artifact | SHA-256 |
-|---|---|
-| B1 profiler readiness | `e9d668d99f09cb76ab0c364c14db9e3c8eddf95654d514cfe8d5ca29755e28d2` |
-| B1 checkpoint-off readiness | `7026f7744c24c091fdbf75cb9d204577c17d3f6f1c5b40c49a9c904671f1998e` |
-| B2 checkpoint-off readiness | `6e608d560b3b68ca588aac0f8e249d98066d76ab16a3188498b41cf877ae70a9` |
-| B4 checkpoint-off readiness | `bd07dfbb21136e9ff562695c8e8daf11ec9d214ae948c8c33b74fa697d91e49a` |
-| execution / config identities | `98d180a2... / 3312b70d...` |
-| GPU telemetry | `d2760b1a...` |
-| read-only Slurm stdout / stderr | `e3b0c442... / 8db5d05b...` |
-
-STOP-4A is a bounded engineering/profiling PASS. It is not convergence, mAP/NDS,
-model-quality, exact backward-branch attribution, multi-seed, Protocol A/B, FL,
-attack, or defense evidence.
-
-## STOP-4C Job 455539 — optimized profiler-free G100 technical PASS
-
-```text
-OWNER_AUTHORITY: O-119
-EXECUTION_SOURCE/TREE: c7769901201b8c507997dfa9ff5154fbe6dbb297 / 1e2c4464d2582d81e7ef7fef4740c764d0a48e8c
-REQUEST_SEAL/TREE: bbb807188a5e024e9e569480bd3a50676f0df312 / 565d9467b92bce38c551e4a9baea58190be3d85c
-REQUEST_REVIEW_ARTIFACT: 9b9b19ae81a4c2c346c2faa9d517fcefabffd4a0 / SUBMIT GO / no open P0-P3
-SUBMISSION_RECORD: 88d04c5
-RAW/RESOLVED_CONFIG_SHA256: 8ca905ade59214822d9c5b894c02786af77f6f531299ed1ca25caf51d00a35ce / afcd002184e35158e129353dfb9b621c390555b5927a37fa5f5acd9547538980
-JOB_ID/STATE/EXIT/RESTARTS: 455539 / COMPLETED / 0:0 / 0
-NODE/SUBMIT/START/END: n414 / 2026-07-15T14:14:48 / 2026-07-15T14:14:49 / 2026-07-15T14:18:55
-ELAPSED/LIMIT/GPU_HOURS: 00:04:06 / 00:30:00 / 0.068333
-RESOURCES: 1 GH200 / 16 CPU / 96 GiB
-SUBMISSIONS: 1 / no retry, requeue, array or DDP
-RESULT: TERMINAL TECHNICAL PASS / INDEPENDENTLY REVIEWED / STOP-4D RELEASED
-```
-
-The exact cell was the same F-U, seed-0, B1 engineering recipe as STOP-3:
-FP16 global autocast with the accepted SECOND FP32 island, AdamW `lr=1e-4` /
-`weight_decay=0.01`, constant scheduler, no EMA, clipping, augmentation or GT
-paste, eight workers, world size and accumulation one, and no checkpoint or
-official evaluation. The two intentional engineering changes are Swin activation
-checkpointing off and quiet multi-task loss telemetry when neither S08 precision
-diagnostics nor runtime telemetry needs per-term host scalars. The quiet-loss
-switch is covered by an exact loss-value and loss-input-gradient equality test.
-Checkpoint-off is instead bound by explicit config/construction checks and this
-G100 health/performance evidence.
-
-### Artifact, runtime and data identity
-
-The immutable output is:
+Job `455539` completed `0:0` in `00:04:06`, reaching 100/103 accepted/
+attempted. Output:
 
 ```text
 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop4c_g100_c7769901201b_a1
+readiness.json: b8765c4be656fe7ad657157cc43c2c6915ebfc33e6411c26c2a7db829087adff
+artifact_sha256s.txt: 542862b20a86d30c348237a9b448610857f86cb7554473cfbe65150360593847
 ```
 
-It contains 17 regular files / 3,161,886 bytes, no symlink and no writable entry.
-All 16 files named by `artifact_sha256s.txt` independently pass `sha256sum -c`;
-the manifest itself hashes to `542862b2...`. Both Slurm logs are mode `0444`:
-stdout is empty (`e3b0c442...`) and stderr contains only the normal module/data
-notices (`8db5d05b...`). The focused aarch64/Torch/CUDA suite passed `71/71`;
-the sole warning is pytest's expected inability to write cache into the read-only
-snapshot. All runner exits, including the fail-closed readiness validation, are
-zero.
+Relative to STOP-3, explicit Swin checkpoint-off plus quiet loss telemetry changed
+combined p50/p95 to `183.215/217.674 ms`, throughput to `5.237 samples/s`,
+epoch estimate to `1.492 h`, and peak allocated/reserved to
+`4.764/8.361 GiB`. Mean forward/backward became `90.299/80.003 ms`.
+The combined speedup cannot be separately attributed to each optimization.
 
-| Artifact | SHA-256 |
-|---|---|
-| readiness report | `b8765c4be656fe7ad657157cc43c2c6915ebfc33e6411c26c2a7db829087adff` |
-| readiness validation | `20fe23693d707224753b1c46da8d8ab88e2377998470e9b6ccd91f0dea81f17f` |
-| runtime dependencies | `0755df255eb69d1501bdfa183f996b33dd3ffb6bad45393ef7f5fa041d722a3c` |
-| resolved-config artifact | `73019180e8627f14db9fe6628d28ca73d60a9116f6aaafeee360cd75a17e2ba8` |
-| execution / config identities | `de67d1d3... / 548ca9f4...` |
-| GPU telemetry / alignment | `106b3177... / cbe09e68...` |
-| centralized stdout / stderr | `5bcd6796... / e14e48be...` |
+## STOP-4D optimized G1000
 
-The in-job identity binds GH200 node `n414`, aarch64 Python `3.11.15`, Torch
-`2.11.0+cu128` / CUDA `12.8`, spconv `2.3.8`, cumm `0.7.13`, the accepted
-train/val `t1.v2` caches, ten sweeps and accepted ZIP manifest. Runtime-dependency
-and execution identities are `3e900c90...` and `86b38580...`; they match STOP-3's
-accepted runtime/data contract.
-
-### Update health and performance regression
-
-The run reached 100 accepted optimizer updates in 103 attempts. Attempts one to
-three were the expected persistent-GradScaler backoff `512 -> 256 -> 128 -> 64`;
-all 90 post-warm measured attempts were accepted at scale 64. Terminal accounting
-is exact: 103 attempted/loss-evaluated samples and windows, 100 successful windows,
-optimizer steps and exposure samples, three overflow/invalid windows, and zero
-direct-nonfinite, discarded or pending windows/samples. Scheduler `last_epoch=100`,
-EMA is absent, and aggregate loss is finite (`56.333386`).
-
-The fail-closed validation compares pairwise `(data_wait + CUDA window)` samples,
-not sums of independent percentiles. Every frozen gate passes:
-
-| Metric | STOP-3 reference | STOP-4C | Change |
-|---|---:|---:|---:|
-| Combined p50 | `208.745739 ms` | `183.215146 ms` | `-12.23%` latency |
-| Combined p95 | `224.326678 ms` | `217.673521 ms` | `-2.97%` latency |
-| Accepted throughput | `4.743432 samples/s` | `5.237023 samples/s` | `+10.41%` |
-| Steady epoch estimate | `1.647307 h` | `1.492048 h` | `-9.43%` |
-| p95/p50 | `1.074641` | `1.188076` | PASS below `1.5` |
-| Data-wait share | `0.076355%` | `0.099441%` | PASS below `10%` |
-| Peak allocated / reserved | `3.256 / 6.434 GiB` | `4.764 / 8.361 GiB` | expected checkpoint-off memory tradeoff |
-
-The 90-window CUDA-event stage mean/p50/p95 values are:
-
-| Stage | Mean (ms) | p50 (ms) | p95 (ms) |
-|---|---:|---:|---:|
-| H2D | `0.296273` | `0.286192` | `0.374963` |
-| Forward | `90.299388` | `87.942368` | `93.471849` |
-| Loss | `13.222721` | `12.344256` | `17.170245` |
-| Backward | `80.002643` | `75.416191` | `102.348893` |
-| Optimizer/scheduler/EMA | `6.169202` | `6.111648` | `6.499066` |
-| CUDA-only integrated window | `190.665966` | `183.037567` | `217.492357` |
-
-The main mean-stage reduction relative to STOP-3 is backward
-`102.846 -> 80.003 ms`, directionally consistent with disabling Swin checkpoint
-recomputation. Forward is effectively unchanged. Because this is one cross-run
-engineering comparison containing both reviewed optimizations, it cannot assign
-an exact speedup independently to the 19 removed loss-term `.item()` calls. Their
-output neutrality is established by tests, while the end-to-end result establishes
-that the combined retained change does not materially regress the accepted path.
-
-Peak reserved memory is only `8.361 GiB`, leaving `86.639 GiB` of reported
-headroom and passing the frozen `86-GiB` reserved ceiling. The training section
-took `44.076 s`; the measured 90-window section took `17.185 s`. One-time setup
-before training was `127.030 s`, dominated by runtime/data identity checks rather
-than steady data wait.
-
-### Coarse utilization and limits
-
-The one-Hz telemetry alignment estimates 43 samples during the 44.1-second
-training interval. GPU utilization is mean/p50/p95/max
-`29.65% / 13% / 99.9% / 100%`; it is nonzero in `58.14%`, at least 50% in
-`27.91%`, and at least 80% in `9.30%` of samples. Mean/p50/p95/max memory use is
-approximately `7,320 / 8,391 / 9,477 / 9,477 MiB`; mean/max power is
-`187.66 / 280.59 W`. Boundary uncertainty is up to one sampling interval.
-This still does not demonstrate sustained GH200 saturation; together with the
-negligible data wait, it remains consistent with B1 model/kernel granularity.
-
-STOP-4C is therefore a bounded engineering technical PASS and satisfies the
-independently reviewed precondition that released STOP-4D. It proves 100-update lifecycle
-health and a non-regressing, faster checkpoint-off/quiet-telemetry path for this
-exact tuple. It does not prove convergence, recipe or batch-size quality,
-mAP/NDS, model quality, exact per-optimization or per-kernel causality, multi-seed
-behavior, Protocol A/B, FL, attack or defense.
-
-## STOP-4D Job 456539 — fresh optimized G1000 technical PASS
-
-```text
-OWNER_AUTHORITY: O-119 conditional STOP-4D after reviewed STOP-4C PASS
-EXECUTION_SOURCE/TREE: 5642884cdbb16e1c9b3107f529dc70b3a1243c6a / b13a08819b2e203dfe355309f1310c79f94f3023
-REQUEST_SEAL/REMEDIATION: 96471f766e2865e20a305e89b2b23bd49f7dad6d / 62877e112d8e13a2680f4a09999d26df0ba95378
-REQUEST_REVIEW_ARTIFACT: 0887c7e18b6b7c1f8c06104dff4a743881e9bff6 / SUBMIT GO / no open P0-P3
-SUBMISSION_RECORD: 56da54d
-RAW/RESOLVED_CONFIG_SHA256: dfd46e1a179b3b10d98055762fe8cfc9f9f312f4faa5aec05c9f5b14a7b37928 / c3b39a3f9dbfccd673a494f8ec976aa0cad1424a63cda3e56f836b4b733f7a1b
-JOB_ID/STATE/EXIT/RESTARTS: 456539 / COMPLETED / 0:0 / 0
-NODE/SUBMIT/START/END: n119 / 2026-07-15T14:45:13 / 2026-07-15T14:45:14 / 2026-07-15T14:52:08
-ELAPSED/LIMIT/GPU_HOURS: 00:06:54 / 01:00:00 / 0.115000
-RESOURCES: 1 GH200 / 16 CPU / 96 GiB
-SUBMISSIONS: 1 / no retry, requeue, array or DDP
-O119_TOTAL_ACTUAL_GPU_HOURS: 0.345000 / 2.000000
-RESULT: TERMINAL TECHNICAL PASS / INDEPENDENTLY REVIEWED / S09 OWNER-READY
-```
-
-This was a fresh seed-0 initialization, not a resume. Relative to accepted
-STOP-4C, the raw config changes only 100 to 1000 successful updates and the
-attempted cap from 120 to 1020. F-U/B1, the O-110 global-FP16/SECOND-FP32
-partition, checkpoint-off, AdamW `1e-4/0.01`, constant scheduler, no EMA,
-clipping, augmentation or GT paste, uniform sampling, eight workers, and every
-data/dependency identity are unchanged. No loader/operator profile, checkpoint
-or official evaluation was run.
-
-### Artifact, runtime and data identity
-
-The immutable output is:
+Job `456539` completed `0:0` in `00:06:54` from a fresh seed-0
+initialization. Output:
 
 ```text
 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop4d_g1000_5642884cdbb1_a1
+readiness.json: e61c1f6e6761a74b787dcdf9303fd1911868e44ebf1e5195765a2214396968b8
+artifact_sha256s.txt: 6b90ae38427bb6efaa043f1a7c93432473cade8862ea5d1f9e432e87003107b3
 ```
 
-It contains 17 regular files / 3,752,314 bytes, no symlink and no writable entry.
-All 16 files named by `artifact_sha256s.txt` pass `sha256sum -c`; the manifest
-hashes to `6b90ae38...`. The focused suite passed `72/72`; the sole warning is
-pytest's expected inability to write cache into the read-only snapshot. Training,
-readiness validation and final exits are all zero. Both Slurm logs are mode
-`0444`; stdout is empty (`e3b0c442...`) and stderr contains only the normal
-module/data notices (`8db5d05b...`). Centralized stderr contains only the known
-Torch FX and spconv multidimensional-indexing warnings, with no exception.
+It reached 1000 accepted updates in 1003 attempts. After the same three initial
+overflows, all 990 measured windows accepted at scale 64. Accounting is exact:
+1003 attempted/loss-evaluated, 1000 successful/optimizer/scheduler/exposure, three
+overflow/invalid, zero direct-nonfinite/discarded/pending. Aggregate horizon loss
+is finite but is not a convergence gate.
 
-| Artifact | SHA-256 |
+| Metric | Result |
+|---|---:|
+| combined p50 / p95 | 178.024 / 203.231 ms |
+| accepted throughput | 5.542 samples/s |
+| steady wall/update over 990 windows | 180.425 ms |
+| steady epoch estimate | 1.409821 h |
+| data-wait share | 0.096934% |
+| peak allocated / reserved / headroom | 4.765 / 8.314 / 86.686 GiB |
+| p95/p50 | 1.141594 |
+
+| Stage | Mean / p50 / p95 (ms) |
 |---|---|
-| readiness report | `e61c1f6e6761a74b787dcdf9303fd1911868e44ebf1e5195765a2214396968b8` |
-| readiness validation | `27bf64b2eed8025050b7af0669ba1863843b91a2087a0257d041dc6157cb12f8` |
-| artifact manifest | `6b90ae38427bb6efaa043f1a7c93432473cade8862ea5d1f9e432e87003107b3` |
-| runtime dependencies | `0755df255eb69d1501bdfa183f996b33dd3ffb6bad45393ef7f5fa041d722a3c` |
-| resolved-config artifact | `15e998cd0669c431c510a765a33c1171966b5e33220434810e59d810734d6eb1` |
-| execution / config identities | `61151539... / d4de4fe8...` |
-| GPU telemetry / alignment | `2ac8c0d0... / 531613e4...` |
-| centralized stdout / stderr | `7dbb4fc0... / 410f5448...` |
+| H2D | 0.274 / 0.267 / 0.344 |
+| Forward | 86.904 / 86.730 / 91.957 |
+| Loss | 11.451 / 11.405 / 14.715 |
+| Backward | 74.820 / 72.237 / 93.902 |
+| Optimizer/scheduler/EMA | 6.049 / 6.017 / 6.361 |
+| CUDA integrated | 180.157 / 177.805 / 203.070 |
 
-The in-job identity binds source/tree and config, GH200 node `n119`, aarch64
-Python `3.11.15`, Torch `2.11.0+cu128` / CUDA `12.8`, spconv `2.3.8`, cumm
-`0.7.13`, accepted train/val `t1.v2` caches, ten sweeps and the accepted ZIP
-manifest. Runtime-dependency and execution identities are `3e900c90...` and
-`23450c00...`, preserving the accepted runtime/data contract.
+One-Hz GPU utilization mean/p50/p95/max is `47.56/51/74.1/100%`; only
+`2.51%` of samples are at least 80%. Memory use p50 is about 9.43 GiB.
+Therefore the current B=1 tuple does not fully utilize GH200. Negligible data wait
+makes the loader an unlikely steady bottleneck, but 1-Hz/stage timing cannot name
+a specific kernel or branch.
 
-### G1000 lifecycle health
+## Final interpretation
 
-The lifecycle reached 1000 successful optimizer updates in 1003 attempts, well
-inside the 1020 cap. Attempts one through three performed the expected persistent
-GradScaler backoff `512 -> 256 -> 128 -> 64`; after ten accepted warm-up updates
-at attempt 13, every one of 990 measured windows was accepted at scale 64.
+S09 establishes exact production cache identity, bounded loader readiness,
+100/1000-update lifecycle health, direct stage timing, memory capacity and two
+output-neutral speed improvements. It does not establish convergence,
+generalization, recipe/batch selection, model quality, mAP/NDS, fusion gain,
+multi-seed capability, full GH200 utilization, Protocol A/B, FL, attack or defense.
 
-Terminal accounting reconciles exactly: 1003 attempted microbatches/samples/
-windows and loss-evaluated samples, 1000 successful windows/optimizer steps/
-exposure samples, three overflow/invalid windows, and zero direct-nonfinite,
-discarded or pending windows/samples. Scheduler `last_epoch=1000`; EMA is absent.
-The horizon-average aggregate loss is finite (`19.640391`). It is lower than the
-short G100 horizon average, but there is no validation metric or loss-trajectory
-gate here, so this is not convergence or model-quality evidence.
-
-### Steady performance, memory and epoch estimate
-
-The fail-closed validator recomputes the pairwise `(data_wait + CUDA window)`
-distribution over 990 accepted measured windows. Every frozen gate passes:
-
-| Metric | STOP-3 reference | STOP-4C G100 | STOP-4D G1000 |
-|---|---:|---:|---:|
-| Combined p50 | `208.745739 ms` | `183.215146 ms` | `178.024250 ms` |
-| Combined p95 | `224.326678 ms` | `217.673521 ms` | `203.231362 ms` |
-| Accepted throughput | `4.743432 samples/s` | `5.237023 samples/s` | `5.542467 samples/s` |
-| Steady epoch estimate | `1.647307 h` | `1.492048 h` | `1.409821 h` |
-| Combined p95/p50 | `1.074641` | `1.188076` | `1.141594` |
-| Data-wait share | `0.076355%` | `0.099441%` | `0.096934%` |
-| Peak allocated / reserved | `3.256 / 6.434 GiB` | `4.764 / 8.361 GiB` | `4.765 / 8.314 GiB` |
-
-Relative to G100, the longer steady sample improves p50/p95 latency by
-`2.83%/6.63%`, throughput by `5.83%`, and the epoch estimate by `5.51%`.
-Relative to STOP-3, the corresponding changes are `14.72%/9.40%`, `+16.85%`,
-and `-14.42%`. Cross-run variation prevents treating the extra G1000 improvement
-as another code speedup; the durable conclusion is no regression and stable
-optimized behavior across the longer window.
-
-| CUDA-event stage | Mean (ms) | p50 (ms) | p95 (ms) |
-|---|---:|---:|---:|
-| H2D | `0.274271` | `0.266976` | `0.344259` |
-| Forward | `86.903799` | `86.730446` | `91.956580` |
-| Loss | `11.451489` | `11.404656` | `14.714667` |
-| Backward | `74.819702` | `72.236893` | `93.902079` |
-| Optimizer/scheduler/EMA | `6.048701` | `6.016848` | `6.360600` |
-| CUDA-only integrated window | `180.157168` | `177.805153` | `203.070365` |
-
-The 990-window measurement lasted `178.621 s`, or `180.425 ms` wall time per
-accepted update. The complete training section, including cold/scaler-backoff
-windows, lasted `205.592 s`. One-time setup before training was `119.272 s`,
-dominated by runtime/data identity checks. Peak reserved memory leaves
-`86.686 GiB` of reported headroom and remains far below the 86-GiB reserved cap.
-
-### Coarse GH200 utilization and limits
-
-The one-Hz alignment contains 199 samples during the 205.6-second training
-interval. GPU utilization mean/p50/linear-p95/max is
-`47.56% / 51% / 74.1% / 100%`; utilization is nonzero in `91.96%`, at least
-50% in `53.27%`, and at least 80% in `2.51%` of samples. Memory used has
-mean/p50/p95/max `8,973 / 9,429 / 9,429 / 9,429 MiB`; power mean/p50/p95/max is
-`219.31 / 227.18 / 232.79 / 275.05 W`. Boundaries retain up to one-second
-uncertainty.
-
-The longer interval shows more continuous B1 utilization than the short G100,
-but it still does not make full use of GH200: median utilization is about 51% and
-only 2.5% of samples reach at least 80%. Data wait remains negligible, pointing
-away from the loader and toward B1 model/kernel granularity without proving one
-specific kernel or branch cause. B2/B4 capacity evidence remains for S10 recipe
-selection, not an S09 batch-size change.
-
-STOP-4D is an independently reviewed bounded engineering PASS. Final closure
-review of evidence `54e45c5` plus documentation remediation `5e5d9a9` returned
-`PASS_WITH_RESIDUAL_RISK / no open P0-P3 / STOP-4 closure GO / S09 owner-ready`.
-It proves stable lifecycle/accounting and retained performance over 1000 accepted
-updates for the exact single-seed B1 tuple. It does not prove convergence,
-generalization, recipe or batch-size quality, mAP/NDS, model quality, per-kernel
-causality, Protocol A/B, FL, attack or defense. At review seal, owner S09
-acceptance/closure and any S10 envelope remained separate decisions. O-120 now
-accepts review seal `ced5992` and closes S09 PASS with every limitation above
-intact; integration and S10 execution remain separately owner-gated.
+The stable optimizer windows do not explain or reduce the large true SECOND
+gradients; dynamic scaling only protects scaled arithmetic. That root-cause work
+belongs to the accepted S10 work definition, whose exact envelope remains
+unapproved.
