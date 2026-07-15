@@ -52,7 +52,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3 + O-119 STOP-4
 APPROVED_COMPUTE: O-119 STOP-4A <=00:30:00 + STOP-4C <=00:30:00 + conditional STOP-4D <=01:00:00 / serial <=2 GPU-hours / no retry
 APPROVED_SUBMISSIONS: prior STOP-1/2/3/4A/4C consumed; prospective conditional STOP-4D after exact freeze/review
-ACTIVE_REQUEST: STOP-4D exact 5642884 tuple independently reviewed SUBMIT GO / not yet submitted / no retry
+ACTIVE_REQUEST: STOP-4D exact 5642884 tuple submitted once as Job 456539 / no retry
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-4 implementation/request/evidence/review remediation within O-119
 STOP2_REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -1107,6 +1107,9 @@ RESOURCE: one GH200 / 16 CPU / 96 GiB / 01:00:00 / <=1 GPU-hour
 SUBMISSIONS: exactly one conditional on reviewed STOP-4C PASS / no retry
 O119_ACTUAL_PLUS_STOP4D_CEILING: 0.230000 used + 1.000000 <= 1.230000 / 2.000000 GPU-hours
 REQUEST_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / SUBMIT GO
+JOB_ID: 456539
+SUBMIT_TIME: 2026-07-15T14:45:13+02:00
+SUBMISSION_COUNT: 1 / exact tuple / no retry
 ```
 
 The sole prospective command is:
