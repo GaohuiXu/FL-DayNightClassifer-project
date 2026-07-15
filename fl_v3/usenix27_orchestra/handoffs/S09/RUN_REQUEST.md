@@ -35,8 +35,10 @@
 > STOP-4C request seal `131619f` received `REMEDIATE / SUBMIT NO-GO` and was
 > never submitted: its old runner did not fail-close the recorded performance
 > gates. That tuple and wrapper are forbidden. A source-level runner remediation
-> passed immutable review. A completely new exact source/snapshot/config/wrapper/
-> output tuple is frozen below and remains unsubmitted pending request review.
+> passed immutable review. Its completely new replacement tuple produced Job
+> `455539`, which completed `0:0` and independently closed PASS with no retry. The
+> separate STOP-4D source/snapshot/config/wrapper/output tuple is frozen below and
+> remains unsubmitted pending exact request review.
 
 ## Authorization state
 
@@ -52,7 +54,7 @@ APPROVED_COMPUTE: O-119 STOP-4A <=00:30:00 + STOP-4C <=00:30:00 + conditional ST
 APPROVED_SUBMISSIONS: prior STOP-1/2/3/4A/4C consumed; prospective conditional STOP-4D after exact freeze/review
 ACTIVE_REQUEST: STOP-4D exact 5642884 tuple frozen / independent request review pending / not submitted / no retry
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-4 implementation/request/evidence/review remediation within O-119
-REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
+STOP2_REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
 ```
 
@@ -1023,7 +1025,7 @@ health and quantify checkpoint-off plus source-proven synchronization removal. I
 cannot establish convergence, recipe quality, mAP/NDS, fusion gain, backward
 branch attribution, multi-seed behavior, Protocol A/B, FL, attack, or defense.
 
-#### STOP-4C replacement exact tuple — consumed by Job 455539 / evidence review remediation pending
+#### STOP-4C replacement exact tuple — consumed by Job 455539 / independently closed PASS
 
 ```text
 RUNNER_REMEDIATION_SHA/TREE: 72a09d5a503a258f3f257b208180585d16ee49d0 / 887d275b71a7f6ccd34cf67188e9fac0843393c1
