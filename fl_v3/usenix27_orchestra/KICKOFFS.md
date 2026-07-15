@@ -9,9 +9,10 @@
 > four-stop engineering-readiness direction and defers branch/training-recipe
 > selection to S10. O-112 STOP-1 Job `441191` consumed its sole submission and
 > completed `0:0` in `00:03:06`. Independent review passed raw evidence but
-> returned `REMEDIATE` for P2/P3 durable provenance/status wording; bounded
-> documentation re-review is pending. STOP-2, retry, push, and merge remain
-> unauthorized.
+> returned `REMEDIATE` for P2/P3 durable provenance/status wording.
+> Documentation-only remediation SHA `5252a59` closed every finding under bounded
+> re-review and received `PASS_WITH_RESIDUAL_RISK`; owner STOP-1 acceptance is
+> pending. STOP-2, retry, push, and merge remain unauthorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

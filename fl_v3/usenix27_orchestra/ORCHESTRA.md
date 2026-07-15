@@ -31,8 +31,10 @@
 > completed `0:0` in `00:03:06`; train and val cache identities passed all in-job
 > and S00 post-job checks. Independent review found no P0/P1 and passed the raw
 > cache/source/job gates, but returned `REMEDIATE` for P2/P3 durable provenance/
-> status wording. A documentation-only linear candidate awaits bounded re-review.
-> STOP-2, retry, merge, push, attack, and defense remain unauthorized.
+> status wording. Documentation-only remediation SHA `5252a59` closed every
+> finding under bounded re-review and received `PASS_WITH_RESIDUAL_RISK`. Owner
+> STOP-1 acceptance is pending. STOP-2, retry, merge, push, attack, and defense
+> remain unauthorized.
 >
 > Canonical companions: [`SESSIONS.md`](SESSIONS.md) and
 > [`KICKOFFS.md`](KICKOFFS.md). `fl_v3/collab/**`,
@@ -332,9 +334,10 @@ does not broaden scientific, Git, compute, upload, or publication authority.
   generalization, or paper claims.
 - O-112 STOP-1 Job `441191` materialized exact read-only train/val `t1.v2`,
   `n_sweeps=10` caches. Raw cache/source/job evidence passed independent review;
-  its P2/P3 durable-provenance wording remediation must be immutably re-reviewed
-  before these files are production-bound. Historical Job `332651` `t1.v1`
-  caches remain coverage evidence only and forbidden production inputs.
+  bounded re-review of documentation-only remediation SHA `5252a59` closed every
+  P2/P3 finding and returned `PASS_WITH_RESIDUAL_RISK`. Owner STOP-1 acceptance
+  remains required before downstream production binding. Historical Job `332651`
+  `t1.v1` caches remain coverage evidence only and forbidden production inputs.
 
 ## 8. Owner decisions and freeze points
 
@@ -405,7 +408,7 @@ O-ledger authority; closed ranges below are provenance.
 | O-109 | Set the persistent completion goal to finish Q1 primary, the minimal required Q2 L-P020/F-CBGS compatibility gate, independent evidence review, and a close-ready S08 linear commit state. Authorize all exact in-scope commits and Slurm submissions once their immutable tuples are recorded, with cumulative one-GPU elapsed allocation across all new Q1/Q2 jobs capped at two GPU-hours. Short earlier jobs leave only their unused elapsed budget for later jobs. The simplified O-107 mechanical workflow applies to obvious non-scientific defects, but no scientific cell/seed/data/resource expansion or silent reinterpretation is allowed. Forbid work-chain/harness expansion, merge, push, S09 execution, attacks, and defenses. | consumed S08 completion authority |
 | O-110 | Accept reviewed S08 close-ready seal `d31adea049c84e47a0e4f82f38f22a2ca91a5a6f` and R3 `PASS_WITH_RESIDUAL_RISK`; freeze global FP16 for camera/dense-pillar, global FP16 with explicit SECOND/spconv FP32 island for sparse LiDAR/fusion, and uniform FP32 as reference/fallback; reject full sparse FP16 as the unified F-capable route; close S08 PASS; authorize a fast-forward-only integration into `v3-ad-perception`; open S09 discussion after its reading gate. No S09 compute, merge commit, push, attack, or defense is authorized. | accepted S08 close / active S09 discussion gate |
 | O-111 | Accept closing commit `28f79802c0868afa6290d74ae6aeb9d23c7d088f` as the S09 base; accept the streamlined four-stop S09 direction; define S09 as engineering optimization/readiness of the current model/code under the O-110 precision policy; defer branch and scientific training-recipe selection, including any sparse-normalization amendment, to S10. At each future stop the owner will review one exact plan plus Git/Slurm authority and GPU quota; after that approval S00 creates a concrete goal and works continuously to the stop boundary. This decision authorizes envelope/document preparation only, not S09 implementation, commit, Slurm execution, retry, merge, push, attack, or defense. | active S09 envelope gate |
-| O-112 | Accept the S09 four-stop envelope and start `STOP-1 DATA`; authorize S00 to create the bounded STOP-1 goal, seal the envelope/request/evidence in linear commits, derive and record the exact immutable source/snapshot, command/script hashes and fresh output from the accepted `28f7980` base, then submit exactly one full-trainval metadata-only `t1.v2`, `n_sweeps=10` train/val cache job on one GH200 with eight CPUs, 96 GiB host memory, `00:30:00`, and at most 0.5 GPU-hours. Job `441191` consumed the sole submission and completed `0:0` in `00:03:06`; no retry occurred. Independent review passed raw cache/source/job evidence but returned `REMEDIATE` for P2/P3 durable provenance/status wording; a documentation-only candidate awaits bounded re-review. No payload extraction/scan, model, loader/profile, STOP-2 implementation, merge, push, attack, or defense is authorized. | consumed S09 STOP-1 compute / doc remediation re-review pending |
+| O-112 | Accept the S09 four-stop envelope and start `STOP-1 DATA`; authorize S00 to create the bounded STOP-1 goal, seal the envelope/request/evidence in linear commits, derive and record the exact immutable source/snapshot, command/script hashes and fresh output from the accepted `28f7980` base, then submit exactly one full-trainval metadata-only `t1.v2`, `n_sweeps=10` train/val cache job on one GH200 with eight CPUs, 96 GiB host memory, `00:30:00`, and at most 0.5 GPU-hours. Job `441191` consumed the sole submission and completed `0:0` in `00:03:06`; no retry occurred. Independent review passed raw cache/source/job evidence but returned `REMEDIATE` for P2/P3 durable provenance/status wording; documentation-only remediation SHA `5252a59` closed every finding under bounded re-review and received `PASS_WITH_RESIDUAL_RISK`. Owner STOP-1 acceptance is pending. No payload extraction/scan, model, loader/profile, STOP-2 implementation, merge, push, attack, or defense is authorized. | consumed S09 STOP-1 compute / reviewed owner stop pending |
 
 ## 10. Closed and consumed history
 

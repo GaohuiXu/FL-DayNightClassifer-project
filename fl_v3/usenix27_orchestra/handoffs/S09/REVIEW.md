@@ -266,3 +266,92 @@ errors. Correct the exact Git fields and the P3 active-status drift in a new
 linear documentation/evidence commit, then request a bounded re-review. No cache
 rebuild, Slurm retry, payload scan, STOP-2 implementation, merge, or push is
 authorized or warranted by this verdict.
+
+---
+
+## Bounded re-review amendment — remediation SHA `5252a591983abb0013f19547e1d6ad20d3d6661f`
+
+### Re-review identity and scope
+
+- Reviewed remediation commit:
+  `5252a591983abb0013f19547e1d6ad20d3d6661f`, tree
+  `5f396625bace658a5538850077619a981f721248`.
+- Exact remediation diff:
+  `b35591b1a9ac64ea50ee3ad3257304baef07f8de..5252a591983abb0013f19547e1d6ad20d3d6661f`.
+- Preflight matched the requested state: branch
+  `codex/s08-s09-cl-readiness`, exact remediation HEAD, and a clean worktree
+  before this review-only amendment.
+- The remediation changes only nine documentation/evidence files. There are no
+  changes under `fl_v3/src/`, `fl_v3/scripts/`, `fl_v3/configs/`, or
+  `fl_v3/tests/`; `git diff --check` passes.
+- This re-review did not run compute, rebuild either cache, scan sensor payloads,
+  repeat the full token/reference audit, or authorize any later S09 stop.
+- This amendment supersedes the first-review **REMEDIATE** gate verdict while
+  preserving its findings, evidence analysis, and interpretation limits as
+  immutable review history.
+
+### Re-review findings, severity first
+
+- **P0: none.**
+- **P1: none.**
+- **P2: none.** The two prior immutable-provenance defects are closed.
+- **P3: none.** The two prior active-document status drifts are closed.
+
+### Prior-finding closure
+
+| Prior finding | Re-review disposition |
+|---|---|
+| P2 — nonexistent request SHA in `RESULTS.md` | **CLOSED.** The active S09 package now records the actual request commit `d4b64964f56738ec388a39c277f01b3d45a4eeee`; the object exists and has execution-source parent `1f276b9d2cc54f705b0b6800a573258707711045`. |
+| P2 — `HANDOFF.md` conflated the accepted base and current evidence state | **CLOSED.** `HANDOFF.md`, `RUN_REQUEST.md`, and `RESULTS.md` now distinguish `BASE_SHA=28f79802c0868afa6290d74ae6aeb9d23c7d088f`, `EXECUTION_SOURCE_SHA=1f276b9d2cc54f705b0b6800a573258707711045`, `REQUEST_COMMIT=d4b64964f56738ec388a39c277f01b3d45a4eeee`, and `FIRST_EVIDENCE_SHA=b35591b1a9ac64ea50ee3ad3257304baef07f8de`. |
+| P3 — active docs still described full trainval `t1.v2` materialization as pending | **CLOSED.** `AGENTS.md`, `docs/env.md`, and the active Orchestra records now state that O-112 Job `441191` materialized the exact train/val caches and that only documentation re-review/owner acceptance remained at this SHA. |
+| P3 — `docs/env.md` still described S08 precision qualification as open | **CLOSED.** It now records the accepted O-110 FP16 policy, including the sparse-LiDAR FP32 island and unresolved true SECOND gradient-scale risk. |
+
+### Adversarial re-checks
+
+- The four provenance layers are mutually consistent across the active S09
+  handoff package and correspond to real Git objects. The earlier incorrect SHA
+  and `BASE_AND_CURRENT_HEAD` wording remain only inside the preserved first
+  review as descriptions of the defects that were found.
+- The remediation does not alter Job `441191`, its raw output, the approved O-112
+  tuple, cache contents, manifest contents, source/runtime snapshot, resource
+  accounting, requested cells, or any STOP-1 gate threshold.
+- Re-checking the small frozen identity artifacts reproduced these SHA-256 values:
+  `execution_identity.json` =
+  `89a4371211a2c1dba852d60f4296059ee423b6d6525a552adbc1033c241a3c60`,
+  `runtime_source_sha256s.txt` =
+  `c44db468cb65aaedab7152202ca49056147119b9ef970ffd191fdeeb4258bca8`,
+  `cache_identity.json` =
+  `7b906f885b0c13b879ff0bbd4e34d2bfc2a056605046a42baa813b1bad839250`,
+  and `sha256sums.txt` =
+  `4f48ea4e7ebfc9427a4cf649e3b3826feb0b529f7a56af011b4e1b78a8f5f2ef`.
+  The frozen output still contains eight regular files, zero writable entries,
+  and zero symlinks.
+- Canonical status text consistently characterizes the remediation as
+  documentation/provenance-only. It does not convert inherited evidence into a
+  new job, hide an omitted cell, weaken a gate, or reinterpret the cache as
+  payload/performance/scientific evidence.
+- STOP-2 remains explicitly unapproved. This review records no STOP-2 source,
+  request, job, or permission and grants none.
+
+### Accepted gate and remaining boundary
+
+The STOP-1 data/provenance gate is accepted at the reviewed remediation SHA. The
+exact train and val `t1.v2`, `n_sweeps=10` cache artifacts may be proposed for
+downstream production binding only with their canonical, pickle, and sidecar
+hashes plus the accepted manifest logical and physical hashes. The owner may now
+inspect/accept STOP-1 and separately discuss a future exact STOP-2 envelope.
+
+The four residual risks from the first review remain unchanged and non-blocking
+for this bounded gate: no new full train/val token/reference overlap audit was
+performed; the loaded module tables do not have a separate per-table
+cryptographic source manifest; pickle loading remains trusted-local and requires
+physical-hash verification; and STOP-1 provides no sensor-payload, loader,
+contention, model-performance, stability, metric, or scientific evidence.
+
+## Re-review final verdict
+
+**PASS WITH RESIDUAL RISK.** The prior P2 and P3 findings are closed, no new
+P0-P3 finding is present, and no cache rebuild or Slurm rerun is warranted. This
+verdict accepts only the exact STOP-1 cache-materialization and provenance gate
+within the limits above. It does not authorize STOP-2, additional compute, merge,
+push, or any scientific interpretation.

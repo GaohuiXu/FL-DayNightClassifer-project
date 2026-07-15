@@ -191,10 +191,12 @@ worker `abe5c58b174dbbe1f7045ce91c8b15168d97b87b`; the separate review artifact 
 `7cf7fcc4b17d43806f1a134cf8c8a7b6868aa5bc`. S07-A migrated the permission-out GT
 database caller to explicit `t1.v2` depth/cache/manifest validation. O-112 S09
 STOP-1 Job `441191` subsequently materialized exact read-only train/val `t1.v2`,
-`n_sweeps=10` caches and passed the execution/cache/hash gates. Independent review
-found only durable Git/status-provenance wording that must be corrected and
-re-reviewed before production binding; this is still not model/full-data
-readiness. Do not extract/duplicate the dataset or submit further full-data jobs
+`n_sweeps=10` caches and passed the execution/cache/hash gates. Bounded independent
+re-review at remediation SHA `5252a591983abb0013f19547e1d6ad20d3d6661f`
+closed the documentation-provenance findings and returned
+`PASS_WITH_RESIDUAL_RISK`; owner STOP-1 acceptance is still required before
+downstream production binding. This is not model/full-data readiness. Do not
+extract/duplicate the dataset or submit further full-data jobs
 without exact permission. O-009 covers only a recorded bounded
 engineering smoke (one node/GPU, at most 60 minutes/job, one concurrent job, two
 cumulative GPU-hours); it did not authorize Job `441191` and does not authorize an

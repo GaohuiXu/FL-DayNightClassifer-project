@@ -8,12 +8,13 @@ OWNER_AUTHORITY: O-112
 EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
 FIRST_EVIDENCE_SHA: b35591b1a9ac64ea50ee3ad3257304baef07f8de
+REVIEWED_REMEDIATION_SHA: 5252a591983abb0013f19547e1d6ad20d3d6661f
 JOB_ID: 441191
 JOB_STATE/EXIT/RESTARTS: COMPLETED / 0:0 / 0
 NODE/ELAPSED/LIMIT: n125 / 00:03:06 / 00:30:00
 ACTUAL_GPU_HOURS: 0.051667
 SUBMISSIONS: 1 / approval consumed / no retry
-RESULT: TERMINAL TECHNICAL PASS / FIRST REVIEW REMEDIATE FOR DOC PROVENANCE ONLY
+RESULT: TERMINAL / INDEPENDENT PASS_WITH_RESIDUAL_RISK / OWNER ACCEPTANCE PENDING
 ```
 
 Job `441191` consumed the only O-112 submission and completed both requested
@@ -111,9 +112,10 @@ or missing output.
 ## Interpretation boundary
 
 This terminal PASS establishes exact production cache identities for the current
-metadata/geometry implementation and accepted manifest. After independent review,
+metadata/geometry implementation and accepted manifest. Independent re-review
+accepted the bounded gate with residual risk. After owner STOP-1 acceptance,
 these exact physical files plus their canonical and physical hashes may be bound
-as S09 inputs.
+as later S09 inputs.
 
 It does **not** prove sensor-payload decode parity, DataLoader throughput, model
 performance/readiness, convergence, mAP/NDS, scientific recipe quality, Protocol

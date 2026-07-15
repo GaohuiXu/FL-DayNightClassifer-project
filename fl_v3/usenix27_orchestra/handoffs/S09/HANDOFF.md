@@ -4,7 +4,7 @@
 
 ```text
 SESSION_ID: S09
-MILESTONE_STATE: STOP-1 RAW EVIDENCE PASS / DOC-PROVENANCE REMEDIATION / RE-REVIEW PENDING
+MILESTONE_STATE: STOP-1 REVIEWED PASS_WITH_RESIDUAL_RISK / OWNER ACCEPTANCE PENDING
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
@@ -15,7 +15,7 @@ S09_SCOPE_DECISION: O-111
 IMPLEMENTATION_COMMIT: none
 APPROVED_COMPUTE: STOP-1 Job 441191 consumed / no active compute
 JOBS: 441191 COMPLETED 0:0 in 00:03:06 / no retry
-INDEPENDENT_REVIEW: b35591b REMEDIATE / P2-P3 docs only / raw evidence PASS
+INDEPENDENT_REVIEW: 5252a59 PASS_WITH_RESIDUAL_RISK / no open P0-P3
 ```
 
 This file records the accepted S09 execution envelope. The owner accepted
@@ -27,9 +27,11 @@ commits plus one bounded cache-materialization submission. Job `441191` consumed
 that submission and is terminal PASS at the execution/evidence level; independent
 data/provenance review found no P0/P1 and passed the raw source/cache/job gates,
 but returned `REMEDIATE` for one nonexistent request SHA, a stale current-HEAD
-label, and active status drift. The candidate now corrects only those durable
-records and requires bounded re-review before owner STOP-1 acceptance. STOP-2
-through STOP-4 still require their own owner-reviewed plan and Git/Slurm authority.
+label, and active status drift. Documentation-only remediation SHA `5252a59`
+corrected those records; bounded re-review closed every P2/P3 finding and returned
+`PASS_WITH_RESIDUAL_RISK`. The package now awaits owner STOP-1 inspection and
+acceptance. STOP-2 through STOP-4 still require their own owner-reviewed plan and
+Git/Slurm authority.
 
 ## S08 residual carried into S09
 

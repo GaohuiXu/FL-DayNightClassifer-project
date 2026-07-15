@@ -3,7 +3,9 @@
 > **Ledger state:** O-112 STOP-1 was submitted exactly once as Job `441191` and is
 > terminal technical PASS. The submission authority is consumed. First review
 > passed raw evidence but returned `REMEDIATE` for durable documentation
-> provenance; bounded re-review is pending and no later stop is authorized.
+> provenance; bounded re-review at `5252a59` closed every finding and returned
+> `PASS_WITH_RESIDUAL_RISK`. Owner STOP-1 acceptance is pending and no later stop
+> is authorized.
 
 ## Authorization state
 
@@ -17,7 +19,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112 STOP-1 execution
 APPROVED_COMPUTE: STOP-1 only / <=0.5 GPU-hours
 APPROVED_SUBMISSIONS: 1 / consumed by Job 441191
-ACTIVE_REQUEST: none / S09-STOP1-DATA technical PASS / doc remediation re-review pending
+ACTIVE_REQUEST: none / S09-STOP1-DATA reviewed PASS_WITH_RESIDUAL_RISK / owner decision pending
 IMPLEMENTATION_COMMIT_AUTHORITY: no production implementation; linear STOP-1 docs/evidence commits allowed
 MERGE_OR_PUSH_AUTHORITY: none
 ```
@@ -38,7 +40,7 @@ conditional next stop is implicit.
 ## STOP-1 — production `t1.v2` cache identity
 
 ```text
-REQUEST_STATE: CONSUMED / TERMINAL TECHNICAL PASS / FIRST REVIEW DOC-REMEDIATE
+REQUEST_STATE: CONSUMED / TERMINAL / REVIEWED PASS_WITH_RESIDUAL_RISK
 OBJECTIVE: materialize and attest exact train/val t1.v2 caches for n_sweeps=10
 MODEL_OR_TRAINING: none
 RESOURCE_CEILING: 1 GH200 / 8 CPU / 96 GiB host / 00:30:00 / 0.5 GPU-hours
@@ -175,6 +177,12 @@ Both requested splits completed. Exact cache/log/artifact identities and the
 allowed/forbidden interpretation are recorded in `RESULTS.md`. O-112's compute
 authority is exhausted even though the job used only 0.051667 of its 0.5-GPU-hour
 ceiling; unused time is not retry or later-stop authority.
+
+Documentation-only remediation SHA
+`5252a591983abb0013f19547e1d6ad20d3d6661f` corrected the first review's P2/P3
+provenance/status findings. Bounded independent re-review found no open P0-P3 and
+returned `PASS_WITH_RESIDUAL_RISK`; its residual risks and downstream hash-binding
+requirements are preserved in `REVIEW.md`.
 
 ## STOP-2 — minimal readiness instrumentation
 
