@@ -35,7 +35,8 @@
 > STOP-4C request seal `131619f` received `REMEDIATE / SUBMIT NO-GO` and was
 > never submitted: its old runner did not fail-close the recorded performance
 > gates. That tuple and wrapper are forbidden. A source-level runner remediation
-> is pending immutable review and a completely new exact request freeze.
+> passed immutable review. A completely new exact source/snapshot/config/wrapper/
+> output tuple is frozen below and remains unsubmitted pending request review.
 
 ## Authorization state
 
@@ -49,7 +50,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3 + O-119 STOP-4
 APPROVED_COMPUTE: O-119 STOP-4A <=00:30:00 + STOP-4C <=00:30:00 + conditional STOP-4D <=01:00:00 / serial <=2 GPU-hours / no retry
 APPROVED_SUBMISSIONS: prior STOP-1/2/3 and STOP-4A consumed; prospective STOP-4C plus conditional STOP-4D after each exact freeze/review
-ACTIVE_REQUEST: STOP-4C old tuple 131619f invalid/never submitted / runner remediation 72a09d5 reviewed no open P0-P3 / new exact freeze pending
+ACTIVE_REQUEST: STOP-4C old tuple 131619f invalid/never submitted / replacement c776990 source tuple frozen / independent request review pending / not submitted
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-4 implementation/request/evidence/review remediation within O-119
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -826,7 +827,7 @@ Unused Phase A or Phase B time is not retry, extra-cell, STOP-4 or other authori
 ## STOP-4 — O-119 optimize/G1000/close envelope
 
 ```text
-REQUEST_STATE: OWNER-APPROVED O-119 / STOP-4A JOB 452520 PASS / STOP-4B REVIEW CLOSED / STOP-4C REQUEST 131619f REMEDIATE + SUBMIT NO-GO / NEVER SUBMITTED / REPLACEMENT PENDING
+REQUEST_STATE: OWNER-APPROVED O-119 / STOP-4A JOB 452520 PASS / STOP-4B REVIEW CLOSED / OLD STOP-4C 131619f SUBMIT NO-GO + NEVER SUBMITTED / REPLACEMENT TUPLE FROZEN + REQUEST REVIEW PENDING
 OWNER_DECISION: O-119
 SERIAL_GPU_CEILING: 2 cumulative GH200-hours
 RETRIES: none
@@ -1021,6 +1022,50 @@ the accepted O-110 precision partition. It may establish retained 100-update
 health and quantify checkpoint-off plus source-proven synchronization removal. It
 cannot establish convergence, recipe quality, mAP/NDS, fusion gain, backward
 branch attribution, multi-seed behavior, Protocol A/B, FL, attack, or defense.
+
+#### STOP-4C replacement exact tuple — pending independent request review
+
+```text
+RUNNER_REMEDIATION_SHA/TREE: 72a09d5a503a258f3f257b208180585d16ee49d0 / 887d275b71a7f6ccd34cf67188e9fac0843393c1
+RUNNER_REMEDIATION_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / closure GO
+EXECUTION_SOURCE_SHA: c7769901201b8c507997dfa9ff5154fbe6dbb297
+EXECUTION_SOURCE_TREE: 1e2c4464d2582d81e7ef7fef4740c764d0a48e8c
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop4c_g100_c7769901201b
+SNAPSHOT_REF_MODE: detached / clean / self-contained / no alternates / zero writable worktree entries / executable modes preserved
+SNAPSHOT_TRACKED_FILES/BYTES: 600 / 5024857
+CONFIG: fl_v3/configs/s09_stop4c_f_u_g100.json
+CONFIG_FILE_SHA256: 8ca905ade59214822d9c5b894c02786af77f6f531299ed1ca25caf51d00a35ce
+RESOLVED_CONFIG_SHA256: afcd002184e35158e129353dfb9b621c390555b5927a37fa5f5acd9547538980
+RUNNER: fl_v3/scripts/run_s09_stop4c_g100.sh
+RUNNER_SHA256: a899deb5a8a68541d2e7b361c816ae49bd873b16b3c18030e0fc54c65717daa5
+CENTRALIZED_TRAIN_SHA256: 3dffb4fe70ab2c82ac0192a07b3bcebfbca5232e85c1e32f4e6e4a44b783530f
+ARRHENIUS_ENV_SHA256: a56758d72096a65708352e155d1c72adf261ae6cdaf5a56a38f7d2dd5472648f
+DATA/MODEL/PRECISION/RECIPE/CELL/BOUNDS/GATES: exactly unchanged from the reviewed replacement contract above
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop4c_g100_c7769901201b_a1
+JOB_NAME: flv3_s09_stop4c_g100
+STDOUT/STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop4c_g100_c7769901201b_%j.{out,err}
+SUBMIT_SCRIPT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop4c_g100_c7769901201b/submit.sh
+SUBMIT_SCRIPT_SHA256: e44db31b1dd14960d346e4df5bcfdf108cedfdaa7561a6559dc2658b9e0d87a9
+RESOURCE: one GH200 / 16 CPU / 96 GiB / 00:30:00 / <=0.5 GPU-hours
+CUMULATIVE_O119: STOP-4A used 0.161667 GPU-hours; STOP-4C+4D ceilings total <=1.661667 GPU-hours
+SUBMISSIONS: exactly one after independent exact-request GO / no retry
+REQUEST_REVIEW: pending / do not submit before independent GO
+```
+
+The sole prospective replacement command is:
+
+```bash
+bash /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop4c_g100_c7769901201b/submit.sh
+```
+
+This is not a retry: the superseded tuple never submitted a job. The new snapshot
+was cloned from the reviewed closure source and frozen by removing write bits
+without changing Git executable modes; it is detached, clean and read-only. The
+mode-0555 wrapper's safe prefix passes and binds all content hashes above, fresh
+output, and an empty exact-name queue. It contains one non-requeue `sbatch` with
+the unchanged O-119 resources and passes the exact config hash into the runner.
+At freeze time the replacement output is absent and `squeue`/`sacct` contain no
+exact-name job. Any drift or request-review finding cancels this tuple.
 
 ### STOP-4D — fresh optimized G1000
 
