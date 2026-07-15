@@ -20,5 +20,6 @@ This is retained negative plumbing evidence, not evidence that the split is
 infeasible.
 
 No split, evaluator, model, recipe or performance result is accepted yet. A
-strictly derived O-124 debug/fix replacement is pending freeze. STOP-B and STOP-C
-have not started.
+strictly derived O-124 debug/fix replacement is frozen at source
+`3f7ab76f7043384705b109e40fd4c1d1fcde01ae`; execution is pending. STOP-B and
+STOP-C have not started.

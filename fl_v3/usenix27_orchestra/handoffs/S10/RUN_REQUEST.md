@@ -269,3 +269,42 @@ O-124 permits one fresh derived debug/fix allocation after the remediation is
 committed, snapshotted and frozen below. It is not an identical retry; Job
 `463593` remains the required negative result. The replacement consumes debug/fix
 slot 1/2 and submission 2/9, while the scientific-allocation count remains 1/7.
+
+## 8. STOP-A derived debug/fix tuple 1 — frozen under O-124
+
+```text
+TUPLE_STATE: FROZEN / executable once
+DERIVATION: exact §6 tuple plus only the §7 int32/cache-provider remediation
+SOURCE_SHA: 3f7ab76f7043384705b109e40fd4c1d1fcde01ae
+SOURCE_TREE: 32e2648defbb9a84763b1d993668139f78a2e0d4
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_fix1_3f7ab76f7043
+SNAPSHOT_MODE: detached / clean / read-only
+SNAPSHOT_TRACKED_FILES: 596
+SNAPSHOT_LS_TREE_SHA256: 3d96dcf9f8c0da62907e87952b2c666465ed39590c0a8ba0f396e9f0c0362ce6
+RUNNER_SHA256: 1c8761d4a749b573e4d9ff01975127bcc986441d676819b2a78e215ca56f9940
+GATE_SCRIPT_SHA256: b52b13efb923c0154104e9ff8286be46fc173faf7b915a6ec3a51cc128cdf5df
+DATA/TESTS/CELLS/ORDER/GATES: identical to §6
+RESOLVED_CONFIG_SHA256: N/A — no model/config/training path
+RESOURCE: one node / one nvidia_gh200_120gb / 16 CPU / 96 GiB / 01:00:00
+ACCOUNT/PARTITION: naiss2025-22-1113-gpu / gpu
+CONCURRENCY/REQUEUE/ARRAY/DDP: one active / no-requeue / none / none
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_3f7ab76f7043_a2
+STDOUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_fix1_3f7ab76f7043_%j.out
+STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_fix1_3f7ab76f7043_%j.err
+SCIENTIFIC_ALLOCATIONS_CONSUMED_AFTER_SUBMIT: 1 / 7
+DEBUG_FIX_ALLOCATIONS_CONSUMED_AFTER_SUBMIT: 1 / 2
+ABSOLUTE_SUBMISSIONS_CONSUMED_AFTER_SUBMIT: 2 / 9
+```
+
+Canonical sorted compact JSON submission-envelope SHA-256:
+`9e5cc9a9860250d843344a8da58d41a45840f633e339371f3bf924b455980e77`.
+The exact command is:
+
+```bash
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G --gpus=nvidia_gh200_120gb:1 --time=01:00:00 --no-requeue --job-name=s10-stop-a-fix1-3f7ab76 --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_fix1_3f7ab76f7043 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_fix1_3f7ab76f7043_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_fix1_3f7ab76f7043_%j.err --export=ALL,S10_STOPA_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_fix1_3f7ab76f7043,S10_STOPA_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_3f7ab76f7043_a2,S10_STOPA_EXPECTED_SOURCE_SHA=3f7ab76f7043384705b109e40fd4c1d1fcde01ae,S10_STOPA_EXPECTED_TREE=32e2648defbb9a84763b1d993668139f78a2e0d4,S10_STOPA_EXPECTED_RUNNER_SHA256=1c8761d4a749b573e4d9ff01975127bcc986441d676819b2a78e215ca56f9940 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_fix1_3f7ab76f7043/fl_v3/scripts/run_s10_stop_a_gate.sh
+```
+
+All §6 PASS/fail-closed and interpretation limits remain unchanged. If the same
+dtype blocker recurs, this is a repeated blocker and autonomous execution stops.
+Any subsequent failure is classified from new evidence; it does not inherit
+permission for another change merely because one debug/fix slot remains.
