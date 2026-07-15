@@ -231,9 +231,11 @@ strictly derived no-retry replacement: Job `442152` established stable sparse
 build identities, and Job `446225` completed the production loader sweep and 100
 successful F-U updates in 103 attempts. Immutable evidence `c28d09c` received
 independent `PASS_WITH_RESIDUAL_RISK` with no P0-P2; documentation closure
-re-review found no open P0-P3. STOP-3 is owner-ready, but owner acceptance remains
-pending. O-118 compute is consumed; no cache retry, further S09 compute, or
-STOP-4 is currently authorized.
+re-review found no open P0-P3. O-119 owner-accepts/closes STOP-3 and authorizes
+the serial STOP-4A-D profiler/capacity/output-neutral-optimization/G100/
+conditional-G1000 envelope recorded in the active Orchestra request, capped at
+two cumulative GH200-hours with no retry. No cache retry, worker matrix, model or
+recipe change, DDP, merge, or push is authorized.
 Do not extract or duplicate the full dataset into project storage without
 explicit owner permission.
 The old `/mimer/NOBACKUP/Datasets/NuScenes_v1.0` path is not an Arrhenius data

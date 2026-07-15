@@ -195,6 +195,7 @@ def test_attempted_window_cap_records_overflow_without_relabeling_success():
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
     state = TrainingState()
     scaler = OverflowOnceScaler()
+    observed_windows = []
     metrics = train_one_epoch(
         model,
         _loader(5),
@@ -210,6 +211,7 @@ def test_attempted_window_cap_records_overflow_without_relabeling_success():
         expected_global_microbatch_samples=1,
         readiness_timing=True,
         readiness_warmup_successful_windows=0,
+        attempted_window_callback=lambda: observed_windows.append(state.attempted_windows),
     )
     assert state.attempted_windows == 3
     assert state.successful_windows == state.optimizer_step == 2
@@ -225,6 +227,7 @@ def test_attempted_window_cap_records_overflow_without_relabeling_success():
     # Two reads per enabled-scaler optimizer attempt plus the loop's pre-existing
     # terminal metrics read; readiness timing must not add its own scale syncs.
     assert scaler.get_scale_calls == 2 * state.attempted_windows + 1
+    assert observed_windows == [1, 2, 3]
 
 
 def test_readiness_timing_fails_closed_on_incompatible_state_or_options():
@@ -262,6 +265,13 @@ def test_readiness_timing_fails_closed_on_incompatible_state_or_options():
             model, _loader(2), torch.nn.MSELoss(), optimizer, torch.device("cpu"),
             readiness_timing=True, readiness_warmup_successful_windows=1,
             max_optimizer_steps=1,
+        )
+
+    model, optimizer = parts()
+    with pytest.raises(RuntimeError, match="restricted to S09 readiness"):
+        train_one_epoch(
+            model, _loader(2), torch.nn.MSELoss(), optimizer, torch.device("cpu"),
+            attempted_window_callback=lambda: None, max_optimizer_steps=1,
         )
 
 
@@ -342,6 +352,60 @@ def test_json_evidence_writer_refuses_nonfinite_values(tmp_path):
         entry._write_json(tmp_path / "bad.json", {"value": float("nan")})
 
 
+def test_bounded_operator_profiler_emits_one_trace_and_summary(monkeypatch, tmp_path):
+    entry = _centralized_train_module()
+
+    class Event:
+        key = "fl_v3::camera.backbone"
+        count = 3
+        self_cpu_time_total = 4.0
+        cpu_time_total = 5.0
+        self_device_time_total = 6.0
+        device_time_total = 7.0
+        self_cpu_memory_usage = 8
+        cpu_memory_usage = 9
+        self_device_memory_usage = 10
+        device_memory_usage = 11
+
+    class FakeProfiler:
+        def __init__(self, **kwargs):
+            self.handler = kwargs["on_trace_ready"]
+            self.steps = 0
+        def __enter__(self): return self
+        def __exit__(self, *_args): return False
+        def step(self):
+            self.steps += 1
+            if self.steps == 3:
+                self.handler(self)
+        def export_chrome_trace(self, path):
+            Path(path).write_text("{}\n", encoding="utf-8")
+        def key_averages(self, **_kwargs): return [Event()]
+
+    monkeypatch.setattr(entry.torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(entry.torch.profiler, "schedule", lambda **kwargs: kwargs)
+    monkeypatch.setattr(entry.torch.profiler, "profile", FakeProfiler)
+    spec = {
+        "wait_attempted_windows": 1,
+        "warmup_attempted_windows": 1,
+        "active_attempted_windows": 1,
+        "record_shapes": True,
+        "profile_memory": True,
+        "row_limit": 10,
+    }
+    profiler = entry.BoundedOperatorProfiler(spec, tmp_path / "operator")
+    with profiler:
+        profiler.step()
+        profiler.step()
+        profiler.step()
+    report = profiler.report()
+    assert report["attempted_window_step_calls"] == 3
+    summary = json.loads((tmp_path / "operator" / "summary.json").read_text())
+    assert summary["all_row_count"] == 1
+    assert summary["rows"][0]["key"] == "fl_v3::camera.backbone"
+    assert summary["rows"][0]["self_device_time_total_us"] == 6.0
+    json.dumps(report, allow_nan=False)
+
+
 class _ReadinessConfigFixture:
     def __init__(self):
         self.data = {
@@ -399,6 +463,7 @@ class _ReadinessConfigFixture:
             "nuscenes-train-split": "toy_train",
             "num-workers": 0,
             "seed": 23,
+            "det-camera-activation-checkpoint": True,
         }
 
 

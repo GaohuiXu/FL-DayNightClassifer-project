@@ -373,6 +373,7 @@ def train_one_epoch(
     precision_diagnostics: Optional[Any] = None,
     readiness_timing: bool = False,
     readiness_warmup_successful_windows: int = 0,
+    attempted_window_callback: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """One epoch of training with the injected criterion (tensor or dict batch).
 
@@ -398,6 +399,12 @@ def train_one_epoch(
         raise ValueError("expected_global_microbatch_samples must be non-negative")
     if not isinstance(readiness_timing, bool):
         raise TypeError("readiness_timing must be boolean")
+    if attempted_window_callback is not None and not callable(attempted_window_callback):
+        raise TypeError("attempted_window_callback must be callable or None")
+    if attempted_window_callback is not None and not readiness_timing:
+        raise RuntimeError(
+            "attempted_window_callback is restricted to S09 readiness instrumentation"
+        )
     if (
         isinstance(readiness_warmup_successful_windows, bool)
         or not isinstance(readiness_warmup_successful_windows, int)
@@ -739,6 +746,8 @@ def train_one_epoch(
                 active_capture_context = None
                 active_diagnostic_token = None
                 active_boundaries = None
+            if attempted_window_callback is not None:
+                attempted_window_callback()
         completed_normally = True
     finally:
         if active_capture_context is not None:

@@ -213,16 +213,17 @@ attestation of spconv build `af422005...` and cumm build `0a7e3c1a...`; Job
 `446225` subsequently failed closed on those identities, completed the production
 loader sweep, and reached 100 successful F-U updates in 103 attempts. Evidence
 `c28d09c` received independent `PASS_WITH_RESIDUAL_RISK` with no P0-P2, and
-documentation closure re-review found no open P0-P3. STOP-3 is owner-ready but
-owner acceptance remains pending. O-118 compute is consumed and no STOP-4
-compute is authorized. This is engineering readiness
+documentation closure re-review found no open P0-P3. O-119 owner-accepts/closes
+STOP-3 and authorizes the serial STOP-4A-D jobs recorded in
+`handoffs/S09/RUN_REQUEST.md`, capped at two cumulative GH200-hours with no
+retry. This is engineering readiness
 for one exact tuple, not convergence, metric, recipe, or model-capability
 evidence. Do not extract/duplicate the dataset or submit further full-data jobs
 without exact permission. O-009 covers only a recorded bounded
 engineering smoke (one node/GPU, at most 60 minutes/job, one concurrent job, two
-cumulative GPU-hours); it did not authorize Job `441191` and does not authorize an
-additional cache materialization, full-data coverage/profile, model steps,
-metrics, matrices, reruns, arrays, DDP, or retries.
+cumulative GPU-hours); it did not authorize Job `441191` or O-119 STOP-4 and does
+not authorize an additional cache materialization, unrecorded full-data
+coverage/profile, model steps, metrics, matrices, reruns, arrays, DDP, or retries.
 
 A bounded one-archive GH200 engineering smoke (`Slurm 330409`, 2026-07-10) passed:
 module/table discovery, four real samples with all six cameras plus keyframe and

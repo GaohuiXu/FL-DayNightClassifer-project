@@ -1,6 +1,6 @@
 """S09 resolved centralized trainer and bounded readiness entry point.
 
-This entry point accepts only the canonical ``s09.v1`` config.  It constructs
+This entry point accepts the canonical ``s09.v1``/``s09.v2`` configs.  It constructs
 one mode-aware loader, maps exact architecture enums to the reviewed stack,
 and advances schedules by successful optimizer updates. ``train_eval`` writes one
 complete boundary-safe checkpoint and evaluates it. ``readiness`` is explicitly
@@ -10,6 +10,7 @@ closed.
 from __future__ import annotations
 
 import argparse
+from contextlib import nullcontext
 import gc
 import hashlib
 import json
@@ -75,6 +76,132 @@ def _write_json(path: Path, value: object) -> None:
         json.dumps(value, sort_keys=True, allow_nan=False) + "\n",
         encoding="utf-8",
     )
+
+
+def _event_number(event, *names: str) -> float:
+    for name in names:
+        value = getattr(event, name, None)
+        if value is not None:
+            return float(value)
+    return 0.0
+
+
+class BoundedOperatorProfiler:
+    """One bounded ``torch.profiler`` cycle advanced once per attempted window."""
+
+    def __init__(self, spec: dict, output_dir: Path) -> None:
+        self.spec = dict(spec)
+        self.output_dir = output_dir
+        self.trace_path = output_dir / "trace.json"
+        self.summary_path = output_dir / "summary.json"
+        self._profiler = None
+        self._handler_calls = 0
+        self._step_calls = 0
+
+    def _trace_ready(self, profiler) -> None:
+        self._handler_calls += 1
+        if self._handler_calls != 1:
+            raise RuntimeError("operator profiler emitted more than one trace cycle")
+        profiler.export_chrome_trace(str(self.trace_path))
+        rows = []
+        for event in profiler.key_averages(
+            group_by_input_shape=bool(self.spec["record_shapes"])
+        ):
+            rows.append({
+                "key": str(event.key),
+                "count": int(event.count),
+                "self_cpu_time_total_us": _event_number(event, "self_cpu_time_total"),
+                "cpu_time_total_us": _event_number(event, "cpu_time_total"),
+                "self_device_time_total_us": _event_number(
+                    event, "self_device_time_total", "self_cuda_time_total"
+                ),
+                "device_time_total_us": _event_number(
+                    event, "device_time_total", "cuda_time_total"
+                ),
+                "self_cpu_memory_usage_bytes": int(
+                    getattr(event, "self_cpu_memory_usage", 0)
+                ),
+                "cpu_memory_usage_bytes": int(getattr(event, "cpu_memory_usage", 0)),
+                "self_device_memory_usage_bytes": int(
+                    getattr(event, "self_device_memory_usage", 0)
+                ),
+                "device_memory_usage_bytes": int(
+                    getattr(event, "device_memory_usage", 0)
+                ),
+            })
+        rows.sort(
+            key=lambda row: (
+                -row["self_device_time_total_us"],
+                -row["self_cpu_time_total_us"],
+                row["key"],
+            )
+        )
+        _write_json(self.summary_path, {
+            "schema": "s09.operator-profile-summary.v1",
+            "units": {"time": "microseconds", "memory": "bytes"},
+            "schedule": self.spec,
+            "all_row_count": len(rows),
+            "rows": rows[: int(self.spec["row_limit"])],
+        })
+
+    def __enter__(self):
+        self.output_dir.mkdir(parents=True, exist_ok=False)
+        activities = [torch.profiler.ProfilerActivity.CPU]
+        if not torch.cuda.is_available():
+            raise RuntimeError("S09 operator profiling requires CUDA")
+        activities.append(torch.profiler.ProfilerActivity.CUDA)
+        self._profiler = torch.profiler.profile(
+            activities=activities,
+            schedule=torch.profiler.schedule(
+                wait=int(self.spec["wait_attempted_windows"]),
+                warmup=int(self.spec["warmup_attempted_windows"]),
+                active=int(self.spec["active_attempted_windows"]),
+                repeat=1,
+            ),
+            on_trace_ready=self._trace_ready,
+            record_shapes=bool(self.spec["record_shapes"]),
+            profile_memory=bool(self.spec["profile_memory"]),
+            with_stack=False,
+            with_modules=False,
+        )
+        self._profiler.__enter__()
+        return self
+
+    def step(self) -> None:
+        if self._profiler is None:
+            raise RuntimeError("operator profiler is not active")
+        self._step_calls += 1
+        self._profiler.step()
+
+    def __exit__(self, exc_type, exc_value, traceback) -> bool:
+        if self._profiler is None:
+            return False
+        suppress = self._profiler.__exit__(exc_type, exc_value, traceback)
+        self._profiler = None
+        if exc_type is None and self._handler_calls != 1:
+            raise RuntimeError(
+                "operator profiler did not complete its one configured trace cycle"
+            )
+        return bool(suppress)
+
+    def report(self) -> dict:
+        if self._handler_calls != 1:
+            raise RuntimeError("operator profiler report requested before trace completion")
+        return {
+            "schema": "s09.operator-profile-artifacts.v1",
+            "schedule": self.spec,
+            "attempted_window_step_calls": self._step_calls,
+            "trace": {
+                "path": str(self.trace_path),
+                "sha256": _checkpoint_sha256(self.trace_path),
+                "bytes": self.trace_path.stat().st_size,
+            },
+            "summary": {
+                "path": str(self.summary_path),
+                "sha256": _checkpoint_sha256(self.summary_path),
+                "bytes": self.summary_path.stat().st_size,
+            },
+        }
 
 
 def _percentile(values: list[float], quantile: float) -> float:
@@ -359,13 +486,18 @@ def run_strict_official_evaluation(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", required=True, help="strict s09.v1 JSON")
+    parser.add_argument("--config", required=True, help="strict s09.v1/s09.v2 JSON")
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
 
     config = load_resolved_config(args.config)
     execution = config.data["execution"]
+    report_schema = (
+        "s09.readiness-report.v2"
+        if config.as_dict()["schema_version"] == "s09.v2"
+        else "s09.readiness-report.v1"
+    )
     execution_mode = config.execution_mode
     readiness = execution_mode == "readiness"
     out_dir = Path(args.out_dir)
@@ -433,7 +565,7 @@ def main() -> None:
             (out_dir / "resolved_config.json").write_bytes(config.canonical_bytes + b"\n")
             _write_json(out_dir / "runtime_dependencies.json", runtime_dependencies)
             _write_json(out_dir / "readiness.json", {
-                "schema": "s09.readiness-report.v1",
+                "schema": report_schema,
                 "status": "FAIL",
                 "terminal_reason": (
                     "bounded production-loader content hashes differ across "
@@ -482,6 +614,14 @@ def main() -> None:
         max_updates = int(train_spec["max_optimizer_steps"])
         max_attempted = int(execution["max_attempted_windows"])
         timing_warmup = int(execution["timing_warmup_successful_windows"])
+        operator_profile_spec = execution.get("operator_profile")
+        operator_profiler = (
+            BoundedOperatorProfiler(
+                dict(operator_profile_spec), out_dir / "operator_profile"
+            )
+            if operator_profile_spec is not None
+            else None
+        )
         training_started = time.perf_counter()
         train_kwargs = {
             "scheduler": scheduler,
@@ -500,16 +640,31 @@ def main() -> None:
             "readiness_timing": True,
             "readiness_warmup_successful_windows": timing_warmup,
         }
-        mode_context = model.serialized_mode(True) if hasattr(model, "serialized_mode") else None
-        if mode_context is None:
-            metrics = train_one_epoch(
-                model, stream.batches(0), criterion, optimizer, device, **train_kwargs,
-            )
-        else:
-            with mode_context:
-                metrics = train_one_epoch(
-                    model, stream.batches(0), criterion, optimizer, device, **train_kwargs,
+        profiler_context = operator_profiler if operator_profiler is not None else nullcontext()
+        with profiler_context as active_profiler:
+            if active_profiler is not None:
+                if not hasattr(model, "operator_profile_ranges"):
+                    raise RuntimeError(
+                        "resolved detector does not expose bounded operator-profile ranges"
+                    )
+                train_kwargs["attempted_window_callback"] = active_profiler.step
+                range_context = model.operator_profile_ranges()
+            else:
+                range_context = nullcontext()
+            with range_context:
+                mode_context = (
+                    model.serialized_mode(True)
+                    if hasattr(model, "serialized_mode")
+                    else nullcontext()
                 )
+                with mode_context:
+                    metrics = train_one_epoch(
+                        model, stream.batches(0), criterion, optimizer, device,
+                        **train_kwargs,
+                    )
+        operator_profile_report = (
+            operator_profiler.report() if operator_profiler is not None else None
+        )
         training_wall_seconds = time.perf_counter() - training_started
         startup_phases["total_before_training_seconds"] = (
             training_started - startup_started
@@ -529,7 +684,7 @@ def main() -> None:
             )
         )
         report = {
-            "schema": "s09.readiness-report.v1",
+            "schema": report_schema,
             "status": "PASS" if passed else "FAIL",
             "terminal_reason": terminal_reason,
             "resolved_config_sha256": config.sha256,
@@ -553,6 +708,9 @@ def main() -> None:
             "model_mode": config.model_mode,
             "precision": config.precision,
             "sparse_conv_precision": config.sparse_conv_precision,
+            "camera_activation_checkpoint": bool(
+                run_config["det-camera-activation-checkpoint"]
+            ),
             "recipe": {
                 "optimizer": config.as_dict()["optimizer"],
                 "training": config.as_dict()["training"],
@@ -566,6 +724,7 @@ def main() -> None:
             },
             "fixed_training_num_workers": int(train_spec["num_workers"]),
             "loader_profile": loader_profile,
+            "operator_profile": operator_profile_report,
             "startup_phase_seconds": startup_phases,
             "training_wall_seconds": training_wall_seconds,
             "training_metrics": metrics,
@@ -579,6 +738,12 @@ def main() -> None:
             "interpretation_limits": [
                 "engineering readiness only; not convergence, mAP/NDS, or model quality",
                 "loader profile cells are observational and did not select num_workers in-job",
+                (
+                    "operator-profile active windows are diagnostic and excluded from "
+                    "post-warmup throughput interpretation"
+                    if operator_profile_report is not None
+                    else "no operator profile was requested"
+                ),
                 "no checkpoint or official evaluation was produced",
             ],
         }

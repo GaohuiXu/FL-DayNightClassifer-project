@@ -36,9 +36,10 @@ _ROOT = frozenset({
     "schema_version", "model", "precision", "sparse_conv_precision", "optimizer",
     "training", "data", "dependencies", "evaluation", "execution",
 })
-_MODEL = frozenset({
+_MODEL_V1 = frozenset({
     "mode", "camera_arch", "camera_pretrained", "lidar_arch", "fusion_arch", "head_arch",
 })
+_MODEL_V2 = _MODEL_V1 | frozenset({"camera_activation_checkpoint"})
 _OPT = frozenset({"name", "learning_rate", "weight_decay"})
 _TRAIN = frozenset({
     "max_optimizer_steps", "micro_batch_size", "world_size", "accumulation_steps",
@@ -59,12 +60,17 @@ _DEPS = frozenset({
 })
 _EVAL = frozenset({"timing", "checkpoint_weights"})
 _CHECKPOINT_WEIGHTS = frozenset({"raw", "ema"})
-_EXECUTION = frozenset({
+_EXECUTION_V1 = frozenset({
     "mode", "max_attempted_windows", "timing_warmup_successful_windows",
     "loader_profile",
 })
+_EXECUTION_V2 = _EXECUTION_V1 | frozenset({"operator_profile"})
 _LOADER_PROFILE = frozenset({
     "workers", "repeats", "determinism_batches", "warmup_batches", "measured_batches",
+})
+_OPERATOR_PROFILE = frozenset({
+    "wait_attempted_windows", "warmup_attempted_windows", "active_attempted_windows",
+    "record_shapes", "profile_memory", "row_limit",
 })
 
 
@@ -196,12 +202,25 @@ class ResolvedConfig:
     def to_run_config(self) -> dict[str, Any]:
         """Bridge the validated S09 configuration to current task interfaces."""
         d, m, t, o = self.data["data"], self.data["model"], self.data["training"], self.data["optimizer"]
+        schema_version = str(self.data["schema_version"])
+        camera_activation_checkpoint = (
+            True
+            if schema_version == "s09.v1"
+            else bool(m["camera_activation_checkpoint"])
+        )
+        operator_profile = (
+            None
+            if schema_version == "s09.v1"
+            else _thaw(self.data["execution"]["operator_profile"])
+        )
         out = {
             "s06-production-runtime": True,
             "resolved-config-sha256": self.sha256,
+            "resolved-schema-version": schema_version,
             "model-mode": m["mode"],
             "det-camera-arch": m["camera_arch"],
             "det-camera-pretrained": m["camera_pretrained"],
+            "det-camera-activation-checkpoint": camera_activation_checkpoint,
             "det-lidar-arch": m["lidar_arch"],
             "det-fusion-arch": m["fusion_arch"],
             "det-head-arch": m["head_arch"],
@@ -262,6 +281,7 @@ class ResolvedConfig:
             "readiness-loader-profile": _thaw(
                 self.data["execution"]["loader_profile"]
             ),
+            "readiness-operator-profile": operator_profile,
         }
         for role in ("train", "val"):
             cache = d["caches"][role]
@@ -310,10 +330,15 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
     """Validate and canonicalize one complete S09 config; never consult env vars."""
     root = _mapping(dict(raw), "config")
     _keys(root, _ROOT, "config")
-    if root["schema_version"] != "s09.v1":
-        raise ConfigError("schema_version must be exactly 's09.v1'; legacy/partial configs are refused")
+    schema_version = root["schema_version"]
+    if schema_version not in {"s09.v1", "s09.v2"}:
+        raise ConfigError(
+            "schema_version must be exactly 's09.v1' or 's09.v2'; "
+            "legacy/partial configs are refused"
+        )
 
-    model = _mapping(root["model"], "model"); _keys(model, _MODEL, "model")
+    model_keys = _MODEL_V1 if schema_version == "s09.v1" else _MODEL_V2
+    model = _mapping(root["model"], "model"); _keys(model, model_keys, "model")
     mode = _enum(model["mode"], _MODES, "model.mode")
     camera = _enum(model["camera_arch"], _CAMERAS, "model.camera_arch")
     camera_pretrained = model["camera_pretrained"]
@@ -322,6 +347,14 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
             raise ConfigError("model.camera_pretrained must be null when camera_arch='none'")
     elif not isinstance(camera_pretrained, bool):
         raise ConfigError("model.camera_pretrained must explicitly be true or false")
+    if schema_version == "s09.v2":
+        camera_checkpoint = model["camera_activation_checkpoint"]
+        if not isinstance(camera_checkpoint, bool):
+            raise ConfigError("model.camera_activation_checkpoint must be boolean")
+        if camera == "none" and camera_checkpoint:
+            raise ConfigError(
+                "model.camera_activation_checkpoint must be false when camera_arch='none'"
+            )
     lidar = _enum(model["lidar_arch"], _LIDARS, "model.lidar_arch")
     fusion = _enum(model["fusion_arch"], _FUSIONS, "model.fusion_arch")
     _enum(model["head_arch"], _HEADS, "model.head_arch")
@@ -421,7 +454,8 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
         raise ConfigError("evaluation.checkpoint_weights='ema' requires training.ema_decay")
 
     execution = _mapping(root["execution"], "execution")
-    _keys(execution, _EXECUTION, "execution")
+    execution_keys = _EXECUTION_V1 if schema_version == "s09.v1" else _EXECUTION_V2
+    _keys(execution, execution_keys, "execution")
     execution_mode = _enum(execution["mode"], _EXECUTION_MODES, "execution.mode")
     max_attempted = _integer(
         execution["max_attempted_windows"],
@@ -434,11 +468,18 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
         minimum=0,
     )
     loader_profile = execution["loader_profile"]
+    operator_profile = None if schema_version == "s09.v1" else execution["operator_profile"]
     if execution_mode == "train_eval":
-        if max_attempted != 0 or timing_warmup != 0 or loader_profile is not None:
+        if (
+            max_attempted != 0
+            or timing_warmup != 0
+            or loader_profile is not None
+            or operator_profile is not None
+        ):
             raise ConfigError(
                 "execution.mode='train_eval' requires max_attempted_windows=0, "
-                "timing_warmup_successful_windows=0, and loader_profile=null"
+                "timing_warmup_successful_windows=0, loader_profile=null, "
+                "and operator_profile=null"
             )
     else:
         if train["world_size"] != 1 or train["accumulation_steps"] != 1:
@@ -484,6 +525,32 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
                 "execution.loader_profile.warmup_batches",
                 minimum=0,
             )
+        if operator_profile is not None:
+            profile = _mapping(operator_profile, "execution.operator_profile")
+            _keys(profile, _OPERATOR_PROFILE, "execution.operator_profile")
+            wait = _integer(
+                profile["wait_attempted_windows"],
+                "execution.operator_profile.wait_attempted_windows",
+                minimum=0,
+            )
+            warmup = _integer(
+                profile["warmup_attempted_windows"],
+                "execution.operator_profile.warmup_attempted_windows",
+                minimum=0,
+            )
+            active = _integer(
+                profile["active_attempted_windows"],
+                "execution.operator_profile.active_attempted_windows",
+            )
+            _integer(profile["row_limit"], "execution.operator_profile.row_limit")
+            for key in ("record_shapes", "profile_memory"):
+                if not isinstance(profile[key], bool):
+                    raise ConfigError(f"execution.operator_profile.{key} must be boolean")
+            if wait + warmup + active > train["max_optimizer_steps"]:
+                raise ConfigError(
+                    "execution.operator_profile schedule must finish within "
+                    "training.max_optimizer_steps even when no scaler window is skipped"
+                )
 
     normalized = json.loads(canonical_json(root).decode("utf-8"))
     encoded = canonical_json(normalized)

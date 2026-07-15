@@ -24,8 +24,10 @@
 > one second later and completed `0:0` in `00:05:05`. The production lifecycle
 > reports technical PASS for every frozen gate. Immutable evidence `c28d09c`
 > received independent `PASS_WITH_RESIDUAL_RISK` with no P0-P2; closure re-review
-> of remediation `84adfd0` found no open P0-P3 and marks STOP-3 owner-ready. No
-> retry or additional submission exists, and O-118 compute authority is exhausted.
+> of remediation `84adfd0` found no open P0-P3. O-119 owner-accepts/closes
+> STOP-3 and approves the serial STOP-4A-D envelope recorded at the end of this
+> ledger; no submission occurs before its exact immutable tuple is frozen and
+> reviewed.
 
 ## Authorization state
 
@@ -36,11 +38,11 @@ STOP1_EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 STOP1_REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
 STOP1_FIRST_EVIDENCE_SHA: b35591b1a9ac64ea50ee3ad3257304baef07f8de
 BRANCH: codex/s08-s09-cl-readiness
-OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3
-APPROVED_COMPUTE: none active / O-118 Phase A and Phase B consumed
-APPROVED_SUBMISSIONS: prior STOP-1/2/3 each consumed + O-118 Phase A 1 + conditional Phase B 1 / no retry
-ACTIVE_REQUEST: none / O-118 Phase B owner-ready with no open P0-P3 / owner decision pending / no retry
-IMPLEMENTATION_COMMIT_AUTHORITY: STOP-3 exact config/runner/request/evidence and review remediation authorized
+OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3 + O-119 STOP-4
+APPROVED_COMPUTE: O-119 STOP-4A <=00:30:00 + STOP-4C <=00:30:00 + conditional STOP-4D <=01:00:00 / serial <=2 GPU-hours / no retry
+APPROVED_SUBMISSIONS: prior STOP-1/2/3 consumed; three prospective serial O-119 STOP-4 jobs after exact freeze/review
+ACTIVE_REQUEST: STOP-4A implementation and immutable tuple preparation
+IMPLEMENTATION_COMMIT_AUTHORITY: STOP-4 implementation/request/evidence/review remediation within O-119
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
 ```
@@ -813,22 +815,91 @@ new dependency/source drift, changed data/cell/order/bounds/seed/precision/recip
 resources, or an existing derived path cancels Phase B and returns to the owner.
 Unused Phase A or Phase B time is not retry, extra-cell, STOP-4 or other authority.
 
-## STOP-4 — conditional G1000
+## STOP-4 — O-119 optimize/G1000/close envelope
 
 ```text
-REQUEST_STATE: CONDITIONAL / DEPENDS ON INDEPENDENT STOP-3 PASS AND NEW OWNER APPROVAL
-OBJECTIVE: one fresh 1000-successful-step readiness run
-WALLTIME_AND_GPU_QUOTA: unset
-SUBMISSIONS: unset / no automatic continuation
+REQUEST_STATE: OWNER-APPROVED O-119 / IMPLEMENTATION IN PROGRESS / NO SUBMISSION UNTIL EACH IMMUTABLE TUPLE IS FROZEN AND REVIEWED
+OWNER_DECISION: O-119
+SERIAL_GPU_CEILING: 2 cumulative GH200-hours
+RETRIES: none
+MERGE/PUSH: forbidden
 ```
 
-STOP-4 starts from a fresh initialization and is not a mid-epoch resume of
-STOP-3. It must freeze the accepted cache, precision policy, base-uniform recipe,
-worker count, seed, counters, thresholds, source/config/script hashes, resources,
-and output path from the reviewed STOP-3 decision. It remains a single-GH200
-engineering readiness run unless measured STOP-3 evidence motivates a separate
-owner-approved DDP amendment. It requires independent evidence review before S09
-can close.
+O-119 accepts/closes STOP-3 and supplies one prospective derivation rule for the
+three serial STOP-4 jobs below. S00 may freeze each source/tree/config/script/
+submit/output identity after the preceding implementation/evidence review without
+another conversational approval, but may not change any material field. A model,
+loss math, gradient/update, data/order, precision, recipe, seed, scope, gate or
+resource change cancels remaining authority.
+
+### STOP-4A — bounded profiler and capacity characterization
+
+```text
+IMPLEMENTATION_SOURCE_SHA/TREE: pending immutable commit
+SNAPSHOT: pending / detached clean self-contained clone derived from implementation source
+RUNNER: fl_v3/scripts/run_s09_stop4a_profile_capacity.sh
+RUNNER_SHA256: pending immutable commit
+CONFIG_B1_PROFILE: fl_v3/configs/s09_stop4a_f_u_b1_profile.json
+RESOLVED_B1_PROFILE_SHA256: a0cb86122d607849f479fd04c70acac3b2b7c66d6e65875ad06c638e0db6ad2e
+CONFIG_B1_NO_CKPT: fl_v3/configs/s09_stop4a_f_u_b1_no_ckpt.json
+RESOLVED_B1_NO_CKPT_SHA256: 5291290d0dbc372eb012bfcc2eeff4877e34db66aa654055c2ebfdf398820a87
+CONFIG_B2_NO_CKPT: fl_v3/configs/s09_stop4a_f_u_b2_no_ckpt.json
+RESOLVED_B2_NO_CKPT_SHA256: ac841713cf5c996705afb2ddf628965c4fffa169130925285f03c6113d669f6f
+CONFIG_B4_NO_CKPT: fl_v3/configs/s09_stop4a_f_u_b4_no_ckpt.json
+RESOLVED_B4_NO_CKPT_SHA256: cf6f4effe0c9532a45f3a2503a3f98423af2e340b16ae0419d6b287655709a48
+DATA: exact accepted STOP-1 train t1.v2 n_sweeps=10 plus accepted ZIP manifest; val identity-bound/not iterated
+COMMON_MODEL/PRECISION/SEED: F-U / random seed 0 / global fp16 + SECOND fp32 island
+COMMON_RECIPE: AdamW 1e-4/0.01 / constant scheduler / EMA+clip+3D aug+GT paste off / uniform / world1 / accumulation1 / workers8
+CELLS_IN_ORDER: B1 checkpoint-on + bounded profiler; B1 checkpoint-off; B2 checkpoint-off; B4 checkpoint-off
+BOUNDS_PER_CELL: 20 successful updates / <=30 attempted / no loader profile / fresh process and initialization
+PROFILER_SCHEDULE: B1 baseline only / wait5 + warmup2 + active3 attempted windows / record shapes+memory / 250 summary rows
+FOCUSED_TESTS: exact selectors frozen in runner before model cells
+RESOURCE: one GH200 / 16 CPU / 96 GiB / 00:30:00 / <=0.5 GPU-hours
+SUBMISSIONS: exactly one / serial / no retry
+OUTPUT/JOB/SUBMIT: pending immutable source and fresh-path freeze
+```
+
+Mandatory B1 outcomes are terminal PASS with one checksum-bound profiler trace/
+summary, 20 accepted updates within 30 attempts, no nonfinite/discarded window and
+valid counters. Checkpoint-off B1 must also PASS. B2/B4 PASS establishes bounded
+capacity; a directly identified CUDA OOM is retained as `CAPACITY_LIMIT`, not
+retried or disguised as a job failure. Any other nonzero cell is terminal FAIL.
+Profiler-active windows are diagnostic; post-warm-up direct timing starts only
+after the profiler cycle. No worker matrix is run.
+
+### STOP-4B/4C — measured output-neutral remediation and optimized G100
+
+STOP-4B may remove only source/trace-confirmed synchronization or allocation and
+make checkpoint-off explicit. The known source candidate is unconditional
+per-task loss-term `.item()` recording when telemetry is disabled; remediation
+must propagate `record_terms` across the six task losses while preserving S08
+precision-diagnostic terms. A criterion-buffer device move or any other change is
+allowed only if STOP-4A confirms it and equivalence tests show unchanged output,
+loss, gradients, updates, RNG, data order, precision and counters.
+
+```text
+SOURCE/CONFIG/RUNNER/SNAPSHOT/OUTPUT: pending STOP-4A evidence, immutable remediation and independent review
+CELL: exact F-U B1 STOP-3 recipe, checkpoint off, no operator profiler
+BOUND: 100 successful updates / <=120 attempted / ten-successful-window warm-up
+GATES: STOP-3 numerical/counter/data-wait/memory gates; no material steady-latency regression; exact before/after interpretation
+RESOURCE: one GH200 / 16 CPU / 96 GiB / 00:30:00 / <=0.5 GPU-hours
+SUBMISSIONS: exactly one conditional on reviewed STOP-4A/remediation / no retry
+```
+
+### STOP-4D — fresh optimized G1000
+
+```text
+SOURCE/CONFIG/RUNNER/SNAPSHOT/OUTPUT: pending reviewed STOP-4C PASS and exact freeze
+CELL: exact accepted STOP-4C F-U B1 configuration / fresh random seed-0 initialization / no resume / no profiler
+BOUND: 1000 successful updates / bounded attempted-window ceiling frozen from STOP-4C evidence
+GATES: finite aggregate loss; no nonfinite/discarded windows or counter drift; accepted-window/scaler behavior, stable p50/p95, throughput, data wait, memory and epoch estimate recorded; no convergence claim
+RESOURCE: one GH200 / 16 CPU / 96 GiB / 01:00:00 / <=1 GPU-hour
+SUBMISSIONS: exactly one conditional on reviewed STOP-4C PASS / no retry
+```
+
+Independent review of the complete STOP-4 source, exact diffs, configs, jobs and
+raw artifacts is required before S09 can close. B=2/4 results remain capacity
+evidence for S10 and do not authorize a batch/learning-rate/recipe selection.
 
 ## Interpretation limits shared by all stops
 

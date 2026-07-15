@@ -64,6 +64,8 @@ def test_config_hash_is_order_stable_and_roundtrips(tmp_path):
     assert type(run["nuscenes-cache-identities"]) is dict
     assert all(type(value) is dict for value in run["nuscenes-cache-identities"].values())
     assert run["det-camera-arch"] == "swin_t_stride8"
+    assert run["resolved-schema-version"] == "s09.v1"
+    assert run["det-camera-activation-checkpoint"] is True
     assert run["det-lidar-arch"] == "none"
     assert run["det-fusion-arch"] == "none"
     assert run["det-head-arch"] == "centerhead_multitask"
@@ -75,6 +77,7 @@ def test_config_hash_is_order_stable_and_roundtrips(tmp_path):
     assert run["execution-mode"] == "train_eval"
     assert run["readiness-max-attempted-windows"] == 0
     assert run["readiness-loader-profile"] is None
+    assert run["readiness-operator-profile"] is None
 
 
 def test_evaluation_timing_and_raw_ema_policy_are_hash_bound(tmp_path):
@@ -114,6 +117,21 @@ def readiness_config(tmp_path):
     return raw
 
 
+def readiness_v2_config(tmp_path):
+    raw = readiness_config(tmp_path)
+    raw["schema_version"] = "s09.v2"
+    raw["model"]["camera_activation_checkpoint"] = False
+    raw["execution"]["operator_profile"] = {
+        "wait_attempted_windows": 1,
+        "warmup_attempted_windows": 1,
+        "active_attempted_windows": 2,
+        "record_shapes": True,
+        "profile_memory": True,
+        "row_limit": 100,
+    }
+    return raw
+
+
 def test_readiness_execution_contract_is_hash_bound_and_roundtrips(tmp_path):
     raw = readiness_config(tmp_path)
     resolved = resolve_config(raw)
@@ -127,6 +145,45 @@ def test_readiness_execution_contract_is_hash_bound_and_roundtrips(tmp_path):
     changed = copy.deepcopy(raw)
     changed["execution"]["loader_profile"]["measured_batches"] = 4
     assert resolve_config(changed).sha256 != resolved.sha256
+
+
+def test_s09_v2_checkpoint_and_operator_profile_are_explicit_and_hash_bound(tmp_path):
+    raw = readiness_v2_config(tmp_path)
+    resolved = resolve_config(raw)
+    run = resolved.to_run_config()
+    assert run["resolved-schema-version"] == "s09.v2"
+    assert run["det-camera-activation-checkpoint"] is False
+    assert run["readiness-operator-profile"] == raw["execution"]["operator_profile"]
+
+    changed = copy.deepcopy(raw)
+    changed["model"]["camera_activation_checkpoint"] = True
+    assert resolve_config(changed).sha256 != resolved.sha256
+    changed = copy.deepcopy(raw)
+    changed["execution"]["operator_profile"]["active_attempted_windows"] = 1
+    assert resolve_config(changed).sha256 != resolved.sha256
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda c: c["model"].pop("camera_activation_checkpoint"), "model keys invalid"),
+        (lambda c: c["model"].update(camera_activation_checkpoint=1), "must be boolean"),
+        (lambda c: c["execution"].pop("operator_profile"), "execution keys invalid"),
+        (lambda c: c["execution"]["operator_profile"].update(record_shapes=1),
+         "record_shapes must be boolean"),
+        (lambda c: c["execution"]["operator_profile"].update(row_limit=0),
+         "row_limit must be an integer"),
+        (lambda c: c["execution"]["operator_profile"].update(
+            wait_attempted_windows=3, warmup_attempted_windows=2,
+            active_attempted_windows=2,
+        ), "schedule must finish"),
+    ],
+)
+def test_s09_v2_rejects_checkpoint_or_profiler_drift(tmp_path, mutation, message):
+    raw = readiness_v2_config(tmp_path)
+    mutation(raw)
+    with pytest.raises(ConfigError, match=message):
+        resolve_config(raw)
 
 
 @pytest.mark.parametrize(

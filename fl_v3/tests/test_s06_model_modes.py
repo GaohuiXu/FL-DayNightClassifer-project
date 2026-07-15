@@ -121,6 +121,55 @@ def test_mode_constructs_and_executes_only_enabled_branches(monkeypatch, mode):
     assert cloned._runtime_lock is not model._runtime_lock
 
 
+def test_operator_profile_ranges_are_opt_in_scoped_and_output_neutral(monkeypatch):
+    import fl_v3.models.fusion.detector as d
+
+    monkeypatch.setattr(d, "ImagePreprocessor", _Pre)
+    monkeypatch.setattr(d, "CameraBackbone", _Camera)
+    monkeypatch.setattr(d, "GeneralizedLSSFPN", _CameraNeck)
+    monkeypatch.setattr(d, "DepthLSSTransform", _VT)
+    monkeypatch.setattr(d, "PointPillarsEncoder", _Lidar)
+    monkeypatch.setattr(d, "ConvFuser", _Fuser)
+    monkeypatch.setattr(d, "SecondFPNNeck", _BevNeck)
+    monkeypatch.setattr(d, "CenterPointHead", _Head)
+
+    entered = []
+
+    class Range:
+        def __init__(self, name): self.name = name
+        def __enter__(self): entered.append(self.name)
+        def __exit__(self, *_args): return False
+
+    monkeypatch.setattr(d.torch.profiler, "record_function", Range)
+    model = d.BEVFusionDetector(DetectorConfig(
+        model_mode="fusion", pretrained_backbone=False, context_channels=2,
+        lidar_channels=3, fusion_channels=4, bev_neck_channels=4,
+    ))
+    batch = {
+        "batch_size": 1,
+        "images": torch.ones(1, 1, 3, 2, 2),
+        "lidar2img": torch.eye(4).reshape(1, 1, 4, 4),
+        "cam_intrinsics": torch.eye(3).reshape(1, 1, 3, 3),
+        "lidar_points": torch.ones(1, 6),
+    }
+    plain = model(batch)["heatmap"]
+    assert entered == []
+    with model.operator_profile_ranges():
+        profiled = model(batch)["heatmap"]
+    assert torch.equal(plain, profiled)
+    assert entered == [
+        "fl_v3::camera.preprocess",
+        "fl_v3::camera.backbone",
+        "fl_v3::camera.neck",
+        "fl_v3::camera.view_transform",
+        "fl_v3::lidar.encoder",
+        "fl_v3::fusion.fuser",
+        "fl_v3::shared.bev_neck",
+        "fl_v3::shared.head",
+    ]
+    assert model._operator_profile_ranges is False
+
+
 def test_same_detector_instance_serializes_sparse_forward_and_mode_change(monkeypatch):
     import fl_v3.models.fusion.detector as d
     active = 0; maximum = 0; guard = threading.Lock()

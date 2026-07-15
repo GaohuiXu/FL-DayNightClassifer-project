@@ -444,6 +444,11 @@ def _det_config_from_run(run_config: dict):
             raise ValueError(
                 "legacy det-sparse-conv-fp16 is forbidden in the strict S08 production runtime"
             )
+        camera_activation_checkpoint = run_config.get(
+            "det-camera-activation-checkpoint", True
+        )
+        if not isinstance(camera_activation_checkpoint, bool):
+            raise ValueError("det-camera-activation-checkpoint must be boolean")
         precision = run_config["precision"]
         sparse_partition = run_config["det-sparse-conv-precision"]
         try:
@@ -457,7 +462,7 @@ def _det_config_from_run(run_config: dict):
             camera_backbone="swin_t",
             freeze_camera_backbone=False,
             pretrained_backbone=bool(run_config["det-camera-pretrained"]),
-            activation_checkpoint=True,
+            activation_checkpoint=camera_activation_checkpoint,
             image_hw=(256, 704),
             feat_stride=8,
             neck_channels=128,

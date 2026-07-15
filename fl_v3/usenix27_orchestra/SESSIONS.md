@@ -36,8 +36,9 @@
 > every frozen loader, numerical, timing, memory, and epoch gate. Independent
 > review of immutable evidence `c28d09c` returned `PASS_WITH_RESIDUAL_RISK` with
 > no P0-P2; closure re-review of remediation `84adfd0` found no open P0-P3 and
-> marks STOP-3 owner-ready. Owner acceptance remains pending, and no retry or
-> STOP-4 is authorized.
+> marks STOP-3 owner-ready. O-119 owner-accepts/closes STOP-3 and starts the
+> approved STOP-4A-D implementation/profile/capacity/optimization/G100/G1000
+> sequence under a serial two-GPU-hour ceiling and no-retry boundary.
 >
 > `Sxx` now names a durable evidence milestone, not necessarily a new task,
 > worker, branch, or worktree. Under O-094, persistent S00 normally performs
@@ -74,7 +75,7 @@
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
-| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1/2 closed; STOP-3 Jobs `442152`/`446225` terminal technical PASS; evidence `c28d09c` reviewed with no P0-P2; remediation `84adfd0` closure review no P0-P3; owner-ready, acceptance pending |
+| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1/2/3 closed; O-119 STOP-4A-D active: bounded profiler + B=1/2/4 capacity, output-neutral remediation, optimized G100, conditional fresh G1000 |
 | S10 | Centralized branch/recipe ablation | S08+S09 | pending redefinition; no cells/gates frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
 | S12 | Protocol-A/B split and clean adaptation contract | CL freeze + fresh owner review | deferred; old proposal is historical evidence only |
@@ -314,10 +315,11 @@ perform an architecture experiment.
    100-successful-step single-GH200 gate, then independently review it. If a
    performance threshold fails, the stop returns an exact output-neutral
    optimization proposal rather than silently patching/rerunning.
-4. `STOP-4 G1000/CLOSE`: only after reviewed G100 acceptance, execute a fresh
-   1000-successful-step single-GH200 gate, independently review the complete S09
-   evidence, and prepare a close-ready linear state. It does not resume the
-   mid-epoch G100 state or imply DDP.
+4. `STOP-4 OPTIMIZE/G1000/CLOSE`: under O-119, first profile the exact STOP-3
+   B=1/checkpoint-on baseline and characterize checkpoint-off B=1/2/4 capacity;
+   remove only proven output-neutral synchronization/allocation, validate an
+   optimized B=1 G100, then conditionally execute a fresh B=1 1000-successful-step
+   single-GH200 gate. B=2/4 do not select a recipe, and no run resumes G100 state.
 
 **Compute.** STOP-1/3/4 material jobs require their own exact stop approval. The
 STOP-2 focused smoke may use O-009/O-107 only when that stop approval explicitly
@@ -326,9 +328,11 @@ STOP-2 Job `441293` are consumed and terminal; no replacement was used. O-117
 Job `441511` consumed its sole exact submission and failed before loader/model
 execution. O-118 separately authorized and consumed Phase-A Job `442152` and
 conditional Phase-B Job `446225`; no retry occurred, all frozen STOP-3 gates
-pass, and independent review found no P0-P2. O-118 compute is exhausted. STOP-4
-and all other later S09 compute remain unapproved pending owner STOP-3 acceptance
-and a new exact request.
+pass, and independent review found no open P0-P3 after remediation. O-119 accepts
+STOP-3 and approves three serial STOP-4 jobs at `00:30:00`, `00:30:00`, and
+`01:00:00`, one GH200/16 CPUs/96 GiB each, at most two cumulative GPU-hours and
+no retry; each immutable tuple is recorded and independently reviewed before its
+conditional submission.
 
 ## 6. S10-S12 redefinition boundaries
 

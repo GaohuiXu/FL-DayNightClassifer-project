@@ -62,9 +62,19 @@ def test_resolved_camera_constructor_is_stride8_half_metre_and_180_grid():
     assert cfg.feat_stride == 8
     assert cfg.depth_bins == (1.0, 60.0, 0.5)
     assert cfg.reference_camera is True
+    assert cfg.activation_checkpoint is True
     assert cfg.camera_bev_output_dtype == "input"
     assert (cfg.bev.head_ny, cfg.bev.head_nx) == (180, 180)
     assert cfg.head_conv_layers == 2 and cfg.fusion_channels == 256
+
+
+def test_resolved_camera_checkpoint_switch_is_explicit_and_boolean():
+    run = _run_config("camera_only", "swin_t_stride8", "none", "none")
+    run["det-camera-activation-checkpoint"] = False
+    assert _det_config_from_run(run).activation_checkpoint is False
+    run["det-camera-activation-checkpoint"] = 0
+    with pytest.raises(ValueError, match="must be boolean"):
+        _det_config_from_run(run)
 
 
 def test_resolved_pillar_and_second_constructors_keep_distinct_reviewed_grids():

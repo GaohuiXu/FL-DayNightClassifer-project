@@ -4,7 +4,7 @@
 
 ```text
 SESSION_ID: S09
-MILESTONE_STATE: STOP-1/2 CLOSED / STOP-3 O-118 PHASE A/B REVIEWED TECHNICAL PASS / NO OPEN P0-P3 / OWNER-READY / OWNER DECISION PENDING
+MILESTONE_STATE: STOP-1/2/3 CLOSED / O-119 STOP-4A-D ACTIVE
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
@@ -41,7 +41,9 @@ STOP3_DEP_ATTEST_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / NOT compute a
 STOP3_DEP_ATTEST_SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop3_dep_attest_788b493889bc
 STOP3_DEP_ATTEST_SUBMIT_SHA256: 93848490f485ab38a74ce9818a1ce9d8c35a5eaa17e389fc6b437e9238aa9706
 STOP3_O118_DECISION: APPROVED / exact dependency attestation + conditionally derived unchanged O-117 G100 / no retry
-APPROVED_COMPUTE: none active / O-118 Phase A and Phase B consumed / no retry
+OWNER_STOP3_DECISION: O-119 / ACCEPTED AND CLOSED
+STOP4_DECISION: O-119 / IMPLEMENTATION + THREE SERIAL CONDITIONAL JOBS / <=2 GPU-HOURS / NO RETRY
+APPROVED_COMPUTE: STOP-4A <=00:30:00; STOP-4C <=00:30:00; conditional STOP-4D <=01:00:00 / each 1 GH200, 16 CPU, 96 GiB
 STOP3_DEP_ATTEST_JOB: 442152 COMPLETED 0:0 in 00:11:52 / 0.197778 GPU-hours / technical PASS
 STOP3_DEP_ATTEST_BUILDS: spconv af42200511a53ce86d77cea0306924a2dc516a74f0483ef7cfe0a6e1dc84b100 / cumm 0a7e3c1a8c3e8d41b3b40c4fb77d05bdec8ca2dfce5dbb8863626c4b45d8296d
 STOP3_DEP_ATTEST_ACCEPTANCE_SHA256: 4b60f319660124d3bfac23a21bfbfa1b7c66ca920a0e4a4df03b1a512833e9b4
@@ -79,8 +81,8 @@ linear immutable commits, and independent review. O-115 separately authorized th
 exact GH200 smoke; Job `441293` is terminal technical PASS. O-116 accepts/closes
 STOP-2. O-117 accepts the detailed STOP-3 plan plus 1 Hz read-only GPU telemetry
 and authorizes its exact linear commits and one derived immutable G100 after the
-source/snapshot/config/script/output tuple is recorded. Retry and STOP-4 remain
-unauthorized. Job `441511` consumed the sole O-117 submission and failed before
+source/snapshot/config/script/output tuple is recorded. At that O-117 boundary,
+retry and STOP-4 were unauthorized. Job `441511` consumed the sole O-117 submission and failed before
 physical data verification, loader profiling, model construction, or training:
 the source-controlled runner selected runtime-only modules despite `env.md`'s
 build-module requirement for editable cumm/spconv imports, and spconv JIT could
@@ -104,8 +106,8 @@ accepted all 90 post-warm-up measured windows; all loader, counter, latency,
 data-wait, memory and epoch-estimate thresholds pass. Immutable evidence
 `c28d09c` received independent `PASS_WITH_RESIDUAL_RISK` with no P0-P2. The two
 documentation-only P3 findings—combined-window gate wording and active-ledger
-state—are closed by independently reviewed remediation `84adfd0`. No retry is authorized;
-STOP-3 owner acceptance is pending, and STOP-4 remains blocked.
+state—are closed by independently reviewed remediation `84adfd0`. O-119 accepts
+and closes STOP-3, then authorizes the exact STOP-4A-D sequence recorded below.
 
 ## S08 residual carried into S09
 
@@ -177,7 +179,7 @@ FP32 island.
 | STOP-1 — DATA | Owner accepts the exact cache/materialization request | Exact production `t1.v2`, `n_sweeps=10` train/val cache and manifest identities; counts and integrity evidence | Independent data/provenance review before production binding |
 | STOP-2 — IMPLEMENTATION | STOP-1 identity accepted; owner accepts exact files/Git/smoke envelope | Minimal output-neutral timing/memory/accounting instrumentation, resolved provenance, focused local/runtime checks, immutable implementation SHA | Independent diff/tests/request review before G100 |
 | STOP-3 — G100 | STOP-2 reviewed; owner accepts exact immutable G100 tuple and quota | Loader worker selection plus one bounded 100-successful-step F-U gate; latency/throughput/data-wait/memory/counter/stability evidence and epoch estimate | Independent evidence review, then owner PASS/REMEDIATE decision |
-| STOP-4 — G1000 | STOP-3 reviewed PASS; owner separately accepts exact conditional tuple | One fresh 1000-successful-step readiness run under the frozen STOP-3 policy | Independent evidence review and owner close decision |
+| STOP-4 — OPTIMIZE/G1000 | O-119 accepts STOP-3 and the exact serial envelope | Bounded baseline profiler; checkpoint-off B=1/2/4 capacity; proven output-neutral remediation; optimized B=1 G100; conditional fresh B=1 G1000 | Independent code/evidence reviews and owner close decision |
 
 At each stop, S00 first presents the exact plan, files and immutable identities,
 acceptance/stop criteria, and proposed GPU quota. After one owner approval of that
@@ -188,11 +190,43 @@ the owner. Only a future explicitly opted-in O-009/O-107 STOP-2 smoke may use it
 capped mechanical replacement rule; unused time from a STOP-1/3/4 material job
 does not authorize a retry or a new cell.
 
-If STOP-3 identifies a failed engineering threshold with a specific safe
-bottleneck, its deliverable may be an exact output-neutral optimization proposal.
-It does not patch and rerun implicitly. The owner must amend STOP-3 with the exact
-files, equivalence tests, immutable execution tuple, and quota before a replacement
-gate; STOP-4 remains blocked until an accepted G100 exists.
+O-119 supplies that amendment after accepting STOP-3. STOP-4 remains limited to
+the hash-bound activation-checkpoint switch and measured/source-proven
+output-neutral synchronization/allocation removal. B=2/4 are capacity evidence,
+while optimized G100/G1000 retain B=1 so performance changes are not conflated
+with a training-recipe change.
+
+## O-119 STOP-4 implementation envelope
+
+Initial implementation ownership is deliberately small:
+
+- `config/resolved.py` adds `s09.v2` while preserving the exact `s09.v1`
+  semantics; v2 requires explicit camera activation-checkpoint and bounded
+  operator-profile fields;
+- `training/tasks.py` maps the checkpoint field; `training/loop.py` exposes one
+  readiness-only callback advanced exactly once per attempted optimizer window;
+- `models/fusion/detector.py` supplies temporary profiler-only ranges for camera
+  preprocess/backbone/neck/view transform, LiDAR encoder/backbone, fusion, BEV
+  neck and head without retaining tensors;
+- `scripts/centralized_train.py` emits one bounded CPU/CUDA trace/summary and
+  excludes its active windows from post-warm-up throughput interpretation;
+- four STOP-4A configs freeze exact B=1 profile and checkpoint-off B=1/2/4
+  capacity cells; one serial runner executes focused tests and those cells; and
+- focused config/mapping/range/callback/profiler tests plus this S09 package are
+  updated together.
+
+STOP-4B may touch `models/fusion/losses.py`, `training/loop.py`, and the
+centralized entry point only when STOP-4A directly confirms a redundant sync or
+allocation. It must keep S08 diagnostic term capture intact. No generic observer,
+hook chain, retained activation, worker sweep, architecture, normalization,
+head/loss math, target, optimizer, scheduler, EMA, augmentation, sampling,
+initialization, metric/decode/NMS, DDP, or checkpoint/resume change is in scope.
+
+The three approved compute ceilings are serial: STOP-4A `00:30:00`, STOP-4C
+`00:30:00`, and conditional STOP-4D `01:00:00`, each one GH200/16 CPUs/96 GiB,
+with no retry and at most two cumulative GPU-hours. Each exact immutable
+source/tree/config/runner/submit/output tuple is recorded and independently
+reviewed before submission. A material drift cancels remaining authority.
 
 ## STOP-2 code audit and proposed implementation ownership
 

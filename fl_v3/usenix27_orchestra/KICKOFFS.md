@@ -27,9 +27,10 @@
 > accepted F-U updates in 103 attempts and passed every frozen STOP-3 gate.
 > Independent review of immutable evidence `c28d09c` returned
 > `PASS_WITH_RESIDUAL_RISK` with no P0-P2. Closure re-review of remediation
-> `84adfd0` found no open P0-P3 and marks STOP-3 owner-ready. Owner acceptance
-> remains pending. O-118 compute is exhausted; STOP-4, push, and merge
-> remain unauthorized.
+> `84adfd0` found no open P0-P3. O-119 owner-accepts/closes STOP-3 and authorizes
+> the serial STOP-4A-D implementation/profile/capacity/output-neutral-
+> optimization/G100/conditional-G1000 envelope. Push and merge remain
+> unauthorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -259,7 +260,7 @@ SESSION_ID: S09
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 SOURCE_BRANCH: codex/s08-s09-cl-readiness
 IMPLEMENTATION_CONTEXT: persistent S00 unless owner selects independent isolation
-APPROVED_COMPUTE: O-112 Job 441191, O-115 Job 441293, O-117 Job 441511, and O-118 Jobs 442152/446225 consumed; none active
+APPROVED_COMPUTE: O-119 STOP-4A <=00:30:00, STOP-4C <=00:30:00, conditional STOP-4D <=01:00:00; serial one GH200, 16 CPU, 96 GiB, <=2 cumulative GPU-hours, no retry
 APPROVED_GIT: linear S09 envelope/request/evidence/review commits; no merge/push
 DECISION_SCOPE: base-uniform full-pipeline engineering performance/readiness only
 ```
@@ -285,8 +286,9 @@ DECISION_SCOPE: base-uniform full-pipeline engineering performance/readiness onl
   contents, model/loss/gradient/update semantics, O-110 precision, and exposure
   accounting, and it needs an exact owner-reviewed file/equivalence envelope.
 - No S08 precision diagnostics/window observer is enabled in performance jobs.
-  S09 timing uses direct, bounded, output-neutral loop timestamps/CUDA events;
-  no module hooks, activation retention, general profiler, or harness chain.
+  STOP-3/4C/4D timing uses direct loop timestamps/CUDA events. O-119 permits only
+  one bounded STOP-4A `torch.profiler` cycle with temporary named ranges and no
+  retained activations; it does not restore a general profiler/harness chain.
 
 ### Stop workflow
 
@@ -394,18 +396,27 @@ O-107 replacement.
   resubmit G100; a replacement implementation and exact G100 tuple require an
   owner amendment at this stop before STOP-4 can start.
 
-#### STOP-4 G1000/CLOSE — conditional only
+#### STOP-4 OPTIMIZE/G1000/CLOSE — approved by O-119
 
-- Starts only after reviewed STOP-3 PASS and a new exact owner approval.
-- Fresh run from initialization; it does not resume the mid-epoch 100-step state.
-- Same O-110 precision and base-uniform recipe; exact worker count and runtime
-  thresholds are selected from reviewed STOP-3 evidence and then frozen by the
-  owner. No automatic batch/recipe/branch/DDP amendment.
-- Execute at most one exact 1000-successful-step job, then independently review the
-  complete S09 source/data/100/1000-step evidence and prepare a close-ready linear
-  commit. Walltime/GPU quota is derived from STOP-3 and is currently unset.
-- If single-GH200 performance is unacceptable, STOP-4 returns to the owner for a
-  distinct decision; it does not infer DDP authority.
+- STOP-4A: one serial `00:30:00` job runs focused tests; one exact STOP-3-like
+  B=1/checkpoint-on 20-update operator profile; and checkpoint-off B=1/2/4
+  20-update capacity cells. Only the B=1 profile is a baseline diagnostic;
+  B=2/4 are capacity evidence and cannot select the S10 recipe.
+- STOP-4B: use the trace and source audit to remove only proven redundant
+  synchronization/allocation, including output-neutral loss telemetry recording;
+  keep a hash-bound Swin checkpoint switch. Preserve model outputs, loss,
+  gradients/updates, data order, O-110 precision, optimizer/scheduler/EMA and
+  exposure. Seal and independently review immutable code/evidence.
+- STOP-4C: one optimized B=1 G100 under the unchanged base-uniform recipe,
+  `00:30:00` ceiling. It must pass the STOP-3 numerical/counter gates and must not
+  regress steady latency materially; no profiler is active.
+- STOP-4D: only after reviewed STOP-4C PASS, one fresh-from-initialization B=1
+  1000-successful-step job under `01:00:00`; it does not resume G100. Independently
+  review all S09 evidence and prepare owner-close-ready state.
+- All three jobs use one GH200, 16 CPUs and 96 GiB; they are serial, no-retry and
+  capped at two cumulative GPU-hours. Any model/recipe/data/precision/resource or
+  scientific-scope drift cancels the remaining conditional authority. No worker
+  matrix, DDP, merge, or push.
 
 ### Explicit non-goals
 

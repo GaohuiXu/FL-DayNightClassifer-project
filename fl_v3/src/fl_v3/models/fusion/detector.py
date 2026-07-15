@@ -18,7 +18,7 @@ unreachable from the strict ``centerhead_multitask`` constructor.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import threading
 from typing import Dict, List, Optional
 
@@ -104,6 +104,7 @@ class BEVFusionDetector(nn.Module):
         self.model_mode = normalize_model_mode(c.model_mode)
         self._runtime_lock = threading.RLock()
         self._training_boundary_tensors: dict[str, torch.Tensor] | None = None
+        self._operator_profile_ranges = False
         use_camera = self.model_mode in {"camera_only", "fusion"}
         use_lidar = self.model_mode in {"lidar_only", "fusion"}
         if use_lidar and c.required_spconv_version is not None:
@@ -200,12 +201,14 @@ class BEVFusionDetector(nn.Module):
         state = self.__dict__.copy()
         state.pop("_runtime_lock", None)
         state.pop("_training_boundary_tensors", None)
+        state.pop("_operator_profile_ranges", None)
         return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
         self._runtime_lock = threading.RLock()
         self._training_boundary_tensors = None
+        self._operator_profile_ranges = False
 
     # --- forward ---
     def train(self, mode: bool = True):
@@ -219,6 +222,27 @@ class BEVFusionDetector(nn.Module):
         with self._runtime_lock:
             super().train(bool(training))
             yield self
+
+    @contextmanager
+    def operator_profile_ranges(self):
+        """Enable bounded, output-neutral branch ranges for ``torch.profiler``."""
+        with self._runtime_lock:
+            if self._operator_profile_ranges:
+                raise RuntimeError("nested operator-profile ranges are forbidden")
+            self._operator_profile_ranges = True
+            try:
+                yield self
+            finally:
+                self._operator_profile_ranges = False
+
+    def _profiled(self, name: str, function, *args, **kwargs):
+        context = (
+            torch.profiler.record_function(f"fl_v3::{name}")
+            if self._operator_profile_ranges
+            else nullcontext()
+        )
+        with context:
+            return function(*args, **kwargs)
 
     @contextmanager
     def capture_training_boundaries(self):
@@ -262,7 +286,9 @@ class BEVFusionDetector(nn.Module):
             for key in ("images", "lidar2img", "cam_intrinsics"):
                 if key not in batch:
                     raise KeyError(f"{self.model_mode} forward requires batch[{key!r}]")
-            pre = self.preprocess(
+            pre = self._profiled(
+                "camera.preprocess",
+                self.preprocess,
                 batch["images"],
                 batch["lidar2img"],
                 batch["cam_intrinsics"],
@@ -270,9 +296,20 @@ class BEVFusionDetector(nn.Module):
             )
             imgs = pre["images"]
             B, N = imgs.shape[0], imgs.shape[1]
-            feats = self.camera_backbone(imgs.reshape(B * N, *imgs.shape[2:]))
-            camfeat = self.camera_neck(feats)
-            vt = self.view_transform(camfeat, pre["lidar2img"], B, N)
+            feats = self._profiled(
+                "camera.backbone",
+                self.camera_backbone,
+                imgs.reshape(B * N, *imgs.shape[2:]),
+            )
+            camfeat = self._profiled("camera.neck", self.camera_neck, feats)
+            vt = self._profiled(
+                "camera.view_transform",
+                self.view_transform,
+                camfeat,
+                pre["lidar2img"],
+                B,
+                N,
+            )
             camera_bev = vt["bev"]
         else:
             B = int(batch.get("batch_size", len(batch.get("gt_boxes", ()))))
@@ -282,7 +319,9 @@ class BEVFusionDetector(nn.Module):
             if "lidar_points" not in batch:
                 raise KeyError(f"{self.model_mode} forward requires batch['lidar_points']")
             if c.lidar_encoder == "voxel":
-                lidar_bev = self.lidar_encoder(
+                lidar_bev = self._profiled(
+                    "lidar.encoder",
+                    self.lidar_encoder,
                     batch["lidar_points"],
                     B,
                     boundary_capture=(
@@ -292,23 +331,29 @@ class BEVFusionDetector(nn.Module):
                     ),
                 )
             else:
-                lidar_bev = self.lidar_encoder(batch["lidar_points"], B)
+                lidar_bev = self._profiled(
+                    "lidar.encoder", self.lidar_encoder, batch["lidar_points"], B
+                )
             if self.lidar_backbone is not None:
-                lidar_bev = self.lidar_backbone(lidar_bev)
+                lidar_bev = self._profiled(
+                    "lidar.backbone", self.lidar_backbone, lidar_bev
+                )
         if self.model_mode == "fusion":
             if camera_bev.shape[-2:] != lidar_bev.shape[-2:]:
                 raise RuntimeError(
                     "camera/LiDAR BEV geometry mismatch: "
                     f"camera={tuple(camera_bev.shape[-2:])}, lidar={tuple(lidar_bev.shape[-2:])}"
                 )
-            fused = self.fusion(camera_bev, lidar_bev)
+            fused = self._profiled(
+                "fusion.fuser", self.fusion, camera_bev, lidar_bev
+            )
         elif self.model_mode == "camera_only":
-            fused = self.camera_adapter(camera_bev)
+            fused = self._profiled("fusion.camera_adapter", self.camera_adapter, camera_bev)
         else:
-            fused = self.lidar_adapter(lidar_bev)
-        neck = self.bev_neck(fused)
+            fused = self._profiled("fusion.lidar_adapter", self.lidar_adapter, lidar_bev)
+        neck = self._profiled("shared.bev_neck", self.bev_neck, fused)
         self._capture_training_boundary("head.input", neck)
-        out = self.head(neck)
+        out = self._profiled("shared.head", self.head, neck)
         if return_intermediates:
             out = {"task_outputs": out} if isinstance(out, list) else dict(out)
             if camera_bev is not None:
