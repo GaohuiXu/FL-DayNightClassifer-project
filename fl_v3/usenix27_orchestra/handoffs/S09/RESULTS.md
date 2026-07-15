@@ -14,7 +14,7 @@ JOB_STATE/EXIT/RESTARTS: COMPLETED / 0:0 / 0
 NODE/ELAPSED/LIMIT: n125 / 00:03:06 / 00:30:00
 ACTUAL_GPU_HOURS: 0.051667
 SUBMISSIONS: 1 / approval consumed / no retry
-RESULT: TERMINAL / INDEPENDENT PASS_WITH_RESIDUAL_RISK / OWNER ACCEPTANCE PENDING
+RESULT: TERMINAL / INDEPENDENT PASS_WITH_RESIDUAL_RISK / OWNER-ACCEPTED O-113
 ```
 
 Job `441191` consumed the only O-112 submission and completed both requested
@@ -113,9 +113,9 @@ or missing output.
 
 This terminal PASS establishes exact production cache identities for the current
 metadata/geometry implementation and accepted manifest. Independent re-review
-accepted the bounded gate with residual risk. After owner STOP-1 acceptance,
-these exact physical files plus their canonical and physical hashes may be bound
-as later S09 inputs.
+accepted the bounded gate with residual risk, and O-113 owner-accepts STOP-1.
+These exact physical files plus their canonical and physical hashes may be bound
+as later S09 inputs; no rebuild-by-name substitution is allowed.
 
 It does **not** prove sensor-payload decode parity, DataLoader throughput, model
 performance/readiness, convergence, mAP/NDS, scientific recipe quality, Protocol

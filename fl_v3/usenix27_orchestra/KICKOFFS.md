@@ -11,8 +11,10 @@
 > completed `0:0` in `00:03:06`. Independent review passed raw evidence but
 > returned `REMEDIATE` for P2/P3 durable provenance/status wording.
 > Documentation-only remediation SHA `5252a59` closed every finding under bounded
-> re-review and received `PASS_WITH_RESIDUAL_RISK`; owner STOP-1 acceptance is
-> pending. STOP-2, retry, push, and merge remain unauthorized.
+> re-review and received `PASS_WITH_RESIDUAL_RISK`. O-113 owner-accepts/closes
+> STOP-1 and opens STOP-2 detailed planning. O-114 approves the exact STOP-2
+> implementation envelope, local validation, linear commits, and independent
+> review. GH200 execution, retry, push, and merge remain unauthorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

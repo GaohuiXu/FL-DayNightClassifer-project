@@ -194,8 +194,11 @@ STOP-1 Job `441191` subsequently materialized exact read-only train/val `t1.v2`,
 `n_sweeps=10` caches and passed the execution/cache/hash gates. Bounded independent
 re-review at remediation SHA `5252a591983abb0013f19547e1d6ad20d3d6661f`
 closed the documentation-provenance findings and returned
-`PASS_WITH_RESIDUAL_RISK`; owner STOP-1 acceptance is still required before
-downstream production binding. This is not model/full-data readiness. Do not
+`PASS_WITH_RESIDUAL_RISK`; O-113 owner-accepts the exact caches for downstream
+production binding. O-114 separately approves the exact STOP-2 implementation,
+local validation, linear immutable commits, and independent review; its bounded
+GH200 smoke still requires exact immutable-SHA confirmation. This is not model/full-
+data readiness. Do not
 extract/duplicate the dataset or submit further full-data jobs
 without exact permission. O-009 covers only a recorded bounded
 engineering smoke (one node/GPU, at most 60 minutes/job, one concurrent job, two

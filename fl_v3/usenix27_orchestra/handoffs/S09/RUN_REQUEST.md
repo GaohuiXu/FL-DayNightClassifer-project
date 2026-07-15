@@ -4,8 +4,8 @@
 > terminal technical PASS. The submission authority is consumed. First review
 > passed raw evidence but returned `REMEDIATE` for durable documentation
 > provenance; bounded re-review at `5252a59` closed every finding and returned
-> `PASS_WITH_RESIDUAL_RISK`. Owner STOP-1 acceptance is pending and no later stop
-> is authorized.
+> `PASS_WITH_RESIDUAL_RISK`. O-113 owner-accepts STOP-1. No active request or later
+> compute is authorized.
 
 ## Authorization state
 
@@ -19,7 +19,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112 STOP-1 execution
 APPROVED_COMPUTE: STOP-1 only / <=0.5 GPU-hours
 APPROVED_SUBMISSIONS: 1 / consumed by Job 441191
-ACTIVE_REQUEST: none / S09-STOP1-DATA reviewed PASS_WITH_RESIDUAL_RISK / owner decision pending
+ACTIVE_REQUEST: none / S09-STOP1-DATA owner-accepted under O-113
 IMPLEMENTATION_COMMIT_AUTHORITY: no production implementation; linear STOP-1 docs/evidence commits allowed
 MERGE_OR_PUSH_AUTHORITY: none
 ```
@@ -184,29 +184,51 @@ provenance/status findings. Bounded independent re-review found no open P0-P3 an
 returned `PASS_WITH_RESIDUAL_RISK`; its residual risks and downstream hash-binding
 requirements are preserved in `REVIEW.md`.
 
+O-113 owner-accepts this reviewed STOP-1 gate and permits later S09 requests to
+bind only these exact cache/manifest identities. It does not reactivate O-112,
+authorize a retry, or approve STOP-2 implementation or compute.
+
 ## STOP-2 — minimal readiness instrumentation
 
 ```text
 REQUEST_STATE: PROPOSED / DEPENDS ON STOP-1 / NOT APPROVED
 OBJECTIVE: implement and validate output-neutral performance/readiness accounting
-PROPOSED_RUNTIME_SMOKE_CEILING: 1 GH200 / 8 CPU / 96 GiB host / 00:30:00 / 0.5 GPU-hours
+PROPOSED_RUNTIME_SMOKE_CEILING: 1 GH200 / 4 CPU / 32 GiB host / 00:10:00 per submission
+PROPOSED_CUMULATIVE_GPU_CEILING: 0.5 GPU-hours
 PROPOSED_SUBMISSIONS: 1, or at most 3 only if the future exact request explicitly opts into O-107
 ```
 
-The future implementation request will bind the file envelope in `HANDOFF.md`,
-tests, local validation, immutable implementation-commit authority, and reviewer
-scope. Any GH200 smoke must be a focused implementation/runtime check within
-O-009, not a model-qualification or production training run. If the owner
-explicitly opts into O-107, derived replacements are limited to obvious test,
-fixture, wrapper, provenance/artifact, or output-neutral diagnostic-plumbing
-defects and remain inside O-009's cumulative two-GPU-hour ceiling. Model output,
-loss/gradient, precision, data, recipe, cell, seed, or resource changes end the
-loop.
+O-114 approves implementation, local/static validation, linear immutable commits,
+and independent review of this exact envelope. It does not approve the proposed
+GH200 smoke. `REQUEST_STATE` therefore remains proposed until an immutable
+implementation SHA, exact diff/command/wrapper/output, and one owner execution
+confirmation exist.
+
+O-114 binds the exact file/semantic envelope in `HANDOFF.md`, local validation,
+linear immutable implementation/evidence commits, and reviewer scope. It cannot
+pre-authorize an unknown future Git SHA. After the implementation SHA exists, S00
+will present one concise exact smoke tuple binding that SHA/diff, command and
+selected tests, wrapper hash, output, and stop conditions.
+
+The proposed selector is the new focused S09 readiness test plus the existing S06
+resolved-config/training-runtime regression tests. It uses only deterministic toy
+CPU/CUDA tensors: no nuScenes metadata or payload, cache scan, detector
+qualification, production training, metric, profile, or scientific claim. Its
+CUDA case exercises direct event resolution and proves identical model/optimizer/
+counter state with timing off versus on.
+
+If the later exact request explicitly opts into O-107, derived replacements are
+limited to obvious test, fixture, wrapper, provenance/artifact, or output-neutral
+timing-plumbing defects, at most two replacements and at most 0.5 cumulative
+GPU-hours. Model output, loss/gradient, precision, data, recipe, selector/scope,
+seed, or resource changes end the loop and return to the owner.
 
 The accepted instrumentation must use direct bounded timestamps/CUDA events and
 memory counters only. The S08 precision observer, forward/backward hooks,
 activation retention, general profiler, sampler/checkpoint redesign, and retired
-harnesses are forbidden.
+harnesses are forbidden. STOP-2 acceptance requires focused local/static checks,
+the exact bounded GH200 smoke, complete immutable evidence, and independent review
+with no open P0-P2 before the owner is asked to close the stop.
 
 ## STOP-3 — loader selection and G100
 
@@ -228,8 +250,10 @@ The exact future request will bind:
 1. loader-only production ZIP/cache cells at `num_workers=0/2/4/8`, two persistent
    repeats per worker count, with 16 warm-up batches and 256 measured batches per
    repeat;
-2. a single worker count selected by a predeclared rule and frozen before model
-   training begins (8 is only the current provisional default);
+2. `num_workers=8` hash-bound in the future exact G100 config before execution,
+   based on accepted S01 evidence; the fresh loader cells are observational and
+   abort/report rather than silently changing that resolved config if they falsify
+   the choice;
 3. one fresh F-U run requiring 100 successful optimizer updates, stopping after at
    most 120 attempted windows, with the first ten successful updates excluded
    from timing summaries; and

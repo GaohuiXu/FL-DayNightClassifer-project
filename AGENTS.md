@@ -215,8 +215,12 @@ val `t1.v2`, `n_sweeps=10` caches and completed all in-job plus S00 post-job
 identity checks. First review returned documentation-only `REMEDIATE`; bounded
 re-review of remediation SHA `5252a591983abb0013f19547e1d6ad20d3d6661f`
 closed every P2/P3 finding and returned `PASS_WITH_RESIDUAL_RISK`. The exact
-caches are review-accepted but await the owner's STOP-1 decision before downstream
-production binding. No cache retry or later S09 job is authorized. Do not extract or
+caches are owner-accepted under O-113 for exact downstream production binding.
+O-114 approves the exact STOP-2 implementation envelope, local validation, linear
+immutable implementation/evidence commits, and independent review. GH200 execution
+still requires one exact immutable-SHA confirmation; no cache retry or later S09 job
+is currently authorized.
+Do not extract or
 duplicate the full dataset into project storage without explicit owner permission.
 The old
 `/mimer/NOBACKUP/Datasets/NuScenes_v1.0` path is not an Arrhenius data path.

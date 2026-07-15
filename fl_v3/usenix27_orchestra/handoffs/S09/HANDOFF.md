@@ -4,7 +4,7 @@
 
 ```text
 SESSION_ID: S09
-MILESTONE_STATE: STOP-1 REVIEWED PASS_WITH_RESIDUAL_RISK / OWNER ACCEPTANCE PENDING
+MILESTONE_STATE: STOP-1 CLOSED OWNER-ACCEPTED UNDER O-113 / STOP-2 IMPLEMENTATION ACTIVE UNDER O-114
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
@@ -12,10 +12,12 @@ FIRST_EVIDENCE_SHA: b35591b1a9ac64ea50ee3ad3257304baef07f8de
 BRANCH: codex/s08-s09-cl-readiness
 S08_POLICY_DECISION: O-110 / CLOSED PASS
 S09_SCOPE_DECISION: O-111
+STOP2_SCOPE_DECISION: O-114
 IMPLEMENTATION_COMMIT: none
 APPROVED_COMPUTE: STOP-1 Job 441191 consumed / no active compute
 JOBS: 441191 COMPLETED 0:0 in 00:03:06 / no retry
 INDEPENDENT_REVIEW: 5252a59 PASS_WITH_RESIDUAL_RISK / no open P0-P3
+OWNER_STOP1_DECISION: O-113 / ACCEPTED
 ```
 
 This file records the accepted S09 execution envelope. The owner accepted
@@ -29,9 +31,11 @@ data/provenance review found no P0/P1 and passed the raw source/cache/job gates,
 but returned `REMEDIATE` for one nonexistent request SHA, a stale current-HEAD
 label, and active status drift. Documentation-only remediation SHA `5252a59`
 corrected those records; bounded re-review closed every P2/P3 finding and returned
-`PASS_WITH_RESIDUAL_RISK`. The package now awaits owner STOP-1 inspection and
-acceptance. STOP-2 through STOP-4 still require their own owner-reviewed plan and
-Git/Slurm authority.
+`PASS_WITH_RESIDUAL_RISK`. O-113 records the owner's STOP-1 acceptance and permits
+exact downstream binding of the reviewed cache identities. It opens STOP-2
+detailed planning. O-114 authorizes its exact implementation, local validation,
+linear immutable commits, and independent review. Its GH200 smoke and STOP-3/4
+still require exact owner-reviewed Slurm authority.
 
 ## S08 residual carried into S09
 
@@ -120,30 +124,104 @@ It does not patch and rerun implicitly. The owner must amend STOP-3 with the exa
 files, equivalence tests, immutable execution tuple, and quota before a replacement
 gate; STOP-4 remains blocked until an accepted G100 exists.
 
-## Proposed implementation ownership for STOP-2
+## STOP-2 code audit and proposed implementation ownership
 
-The current maximum file envelope is:
+The post-STOP-1 source audit found four useful constraints:
 
-- `fl_v3/src/fl_v3/config/resolved.py` — fail-closed resolved performance/readiness
-  fields and provenance;
-- `fl_v3/scripts/centralized_train.py` — bind the production cache/manifest and
-  emit the bounded readiness artifact;
-- `fl_v3/src/fl_v3/training/loop.py` — direct, output-neutral interval and counter
-  accounting;
-- at most one small timing/accounting helper under `fl_v3/src/fl_v3/training/` if
-  keeping the loop cohesive requires it;
-- `fl_v3/configs/s07_b_l_s075.json`, `s07_b_f_u.json`, and
-  `s07_b_f_cbgs.json` only where explicit accepted precision/readiness provenance
-  must replace template ambiguity;
-- focused resolved-config, runtime, and checkpoint/accounting tests; and
-- the S09 handoff/request/results/review package and necessary canonical status
+1. `s08.v1` already hash-binds global `fp32 | fp16`, the explicit SECOND sparse
+   partition, optimizer/recipe, successful-update budget, worker count, exact
+   train/val cache identities, accepted manifest identities, dependencies, and
+   evaluation policy. STOP-2 must not add another precision selector.
+2. `centralized_train.py` currently has only one lifecycle: train to the successful-
+   update budget, save one epoch-boundary checkpoint, then run strict official
+   evaluation. It cannot honestly terminate a bounded mid-epoch readiness run.
+3. `train_one_epoch` already distinguishes attempted/successful/invalid windows and
+   already exposes a microbatch `max_steps` cap. With readiness restricted to
+   accumulation one, that existing cap exactly enforces the proposed attempted-
+   window ceiling; checkpoint state, sampler cursor, and optimizer semantics need
+   no redesign.
+4. The H2D boundary is the direct `_unpack_batch` call in the production loop, and
+   forward, FP32 output promotion, loss, backward, scaler/optimizer, scheduler, and
+   EMA are all explicit in the same function. Direct timestamps/events can measure
+   them without module hooks, retained tensors, the S08 diagnostic observer, or the
+   retired profiler. The current production loader already pins memory and uses
+   persistent workers plus prefetch when `num_workers > 0`.
+
+The proposed exact file envelope is:
+
+- `fl_v3/src/fl_v3/config/resolved.py` — advance the current production schema to
+  `s09.v1` and require one hash-bound `execution` object;
+- `fl_v3/scripts/centralized_train.py` — run either the unchanged train/checkpoint/
+  official-eval lifecycle or a fail-closed, non-resumable readiness lifecycle;
+  optionally execute the bounded production-loader profile and emit one complete
+  readiness artifact;
+- `fl_v3/src/fl_v3/training/loop.py` — add only direct, opt-in stage-event records
+  and one declared warm-up boundary; normal calls retain their current behavior;
+- the six current resolved/template JSON files under `fl_v3/configs/` — mechanical
+  `s09.v1` execution fields, plus `sparse_conv_precision="fp32"` for L-S075/F-U/
+  F-CBGS so the active templates no longer contradict O-110;
+- `fl_v3/tests/test_s06_resolved_config.py` and the S08 resolved-config fixture in
+  `fl_v3/tests/test_s08_precision_qualification.py` — mechanical schema evolution;
+- one focused `fl_v3/tests/test_s09_readiness.py` for fail-closed lifecycle,
+  attempted-window bounds, counter reconciliation, timing neutrality, loader bounds,
+  artifact provenance, and CPU/CUDA timing paths; and
+- the S09 handoff/request/results/review package plus necessary canonical status
   wording.
 
-The implementation may use direct host timestamps and bounded CUDA events and may
-record peak allocated/reserved memory. It must not install hooks, retain
-activations/gradients, enable the S08 window observer, add a general profiler or
-process/source-manifest framework, or promise a misleading mid-epoch resumable
-checkpoint without sampler-cursor state.
+No new helper module, benchmark script, wrapper framework, checkpoint schema,
+sampler state, or observer API is proposed. `training/tasks.py`,
+`training/runtime_state.py`, `training/checkpoint.py`, model/loss files, the data
+backend, and the retired `utils/profiling.py` remain unchanged.
+
+### Proposed `s09.v1` execution contract
+
+The new required object is:
+
+```text
+execution.mode = train_eval | readiness
+execution.max_attempted_windows = non-negative integer
+execution.timing_warmup_successful_windows = non-negative integer
+execution.loader_profile = null | {
+  workers: unique non-negative integer list,
+  repeats: positive integer,
+  determinism_batches: positive integer,
+  warmup_batches: non-negative integer,
+  measured_batches: positive integer
+}
+```
+
+`train_eval` requires zero/zero/null and preserves the current checkpoint and
+official-evaluation lifecycle. `readiness` requires world size one, accumulation
+one, an attempted-window cap at least as large as the successful-update target,
+and a warm-up count below that target. If a loader profile is present, the exact
+training `num_workers` must be one of the declared cells. The profile is
+observational: it cannot change the already hash-bound training worker count in-job.
+For STOP-3, the provisional exact training choice remains eight workers, supported
+by accepted S01 loader-only evidence; the fresh 0/2/4/8 profile may validate or
+falsify that choice but cannot silently derive a different G100 config.
+
+Readiness mode refuses resume, writes no checkpoint, runs no decode/evaluation, and
+does not increment a fictitious completed epoch. It stops at the first of the
+successful-update target, attempted-window cap, or data exhaustion; it writes the
+terminal artifact before returning a nonzero failure for an unmet gate.
+
+### Proposed measurement contract
+
+The production loop records all bounded attempted windows and their outcomes. On
+CUDA it places events directly around H2D, forward plus FP32 output promotion,
+loss, backward, and unscale/optimizer/scheduler/EMA, plus H2D-through-update CUDA
+end-to-end. It records host time blocked in `next(DataLoader)` separately. There is
+no per-stage synchronization: one synchronization establishes the declared warm-up
+boundary and one resolves the terminal records. CPU tests use direct host clocks.
+
+The artifact keeps raw bounded records and clearly labels CUDA duration versus host
+wait. Summaries report p50/p95 after excluding the first declared successful
+windows, measured wall throughput, accepted/attempted ratio, scaler start/end/skips,
+all `TrainingState` counters, scheduler/EMA counters, loss, peak allocated/reserved
+memory, device capacity/headroom, startup phases, exact resolved-config/data/runtime
+identities, and the execution-contract identity. Instrumentation performs no tensor
+reductions, hooks, gradient capture, activation retention, RNG draws, or policy
+decisions.
 
 ## Explicit non-goals
 
@@ -158,11 +236,22 @@ checkpoint without sampler-cursor state.
   or automatic retry; and
 - no S10-S12 implementation or scheduling from this envelope.
 
-## Open owner decisions
+## O-114 implementation authorization
 
-O-112 authorizes S00 to freeze the executable STOP-1 tuple before submission: the
-exact source SHA/snapshot, materialization command and script hash, accepted
-external ZIP-manifest identities, fresh output identity, resource tuple, stop
-conditions, and interpretation limits must all be recorded in `RUN_REQUEST.md`.
-The ceiling is one GH200, 8 CPUs, 96 GiB host memory, 30 minutes, one submission,
-and 0.5 GPU-hours. No retry, STOP-2 implementation, merge, or push is authorized.
+O-114 accepts:
+
+1. the `s09.v1` schema transition and exact execution fields above;
+2. the exact file envelope and direct-event measurement semantics;
+3. linear planning/implementation/remediation/evidence commit authority, focused
+   local/static validation, and independent reviewer use in this same worktree;
+4. the rule that obvious in-envelope code/test defects are fixed continuously,
+   while any model/loss/gradient/precision/data/recipe/resource change stops for a
+   new owner decision; and
+5. the proposed later GH200 smoke shape and O-107 mechanical-remediation ceiling.
+
+The smoke cannot be executed from O-114 alone because its exact
+immutable implementation SHA, diff, wrapper hash, and fresh output do not yet
+exist. Once they exist, S00 will request one concise exact execution confirmation;
+it will not reopen the accepted design unless the implementation materially
+deviates. All five points above are authorized for continuous execution; merge and
+push remain separately unauthorized.
