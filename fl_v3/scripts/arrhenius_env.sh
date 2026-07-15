@@ -6,7 +6,7 @@
 #
 # Source this file from Slurm jobs, then call:
 #   arrhenius_load_modules build   # compile/source-build path
-#   arrhenius_load_modules run     # runtime path; falls back to build modules if needed
+#   arrhenius_load_modules run     # Miniforge-only path; does not provide CUDA build headers
 #   arrhenius_activate_env
 set -euo pipefail
 

@@ -602,3 +602,217 @@ tensors; production detector/ZIP/persistent-worker/throughput/100-step stability
 memory/convergence/science remain STOP-3 or later; and the all-loss-nonfinite
 `scaler_scale_at_start=null` evidence edge remains non-blocking. This verdict does
 not authorize STOP-3/4, merge, or push.
+
+---
+
+## STOP-3 terminal failure/remediation independent review
+
+### Findings, severity first
+
+- **P0: none.**
+- **P1: none.**
+- **P2: none.** The immutable request, sole submission, failure boundary,
+  preserved artifacts, dependency side effect, and unexecuted runner correction
+  are represented conservatively enough to retain Job `441511` as negative
+  engineering evidence.
+- **P3 — active status/interface wording needs documentation-only reconciliation
+  when this review is sealed.** Root `AGENTS.md:223-225` still says STOP-2 owner
+  acceptance is pending and no later S09 job is authorized; `RUN_REQUEST.md:203`
+  likewise labels STOP-2 owner acceptance pending. Both conflict with O-116 and
+  the now-consumed O-117 Job `441511`. Separately,
+  `scripts/arrhenius_env.sh:9` says the `run` module path "falls back to build
+  modules if needed", but its implementation at lines 64-68 loads only
+  Miniforge; this conflicts with `docs/env.md:35-43` and obscures the exact
+  distinction that caused this failure. Correct those status lines and the shell
+  comment without changing module-loading behavior, and add the exact STOP-3
+  failure-evidence/review identity to the HANDOFF state block. These drifts do not
+  make Job `441511` unauthorized, hide a requested result, or warrant compute.
+
+### Review identity and scope
+
+```text
+REVIEWER: independent S09 STOP-3 failure/remediation reviewer
+FAILED_EXECUTION_SOURCE: 4d6bd829450021aa0813bcece066fb1fac85f478
+FAILED_EXECUTION_TREE: affb4854689a0bf65d829a273d769c87c000174c
+REQUEST_FREEZE: 30e6c9f7849dd1bfe7630f698913c2231131b62c
+EVIDENCE_CANDIDATE: 4fc78d508d4ac9ad7c46b9d3ad81c87646f8f0d3
+EVIDENCE_TREE: 56c08110cc4308e424101ae39e7edb79c2769cef
+EVIDENCE_PARENT: 30e6c9f7849dd1bfe7630f698913c2231131b62c
+BRANCH: codex/s08-s09-cl-readiness
+JOB: 441511
+REVIEWER_COMPUTE: none
+```
+
+Preflight matched the requested immutable state: HEAD was exact candidate
+`4fc78d5`, its parent was the request freeze, the branch was
+`codex/s08-s09-cl-readiness`, and the worktree was clean before this review-only
+append. The reviewer read the binding root/environment/canonical documents, full
+S09 package, exact `30e6c9f..4fc78d5` diff, failed-source config/runner/trainer/
+runtime-identity code, snapshot and submit script, raw output/logs, accepted S08
+Q1 dependency evidence, current editable-dependency state, and read-only
+`sacct`/`scontrol` records. No source, external dependency, output, Git ref, or
+scheduler state was modified.
+
+From the request freeze, candidate `4fc78d5` changes eight files. Seven changes
+record the failure/status. The only executable-source change replaces
+`arrhenius_load_modules run` with `arrhenius_load_modules build` in the STOP-3
+runner; no config, trainer, model, loss, data, precision, optimizer, scheduler,
+EMA, or metric source changed.
+
+### Adversarial checks
+
+#### Exact authority and unique execution
+
+- O-117 froze one F-U cell, seed `0`, global FP16 plus the SECOND FP32 island,
+  AdamW `1e-4/0.01`, constant scheduler, training workers `8`, the bounded
+  `0/2/4/8` loader sweep, 100 successful updates within 120 attempts, one GH200,
+  16 CPUs, 96 GiB, `01:00:00`, and no retry/replacement/STOP-4.
+- Source `4d6bd82` and request `30e6c9f` have the declared source/tree/parent
+  relationship. The request was committed at `09:43:16+02:00`; Slurm submission
+  was `09:43:23`, so the complete tuple existed before execution.
+- The detached clean self-contained snapshot reproduces source/tree, 592 tracked
+  files / 4,776,222 bytes, no alternates, full `git fsck` exit zero, and no
+  writable worktree entry. Runner/config/trainer hashes reproduce as
+  `18cca984...`, `e8a17b39...`, and `9284d395...`.
+- The read-only submit script hashes to `82790e4c...` and requests the exact
+  approved resources, paths and no-requeue/no-array/no-DDP boundary.
+- Scheduler history contains exactly one same-name top-level job: `441511`,
+  `FAILED 1:0`, zero restarts, node `n127`, `00:02:29` elapsed, and the exact
+  resource tuple. Only the `_a1` output/request/log family exists. No replacement
+  or active same-name job exists. Consumption was `0.041389` GPU-hours; unused
+  ceiling is not retry authority.
+
+#### Failure point and direct diagnosis
+
+- `centralized_train.py:384` calls
+  `verify_runtime_dependency_identity`; physical cache/manifest verification is
+  the next call at line 386. The traceback ends inside the former, through
+  `runtime.py:354` and `_runtime_build_identity`'s import at line 243. There is no
+  returned runtime-dependency manifest, loader profile, model, loss, backward,
+  optimizer attempt, or `readiness.json`; the `readiness/` directory is empty.
+- Failed source `4d6bd82` selected `arrhenius_load_modules run`, while binding
+  `env.md` requires `arrhenius_load_modules build` even for runtime jobs because
+  editable cumm/spconv imports may invoke ccimport/ninja and need CUDA toolkit
+  headers.
+- Raw stderr begins with `which: no nvcc`. Raw stdout shows cumm completing all
+  `47/47` `core_cc` targets, then spconv starting a `690`-target build. Its first
+  failed target reports
+  `SimpleExternalSpconvMatmul.h:2:10: fatal error: cublasLt.h: No such file or directory`;
+  ninja stops and Python propagates `CalledProcessError`. This directly supports
+  a module-bootstrap defect, not a data/loader/model/precision/gradient/optimizer/
+  capacity result.
+
+#### G100 gates remain unmeasured
+
+| O-117 gate | Review disposition |
+|---|---|
+| Four loader cells / identical digests | NOT STARTED |
+| Worker-8 warm throughput ratio | NOT MEASURED |
+| 100 successful updates within 120 attempts | NOT STARTED; zero attempts |
+| Nonfinite/discarded windows and counters | NOT MEASURED |
+| Integrated p95/p50 and data-wait share | NOT MEASURED |
+| Training peak memory/headroom | NOT MEASURED |
+| Two epoch estimates | NOT MEASURED |
+| Finite aggregate loss | NO FORWARD/LOSS |
+| GH200 use during accepted training | NO TRAINING INTERVAL |
+
+The durable results explicitly state that Job `441511` answers none of the
+owner's four G100 questions. Idle telemetry is not reported as model utilization;
+no gate is omitted, weakened, or promoted to PASS.
+
+#### Narrow remediation and persistent dependency state
+
+- The current runner changes only the module selector plus its explanatory
+  comment. It hashes to `855bbd15...` and passes `bash -n`. At source level this
+  is output/model-neutral, but it is explicitly unexecuted and is not an approved
+  or validated replacement tuple.
+- Current Git state confirms the two job-generated tracked spconv stubs are back
+  at HEAD. Spconv retains only the accepted unstaged `pyproject.toml` change,
+  exact file SHA-256 `e2c84544...`, and tracked-state SHA-256 `499efdbb...`;
+  cumm has no tracked change and tracked-state SHA-256 `f835ee22...`. The known
+  pyproject change was not erased. One disclosed untracked cumm
+  `core_cc/common.pyi` remains outside the tracked-source contract.
+- Native state was not guessed, restored, or relabelled. Checksum-valid accepted
+  S08 Q1 evidence records both cumm `core_cc` copies as 2,877,128 bytes / SHA-256
+  `9970ccc5...`. Current inspection instead finds the package-root copy at
+  2,877,128 bytes / `62332ad4...` and the build copy at 2,667,280 bytes /
+  `18396a0c...`. Those changes invalidate direct reuse of aggregate cumm build
+  identity `0a7e3c1a...`; exact GH200 restoration/rebuild and re-attestation must
+  precede any later config that claims a dependency identity.
+
+#### Artifacts, telemetry, and scheduler
+
+- The output has nine regular files / 64,529 bytes, an empty readiness directory,
+  and zero writable entries. `sha256sum -c artifact_sha256s.txt` passes for all
+  eight listed files; the manifest hashes to `0c3e2947...`. Individual output,
+  submit-script, and Slurm-log hashes reproduce the results ledger; the exit file
+  is exact `1`.
+- Telemetry contains 111 samples over 114.654 seconds: GPU and memory utilization
+  always `0%`, memory use 8-10 MiB, power 81.66-86.38 W, SM/memory clocks
+  345/2619 MHz, and temperature 33 C. This is usable only as idle failure-path
+  telemetry.
+- `sacct`/`scontrol` reproduce submit/start/end, `FAILED 1:0`, zero restarts,
+  exact allocation/command/workdir/log paths, and batch `MaxRSS=1080M`.
+
+### Gate verdicts
+
+| Review gate | Verdict |
+|---|---|
+| Exact O-117 tuple and pre-submit freeze | PASS |
+| Exactly one submission / no scope expansion | PASS |
+| Immutable source/snapshot/config/submit identity | PASS |
+| Pre-data/pre-loader/pre-model localization | PASS |
+| Raw `cublasLt.h` diagnosis under wrong module stack | PASS |
+| Current selector correction | PASS, static only / unexecuted |
+| Tracked spconv/cumm source-state restoration | PASS |
+| Reuse of frozen cumm executable-build identity | **BLOCKED; drift is real** |
+| Artifact/telemetry/scheduler reproduction | PASS |
+| O-117 loader/G100/timing/memory/epoch/utilization gates | **NOT TESTED** |
+| Durable status/interface wording | PASS WITH P3 REMEDIATION |
+
+### Minimal future owner envelope
+
+No action follows automatically. A minimal amendment must authorize, in order:
+
+1. one bounded GH200 dependency restoration/rebuild-and-attestation phase under
+   `arrhenius_load_modules build`, binding exact mutable external paths, source
+   HEAD/tracked states, expected generated/native outputs, artifacts, resource
+   ceiling, fresh output and stop conditions, with no data/model training;
+2. only after that phase yields an accepted immutable dependency identity, a new
+   config dependency hash plus exact source/tree, corrected-runner hash, detached
+   snapshot, submit-script hash, fresh output/log paths, and one explicit
+   replacement G100 allocation; and
+3. unchanged O-117 data identities, F-U/seed/precision/recipe, loader cells/order,
+   update/attempt bounds, gates, single-GH200 resources and no-retry rule unless
+   the owner deliberately amends one, followed by independent evidence review.
+
+One owner decision may bind both phases, but G100 must remain conditional on the
+dependency phase producing the newly recorded immutable identity. This review
+does not recommend or authorize an unattested direct rerun.
+
+### Residual risk
+
+1. The shared editable cumm/spconv environment can mutate during the imports used
+   to attest it; future allowed rebuild and later immutable training execution
+   must be separated.
+2. The corrected runner has not executed on GH200, and the exact post-rebuild
+   aggregate cumm/spconv identity is unknown.
+3. The untracked generated cumm stub remains outside tracked-state hashing and
+   native artifacts remain changed.
+4. Job `441511` supplies no evidence about production throughput, numerical
+   health, time/step, component timing, memory headroom, effective GPU use,
+   convergence, capability, metric, recipe, Protocol A/B, attack, or defense.
+
+### Final verdict
+
+**Evidence candidate `4fc78d508d4ac9ad7c46b9d3ad81c87646f8f0d3`:
+PASS WITH RESIDUAL RISK as honest terminal failure/remediation evidence.** There
+is no open P0-P2; reconcile the P3 wording in the linear review seal. No rerun is
+needed to preserve or accept this negative evidence.
+
+**S09 STOP-3 gate: REMEDIATE / BLOCKED PENDING NEW OWNER AUTHORITY.** Job
+`441511` executed none of the G100 acceptance gates, O-117's sole submission is
+consumed, frozen cumm build identity is invalid, and STOP-4 remains blocked.
+Runtime re-attestation and any replacement G100 require the new exact owner
+envelope above. This verdict authorizes no compute, merge, push, or scientific
+interpretation.

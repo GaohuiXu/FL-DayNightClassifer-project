@@ -221,8 +221,13 @@ immutable implementation/evidence commits, and independent review. O-115 approve
 the exact reviewed STOP-2 smoke; Job `441293` completed `0:0` in `00:01:04` with
 44/44 tests passing, zero restarts, and no O-107 replacement. Independent evidence
 remediation `79f87dc` received `PASS_WITH_RESIDUAL_RISK` with no open P0-P3;
-owner STOP-2 acceptance remains pending. No cache retry or later S09 job is
-currently authorized.
+the owner accepted and closed STOP-2 under O-116. O-117 then authorized one exact
+STOP-3 loader/G100 submission. Job `441511` consumed that authority but failed
+before data/model execution because its runner selected the runtime-only module
+stack while editable cumm/spconv attempted a native build. The tracked dependency
+sources were restored, but the cumm native build identity drifted; dependency
+restoration/re-attestation and any replacement G100 now require a new exact owner
+amendment. No cache retry or S09 compute is currently authorized.
 Do not extract or
 duplicate the full dataset into project storage without explicit owner permission.
 The old

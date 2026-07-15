@@ -200,7 +200,7 @@ authorize a retry, or approve STOP-2 implementation or compute.
 
 ```text
 REQUEST_ID: S09-STOP2-SMOKE
-REQUEST_STATE: CONSUMED / JOB 441293 / INDEPENDENT PASS_WITH_RESIDUAL_RISK / OWNER ACCEPTANCE PENDING
+REQUEST_STATE: CONSUMED / JOB 441293 / INDEPENDENT PASS_WITH_RESIDUAL_RISK / OWNER ACCEPTED AND CLOSED UNDER O-116
 OWNER_CONFIRMATION: approved exact S09-STOP2-SMOKE tuple and enabled the recorded O-107 boundary
 OBJECTIVE: execute the focused Torch/CUDA regression gate for the reviewed output-neutral readiness implementation
 MODEL_OR_TRAINING: deterministic toy Linear/MSE loop only / no production detector or production training
