@@ -26,7 +26,8 @@
 > remediation `cad7262` found no open P0-P3. O-115 now approves that exact tuple
 > and its recorded O-107 mechanical boundary. Initial Job `441293` completed
 > `0:0` in `00:01:04` with 44/44 tests passing; no replacement was used and
-> independent evidence review is pending.
+> evidence remediation `79f87dc` received independent `PASS_WITH_RESIDUAL_RISK`
+> with no open P0-P3. Owner STOP-2 acceptance is pending.
 >
 > `Sxx` now names a durable evidence milestone, not necessarily a new task,
 > worker, branch, or worktree. Under O-094, persistent S00 normally performs
@@ -63,7 +64,7 @@
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
-| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1 closed; STOP-2 Job `441293` technical PASS (44/44), no replacement; independent evidence review pending |
+| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1 closed; STOP-2 Job `441293` and evidence remediation `79f87dc` independently PASS_WITH_RESIDUAL_RISK/no open P0-P3; owner acceptance pending |
 | S10 | Centralized branch/recipe ablation | S08+S09 | pending redefinition; no cells/gates frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
 | S12 | Protocol-A/B split and clean adaptation contract | CL freeze + fresh owner review | deferred; old proposal is historical evidence only |

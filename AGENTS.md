@@ -220,7 +220,9 @@ O-114 approves the exact STOP-2 implementation envelope, local validation, linea
 immutable implementation/evidence commits, and independent review. O-115 approved
 the exact reviewed STOP-2 smoke; Job `441293` completed `0:0` in `00:01:04` with
 44/44 tests passing, zero restarts, and no O-107 replacement. Independent evidence
-review remains pending; no cache retry or later S09 job is currently authorized.
+remediation `79f87dc` received `PASS_WITH_RESIDUAL_RISK` with no open P0-P3;
+owner STOP-2 acceptance remains pending. No cache retry or later S09 job is
+currently authorized.
 Do not extract or
 duplicate the full dataset into project storage without explicit owner permission.
 The old

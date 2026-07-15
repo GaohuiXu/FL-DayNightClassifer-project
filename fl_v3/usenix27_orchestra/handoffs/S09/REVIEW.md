@@ -573,3 +573,32 @@ memory-headroom, convergence, recipe or scientific evidence.
 acceptable and no rerun, source/script/output edit, or O-107 replacement is
 warranted. Before owner STOP-2 acceptance, seal the minimal active-document P3
 reconciliation and request exact closure re-review.
+
+### Terminal-evidence closure re-review — remediation `79f87dc9accca700b5a46803d45c549b0305c6d1`
+
+```text
+REMEDIATION_TREE: 32955609885e315430c77a237b3ca123e5144f18
+REMEDIATION_PARENT: a67cdda56c624d302742f5c57c69bb9ef0a98e0c
+P0/P1/P2/P3: none open
+VERDICT: PASS_WITH_RESIDUAL_RISK
+REVIEWER_COMPUTE: none
+```
+
+The closure reviewer verified a clean branch and a four-document-only diff. The
+original P3 is closed: `KICKOFFS.md` now records the actual O-115 resources/job
+while retaining STOP-3 as unapproved; `SESSIONS.md` distinguishes consumed
+STOP-1/2 authority from unapproved later work; and `HANDOFF.md` separates the
+historical O-114 planning state from O-115 execution and terminal evidence.
+
+There is no change from the parent evidence to source, scripts, configs, tests,
+`RUN_REQUEST.md`, `RESULTS.md`, raw output, hashes, results or gates. All artifact
+and log hashes and `sha256sum -c` were rechecked; scheduler state still contains
+only terminal Job `441293`, no active item and no `_a2`/`_a3` replacement.
+
+**Closure verdict: PASS WITH RESIDUAL RISK / no open P0-P3.** STOP-2 is
+close-ready for owner acceptance. Residuals remain exactly bounded: the toy test
+compares final state/aggregate metrics/RNG rather than per-window output/gradient
+tensors; production detector/ZIP/persistent-worker/throughput/100-step stability/
+memory/convergence/science remain STOP-3 or later; and the all-loss-nonfinite
+`scaler_scale_at_start=null` evidence edge remains non-blocking. This verdict does
+not authorize STOP-3/4, merge, or push.

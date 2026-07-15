@@ -142,7 +142,10 @@ REQUEST_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3
 REQUEST_APPROVAL_COMMIT: 254872197c0a4b2b3d02ebd8b8e320a49b98a218
 GH200_JOB_ID: 441293
 GH200_TEST_RESULT: 44 passed / 0 failed / 0 errors / 0 skipped
-REQUEST_STATE: consumed / terminal technical PASS / independent evidence review pending
+EVIDENCE_SHA: a67cdda56c624d302742f5c57c69bb9ef0a98e0c
+EVIDENCE_REMEDIATION: 79f87dc9accca700b5a46803d45c549b0305c6d1
+INDEPENDENT_EVIDENCE_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3
+REQUEST_STATE: consumed / independently reviewed terminal PASS / owner acceptance pending
 ```
 
 ### Delivered semantics
@@ -251,5 +254,6 @@ CUDA-event timing is output-neutral under the exact toy final-state/aggregate
 comparison tested. It does not establish production ZIP/cache throughput,
 persistent-worker behavior, model training stability, memory headroom,
 convergence, mAP/NDS, recipe quality, Protocol A/B, FL, attack, or defense. Those
-limits remain for STOP-3 or later milestones. Independent evidence review is still
-required before owner STOP-2 acceptance.
+limits remain for STOP-3 or later milestones. Independent evidence review returned
+`PASS_WITH_RESIDUAL_RISK` with no open P0-P3; owner STOP-2 acceptance remains
+pending.

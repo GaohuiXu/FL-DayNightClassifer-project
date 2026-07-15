@@ -8,7 +8,8 @@
 > request is frozen below. O-115 approved that exact tuple and explicitly enabled
 > its recorded O-107 mechanical boundary. Initial Job `441293` consumed the
 > submission, completed `0:0` in `00:01:04`, and required no replacement; evidence
-> review is pending.
+> remediation `79f87dc` received independent `PASS_WITH_RESIDUAL_RISK` with no
+> open P0-P3. Owner STOP-2 acceptance is pending.
 
 ## Authorization state
 
@@ -22,7 +23,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114 STOP-2 implementation + O-115 exact smoke
 APPROVED_COMPUTE: STOP-1 consumed / STOP-2 initial Job 441293 consumed
 APPROVED_SUBMISSIONS: STOP-1 1 consumed / STOP-2 1 consumed; 0 replacements used
-ACTIVE_REQUEST: none / S09-STOP2-SMOKE terminal technical PASS / evidence review pending
+ACTIVE_REQUEST: none / S09-STOP2-SMOKE independently reviewed terminal PASS / owner acceptance pending
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-2 implementation/remediation consumed through 37aef4d
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -196,7 +197,7 @@ authorize a retry, or approve STOP-2 implementation or compute.
 
 ```text
 REQUEST_ID: S09-STOP2-SMOKE
-REQUEST_STATE: CONSUMED / JOB 441293 TERMINAL TECHNICAL PASS / EVIDENCE REVIEW PENDING
+REQUEST_STATE: CONSUMED / JOB 441293 / INDEPENDENT PASS_WITH_RESIDUAL_RISK / OWNER ACCEPTANCE PENDING
 OWNER_CONFIRMATION: approved exact S09-STOP2-SMOKE tuple and enabled the recorded O-107 boundary
 OBJECTIVE: execute the focused Torch/CUDA regression gate for the reviewed output-neutral readiness implementation
 MODEL_OR_TRAINING: deterministic toy Linear/MSE loop only / no production detector or production training
