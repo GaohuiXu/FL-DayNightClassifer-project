@@ -669,3 +669,106 @@ def test_readiness_unmet_target_writes_fail_artifact_before_nonzero_exit(
     assert report["official_evaluation_executed"] is False
     assert not (out_dir / "checkpoint.pt").exists()
     json.dumps(report, allow_nan=False)
+
+
+def _performance_gate_report():
+    return {
+        "partition": {"unique_train_tokens": 100},
+        "training_metrics": {
+            "loss": 2.5,
+            "readiness_timing": {
+                "measured_accepted_ratio": 1.0,
+                "measurement_wall_seconds": 0.2,
+                "measurement_counter_delta": {
+                    "attempted_samples": 2,
+                    "exposure_samples": 2,
+                },
+                "memory": {"peak_reserved_bytes": 1024},
+                "records": [
+                    {
+                        "measured": True,
+                        "outcome": "accepted",
+                        "data_wait_ms": 1.0,
+                        "durations_ms": {"window": 99.0},
+                    },
+                    {
+                        "measured": True,
+                        "outcome": "accepted",
+                        "data_wait_ms": 1.0,
+                        "durations_ms": {"window": 109.0},
+                    },
+                ],
+            },
+        },
+    }
+
+
+def _performance_gate(entry, report):
+    return entry.readiness_performance_gate(
+        report,
+        expected_train_samples=100,
+        accepted_ratio_min=0.95,
+        window_p95_p50_max=1.5,
+        data_wait_share_max=0.10,
+        peak_reserved_bytes_max=2048,
+        epoch_hours_max=1.0,
+        combined_p50_limit_ms=120.0,
+        combined_p95_limit_ms=120.0,
+    )
+
+
+def test_readiness_performance_gate_passes_and_reports_exact_metrics():
+    result = _performance_gate(_centralized_train_module(), _performance_gate_report())
+    assert result["errors"] == []
+    assert result["metrics"]["accepted_combined_p50_ms"] == pytest.approx(105.0)
+    assert result["metrics"]["accepted_combined_p95_ms"] == pytest.approx(109.5)
+    assert result["metrics"]["measured_data_wait_share"] == pytest.approx(1.0 / 105.0)
+    json.dumps(result, allow_nan=False)
+
+
+def test_readiness_performance_gate_fail_closes_each_frozen_boundary():
+    entry = _centralized_train_module()
+    cases = []
+
+    ratio = _performance_gate_report()
+    ratio["training_metrics"]["readiness_timing"]["measured_accepted_ratio"] = 0.94
+    cases.append((ratio, "accepted-window ratio"))
+
+    unstable = _performance_gate_report()
+    unstable["training_metrics"]["readiness_timing"]["records"][0]["durations_ms"][
+        "window"
+    ] = 1.0
+    unstable["training_metrics"]["readiness_timing"]["records"][1]["durations_ms"][
+        "window"
+    ] = 199.0
+    cases.append((unstable, "p95/p50"))
+
+    data_wait = _performance_gate_report()
+    for record in data_wait["training_metrics"]["readiness_timing"]["records"]:
+        record["data_wait_ms"] = 50.0
+        record["durations_ms"]["window"] = 50.0
+    cases.append((data_wait, "data-wait share"))
+
+    memory = _performance_gate_report()
+    memory["training_metrics"]["readiness_timing"]["memory"]["peak_reserved_bytes"] = 2049
+    cases.append((memory, "reserved memory"))
+
+    epoch = _performance_gate_report()
+    epoch["training_metrics"]["readiness_timing"]["measurement_wall_seconds"] = 1000.0
+    cases.append((epoch, "epoch estimate"))
+
+    loss = _performance_gate_report()
+    loss["training_metrics"]["loss"] = float("inf")
+    cases.append((loss, "aggregate loss"))
+
+    latency = _performance_gate_report()
+    for record in latency["training_metrics"]["readiness_timing"]["records"]:
+        record["durations_ms"]["window"] *= 2.0
+    cases.append((latency, "material-regression bound"))
+
+    train_count = _performance_gate_report()
+    train_count["partition"]["unique_train_tokens"] = 101
+    cases.append((train_count, "train-token count"))
+
+    for report, expected_error in cases:
+        assert any(expected_error in error for error in _performance_gate(entry, report)["errors"])

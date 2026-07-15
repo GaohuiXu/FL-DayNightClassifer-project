@@ -1563,3 +1563,46 @@ closure only. Residual risk is actual GH200 execution of the new checkpoint-off
 100-update path. This verdict permits an exact STOP-4C request freeze. It is not
 request-level submission GO; the frozen source/snapshot/config/wrapper/output
 tuple still requires independent request review.
+
+## STOP-4C first exact-request review — SUBMIT NO-GO
+
+```text
+REQUEST_SEAL: 131619f0940bd3c453969f4d211bdaa775bacbb8
+REQUEST_SEAL_TREE: 1e4cf9808592ea587e756ace02f77cd226ecdc02
+EXECUTION_SOURCE/TREE: 1a0b7e38805d86fb42ff4fe84d67e1680de55015 / b76d9a480bcd9654ae63e72bdbb5d99191902829
+OLD_WRAPPER_SHA256: eec841bf452f2f5c8adc0908c67c538aaee1c2842322313e5beb4096e7ae00be
+REVIEWER_TASK: /root/s09_stop4a_impl_reviewer
+REVIEWER_COMPUTE: none
+VERDICT: REMEDIATE / SUBMIT NO-GO
+SUBMISSION: none
+```
+
+Findings, ordered by severity:
+
+- **P0/P1: none.**
+- **P2 open — the frozen runner did not fail-close the request's performance
+  gates.** Its terminal validation called the shared numerical/counter/artifact
+  validator but did not enforce post-warm acceptance, combined p95/p50, data-wait
+  share, 86-GiB memory, two epoch estimates, finite aggregate loss, or the
+  STOP-3 p50/p95 1.10x ceiling. A material slowdown could therefore exit zero and
+  incorrectly unlock STOP-4D. Source remediation, positive/negative replay, a new
+  immutable snapshot/request and re-review are required.
+- **P2 closed mechanically during review — the initial snapshot was mode-dirty.**
+  A blanket 0444 freeze removed executable bits from 37 tracked 100755 scripts;
+  Git status was nonempty and the runner/environment were not executable. S00
+  restored 100755 files to 0555 and 100644 files to 0444 from the Git index.
+  The retained snapshot is now detached/clean/no-alternates/zero-writable, its
+  runner/environment are executable, and all tree/content hashes are unchanged.
+  No job ran, but the old request's historical freeze-time-clean assertion was
+  not true and the replacement must use a fresh snapshot.
+- **P3: none.**
+
+All other fields passed review: source/config/data/cache/manifest and sparse
+dependency identities; F-U/B1/seed0/O-110/checkpoint-off/AdamW recipe; 100/120
+and warm-up ten; no profiles/matrix/DDP/retry; output/queue/history freshness;
+one non-requeue GH200/16-CPU/96-GiB/30-minute resource; and O-119 worst-case
+`0.161667 + 0.5 + 1 = 1.661667` GPU-hours. The 1.10x arithmetic is correct.
+
+**The old `131619f` tuple and wrapper are forbidden and must not be executed.**
+This review authorizes only bounded source/request remediation and a new
+independent review; it does not authorize STOP-4C submission.

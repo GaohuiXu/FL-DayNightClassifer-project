@@ -14,6 +14,7 @@ from contextlib import nullcontext
 import gc
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import sys
@@ -401,6 +402,105 @@ def _percentile(values: list[float], quantile: float) -> float:
     upper = min(lower + 1, len(ordered) - 1)
     weight = position - lower
     return ordered[lower] * (1.0 - weight) + ordered[upper] * weight
+
+
+def readiness_performance_gate(
+    report: object,
+    *,
+    expected_train_samples: int,
+    accepted_ratio_min: float,
+    window_p95_p50_max: float,
+    data_wait_share_max: float,
+    peak_reserved_bytes_max: int,
+    epoch_hours_max: float,
+    combined_p50_limit_ms: float,
+    combined_p95_limit_ms: float,
+) -> dict[str, object]:
+    """Compute and fail-close bounded readiness performance acceptance gates."""
+    errors: list[str] = []
+    metrics: dict[str, float | int] = {}
+    if not isinstance(report, dict):
+        return {"errors": ["readiness report is not an object"], "metrics": metrics}
+
+    def require(condition: bool, message: str) -> None:
+        if not condition:
+            errors.append(message)
+
+    try:
+        training_metrics = report["training_metrics"]
+        timing = training_metrics["readiness_timing"]
+        measured = [record for record in timing["records"] if record["measured"]]
+        accepted = [record for record in measured if record["outcome"] == "accepted"]
+        if not measured or not accepted:
+            raise ValueError("performance gate has no measured accepted windows")
+
+        combined_ms = [
+            float(record["data_wait_ms"])
+            + float(record["durations_ms"]["window"])
+            for record in accepted
+        ]
+        combined_p50_ms = _percentile(combined_ms, 0.50)
+        combined_p95_ms = _percentile(combined_ms, 0.95)
+        if combined_p50_ms <= 0.0:
+            raise ValueError("combined p50 must be positive")
+        window_ratio = combined_p95_ms / combined_p50_ms
+        data_wait_mean_ms = sum(float(record["data_wait_ms"]) for record in measured) / len(
+            measured
+        )
+        cuda_window_mean_ms = sum(
+            float(record["durations_ms"]["window"]) for record in measured
+        ) / len(measured)
+        integrated_mean_ms = data_wait_mean_ms + cuda_window_mean_ms
+        if integrated_mean_ms <= 0.0:
+            raise ValueError("integrated mean window must be positive")
+        data_wait_share = data_wait_mean_ms / integrated_mean_ms
+
+        delta = timing["measurement_counter_delta"]
+        measurement_wall_seconds = float(timing["measurement_wall_seconds"])
+        attempted_samples = float(delta["attempted_samples"])
+        exposure_samples = float(delta["exposure_samples"])
+        if measurement_wall_seconds <= 0.0 or attempted_samples <= 0.0 or exposure_samples <= 0.0:
+            raise ValueError("measured wall time and sample counters must be positive")
+        attempted_rate = attempted_samples / measurement_wall_seconds
+        accepted_rate = exposure_samples / measurement_wall_seconds
+        train_samples = int(report["partition"]["unique_train_tokens"])
+        dataset_traversal_hours = train_samples / attempted_rate / 3600.0
+        accepted_exposure_hours = train_samples / accepted_rate / 3600.0
+        peak_reserved_bytes = int(timing["memory"]["peak_reserved_bytes"])
+        accepted_ratio = float(timing["measured_accepted_ratio"])
+        aggregate_loss = float(training_metrics["loss"])
+
+        metrics = {
+            "accepted_combined_p50_ms": combined_p50_ms,
+            "accepted_combined_p95_ms": combined_p95_ms,
+            "combined_p95_over_p50": window_ratio,
+            "measured_accepted_ratio": accepted_ratio,
+            "measured_data_wait_share": data_wait_share,
+            "peak_reserved_bytes": peak_reserved_bytes,
+            "dataset_traversal_hours": dataset_traversal_hours,
+            "accepted_exposure_equivalent_hours": accepted_exposure_hours,
+            "material_regression_p50_limit_ms": float(combined_p50_limit_ms),
+            "material_regression_p95_limit_ms": float(combined_p95_limit_ms),
+        }
+        require(train_samples == expected_train_samples, "production train-token count drifted")
+        require(accepted_ratio >= accepted_ratio_min, "post-warm accepted-window ratio is below threshold")
+        require(window_ratio <= window_p95_p50_max, "combined window p95/p50 exceeds threshold")
+        require(data_wait_share <= data_wait_share_max, "measured data-wait share exceeds threshold")
+        require(peak_reserved_bytes <= peak_reserved_bytes_max, "peak reserved memory exceeds threshold")
+        require(
+            dataset_traversal_hours <= epoch_hours_max
+            and accepted_exposure_hours <= epoch_hours_max,
+            "a steady epoch estimate exceeds threshold",
+        )
+        require(math.isfinite(aggregate_loss), "aggregate loss is not finite")
+        require(
+            combined_p50_ms <= combined_p50_limit_ms
+            and combined_p95_ms <= combined_p95_limit_ms,
+            "steady combined latency exceeds the material-regression bound",
+        )
+    except (KeyError, TypeError, ValueError, ZeroDivisionError) as exc:
+        errors.append(f"readiness performance evidence is malformed: {exc}")
+    return {"errors": errors, "metrics": metrics}
 
 
 def _timing_distribution(values: list[float]) -> dict[str, float | int]:

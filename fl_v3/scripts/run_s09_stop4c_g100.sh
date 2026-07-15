@@ -187,14 +187,31 @@ from pathlib import Path
 
 snapshot, report_text = sys.argv[1:]
 sys.path.insert(0, str(Path(snapshot) / "fl_v3" / "scripts"))
-from centralized_train import readiness_evidence_errors
+from centralized_train import readiness_evidence_errors, readiness_performance_gate
 
 report = json.loads(Path(report_text).read_text(encoding="utf-8"))
 errors = readiness_evidence_errors(report, expect_operator_profile=False)
+performance = readiness_performance_gate(
+    report,
+    expected_train_samples=28130,
+    accepted_ratio_min=0.95,
+    window_p95_p50_max=1.5,
+    data_wait_share_max=0.10,
+    peak_reserved_bytes_max=92_341_796_864,
+    epoch_hours_max=24.0,
+    combined_p50_limit_ms=229.620313,
+    combined_p95_limit_ms=246.759346,
+)
+errors.extend(performance["errors"])
 result = {
-    "schema": "s09.stop4c-readiness-validation.v1",
+    "schema": "s09.stop4c-readiness-validation.v2",
     "status": "PASS" if report.get("status") == "PASS" and not errors else "FAIL",
     "evidence_validation_errors": errors,
+    "performance_gates": {
+        **performance["metrics"],
+        "reference_combined_p50_ms": 208.745739,
+        "reference_combined_p95_ms": 224.326678,
+    },
 }
 print(json.dumps(result, indent=2, sort_keys=True))
 if result["status"] != "PASS":

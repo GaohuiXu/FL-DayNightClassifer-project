@@ -32,8 +32,10 @@
 > command produced Job `452520`, which completed `0:0` in `00:09:42` with all
 > four cells and 59 focused tests passing, no replacement or retry. STOP-4B/4C
 > implementation `6da4bb5` and evidence closure `1a0b7e3` now have no open P0-P3.
-> The exact STOP-4C source/snapshot/config/wrapper/output tuple is frozen below
-> and remains unsubmitted pending separate independent request review.
+> STOP-4C request seal `131619f` received `REMEDIATE / SUBMIT NO-GO` and was
+> never submitted: its old runner did not fail-close the recorded performance
+> gates. That tuple and wrapper are forbidden. A source-level runner remediation
+> is pending immutable review and a completely new exact request freeze.
 
 ## Authorization state
 
@@ -47,7 +49,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3 + O-119 STOP-4
 APPROVED_COMPUTE: O-119 STOP-4A <=00:30:00 + STOP-4C <=00:30:00 + conditional STOP-4D <=01:00:00 / serial <=2 GPU-hours / no retry
 APPROVED_SUBMISSIONS: prior STOP-1/2/3 and STOP-4A consumed; prospective STOP-4C plus conditional STOP-4D after each exact freeze/review
-ACTIVE_REQUEST: STOP-4C exact tuple frozen / independent request review pending / not submitted
+ACTIVE_REQUEST: STOP-4C old tuple 131619f invalid/never submitted / runner performance-gate remediation pending immutable review and new freeze
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-4 implementation/request/evidence/review remediation within O-119
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -824,7 +826,7 @@ Unused Phase A or Phase B time is not retry, extra-cell, STOP-4 or other authori
 ## STOP-4 — O-119 optimize/G1000/close envelope
 
 ```text
-REQUEST_STATE: OWNER-APPROVED O-119 / STOP-4A JOB 452520 PASS / STOP-4B REVIEW CLOSED / STOP-4C EXACT TUPLE FROZEN / REQUEST REVIEW PENDING / NOT SUBMITTED
+REQUEST_STATE: OWNER-APPROVED O-119 / STOP-4A JOB 452520 PASS / STOP-4B REVIEW CLOSED / STOP-4C REQUEST 131619f REMEDIATE + SUBMIT NO-GO / NEVER SUBMITTED / REPLACEMENT PENDING
 OWNER_DECISION: O-119
 SERIAL_GPU_CEILING: 2 cumulative GH200-hours
 RETRIES: none
@@ -942,6 +944,8 @@ allowed only if STOP-4A confirms it and equivalence tests show unchanged output,
 loss, gradients, updates, RNG, data order, precision and counters.
 
 ```text
+OLD_REQUEST_SEAL: 131619f0940bd3c453969f4d211bdaa775bacbb8 / REMEDIATE / SUBMIT NO-GO / NEVER SUBMITTED
+OLD_TUPLE_STATUS: forbidden; retained below as negative request evidence only
 IMPLEMENTATION_SHA: 6da4bb5016410708b1e731d26d898f24e6b315ac
 IMPLEMENTATION_TREE: 721165340f2b5ab4cda222b4f3a86e951f9d7c14
 EXECUTION_SOURCE_SHA: 1a0b7e38805d86fb42ff4fe84d67e1680de55015
@@ -969,23 +973,28 @@ SUBMIT_SCRIPT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl
 SUBMIT_SCRIPT_SHA256: eec841bf452f2f5c8adc0908c67c538aaee1c2842322313e5beb4096e7ae00be
 RESOURCE: one GH200 / 16 CPU / 96 GiB / 00:30:00 / <=0.5 GPU-hours
 CUMULATIVE_O119: STOP-4A used 0.161667 GPU-hours; STOP-4C+4D ceilings would total <=1.661667 GPU-hours
-SUBMISSIONS: exactly one after independent exact-request GO / no retry
-REQUEST_REVIEW: pending / do not submit before independent GO
+SUBMISSIONS: 0 / old tuple forbidden / no retry
+REQUEST_REVIEW: REMEDIATE / open P2 performance gates absent from frozen runner / SUBMIT NO-GO
 ```
 
-The sole prospective STOP-4C command is:
+The following historical command was never executed and is forbidden:
 
 ```bash
 bash /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop4c_g100_1a0b7e38805d/submit.sh
 ```
 
-The wrapper is mode `0555` and its safe preflight (all lines before `sbatch`)
-passes. It rechecks the detached source/tree, clean snapshot, absent alternates/
+After review-time mechanical mode repair, the old wrapper is mode `0555` and its
+safe preflight (all lines before `sbatch`) passes. It rechecks the detached
+source/tree, clean snapshot, absent alternates/
 writable worktree entries, runner/trainer/environment/config hashes, fresh output,
 and empty exact-name queue. It contains exactly one non-requeue `sbatch` on
 account `naiss2025-22-1113-gpu`, partition `gpu`, one node/task/GH200, 16 CPUs,
-96 GiB and `00:30:00`. At freeze time the output is absent, the queue has no exact
-job name, and `sacct` has no prior exact-name job since 2026-07-01.
+96 GiB and `00:30:00`. Output, queue and history were fresh and no job was
+submitted. However, the first snapshot freeze had incorrectly stripped 37
+executable bits, so its original `clean` assertion was false; restoring Git-index
+modes closed that packaging defect without changing contents/tree. More
+importantly, old runner SHA `614703d8...` does not implement the performance gates
+below, so the entire old tuple remains invalid regardless of the repaired modes.
 
 Technical PASS requires all focused tests and runner evidence validation to pass;
 100 accepted updates within 120 attempts; zero direct-nonfinite/discarded windows;
@@ -997,6 +1006,15 @@ are compared with accepted STOP-3 values `208.745739 / 224.326678 ms`. Either
 combined p50 or p95 exceeding `1.10x` its reference (`229.620313 /
 246.759346 ms`) is a material engineering regression and blocks STOP-4D. No job
 retry follows any failure.
+
+The replacement runner adds all of these checks to the existing terminal
+validation artifact. A positive replay over accepted STOP-3 evidence reproduces
+combined p50/p95 `208.745738839 / 224.326677561 ms`, ratio `1.074640751`,
+data-wait share `0.000763551`, and both epoch estimates `1.647306968 h`, returning
+PASS. A negative replay with measured CUDA windows multiplied by two returns
+exit `4` and the frozen 1.10x-regression error. The replacement source, hashes,
+snapshot, wrapper and output are pending a new immutable commit/review; no old
+identity may be reused.
 
 Allowed interpretation is one exact B1 engineering before/after regression under
 the accepted O-110 precision partition. It may establish retained 100-update
