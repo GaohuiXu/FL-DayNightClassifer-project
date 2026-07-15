@@ -1,27 +1,28 @@
 # S09 RUN_REQUEST — four-stop execution ledger
 
 > **Ledger state:** O-112 authorizes STOP-1 only. Its exact immutable tuple is
-> being frozen below and must be complete before the sole submission.
+> frozen below and remains unsubmitted.
 
 ## Authorization state
 
 ```text
 SESSION_ID: S09
-BASE_AND_CURRENT_HEAD: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
+S09_BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
+STOP1_EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112 STOP-1 execution
 APPROVED_COMPUTE: STOP-1 only / <=0.5 GPU-hours
 APPROVED_SUBMISSIONS: 1 / not consumed
-ACTIVE_REQUEST: S09-STOP1-DATA / exact tuple freeze in progress
+ACTIVE_REQUEST: S09-STOP1-DATA / exact tuple frozen below / not submitted
 IMPLEMENTATION_COMMIT_AUTHORITY: no production implementation; linear STOP-1 docs/evidence commits allowed
 MERGE_OR_PUSH_AUTHORITY: none
 ```
 
 O-111 approved preparation and review of the envelope. O-112 additionally starts
 STOP-1 and authorizes its one bounded materialization job after this ledger records
-the complete immutable tuple. Each later stop
-will receive a frozen request block with exact immutable source/snapshot, resolved
-config hash, dataset/cache/manifest identities, cells/order, sample/window/step
+the complete immutable tuple. Each later stop will receive a frozen request block
+with exact immutable source/snapshot, resolved config hash, dataset/cache/manifest
+identities, cells/order, sample/window/step
 bounds, seed, command/script hashes, resources, output root, stop conditions, and
 allowed/forbidden interpretation before the owner is asked for approval.
 
@@ -33,31 +34,122 @@ conditional next stop is implicit.
 ## STOP-1 — production `t1.v2` cache identity
 
 ```text
-REQUEST_STATE: APPROVED UNDER O-112 / EXACT TUPLE FREEZE IN PROGRESS / NOT SUBMITTED
+REQUEST_STATE: FROZEN AND APPROVED UNDER O-112 / NOT SUBMITTED
 OBJECTIVE: materialize and attest exact train/val t1.v2 caches for n_sweeps=10
 MODEL_OR_TRAINING: none
-PROPOSED_RESOURCE_CEILING: 1 GH200 / 8 CPU / 96 GiB host / 00:30:00 / 0.5 GPU-hours
-PROPOSED_SUBMISSIONS: 1
+RESOURCE_CEILING: 1 GH200 / 8 CPU / 96 GiB host / 00:30:00 / 0.5 GPU-hours
+SUBMISSIONS: exactly 1 / not consumed
+RETRY_OR_REPLACEMENT: forbidden
 ```
 
-Known external manifest evidence to reverify before freeze:
+### Immutable source and command
 
 ```text
-ZIP_MANIFEST_LOGICAL_SHA256: 023f72b4220bb0db587be00920308bf9074384740fe186d243be92f9a53119f6
-ZIP_MANIFEST_FILE_SHA256: 228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb
-EXPECTED_TRAIN_SAMPLES/BOXES: 28130 / 944881
-EXPECTED_VAL_SAMPLES/BOXES: 6019 / 187528
-N_SWEEPS: 10
+SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
+SOURCE_GIT_TREE: c0d2ecac553e3f2ec81b52b85a633c20c64e5111
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop1_cache_1f276b9d2cc5
+SNAPSHOT_REF_MODE: detached / clean / self-contained Git object database
+SNAPSHOT_TRACKED_FILES/BYTES: 587 / 4618253
+SNAPSHOT_WRITABLE_WORKTREE_ENTRIES: 0
+RUNTIME_SOURCE_FILES: 23
+RUNTIME_SOURCE_LIST_SHA256: eebaaf9528a56004b63cc2cb37fe6d312b75a52df450f374307e8e559cb1cbb5
+RUNTIME_SOURCE_STATE_SHA256: c44db468cb65aaedab7152202ca49056147119b9ef970ffd191fdeeb4258bca8
+CACHE_LAUNCHER_SHA256: 212e176df55e20b727c620bbabcd2950f8b64d0b160daa149b76bf5be2390c2e
+CACHE_BUILDER_SHA256: 6b9ebf186e97c50c54289ed0b466544a743b469dee71de8e242866e6f8ef97c3
+ARRHENIUS_ENV_SHA256: f57befbb5082aaf4d4bb186958a88420ea873e0fdee5c65da1091b73f566c2bf
+SUBMIT_SCRIPT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/submit_s09_stop1_cache_1f276b9d2cc5.sh
+SUBMIT_SCRIPT_SHA256: aeabbab55b625594a6da9eb820f8b5dae1cdb7e70a6d1d447055a162e093856d
+RESOLVED_EXPERIMENT_CONFIG: not applicable; no model or experiment cell
 ```
 
-The final request must bind source/snapshot and tree identity, the exact
-`build_nuscenes_cache.py` command and script hash, module/dataroot and manifest
-paths, destination paths that are absent at submission, train/val cache metadata
-and content-hash acceptance, and artifact checksums. It may traverse the metadata
-and declared ZIP members required to create the cache, but must not extract the
-dataset, scan unrelated payload contents, construct a model, profile performance,
-or start training. Independent review must accept the resulting identities before
-STOP-2 can bind them.
+The snapshot is a clean detached local clone of the immutable source commit. It
+was repacked into its own object database, its alternates file was removed, and
+every worktree file/directory is non-writable; only internal `.git` bookkeeping
+remains writable so the launcher's read-only `git status` preflight can operate.
+The 23-file source set and aggregation algorithm are exactly the launcher's
+`LC_ALL=C`-sorted contract. `bash -n` passed for the launcher/environment and
+`py_compile` passed for the builder/cache module before freeze.
+
+The only submission command is:
+
+```bash
+bash /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/submit_s09_stop1_cache_1f276b9d2cc5.sh
+```
+
+The hash-bound wrapper rechecks detached/clean/source identity, fresh output,
+manifest file SHA-256 and an empty exact-name queue, then invokes the unchanged
+reviewed S07-A launcher from the snapshot. The historical `S07A_*` environment
+variable names and launcher filename are retained to avoid a needless wrapper/
+cache-semantic rewrite; the job name, logs, output, approval and interpretation
+are S09 STOP-1.
+
+### Exact dataset and accepted manifest input
+
+```text
+DATASET_MODULE: nuScenes-data/1.0-map-1.3-zip
+DATASET_VERSION/SPLITS: v1.0-trainval / train val
+DATAROOT: exact NUSCENES_DATA_DIR exported by the named module and captured in-job
+ZIP_MANIFEST_PATH: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_v2_1fe651700bd0/nuscenes_trainval_zip_manifest.sqlite
+ZIP_MANIFEST_FORMAT: s01.nuscenes-zip.v2
+ZIP_MANIFEST_LOGICAL_SHA256: 023f72b4220bb0db587be00920308bf9074384740fe186d243be92f9a53119f6
+ZIP_MANIFEST_FILE_SHA256: 228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb
+ZIP_MANIFEST_BYTES/MODE: 633106432 / 0444
+ARCHIVES: exact trainval01_blobs.zip through trainval10_blobs.zip
+MANIFEST_OCCURRENCES/UNIQUE/DUPLICATE_OCCURRENCES: 2631093 / 2631084 / 9
+N_SWEEPS: 10 total, including the keyframe
+EXPECTED_TRAIN_SAMPLES/BOXES: 28130 / 944881
+EXPECTED_VAL_SAMPLES/BOXES: 6019 / 187528
+```
+
+The accepted manifest path was locally rechecked as present/read-only; its
+physical SHA-256, metadata logical hash, format, archive rows/names, and occurrence
+counts matched the accepted S01 evidence before request freeze. The job repeats
+the physical/logical/archive-name checks before creating its output.
+
+### Exact resources and outputs
+
+```text
+ACCOUNT/PARTITION: naiss2025-22-1113-gpu / gpu
+NODES/TASKS: 1 / 1
+GPU: 1 x nvidia_gh200_120gb
+CPU/HOST_MEMORY: 8 / 96 GiB
+WALLTIME/GPU-HOUR_CEILING: 00:30:00 / 0.5
+JOB_NAME: flv3_s09_stop1_cache
+REQUEUE/ARRAY/DDP/RETRY: disabled / none / none / none
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop1_cache_t1v2_1f276b9d2cc5
+OUTPUT_STATE_AT_FREEZE: absent
+STDOUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop1_cache_t1v2_%j.out
+STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop1_cache_t1v2_%j.err
+```
+
+Expected output artifacts are:
+
+- `info_cache_msweep10/nuscenes_info_v1.0-trainval_train_t1.v2_nsweeps10.pkl`
+  and its `.meta.json` sidecar;
+- `info_cache_msweep10/nuscenes_info_v1.0-trainval_val_t1.v2_nsweeps10.pkl`
+  and its `.meta.json` sidecar;
+- `execution_identity.json`, `runtime_source_sha256s.txt`,
+  `cache_identity.json`, and `sha256sums.txt`; and
+- exact Slurm stdout/stderr at the paths above.
+
+### Acceptance, stop conditions, and interpretation
+
+PASS requires Slurm `COMPLETED 0:0` with zero restarts; exact source/runtime/
+module/manifest identity; fresh output; format `t1.v2`; declared and per-record
+depth 10; exact train and val sample/box counts in both loaded records and metadata;
+sidecar equality; recomputed canonical content hashes; all physical file SHA-256s;
+and successful in-job `sha256sum -c`. STOP on any mismatch, exception, output
+collision, or walltime. There is no retry or replacement submission.
+
+The job may traverse the official metadata and previous-sweep metadata needed to
+build these records. It does not open/extract sensor payloads, rebuild the ZIP
+manifest, construct a model, create a loader sweep, profile, train, evaluate, or
+compute mAP/NDS. A reviewed PASS permits proposing only these exact cache files as
+S09 production inputs; it does not establish data decode parity, performance,
+model readiness, convergence, or scientific capability.
+
+The earlier compact proposal is superseded by the exact tuple above. Independent
+data/provenance review is mandatory before STOP-2 can bind the resulting cache.
 
 ## STOP-2 — minimal readiness instrumentation
 
