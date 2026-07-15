@@ -5,8 +5,8 @@
 > passed raw evidence but returned `REMEDIATE` for durable documentation
 > provenance; bounded re-review at `5252a59` closed every finding and returned
 > `PASS_WITH_RESIDUAL_RISK`. O-113 owner-accepts STOP-1. The exact STOP-2 smoke
-> request is frozen below and awaits one owner execution confirmation; no STOP-2
-> compute is currently authorized or submitted.
+> request is frozen below. O-115 approves that exact tuple and explicitly enables
+> its recorded O-107 mechanical boundary; it has not yet been submitted.
 
 ## Authorization state
 
@@ -17,10 +17,10 @@ STOP1_EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 STOP1_REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
 STOP1_FIRST_EVIDENCE_SHA: b35591b1a9ac64ea50ee3ad3257304baef07f8de
 BRANCH: codex/s08-s09-cl-readiness
-OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114 STOP-2 implementation
-APPROVED_COMPUTE: STOP-1 consumed / STOP-2 smoke awaiting owner confirmation
-APPROVED_SUBMISSIONS: STOP-1 1 consumed / STOP-2 0 approved, 0 submitted
-ACTIVE_REQUEST: S09-STOP2-SMOKE / frozen / awaiting one owner execution confirmation
+OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114 STOP-2 implementation + O-115 exact smoke
+APPROVED_COMPUTE: STOP-1 consumed / exact S09-STOP2-SMOKE approved under O-115
+APPROVED_SUBMISSIONS: STOP-1 1 consumed / STOP-2 initial 1 approved, 0 submitted; <=2 conditional O-107 replacements
+ACTIVE_REQUEST: S09-STOP2-SMOKE / frozen / approved / not submitted
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-2 implementation/remediation consumed through 37aef4d
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -194,18 +194,19 @@ authorize a retry, or approve STOP-2 implementation or compute.
 
 ```text
 REQUEST_ID: S09-STOP2-SMOKE
-REQUEST_STATE: FROZEN / AWAITING ONE OWNER EXECUTION CONFIRMATION / NOT APPROVED / NOT SUBMITTED
+REQUEST_STATE: APPROVED UNDER O-115 / NOT SUBMITTED
+OWNER_CONFIRMATION: approved exact S09-STOP2-SMOKE tuple and enabled the recorded O-107 boundary
 OBJECTIVE: execute the focused Torch/CUDA regression gate for the reviewed output-neutral readiness implementation
 MODEL_OR_TRAINING: deterministic toy Linear/MSE loop only / no production detector or production training
 RESOURCE_CEILING_PER_SUBMISSION: 1 GH200 / 4 CPU / 32 GiB host / 00:10:00
-O107_CUMULATIVE_CEILING: at most 3 submissions / at most 0.5 GPU-hours, only if owner confirmation opts in
+O107_CUMULATIVE_CEILING: enabled under O-115 / at most 3 submissions / at most 0.5 GPU-hours
 CURRENT_SUBMISSIONS: 0
 ```
 
 O-114 approved implementation, local/static validation, linear immutable commits,
-and independent review, but not GH200 execution. The implementation and review are
-now immutable; the following is the single execution tuple that will be presented
-for one concise owner confirmation. Preparing or reviewing it grants no compute.
+and independent review, but not GH200 execution. O-115 subsequently approves the
+following exact immutable tuple and explicitly opts into its bounded O-107 rule.
+No altered source, selector, seed, resource, command family, or output is approved.
 
 ### Immutable source and snapshot
 
@@ -267,7 +268,7 @@ SUBMIT_SCRIPT_SHA256: d652e5bea9dca8ada684cc0286d6e4a8a108572e95488798fdc7fdcca7
 SCRIPT_STATE: bash -n PASS / mode 0500 / containing directory non-writable
 ```
 
-The only authorized submission command, after owner confirmation, would be:
+The only authorized initial submission command is:
 
 ```bash
 bash /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop2_smoke_37aef4d6b3f4/submit.sh
@@ -308,8 +309,8 @@ zero; exactly `44/0/0/0` JUnit tests/failures/errors/skips; all expected artifac
 and reproducible artifact hashes. Stop on any identity, environment, output,
 selector, count, test, timeout, or artifact mismatch.
 
-The requested owner confirmation will explicitly opt into O-107 only for this
-engineering smoke: the initial job plus at most two derived replacements, each
+O-115 explicitly opts into O-107 only for this engineering smoke: the initial job
+plus at most two derived replacements, each
 within the same one-GH200/four-CPU/32-GiB/ten-minute ceiling and at most `0.5`
 cumulative GPU-hours. A derived replacement may fix only an obvious test, fixture,
 wrapper, provenance/artifact, or output-neutral timing-plumbing defect; before

@@ -4,7 +4,7 @@
 
 ```text
 SESSION_ID: S09
-MILESTONE_STATE: STOP-1 CLOSED / STOP-2 IMPLEMENTATION+REQUEST REVIEW COMPLETE / SMOKE AWAITING OWNER CONFIRMATION
+MILESTONE_STATE: STOP-1 CLOSED / STOP-2 IMPLEMENTATION+REQUEST REVIEW COMPLETE / EXACT SMOKE APPROVED UNDER O-115
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
@@ -19,7 +19,8 @@ IMPLEMENTATION_DIFF_SHA256: cb55d4a46c21f3d508e5d73240367d06080de7b456751d802367
 STOP2_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P2
 STOP2_REQUEST_REMEDIATION: cad72621e0e3ba409ae19bb0b62829118134b2d0
 STOP2_REQUEST_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3
-APPROVED_COMPUTE: STOP-1 Job 441191 consumed / STOP-2 smoke awaiting owner confirmation
+STOP2_COMPUTE_DECISION: O-115 / exact S09-STOP2-SMOKE + recorded O-107 boundary
+APPROVED_COMPUTE: STOP-1 Job 441191 consumed / STOP-2 exact smoke approved, not submitted
 JOBS: 441191 COMPLETED 0:0 in 00:03:06 / no retry
 INDEPENDENT_REVIEW: STOP-1 5252a59 PASS_WITH_RESIDUAL_RISK; STOP-2 impl 37aef4d PASS_WITH_RESIDUAL_RISK; request cad7262 PASS_WITH_RESIDUAL_RISK
 OWNER_STOP1_DECISION: O-113 / ACCEPTED
@@ -303,9 +304,9 @@ does not replace STOP-3's real persistent-worker run.
 
 The exact smoke snapshot, selectors, scripts, hashes, resources, fresh output and
 O-107 mechanical derivation boundary are frozen in `RUN_REQUEST.md`. Their
-preparation grants no compute. Initial request review found two documentation/
+preparation alone granted no compute. Initial request review found two documentation/
 contract P2 findings and one stale commit-graph P3; documentation-only remediation
 `cad7262` narrowed the toy-test claims, bound the derived O-107 command/output
 family, and removed the auxiliary commit-graph. Closure re-review found no open
-P0-P3 and returned `PASS_WITH_RESIDUAL_RISK`. One owner execution confirmation is
-still required.
+P0-P3 and returned `PASS_WITH_RESIDUAL_RISK`. O-115 now supplies the one exact
+execution confirmation and enables only the recorded O-107 mechanical boundary.

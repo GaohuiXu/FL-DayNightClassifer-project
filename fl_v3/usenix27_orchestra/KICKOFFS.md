@@ -16,8 +16,9 @@
 > implementation envelope, local validation, linear commits, and independent
 > review. Candidate `37aef4d` has independent `PASS_WITH_RESIDUAL_RISK` with no
 > open P0-P2; exact smoke identities and request remediation `cad7262` have
-> independent closure review with no open P0-P3 and await one owner confirmation.
-> No GH200 execution, push, or merge is yet authorized.
+> independent closure review with no open P0-P3. O-115 approves the exact smoke
+> and recorded O-107 boundary; no submission has yet occurred. Push and merge
+> remain unauthorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
