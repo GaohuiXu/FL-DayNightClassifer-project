@@ -477,3 +477,38 @@ or `sacct` records; and explicit no-compute/no-STOP-3/no-merge/no-push status.
 family, remove the stale commit-graph and require full fsck, then seal one linear
 documentation/provenance remediation and request closure re-review. No
 implementation edit, test expansion, Slurm submission, merge, or push is warranted.
+
+### Closure re-review — remediation `cad72621e0e3ba409ae19bb0b62829118134b2d0`
+
+```text
+REMEDIATION_TREE: 3f50744bd9f8351bcebaf6e199328646fbf81e45
+REMEDIATION_PARENT: 4408dfe6541ecdce40ea53553bfd66666c65ea7a
+P0/P1/P2/P3: none open
+VERDICT: PASS_WITH_RESIDUAL_RISK
+REVIEWER_COMPUTE: none
+```
+
+The independent closure review verified that the remediation changes only three
+S09 evidence documents and closes every initial finding:
+
+- the request now states the exact deterministic toy `Linear/MSE` scope and the
+  final-state/aggregate-metrics/RNG comparisons, while explicitly excluding
+  direct per-window output/gradient capture;
+- O-107 now binds indices `1..3`, the initial exact command, derived request/
+  command/output naming, no path reuse, and unchanged selectors/order, seeds,
+  toy scope, environment, timeout, resources and stop conditions; and
+- the snapshot has no alternates or commit-graph, remains exact detached/clean at
+  source/tree with 590 files / 4,722,741 bytes, correct executable modes and zero
+  writable worktree files, and default full fsck exits zero with only eight
+  dangling-tree notices.
+
+The reviewer also reproduced both script hashes and syntax, implementation diff
+hash, the static `44 = 9 + 21 + 9 + 5` selector count, absent output/logs, and zero
+same-name `squeue`/`sacct` records. No state or Slurm action was modified.
+
+**Closure verdict: PASS WITH RESIDUAL RISK / no open P0-P2.** Residuals are the
+pending real aarch64 Torch/CUDA pytest; the documented limitation that toy final-
+state/aggregate comparison is not per-window output/gradient capture; production
+persistent-worker/ZIP behavior deferred to STOP-3; and the non-blocking all-
+nonfinite `scaler_scale_at_start=null` edge case. This review does not authorize
+the smoke, STOP-3, merge, push, or scientific interpretation.

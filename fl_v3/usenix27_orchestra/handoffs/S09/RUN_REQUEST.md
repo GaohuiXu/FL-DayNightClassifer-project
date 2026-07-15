@@ -22,6 +22,7 @@ APPROVED_COMPUTE: STOP-1 consumed / STOP-2 smoke awaiting owner confirmation
 APPROVED_SUBMISSIONS: STOP-1 1 consumed / STOP-2 0 approved, 0 submitted
 ACTIVE_REQUEST: S09-STOP2-SMOKE / frozen / awaiting one owner execution confirmation
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-2 implementation/remediation consumed through 37aef4d
+REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
 ```
 

@@ -15,7 +15,8 @@
 > STOP-1 and opens STOP-2 detailed planning. O-114 approves the exact STOP-2
 > implementation envelope, local validation, linear commits, and independent
 > review. Candidate `37aef4d` has independent `PASS_WITH_RESIDUAL_RISK` with no
-> open P0-P2; exact smoke identities are frozen and await one owner confirmation.
+> open P0-P2; exact smoke identities and request remediation `cad7262` have
+> independent closure review with no open P0-P3 and await one owner confirmation.
 > No GH200 execution, push, or merge is yet authorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:

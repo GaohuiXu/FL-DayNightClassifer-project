@@ -199,7 +199,8 @@ production binding. O-114 separately approves the exact STOP-2 implementation,
 local validation, linear immutable commits, and independent review. Candidate
 `37aef4d6b3f4679d6702d0acef2bb5bd1b57a952` received independent
 `PASS_WITH_RESIDUAL_RISK` with no open P0-P2; its exact bounded GH200 smoke is
-frozen but still requires the one owner execution confirmation. This is not
+frozen, and request remediation `cad7262` independently closed all P2/P3 request/
+snapshot findings. It still requires the one owner execution confirmation. This is not
 model/full-data readiness. Do not
 extract/duplicate the dataset or submit further full-data jobs
 without exact permission. O-009 covers only a recorded bounded
