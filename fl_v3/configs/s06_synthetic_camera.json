@@ -1,5 +1,5 @@
 {
-  "schema_version": "s08.v1",
+  "schema_version": "s09.v1",
   "model": {
     "mode": "camera_only",
     "camera_arch": "swin_t_stride8",
@@ -69,6 +69,12 @@
     "cumm_build_sha256": null,
     "cumm_source_sha": null,
     "cumm_source_state": null
+  },
+  "execution": {
+    "mode": "train_eval",
+    "max_attempted_windows": 0,
+    "timing_warmup_successful_windows": 0,
+    "loader_profile": null
   },
   "evaluation": {
     "timing": false,

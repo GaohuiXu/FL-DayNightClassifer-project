@@ -1,18 +1,22 @@
-"""S07-B resolved centralized trainer.
+"""S09 resolved centralized trainer and bounded readiness entry point.
 
-This entry point accepts only the canonical ``s08.v1`` config.  It constructs
+This entry point accepts only the canonical ``s09.v1`` config.  It constructs
 one mode-aware loader, maps exact architecture enums to the reviewed stack,
-advances schedules by successful optimizer updates, and writes one complete
-boundary-safe checkpoint.  DDP remains fail closed.
+and advances schedules by successful optimizer updates. ``train_eval`` writes one
+complete boundary-safe checkpoint and evaluates it. ``readiness`` is explicitly
+non-resumable, bounded, checkpoint-free, and evaluation-free. DDP remains fail
+closed.
 """
 from __future__ import annotations
 
 import argparse
+import gc
 import hashlib
 import json
 import os
 from pathlib import Path
 import sys
+import time
 from typing import Callable
 
 sys.path.insert(0, "fl_v3/src")
@@ -66,6 +70,188 @@ def _canonical_sha256(value: object) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _write_json(path: Path, value: object) -> None:
+    path.write_text(
+        json.dumps(value, sort_keys=True, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _percentile(values: list[float], quantile: float) -> float:
+    ordered = sorted(float(value) for value in values)
+    if not ordered:
+        raise ValueError("cannot summarize an empty timing sample")
+    position = (len(ordered) - 1) * float(quantile)
+    lower = int(position)
+    upper = min(lower + 1, len(ordered) - 1)
+    weight = position - lower
+    return ordered[lower] * (1.0 - weight) + ordered[upper] * weight
+
+
+def _timing_distribution(values: list[float]) -> dict[str, float | int]:
+    if not values:
+        raise ValueError("loader timing distribution is empty")
+    return {
+        "n": len(values),
+        "mean": sum(values) / len(values),
+        "p50": _percentile(values, 0.50),
+        "p95": _percentile(values, 0.95),
+        "min": min(values),
+        "max": max(values),
+    }
+
+
+def _digest_batch_value(digest, value: object) -> None:
+    """Content-address one bounded production batch without retaining it."""
+    if torch.is_tensor(value):
+        tensor = value.detach().cpu().contiguous()
+        digest.update(b"tensor\0")
+        digest.update(str(tensor.dtype).encode("ascii") + b"\0")
+        digest.update(json.dumps(list(tensor.shape), separators=(",", ":")).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(tensor.numpy().tobytes())
+        return
+    if isinstance(value, dict):
+        digest.update(f"dict:{len(value)}\0".encode("ascii"))
+        for key in sorted(value):
+            digest.update(str(key).encode("utf-8") + b"\0")
+            _digest_batch_value(digest, value[key])
+        return
+    if isinstance(value, (list, tuple)):
+        kind = "list" if isinstance(value, list) else "tuple"
+        digest.update(f"{kind}:{len(value)}\0".encode("ascii"))
+        for item in value:
+            _digest_batch_value(digest, item)
+        return
+    if value is None or isinstance(value, (str, int, float, bool)):
+        digest.update(b"scalar\0")
+        digest.update(
+            json.dumps(value, ensure_ascii=False, allow_nan=False).encode("utf-8") + b"\0"
+        )
+        return
+    raise TypeError(f"unsupported loader-digest value type {type(value)!r}")
+
+
+def _batch_size_for_profile(batch: object) -> int:
+    if isinstance(batch, dict):
+        value = batch.get("batch_size")
+        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+            raise RuntimeError("production loader batch has invalid batch_size")
+        return value
+    try:
+        size = len(batch)  # type: ignore[arg-type]
+    except TypeError as exc:
+        raise RuntimeError("cannot determine loader-profile batch size") from exc
+    if size < 1:
+        raise RuntimeError("loader profile produced an empty batch")
+    return int(size)
+
+
+def _close_loader_dataset(dataset: object) -> None:
+    seen: set[int] = set()
+    current = dataset
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        close = getattr(current, "close", None)
+        if callable(close):
+            close()
+            return
+        current = getattr(current, "dataset", None)
+
+
+def run_production_loader_profile(
+    *,
+    task,
+    run_config: dict,
+    infos: list[dict],
+    tokens: list[str],
+    profile_spec,
+) -> dict:
+    """Measure the exact production loader path; never select a worker in-job."""
+    profiles = []
+    all_digests: list[str] = []
+    workers = [int(value) for value in profile_spec["workers"]]
+    for num_workers in workers:
+        cell_config = dict(run_config)
+        cell_config["num-workers"] = num_workers
+        loader = task._make_loader(cell_config, infos, tokens, shuffle=True)
+        dataset = loader.dataset
+        repeats = []
+        try:
+            for repeat in range(int(profile_spec["repeats"])):
+                sampler = getattr(loader, "sampler", None)
+                if sampler is None or not hasattr(sampler, "set_epoch"):
+                    raise RuntimeError("loader profile requires the production epoch sampler")
+                sampler.set_epoch(0)
+                iterator_started = time.perf_counter()
+                iterator = iter(loader)
+                iterator_create_ms = (time.perf_counter() - iterator_started) * 1000.0
+                digest = hashlib.sha256()
+                audit_waits = []
+                for _ in range(int(profile_spec["determinism_batches"])):
+                    started = time.perf_counter()
+                    batch = next(iterator)
+                    audit_waits.append((time.perf_counter() - started) * 1000.0)
+                    _digest_batch_value(digest, batch)
+                content_sha256 = digest.hexdigest()
+                all_digests.append(content_sha256)
+                for _ in range(int(profile_spec["warmup_batches"])):
+                    next(iterator)
+                waits = []
+                measured_samples = 0
+                wall_started = time.perf_counter()
+                for _ in range(int(profile_spec["measured_batches"])):
+                    started = time.perf_counter()
+                    batch = next(iterator)
+                    waits.append((time.perf_counter() - started) * 1000.0)
+                    measured_samples += _batch_size_for_profile(batch)
+                wall_seconds = time.perf_counter() - wall_started
+                if num_workers == 0:
+                    cache_state = (
+                        "single-process-first" if repeat == 0 else "single-process-repeat"
+                    )
+                else:
+                    cache_state = (
+                        "cold-worker-start" if repeat == 0 else "persistent-worker-warm"
+                    )
+                repeats.append({
+                    "repeat": repeat,
+                    "cache_state": cache_state,
+                    "iterator_create_ms": iterator_create_ms,
+                    "determinism_content_sha256": content_sha256,
+                    "determinism_wait_ms": _timing_distribution(audit_waits),
+                    "measured_batches": int(profile_spec["measured_batches"]),
+                    "measured_samples": measured_samples,
+                    "measured_wall_seconds": wall_seconds,
+                    "samples_per_second": measured_samples / wall_seconds,
+                    "batch_wait_ms": _timing_distribution(waits),
+                })
+                del iterator
+        finally:
+            del loader
+            _close_loader_dataset(dataset)
+            gc.collect()
+        profiles.append({"num_workers": num_workers, "repeats": repeats})
+    return {
+        "schema": "s09.production-loader-profile.v1",
+        "spec": {
+            "workers": workers,
+            "repeats": int(profile_spec["repeats"]),
+            "determinism_batches": int(profile_spec["determinism_batches"]),
+            "warmup_batches": int(profile_spec["warmup_batches"]),
+            "measured_batches": int(profile_spec["measured_batches"]),
+        },
+        "measurement_definition": (
+            "batch_wait_ms is host time blocked in next(production DataLoader); "
+            "worker cells are observational and do not alter training.num_workers"
+        ),
+        "training_num_workers": int(run_config["num-workers"]),
+        "profiles": profiles,
+        "content_sha256_identical": len(set(all_digests)) == 1,
+        "content_sha256": all_digests[0],
+    }
+
+
 def run_strict_official_evaluation(
     *,
     config,
@@ -88,7 +274,7 @@ def run_strict_official_evaluation(
 
     Loading deliberately reuses the production checkpoint loader (including
     config/data identity checks and rollback).  The raw/EMA choice and timing
-    collection are both fields of the hashed ``s08.v1`` config.
+    collection are both fields of the hashed ``s09.v1`` config.
     """
     _, checkpoint_identity = load_checkpoint(
         str(checkpoint), model=model, optimizer=optimizer, scheduler=scheduler,
@@ -173,15 +359,34 @@ def run_strict_official_evaluation(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", required=True, help="strict s08.v1 JSON")
+    parser.add_argument("--config", required=True, help="strict s09.v1 JSON")
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
 
     config = load_resolved_config(args.config)
+    execution = config.data["execution"]
+    execution_mode = config.execution_mode
+    readiness = execution_mode == "readiness"
+    out_dir = Path(args.out_dir)
+    if readiness:
+        if args.resume:
+            raise RuntimeError("execution.mode='readiness' is non-resumable")
+        if out_dir.exists():
+            raise RuntimeError(
+                "readiness requires a fresh absent output directory: "
+                f"{out_dir}"
+            )
+        out_dir.mkdir(parents=True)
+
+    startup_started = time.perf_counter()
+    identity_started = time.perf_counter()
     runtime_dependencies = verify_runtime_dependency_identity(config.to_run_config())
     print(json.dumps({"runtime_dependencies": runtime_dependencies}, sort_keys=True), flush=True)
     verify_physical_data_identities(config)
+    startup_phases = {
+        "runtime_and_data_identity_seconds": time.perf_counter() - identity_started,
+    }
     train_spec = config.data["training"]
     declared_world = int(train_spec["world_size"])
     actual_world = int(os.environ.get("WORLD_SIZE", "1"))
@@ -199,13 +404,60 @@ def main() -> None:
 
     run_config = config.to_run_config()
     task = get_task("nuscenes_detection")
+    data_started = time.perf_counter()
     train_split = str(run_config["nuscenes-train-split"])
     infos, _ = task._load_info(run_config, train_split)
     part = task._partition(run_config)
     tokens = sorted({token for shard in part["client_tokens"].values() for token in shard})
+    startup_phases["info_and_partition_seconds"] = time.perf_counter() - data_started
+
+    loader_profile = None
+    profile_spec = execution["loader_profile"]
+    if readiness and profile_spec is not None:
+        profile_started = time.perf_counter()
+        loader_profile = run_production_loader_profile(
+            task=task,
+            run_config=run_config,
+            infos=infos,
+            tokens=tokens,
+            profile_spec=profile_spec,
+        )
+        startup_phases["loader_profile_seconds"] = time.perf_counter() - profile_started
+        if not loader_profile["content_sha256_identical"]:
+            startup_phases["total_before_training_seconds"] = (
+                time.perf_counter() - startup_started
+            )
+            (out_dir / "resolved_config.json").write_bytes(config.canonical_bytes + b"\n")
+            _write_json(out_dir / "runtime_dependencies.json", runtime_dependencies)
+            _write_json(out_dir / "readiness.json", {
+                "schema": "s09.readiness-report.v1",
+                "status": "FAIL",
+                "terminal_reason": (
+                    "bounded production-loader content hashes differ across "
+                    "declared worker/repeat cells"
+                ),
+                "resolved_config_sha256": config.sha256,
+                "execution_sha256": _canonical_sha256(config.as_dict()["execution"]),
+                "data_identities": config.data_identities,
+                "runtime_dependencies_sha256": _canonical_sha256(runtime_dependencies),
+                "startup_phase_seconds": startup_phases,
+                "loader_profile": loader_profile,
+                "model_constructed": False,
+                "training_started": False,
+                "checkpoint_written": False,
+                "official_evaluation_executed": False,
+            })
+            raise RuntimeError(
+                "production loader profile content identity differs across cells; "
+                "training was not started"
+            )
+
+    loader_started = time.perf_counter()
     loader = task._make_loader(run_config, infos, tokens, shuffle=True)
     stream = PersistentEpochIterator(loader)
+    startup_phases["fixed_training_loader_seconds"] = time.perf_counter() - loader_started
 
+    model_started = time.perf_counter()
     model = task.build_model(run_config).to(device)
     criterion = task.build_criterion(run_config)
     optimizer = _build_optimizer(model, config)
@@ -215,8 +467,122 @@ def main() -> None:
     scaler = make_grad_scaler(device, config.precision)
     ema = _build_ema(model, train_spec["ema_decay"])
     state = TrainingState()
+    startup_phases["model_and_training_components_seconds"] = (
+        time.perf_counter() - model_started
+    )
 
-    out_dir = Path(args.out_dir)
+    if readiness:
+        max_updates = int(train_spec["max_optimizer_steps"])
+        max_attempted = int(execution["max_attempted_windows"])
+        timing_warmup = int(execution["timing_warmup_successful_windows"])
+        training_started = time.perf_counter()
+        train_kwargs = {
+            "scheduler": scheduler,
+            "ema_model": ema,
+            "precision": config.precision,
+            "grad_scaler": scaler,
+            "accumulation_steps": int(train_spec["accumulation_steps"]),
+            "runtime_state": state,
+            "max_steps": max_attempted,
+            "max_optimizer_steps": max_updates,
+            "model_mode": config.model_mode,
+            "exposure_multiplier": actual_world,
+            "expected_global_microbatch_samples": (
+                int(train_spec["micro_batch_size"]) * actual_world
+            ),
+            "readiness_timing": True,
+            "readiness_warmup_successful_windows": timing_warmup,
+        }
+        mode_context = model.serialized_mode(True) if hasattr(model, "serialized_mode") else None
+        if mode_context is None:
+            metrics = train_one_epoch(
+                model, stream.batches(0), criterion, optimizer, device, **train_kwargs,
+            )
+        else:
+            with mode_context:
+                metrics = train_one_epoch(
+                    model, stream.batches(0), criterion, optimizer, device, **train_kwargs,
+                )
+        training_wall_seconds = time.perf_counter() - training_started
+        startup_phases["total_before_training_seconds"] = (
+            training_started - startup_started
+        )
+        terminal_state = state.checkpoint_dict()
+        passed = (
+            state.optimizer_step == max_updates
+            and state.attempted_windows <= max_attempted
+            and state.discarded_windows == 0
+        )
+        terminal_reason = (
+            "successful-update target reached within the attempted-window cap"
+            if passed
+            else (
+                "successful-update target not reached before loader exhaustion or "
+                "attempted-window cap"
+            )
+        )
+        report = {
+            "schema": "s09.readiness-report.v1",
+            "status": "PASS" if passed else "FAIL",
+            "terminal_reason": terminal_reason,
+            "resolved_config_sha256": config.sha256,
+            "execution_sha256": _canonical_sha256(config.as_dict()["execution"]),
+            "data_identities": config.data_identities,
+            "runtime_dependencies": runtime_dependencies,
+            "runtime_dependencies_sha256": _canonical_sha256(runtime_dependencies),
+            "device": (
+                {
+                    "type": "cuda",
+                    "index": int(torch.cuda.current_device()),
+                    "name": torch.cuda.get_device_name(device),
+                    "compute_capability": list(torch.cuda.get_device_capability(device)),
+                    "total_memory_bytes": int(
+                        torch.cuda.get_device_properties(device).total_memory
+                    ),
+                }
+                if device.type == "cuda"
+                else {"type": "cpu"}
+            ),
+            "model_mode": config.model_mode,
+            "precision": config.precision,
+            "sparse_conv_precision": config.sparse_conv_precision,
+            "recipe": {
+                "optimizer": config.as_dict()["optimizer"],
+                "training": config.as_dict()["training"],
+                "scheduler": "constant_lambda_1",
+                "gradient_clipping": None,
+            },
+            "partition": {
+                "mode": str(part["mode"]),
+                "num_clients": int(part["num_clients"]),
+                "unique_train_tokens": len(tokens),
+            },
+            "fixed_training_num_workers": int(train_spec["num_workers"]),
+            "loader_profile": loader_profile,
+            "startup_phase_seconds": startup_phases,
+            "training_wall_seconds": training_wall_seconds,
+            "training_metrics": metrics,
+            "terminal_training_state": terminal_state,
+            "target_successful_windows": max_updates,
+            "max_attempted_windows": max_attempted,
+            "model_constructed": True,
+            "training_started": True,
+            "checkpoint_written": False,
+            "official_evaluation_executed": False,
+            "interpretation_limits": [
+                "engineering readiness only; not convergence, mAP/NDS, or model quality",
+                "loader profile cells are observational and did not select num_workers in-job",
+                "no checkpoint or official evaluation was produced",
+            ],
+        }
+        (out_dir / "resolved_config.json").write_bytes(config.canonical_bytes + b"\n")
+        _write_json(out_dir / "runtime_dependencies.json", runtime_dependencies)
+        _write_json(out_dir / "readiness.json", report)
+        print(json.dumps({"readiness": report}, sort_keys=True, allow_nan=False), flush=True)
+        if not passed:
+            raise RuntimeError(terminal_reason)
+        return
+
     out_dir.mkdir(parents=True, exist_ok=True)
     checkpoint = out_dir / "checkpoint.pt"
     if args.resume:

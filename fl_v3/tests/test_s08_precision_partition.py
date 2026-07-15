@@ -91,10 +91,10 @@ def test_strict_production_rejects_missing_partition_and_legacy_boolean(tmp_path
         _det_config_from_run(legacy)
 
 
-def test_s06_schema_and_missing_partition_are_refused(tmp_path):
+def test_legacy_schema_and_missing_partition_are_refused(tmp_path):
     raw = valid_config(tmp_path)
     raw["schema_version"] = "s06.v1"
-    with pytest.raises(ConfigError, match="exactly 's08.v1'"):
+    with pytest.raises(ConfigError, match="exactly 's09.v1'"):
         resolve_config(raw)
     raw = valid_config(tmp_path)
     raw.pop("sparse_conv_precision")

@@ -408,7 +408,7 @@ def _resolved_cell_config(
     cell_id, _tag, mode, camera, lidar, fusion, precision, partition = cell
     bypass = f"/S08_FIXTURE_BYPASS/{fixture_sha256}/{cell_id}"
     return resolve_config({
-        "schema_version": "s08.v1",
+        "schema_version": "s09.v1",
         "model": {
             "mode": mode,
             "camera_arch": camera,
@@ -459,6 +459,8 @@ def _resolved_cell_config(
             },
         },
         "dependencies": _dependency_fields(lidar == "second_075"),
+        "execution": {"mode": "train_eval", "max_attempted_windows": 0,
+                      "timing_warmup_successful_windows": 0, "loader_profile": None},
         "evaluation": {"timing": False, "checkpoint_weights": "raw"},
     })
 

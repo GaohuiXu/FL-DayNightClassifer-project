@@ -1,4 +1,4 @@
-"""Canonical, fail-closed S08 production configuration.
+"""Canonical, fail-closed S09 production configuration.
 
 No scientific field is inferred from the environment.  Callers resolve this
 schema before constructing data, a model, or an optimizer and pass the resulting
@@ -30,10 +30,11 @@ _CAMERAS = frozenset({"swin_t_stride8", "none"})
 _LIDARS = frozenset({"second_075", "pillar_020", "none"})
 _FUSIONS = frozenset({"conv_fuser_256", "none"})
 _HEADS = frozenset({"centerhead_multitask"})
+_EXECUTION_MODES = frozenset({"train_eval", "readiness"})
 
 _ROOT = frozenset({
     "schema_version", "model", "precision", "sparse_conv_precision", "optimizer",
-    "training", "data", "dependencies", "evaluation",
+    "training", "data", "dependencies", "evaluation", "execution",
 })
 _MODEL = frozenset({
     "mode", "camera_arch", "camera_pretrained", "lidar_arch", "fusion_arch", "head_arch",
@@ -58,6 +59,13 @@ _DEPS = frozenset({
 })
 _EVAL = frozenset({"timing", "checkpoint_weights"})
 _CHECKPOINT_WEIGHTS = frozenset({"raw", "ema"})
+_EXECUTION = frozenset({
+    "mode", "max_attempted_windows", "timing_warmup_successful_windows",
+    "loader_profile",
+})
+_LOADER_PROFILE = frozenset({
+    "workers", "repeats", "determinism_batches", "warmup_batches", "measured_batches",
+})
 
 
 def _mapping(value: Any, where: str) -> dict[str, Any]:
@@ -163,6 +171,10 @@ class ResolvedConfig:
         return str(self.data["sparse_conv_precision"])
 
     @property
+    def execution_mode(self) -> str:
+        return str(self.data["execution"]["mode"])
+
+    @property
     def data_identities(self) -> dict[str, Any]:
         d = self.data["data"]
         out = {
@@ -182,7 +194,7 @@ class ResolvedConfig:
         return json.loads(self.canonical_bytes.decode("utf-8"))
 
     def to_run_config(self) -> dict[str, Any]:
-        """Bridge the validated S08 configuration to current task interfaces."""
+        """Bridge the validated S09 configuration to current task interfaces."""
         d, m, t, o = self.data["data"], self.data["model"], self.data["training"], self.data["optimizer"]
         out = {
             "s06-production-runtime": True,
@@ -240,6 +252,16 @@ class ResolvedConfig:
             "nuscenes-zip-manifest-file-sha256": d["zip_manifest"]["file_sha256"],
             "evaluation-timing": self.data["evaluation"]["timing"],
             "evaluation-checkpoint-weights": self.data["evaluation"]["checkpoint_weights"],
+            "execution-mode": self.data["execution"]["mode"],
+            "readiness-max-attempted-windows": self.data["execution"][
+                "max_attempted_windows"
+            ],
+            "readiness-timing-warmup-successful-windows": self.data["execution"][
+                "timing_warmup_successful_windows"
+            ],
+            "readiness-loader-profile": _thaw(
+                self.data["execution"]["loader_profile"]
+            ),
         }
         for role in ("train", "val"):
             cache = d["caches"][role]
@@ -285,11 +307,11 @@ def validate_precision_partition(
 
 
 def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
-    """Validate and canonicalize one complete S08 config; never consult env vars."""
+    """Validate and canonicalize one complete S09 config; never consult env vars."""
     root = _mapping(dict(raw), "config")
     _keys(root, _ROOT, "config")
-    if root["schema_version"] != "s08.v1":
-        raise ConfigError("schema_version must be exactly 's08.v1'; legacy/partial configs are refused")
+    if root["schema_version"] != "s09.v1":
+        raise ConfigError("schema_version must be exactly 's09.v1'; legacy/partial configs are refused")
 
     model = _mapping(root["model"], "model"); _keys(model, _MODEL, "model")
     mode = _enum(model["mode"], _MODES, "model.mode")
@@ -397,6 +419,71 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
     )
     if weights == "ema" and train["ema_decay"] is None:
         raise ConfigError("evaluation.checkpoint_weights='ema' requires training.ema_decay")
+
+    execution = _mapping(root["execution"], "execution")
+    _keys(execution, _EXECUTION, "execution")
+    execution_mode = _enum(execution["mode"], _EXECUTION_MODES, "execution.mode")
+    max_attempted = _integer(
+        execution["max_attempted_windows"],
+        "execution.max_attempted_windows",
+        minimum=0,
+    )
+    timing_warmup = _integer(
+        execution["timing_warmup_successful_windows"],
+        "execution.timing_warmup_successful_windows",
+        minimum=0,
+    )
+    loader_profile = execution["loader_profile"]
+    if execution_mode == "train_eval":
+        if max_attempted != 0 or timing_warmup != 0 or loader_profile is not None:
+            raise ConfigError(
+                "execution.mode='train_eval' requires max_attempted_windows=0, "
+                "timing_warmup_successful_windows=0, and loader_profile=null"
+            )
+    else:
+        if train["world_size"] != 1 or train["accumulation_steps"] != 1:
+            raise ConfigError(
+                "execution.mode='readiness' requires world_size=1 and accumulation_steps=1"
+            )
+        if max_attempted < train["max_optimizer_steps"]:
+            raise ConfigError(
+                "execution.max_attempted_windows must be >= training.max_optimizer_steps"
+            )
+        if timing_warmup >= train["max_optimizer_steps"]:
+            raise ConfigError(
+                "execution.timing_warmup_successful_windows must be below "
+                "training.max_optimizer_steps"
+            )
+        if evaluation["timing"]:
+            raise ConfigError(
+                "execution.mode='readiness' requires evaluation.timing=false because "
+                "official evaluation is not executed"
+            )
+        if loader_profile is not None:
+            profile = _mapping(loader_profile, "execution.loader_profile")
+            _keys(profile, _LOADER_PROFILE, "execution.loader_profile")
+            workers = profile["workers"]
+            if not isinstance(workers, list) or not workers:
+                raise ConfigError(
+                    "execution.loader_profile.workers must be a non-empty list"
+                )
+            normalized_workers = [
+                _integer(value, f"execution.loader_profile.workers[{index}]", minimum=0)
+                for index, value in enumerate(workers)
+            ]
+            if len(set(normalized_workers)) != len(normalized_workers):
+                raise ConfigError("execution.loader_profile.workers must be unique")
+            if train["num_workers"] not in normalized_workers:
+                raise ConfigError(
+                    "training.num_workers must be one declared loader-profile worker cell"
+                )
+            for key in ("repeats", "determinism_batches", "measured_batches"):
+                _integer(profile[key], f"execution.loader_profile.{key}")
+            _integer(
+                profile["warmup_batches"],
+                "execution.loader_profile.warmup_batches",
+                minimum=0,
+            )
 
     normalized = json.loads(canonical_json(root).decode("utf-8"))
     encoded = canonical_json(normalized)

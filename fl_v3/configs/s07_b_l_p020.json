@@ -1,6 +1,6 @@
 {
-  "schema_version": "s08.v1",
-  "template_only": {"reason": "full t1.v2 identities, budget, and seed are not owner-approved"},
+  "schema_version": "s09.v1",
+  "template_only": {"reason": "accepted STOP-1 data exist; an immutable later-stop config must still bind their exact paths/identities plus budget, seed, and recipe policy"},
   "model": {"mode": "lidar_only", "camera_arch": "none", "camera_pretrained": null, "lidar_arch": "pillar_020", "fusion_arch": "none", "head_arch": "centerhead_multitask"},
   "precision": "fp16",
   "sparse_conv_precision": "not_applicable",
@@ -10,11 +10,12 @@
     "dataroot": "REQUIRES_EXACT_NUSCENES_MODULE_ROOT",
     "version": "v1.0-trainval", "train_split": "train", "val_split": "val", "n_sweeps": 10,
     "caches": {
-      "train": {"format": "t1.v2", "path": "REQUIRES_FULL_T1_V2/train.pkl", "sidecar_path": "REQUIRES_FULL_T1_V2/train.meta.json", "logical_sha256": "FULL_T1_V2_NOT_MATERIALIZED", "pickle_sha256": "FULL_T1_V2_NOT_MATERIALIZED", "sidecar_sha256": "FULL_T1_V2_NOT_MATERIALIZED"},
-      "val": {"format": "t1.v2", "path": "REQUIRES_FULL_T1_V2/val.pkl", "sidecar_path": "REQUIRES_FULL_T1_V2/val.meta.json", "logical_sha256": "FULL_T1_V2_NOT_MATERIALIZED", "pickle_sha256": "FULL_T1_V2_NOT_MATERIALIZED", "sidecar_sha256": "FULL_T1_V2_NOT_MATERIALIZED"}
+      "train": {"format": "t1.v2", "path": "REQUIRES_EXACT_STOP_BOUND_T1_V2/train.pkl", "sidecar_path": "REQUIRES_EXACT_STOP_BOUND_T1_V2/train.meta.json", "logical_sha256": "EXACT_ACCEPTED_T1_V2_IDENTITY_REQUIRED", "pickle_sha256": "EXACT_ACCEPTED_T1_V2_IDENTITY_REQUIRED", "sidecar_sha256": "EXACT_ACCEPTED_T1_V2_IDENTITY_REQUIRED"},
+      "val": {"format": "t1.v2", "path": "REQUIRES_EXACT_STOP_BOUND_T1_V2/val.pkl", "sidecar_path": "REQUIRES_EXACT_STOP_BOUND_T1_V2/val.meta.json", "logical_sha256": "EXACT_ACCEPTED_T1_V2_IDENTITY_REQUIRED", "pickle_sha256": "EXACT_ACCEPTED_T1_V2_IDENTITY_REQUIRED", "sidecar_sha256": "EXACT_ACCEPTED_T1_V2_IDENTITY_REQUIRED"}
     },
     "zip_manifest": {"path": "REQUIRES_APPROVED_MANIFEST/manifest.sqlite", "logical_sha256": "APPROVED_MANIFEST_IDENTITY_REQUIRED", "file_sha256": "APPROVED_MANIFEST_IDENTITY_REQUIRED"}
   },
   "dependencies": {"torch": "2.11.0+cu128", "torch_build_sha256": "ACTUAL_TORCH_EXECUTABLE_BUILD_SHA256_REQUIRED", "torch_source_sha": "ACTUAL_TORCH_SOURCE_GIT_SHA_REQUIRED", "spconv": null, "spconv_build_sha256": null, "spconv_source_sha": null, "spconv_source_state": null, "cumm": null, "cumm_build_sha256": null, "cumm_source_sha": null, "cumm_source_state": null},
+  "execution": {"mode": "train_eval", "max_attempted_windows": 0, "timing_warmup_successful_windows": 0, "loader_profile": null},
   "evaluation": {"timing": false, "checkpoint_weights": "REQUIRES_OWNER_SELECTION_RAW_OR_EMA"}
 }

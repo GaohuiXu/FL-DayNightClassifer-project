@@ -16,7 +16,7 @@ H = "a" * 64
 def valid_config(tmp_path=None):
     root = str(tmp_path or "/synthetic")
     return {
-        "schema_version": "s08.v1",
+        "schema_version": "s09.v1",
         "model": {"mode": "camera_only", "camera_arch": "swin_t_stride8",
                   "camera_pretrained": False,
                   "lidar_arch": "none", "fusion_arch": "none",
@@ -45,6 +45,8 @@ def valid_config(tmp_path=None):
                          "spconv_source_state": None,
                          "cumm": None, "cumm_build_sha256": None,
                          "cumm_source_sha": None, "cumm_source_state": None},
+        "execution": {"mode": "train_eval", "max_attempted_windows": 0,
+                      "timing_warmup_successful_windows": 0, "loader_profile": None},
         "evaluation": {"timing": False, "checkpoint_weights": "raw"},
     }
 
@@ -70,6 +72,9 @@ def test_config_hash_is_order_stable_and_roundtrips(tmp_path):
     assert run["det-class-weights"] is None
     assert run["evaluation-timing"] is False
     assert run["evaluation-checkpoint-weights"] == "raw"
+    assert run["execution-mode"] == "train_eval"
+    assert run["readiness-max-attempted-windows"] == 0
+    assert run["readiness-loader-profile"] is None
 
 
 def test_evaluation_timing_and_raw_ema_policy_are_hash_bound(tmp_path):
@@ -84,6 +89,76 @@ def test_evaluation_timing_and_raw_ema_policy_are_hash_bound(tmp_path):
     assert ema.sha256 != timed.sha256
     raw["training"]["ema_decay"] = None
     with pytest.raises(ConfigError, match="requires training.ema_decay"):
+        resolve_config(raw)
+
+
+def readiness_config(tmp_path):
+    raw = valid_config(tmp_path)
+    raw["training"].update(
+        accumulation_steps=1,
+        effective_global_batch=2,
+        num_workers=2,
+    )
+    raw["execution"] = {
+        "mode": "readiness",
+        "max_attempted_windows": 6,
+        "timing_warmup_successful_windows": 1,
+        "loader_profile": {
+            "workers": [0, 2, 4],
+            "repeats": 2,
+            "determinism_batches": 2,
+            "warmup_batches": 1,
+            "measured_batches": 3,
+        },
+    }
+    return raw
+
+
+def test_readiness_execution_contract_is_hash_bound_and_roundtrips(tmp_path):
+    raw = readiness_config(tmp_path)
+    resolved = resolve_config(raw)
+    run = resolved.to_run_config()
+    assert resolved.execution_mode == "readiness"
+    assert run["execution-mode"] == "readiness"
+    assert run["readiness-max-attempted-windows"] == 6
+    assert run["readiness-timing-warmup-successful-windows"] == 1
+    assert run["readiness-loader-profile"] == raw["execution"]["loader_profile"]
+
+    changed = copy.deepcopy(raw)
+    changed["execution"]["loader_profile"]["measured_batches"] = 4
+    assert resolve_config(changed).sha256 != resolved.sha256
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda c: c["execution"].update(max_attempted_windows=3),
+         "must be >= training.max_optimizer_steps"),
+        (lambda c: c["execution"].update(timing_warmup_successful_windows=4),
+         "warmup_successful_windows must be below"),
+        (lambda c: c["training"].update(accumulation_steps=2, effective_global_batch=4),
+         "requires world_size=1 and accumulation_steps=1"),
+        (lambda c: c["evaluation"].update(timing=True),
+         "requires evaluation.timing=false"),
+        (lambda c: c["execution"]["loader_profile"].update(workers=[0, 2, 2]),
+         "workers must be unique"),
+        (lambda c: c["execution"]["loader_profile"].update(workers=[0, 4]),
+         "training.num_workers must be one"),
+        (lambda c: c["execution"]["loader_profile"].update(repeats=0),
+         "must be an integer >= 1"),
+    ],
+)
+def test_readiness_execution_contract_rejects_drift(tmp_path, mutation, message):
+    raw = readiness_config(tmp_path)
+    mutation(raw)
+    with pytest.raises(ConfigError, match=message):
+        resolve_config(raw)
+
+
+def test_train_eval_rejects_readiness_only_fields(tmp_path):
+    raw = valid_config(tmp_path)
+    raw["execution"]["max_attempted_windows"] = 1
+    with pytest.raises(ConfigError, match="requires max_attempted_windows=0"):
         resolve_config(raw)
 
 
