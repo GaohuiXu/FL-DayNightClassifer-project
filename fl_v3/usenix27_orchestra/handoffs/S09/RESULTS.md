@@ -784,3 +784,129 @@ Key artifact SHA-256 values are:
 STOP-4A is a bounded engineering/profiling PASS. It is not convergence, mAP/NDS,
 model-quality, exact backward-branch attribution, multi-seed, Protocol A/B, FL,
 attack, or defense evidence.
+
+## STOP-4C Job 455539 — optimized profiler-free G100 technical PASS
+
+```text
+OWNER_AUTHORITY: O-119
+EXECUTION_SOURCE/TREE: c7769901201b8c507997dfa9ff5154fbe6dbb297 / 1e2c4464d2582d81e7ef7fef4740c764d0a48e8c
+REQUEST_SEAL/TREE: bbb807188a5e024e9e569480bd3a50676f0df312 / 565d9467b92bce38c551e4a9baea58190be3d85c
+REQUEST_REVIEW_ARTIFACT: 9b9b19ae81a4c2c346c2faa9d517fcefabffd4a0 / SUBMIT GO / no open P0-P3
+SUBMISSION_RECORD: 88d04c5
+RAW/RESOLVED_CONFIG_SHA256: 8ca905ade59214822d9c5b894c02786af77f6f531299ed1ca25caf51d00a35ce / afcd002184e35158e129353dfb9b621c390555b5927a37fa5f5acd9547538980
+JOB_ID/STATE/EXIT/RESTARTS: 455539 / COMPLETED / 0:0 / 0
+NODE/SUBMIT/START/END: n414 / 2026-07-15T14:14:48 / 2026-07-15T14:14:49 / 2026-07-15T14:18:55
+ELAPSED/LIMIT/GPU_HOURS: 00:04:06 / 00:30:00 / 0.068333
+RESOURCES: 1 GH200 / 16 CPU / 96 GiB
+SUBMISSIONS: 1 / no retry, requeue, array or DDP
+RESULT: TERMINAL TECHNICAL PASS / IMMUTABLE EVIDENCE REVIEW PENDING
+```
+
+The exact cell was the same F-U, seed-0, B1 engineering recipe as STOP-3:
+FP16 global autocast with the accepted SECOND FP32 island, AdamW `lr=1e-4` /
+`weight_decay=0.01`, constant scheduler, no EMA, clipping, augmentation or GT
+paste, eight workers, world size and accumulation one, and no checkpoint or
+official evaluation. The two intentional engineering changes are Swin activation
+checkpointing off and quiet multi-task loss telemetry when neither S08 precision
+diagnostics nor runtime telemetry needs per-term host scalars. All model outputs,
+losses and gradients are protected by the reviewed exact-neutrality tests.
+
+### Artifact, runtime and data identity
+
+The immutable output is:
+
+```text
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop4c_g100_c7769901201b_a1
+```
+
+It contains 17 regular files / 3,161,886 bytes, no symlink and no writable entry.
+All 16 files named by `artifact_sha256s.txt` independently pass `sha256sum -c`;
+the manifest itself hashes to `542862b2...`. Both Slurm logs are mode `0444`:
+stdout is empty (`e3b0c442...`) and stderr contains only the normal module/data
+notices (`8db5d05b...`). The focused aarch64/Torch/CUDA suite passed `71/71`;
+the sole warning is pytest's expected inability to write cache into the read-only
+snapshot. All runner exits, including the fail-closed readiness validation, are
+zero.
+
+| Artifact | SHA-256 |
+|---|---|
+| readiness report | `b8765c4be656fe7ad657157cc43c2c6915ebfc33e6411c26c2a7db829087adff` |
+| readiness validation | `20fe23693d707224753b1c46da8d8ab88e2377998470e9b6ccd91f0dea81f17f` |
+| runtime dependencies | `0755df255eb69d1501bdfa183f996b33dd3ffb6bad45393ef7f5fa041d722a3c` |
+| resolved-config artifact | `73019180e8627f14db9fe6628d28ca73d60a9116f6aaafeee360cd75a17e2ba8` |
+| execution / config identities | `de67d1d3... / 548ca9f4...` |
+| GPU telemetry / alignment | `106b3177... / cbe09e68...` |
+| centralized stdout / stderr | `5bcd6796... / e14e48be...` |
+
+The in-job identity binds GH200 node `n414`, aarch64 Python `3.11.15`, Torch
+`2.11.0+cu128` / CUDA `12.8`, spconv `2.3.8`, cumm `0.7.13`, the accepted
+train/val `t1.v2` caches, ten sweeps and accepted ZIP manifest. Runtime-dependency
+and execution identities are `3e900c90...` and `86b38580...`; they match STOP-3's
+accepted runtime/data contract.
+
+### Update health and performance regression
+
+The run reached 100 accepted optimizer updates in 103 attempts. Attempts one to
+three were the expected persistent-GradScaler backoff `512 -> 256 -> 128 -> 64`;
+all 90 post-warm measured attempts were accepted at scale 64. Terminal accounting
+is exact: 103 attempted/loss-evaluated samples and windows, 100 successful windows,
+optimizer steps and exposure samples, three overflow/invalid windows, and zero
+direct-nonfinite, discarded or pending windows/samples. Scheduler `last_epoch=100`,
+EMA is absent, and aggregate loss is finite (`56.333386`).
+
+The fail-closed validation compares pairwise `(data_wait + CUDA window)` samples,
+not sums of independent percentiles. Every frozen gate passes:
+
+| Metric | STOP-3 reference | STOP-4C | Change |
+|---|---:|---:|---:|
+| Combined p50 | `208.745739 ms` | `183.215146 ms` | `-12.23%` latency |
+| Combined p95 | `224.326678 ms` | `217.673521 ms` | `-2.97%` latency |
+| Accepted throughput | `4.743432 samples/s` | `5.237023 samples/s` | `+10.41%` |
+| Steady epoch estimate | `1.647307 h` | `1.492048 h` | `-9.43%` |
+| p95/p50 | `1.074641` | `1.188076` | PASS below `1.5` |
+| Data-wait share | `0.076355%` | `0.099441%` | PASS below `10%` |
+| Peak allocated / reserved | `3.256 / 6.434 GiB` | `4.764 / 8.361 GiB` | expected checkpoint-off memory tradeoff |
+
+The 90-window CUDA-event stage mean/p50/p95 values are:
+
+| Stage | Mean (ms) | p50 (ms) | p95 (ms) |
+|---|---:|---:|---:|
+| H2D | `0.296273` | `0.286192` | `0.374963` |
+| Forward | `90.299388` | `87.942368` | `93.471849` |
+| Loss | `13.222721` | `12.344256` | `17.170245` |
+| Backward | `80.002643` | `75.416191` | `102.348893` |
+| Optimizer/scheduler/EMA | `6.169202` | `6.111648` | `6.499066` |
+| CUDA-only integrated window | `190.665966` | `183.037567` | `217.492357` |
+
+The main mean-stage reduction relative to STOP-3 is backward
+`102.846 -> 80.003 ms`, directionally consistent with disabling Swin checkpoint
+recomputation. Forward is effectively unchanged. Because this is one cross-run
+engineering comparison containing both reviewed optimizations, it cannot assign
+an exact speedup independently to the 19 removed loss-term `.item()` calls. Their
+output neutrality is established by tests, while the end-to-end result establishes
+that the combined retained change does not materially regress the accepted path.
+
+Peak reserved memory is only `8.361 GiB`, leaving `86.639 GiB` of reported
+headroom and passing the frozen `86-GiB` reserved ceiling. The training section
+took `44.076 s`; the measured 90-window section took `17.185 s`. One-time setup
+before training was `127.030 s`, dominated by runtime/data identity checks rather
+than steady data wait.
+
+### Coarse utilization and limits
+
+The one-Hz telemetry alignment estimates 43 samples during the 44.1-second
+training interval. GPU utilization is mean/p50/p95/max
+`29.65% / 13% / 99% / 100%`; it is nonzero in `58.14%`, at least 50% in
+`27.91%`, and at least 80% in `9.30%` of samples. Mean/p50/p95/max memory use is
+approximately `7,320 / 8,391 / 9,477 / 9,477 MiB`; mean/max power is
+`187.66 / 280.59 W`. Boundary uncertainty is up to one sampling interval.
+This still does not demonstrate sustained GH200 saturation; together with the
+negligible data wait, it remains consistent with B1 model/kernel granularity.
+
+STOP-4C is therefore a bounded engineering technical PASS and satisfies the
+precondition for independent evidence review. It proves 100-update lifecycle
+health and a non-regressing, faster checkpoint-off/quiet-telemetry path for this
+exact tuple. It does not prove convergence, recipe or batch-size quality,
+mAP/NDS, model quality, exact per-optimization or per-kernel causality, multi-seed
+behavior, Protocol A/B, FL, attack or defense. STOP-4D remains blocked until this
+immutable evidence receives independent PASS.
