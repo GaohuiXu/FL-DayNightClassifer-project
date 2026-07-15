@@ -9,7 +9,9 @@
 > its recorded O-107 mechanical boundary. Initial Job `441293` consumed the
 > submission, completed `0:0` in `00:01:04`, and required no replacement; evidence
 > remediation `79f87dc` received independent `PASS_WITH_RESIDUAL_RISK` with no
-> open P0-P3. Owner STOP-2 acceptance is pending.
+> open P0-P3. O-116 owner-accepts/closes STOP-2. O-117 accepts the updated exact
+> STOP-3 envelope, its linear commits, and one derived immutable G100 submission;
+> this ledger must record that complete tuple before submission.
 
 ## Authorization state
 
@@ -20,11 +22,11 @@ STOP1_EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 STOP1_REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
 STOP1_FIRST_EVIDENCE_SHA: b35591b1a9ac64ea50ee3ad3257304baef07f8de
 BRANCH: codex/s08-s09-cl-readiness
-OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114 STOP-2 implementation + O-115 exact smoke
-APPROVED_COMPUTE: STOP-1 consumed / STOP-2 initial Job 441293 consumed
-APPROVED_SUBMISSIONS: STOP-1 1 consumed / STOP-2 1 consumed; 0 replacements used
-ACTIVE_REQUEST: none / S09-STOP2-SMOKE independently reviewed terminal PASS / owner acceptance pending
-IMPLEMENTATION_COMMIT_AUTHORITY: STOP-2 implementation/remediation consumed through 37aef4d
+OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117 STOP-3
+APPROVED_COMPUTE: STOP-1/2 consumed / STOP-3 one exact G100 pending immutable tuple freeze
+APPROVED_SUBMISSIONS: STOP-1 1 consumed / STOP-2 1 consumed; STOP-3 1 pending / no replacement
+ACTIVE_REQUEST: S09-STOP3-G100 / approved derivation envelope / unsubmitted
+IMPLEMENTATION_COMMIT_AUTHORITY: STOP-3 exact config/runner/request/evidence and review remediation authorized
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
 ```
@@ -387,23 +389,25 @@ unused submission/time ceiling is not STOP-3 or other compute authority.
 ## STOP-3 — loader selection and G100
 
 ```text
-REQUEST_STATE: PROPOSED / DEPENDS ON REVIEWED STOP-2 / NOT APPROVED
+REQUEST_STATE: APPROVED UNDER O-117 / IMMUTABLE SOURCE TUPLE DERIVATION IN PROGRESS / UNSUBMITTED
 PRIMARY_CELL: F-U only
 PRECISION: global FP16 autocast + explicit SECOND FP32 island
-INITIALIZATION: random / exact engineering seed to be frozen
+INITIALIZATION: random / engineering seed 0
 OPTIMIZER: AdamW lr=1e-4 weight_decay=0.01
 SCHEDULER: constant
 EMA/GRAD_CLIP/BEV_AUG/GT_PASTE: disabled
 MICROBATCH/ACCUMULATION/GPU: 1 / 1 / 1 GH200
-PROPOSED_RESOURCE_CEILING: 1 GH200 / <= 01:00:00 / 1 GPU-hour
-PROPOSED_SUBMISSIONS: 1
+RESOURCE_CEILING: 1 GH200 / 16 CPU / 96 GiB host / 01:00:00 / 1 GPU-hour
+SUBMISSIONS: exactly 1 / unsubmitted / no retry or replacement
+RESOLVED_CONFIG_SHA256: cb1723322c756579ab6740eb126de8455b65f808849ec977258c76b919f2c58c
+EXECUTION_SOURCE/TREE/SNAPSHOT/RUNNER_HASH/OUTPUT: pending immutable derivation before submission
 ```
 
-The exact future request will bind:
+The approved immutable request binds:
 
 1. loader-only production ZIP/cache cells at `num_workers=0/2/4/8`, two persistent
-   repeats per worker count, with 16 warm-up batches and 256 measured batches per
-   repeat;
+   repeats per worker count, with 32 digest, 16 warm-up and 256 measured batches
+   per repeat (2,432 bounded decoded samples total);
 2. `num_workers=8` hash-bound in the future exact G100 config before execution,
    based on accepted S01 evidence; the fresh loader cells are observational and
    abort/report rather than silently changing that resolved config if they falsify
@@ -413,14 +417,34 @@ The exact future request will bind:
    from timing summaries; and
 4. stage/end-to-end p50/p95, throughput, data wait, peak allocated/reserved
    memory, optimizer/scheduler/exposure accounting, scaler/nonfinite status, and
-   a bounded epoch-time estimate.
+   two bounded epoch-time estimates; and
+5. one-Hz read-only aggregate GPU utilization, memory utilization/use, power,
+   clocks and temperature telemetry. It is not a module/kernel/Tensor-Core
+   profiler and does not attribute backward time to C/L/F subgraphs.
 
-Candidate acceptance criteria, to be finalized before approval, are: zero
-nonfinite accepted windows; no optimizer/scheduler/exposure drift; at least 95%
-accepted-window ratio after the declared warm-up; p95/p50 end-to-end ratio no
-greater than 1.5; peak reserved memory no greater than 86 GiB; complete artifacts;
-and a provisional estimated epoch ceiling of 24 hours. The denominator and exact
-handling of data exhaustion/restarts will be explicit in the frozen request.
+O-117 acceptance criteria are: exact data/runtime/config identity; all loader
+digests equal; worker-8 warm throughput at least 90% of the best warm cell; exactly
+100 successful updates within 120 attempts; zero nonfinite or discarded windows;
+no optimizer/scheduler/EMA/exposure drift; at least 95% accepted-window ratio after
+the declared warm-up; accepted `(data_wait + CUDA H2D-through-update)` p95/p50 no
+greater than 1.5; measured data-wait share no greater than 10%; peak reserved
+memory no greater than 86 GiB (`92,341,796,864` bytes); both the dataset-traversal
+and accepted-exposure-equivalent estimates no greater than 24 hours; usable GPU
+telemetry; and complete checksum-bound artifacts. Aggregate loss must be finite;
+monotonic convergence is not a STOP-3 gate or claim.
+
+The epoch formulas are frozen as:
+
+```text
+attempted_rate = measured_attempted_samples / measured_wall_seconds
+accepted_rate = measured_exposure_samples / measured_wall_seconds
+dataset_traversal_hours = 28130 / attempted_rate / 3600
+accepted_exposure_equivalent_hours = 28130 / accepted_rate / 3600
+```
+
+Val cache pickle/sidecar and the manifest are streamed for physical identity
+verification. Val is not deserialized into a model loader, decoded, evaluated, or
+used by the 100-update gate.
 
 This gate may report the engineering effect of the unresolved large LiDAR
 gradients. It may not change normalization, model/head/loss/target, clipping, or

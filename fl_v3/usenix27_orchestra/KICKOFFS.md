@@ -19,8 +19,11 @@
 > independent closure review with no open P0-P3. O-115 approves the exact smoke
 > and recorded O-107 boundary. Job `441293` completed `0:0` in `00:01:04` with
 > 44/44 tests passing and no replacement. Evidence remediation `79f87dc` received
-> independent `PASS_WITH_RESIDUAL_RISK` with no open P0-P3; owner STOP-2
-> acceptance is pending. Push and merge remain unauthorized.
+> independent `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. O-116 owner-accepts
+> and closes STOP-2. O-117 accepts the exact STOP-3 G100 plan and its 1 Hz
+> read-only GPU telemetry update, authorizes linear immutable commits and exactly
+> one derived/frozen single-GH200 submission, and forbids retry and STOP-4.
+> Push and merge remain unauthorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -250,7 +253,7 @@ SESSION_ID: S09
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 SOURCE_BRANCH: codex/s08-s09-cl-readiness
 IMPLEMENTATION_CONTEXT: persistent S00 unless owner selects independent isolation
-APPROVED_COMPUTE: O-112 STOP-1 Job 441191 and O-115 STOP-2 Job 441293 consumed; none active
+APPROVED_COMPUTE: O-112 STOP-1 Job 441191 and O-115 STOP-2 Job 441293 consumed; O-117 authorizes one STOP-3 G100 after exact immutable tuple freeze
 APPROVED_GIT: linear S09 envelope/request/evidence/review commits; no merge/push
 DECISION_SCOPE: base-uniform full-pipeline engineering performance/readiness only
 ```
@@ -340,19 +343,27 @@ O-107 replacement.
   seed, uniform sampling, AdamW `1e-4/0.01`, constant scheduler, EMA/clip/3D-BEV
   aug/GT-paste off, microbatch 1, accumulation 1, world size 1, O-110 FP32 island.
 - Loader-only cells: `num_workers=0/2/4/8`, fixed token order, two persistent
-  repeats each with 16 warm-up and 256 measured batches. The full model run uses
+  repeats each with 32 digest, 16 warm-up and 256 measured batches. The full model run uses
   a worker count frozen before submission (provisional recommendation: 8); no
   dynamic in-job model-config selection.
 - Model gate: 100 successful optimizer steps, at most 120 attempted windows; first
   ten successful steps excluded from steady-state timing. Record p50/p95, samples/s,
   epoch estimate, stage timing, data-wait share, memory, scale/skip/nonfinite and
   exact optimizer/scheduler/EMA/exposure accounting.
-- Candidate thresholds for STOP-3 owner review: no nonfinite loss; no counter
-  drift; warm-up-separated accepted ratio at least 95%; end-to-end p95/p50 at
-  most 1.5; peak reserved memory at most 86 GiB; data-wait and epoch-walltime
-  thresholds frozen in the exact request (provisional epoch ceiling: 24 h).
-- One GH200, no DDP, no retry, no official evaluation or metrics. Proposed ceiling:
-  one submission and `<=01:00:00`. **Not approved.**
+- The one-shot runner additionally samples aggregate GPU utilization, memory
+  utilization, memory use, power, clocks and temperature at 1 Hz. This is
+  observational telemetry, not a module/kernel/Tensor-Core profiler and cannot
+  attribute backward time to camera/LiDAR/fusion subgraphs.
+- O-117 thresholds: all loader digests equal; worker-8 warm throughput at least
+  90% of the best warm cell; exactly 100 successful updates within 120 attempts;
+  zero nonfinite/discarded windows or counter drift; warm-up-separated accepted
+  ratio at least 95%; integrated `(data_wait + CUDA H2D-through-update)` p95/p50
+  at most 1.5; measured data-wait share at most 10%; peak reserved memory at most
+  86 GiB; and both frozen epoch estimates at most 24 h. Aggregate loss must be
+  finite, but monotonic convergence is not a STOP-3 gate or claim.
+- One GH200, 16 CPUs, 96 GiB host memory, no DDP, no retry, no official evaluation
+  or metrics. O-117 approves one submission and `<=01:00:00` only after the exact
+  immutable source/snapshot/config/script/output tuple is recorded.
 - An independent reviewer reads exact source/config/cache/records/artifacts before
   the owner STOP-3 decision.
 - If a throughput/stability threshold fails, STOP-3 may return a narrowly measured

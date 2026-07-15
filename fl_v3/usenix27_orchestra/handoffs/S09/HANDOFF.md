@@ -4,7 +4,7 @@
 
 ```text
 SESSION_ID: S09
-MILESTONE_STATE: STOP-1 CLOSED / STOP-2 CLOSE-READY INDEPENDENT PASS / OWNER ACCEPTANCE PENDING
+MILESTONE_STATE: STOP-1/2 CLOSED / STOP-3 IMPLEMENTATION+REQUEST PREPARATION ACTIVE
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
@@ -23,7 +23,10 @@ STOP2_COMPUTE_DECISION: O-115 / exact S09-STOP2-SMOKE + recorded O-107 boundary
 STOP2_EVIDENCE_SHA: a67cdda56c624d302742f5c57c69bb9ef0a98e0c
 STOP2_EVIDENCE_REMEDIATION: 79f87dc9accca700b5a46803d45c549b0305c6d1
 STOP2_EVIDENCE_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3
-APPROVED_COMPUTE: STOP-1 Job 441191 consumed / STOP-2 Job 441293 consumed
+OWNER_STOP2_DECISION: O-116 / ACCEPTED AND CLOSED
+STOP3_DECISION: O-117 / UPDATED ENVELOPE + ONE DERIVED IMMUTABLE G100 APPROVED
+STOP3_CONFIG_RESOLVED_SHA256: cb1723322c756579ab6740eb126de8455b65f808849ec977258c76b919f2c58c
+APPROVED_COMPUTE: STOP-1 Job 441191 consumed / STOP-2 Job 441293 consumed / STOP-3 one submission pending exact tuple freeze
 JOBS: 441191 COMPLETED 0:0 in 00:03:06; 441293 COMPLETED 0:0 in 00:01:04 / no retries
 INDEPENDENT_REVIEW: STOP-1 5252a59 PASS_WITH_RESIDUAL_RISK; STOP-2 impl 37aef4d PASS_WITH_RESIDUAL_RISK; request cad7262 PASS_WITH_RESIDUAL_RISK; evidence 79f87dc PASS_WITH_RESIDUAL_RISK
 OWNER_STOP1_DECISION: O-113 / ACCEPTED
@@ -44,8 +47,11 @@ corrected those records; bounded re-review closed every P2/P3 finding and return
 exact downstream binding of the reviewed cache identities. It opens STOP-2
 detailed planning. O-114 authorizes its exact implementation, local validation,
 linear immutable commits, and independent review. O-115 separately authorized the
-exact GH200 smoke; Job `441293` is terminal technical PASS. STOP-3/4 still require
-new exact owner-reviewed Slurm authority.
+exact GH200 smoke; Job `441293` is terminal technical PASS. O-116 accepts/closes
+STOP-2. O-117 accepts the detailed STOP-3 plan plus 1 Hz read-only GPU telemetry
+and authorizes its exact linear commits and one derived immutable G100 after the
+source/snapshot/config/script/output tuple is recorded. Retry and STOP-4 remain
+unauthorized.
 
 ## S08 residual carried into S09
 
@@ -183,7 +189,7 @@ sampler state, or observer API is proposed. `training/tasks.py`,
 `training/runtime_state.py`, `training/checkpoint.py`, model/loss files, the data
 backend, and the retired `utils/profiling.py` remain unchanged.
 
-### Proposed `s09.v1` execution contract
+### Implemented `s09.v1` execution contract
 
 The new required object is:
 
@@ -206,8 +212,8 @@ one, an attempted-window cap at least as large as the successful-update target,
 and a warm-up count below that target. If a loader profile is present, the exact
 training `num_workers` must be one of the declared cells. The profile is
 observational: it cannot change the already hash-bound training worker count in-job.
-For STOP-3, the provisional exact training choice remains eight workers, supported
-by accepted S01 loader-only evidence; the fresh 0/2/4/8 profile may validate or
+For STOP-3, O-117 freezes the exact training choice at eight workers, supported by
+accepted S01 loader-only evidence; the fresh 0/2/4/8 profile may validate or
 falsify that choice but cannot silently derive a different G100 config.
 
 Readiness mode refuses resume, writes no checkpoint, runs no decode/evaluation, and
@@ -215,7 +221,7 @@ does not increment a fictitious completed epoch. It stops at the first of the
 successful-update target, attempted-window cap, or data exhaustion; it writes the
 terminal artifact before returning a nonzero failure for an unmet gate.
 
-### Proposed measurement contract
+### Implemented measurement contract
 
 The production loop records all bounded attempted windows and their outcomes. On
 CUDA it places events directly around H2D, forward plus FP32 output promotion,

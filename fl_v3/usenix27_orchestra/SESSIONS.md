@@ -27,7 +27,9 @@
 > and its recorded O-107 mechanical boundary. Initial Job `441293` completed
 > `0:0` in `00:01:04` with 44/44 tests passing; no replacement was used and
 > evidence remediation `79f87dc` received independent `PASS_WITH_RESIDUAL_RISK`
-> with no open P0-P3. Owner STOP-2 acceptance is pending.
+> with no open P0-P3. O-116 owner-accepts/closes STOP-2. O-117 accepts the exact
+> STOP-3 G100 envelope, its 1 Hz read-only GPU telemetry update, linear commits,
+> and one derived immutable single-GH200 submission; no retry or STOP-4 is implied.
 >
 > `Sxx` now names a durable evidence milestone, not necessarily a new task,
 > worker, branch, or worktree. Under O-094, persistent S00 normally performs
@@ -64,7 +66,7 @@
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
-| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1 closed; STOP-2 Job `441293` and evidence remediation `79f87dc` independently PASS_WITH_RESIDUAL_RISK/no open P0-P3; owner acceptance pending |
+| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1/2 closed; STOP-3 exact config/runner/request preparation active under O-117; one G100 submission authorized only after immutable tuple freeze |
 | S10 | Centralized branch/recipe ablation | S08+S09 | pending redefinition; no cells/gates frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
 | S12 | Protocol-A/B split and clean adaptation contract | CL freeze + fresh owner review | deferred; old proposal is historical evidence only |
@@ -261,15 +263,16 @@ capability runs?
   harnesses, process matrices, source manifests, warnings-as-errors, or custom
   long-TMPDIR wrappers.
 
-**Gate categories to freeze before execution.** Numerical values remain pending,
-but the owner must approve thresholds for:
-
-- finite accepted-step ratio and loss trend;
-- peak memory/headroom;
-- data-wait share and p95/p50 stability;
-- samples/s or epoch wall time;
-- zero unaccounted scheduler/EMA/exposure drift;
-- stop-on-OOM, repeated nonfinite windows, loader failure, or unacceptable runtime.
+**STOP-3 gates frozen by O-117.** Require all loader digests equal; worker-8 warm
+throughput at least 90% of the best warm cell; exactly 100 successful updates
+within 120 attempts; zero nonfinite/discarded windows or counter drift; at least
+95% accepted windows after ten successful warm-up windows; integrated
+`(data_wait + CUDA H2D-through-update)` p95/p50 no greater than 1.5; measured
+data-wait share no greater than 10%; peak reserved memory no greater than 86 GiB;
+and both declared epoch estimates no greater than 24 hours. Aggregate loss must
+be finite; monotonic convergence is not a STOP-3 gate or claim. OOM, loader
+failure, unresolved identity mismatch, unusable telemetry, or an unmet bounded
+update target is a terminal failure with no retry authority.
 
 **Not S09.** mAP/NDS, per-class capability, fusion gain, recipe selection,
 multi-seed science, Protocol A/B, attack, or defense.
@@ -311,8 +314,10 @@ perform an architecture experiment.
 **Compute.** STOP-1/3/4 material jobs require their own exact stop approval. The
 STOP-2 focused smoke may use O-009/O-107 only when that stop approval explicitly
 opts in. Unused quota is not retry authority. O-112 STOP-1 Job `441191` and O-115
-STOP-2 Job `441293` are consumed and terminal; no replacement was used. STOP-3/4
-and any other later S09 job remain unapproved.
+STOP-2 Job `441293` are consumed and terminal; no replacement was used. O-117
+authorizes exactly one STOP-3 G100 after its immutable source/snapshot/config/
+script/output tuple is recorded. STOP-4 and all other later S09 compute remain
+unapproved.
 
 ## 6. S10-S12 redefinition boundaries
 
