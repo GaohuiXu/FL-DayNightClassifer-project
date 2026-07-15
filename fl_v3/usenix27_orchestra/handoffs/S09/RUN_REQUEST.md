@@ -18,8 +18,9 @@
 > Phase A was consumed exactly once by Job `442152` and is terminal technical
 > PASS. Independent review accepted evidence `82a0e53` with no open P0-P2 or
 > material semantic concern. The strictly derived Phase-B source/snapshot/request
-> tuple is now frozen below; independent derivation confirmation is pending and
-> no Phase-B job has been submitted.
+> tuple is frozen below and independent derivation confirmation returned
+> `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. The one exact submission is ready;
+> no Phase-B job has yet been submitted.
 
 ## Authorization state
 
@@ -33,7 +34,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3
 APPROVED_COMPUTE: O-118 Phase A exact dependency attestation + conditional strictly derived Phase B G100
 APPROVED_SUBMISSIONS: prior STOP-1/2/3 each consumed + O-118 Phase A 1 + conditional Phase B 1 / no retry
-ACTIVE_REQUEST: O-118 Phase B exact derived tuple frozen / independent derivation confirmation pending / not submitted
+ACTIVE_REQUEST: O-118 Phase B exact derived tuple independently confirmed / ready for one exact submission / not yet submitted
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-3 exact config/runner/request/evidence and review remediation authorized
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -531,7 +532,7 @@ blocked until that gate is independently accepted.
 
 ```text
 REQUEST_ID: S09-STOP3-O118-RECOVERY
-REQUEST_STATE: APPROVED UNDER O-118 / PHASE A REVIEWED PASS / PHASE B DERIVED AND FROZEN / INDEPENDENT CONFIRMATION PENDING
+REQUEST_STATE: APPROVED UNDER O-118 / PHASE A REVIEWED PASS / PHASE B DERIVED, FROZEN, AND INDEPENDENTLY CONFIRMED / READY
 OWNER_CONFIRMATION: "批准 O-118 条件式续行 envelope" / continuous execution within the frozen boundary
 PURPOSE: re-attest the drifted editable sparse runtime, then conditionally execute the unchanged O-117 loader/G100 gate
 ADDITIONAL_SUBMISSIONS: at most 2 / one dependency attestation + one conditional G100 replacement
@@ -688,7 +689,7 @@ The only permitted derivation is:
 #### Frozen Phase-B derived tuple
 
 ```text
-PHASE_STATE: DERIVED / REQUEST FROZEN / INDEPENDENT DERIVATION CONFIRMATION PENDING / NOT SUBMITTED
+PHASE_STATE: DERIVED / REQUEST FROZEN / INDEPENDENT PASS_WITH_RESIDUAL_RISK / READY / NOT SUBMITTED
 PHASE_A_EVIDENCE_SHA/TREE: 82a0e5315c9098056b6670afb490850cc71dc653 / 7428f5978c8d423a7c1855d9e3f858eac718aeae
 PHASE_A_REVIEW_SEAL: 386fdbd34c9fe5d420e3ac6c8e439bfe65f6f74d / PASS_WITH_RESIDUAL_RISK / Phase-B GO
 DERIVATION_SOURCE_SHA: c200bac861a42fc4338973787d3700e28ddd6c7e
@@ -722,7 +723,7 @@ EXACT_JOB_NAME_QUEUE_AT_FREEZE: empty
 SPCONV_VERSION/HEAD/STATE/BUILD: 2.3.8 / 263d6b47425ef843c82f997b12d8b714013d216c / 499efdbb5ab31c43109d48f11ee0ff79af847a3d378fd48bf9c79f8672da28db / af42200511a53ce86d77cea0306924a2dc516a74f0483ef7cfe0a6e1dc84b100
 CUMM_VERSION/HEAD/STATE/BUILD: 0.7.13 / 4dedaf43ff801e417c60c6bd7536a29d83d29ee0 / f835ee22d539bbf0ab486fecf1188c3883c3cde5860913434cbcf945ee325662 / 0a7e3c1a8c3e8d41b3b40c4fb77d05bdec8ca2dfce5dbb8863626c4b45d8296d
 LOCAL_VALIDATION: exact semantic-diff assertion + config resolution + git diff --check + runner/submit bash -n and shellcheck PASS
-DERIVATION_CONFIRMATION: pending independent review
+DERIVATION_CONFIRMATION: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / exact frozen wrapper SUBMIT GO
 ```
 
 The derived config's cumm build value was already equal to Phase A and therefore
@@ -733,6 +734,9 @@ global `fp16`, and sparse `fp32`. The runner remains byte-identical. The new
 read-only submit wrapper checks the exact detached source/tree, clean/no-alternate/
 non-writable snapshot, runner/config hashes, fresh output and empty exact-name
 queue before issuing the single frozen `sbatch` command.
+Independent review reproduced the complete derivation, snapshot, hashes, current
+external sparse state and wrapper preflights, and issued `SUBMIT GO` only for the
+exact command above. Any pre-submit drift still cancels that GO.
 
 The resulting one-shot G100 keeps every O-117 material field and gate unchanged:
 F-U, engineering seed `0`, global FP16 autocast plus SECOND FP32 island, random

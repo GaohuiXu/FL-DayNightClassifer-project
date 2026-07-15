@@ -1034,3 +1034,116 @@ submit Phase B: submission remains contingent on that exact derived tuple being
 recorded and rechecking the shared source/build identities. It authorizes no
 retry, changed data/model/precision/recipe/resource field, STOP-4, merge, push,
 or scientific interpretation.
+
+### STOP-3 O-118 Phase-B strict derivation confirmation
+
+Findings, ordered by severity:
+
+- **P0: none.**
+- **P1: none.**
+- **P2: none.**
+- **P3: none.**
+
+```text
+PHASE_A_REVIEW_SEAL: 386fdbd34c9fe5d420e3ac6c8e439bfe65f6f74d
+DERIVED_EXECUTION_SOURCE: c200bac861a42fc4338973787d3700e28ddd6c7e
+DERIVED_EXECUTION_TREE: c0cc4cb8c2e207e42dcc45a129ada28a3d40feb8
+DERIVED_EXECUTION_PARENT: 386fdbd34c9fe5d420e3ac6c8e439bfe65f6f74d
+FROZEN_REQUEST_COMMIT: 45b67e3d2c7c49716d906af72847a5f9f5027f04
+FROZEN_REQUEST_TREE: 5c4b176a5e52812c6f97d1a7a35317961da78990
+FROZEN_REQUEST_PARENT: c200bac861a42fc4338973787d3700e28ddd6c7e
+BRANCH: codex/s08-s09-cl-readiness
+REVIEWER_COMPUTE: none
+```
+
+Preflight matched the exact request commit, tree, parent, branch, and a clean
+worktree. `386fdbd..c200bac` changes exactly one file and one JSON value:
+`dependencies.spconv_build_sha256` from the obsolete `74934de8...` identity to
+Phase A's stable `af422005...`. The cumm value was already Phase A's
+`0a7e3c1a...`, so it correctly produces no textual diff. Direct JSON comparison
+against the original O-117 execution source `4d6bd82`, its request commit
+`30e6c9f`, and the Phase-A review seal confirms there is no other config semantic
+change. `c200bac..45b67e3` changes only `HANDOFF.md` and `RUN_REQUEST.md` to freeze
+provenance; no executable or config content changes in the request commit.
+
+The complete O-117 material tuple is preserved: F-U with
+Swin-T-stride-8/SECOND-075/conv-fuser-256/CenterHead multitask, random
+initialization, seed `0`, global FP16 plus the explicit sparse FP32 island,
+AdamW `1e-4/0.01`, constant scheduler, no EMA, microbatch/accumulation/effective
+global batch `1/1/1`, uniform sampling, eight training workers, exact production
+train/val cache and ZIP-manifest identities, loader cells `0/2/4/8` with bounds
+`2/32/16/256`, 100 successful updates within 120 attempts, and ten successful
+warm-up windows excluded from timing. No model, data, precision, seed, recipe,
+cell, bound, gate, or metric field changed.
+
+#### Frozen snapshot, config, and executable identity
+
+- Snapshot
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop3_g100_c200bac861a4`
+  is detached and clean at exact source/tree `c200bac.../c0cc4cb...`, contains
+  593 tracked files / 4,851,938 bytes, has zero writable worktree entries, no
+  alternates or commit graph, one self-contained object pack, and passes
+  `git fsck --full --no-reflogs`.
+- Raw config SHA-256 is `6733a472...`; independent resolution reproduces
+  `ba06b72e...` and the declared fusion/seed/update/worker/precision/execution
+  fields. The G100 runner remains byte-identical at `855bbd15...` relative to
+  the Phase-A review seal. `centralized_train.py` and `arrhenius_env.sh` reproduce
+  `9284d395...` and `a56758d7...`.
+- The corrected runner loads the required build module stack and licensed data
+  module, then `centralized_train.py` calls
+  `verify_runtime_dependency_identity` before physical data verification,
+  loader creation, or model construction. Thus a later shared source/build drift
+  fails before data/model work rather than silently changing the tuple.
+- Independent local validation passed: exact semantic-diff assertions, config
+  resolution, `git diff --check`, and `bash -n` plus `shellcheck -x` for both the
+  runner and submit wrapper.
+
+#### Submit wrapper and current external state
+
+- The read-only wrapper at
+  `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop3_g100_c200bac861a4_a2/submit.sh`
+  hashes to `4801ddfe...`. It contains exactly one `sbatch`, no array/retry, and
+  binds the exact source/tree/snapshot, runner/config hashes, absent output,
+  empty exact-name queue, one GH200, 16 CPUs, 96 GiB, `01:00:00`, account
+  `naiss2025-22-1113-gpu`, partition `gpu`, job name
+  `flv3_s09_stop3_g100_r1`, fresh output/log paths, and `--no-requeue`.
+- The exact output and log glob are absent. Both `squeue` and `sacct` show no
+  Phase-B job with the frozen name; the conditional one-shot submission remains
+  unconsumed.
+- Current read-only inspection still reproduces spconv HEAD/state/build
+  `263d6b4.../499efdbb.../af422005...` and cumm
+  `4dedaf4.../f835ee22.../0a7e3c1a...`. All 73 spconv and 125 cumm executable
+  artifact records from Phase A still match current sizes/content and recompute
+  the exact aggregate identities. Both native-copy pairs remain byte-identical
+  at `37f2ef8d...` and `9970ccc5...`. The accepted spconv `pyproject.toml`
+  modification and disclosed untracked cumm stub are unchanged.
+
+| Strict-derivation gate | Verdict |
+|---|---|
+| Exact linear Phase-A review → derived source → frozen request chain | PASS |
+| Only Phase-A sparse build identity derived in executable/config state | PASS |
+| O-117 model/data/precision/seed/recipe/cells/bounds/gates unchanged | PASS |
+| Corrected runner and production trainer/environment hashes frozen | PASS |
+| Local semantic/config/static validation | PASS |
+| Detached clean self-contained snapshot and inventory | PASS |
+| Single exact submit command/resources/output/logs/no-requeue | PASS |
+| Output/logs absent; exact-name queue/accounting empty | PASS |
+| Current external source, tracked state, native files, aggregate builds | PASS |
+| O-118 no-retry/serial authority and one conditional submission available | PASS |
+
+Residual risk remains bounded but real: cumm/spconv are shared editable
+checkouts and may drift after this point-in-time confirmation; the job therefore
+must retain its pre-data/model fail-closed identity check. The corrected G100
+runner has not yet completed a training execution, and Phase A did not establish
+an exact pre-warm mutation delta. This confirmation predicts neither numerical
+health nor performance: loader, 100-update, timing, memory, telemetry, and large
+LiDAR-gradient gates remain to be measured by the exact job.
+
+**Strict-derivation verdict: PASS WITH RESIDUAL RISK / no open P0-P3.** The
+O-118 derivation rule is satisfied without changing any scientific or resource
+field.
+
+**SUBMIT VERDICT: GO for exactly the frozen Phase-B wrapper and one submission.**
+This GO is invalidated by any source/config/snapshot/wrapper/output/queue or
+external dependency drift and permits no retry, replacement, altered resource,
+additional cell, STOP-4, merge, push, or scientific claim.
