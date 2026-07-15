@@ -5,13 +5,13 @@
 > execution ledgers remain recoverable at that Git object; compact terminal
 > records remain under `handoffs/S08` and `handoffs/S09`.
 >
-> The current S00 is authorized only to complete closure compaction and retire.
-> It must not create or execute S10 work. The next S00 will create
-> `codex/s10-cl-model-recipe`, run a fresh Ultra-reasoning audit, and present a
-> new exact envelope. Only S10's work definition is accepted: centralized-model
-> numerical/architectural health, production recipe selection, and GH200
-> optimization on the final architecture. Exact stops, full-run placement,
-> implementation, compute and S11+ remain unapproved.
+> Fresh persistent S00 completed the S10 startup audit at exact clean base
+> `a080d49c1c22de20ccb5b1353d4922c7df14a729` and is active on
+> `codex/s10-cl-model-recipe`. O-122 accepts the six-stop A-F scientific envelope,
+> exact STOP-A split/evaluator gate, and primary full claim “absolute clean
+> capability + fusion contribution”. Current authority is planning/documentation
+> only. STOP-A/B/C execution awaits one bounded completion decision after
+> GPU-budget review; STOP-D/E/F execution and S11+ remain unapproved.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -421,20 +421,37 @@ recipe claim, multi-seed, Protocol A/B, attack, defense, DDP, full-data payload
 scan, branch selection, normalization experiment, or publication/upload is
 authorized.
 
-## 6. Next-session launch state
+## 6. S10 active launch state
 
-- **Current S00:** closure compaction only, then retirement. Do not create the S10
-  branch in this session.
-- **Fresh S00 / S10:** create `codex/s10-cl-model-recipe`, use Ultra reasoning,
-  reread/audit the integrated base, and discuss a new exact envelope before any
-  implementation or compute. The accepted work definition is limited to
-  centralized numerical/architectural health, production recipe selection, and
-  final-architecture GH200 optimization.
-- **Not accepted yet:** any four-stop plan, exact cell/matrix/gate, full-run
-  placement, compute tuple, or implementation permission.
+- **Persistent S00:** remain in this task/worktree and on the linear
+  `codex/s10-cl-model-recipe` branch. Do not create per-stop implementation tasks,
+  parallel production implementers, micro-handoffs or per-cell review chains.
+- **Accepted scope:** six stops A split/evaluator, B observation-first, C
+  architecture/init, D recipe freeze, E final-graph GH200 optimization, F
+  single-seed full/official-val close. Exact scientific limits are in
+  `handoffs/S10/HANDOFF.md`.
+- **Current authority:** O-124 approves continuous STOP-A/B/C implementation,
+  local validation, linear commits, exact derived serial Slurm submissions and
+  stop-level independent review within the v1 cumulative caps. Every material job
+  tuple is still frozen in `RUN_REQUEST.md` before submission.
+- **O-123 batch correction:** the B=1-based v0 request is rejected. Revised ABC
+  scientific rungs use physical B=4 at minimum and bind a fixed-batch tail policy;
+  B=1 may appear only in a tiny paired diagnostic check. B=8/16 belong to a later
+  bounded STOP-D/E batch ladder after final-graph selection unless the owner
+  explicitly amends ABC.
+- **Future ABC completion authority:** one owner decision may cover in-envelope
+  implementation, linear implementation/evidence/remediation commits, at most one
+  active GH200 job, exact pre-recorded serial submissions, and stop-level review.
+  It must freeze total/per-stop GPU ceilings, cell/seed/candidate caps, derivation
+  rules and stop conditions. It is not O-107 and never transfers unused budget to
+  extra candidates, seeds, horizons or STOP-D/E/F.
+- **Review:** STOP-A split/metric requires one isolated high-risk review worktree
+  after an immutable SHA; reuse one bounded S10-R context when later isolation is
+  required. Reviewers read and report but never fix. S00 remediates linearly;
+  P3-only polish is batched, and a repeated material blocker returns to the owner.
 - **S11 and later:** pending. Historical role descriptions and sequencing do not
-  create scope or authority; Protocol A/B, attack, defense, upload and publication
-  remain unauthorized.
+  create scope or authority; Protocol A/B execution, attack, defense, upload and
+  publication remain unauthorized.
 
 ## 7. Exact compute-request skeleton
 

@@ -35,16 +35,16 @@ as a bounded engineering PASS. O-121 fast-forwarded `v3-ad-perception` to
 `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`; the former delivery branch remains
 at the identical tip pending a separate cleanup decision.
 
-The next-session boundary is:
-
-1. finish S08/S09 closure compaction in the current S00, then retire it;
-2. start a fresh Ultra-reasoning S00 and create `codex/s10-cl-model-recipe`;
-3. research before proposing the exact S10 boundary. Only the work definition is
-   accepted: centralized-model numerical/architectural health, production
-   training-recipe selection, and final-architecture GH200 optimization.
-
-No four-stop plan, exact cell, full-run placement, S10 implementation/compute, or
-S11+ boundary is accepted by the closure decision. S11 and later remain pending.
+Fresh persistent S00 completed the S10 startup audit at exact clean base
+`a080d49c1c22de20ccb5b1353d4922c7df14a729` on
+`codex/s10-cl-model-recipe`. O-122 accepts the six-stop A-F S10 envelope, exact
+STOP-A split/evaluator gate, and primary full claim “absolute clean capability +
+fusion contribution”. O-124 now authorizes bounded STOP-A/B/C implementation, linear commits, exact
+derived serial Slurm execution and stop-level review within 27 cumulative
+one-GH200 hours. O-123 rejects the
+B=1-based v0 request and requires physical B=4 as the minimum ABC scientific
+training microbatch; B=1 is diagnostic-only and B=8/16 remain later STOP-D/E
+candidates. STOP-D/E/F execution and every S11+ boundary remain pending.
 
 The accepted S08 precision policy is selected as stated above. The true unscaled
 LiDAR gradients remain unusually large; S08 localized the practical FP16 failure

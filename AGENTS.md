@@ -41,14 +41,18 @@ accepts S09 review seal `ced5992ea113bd21d7d545af505debf405b556b3` as a
 bounded engineering PASS. Owner decision O-121 fast-forwarded
 `v3-ad-perception` to S09 closing commit
 `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`; the former delivery branch has the
-same tip/tree but is retained pending a separate cleanup decision. The current
-S00 performs closure compaction only and then retires. A fresh S00 will create
-`codex/s10-cl-model-recipe` and use Ultra reasoning to research the exact S10
-envelope. Only the S10 work definition is accepted: centralized-model numerical/
-architectural health, production training-recipe selection, and GH200 performance
-optimization on the final architecture. No stops, cells, full-run placement,
-compute, commit, merge, push, or S11+ scope is implied; S11 and later milestones
-remain pending. Historical conclusions under
+same tip/tree but is retained pending a separate cleanup decision. Fresh
+persistent S00 completed the S10 startup audit at exact clean base
+`a080d49c1c22de20ccb5b1353d4922c7df14a729` and created
+`codex/s10-cl-model-recipe`. Owner decision O-122 accepts S10's six-stop A-F
+scientific envelope, the exact STOP-A split/evaluator gate, and the primary full
+claim “absolute clean capability + fusion contribution”. It authorizes planning
+records only under O-122. O-124 now authorizes bounded STOP-A/B/C implementation,
+linear commits, exact derived serial Slurm execution and stop-level review within
+27 cumulative one-GH200 hours. O-123 rejects the B=1-based v0 estimate and
+requires physical B=4 as the minimum ABC scientific-training microbatch; B=1 is diagnostic-only and
+B=8/16 remain later STOP-D/E candidates. STOP-D/E/F execution remains separately
+gated. S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime
 state changed.

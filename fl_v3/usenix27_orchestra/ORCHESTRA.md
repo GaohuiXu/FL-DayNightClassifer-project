@@ -9,16 +9,18 @@
 >
 > Under O-121, `v3-ad-perception` was advanced by `--ff-only` to `351b7a0`.
 > It and `codex/s08-s09-cl-readiness` have the same tip/tree; deletion of the
-> delivery branch remains a separate owner decision. The current S00 performs
-> closure compaction only, creates no S10 branch, and retires after handoff.
+> delivery branch remains a separate owner decision. Fresh persistent S00
+> completed the startup audit at exact clean base
+> `a080d49c1c22de20ccb5b1353d4922c7df14a729` and is active on
+> `codex/s10-cl-model-recipe`.
 >
-> Only the S10 **work definition** is accepted: centralized-model numerical and
-> architectural health, production training-recipe selection, and GH200
-> performance optimization on the final architecture. A fresh Ultra-reasoning
-> S00 will create `codex/s10-cl-model-recipe`, reread/audit the accepted base,
-> and propose a new exact envelope. No previous four-stop design, exact cell,
-> full-run placement, implementation, compute, commit, merge, push, or S11+
-> boundary is accepted by this decision. S11 and later milestones remain pending.
+> O-122 accepts S10's six-stop A-F envelope, exact STOP-A split/evaluator gate,
+> and primary full claim **absolute clean capability + fusion contribution**.
+> The present authority is planning/documentation only. STOP-A/B/C
+> implementation, commit, review-topology and Slurm authority await one bounded
+> owner completion decision after GPU-budget review; STOP-D/E/F execution remains
+> separately gated. No merge, push, upload, publication, Protocol-A/B execution,
+> attack, defense, or S11+ work is authorized. S11 and later remain pending.
 >
 > Canonical companions: [`SESSIONS.md`](SESSIONS.md) and
 > [`KICKOFFS.md`](KICKOFFS.md). Closed execution detail is compacted in the
@@ -52,14 +54,15 @@ accepted clean engineering anchor 2a58405
                   ├── S09 performance/readiness
                   │      100 steps, then conditional 1000 steps; no mAP claim
                   │
-                  ├── S10 CL health/recipe/final-architecture speed [definition only]
+                  ├── S10 A-F CL health/recipe/speed/full claim     [envelope accepted]
                   └── S11 and later                                  [pending]
 ```
 
-No deadline or milestone name creates execution authority. The fresh S00 must
-research and obtain owner acceptance for S10's exact stops, cells, gates,
-full-run placement, resources, and ordering. S11 and later remain undefined and
-pending rather than inheriting the historical graph above.
+No deadline or milestone name creates execution authority. O-122 freezes the S10
+ordering and scientific boundaries recorded in
+[`handoffs/S10/HANDOFF.md`](handoffs/S10/HANDOFF.md), but not implementation or
+compute. S11 and later remain undefined and pending rather than inheriting any
+historical graph.
 
 ## 2. Accepted clean-foundation evidence
 
@@ -344,8 +347,9 @@ does not broaden scientific, Git, compute, upload, or publication authority.
   contracts cannot be recovered as implementation or scientific authority.
 - S08 precision is frozen under O-110; S09 labelled base-uniform engineering
   performance/readiness is closed PASS under O-120 and fast-forward integrated
-  under O-121. Only S10's work definition is accepted; its exact envelope and
-  every S11+ boundary remain pending a fresh results-driven rebaseline.
+  under O-121. O-122 accepts S10's six-stop A-F envelope, exact STOP-A
+  split/evaluator gate, and primary full claim; it does not authorize execution.
+  Every S11+ boundary remains pending a future results-driven rebaseline.
 - Persistent S00 is the default implementer; independent reviewer subagent or,
   when required, a separate review worktree supplies the quality gate.
 
@@ -353,13 +357,14 @@ does not broaden scientific, Git, compute, upload, or publication authority.
 
 | Decision | Latest freeze point |
 |---|---|
-| Any sparse-normalization or later Swin/LSS precision-boundary amendment beyond the accepted unchanged v1 architecture | only after reviewed S08 numerical evidence and a new owner architecture decision |
-| Production optimizer groups/LR/scheduler/clip/EMA/augmentation/sampling recipe | research and freeze inside the future owner-approved S10 envelope; S09 remains a labelled base-uniform engineering gate |
-| Cause and amendment, if any, for unusually large SECOND gradients/tiny-group sparse GroupNorm | S10 work-definition item; diagnosis and any amendment require a new exact envelope |
-| Single-GPU batch/accumulation/workers and whether DDP is needed | future S10 research; no value or DDP request is currently frozen |
-| S10 cells, stops, gates and full-run placement | fresh S00 Ultra audit and owner decision; previous proposals are not accepted |
-| mAP/NDS, fusion-gain, per-class, speed, memory, and selection gates | before the exact run whose outcome they judge |
-| S11 and later milestone roles, seeds, CL-FREEZE/full-run interpretation | pending; do not inherit the historical S11-S15 outline without a new owner decision |
+| Which, if any, sparse-normalization/head/view-transform amendment is promoted | observation-first STOP-B evidence followed by the bounded strong-contrast STOP-C gate; tiny-group GN remains a hypothesis, not a diagnosis |
+| Production optimizer groups/LR/scheduler/clip/EMA/augmentation/sampling recipe | select and freeze only in STOP-D after STOP-C architecture/init closure |
+| Cause of unusually large true SECOND gradients | STOP-B must return `LOCALIZED` or honestly `INCONCLUSIVE`; neither permits silent STOP-B model changes |
+| Single-GPU batch/accumulation/workers and whether DDP is needed | STOP-D/E decision; B=2/B=4 remain capacity evidence until qualified, and DDP is not authorized |
+| STOP-A/B/C implementation, commit, isolated review topology, Slurm tuple and cumulative budget | one bounded owner completion authority after GPU-budget review; currently not authorized |
+| STOP-D/E/F exact cells, resources and execution | separately owner-gated after upstream evidence; STOP-F owns the single-seed primary full run and sealed official-val decision |
+| Absolute clean capability, fusion contribution, mAP/NDS, per-class and speed claims | only after the corresponding frozen STOP-F/E evidence; internal evaluator outputs are explicitly proxy-only |
+| S11 and later milestone roles | pending; do not inherit the historical S11-S15 outline without a new owner decision |
 | `D_base`/`D_tail`, client unit, update scope, and clean Protocol-A/B cells | pending after the future clean-model freeze and a new owner decision |
 | New threat model, attack, and defense | pending; no attack or defense work is authorized |
 
@@ -367,9 +372,9 @@ does not broaden scientific, Git, compute, upload, or publication authority.
 
 O identifiers are never renumbered or reused. Binding decisions are cumulative;
 earlier rows preserve the exact authority/state when issued and never reauthorize
-consumed compute. O-121 is the current handoff/compaction state and supersedes
-older prose such as "awaiting confirmation" or "integration pending" without
-rewriting that history. Closed ranges below are provenance.
+consumed compute. O-122 supersedes only the stale S10-planning state left by
+O-121; it does not reinterpret closed S08/S09 evidence or authorize S10 execution.
+Closed ranges below are provenance.
 
 | ID | Binding decision | Authority |
 |---|---|---|
@@ -412,7 +417,10 @@ rewriting that history. Closed ranges below are provenance.
 | O-118 | Approve the recorded conditional-continuation envelope after the O-117 bootstrap failure: first submit exactly one one-GH200 dependency-attestation job to stabilize and checksum the editable spconv/cumm runtime; only after immutable evidence and independent Phase-A PASS, derive only those accepted build hashes into the otherwise unchanged O-117 tuple, independently confirm that derivation, and submit exactly one replacement G100. Authorize continuous linear commits, local/static checks, evidence sealing, and independent review within that envelope without repeated mechanical approvals. Both phases are serial, no-retry, and together remain inside the approved two-GPU-hour ceiling; any model/data/precision/recipe/resource/gate change stops. Job `442152` completed Phase A `0:0` in `00:11:52`; Job `446225` completed Phase B `0:0` in `00:05:05`, with all STOP-3 gates passing. Immutable evidence `c28d09c` received independent `PASS_WITH_RESIDUAL_RISK` with no P0-P2; closure re-review of remediation `84adfd0` found no open P0-P3 and marks STOP-3 owner-ready. O-118 supplies no retry, STOP-4, merge, push, attack, defense, metric, or scientific-claim authority. | consumed STOP-3 recovery compute / technical PASS / superseded by O-119 acceptance |
 | O-119 | Accept and close S09 STOP-3 after Jobs `442152`/`446225`, immutable evidence `c28d09c`, remediation `84adfd0`, and independent review with no open P0-P3. Approve one continuous STOP-4A-D goal: add a fail-closed `s09.v2` activation-checkpoint/profiler contract; run one serial STOP-4A job containing focused tests, the exact STOP-3 B=1/checkpoint-on bounded operator profile, and checkpoint-off B=1/2/4 capacity cells; remove only measured/source-proven redundant synchronization/allocation while preserving model/loss/gradient/update/data/precision semantics; independently review immutable changes/evidence; run one optimized B=1 G100; then, only after reviewed G100 PASS, run one fresh B=1 G1000. Authorize linear commits, local validation, immutable snapshots, independent reviewer branches if needed, and these three serial one-GH200 jobs at ceilings `00:30:00 + 00:30:00 + 01:00:00`, 16 CPUs/96 GiB each, two cumulative GPU-hours, no retry. B=2/4 are capacity evidence only and do not select a recipe. No worker matrix, model/head/loss/normalization/optimizer/LR/scheduler/EMA/augmentation/sampling/init change, DDP, merge, push, metric, attack, or defense is authorized. | consumed S09 STOP-4 compute / independently reviewed technical PASS / superseded by O-120 close |
 | O-120 | Accept S09 final review seal `ced5992ea113bd21d7d545af505debf405b556b3` and `PASS_WITH_RESIDUAL_RISK / no open P0-P3 / STOP-4 closure GO`; close S09 PASS as a labelled base-uniform engineering performance/readiness milestone. Preserve the limits that this is single-seed bounded engineering evidence, not convergence, mAP/NDS, model quality, recipe/batch selection or full-GH200 utilization; the large true SECOND gradient remains unresolved for S10. This decision does not authorize fast-forward, merge, push, branch/worktree deletion or switching, S10 implementation/compute, DDP, metric, attack, or defense. | accepted S09 close / integration decision pending / S10 planning next |
-| O-121 | Authorize and complete `--ff-only` advancement of `v3-ad-perception` to S09 closing commit `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`; verify it and `codex/s08-s09-cl-readiness` have identical tips/trees and clean worktrees. Retain the delivery branch pending a separate deletion audit. The current S00 must finish S08/S09 closure compaction and retire without creating S10 work. Accept only the S10 work definition—centralized-model numerical/architectural health, production recipe selection, and final-architecture GH200 optimization. A fresh Ultra-reasoning S00 will create `codex/s10-cl-model-recipe` and research/propose the exact envelope. Previous stop designs, full-run placement, S11+ roles, S10 implementation/compute, merge, push, and branch/worktree deletion are not accepted or authorized. | active handoff/compaction decision; S10 definition only; S11+ pending |
+| O-121 | Authorize and complete `--ff-only` advancement of `v3-ad-perception` to S09 closing commit `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`; verify it and `codex/s08-s09-cl-readiness` have identical tips/trees and clean worktrees. Retain the delivery branch pending a separate deletion audit. The current S00 must finish S08/S09 closure compaction and retire without creating S10 work. Accept only the S10 work definition—centralized-model numerical/architectural health, production recipe selection, and final-architecture GH200 optimization. A fresh Ultra-reasoning S00 will create `codex/s10-cl-model-recipe` and research/propose the exact envelope. Previous stop designs, full-run placement, S11+ roles, S10 implementation/compute, merge, push, and branch/worktree deletion are not accepted or authorized. | consumed handoff/compaction decision; S10 planning state superseded by O-122 |
+| O-122 | Accept S10's primary full claim as **absolute clean capability + fusion contribution** and accept the six-stop order: A split/evaluator gate; B observation-first numerical diagnosis; C strong-contrast architecture/initialization selection; D production-recipe selection/freeze; E final-graph GH200 profiling and sustainable output-neutral optimization; F frozen full-train single-seed capability/fusion run, sealed official-val evaluation and close. Accept the exact train-only nested split/evaluator protocol in `handoffs/S10/HANDOFF.md`, the A0/A1/A2 initialization registry with conditional A3, current-vs-coherent-MIT strong contrast, at most two diagnosis-triggered counterfactuals, and conditional consideration of BN1d, TransFusion and LiDAR-conditioned DepthLSS only when B/C evidence warrants it. Official val is sealed from selection; internal metrics are proxy-only; an official-val failure is a negative result/amendment point, not permission to select another checkpoint. Record that a primary full run belongs to STOP-F, remains single-seed, and that limited-rung evidence cannot make the full claim. Authorize canonical/plan documentation only. STOP-A/B/C implementation, commits, review topology and Slurm execution await a separate bounded completion authority after GPU-budget review; STOP-D/E/F execution, merge, push, upload, publication, Protocol A/B execution, attack, defense and S11+ remain unauthorized. | accepted S10 scientific envelope / documentation only / ABC completion authority pending |
+| O-123 | Reject `S10-ABC-COMPLETION-v0-estimate`: B=1 is proven under-utilization and cannot be the epoch/rung cost or execution basis for STOP-A/B/C. Any revised ABC request must use physical B=4 as the minimum scientific-training microbatch, reuse S09's accepted B4 20-update/throughput/memory evidence, and account for its fixed-batch tail explicitly; B=1 is allowed only for a tiny paired diagnostic decomposition and never for a rung or epoch. B=8/16 may be investigated later at the frozen recipe/performance boundary rather than silently added to ABC. An obvious implementation/training-correctness failure must stop the long cell and use bounded deterministic step probes before a fresh restart; finite but scientifically unhelpful or non-converging training is evidence, not permission for an open-ended debug/tuning chain. Reaffirm the simplified O-094 persistent-S00 collaboration model. No revised budget, implementation, commit, review worktree or Slurm authority is granted yet. | v0 compute estimate rejected / B4 minimum frozen / v1 replan pending |
+| O-124 | Approve `S10-ABC-COMPLETION-v1-B4-estimate` and start one continuous STOP-A/B/C completion goal. Authorize persistent S00 to implement, locally validate, create linear planning/implementation/evidence/remediation commits, derive and record every exact immutable job tuple before submission, submit and monitor serial Slurm work without repeated owner approval, and obtain stop-level independent review. The aggregate ceiling is 27 elapsed one-GH200 hours, at most one active job, at most seven scientific allocations plus two diagnosed debug/fix allocations (nine submissions total), no identical retry, no DDP/array/spare GPU, physical B4 minimum for scientific training, B1 diagnostic decomposition only, and the STOP-C `drop_last=true` matched-token proxy policy. Obvious correctness failures use the recorded `1 -> 5 -> 20` B4 step protocol; weak but finite scientific outcomes do not open tuning loops. Authorize one isolated S10-R review context/worktree required for high-risk STOP-A and reuse it rather than creating a review chain. Any changed data/metric/model/candidate/seed/horizon/resource boundary, repeated blocker, uncertain classification or exhausted cap returns to the owner. STOP-D/E/F, B8/16 execution, full run, merge, push, upload, publication, Protocol A/B execution, attack, defense and S11+ remain unauthorized. | active S10 ABC completion authority |
 
 ## 10. Closed and consumed history
 

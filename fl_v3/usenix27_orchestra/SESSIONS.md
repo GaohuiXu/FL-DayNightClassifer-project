@@ -4,14 +4,15 @@
 > `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`. S08 accepted precision policy is
 > recorded under O-110; S09 accepted bounded engineering review seal is
 > `ced5992ea113bd21d7d545af505debf405b556b3`. O-121 records the completed
-> fast-forward and the current closure-compaction-only session.
+> fast-forward. Fresh persistent S00 completed the S10 startup audit at exact
+> clean base `a080d49c1c22de20ccb5b1353d4922c7df14a729` and is active on
+> `codex/s10-cl-model-recipe`.
 >
-> The present S00 retires after compaction. The next S00 creates
-> `codex/s10-cl-model-recipe` and uses Ultra reasoning for a fresh code/model/
-> recipe/performance audit before proposing any executable plan. Only S10's work
-> definition is accepted: centralized-model numerical/architectural health,
-> production training-recipe selection, and final-architecture GH200
-> optimization. Exact stops, cells, gates, full-run placement, compute and S11+
+> O-122 accepts the six-stop S10 A-F scientific envelope, exact STOP-A
+> split/evaluator gate, and primary full claim “absolute clean capability +
+> fusion contribution”. It permits planning records only. STOP-A/B/C
+> implementation, commits, review topology and Slurm await one bounded owner
+> completion authority after GPU-budget review. STOP-D/E/F execution and S11+
 > remain pending.
 >
 > `Sxx` is an evidence namespace, not automatically a worker, task, branch, or
@@ -29,7 +30,7 @@
   ├─ S09 full-pipeline performance/readiness      [closed PASS under O-120]
   │      └─ independent review of exact profiling/evidence SHA
   │
-  ├─ S10 CL health/recipe/final-architecture speed [definition accepted; envelope pending]
+  ├─ S10 A-F CL health/recipe/speed/full claim     [envelope accepted; execution pending]
   └─ S11 and later                                 [roles pending owner decision]
 ```
 
@@ -42,7 +43,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization | closed S08+S09 | work definition accepted only; fresh Ultra S00 must propose exact envelope on `codex/s10-cl-model-recipe` |
+| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | six-stop A-F envelope accepted under O-122; ABC completion authority pending GPU-budget approval |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract
@@ -308,30 +309,57 @@ O-120 accepts review seal `ced5992` with those limits and closes S09 PASS.
 O-121 later completed fast-forward-only integration at `351b7a0`; every S10
 implementation or compute action still requires a fresh owner decision.
 
-## 6. S10 accepted work definition; envelope pending
+## 6. S10 accepted six-stop envelope; execution pending
 
-The owner accepts only this responsibility set:
+O-122 freezes the following scientific order. The detailed split, evaluator,
+candidate and claim limits are in
+[`handoffs/S10/HANDOFF.md`](handoffs/S10/HANDOFF.md).
 
-- diagnose and establish the numerical and architectural health of the current
-  centralized six-task model, including the unresolved large true SECOND
-  gradients;
-- research and select a production training recipe; and
-- optimize GH200 performance for the eventual accepted architecture.
+| STOP | Question and exit | Explicit non-goal |
+|---|---|---|
+| A — Split/Metric | Materialize the deterministic train-only nested ownership split; prove no leakage; make the internal-subset evaluator exactly agree with the unchanged official evaluator on full-val parity fixtures; freeze artifact hashes. | No model training, checkpoint selection, or official-val observation for selection. |
+| B — Observation-first | On a fixed `D_low` panel and the current graph, compare FP32 with accepted FP16+SECOND-FP32; decompose targets, loss normalization, sparse occupancy, norm placement and boundary gradients without optimizer updates; exit `LOCALIZED` or `INCONCLUSIVE`. | No clipping, normalization, head, loss, view-transform or architecture amendment. |
+| C — Architecture/Initialization | Run the current local family against one coherent MIT-reference-derived package, all-scratch negative control and at most two B-triggered single-factor counterfactuals through `D_low -> D_mid`; compare joint and staged-L initialization; retain at most two graph/init families. | No recipe Cartesian product, LR/WD/EMA/augmentation/batch sweep, extra seed, `D_audit`, official val, or full run. |
+| D — Recipe/Production Freeze | On the accepted graph/init finalists, select optimizer groups, LR/WD, schedule/warmup, clipping, EMA, sampling/CBGS, augmentation/GT-paste, batch/accumulation and exposure on `D_select`; bind `candidate_freeze.json`; open `D_audit` exactly once; then freeze the final graph/recipe or report `INCONCLUSIVE`. | No architecture reopening, audit-driven reselection, second `D_audit`, or official-val tuning. |
+| E — Final-graph GH200 Optimization | Profile only the final accepted graph/recipe, then apply sustainable output-neutral changes and requalify numerical/metric equivalence. | No one-off profile interpreted as final bottleneck; no quality-changing optimization. |
+| F — Full/Official Val/Close | Use the graph/recipe already frozen by D/E; run at least one single-seed full-train primary fusion claim, evaluate absolute clean capability and matched fusion contribution on sealed official val, record negative results, and close S10. | No reuse of `D_audit`, fallback checkpoint selection after official-val failure, or multi-seed campaign unless separately approved. |
 
-This is not an accepted stop design. The fresh S00 must start from the integrated
-`351b7a0` base, create `codex/s10-cl-model-recipe`, use Ultra reasoning, inspect
-the full camera/LiDAR/fusion/head/training/data/runtime path, and then present an
-exact evidence/implementation/compute envelope. No specific branch ablation,
-normalization amendment, batch, optimizer, scheduler, EMA, augmentation, seed,
-metric, profiler campaign, or full run is currently frozen.
+The full primary claim belongs to STOP-F rather than being inferred from limited
+rungs. `A1` requires at least the primary fusion full run; if staged `A2` survives,
+its matched LiDAR donor plus fusion cost is part of the claim. A bounded extra
+confirmation seed may be used only at the predeclared internal confirmation gate;
+it is not a second full run. Conditional `BN1d`, `TransFusion`, or
+LiDAR-conditioned `DepthLSS` consideration requires B/C evidence of a current
+graph defect or material capability loss and must consume, not expand, the
+counterfactual cap.
+
+Current authority is documentation only. After the owner accepts the cumulative
+ABC resource envelope, one completion decision may authorize persistent S00 to
+implement, validate, commit, submit serial Slurm jobs, record evidence and obtain
+independent review without per-job permission, provided every exact immutable
+tuple is recorded before submission and stays within the frozen cells, seeds,
+derivation rules and cumulative cap. This completion authority must not be
+mislabelled as O-107. D/E/F remain separate future execution gates.
+
+O-123 rejects the first B=1-based ABC estimate. O-124 approves the revised v1 ABC
+completion envelope and starts continuous implementation/execution/review under
+its cumulative caps. ABC execution uses physical B=4 as the minimum microbatch
+for every scientific training rung and
+reuse the accepted S09 B4 evidence; B=1 is limited to a tiny paired diagnostic
+decomposition. STOP-C uses an explicit fixed-batch tail policy and matched sample
+exposure. B=8/16 remain bounded candidates for the later STOP-D/E batch/throughput
+gate after the graph is frozen; they are not silently added to ABC. Obvious
+correctness errors are isolated with bounded steps before any rung is restarted;
+scientifically weak but finite training is recorded as evidence rather than
+iteratively debugged.
 
 ## 7. S11 and later
 
-All roles, ordering and execution boundaries after S10 are pending. In particular,
-whether a full trainval run belongs to S10, S11, or another reviewed milestone
-must be decided only after the fresh S10 analysis. Historical S11-S15 descriptions
-remain context, not authority. No Protocol A/B, attack, defense, paper upload, or
-publication work is authorized by S08/S09 closure.
+All roles, ordering and execution boundaries after S10 are pending. O-122 places
+the primary full clean/fusion run inside STOP-F, but does not define S11 or
+authorize that run. Historical S11-S15 descriptions remain context, not
+authority. No Protocol A/B execution, attack, defense, paper upload, or
+publication work is authorized.
 
 ## 8. Durable delivery and independent review
 
