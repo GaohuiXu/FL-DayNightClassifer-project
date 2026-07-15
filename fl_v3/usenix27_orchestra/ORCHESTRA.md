@@ -261,8 +261,9 @@ Binding split rules:
 - establish `W_base`, pooled-tail oracle, local-only, and clean federated
   adaptation controls before any attack or defense claim.
 
-S12 will re-audit and materialize this protocol only after CL architecture freeze.
-The old S12 proposal is not current authority.
+The owner will decide whether, when, and in which future milestone this protocol
+is re-audited or materialized after the clean-model architecture is frozen. The
+old S12 proposal and milestone assignment are not current authority.
 
 ## 6. Persistent S00 collaboration model
 
