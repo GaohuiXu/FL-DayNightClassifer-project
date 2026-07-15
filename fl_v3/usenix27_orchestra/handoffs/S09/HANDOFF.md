@@ -4,14 +4,14 @@
 
 ```text
 SESSION_ID: S09
-MILESTONE_STATE: STOP-1 DATA ACTIVE UNDER O-112
+MILESTONE_STATE: STOP-1 TERMINAL PASS / INDEPENDENT REVIEW PENDING
 BASE_AND_CURRENT_HEAD: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 BRANCH: codex/s08-s09-cl-readiness
 S08_POLICY_DECISION: O-110 / CLOSED PASS
 S09_SCOPE_DECISION: O-111
 IMPLEMENTATION_COMMIT: none
-APPROVED_COMPUTE: STOP-1 only / one submission / <=0.5 GPU-hours
-JOBS: none
+APPROVED_COMPUTE: STOP-1 Job 441191 consumed / no active compute
+JOBS: 441191 COMPLETED 0:0 in 00:03:06 / no retry
 INDEPENDENT_REVIEW: not started
 ```
 
@@ -19,9 +19,11 @@ This file records the accepted S09 execution envelope. The owner accepted
 `28f7980` as the S08 close/S09 base,
 accepted a four-stop S09 direction, assigned engineering performance/readiness to
 S09, and deferred scientific training-recipe and sparse-normalization decisions to
-S10. O-112 separately starts STOP-1 DATA and authorizes its exact request/evidence
-commits plus one bounded cache-materialization submission. STOP-2 through STOP-4
-still require their own owner-reviewed plan and Git/Slurm authority.
+S10. O-112 separately started STOP-1 DATA and authorized its exact request/evidence
+commits plus one bounded cache-materialization submission. Job `441191` consumed
+that submission and is terminal PASS at the execution/evidence level; independent
+data/provenance review remains required before owner STOP-1 acceptance. STOP-2
+through STOP-4 still require their own owner-reviewed plan and Git/Slurm authority.
 
 ## S08 residual carried into S09
 

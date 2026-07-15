@@ -7,9 +7,9 @@
 > `28f79802c0868afa6290d74ae6aeb9d23c7d088f` is fast-forward integrated into
 > `v3-ad-perception`. The S09 reading gate is complete. O-111 accepts the
 > four-stop engineering-readiness direction and defers branch/training-recipe
-> selection to S10. O-112 activates STOP-1 DATA and authorizes its exact request/
-> evidence commits plus one bounded cache-materialization submission. STOP-2,
-> retry, push, and merge remain unauthorized.
+> selection to S10. O-112 STOP-1 Job `441191` consumed its sole submission and
+> completed `0:0` in `00:03:06`; immutable evidence/review is in progress.
+> STOP-2, retry, push, and merge remain unauthorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

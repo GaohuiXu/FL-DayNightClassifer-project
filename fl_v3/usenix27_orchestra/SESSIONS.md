@@ -13,9 +13,10 @@
 > freezes the recommended precision policy, and closes S08 PASS; closing commit
 > `28f79802c0868afa6290d74ae6aeb9d23c7d088f` is fast-forward integrated. The S09
 > reading gate is complete. O-111 accepts the four-stop engineering-readiness
-> direction and defers branch/training-recipe selection to S10. O-112 activates
-> STOP-1 DATA with one exact cache-materialization submission capped at 0.5
-> GPU-hours; STOP-2 implementation and all later compute remain unapproved.
+> direction and defers branch/training-recipe selection to S10. O-112 STOP-1 Job
+> `441191` completed `0:0` in `00:03:06`; exact train/val cache identities passed
+> in-job and S00 post-job checks, with independent review pending. STOP-2
+> implementation and all later compute remain unapproved.
 >
 > `Sxx` now names a durable evidence milestone, not necessarily a new task,
 > worker, branch, or worktree. Under O-094, persistent S00 normally performs
@@ -52,7 +53,7 @@
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
-| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1 DATA active under O-112; exact request freeze/materialization/review only; STOP-2 not started |
+| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1 Job `441191` terminal execution PASS; immutable evidence/review pending; STOP-2 not started |
 | S10 | Centralized branch/recipe ablation | S08+S09 | pending redefinition; no cells/gates frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
 | S12 | Protocol-A/B split and clean adaptation contract | CL freeze + fresh owner review | deferred; old proposal is historical evidence only |

@@ -1,7 +1,8 @@
 # S09 RUN_REQUEST — four-stop execution ledger
 
-> **Ledger state:** O-112 authorizes STOP-1 only. Its exact immutable tuple is
-> frozen below and remains unsubmitted.
+> **Ledger state:** O-112 STOP-1 was submitted exactly once as Job `441191` and is
+> terminal PASS. The submission authority is consumed; independent review is
+> pending and no later stop is authorized.
 
 ## Authorization state
 
@@ -12,8 +13,8 @@ STOP1_EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112 STOP-1 execution
 APPROVED_COMPUTE: STOP-1 only / <=0.5 GPU-hours
-APPROVED_SUBMISSIONS: 1 / not consumed
-ACTIVE_REQUEST: S09-STOP1-DATA / exact tuple frozen below / not submitted
+APPROVED_SUBMISSIONS: 1 / consumed by Job 441191
+ACTIVE_REQUEST: none / S09-STOP1-DATA terminal PASS pending review
 IMPLEMENTATION_COMMIT_AUTHORITY: no production implementation; linear STOP-1 docs/evidence commits allowed
 MERGE_OR_PUSH_AUTHORITY: none
 ```
@@ -34,11 +35,11 @@ conditional next stop is implicit.
 ## STOP-1 — production `t1.v2` cache identity
 
 ```text
-REQUEST_STATE: FROZEN AND APPROVED UNDER O-112 / NOT SUBMITTED
+REQUEST_STATE: CONSUMED / TERMINAL PASS / INDEPENDENT REVIEW PENDING
 OBJECTIVE: materialize and attest exact train/val t1.v2 caches for n_sweeps=10
 MODEL_OR_TRAINING: none
 RESOURCE_CEILING: 1 GH200 / 8 CPU / 96 GiB host / 00:30:00 / 0.5 GPU-hours
-SUBMISSIONS: exactly 1 / not consumed
+SUBMISSIONS: exactly 1 / consumed by Job 441191
 RETRY_OR_REPLACEMENT: forbidden
 ```
 
@@ -118,6 +119,7 @@ JOB_NAME: flv3_s09_stop1_cache
 REQUEUE/ARRAY/DDP/RETRY: disabled / none / none / none
 OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop1_cache_t1v2_1f276b9d2cc5
 OUTPUT_STATE_AT_FREEZE: absent
+OUTPUT_STATE_AFTER_JOB: complete / checksum-verified / read-only
 STDOUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop1_cache_t1v2_%j.out
 STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop1_cache_t1v2_%j.err
 ```
@@ -150,6 +152,26 @@ model readiness, convergence, or scientific capability.
 
 The earlier compact proposal is superseded by the exact tuple above. Independent
 data/provenance review is mandatory before STOP-2 can bind the resulting cache.
+
+### Terminal execution record
+
+```text
+JOB_ID/STATE/EXIT/RESTARTS: 441191 / COMPLETED / 0:0 / 0
+NODE/START/END: n125 / 2026-07-15T06:06:33 / 2026-07-15T06:09:39
+ELAPSED/LIMIT/GPU_HOURS: 00:03:06 / 00:30:00 / 0.051667
+BATCH_MAX_RSS/MAX_VM/TOTAL_CPU: 9287360K / 13743424K / 02:23.146
+OUTPUT_FILES/BYTES/WRITABLE: 8 / 698280214 / 0
+IN_JOB_SHA256SUM_CHECK: PASS
+POST_JOB_SHA256SUM_CHECK: PASS
+RUNTIME_SOURCE_23_FILE_CHECK: PASS
+SIDECAR_VS_EMBEDDED_META: PASS
+RETRY_OR_FOLLOW_ON: none
+```
+
+Both requested splits completed. Exact cache/log/artifact identities and the
+allowed/forbidden interpretation are recorded in `RESULTS.md`. O-112's compute
+authority is exhausted even though the job used only 0.051667 of its 0.5-GPU-hour
+ceiling; unused time is not retry or later-stop authority.
 
 ## STOP-2 — minimal readiness instrumentation
 
