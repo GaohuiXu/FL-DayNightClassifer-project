@@ -29,7 +29,10 @@
 > evidence remediation `79f87dc` received independent `PASS_WITH_RESIDUAL_RISK`
 > with no open P0-P3. O-116 owner-accepts/closes STOP-2. O-117 accepts the exact
 > STOP-3 G100 envelope, its 1 Hz read-only GPU telemetry update, linear commits,
-> and one derived immutable single-GH200 submission; no retry or STOP-4 is implied.
+> and one derived immutable single-GH200 submission. Job `441511` consumed it and
+> failed pre-model because the runner omitted the build-module stack required by
+> editable spconv JIT; the failed import also drifted cumm native build identity.
+> No retry or STOP-4 is authorized; review and a new owner amendment are required.
 >
 > `Sxx` now names a durable evidence milestone, not necessarily a new task,
 > worker, branch, or worktree. Under O-094, persistent S00 normally performs
@@ -66,7 +69,7 @@
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
-| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1/2 closed; STOP-3 immutable tuple frozen at `4d6bd82` under O-117; one exact G100 submission active and unconsumed |
+| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1/2 closed; STOP-3 Job `441511` pre-model bootstrap FAIL, sole submission consumed; runner corrected but cumm runtime re-attestation/new owner amendment required |
 | S10 | Centralized branch/recipe ablation | S08+S09 | pending redefinition; no cells/gates frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
 | S12 | Protocol-A/B split and clean adaptation contract | CL freeze + fresh owner review | deferred; old proposal is historical evidence only |
@@ -315,9 +318,9 @@ perform an architecture experiment.
 STOP-2 focused smoke may use O-009/O-107 only when that stop approval explicitly
 opts in. Unused quota is not retry authority. O-112 STOP-1 Job `441191` and O-115
 STOP-2 Job `441293` are consumed and terminal; no replacement was used. O-117
-authorizes exactly one STOP-3 G100 after its immutable source/snapshot/config/
-script/output tuple is recorded. STOP-4 and all other later S09 compute remain
-unapproved.
+Job `441511` also consumed its sole exact STOP-3 submission and failed before
+loader/model execution. It has no retry authority. STOP-4 and all other later S09
+compute remain unapproved.
 
 ## 6. S10-S12 redefinition boundaries
 

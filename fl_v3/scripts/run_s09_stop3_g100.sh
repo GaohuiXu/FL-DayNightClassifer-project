@@ -30,7 +30,9 @@ test "$(git -C "${S09_STOP3_SNAPSHOT}" branch --show-current)" = ""
 
 # shellcheck disable=SC1091
 source "${S09_STOP3_SNAPSHOT}/fl_v3/scripts/arrhenius_env.sh"
-arrhenius_load_modules run
+# Editable cumm/spconv imports may run ccimport/ninja checks; env.md therefore
+# requires the CUDA build module stack even for runtime/training jobs.
+arrhenius_load_modules build
 # arrhenius_load_modules purges modules; the licensed data module must load later.
 module load nuScenes-data/1.0-map-1.3-zip
 arrhenius_activate_env

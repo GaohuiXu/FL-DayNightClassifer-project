@@ -1,4 +1,4 @@
-# S09 results ledger — STOP-1 terminal / STOP-2 smoke terminal
+# S09 results ledger — STOP-1/2 closed / STOP-3 terminal pre-model FAIL
 
 ## Terminal state
 
@@ -145,7 +145,7 @@ GH200_TEST_RESULT: 44 passed / 0 failed / 0 errors / 0 skipped
 EVIDENCE_SHA: a67cdda56c624d302742f5c57c69bb9ef0a98e0c
 EVIDENCE_REMEDIATION: 79f87dc9accca700b5a46803d45c549b0305c6d1
 INDEPENDENT_EVIDENCE_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3
-REQUEST_STATE: consumed / independently reviewed terminal PASS / owner acceptance pending
+REQUEST_STATE: consumed / independently reviewed terminal PASS / owner-accepted O-116
 ```
 
 ### Delivered semantics
@@ -255,5 +255,136 @@ comparison tested. It does not establish production ZIP/cache throughput,
 persistent-worker behavior, model training stability, memory headroom,
 convergence, mAP/NDS, recipe quality, Protocol A/B, FL, attack, or defense. Those
 limits remain for STOP-3 or later milestones. Independent evidence review returned
-`PASS_WITH_RESIDUAL_RISK` with no open P0-P3; owner STOP-2 acceptance remains
-pending.
+`PASS_WITH_RESIDUAL_RISK` with no open P0-P3; O-116 owner-accepts and closes
+STOP-2.
+
+---
+
+## STOP-3 Job 441511 — terminal runtime-bootstrap FAIL
+
+```text
+REQUEST_ID: S09-STOP3-G100
+OWNER_AUTHORITY: O-117
+EXECUTION_SOURCE_SHA: 4d6bd829450021aa0813bcece066fb1fac85f478
+EXECUTION_SOURCE_TREE: affb4854689a0bf65d829a273d769c87c000174c
+REQUEST_FREEZE_COMMIT: 30e6c9f7849dd1bfe7630f698913c2231131b62c
+RESOLVED_CONFIG_SHA256: cb1723322c756579ab6740eb126de8455b65f808849ec977258c76b919f2c58c
+JOB_ID/STATE/EXIT/RESTARTS: 441511 / FAILED / 1:0 / 0
+NODE/START/END: n127 / 2026-07-15T09:43:24 / 2026-07-15T09:45:53
+ELAPSED/LIMIT/GPU_HOURS: 00:02:29 / 01:00:00 / 0.041389
+ACCOUNT/PARTITION/RESOURCES: naiss2025-22-1113-gpu / gpu / 1 GH200 / 16 CPU / 96 GiB
+SUBMISSIONS: 1 / exact O-117 authority consumed / no retry or replacement
+RESULT: TERMINAL FAIL BEFORE PHYSICAL-DATA CHECK, LOADER PROFILE, MODEL, OR UPDATE
+```
+
+The immutable source/config/Slurm preflights passed: the runner recorded exact
+source/tree, detached snapshot, runner hash, resolved config, aarch64 Python
+`3.11.15`, Torch `2.11.0+cu128`/CUDA `12.8`, spconv `2.3.8`, cumm `0.7.13`, one
+`NVIDIA GH200 120GB`, and the declared dataroot/manifest paths. The failure then
+occurred at `centralized_train.py:384` inside
+`verify_runtime_dependency_identity`, before `verify_physical_data_identities`,
+production loader construction/profile, model construction, loss, backward, or
+an optimizer attempt.
+
+### Exact failure and diagnosis
+
+Failed source `4d6bd82` called `arrhenius_load_modules run`. Binding
+`docs/env.md` instead requires `arrhenius_load_modules build` even for runtime
+jobs because editable cumm/spconv imports may trigger ccimport/ninja checks and
+need the CUDA compiler/toolkit headers. Editable imports did trigger those
+checks. cumm completed a 47-target `core_cc` build; spconv then started a
+690-target build without `nvcc` on `PATH`. Its first fatal compile error was:
+
+```text
+spconv/core_cc/csrc/sparse/convops/SimpleExternalSpconvMatmul.h:2:10:
+fatal error: cublasLt.h: No such file or directory
+```
+
+Ninja stopped, Python propagated `CalledProcessError`, and the source-controlled
+runner preserved exit `1`. This is a STOP-3 runner/runtime-bootstrap defect, not
+a loader, model, precision, gradient, optimizer, or GPU-capacity result. The
+current branch corrects only the module selector to `build`; that correction has
+not been executed, hashes to
+`855bbd15877a4ceaa6919ccdf9d2ca369e1f3c84ee306415a41376c07d5d8b5d`,
+and is not replacement-compute authority.
+
+### Requested gates: all unmeasured
+
+| O-117 gate | Job 441511 outcome |
+|---|---|
+| Four loader cells and identical digests | Not started / no profile artifact |
+| Worker-8 warm throughput ratio | Not measured |
+| 100 successful updates within 120 attempts | Model not constructed; zero attempted updates |
+| Nonfinite/discarded/counter integrity | Not measured |
+| Integrated p95/p50 and data-wait share | Not measured |
+| Peak training memory/headroom | Not measured |
+| Two epoch-time estimates | Not measured |
+| Aggregate finite loss | No forward/loss |
+| GPU utilization during accepted training | No training interval exists |
+
+Accordingly Job `441511` answers none of the four owner questions about 100-step
+health, time/step, stage/component timing, or effective GH200 use. The observed
+zero GPU work is attributable to CPU native-extension compilation and must not be
+reported as model utilization.
+
+### Telemetry and artifacts
+
+The runner recorded 111 one-Hz samples across 114.654 seconds of the failing
+centralized command: GPU and memory utilization were always `0%`, GPU memory was
+`8-10 MiB`, power `81.66-86.38 W`, SM clock `345 MHz`, memory clock `2619 MHz`,
+and temperature `33 C`. There is no `readiness.json`; the empty `readiness/`
+directory is not a missing successful result but evidence that lifecycle setup
+preceded the dependency failure.
+
+Output root:
+
+```text
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop3_g100_4d6bd8294500_a1
+```
+
+It contains nine regular files / 64,529 bytes / zero writable entries. Independent
+`sha256sum -c artifact_sha256s.txt` passed for all eight files listed by the
+runner; the manifest itself hashes to
+`0c3e2947fb124ac32d74e243575b4ffa159d2d97a6a603492196fd89df565133`.
+
+| Artifact | SHA-256 |
+|---|---|
+| `centralized_train.exit` | `4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865` |
+| `centralized_train.stderr` | `ea41651c03566c98396b3115d867c0121f1b83195174a3f99649860bcf5cd298` |
+| `centralized_train.stdout` | `999c2429f4d7f7e79e625055b8444cdfc0845824e92bd40b59f6da9dbd134ae1` |
+| `config_identity.json` | `789d63cf5a1765b9e59d14f9834626909d04d26e5993608fe23048442ddb81e7` |
+| `execution_identity.json` | `ce3c41b5c80a37757f776033d4144f74e66c6adbc7c473c597ef60ef38fd2cd7` |
+| `gpu_telemetry.csv` | `7fd7fbf89f0aca36d3214af26e527e3a7f179034766f64820079ddd85631eadc` |
+| `gpu_telemetry_preflight.csv` | `5231d6b7888975574c1a25da0db4f4fc1847cee06ab9ea817e2b39f0024748b3` |
+| `telemetry_alignment.json` | `4d31e6a844f6f03901ee52e543c9cf1d363f3d66f806058bcce93fc5ccf08e86` |
+| Slurm stdout / stderr | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` / `8db5d05b4abfa9c9cc1bd7028c410675c3e2d697af110ce6c6d9aa51f2e1e830` |
+
+### Persistent editable-environment side effect
+
+The failed import generated two tracked spconv `.pyi` changes at `09:45:38`.
+S00 restored exactly those job-generated diffs; the accepted pre-existing
+`pyproject.toml` change was untouched. Post-restoration tracked source-state hashes
+again equal accepted spconv `499efdbb...` and cumm `f835ee22...`. One untracked
+cumm stub remains outside the tracked-source identity.
+
+More importantly, the cumm JIT replaced native artifacts. Accepted S08 evidence
+records both cumm `core_cc` copies as 2,877,128 bytes with SHA-256
+`9970ccc54041c7aee3272604ca7bb4e0d339e7ff37698b74159862c1ba2eface`.
+After Job `441511`, the package-root copy hashes to
+`62332ad4f37ce4a90ad505243667736bebe4402a7f17cad278df07b663961fc0`
+and the build copy is 2,667,280 bytes with hash
+`18396a0c060ccc320357b049dedd73b160530ec35ee1daf8133149fc3dcd0daf`.
+Therefore the frozen aggregate
+cumm executable-build identity `0a7e3c1a...` can no longer be assumed. No native
+binary was guessed, copied, rebuilt, or relabelled after the failure.
+
+### Exit boundary
+
+O-117's only submission is consumed and explicitly forbids retry/replacement.
+STOP-3 remains incomplete and STOP-4 remains blocked. A future attempt requires a
+new owner decision covering at least: build-module bootstrap, a bounded GH200
+runtime dependency rebuild/attestation or another exact restoration method, new
+dependency/config identity if it changes, a new immutable source/snapshot/request/
+output tuple, and a replacement G100 allocation. Job `441511` provides no basis
+for convergence, precision stability, throughput, epoch time, model utilization,
+mAP/NDS, recipe, Protocol A/B, attack, or defense claims.

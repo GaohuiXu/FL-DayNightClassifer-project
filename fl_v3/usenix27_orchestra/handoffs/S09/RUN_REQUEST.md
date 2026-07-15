@@ -10,8 +10,9 @@
 > submission, completed `0:0` in `00:01:04`, and required no replacement; evidence
 > remediation `79f87dc` received independent `PASS_WITH_RESIDUAL_RISK` with no
 > open P0-P3. O-116 owner-accepts/closes STOP-2. O-117 accepts the updated exact
-> STOP-3 envelope, its linear commits, and one derived immutable G100 submission;
-> this ledger must record that complete tuple before submission.
+> STOP-3 envelope, its linear commits, and one derived immutable G100 submission.
+> Exact Job `441511` consumed that sole submission and failed before data/loader/
+> model execution; no retry is authorized, and a new owner amendment is required.
 
 ## Authorization state
 
@@ -23,9 +24,9 @@ STOP1_REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
 STOP1_FIRST_EVIDENCE_SHA: b35591b1a9ac64ea50ee3ad3257304baef07f8de
 BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117 STOP-3
-APPROVED_COMPUTE: STOP-1/2 consumed / STOP-3 exact frozen G100 tuple active and unconsumed
-APPROVED_SUBMISSIONS: STOP-1 1 consumed / STOP-2 1 consumed; STOP-3 1 pending / no replacement
-ACTIVE_REQUEST: S09-STOP3-G100 / approved derivation envelope / unsubmitted
+APPROVED_COMPUTE: STOP-1/2 consumed / STOP-3 Job 441511 consumed and terminal failed
+APPROVED_SUBMISSIONS: STOP-1 1 consumed / STOP-2 1 consumed / STOP-3 1 consumed / no replacement
+ACTIVE_REQUEST: none / STOP-3 pre-model bootstrap FAIL / new owner amendment required
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-3 exact config/runner/request/evidence and review remediation authorized
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -389,7 +390,7 @@ unused submission/time ceiling is not STOP-3 or other compute authority.
 ## STOP-3 — loader selection and G100
 
 ```text
-REQUEST_STATE: FROZEN + APPROVED UNDER O-117 / UNSUBMITTED
+REQUEST_STATE: CONSUMED / JOB 441511 TERMINAL FAILED 1:0 / NO RETRY
 PRIMARY_CELL: F-U only
 PRECISION: global FP16 autocast + explicit SECOND FP32 island
 INITIALIZATION: random / engineering seed 0
@@ -398,7 +399,7 @@ SCHEDULER: constant
 EMA/GRAD_CLIP/BEV_AUG/GT_PASTE: disabled
 MICROBATCH/ACCUMULATION/GPU: 1 / 1 / 1 GH200
 RESOURCE_CEILING: 1 GH200 / 16 CPU / 96 GiB host / 01:00:00 / 1 GPU-hour
-SUBMISSIONS: exactly 1 / unsubmitted / no retry or replacement
+SUBMISSIONS: exactly 1 / consumed by Job 441511 / no retry or replacement
 RESOLVED_CONFIG_SHA256: cb1723322c756579ab6740eb126de8455b65f808849ec977258c76b919f2c58c
 EXECUTION_SOURCE_SHA: 4d6bd829450021aa0813bcece066fb1fac85f478
 EXECUTION_SOURCE_TREE: affb4854689a0bf65d829a273d769c87c000174c
@@ -443,6 +444,25 @@ node/task, `nvidia_gh200_120gb:1`, 16 CPUs, 96 GiB host memory, `01:00:00`,
 only the exact snapshot/output/source/tree/resolved-config identities consumed by
 the source-controlled runner. No array, DDP, second seed, retry, replacement, or
 derived output is authorized.
+
+Job `441511` consumed that sole command at `2026-07-15T09:43:23+02:00` and
+terminated `FAILED 1:0` after `00:02:29`, with zero restarts. No replacement was
+submitted. Exact source/config/execution identity preflights passed, but
+`verify_runtime_dependency_identity` imported editable spconv under the runner's
+incorrect `arrhenius_load_modules run` environment. ccimport/ninja could not find
+`cublasLt.h` and failed before physical data hashing, loader profiling, model
+construction, or an optimizer attempt. The binding environment contract requires
+`arrhenius_load_modules build` for runtime jobs because editable sparse imports may
+need nvcc/toolkit headers.
+
+The source-controlled runner is corrected after the failed immutable source, but
+its unexecuted SHA-256
+`855bbd15877a4ceaa6919ccdf9d2ca369e1f3c84ee306415a41376c07d5d8b5d`
+is neither an approved replacement tuple nor sufficient by itself: the failed
+JIT attempt also changed cumm native artifacts, invalidating any assumption that
+the frozen aggregate executable-build hash still holds. O-117 is exhausted. Any
+runtime rebuild/attestation, new dependency/config hash, snapshot/request/output,
+or replacement G100 requires a new exact owner decision.
 
 The approved immutable request binds:
 

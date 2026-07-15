@@ -22,7 +22,10 @@
 > independent `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. O-116 owner-accepts
 > and closes STOP-2. O-117 accepts the exact STOP-3 G100 plan and its 1 Hz
 > read-only GPU telemetry update, authorizes linear immutable commits and exactly
-> one derived/frozen single-GH200 submission, and forbids retry and STOP-4.
+> one derived/frozen single-GH200 submission, and forbids retry and STOP-4. Job
+> `441511` consumed that submission and failed before loader/model execution due
+> to a runner build-module omission; cumm native identity now needs re-attestation.
+> Independent review and a new owner amendment are required before replacement.
 > Push and merge remain unauthorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
@@ -253,7 +256,7 @@ SESSION_ID: S09
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 SOURCE_BRANCH: codex/s08-s09-cl-readiness
 IMPLEMENTATION_CONTEXT: persistent S00 unless owner selects independent isolation
-APPROVED_COMPUTE: O-112 STOP-1 Job 441191 and O-115 STOP-2 Job 441293 consumed; O-117 exact STOP-3 G100 tuple frozen at 4d6bd82, one submission active and unconsumed
+APPROVED_COMPUTE: O-112 STOP-1 Job 441191, O-115 STOP-2 Job 441293, and O-117 STOP-3 Job 441511 consumed; none active
 APPROVED_GIT: linear S09 envelope/request/evidence/review commits; no merge/push
 DECISION_SCOPE: base-uniform full-pipeline engineering performance/readiness only
 ```
@@ -364,6 +367,13 @@ O-107 replacement.
 - One GH200, 16 CPUs, 96 GiB host memory, no DDP, no retry, no official evaluation
   or metrics. O-117 approves one submission and `<=01:00:00` only after the exact
   immutable source/snapshot/config/script/output tuple is recorded.
+- Job `441511` consumed that sole submission and failed `1:0` in `00:02:29`
+  before physical data verification, loader profiling, model construction, or
+  training. The runner used `arrhenius_load_modules run` despite `env.md`'s
+  editable-spconv requirement for build modules; missing `cublasLt.h` stopped
+  JIT compilation. The current branch fixes that selector, but cumm native build
+  identity also drifted. No retry is authorized; review plus a new owner amendment
+  is required for runtime re-attestation and any replacement G100.
 - An independent reviewer reads exact source/config/cache/records/artifacts before
   the owner STOP-3 decision.
 - If a throughput/stability threshold fails, STOP-3 may return a narrowly measured

@@ -4,7 +4,7 @@
 
 ```text
 SESSION_ID: S09
-MILESTONE_STATE: STOP-1/2 CLOSED / STOP-3 IMMUTABLE REQUEST FROZEN / UNSUBMITTED
+MILESTONE_STATE: STOP-1/2 CLOSED / STOP-3 JOB 441511 PRE-MODEL FAIL / OWNER AMENDMENT REQUIRED
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
@@ -29,8 +29,12 @@ STOP3_CONFIG_RESOLVED_SHA256: cb1723322c756579ab6740eb126de8455b65f808849ec97725
 STOP3_EXECUTION_SOURCE_SHA: 4d6bd829450021aa0813bcece066fb1fac85f478
 STOP3_EXECUTION_TREE: affb4854689a0bf65d829a273d769c87c000174c
 STOP3_SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop3_g100_4d6bd8294500
-APPROVED_COMPUTE: STOP-1 Job 441191 consumed / STOP-2 Job 441293 consumed / STOP-3 exact frozen tuple approved and unsubmitted
-JOBS: 441191 COMPLETED 0:0 in 00:03:06; 441293 COMPLETED 0:0 in 00:01:04 / no retries
+STOP3_REQUEST_COMMIT: 30e6c9f7849dd1bfe7630f698913c2231131b62c
+STOP3_JOB: 441511 FAILED 1:0 in 00:02:29 / editable spconv missing cublasLt.h under wrong run-module bootstrap
+STOP3_RUNTIME_STATE: tracked source restored / cumm native executable-build identity drifted / re-attestation required
+STOP3_UNEXECUTED_RUNNER_REMEDIATION_SHA256: 855bbd15877a4ceaa6919ccdf9d2ca369e1f3c84ee306415a41376c07d5d8b5d
+APPROVED_COMPUTE: STOP-1 Job 441191 consumed / STOP-2 Job 441293 consumed / STOP-3 Job 441511 consumed / no active compute
+JOBS: 441191 COMPLETED 0:0 in 00:03:06; 441293 COMPLETED 0:0 in 00:01:04; 441511 FAILED 1:0 in 00:02:29 / no retries
 INDEPENDENT_REVIEW: STOP-1 5252a59 PASS_WITH_RESIDUAL_RISK; STOP-2 impl 37aef4d PASS_WITH_RESIDUAL_RISK; request cad7262 PASS_WITH_RESIDUAL_RISK; evidence 79f87dc PASS_WITH_RESIDUAL_RISK
 OWNER_STOP1_DECISION: O-113 / ACCEPTED
 ```
@@ -54,7 +58,14 @@ exact GH200 smoke; Job `441293` is terminal technical PASS. O-116 accepts/closes
 STOP-2. O-117 accepts the detailed STOP-3 plan plus 1 Hz read-only GPU telemetry
 and authorizes its exact linear commits and one derived immutable G100 after the
 source/snapshot/config/script/output tuple is recorded. Retry and STOP-4 remain
-unauthorized.
+unauthorized. Job `441511` consumed the sole O-117 submission and failed before
+physical data verification, loader profiling, model construction, or training:
+the source-controlled runner selected runtime-only modules despite `env.md`'s
+build-module requirement for editable cumm/spconv imports, and spconv JIT could
+not find `cublasLt.h`. The runner selector is corrected in the current branch,
+but the failed import also changed the cumm native build identity. No replacement
+is authorized; STOP-3 requires independent failure/remediation review and a new
+owner decision before any runtime re-attestation or G100.
 
 ## S08 residual carried into S09
 

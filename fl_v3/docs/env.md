@@ -202,9 +202,14 @@ local validation, linear immutable commits, and independent review. Candidate
 frozen, and request remediation `cad7262` independently closed all P2/P3 request/
 snapshot findings. O-115 Job `441293` then completed `0:0` in `00:01:04` with
 44/44 tests passing, zero restarts and no replacement. Evidence remediation
-`79f87dc` subsequently received independent
-`PASS_WITH_RESIDUAL_RISK` with no open P0-P3; owner acceptance is pending. This is
-not model/full-data readiness. Do not
+`79f87dc` subsequently received independent `PASS_WITH_RESIDUAL_RISK` with no
+open P0-P3; O-116 owner-accepts/closes STOP-2. O-117 STOP-3 Job `441511` then
+exposed why this section's build-module rule is binding: the new runner selected
+`arrhenius_load_modules run`, editable spconv triggered a JIT check without CUDA
+headers, and compilation failed on missing `cublasLt.h` before data/loader/model
+execution. The sole submission is consumed; the runner selector is corrected,
+but cumm native build identity needs a new GH200 re-attestation and exact owner
+amendment before replacement compute. This is not model/full-data readiness. Do not
 extract/duplicate the dataset or submit further full-data jobs
 without exact permission. O-009 covers only a recorded bounded
 engineering smoke (one node/GPU, at most 60 minutes/job, one concurrent job, two
