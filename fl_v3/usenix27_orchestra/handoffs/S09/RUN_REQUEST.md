@@ -50,7 +50,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3 + O-119 STOP-4
 APPROVED_COMPUTE: O-119 STOP-4A <=00:30:00 + STOP-4C <=00:30:00 + conditional STOP-4D <=01:00:00 / serial <=2 GPU-hours / no retry
 APPROVED_SUBMISSIONS: prior STOP-1/2/3 and STOP-4A consumed; prospective STOP-4C plus conditional STOP-4D after each exact freeze/review
-ACTIVE_REQUEST: STOP-4C Job 455539 terminal technical PASS / immutable evidence review pending / STOP-4D blocked until reviewed PASS / no retry
+ACTIVE_REQUEST: STOP-4C independently closed PASS / STOP-4D condition released for exact immutable freeze/review / not yet submitted / no retry
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-4 implementation/request/evidence/review remediation within O-119
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -1056,7 +1056,7 @@ SUBMISSION_COUNT: 1 / exact replacement tuple / no retry
 JOB_STATE/EXIT/RESTARTS: COMPLETED / 0:0 / 0
 JOB_NODE/START/END/ELAPSED: n414 / 2026-07-15T14:14:49+02:00 / 2026-07-15T14:18:55+02:00 / 00:04:06
 ACTUAL_GPU_HOURS: 0.068333
-TECHNICAL_RESULT: PASS / immutable evidence review pending / STOP-4D not yet released
+TECHNICAL_RESULT: PASS / independently reviewed / STOP-4D conditional release GO
 ```
 
 The sole submitted replacement command was:

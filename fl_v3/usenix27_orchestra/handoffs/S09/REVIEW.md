@@ -1670,3 +1670,38 @@ The GO is restricted to the exact replacement command and wrapper recorded in
 `RUN_REQUEST.md`. Any source/snapshot/config/wrapper/output/resource/freshness
 drift cancels it. The old `131619f` tuple remains forbidden and unsubmitted; this
 replacement is not a retry. Residual risk is the actual GH200 result.
+
+### STOP-4C immutable evidence closure review — PASS / STOP-4D release GO
+
+```text
+EVIDENCE_SHA/TREE: 32b380ccae5dc0146e3c5b494e0f3d4d1ae9d7cd / d35b97f92783f3a953f9402b8966d428e23078a0
+REMEDIATION_SHA/TREE: 8b7542c648565508a6b96f6378a0172d255a8b61 / b87e583e51d8a09435eea17e547e6871f2bcdb9d
+REMEDIATION_PARENT: 32b380ccae5dc0146e3c5b494e0f3d4d1ae9d7cd
+REVIEWER_TASK: /root/s09_stop4a_impl_reviewer
+REVIEWER_COMPUTE: none
+VERDICT: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / STOP-4D conditional release GO
+```
+
+The first evidence review found no P0-P2 and three documentation-only P3s: a
+stale request-review heading, a nearest-rank rather than project-linear telemetry
+p95, and an over-broad neutrality sentence. Remediation `8b7542c` changes only
+`RUN_REQUEST.md` and `RESULTS.md`: it records the consumed Job 455539 state,
+corrects the 43-sample GPU-util p95 to `99.9%`, and limits exact equality to the
+quiet-loss value/input-gradient path while describing checkpoint-off through its
+explicit construction checks and G100 evidence. The reviewer verified the clean
+immutable diff and closed all three P3s.
+
+Independent raw-evidence checks reproduce 16/16 artifact hashes and manifest
+`542862b2...`, four zero exits, Job 455539 `COMPLETED 0:0` in `00:04:06` with no
+restart, exact 100/103 lifecycle accounting, three scaler overflows followed by
+90/90 measured accepted windows, and the fail-closed p50/p95/ratio/epoch/reserved
+metrics. Execution source, config, runner, model, precision, recipe, raw artifacts
+and gates did not change. O-119 actual usage is `0.230000` GPU-hours; adding the
+conditional one-hour STOP-4D ceiling remains within `1.230000/2.000000`.
+
+This verdict releases only preparation and exact independent request review of a
+fresh B1 G1000 tuple, followed by the already approved single no-retry submission
+if that request receives GO. It is not convergence, recipe, mAP/NDS, model-quality
+or scientific-performance acceptance. Residual risks include single seed/B1,
+coarse utilization telemetry, unexecuted G1000 and the unresolved large LiDAR
+gradient question deferred outside S09 engineering readiness.
