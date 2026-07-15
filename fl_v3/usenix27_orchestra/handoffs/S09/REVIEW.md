@@ -1644,3 +1644,29 @@ Residual risk is the unexecuted replacement GH200 path. This verdict closes the
 implementation P2 only. The old `131619f` tuple remains forbidden; a fresh source/
 snapshot/config/runner/wrapper/output tuple and independent request review remain
 mandatory before submission.
+
+### STOP-4C replacement exact-request closure review — SUBMIT GO
+
+```text
+REQUEST_SEAL: bbb807188a5e024e9e569480bd3a50676f0df312
+REQUEST_SEAL_TREE: 565d9467b92bce38c551e4a9baea58190be3d85c
+REQUEST_SEAL_PARENT: 75f759274c755af025fa5fdfc350e60595edafcb
+EXECUTION_SOURCE/TREE: c7769901201b8c507997dfa9ff5154fbe6dbb297 / 1e2c4464d2582d81e7ef7fef4740c764d0a48e8c
+REVIEWER_TASK: /root/s09_stop4a_impl_reviewer
+REVIEWER_COMPUTE: none
+VERDICT: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / SUBMIT GO
+```
+
+The replacement review found no P0, P1, P2 or P3. The final request-seal diff
+only corrects three stale tense lines; the execution tuple remains unchanged.
+The reviewer reproduced the detached/clean/read-only snapshot and preserved
+executable modes, all runner/trainer/environment/raw/resolved config hashes,
+accepted data/dependency identities, complete numerical/performance gates, exact
+F-U/B1/O-110/seed/recipe/bounds, resource and O-119 budget, and fresh output/
+queue/history state. Wrapper `e44db31b...` passes syntax, shell and safe-prefix
+checks and contains one non-requeue `sbatch`.
+
+The GO is restricted to the exact replacement command and wrapper recorded in
+`RUN_REQUEST.md`. Any source/snapshot/config/wrapper/output/resource/freshness
+drift cancels it. The old `131619f` tuple remains forbidden and unsubmitted; this
+replacement is not a retry. Residual risk is the actual GH200 result.

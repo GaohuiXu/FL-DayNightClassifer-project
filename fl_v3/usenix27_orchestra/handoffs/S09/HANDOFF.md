@@ -53,7 +53,7 @@ STOP4A_REQUEST_STATE: consumed by Job 452520 / COMPLETED 0:0 in 00:09:42 / techn
 STOP4A_JOB: 452520 / four cells PASS / 59 focused tests PASS / raw evidence checksum-complete
 STOP4B4C_IMPLEMENTATION: 6da4bb5016410708b1e731d26d898f24e6b315ac / closure source 1a0b7e38805d86fb42ff4fe84d67e1680de55015
 STOP4B4C_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / implementation-evidence closure GO
-STOP4C_REQUEST_STATE: old 131619f SUBMIT NO-GO/never submitted; replacement c776990 source tuple frozen / independent request review pending / not submitted
+STOP4C_REQUEST_STATE: old 131619f SUBMIT NO-GO/never submitted; replacement c776990 exact tuple independently reviewed SUBMIT GO / not yet submitted
 STOP4C_RUNNER_REMEDIATION: 72a09d5a503a258f3f257b208180585d16ee49d0 / tree 887d275b71a7f6ccd34cf67188e9fac0843393c1
 STOP4C_RUNNER_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / remediation closure GO / replacement freeze complete
 STOP3_DEP_ATTEST_JOB: 442152 COMPLETED 0:0 in 00:11:52 / 0.197778 GPU-hours / technical PASS
