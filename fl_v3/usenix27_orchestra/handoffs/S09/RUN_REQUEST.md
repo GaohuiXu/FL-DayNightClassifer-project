@@ -195,7 +195,7 @@ authorize a retry, or approve STOP-2 implementation or compute.
 REQUEST_ID: S09-STOP2-SMOKE
 REQUEST_STATE: FROZEN / AWAITING ONE OWNER EXECUTION CONFIRMATION / NOT APPROVED / NOT SUBMITTED
 OBJECTIVE: execute the focused Torch/CUDA regression gate for the reviewed output-neutral readiness implementation
-MODEL_OR_TRAINING: none
+MODEL_OR_TRAINING: deterministic toy Linear/MSE loop only / no production detector or production training
 RESOURCE_CEILING_PER_SUBMISSION: 1 GH200 / 4 CPU / 32 GiB host / 00:10:00
 O107_CUMULATIVE_CEILING: at most 3 submissions / at most 0.5 GPU-hours, only if owner confirmation opts in
 CURRENT_SUBMISSIONS: 0
@@ -219,6 +219,8 @@ SNAPSHOT_REF_MODE: detached / clean / self-contained Git object database
 SNAPSHOT_TRACKED_FILES/BYTES: 590 / 4722741
 SNAPSHOT_WRITABLE_WORKTREE_FILES: 0
 SNAPSHOT_ALTERNATES: absent
+SNAPSHOT_COMMIT_GRAPH: absent
+SNAPSHOT_FSCK: git fsck --full --no-reflogs exit 0 / dangling-tree notices only
 ```
 
 The snapshot reproduces the exact source SHA and tree. Tracked executable files
@@ -245,11 +247,13 @@ fixture uses sampler seed `17`, the readiness lifecycle fixture uses sampler see
 seeds. There is no nuScenes metadata, ZIP/cache, sensor payload, model
 qualification, production training window, decode, metric, or performance profile.
 
-The CUDA case exercises direct event creation/resolution and requires identical
-model parameters, optimizer state, outputs, losses, gradients, and training
-counters with readiness timing disabled versus enabled. CPU cases cover the
-strict `s09.v1` contract, attempted-window bounds, lifecycle refusal, terminal
-artifact behavior, and output-neutral bounded loader accounting.
+The CUDA case exercises direct event creation/resolution. With readiness timing
+disabled versus enabled, the test compares final model, optimizer, scheduler,
+EMA, scaler and `TrainingState`; all non-timing aggregate metrics; and host/device
+RNG state. It does not retain or directly compare per-window model outputs or
+gradient tensors. CPU cases cover the strict `s09.v1` contract, attempted-window
+bounds, lifecycle refusal, terminal artifact behavior, and output-neutral bounded
+loader accounting.
 
 ### Frozen scripts and only submission command
 
@@ -310,6 +314,25 @@ cumulative GPU-hours. A derived replacement may fix only an obvious test, fixtur
 wrapper, provenance/artifact, or output-neutral timing-plumbing defect; before
 submission it must freeze a new immutable source/snapshot/script/output identity
 in this ledger. It may not be an identical retry.
+
+The derived command/output family is prebound as follows:
+
+```text
+SUBMISSION_INDEX: integer in {1,2,3}; monotonically increasing; never reused
+INITIAL_COMMAND: the exact submit.sh command frozen above
+DERIVED_REQUEST_DIR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop2_smoke_<derived_source_sha12>_a<submission_index>
+DERIVED_COMMAND: bash <DERIVED_REQUEST_DIR>/submit.sh
+OUTPUT_NAME_RULE: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop2_smoke_<derived_source_sha12>_a<submission_index>
+```
+
+Index `1` is the current initial tuple and resolves exactly to the frozen `a1`
+output above. A mechanical replacement uses index `2` or `3`; if source is
+unchanged for a wrapper-only fix, the same source prefix is retained and the
+index still advances. Every derived wrapper must execute the same four selectors
+in the same order with the same toy scope, committed seeds, environment policy,
+eight-minute pytest timeout and resource ceiling. Its source SHA/tree, snapshot,
+job/submit hashes, request directory and fresh output must be recorded before
+submission; an existing path is a hard stop, never an overwrite.
 
 Any possible change to model outputs, losses, gradients, accepted updates, data,
 precision policy, optimizer/scheduler/EMA, execution schema semantics, selector or

@@ -195,8 +195,9 @@ loader test cannot substitute for STOP-3's production persistent-worker gate.
 
 The clean detached snapshot, exact four selectors, two read-only scripts and
 fresh absent output are recorded in `RUN_REQUEST.md`. Script syntax, source/tree,
-clean/detached status, absent alternates, zero writable snapshot worktree files,
-and fresh output were rechecked before request freeze. No submit command was run.
+clean/detached status, absent alternates and commit-graph, full object-database
+fsck, zero writable snapshot worktree files, and fresh output were rechecked
+before request freeze. No submit command was run.
 
 This precompute evidence establishes a reviewed implementation and reproducible
 runtime-test request only. It is not a Torch/CUDA test PASS and says nothing about

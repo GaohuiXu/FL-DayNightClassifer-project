@@ -424,3 +424,56 @@ STOP-3 concerns.
 inside O-114, preserves normal training semantics and O-110, and is suitable for
 the exact bounded GH200 regression smoke. This verdict does not authorize that
 job, accept a runtime result, open STOP-3, or establish performance/model/science.
+
+---
+
+## STOP-2 frozen-request review — initial verdict
+
+### Review identity and scope
+
+```text
+REQUEST_SEAL: 4408dfe6541ecdce40ea53553bfd66666c65ea7a
+REQUEST_SEAL_TREE: ae43d1d50ed3a6f2078db5ba4df0df5a54f18047
+EXECUTION_SOURCE: 37aef4d6b3f4679d6702d0acef2bb5bd1b57a952
+EXECUTION_TREE: d0626e313aab411bc5c71733afb41eca5b102693
+REVIEWER_COMPUTE: none
+VERDICT: REMEDIATE
+```
+
+The independent reviewer inspected the exact documentation seal, implementation
+diff, source snapshot, job/submit scripts, selector expansion, fresh output and
+read-only scheduler state. No file, Git ref, Slurm job, output, or dataset state
+was modified by the review.
+
+### Findings, severity first
+
+- **P0: none.**
+- **P1: none.**
+- **P2 — request overstates test evidence.** The request said no model/training
+  executes even though deterministic toy `Linear` optimizer windows run, and said
+  the CUDA pair directly compares per-window outputs/losses/gradients. The test
+  actually compares final model/optimizer/scheduler/EMA/scaler/`TrainingState`,
+  non-timing aggregate metrics (including aggregate loss), and host/device RNG;
+  it does not retain per-window outputs or gradient tensors. The required fix is
+  documentation-only, not a larger test harness.
+- **P2 — O-107 derivation contract is incomplete.** The initial request freezes
+  `_a1` but does not prebind the derived command family and collision-free output
+  naming rule required by the root contract for submission indices two and three.
+- **P3 — snapshot has a stale auxiliary split commit-graph.** Source HEAD/tree,
+  detached/clean state, 590 tracked files / 4,722,741 bytes, executable bits, zero
+  writable worktree files, no alternates and all wrapper preflights pass. However,
+  default full `git fsck` reads a stale commit-graph reference to missing
+  non-reachable object `ac578310...`. Removing/rebuilding that auxiliary index
+  makes the otherwise self-contained object database pass fsck.
+
+All other gates matched: script hashes/modes/syntax; exact static total of 44
+tests (`9 + 21 + 9 + 5`); no nuScenes/cache/payload, production detector, metric
+or profile; exact resources/timeouts; absent output/logs; zero same-name `squeue`
+or `sacct` records; and explicit no-compute/no-STOP-3/no-merge/no-push status.
+
+### Initial frozen-request verdict
+
+**REMEDIATE.** Correct the evidence claims, prebind O-107's derived command/output
+family, remove the stale commit-graph and require full fsck, then seal one linear
+documentation/provenance remediation and request closure re-review. No
+implementation edit, test expansion, Slurm submission, merge, or push is warranted.
