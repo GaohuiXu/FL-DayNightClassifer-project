@@ -921,3 +921,116 @@ This review permits `788b493889bcf7be98f36b9cbb6686d51e8e5edf` to be used as
 the immutable source for a proposed dependency-attestation compute request. It
 is **not compute authorization** and does not authorize submission, retry,
 replacement G100, STOP-4, merge, push, or scientific interpretation.
+
+### STOP-3 O-118 Phase-A terminal evidence review
+
+```text
+EVIDENCE_SHA: 82a0e5315c9098056b6670afb490850cc71dc653
+EVIDENCE_TREE: 7428f5978c8d423a7c1855d9e3f858eac718aeae
+EVIDENCE_PARENT: 6323a5820863ed5c2e2d544efee3c6f53d98f9e5
+EXECUTION_SOURCE_SHA: 788b493889bcf7be98f36b9cbb6686d51e8e5edf
+EXECUTION_SOURCE_TREE: 0bc61b3c2693f818ad0feb4e749af64a3947913e
+BRANCH: codex/s08-s09-cl-readiness
+JOB: 442152
+REVIEWER_COMPUTE: none
+```
+
+Findings, ordered by severity:
+
+- **P0: none.**
+- **P1: none.**
+- **P2: none.**
+- **P3 — one stale evidence-state label.** At the immutable evidence commit under
+  review, `HANDOFF.md` still says `immutable evidence commit pending` in
+  `STOP3_DEP_ATTEST_EVIDENCE_STATE`. The commit above is that immutable evidence;
+  the line should instead bind its SHA/tree and this review verdict. This is a
+  documentation-only closure permitted by O-118 and does not require a rerun or
+  change the Phase-B tuple.
+
+The review preflight matched the exact evidence SHA, tree, parent, branch and a
+clean worktree. Its diff changes only `HANDOFF.md`, `RUN_REQUEST.md`, and
+`RESULTS.md`; it does not alter executable source, config, data, model, trainer,
+precision, recipe, or metric behavior. `git diff --check` passes.
+
+#### Scheduler, authorization, and uniqueness
+
+- `sacct` and `scontrol` reproduce Job `442152` as the only
+  `flv3_s09_stop3_dep_attest` submission in the review interval: `COMPLETED
+  0:0`, zero restarts, submit/start/end
+  `10:37:28/10:37:29/10:49:21`, node `n507`, elapsed `00:11:52` under a
+  `00:20:00` limit, one GH200, eight CPUs, 32 GiB, one node/task, account
+  `naiss2025-22-1113-gpu`, partition `gpu`, and `Requeue=0`. No active same-name
+  job or replacement exists.
+- Command, detached-snapshot working directory, stdout/stderr paths and resource
+  tuple exactly match the O-118 Phase-A request. The read-only submit wrapper
+  hashes to `93848490...`, contains one `sbatch`, and binds source `788b493...`,
+  tree `0bc61b3...`, runner `a00d463...`, raw config `e8a17b39...`, canonical
+  resolved config `cb172332...`, accepted source states, fresh output, and the
+  no-retry condition.
+- Phase A consumed `0.197778` GPU-hours. O-118's serial condition is respected:
+  no data/model/training phase overlapped it, and Phase B has not been submitted.
+
+#### Raw artifacts and dependency identity
+
+- All 29 entries in `artifact_sha256s.txt` independently pass `sha256sum -c`;
+  the manifest hashes to `b176faa8...`, acceptance to `4b60f319...`, and both
+  fresh-process probes are byte-identical at `52b95699...`. Original, cleanup,
+  seal, and final statuses are all zero. The 30-file, 1,637,056-byte output tree
+  and both Slurm logs are read-only; warm/probe stderr and probe stdout are empty.
+- Independent record-by-record verification finds 125 unique sorted cumm
+  executable artifacts (7,858,249 bytes) and 73 spconv artifacts (91,328,998
+  bytes). Every current file still matches its recorded size and SHA-256.
+  Recomputing the exact metadata/path/size/content manifest algorithm reproduces
+  cumm `0a7e3c1a...` and spconv `af422005...`.
+- Both cumm native copies match at 2,877,128 bytes / `9970ccc5...`; both spconv
+  native copies match at 45,180,616 bytes / `37f2ef8d...`. The current editable
+  checkouts retain exact HEADs `4dedaf4...` and `263d6b4...`; spconv has only the
+  accepted modified `pyproject.toml` (`e2c84544...`), cumm has no tracked change,
+  and the disclosed untracked cumm `core_cc/common.pyi` remains outside tracked
+  source identity. No generated tracked stub was restored.
+- The snapshot remains detached and clean at `788b493...`; runner/config/submit
+  hashes still match the frozen request and no writable worktree entry exists
+  outside `.git`.
+
+#### Scope and interpretation
+
+The runner and acceptance artifact establish `data_loaded=false`,
+`model_constructed=false`, and `training_attempts=0`. No nuScenes module/read,
+loader, detector construction, forward/backward, optimizer update, timing, memory,
+or utilization gate ran. Thus Job `442152` is dependency-attestation evidence
+only, not evidence for any G100 training/performance/scientific conclusion.
+
+Phase A did not retain a complete pre-warm executable-artifact manifest, so the
+evidence does **not** support an exact per-file mutation-delta claim. It supports
+the stable point-in-time post-warm identities reproduced by two fresh processes.
+The warm build also emitted one compiler warning in generated spconv reverse-bit
+code (`left shift count >= width of type`); compilation, import, both manifests,
+and terminal sealing nevertheless completed. This warning and the shared editable
+runtime remain residual risks, not demonstrated Phase-A failures. Phase B must
+fail-close on the exact source/build identities before any data or model work.
+
+#### Gate verdict and Phase-B decision
+
+| Gate | Verdict |
+|---|---|
+| Exact approved Phase-A source/snapshot/command/resources | PASS |
+| Exactly one submission / no retry / serial O-118 ordering | PASS |
+| Scheduler completion, exit, restart and path record | PASS |
+| Fail-closed terminal statuses and checksum-valid sealed output | PASS |
+| Two byte-identical fresh-process dependency/config manifests | PASS |
+| Final external tracked source and executable-build identities | PASS |
+| No data/model/training execution | PASS |
+| Exact pre-warm-to-post-warm native mutation delta | NOT CLAIMED / NOT AVAILABLE |
+| Durable evidence-state wording | PASS WITH P3 REMEDIATION |
+
+**Phase-A verdict: PASS WITH RESIDUAL RISK / no open P0-P2 or material semantic
+concern.** The sole P3 may be sealed linearly without compute.
+
+**O-118 Phase-B hard gate: GO FOR THE STRICTLY DERIVED TUPLE.** S00 may derive
+only the two emitted sparse build hashes, perform the frozen local/static checks,
+create the new immutable commit and self-contained snapshot, and obtain the
+required independent derivation confirmation. This verdict does not itself
+submit Phase B: submission remains contingent on that exact derived tuple being
+recorded and rechecking the shared source/build identities. It authorizes no
+retry, changed data/model/precision/recipe/resource field, STOP-4, merge, push,
+or scientific interpretation.
