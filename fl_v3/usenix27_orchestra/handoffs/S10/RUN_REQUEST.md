@@ -308,3 +308,54 @@ All §6 PASS/fail-closed and interpretation limits remain unchanged. If the same
 dtype blocker recurs, this is a repeated blocker and autonomous execution stops.
 Any subsequent failure is classified from new evidence; it does not inherit
 permission for another change merely because one debug/fix slot remains.
+
+## 9. A-GATE Job 463649 timeout and remediation boundary
+
+Job `463649` consumed the frozen §8 tuple once and reached Slurm `TIMEOUT` after
+`01:00:14` on `n130`, with zero restarts. Runtime/source/data preflight passed and
+the focused suite completed `12 passed, 8 skipped in 2.64s`. The accepted train
+metadata traversal reached all 28,130 samples in about 34 seconds, after which
+the process remained inside the exact split solve until the wall-time kill. It
+never emitted a split manifest, ownership record, solver report or evaluator
+parity artifact. This is not evidence of infeasibility and is not a STOP-A PASS.
+
+The timeout exposes two implementation/plumbing defects while preserving the
+scientific boundary:
+
+1. the accepted five-level lexicographic objectives are followed by 50 base and
+   34 nested one-log tie-break solves, so SciPy rebuilds and cold-solves 94 MILPs;
+2. the runner had only an `EXIT` trap, so the external timeout was correctly
+   visible in Slurm but incorrectly sealed `final.exit=0` without a `gate.exit`.
+
+The only remediation candidate is output-equivalent: keep every feature, hard
+constraint, integer-ppm objective, role code and sorted-log lexicographic order,
+but encode at most ten consecutive ternary assignment digits per exact block and
+fix blocks sequentially. A block has maximum coefficient `3^9=19683` and maximum
+objective `3^10-1=59048`; both are exactly represented below `2^53`. This reduces
+the topology from 94 to 19 cold solves without using a global large-weight
+objective, relaxing the MIP gap or changing the selected assignment. The runner
+must also fail closed on `TERM/INT/HUP` and must never write `final.exit=0` unless
+the gate returned zero. Local legacy-versus-block equivalence, numerical-bound,
+solve-count and signal-finalization tests are required before a new tuple exists.
+
+```text
+JOB: 463649
+STATE/EXIT/ELAPSED/RESTARTS: TIMEOUT / 0:0 (batch CANCELLED 0:15) / 01:00:14 / 0
+CONSUMED_GPU_HOURS: 1.003889
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_3f7ab76f7043_a2
+EXECUTION_IDENTITY_SHA256: 242313c8801f1a8b9bf23fa3a2f6e3b98fab563df979db3db0ba381ded1e570e
+FOCUSED_TEST_STDOUT_SHA256: e8b1b083b8a8411d51362caf9ae04213cddf7d39c751671267e6013d9eed1626
+GATE_STDERR_SHA256: b1aa13e85ac29f0a0769e49298f2ea229310865e412da336c15bda0c87b7a6f9
+FINAL_EXIT_SHA256: 9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa
+RUNNER_ARTIFACT_MANIFEST_SHA256: 02e9773d224db2858c393c78df8a600bd363229926b209c20f2f643e3bcc4ab6
+SCIENTIFIC_ALLOCATIONS_CONSUMED: 1 / 7
+DEBUG_FIX_ALLOCATIONS_CONSUMED: 1 / 2
+SUBMISSIONS_CONSUMED: 2 / 9
+STOP_A_GPU_HOURS_CONSUMED: 1.017500 / 1.000000 hard ceiling (scheduler grace included)
+ABC_GPU_HOURS_CONSUMED: 1.017500 / 27.000000
+```
+
+The remaining debug/fix slot does not override STOP-A's approved cumulative
+one-GH200-hour ceiling. S00 may implement, test, commit, snapshot and freeze the
+strictly equivalent remediation, but another GH200 submission requires an owner
+resource amendment. No B/C execution starts before STOP-A closes.

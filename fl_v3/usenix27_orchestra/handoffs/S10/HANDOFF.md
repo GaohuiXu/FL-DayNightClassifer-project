@@ -363,3 +363,19 @@ real data/gate execution because SciPy's aarch64 HiGHS wrapper rejected platform
 `long` sparse indices. `RUN_REQUEST.md` records the immutable negative result and
 narrow O-124 remediation classification. It is not a split-feasibility result;
 STOP-A remains open and STOP-B/C remain unstarted.
+
+The derived fix1 allocation, Job `463649`, passed 12 focused tests, traversed all
+28,130 train samples, and then timed out after `01:00:14` inside the exact split
+solve. The current implementation performs 94 cold SciPy MILP calls: ten frozen
+scientific objective solves plus 50 base and 34 nested per-log tie-break solves.
+No split or parity artifact exists. The external timeout also exposed a runner
+defect: `final.exit` was sealed as zero even though `gate.exit` was absent and
+Slurm was `TIMEOUT`. Both facts are frozen in `RUN_REQUEST.md` and `RESULTS.md`.
+
+The bounded remediation candidate preserves the exact objective hierarchy and
+assignment order while grouping at most ten ternary digits per sequential
+radix-3 block, with all integers at most 59,048 and an expected 19 cold solves.
+It also makes signal termination fail closed. This may be implemented and locally
+proved without changing split science; however, Job `463649` consumed STOP-A's
+one-GH200-hour ceiling. A fresh execution tuple therefore requires an owner
+resource amendment even though one aggregate debug/fix submission slot remains.
