@@ -50,6 +50,7 @@ export NUSCENES_ZIP_MANIFEST="${ZIP_MANIFEST}"
 test "${NUSCENES_DATAROOT}" = "/dataset/easybuild/data/nuScenes-data/1.0-map-1.3-zip"
 test "${SLURM_GPUS_ON_NODE:-1}" != "0"
 mkdir -p "${WORK}"
+runner_complete=0
 
 finalize() {
   local status="${1:-1}"
@@ -71,7 +72,26 @@ finalize() {
   find "${target}" -type f -exec chmod 0444 {} +
   find "${target}" -type d -exec chmod 0555 {} +
 }
-trap 'status=$?; finalize "${status}"; exit "${status}"' EXIT
+
+handle_signal() {
+  exit "$1"
+}
+
+handle_exit() {
+  local status=$?
+  trap - EXIT TERM INT HUP QUIT
+  if (( status == 0 && runner_complete != 1 )); then
+    status=125
+  fi
+  finalize "${status}"
+  exit "${status}"
+}
+
+trap 'handle_signal 143' TERM
+trap 'handle_signal 130' INT
+trap 'handle_signal 129' HUP
+trap 'handle_signal 131' QUIT
+trap handle_exit EXIT
 
 python - "${S10_STOPA_SNAPSHOT}" "${actual_source_sha}" "${actual_tree}" \
   "${actual_runner_sha256}" <<'PY' > "${WORK}/execution_identity.json"
@@ -148,4 +168,5 @@ python "${S10_STOPA_SNAPSHOT}/${GATE_REL}" \
 gate_status=$?
 set -e
 printf '%s\n' "${gate_status}" > "${WORK}/gate.exit"
+runner_complete=1
 exit "${gate_status}"

@@ -65,6 +65,7 @@ NESTED_SAMPLE_BOUNDS = {
     "D_low": ((27, 100), (33, 100)),
     "D_mid": ((57, 100), (63, 100)),
 }
+ASSIGNMENT_LEX_BLOCK_SIZE = 10
 
 
 class SplitContractError(ValueError):
@@ -433,6 +434,26 @@ def _fix_lex_stage(problem: _MilpProblem, objective: Mapping[int, float], label:
     return result, int(rounded)
 
 
+def _radix3_weights(length: int) -> Tuple[int, ...]:
+    """Return safe exact weights for one contiguous assignment-vector block."""
+    if not 1 <= length <= ASSIGNMENT_LEX_BLOCK_SIZE:
+        raise SplitContractError(
+            f"radix-3 block length must be in [1, {ASSIGNMENT_LEX_BLOCK_SIZE}], "
+            f"found {length}"
+        )
+    weights = tuple(3 ** exponent for exponent in range(length - 1, -1, -1))
+    if weights[0] > 19_683 or 2 * sum(weights) > 59_048:
+        raise SplitContractError("radix-3 assignment objective exceeded its exact bound")
+    return weights
+
+
+def _ternary_digit(value: float, label: str) -> int:
+    rounded = round(float(value))
+    if abs(float(value) - rounded) > 1e-5 or rounded not in (0, 1, 2):
+        raise SplitContractError(f"non-ternary assignment digit {label}: {value}")
+    return int(rounded)
+
+
 def _build_base_problem(features: Sequence[dict]):
     problem = _MilpProblem()
     variables = {
@@ -618,22 +639,53 @@ def _solve_base(features: Sequence[dict]):
     for label, objective in stages:
         result, optimum = _fix_lex_stage(problem, objective, label)
         objectives.append({"name": label, "optimum": optimum})
-    for index, record in enumerate(features):
-        objective = {
-            variables[(index, "D_select")]: 1,
-            variables[(index, "D_audit")]: 2,
-        }
+    assignment_codes: List[int] = []
+    for start in range(0, len(features), ASSIGNMENT_LEX_BLOCK_SIZE):
+        stop = min(start + ASSIGNMENT_LEX_BLOCK_SIZE, len(features))
+        weights = _radix3_weights(stop - start)
+        objective: Dict[int, float] = defaultdict(float)
+        for index, weight in zip(range(start, stop), weights):
+            objective[variables[(index, "D_select")]] += weight
+            objective[variables[(index, "D_audit")]] += 2 * weight
         result, optimum = _fix_lex_stage(
-            problem, objective, f"assignment:{record['log_token']}"
+            problem,
+            dict(objective),
+            f"assignment_block:{start:02d}-{stop - 1:02d}",
         )
-        objectives.append({"name": f"assignment:{record['log_token']}", "optimum": optimum})
+        block_codes = []
+        for index in range(start, stop):
+            code = _ternary_digit(
+                result.x[variables[(index, "D_select")]]
+                + 2 * result.x[variables[(index, "D_audit")]],
+                features[index]["log_token"],
+            )
+            block_codes.append(code)
+            select_value, audit_value = ((0, 0), (1, 0), (0, 1))[code]
+            problem.add_constraint(
+                {variables[(index, "D_select")]: 1},
+                lower=select_value,
+                upper=select_value,
+                name=f"fix_assignment_select:{features[index]['log_token']}",
+            )
+            problem.add_constraint(
+                {variables[(index, "D_audit")]: 1},
+                lower=audit_value,
+                upper=audit_value,
+                name=f"fix_assignment_audit:{features[index]['log_token']}",
+            )
+        if sum(code * weight for code, weight in zip(block_codes, weights)) != optimum:
+            raise SplitContractError("base radix-3 block failed exact objective reconstruction")
+        assignment_codes.extend(block_codes)
     assert result is not None
     assignment = {}
-    for index, record in enumerate(features):
+    for index, (record, code) in enumerate(zip(features, assignment_codes)):
         chosen = [role for role in BASE_ROLES if result.x[variables[(index, role)]] > 0.5]
         if len(chosen) != 1:
             raise SplitContractError(f"non-integral base assignment for {record['log_token']}")
+        if chosen[0] != BASE_ROLES[code]:
+            raise SplitContractError(f"base assignment decode drift for {record['log_token']}")
         assignment[record["log_token"]] = chosen[0]
+        objectives.append({"name": f"assignment:{record['log_token']}", "optimum": code})
     return assignment, {
         "status": "OPTIMAL",
         "status_code": int(result.status),
@@ -840,23 +892,63 @@ def _solve_nested(features: Sequence[dict], base_assignment: Mapping[str, str]):
     for label, objective in stages:
         result, optimum = _fix_lex_stage(problem, objective, label)
         objectives.append({"name": label, "optimum": optimum})
-    for index, record in enumerate(fit):
-        # Code: D_low=0, D_mid-only=1, D_fit-only=2.  Constant 2 is omitted.
-        objective = {
-            variables[(index, "D_low")]: -1,
-            variables[(index, "D_mid")]: -1,
-        }
+    assignment_codes: List[int] = []
+    for start in range(0, len(fit), ASSIGNMENT_LEX_BLOCK_SIZE):
+        stop = min(start + ASSIGNMENT_LEX_BLOCK_SIZE, len(fit))
+        weights = _radix3_weights(stop - start)
+        objective: Dict[int, float] = defaultdict(float)
+        for index, weight in zip(range(start, stop), weights):
+            # Code is D_low=0, D_mid-only=1, D_fit-only=2.  The constant
+            # ``2 * weight`` is omitted from each digit without changing argmin.
+            objective[variables[(index, "D_low")]] -= weight
+            objective[variables[(index, "D_mid")]] -= weight
         result, optimum = _fix_lex_stage(
-            problem, objective, f"nested_assignment:{record['log_token']}"
+            problem,
+            dict(objective),
+            f"nested_assignment_block:{start:02d}-{stop - 1:02d}",
         )
-        objectives.append({"name": f"nested_assignment:{record['log_token']}", "optimum": optimum + 2})
+        block_codes = []
+        for index in range(start, stop):
+            code = _ternary_digit(
+                2
+                - result.x[variables[(index, "D_low")]]
+                - result.x[variables[(index, "D_mid")]],
+                fit[index]["log_token"],
+            )
+            block_codes.append(code)
+            low_value, mid_value = ((1, 1), (0, 1), (0, 0))[code]
+            problem.add_constraint(
+                {variables[(index, "D_low")]: 1},
+                lower=low_value,
+                upper=low_value,
+                name=f"fix_nested_low:{fit[index]['log_token']}",
+            )
+            problem.add_constraint(
+                {variables[(index, "D_mid")]: 1},
+                lower=mid_value,
+                upper=mid_value,
+                name=f"fix_nested_mid:{fit[index]['log_token']}",
+            )
+        encoded = sum(code * weight for code, weight in zip(block_codes, weights))
+        if encoded - 2 * sum(weights) != optimum:
+            raise SplitContractError("nested radix-3 block failed exact objective reconstruction")
+        assignment_codes.extend(block_codes)
     assert result is not None
     low, mid = set(), set()
-    for index, record in enumerate(fit):
+    for index, (record, code) in enumerate(zip(fit, assignment_codes)):
         if result.x[variables[(index, "D_mid")]] > 0.5:
             mid.add(record["log_token"])
         if result.x[variables[(index, "D_low")]] > 0.5:
             low.add(record["log_token"])
+        observed_code = _ternary_digit(
+            2
+            - result.x[variables[(index, "D_low")]]
+            - result.x[variables[(index, "D_mid")]],
+            record["log_token"],
+        )
+        if observed_code != code:
+            raise SplitContractError(f"nested assignment decode drift for {record['log_token']}")
+        objectives.append({"name": f"nested_assignment:{record['log_token']}", "optimum": code})
     if not low <= mid:
         raise SplitContractError("D_low is not nested inside D_mid")
     return low, mid, {

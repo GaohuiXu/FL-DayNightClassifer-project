@@ -2,20 +2,41 @@ from __future__ import annotations
 
 from collections import Counter
 import copy
+from itertools import product
 
 import pytest
 
 from fl_v3.data.nuscenes.internal_split import (
+    ASSIGNMENT_LEX_BLOCK_SIZE,
     BASE_ROLES,
     DETECTION_NAMES,
     LOCATIONS,
     SCHEMA_MANIFEST,
     SCHEMA_OWNERSHIP,
     SplitContractError,
+    _MilpProblem,
+    _radix3_weights,
     check_constraints,
     check_ownership,
     solve_split,
 )
+
+
+EXPECTED_BASE_VECTOR = [
+    *(["D_fit"] * 16), *(["D_select"] * 3), *(["D_audit"] * 3),
+    *(["D_fit"] * 11), *(["D_select"] * 3), *(["D_audit"] * 3),
+    *(["D_fit"] * 5), "D_select", "D_audit",
+    *(["D_fit"] * 2), "D_select", "D_audit",
+]
+EXPECTED_LOW = {
+    "log-00", "log-01", "log-02", "log-03", "log-04",
+    "log-22", "log-23", "log-24", "log-39", "log-46",
+}
+EXPECTED_MID = {
+    "log-00", "log-01", "log-02", "log-03", "log-04", "log-05", "log-06",
+    "log-07", "log-08", "log-22", "log-23", "log-24", "log-25", "log-26",
+    "log-27", "log-28", "log-39", "log-40", "log-41", "log-46",
+}
 
 
 def _synthetic_features():
@@ -53,14 +74,49 @@ def _synthetic_features():
     return out
 
 
-def test_no_seed_milp_is_optimal_nested_and_checker_reconstructs_every_gate():
+def test_blocked_radix3_is_exactly_lexicographic_and_numerically_bounded():
+    assert ASSIGNMENT_LEX_BLOCK_SIZE == 10
+    assert _radix3_weights(10)[0] == 19_683
+    assert 2 * sum(_radix3_weights(10)) == 59_048 < 2**53
+    vectors = list(product(range(3), repeat=5))
+    encoded = sorted(
+        (sum(digit * weight for digit, weight in zip(vector, _radix3_weights(5))), vector)
+        for vector in vectors
+    )
+    assert [vector for _value, vector in encoded] == sorted(vectors)
+    with pytest.raises(SplitContractError):
+        _radix3_weights(0)
+    with pytest.raises(SplitContractError):
+        _radix3_weights(11)
+
+
+def test_no_seed_milp_is_optimal_nested_and_checker_reconstructs_every_gate(monkeypatch):
     features = _synthetic_features()
+    solve_calls = []
+    original_solve = _MilpProblem.solve
+
+    def counted_solve(problem, objective):
+        solve_calls.append(dict(objective))
+        return original_solve(problem, objective)
+
+    monkeypatch.setattr(_MilpProblem, "solve", counted_solve)
     base, low, mid, report = solve_split(features)
+    assert len(solve_calls) == 19
     assert report["base"]["status"] == "OPTIMAL"
     assert report["nested"]["status"] == "OPTIMAL"
     assert Counter(base.values()) == {"D_fit": 34, "D_select": 8, "D_audit": 8}
     assert len(low) == 10 and len(mid) == 20 and low < mid
+    assert report["base"]["assignment_vector"] == EXPECTED_BASE_VECTOR
+    assert low == EXPECTED_LOW
+    assert mid == EXPECTED_MID
+    assert len(report["base"]["objectives"]) == 55
+    assert len(report["nested"]["objectives"]) == 39
     assert check_constraints(features, base, low, mid)["status"] == "PASS"
+
+    solve_calls.clear()
+    repeated = solve_split(copy.deepcopy(features))
+    assert len(solve_calls) == 19
+    assert repeated == (base, low, mid, report)
 
     corrupted = copy.deepcopy(base)
     first_select = next(log for log, role in corrupted.items() if role == "D_select")
