@@ -50,7 +50,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3 + O-119 STOP-4
 APPROVED_COMPUTE: O-119 STOP-4A <=00:30:00 + STOP-4C <=00:30:00 + conditional STOP-4D <=01:00:00 / serial <=2 GPU-hours / no retry
 APPROVED_SUBMISSIONS: prior STOP-1/2/3 and STOP-4A consumed; prospective STOP-4C plus conditional STOP-4D after each exact freeze/review
-ACTIVE_REQUEST: STOP-4C replacement c776990 exact tuple independently reviewed SUBMIT GO / not yet submitted
+ACTIVE_REQUEST: STOP-4C replacement c776990 exact tuple submitted once as Job 455539 / no retry
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-4 implementation/request/evidence/review remediation within O-119
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -827,7 +827,7 @@ Unused Phase A or Phase B time is not retry, extra-cell, STOP-4 or other authori
 ## STOP-4 — O-119 optimize/G1000/close envelope
 
 ```text
-REQUEST_STATE: OWNER-APPROVED O-119 / STOP-4A JOB 452520 PASS / STOP-4B REVIEW CLOSED / OLD STOP-4C 131619f SUBMIT NO-GO + NEVER SUBMITTED / REPLACEMENT TUPLE INDEPENDENT SUBMIT GO + NOT YET SUBMITTED
+REQUEST_STATE: OWNER-APPROVED O-119 / STOP-4A JOB 452520 PASS / STOP-4B REVIEW CLOSED / OLD STOP-4C 131619f SUBMIT NO-GO + NEVER SUBMITTED / REPLACEMENT TUPLE SUBMITTED ONCE AS JOB 455539 + NO RETRY
 OWNER_DECISION: O-119
 SERIAL_GPU_CEILING: 2 cumulative GH200-hours
 RETRIES: none
@@ -1050,6 +1050,9 @@ RESOURCE: one GH200 / 16 CPU / 96 GiB / 00:30:00 / <=0.5 GPU-hours
 CUMULATIVE_O119: STOP-4A used 0.161667 GPU-hours; STOP-4C+4D ceilings total <=1.661667 GPU-hours
 SUBMISSIONS: exactly one after independent exact-request GO / no retry
 REQUEST_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / SUBMIT GO
+JOB_ID: 455539
+SUBMIT_TIME: 2026-07-15T14:14:48+02:00
+SUBMISSION_COUNT: 1 / exact replacement tuple / no retry
 ```
 
 The sole prospective replacement command is:
