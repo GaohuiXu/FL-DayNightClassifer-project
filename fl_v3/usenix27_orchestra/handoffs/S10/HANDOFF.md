@@ -341,3 +341,19 @@ The approved ABC GPU budget and derivation limits are in
 [`RUN_REQUEST.md`](RUN_REQUEST.md). O-124 authorizes continuous in-envelope work;
 every material job still requires an exact recorded immutable tuple before
 submission.
+
+## 10. STOP-A implementation state
+
+Immutable implementation candidate
+`e27053a5b141e1afaa68363ce6deb2efdb60518e` adds only the accepted STOP-A
+surface: a no-seed log-level MILP plus emitted-artifact checker, inherited raw-
+dependency ownership audit, manifest-bound internal evaluator, exact official-
+path parity gate, and role-bound GTDB/CBGS seams. The existing official val entry
+point is unchanged. GT paste and CBGS remain disabled; no model, loss, optimizer,
+schedule or precision behavior changes in STOP-A.
+
+Local validation is limited to `bash -n`, Python bytecode compilation and
+`git diff --check` because the login node is x86_64 and has no project Python
+dependencies. The exact aarch64/GH200 dependency-backed A-GATE tuple is frozen in
+`RUN_REQUEST.md` under O-124. This implementation commit is not a STOP-A PASS;
+raw gate evidence and independent high-risk review remain required.

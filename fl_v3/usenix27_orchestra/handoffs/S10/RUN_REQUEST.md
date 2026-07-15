@@ -160,3 +160,73 @@ Any boundary stops autonomous execution and returns to the owner. D/E/F, full
 trainval training, official-val selection, additional seed, merge, push, upload,
 publication, Protocol A/B execution, attack, defense and S11+ are outside this
 request.
+
+## 6. STOP-A / A-GATE exact immutable tuple — approved under O-124
+
+```text
+TUPLE_STATE: FROZEN / executable once
+DERIVATION: mechanical A-GATE allocation from O-124 v1 aggregate envelope
+SOURCE_SHA: e27053a5b141e1afaa68363ce6deb2efdb60518e
+SOURCE_TREE: dea3c8845657aadfd1edb300a10b8952db529761
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_e27053a5b141
+SNAPSHOT_MODE: detached / clean / read-only
+SNAPSHOT_TRACKED_FILES: 595
+SNAPSHOT_LS_TREE_SHA256: db157cedaf4efb5fdd6530d8b64754671f8025601f593ca993ad3aa377799d48
+RUNNER: fl_v3/scripts/run_s10_stop_a_gate.sh
+RUNNER_SHA256: 3a34b3686e9fbbe518831740bde35959feeaae34505cb65bd91e7df6082d1c22
+GATE_SCRIPT: fl_v3/scripts/s10_stop_a_gate.py
+GATE_SCRIPT_SHA256: b52b13efb923c0154104e9ff8286be46fc173faf7b915a6ec3a51cc128cdf5df
+RESOLVED_CONFIG_SHA256: N/A — metadata/evaluator gate; no model/config/training path
+RESOURCE: one node / one nvidia_gh200_120gb / 16 CPU / 96 GiB / 01:00:00
+ACCOUNT/PARTITION: naiss2025-22-1113-gpu / gpu
+CONCURRENCY/REQUEUE/ARRAY/DDP: one active / no-requeue / none / none
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_e27053a5b141_a1
+STDOUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_e27053a5b141_%j.out
+STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_e27053a5b141_%j.err
+SCIENTIFIC_ALLOCATION_COUNT_AFTER_SUBMIT: 1 / 7
+DEBUG_FIX_ALLOCATION_COUNT_AFTER_SUBMIT: 0 / 2
+ABSOLUTE_SUBMISSION_COUNT_AFTER_SUBMIT: 1 / 9
+```
+
+Exact inputs are the accepted S09 train/val `t1.v2`, `n_sweeps=10` cache tuple
+and accepted ZIP-manifest tuple in §3 of `HANDOFF.md`; their logical and physical
+SHA-256 values are literal runner arguments. The devkit config is bound to
+`217f96cca4e80f790c4674ef72257a6863ee9a85b0ce185bc56488afc32c7a0b`.
+The source contains no STOP-A model or optimizer configuration.
+
+Execution order is fixed:
+
+1. exact source/tree/snapshot/runner/runtime/data preflight;
+2. focused tests for the new split/checker/evaluator, existing official evaluator,
+   GTDB role binding and CBGS identity seam;
+3. one train/val cache materialization, no-seed MILP solve and independent emitted-
+   artifact reconstruction/leakage checker;
+4. unchanged official full-val evaluator versus the new full-val-manifest path for
+   `P-GT` and `P-MIX`, tolerance zero;
+5. all-empty adapter and real zero-point/bicycle-rack adversarial checks;
+6. strict JSON/checksum finalization. No sensor payload, model, optimizer or
+   training step is executed.
+
+The canonical sorted compact JSON submission envelope is:
+
+```json
+{"account":"naiss2025-22-1113-gpu","chdir":"/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_e27053a5b141","cpus_per_task":16,"export":{"S10_STOPA_EXPECTED_RUNNER_SHA256":"3a34b3686e9fbbe518831740bde35959feeaae34505cb65bd91e7df6082d1c22","S10_STOPA_EXPECTED_SOURCE_SHA":"e27053a5b141e1afaa68363ce6deb2efdb60518e","S10_STOPA_EXPECTED_TREE":"dea3c8845657aadfd1edb300a10b8952db529761","S10_STOPA_OUTPUT":"/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_e27053a5b141_a1","S10_STOPA_SNAPSHOT":"/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_e27053a5b141"},"gpus":"nvidia_gh200_120gb:1","job_name":"s10-stop-a-e27053a","mem":"96G","no_requeue":true,"nodes":1,"ntasks":1,"partition":"gpu","runner":"/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_e27053a5b141/fl_v3/scripts/run_s10_stop_a_gate.sh","stderr":"/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_e27053a5b141_%j.err","stdout":"/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_e27053a5b141_%j.out","time":"01:00:00"}
+```
+
+Its SHA-256 is
+`f5c94a5cc80a697e3fb952865321b98db0c6b1d3670f196ca464cd292afd8e40`.
+The exact submission command is:
+
+```bash
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G --gpus=nvidia_gh200_120gb:1 --time=01:00:00 --no-requeue --job-name=s10-stop-a-e27053a --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_e27053a5b141 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_e27053a5b141_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_e27053a5b141_%j.err --export=ALL,S10_STOPA_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_e27053a5b141,S10_STOPA_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_e27053a5b141_a1,S10_STOPA_EXPECTED_SOURCE_SHA=e27053a5b141e1afaa68363ce6deb2efdb60518e,S10_STOPA_EXPECTED_TREE=dea3c8845657aadfd1edb300a10b8952db529761,S10_STOPA_EXPECTED_RUNNER_SHA256=3a34b3686e9fbbe518831740bde35959feeaae34505cb65bd91e7df6082d1c22 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_e27053a5b141/fl_v3/scripts/run_s10_stop_a_gate.sh
+```
+
+PASS requires `COMPLETED 0:0`, zero restarts, focused tests passing, both solver
+stages `OPTIMAL`, all ownership overlaps zero, exact `P-GT/P-MIX` equality for
+filtered identities/40 metric-data records/validity/finite aggregates, and the
+strict empty/adversarial gates. Any identity mismatch, infeasible/non-optimal
+solve, leakage, parity mismatch, unsupported devkit semantic, timeout or nonzero
+status is terminal STOP-A failure. There is no identical retry. A diagnosed
+runner/test/output-neutral plumbing defect may consume an O-124 debug/fix slot;
+split/metric/data/scientific changes return to the owner. Results cannot be read
+as model capability, convergence, recipe or official-val selection evidence.
