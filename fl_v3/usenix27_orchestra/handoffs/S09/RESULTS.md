@@ -1,4 +1,4 @@
-# S09 results ledger — STOP-1 terminal / STOP-2 precompute
+# S09 results ledger — STOP-1 terminal / STOP-2 smoke terminal
 
 ## Terminal state
 
@@ -120,12 +120,12 @@ as later S09 inputs; no rebuild-by-name substitution is allowed.
 It does **not** prove sensor-payload decode parity, DataLoader throughput, model
 performance/readiness, convergence, mAP/NDS, scientific recipe quality, Protocol
 A/B, FL, attack, or defense behavior. It does not retroactively convert historical
-`t1.v1` caches into production inputs. STOP-2 implementation status is recorded
-below; its GH200 smoke remains unapproved and unsubmitted.
+`t1.v1` caches into production inputs. STOP-2 implementation and terminal smoke
+status are recorded below.
 
 ---
 
-## STOP-2 implementation and precompute evidence
+## STOP-2 implementation, request, and runtime evidence
 
 ```text
 REQUEST_ID: S09-STOP2-SMOKE
@@ -139,9 +139,10 @@ FULL_DIFF_SHA256: cb55d4a46c21f3d508e5d73240367d06080de7b456751d802367b19ed055e7
 IMPLEMENTATION_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P2
 REQUEST_REMEDIATION: cad72621e0e3ba409ae19bb0b62829118134b2d0
 REQUEST_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3
-GH200_JOB_ID: none
-GH200_TEST_RESULT: not executed
-REQUEST_STATE: frozen / awaiting one owner execution confirmation
+REQUEST_APPROVAL_COMMIT: 254872197c0a4b2b3d02ebd8b8e320a49b98a218
+GH200_JOB_ID: 441293
+GH200_TEST_RESULT: 44 passed / 0 failed / 0 errors / 0 skipped
+REQUEST_STATE: consumed / terminal technical PASS / independent evidence review pending
 ```
 
 ### Delivered semantics
@@ -172,8 +173,8 @@ changed.
 - the implementation diff passed AST/static inspection and `git diff --check`;
   and
 - the login node did not execute pytest because its x86 environment cannot import
-  the accepted aarch64 Torch stack. The bounded GH200 smoke is the missing runtime
-  check, not an inherited PASS.
+  the accepted aarch64 Torch stack; exact Job `441293` subsequently supplies that
+  runtime evidence.
 
 ### Independent implementation review
 
@@ -189,9 +190,9 @@ Re-review of the complete `25a59a6..37aef4d` diff returned
 `PASS_WITH_RESIDUAL_RISK` with no open P0-P2. One non-blocking P3 remains: if every
 attempted loss is nonfinite, enabled GradScaler never enters the finite-loss
 optimizer path and `scaler_scale_at_start` remains JSON `null`; terminal scale,
-window outcomes, counters, and failure behavior remain complete. Additional
-residuals are that actual Torch/CUDA execution is pending this smoke and the toy
-loader test cannot substitute for STOP-3's production persistent-worker gate.
+window outcomes, counters, and failure behavior remain complete. The remaining
+runtime-scope residual is that the toy loader test cannot substitute for STOP-3's
+production persistent-worker gate.
 
 ### Frozen smoke identity and interpretation
 
@@ -199,9 +200,56 @@ The clean detached snapshot, exact four selectors, two read-only scripts and
 fresh absent output are recorded in `RUN_REQUEST.md`. Script syntax, source/tree,
 clean/detached status, absent alternates and commit-graph, full object-database
 fsck, zero writable snapshot worktree files, and fresh output were rechecked
-before request freeze. No submit command was run.
+before request freeze. O-115 later authorized the exact tuple; one submit command
+created Job `441293` and no replacement was run.
 
-This precompute evidence establishes a reviewed implementation and reproducible
-runtime-test request only. It is not a Torch/CUDA test PASS and says nothing about
-production ZIP/cache throughput, model stability, memory headroom, convergence,
-mAP/NDS, recipe quality, Protocol A/B, FL, attack, or defense.
+### Terminal GH200 smoke evidence
+
+```text
+JOB_ID/STATE/EXIT/RESTARTS: 441293 / COMPLETED / 0:0 / 0
+NODE/START/END: n120 / 2026-07-15T08:30:23 / 2026-07-15T08:31:27
+ELAPSED/LIMIT/GPU_HOURS: 00:01:04 / 00:10:00 / 0.017778
+ACCOUNT/PARTITION/RESOURCES: naiss2025-22-1113-gpu / gpu / 1 GH200 / 4 CPU / 32 GiB
+SUBMISSIONS: 1 initial / 0 O-107 replacements
+PYTEST: 44 passed in 15.19s / zero failed, errors, or skipped
+CUDA_EVENT_TEST: present / PASS / 1.996s
+```
+
+The environment artifact records exact source `37aef4d...`, tree `d0626e...`,
+aarch64, Python `3.11.15`, Torch `2.11.0+cu128`, CUDA `12.8`, spconv `2.3.8`,
+cumm `0.7.13`, one available `NVIDIA GH200 120GB`, and `102005473280` bytes of
+device memory. Independent XML parsing found exactly the declared 44 test cases,
+including `test_cuda_event_timing_is_output_neutral_and_json_finite`, with no
+failure/error/skip node. `pytest.exit` is `0`, `acceptance.json` is exact
+`44/0/0/0`, and stdout ends with `S09_STOP2_SMOKE_COMPLETE`. Stderr contains only
+the normal retained-system-module notice.
+
+| Artifact | SHA-256 |
+|---|---|
+| `job.sh` | `54bc788c97ed0cd9d0a24e9198043d8e2be18d533011930fb06417f5b8f7bc7f` |
+| `submit.sh` | `d652e5bea9dca8ada684cc0286d6e4a8a108572e95488798fdc7fdcca7677a8e` |
+| `environment.json` | `2dc85a0f656942b31802ee2f5a6f315ff600ed09543c71a69e810b88506ce5ea` |
+| `selectors.txt` | `d864f70897c2f3922065533afeefb79db6b1d2dcf6a1288ecffac0e26dd9e8d1` |
+| `pytest.log` | `36e76073d99476fc362839ee27c6b671c60d9e065c34cc5d8a37f7c0e1685440` |
+| `pytest.junit.xml` | `7152f9d4efd8f5b084bc5711d826b8a85e0d41d223a05b89dd198afa875c3de8` |
+| `pytest.exit` | `9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa` |
+| `acceptance.json` | `085d44d69a597a8699af4863beed327a036081a0c9cedacf973a91cc8207b7b7` |
+| `artifact_sha256s.txt` | `643160908f29f76cccbdcde3e5999759934aa5417b3d71252810e917ae4667ff` |
+| Slurm stdout | `b74372d06a955f8723059df5ccd3178a7207ec9859aae5d9d5413a35ec656332` |
+| Slurm stderr | `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+The top-level acceptance package has seven regular files / 8,453 bytes. Preserved
+pytest scratch makes the complete output 18 regular files / 24,797 bytes, 30
+directories, and 14 `current` symlinks. All regular files and directories are
+non-writable; the symlink modes are POSIX-ignored and non-writable parents prevent
+replacement. Scratch contents are not part of acceptance and are not silently
+promoted into evidence. Both Slurm logs were permission-frozen after hashing.
+
+This terminal smoke establishes that the reviewed readiness/config/lifecycle
+regressions execute in the accepted aarch64 Torch/CUDA environment and that direct
+CUDA-event timing is output-neutral under the exact toy final-state/aggregate
+comparison tested. It does not establish production ZIP/cache throughput,
+persistent-worker behavior, model training stability, memory headroom,
+convergence, mAP/NDS, recipe quality, Protocol A/B, FL, attack, or defense. Those
+limits remain for STOP-3 or later milestones. Independent evidence review is still
+required before owner STOP-2 acceptance.

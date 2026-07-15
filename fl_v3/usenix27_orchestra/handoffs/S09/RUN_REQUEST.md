@@ -5,8 +5,10 @@
 > passed raw evidence but returned `REMEDIATE` for durable documentation
 > provenance; bounded re-review at `5252a59` closed every finding and returned
 > `PASS_WITH_RESIDUAL_RISK`. O-113 owner-accepts STOP-1. The exact STOP-2 smoke
-> request is frozen below. O-115 approves that exact tuple and explicitly enables
-> its recorded O-107 mechanical boundary; it has not yet been submitted.
+> request is frozen below. O-115 approved that exact tuple and explicitly enabled
+> its recorded O-107 mechanical boundary. Initial Job `441293` consumed the
+> submission, completed `0:0` in `00:01:04`, and required no replacement; evidence
+> review is pending.
 
 ## Authorization state
 
@@ -18,9 +20,9 @@ STOP1_REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
 STOP1_FIRST_EVIDENCE_SHA: b35591b1a9ac64ea50ee3ad3257304baef07f8de
 BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114 STOP-2 implementation + O-115 exact smoke
-APPROVED_COMPUTE: STOP-1 consumed / exact S09-STOP2-SMOKE approved under O-115
-APPROVED_SUBMISSIONS: STOP-1 1 consumed / STOP-2 initial 1 approved, 0 submitted; <=2 conditional O-107 replacements
-ACTIVE_REQUEST: S09-STOP2-SMOKE / frozen / approved / not submitted
+APPROVED_COMPUTE: STOP-1 consumed / STOP-2 initial Job 441293 consumed
+APPROVED_SUBMISSIONS: STOP-1 1 consumed / STOP-2 1 consumed; 0 replacements used
+ACTIVE_REQUEST: none / S09-STOP2-SMOKE terminal technical PASS / evidence review pending
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-2 implementation/remediation consumed through 37aef4d
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -194,13 +196,13 @@ authorize a retry, or approve STOP-2 implementation or compute.
 
 ```text
 REQUEST_ID: S09-STOP2-SMOKE
-REQUEST_STATE: APPROVED UNDER O-115 / NOT SUBMITTED
+REQUEST_STATE: CONSUMED / JOB 441293 TERMINAL TECHNICAL PASS / EVIDENCE REVIEW PENDING
 OWNER_CONFIRMATION: approved exact S09-STOP2-SMOKE tuple and enabled the recorded O-107 boundary
 OBJECTIVE: execute the focused Torch/CUDA regression gate for the reviewed output-neutral readiness implementation
 MODEL_OR_TRAINING: deterministic toy Linear/MSE loop only / no production detector or production training
 RESOURCE_CEILING_PER_SUBMISSION: 1 GH200 / 4 CPU / 32 GiB host / 00:10:00
 O107_CUMULATIVE_CEILING: enabled under O-115 / at most 3 submissions / at most 0.5 GPU-hours
-CURRENT_SUBMISSIONS: 0
+CURRENT_SUBMISSIONS: 1 initial / 0 replacements
 ```
 
 O-114 approved implementation, local/static validation, linear immutable commits,
@@ -348,6 +350,38 @@ Torch/CUDA environment. It cannot establish production data-loader behavior,
 throughput, memory headroom, model stability, convergence, mAP/NDS, recipe quality,
 Protocol A/B, FL, attack, or defense. Those remain outside STOP-2 or require the
 separately approved STOP-3 gate.
+
+### Terminal execution record
+
+```text
+REQUEST_APPROVAL_COMMIT: 254872197c0a4b2b3d02ebd8b8e320a49b98a218
+JOB_ID/STATE/EXIT/RESTARTS: 441293 / COMPLETED / 0:0 / 0
+NODE/START/END: n120 / 2026-07-15T08:30:23 / 2026-07-15T08:31:27
+ELAPSED/LIMIT/GPU_HOURS: 00:01:04 / 00:10:00 / 0.017778
+PYTEST: 44 passed / 0 failed / 0 errors / 0 skipped / 15.19s
+CUDA_OUTPUT_NEUTRAL_TEST: present / passed / 1.996s
+OUTPUT_TOP_LEVEL_EVIDENCE_FILES/BYTES: 7 / 8453
+OUTPUT_ALL_REGULAR_FILES/BYTES: 18 / 24797
+OUTPUT_REGULAR_OR_DIRECTORY_WRITABLE: 0
+O107_REPLACEMENTS: 0 / not warranted
+```
+
+The job reproduced the exact source/tree and reported aarch64, Python `3.11.15`,
+Torch `2.11.0+cu128`, CUDA `12.8`, spconv `2.3.8`, cumm `0.7.13`, one available
+`NVIDIA GH200 120GB`, and device memory `102005473280` bytes. Independent S00
+parsing confirmed exactly 44 JUnit cases, including the CUDA event test, with no
+failure/error/skip. `sha256sum -c artifact_sha256s.txt` passed after completion.
+
+The output also retains pytest's read-only `pytest-tmp` scratch tree: 11 regular
+scratch files, 29 scratch directories including its root, and 14 POSIX `current`
+symlinks. Those scratch entries are not acceptance evidence and are not included
+in the top-level checksum manifest. Every regular file and directory is
+non-writable; symlink permission bits are not meaningful and their non-writable
+parent directories prevent replacement. Raw output was preserved rather than
+post-processed or used to justify a retry.
+
+No O-107 replacement is warranted. The initial PASS terminates this request;
+unused submission/time ceiling is not STOP-3 or other compute authority.
 
 ## STOP-3 — loader selection and G100
 

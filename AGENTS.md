@@ -217,9 +217,10 @@ re-review of remediation SHA `5252a591983abb0013f19547e1d6ad20d3d6661f`
 closed every P2/P3 finding and returned `PASS_WITH_RESIDUAL_RISK`. The exact
 caches are owner-accepted under O-113 for exact downstream production binding.
 O-114 approves the exact STOP-2 implementation envelope, local validation, linear
-immutable implementation/evidence commits, and independent review. GH200 execution
-still requires one exact immutable-SHA confirmation; no cache retry or later S09 job
-is currently authorized.
+immutable implementation/evidence commits, and independent review. O-115 approved
+the exact reviewed STOP-2 smoke; Job `441293` completed `0:0` in `00:01:04` with
+44/44 tests passing, zero restarts, and no O-107 replacement. Independent evidence
+review remains pending; no cache retry or later S09 job is currently authorized.
 Do not extract or
 duplicate the full dataset into project storage without explicit owner permission.
 The old

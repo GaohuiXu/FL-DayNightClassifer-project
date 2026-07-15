@@ -17,8 +17,9 @@
 > review. Candidate `37aef4d` has independent `PASS_WITH_RESIDUAL_RISK` with no
 > open P0-P2; exact smoke identities and request remediation `cad7262` have
 > independent closure review with no open P0-P3. O-115 approves the exact smoke
-> and recorded O-107 boundary; no submission has yet occurred. Push and merge
-> remain unauthorized.
+> and recorded O-107 boundary. Job `441293` completed `0:0` in `00:01:04` with
+> 44/44 tests passing and no replacement; evidence review is pending. Push and
+> merge remain unauthorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
