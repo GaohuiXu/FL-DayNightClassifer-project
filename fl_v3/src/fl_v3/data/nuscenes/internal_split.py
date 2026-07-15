@@ -312,7 +312,7 @@ class _MilpProblem:
     def solve(self, objective: Mapping[int, float]):
         import numpy as np
         from scipy.optimize import Bounds, LinearConstraint, milp
-        from scipy.sparse import coo_array
+        from scipy.sparse import csc_matrix
 
         rows, cols, values = [], [], []
         for row, (coefs, _lo, _hi, _name) in enumerate(self.constraints):
@@ -320,10 +320,21 @@ class _MilpProblem:
                 rows.append(row)
                 cols.append(col)
                 values.append(value)
-        matrix = coo_array(
-            (np.asarray(values, dtype=float), (rows, cols)),
+        # scipy.optimize.milp's bundled HiGHS Cython wrapper requires 32-bit
+        # sparse index buffers on aarch64.  ``coo_array`` inherits platform
+        # ``long`` here and fails before solving, so bind both index arrays
+        # explicitly without changing any coefficient or constraint.
+        matrix = csc_matrix(
+            (
+                np.asarray(values, dtype=np.float64),
+                (np.asarray(rows, dtype=np.int32), np.asarray(cols, dtype=np.int32)),
+            ),
             shape=(len(self.constraints), len(self.names)),
-        ).tocsc()
+        )
+        if matrix.indices.dtype != np.int32 or matrix.indptr.dtype != np.int32:
+            raise SplitContractError(
+                "MILP sparse matrix indices must remain int32 for the validated HiGHS wrapper"
+            )
         c = np.zeros(len(self.names), dtype=float)
         for index, value in objective.items():
             c[index] = float(value)

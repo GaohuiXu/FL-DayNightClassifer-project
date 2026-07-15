@@ -357,3 +357,9 @@ Local validation is limited to `bash -n`, Python bytecode compilation and
 dependencies. The exact aarch64/GH200 dependency-backed A-GATE tuple is frozen in
 `RUN_REQUEST.md` under O-124. This implementation commit is not a STOP-A PASS;
 raw gate evidence and independent high-risk review remain required.
+
+The first exact A-GATE allocation, Job `463593`, stopped in focused tests before
+real data/gate execution because SciPy's aarch64 HiGHS wrapper rejected platform-
+`long` sparse indices. `RUN_REQUEST.md` records the immutable negative result and
+narrow O-124 remediation classification. It is not a split-feasibility result;
+STOP-A remains open and STOP-B/C remain unstarted.

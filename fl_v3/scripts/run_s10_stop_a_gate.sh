@@ -113,7 +113,7 @@ print(json.dumps({
 PY
 
 set +e
-python -m pytest -q \
+python -m pytest -q -p no:cacheprovider \
   "${S10_STOPA_SNAPSHOT}/fl_v3/tests/test_s10_internal_split.py" \
   "${S10_STOPA_SNAPSHOT}/fl_v3/tests/test_s10_subset_eval.py" \
   "${S10_STOPA_SNAPSHOT}/fl_v3/tests/test_build_gt_database.py" \

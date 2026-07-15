@@ -164,7 +164,7 @@ request.
 ## 6. STOP-A / A-GATE exact immutable tuple — approved under O-124
 
 ```text
-TUPLE_STATE: FROZEN / executable once
+TUPLE_STATE: CONSUMED / Job 463593 FAILED before real split execution
 DERIVATION: mechanical A-GATE allocation from O-124 v1 aggregate envelope
 SOURCE_SHA: e27053a5b141e1afaa68363ce6deb2efdb60518e
 SOURCE_TREE: dea3c8845657aadfd1edb300a10b8952db529761
@@ -230,3 +230,42 @@ status is terminal STOP-A failure. There is no identical retry. A diagnosed
 runner/test/output-neutral plumbing defect may consume an O-124 debug/fix slot;
 split/metric/data/scientific changes return to the owner. Results cannot be read
 as model capability, convergence, recipe or official-val selection evidence.
+
+## 7. A-GATE Job 463593 negative result and bounded remediation classification
+
+Job `463593` consumed the §6 tuple once and terminated `FAILED 1:0` after
+`00:00:49` on `n184`, with zero restarts. It passed immutable source/runtime/data-
+module preflight, then the focused test suite returned 1 before the gate script
+started: 11 passed, 8 dependency/data skips, and one failure. No accepted train/
+val cache was unpickled, no real MILP was solved, no split/ownership artifact or
+full-val fixture was created, and no model/payload/training path ran.
+
+The failure is exact and mechanical: SciPy 1.13.1/aarch64 constructed CSC index
+buffers as platform `long`, while its bundled HiGHS wrapper requires C `int` and
+raised `ValueError: Buffer dtype mismatch, expected 'int' but got 'long'` before
+optimization. The mathematical matrix coefficients, bounds, integrality,
+lexicographic objectives and checker were not reached. This is classified as an
+O-124 solver-call/test-plumbing defect, not an infeasible split or scientific
+result. The only allowed remediation is to materialize CSC row/column/index-
+pointer buffers as `int32`, assert that dtype at the boundary, and disable
+pytest's cache provider on the deliberately read-only snapshot. No constraint,
+feature, threshold, role, data identity, evaluator semantic or resource changes.
+
+```text
+JOB: 463593
+STATE/EXIT/ELAPSED/RESTARTS: FAILED / 1:0 / 00:00:49 / 0
+CONSUMED_GPU_HOURS: 0.013611
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_e27053a5b141_a1
+EXECUTION_IDENTITY_SHA256: 7e7546391f10d41016cafe6d5cb437e3ccf847dc72faeab9d830f86a5254a37a
+FOCUSED_TEST_STDOUT_SHA256: 3fdff6ebbaa00cf4bbea4531b5dd478fe30553418b2b63bf3c2b3764dd12e916
+FOCUSED_TEST_STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+RUNNER_ARTIFACT_MANIFEST_SHA256: 2bd4982f0f7f78a0ad854f00f4e1ee82c703b118d615e44d5fcb26958666ab7a
+SCIENTIFIC_ALLOCATIONS_CONSUMED: 1 / 7
+DEBUG_FIX_ALLOCATIONS_CONSUMED: 0 / 2
+SUBMISSIONS_CONSUMED: 1 / 9
+```
+
+O-124 permits one fresh derived debug/fix allocation after the remediation is
+committed, snapshotted and frozen below. It is not an identical retry; Job
+`463593` remains the required negative result. The replacement consumes debug/fix
+slot 1/2 and submission 2/9, while the scientific-allocation count remains 1/7.
