@@ -4,7 +4,7 @@
 
 ```text
 SESSION_ID: S09
-MILESTONE_STATE: STOP-1/2 CLOSED / STOP-3 O-118 PHASE A REVIEWED PASS / PHASE B JOB 446225 RUNNING / NO RETRY
+MILESTONE_STATE: STOP-1/2 CLOSED / STOP-3 O-118 PHASE A REVIEWED PASS / PHASE B JOB 446225 TECHNICAL PASS / TERMINAL REVIEW PENDING
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
@@ -32,7 +32,7 @@ STOP3_FAILED_SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrh
 STOP3_FAILED_REQUEST_COMMIT: 30e6c9f7849dd1bfe7630f698913c2231131b62c
 STOP3_JOB: 441511 FAILED 1:0 in 00:02:29 / editable spconv missing cublasLt.h under wrong run-module bootstrap
 STOP3_FAILED_RUNTIME_STATE: tracked source restored / cumm native executable-build identity drifted / re-attestation required
-STOP3_UNEXECUTED_RUNNER_REMEDIATION_SHA256: 855bbd15877a4ceaa6919ccdf9d2ca369e1f3c84ee306415a41376c07d5d8b5d
+STOP3_CORRECTED_RUNNER_SHA256: 855bbd15877a4ceaa6919ccdf9d2ca369e1f3c84ee306415a41376c07d5d8b5d
 STOP3_FAILURE_EVIDENCE_SHA: 4fc78d508d4ac9ad7c46b9d3ad81c87646f8f0d3
 STOP3_FAILURE_EVIDENCE_TREE: 56c08110cc4308e424101ae39e7edb79c2769cef
 STOP3_FAILURE_REVIEW: PASS_WITH_RESIDUAL_RISK as terminal negative evidence / STOP-3 REMEDIATE pending new owner authority
@@ -41,7 +41,7 @@ STOP3_DEP_ATTEST_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / NOT compute a
 STOP3_DEP_ATTEST_SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop3_dep_attest_788b493889bc
 STOP3_DEP_ATTEST_SUBMIT_SHA256: 93848490f485ab38a74ce9818a1ce9d8c35a5eaa17e389fc6b437e9238aa9706
 STOP3_O118_DECISION: APPROVED / exact dependency attestation + conditionally derived unchanged O-117 G100 / no retry
-APPROVED_COMPUTE: O-118 Phase A exact dependency attestation + conditional Phase B G100 after PASS/review
+APPROVED_COMPUTE: none active / O-118 Phase A and Phase B consumed / no retry
 STOP3_DEP_ATTEST_JOB: 442152 COMPLETED 0:0 in 00:11:52 / 0.197778 GPU-hours / technical PASS
 STOP3_DEP_ATTEST_BUILDS: spconv af42200511a53ce86d77cea0306924a2dc516a74f0483ef7cfe0a6e1dc84b100 / cumm 0a7e3c1a8c3e8d41b3b40c4fb77d05bdec8ca2dfce5dbb8863626c4b45d8296d
 STOP3_DEP_ATTEST_ACCEPTANCE_SHA256: 4b60f319660124d3bfac23a21bfbfa1b7c66ca920a0e4a4df03b1a512833e9b4
@@ -51,8 +51,10 @@ STOP3_PHASEB_SOURCE: c200bac861a42fc4338973787d3700e28ddd6c7e / tree c0cc4cb8c2e
 STOP3_PHASEB_CONFIG_SHA256: raw 6733a47203bdf7a4da6e39867e6319a7beb9322257e9149f31b7dff6edacf3ce / resolved ba06b72e4c5f1e54f20472e3286a516e7d4328cfb0fccd8bfc7b13095f597ab6
 STOP3_PHASEB_SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop3_g100_c200bac861a4
 STOP3_PHASEB_SUBMIT_SHA256: 4801ddfee4cd3c04fbc7215c26ffc25efdafc1e6267599bee39bb87491de309e
-STOP3_PHASEB_STATE: Job 446225 running / sole conditional submission consumed / no retry
-JOBS: 441191 COMPLETED 0:0 in 00:03:06; 441293 COMPLETED 0:0 in 00:01:04; 441511 FAILED 1:0 in 00:02:29; 442152 COMPLETED 0:0 in 00:11:52; 446225 RUNNING / no retries
+STOP3_PHASEB_STATE: Job 446225 COMPLETED 0:0 in 00:05:05 / technical PASS / terminal evidence review pending / no retry
+STOP3_PHASEB_READINESS_SHA256: 08e376e767f654bb38982127ad5ffd84d94ebaa48b3026ceba2ab7ef93a6c9b6
+STOP3_PHASEB_ARTIFACT_MANIFEST_SHA256: b229633889052c46bec5c05d6713e0102aea806a98f9170a65119f9864dbea4b
+JOBS: 441191 COMPLETED 0:0 in 00:03:06; 441293 COMPLETED 0:0 in 00:01:04; 441511 FAILED 1:0 in 00:02:29; 442152 COMPLETED 0:0 in 00:11:52; 446225 COMPLETED 0:0 in 00:05:05 / no retries
 INDEPENDENT_REVIEW: STOP-1 5252a59 PASS_WITH_RESIDUAL_RISK; STOP-2 impl 37aef4d PASS_WITH_RESIDUAL_RISK; request cad7262 PASS_WITH_RESIDUAL_RISK; evidence 79f87dc PASS_WITH_RESIDUAL_RISK
 OWNER_STOP1_DECISION: O-113 / ACCEPTED
 ```
@@ -94,7 +96,12 @@ source `c200bac`, self-contained snapshot, raw/resolved config identities and
 read-only submit wrapper are frozen. Independent derivation review returned
 `PASS_WITH_RESIDUAL_RISK`, no open P0-P3, and `SUBMIT GO` for that wrapper only.
 Job `446225` consumed that exact command at `2026-07-15T11:09:11+02:00`, started
-on `n450` one second later, and is running. No retry is authorized.
+on `n450` one second later, and completed `0:0` in `00:05:05`. It reached 100
+successful updates in 103 attempts after three initial scaler overflows, then
+accepted all 90 post-warm-up measured windows; all loader, counter, latency,
+data-wait, memory and epoch-estimate thresholds pass. This is technical evidence
+pending immutable sealing and independent terminal review. No retry is
+authorized, and STOP-4 remains blocked.
 
 ## S08 residual carried into S09
 

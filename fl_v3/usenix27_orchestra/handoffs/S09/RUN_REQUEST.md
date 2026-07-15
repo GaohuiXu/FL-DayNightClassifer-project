@@ -21,7 +21,10 @@
 > tuple is frozen below and independent derivation confirmation returned
 > `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. The one exact submission was
 > consumed by Job `446225` at `2026-07-15T11:09:11+02:00`; it started on `n450`
-> one second later and is running. No retry or additional submission exists.
+> one second later and completed `0:0` in `00:05:05`. The production lifecycle
+> reports technical PASS for every frozen gate; immutable evidence sealing and
+> independent terminal review are pending. No retry or additional submission
+> exists, and O-118 compute authority is exhausted.
 
 ## Authorization state
 
@@ -33,9 +36,9 @@ STOP1_REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
 STOP1_FIRST_EVIDENCE_SHA: b35591b1a9ac64ea50ee3ad3257304baef07f8de
 BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3
-APPROVED_COMPUTE: O-118 Phase A exact dependency attestation + conditional strictly derived Phase B G100
+APPROVED_COMPUTE: none active / O-118 Phase A and Phase B consumed
 APPROVED_SUBMISSIONS: prior STOP-1/2/3 each consumed + O-118 Phase A 1 + conditional Phase B 1 / no retry
-ACTIVE_REQUEST: O-118 Phase B Job 446225 running / sole conditional submission consumed / no retry
+ACTIVE_REQUEST: O-118 Phase B Job 446225 terminal technical PASS / immutable evidence and independent review pending / no retry
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-3 exact config/runner/request/evidence and review remediation authorized
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -533,7 +536,7 @@ blocked until that gate is independently accepted.
 
 ```text
 REQUEST_ID: S09-STOP3-O118-RECOVERY
-REQUEST_STATE: APPROVED UNDER O-118 / PHASE A REVIEWED PASS / PHASE B JOB 446225 RUNNING / SOLE SUBMISSION CONSUMED
+REQUEST_STATE: O-118 CONSUMED / PHASE A REVIEWED PASS / PHASE B JOB 446225 TECHNICAL PASS / EVIDENCE REVIEW PENDING
 OWNER_CONFIRMATION: "批准 O-118 条件式续行 envelope" / continuous execution within the frozen boundary
 PURPOSE: re-attest the drifted editable sparse runtime, then conditionally execute the unchanged O-117 loader/G100 gate
 ADDITIONAL_SUBMISSIONS: at most 2 / one dependency attestation + one conditional G100 replacement
@@ -690,7 +693,7 @@ The only permitted derivation is:
 #### Frozen Phase-B derived tuple
 
 ```text
-PHASE_STATE: JOB 446225 RUNNING / SOLE SUBMISSION CONSUMED / NO RETRY
+PHASE_STATE: JOB 446225 COMPLETED 0:0 / TECHNICAL PASS / EVIDENCE REVIEW PENDING / NO RETRY
 PHASE_A_EVIDENCE_SHA/TREE: 82a0e5315c9098056b6670afb490850cc71dc653 / 7428f5978c8d423a7c1855d9e3f858eac718aeae
 PHASE_A_REVIEW_SEAL: 386fdbd34c9fe5d420e3ac6c8e439bfe65f6f74d / PASS_WITH_RESIDUAL_RISK / Phase-B GO
 DERIVATION_SOURCE_SHA: c200bac861a42fc4338973787d3700e28ddd6c7e
@@ -743,7 +746,46 @@ Job `446225` consumed the command exactly once. Scheduler submission/start were
 `2026-07-15T11:09:11/11:09:12+02:00`; the initial `scontrol` record matched
 account, partition, job name, source-controlled runner, snapshot working
 directory, output/error paths, one GH200, 16 CPUs, 96 GiB, `01:00:00`,
-`Requeue=0`, and zero restarts. Terminal state and all gates remain pending.
+`Requeue=0`, and zero restarts.
+
+#### Phase-B terminal execution record
+
+```text
+JOB_ID/STATE/EXIT/RESTARTS: 446225 / COMPLETED / 0:0 / 0
+SUBMIT/START/END: 2026-07-15T11:09:11 / 2026-07-15T11:09:12 / 2026-07-15T11:14:17
+NODE/ELAPSED/LIMIT/GPU_HOURS: n450 / 00:05:05 / 01:00:00 / 0.084722
+ACCOUNT/PARTITION/RESOURCES: naiss2025-22-1113-gpu / gpu / 1 GH200 / 16 CPU / 96 GiB
+BATCH_MAX_RSS/MAX_VM/TOTAL_CPU: 5497920K / 26820864K / 04:53.849
+READINESS_STATUS: PASS / 100 successful updates within 103 attempts
+SCALER_START/END/SKIPS: 512 / 64 / 3 initial overflow windows
+NONFINITE/DISCARDED/POST_WARM_INVALID: 0 / 0 / 0
+POST_WARM_ACCEPTED_RATIO: 90/90 = 1.0
+LOADER_CONTENT_SHA256: 6c6d8f0674c66f756ae3003bc765596994ec1be0816a6db94f3b214ec7925feb / all cells equal
+WORKER8_WARM_SAMPLES_PER_SECOND: 141.969756 / 100% of best warm cell
+STEADY_WALL_SECONDS_PER_UPDATE: 0.210818
+CUDA_WINDOW_P50/P95_MS: 208.575935 / 224.153076
+CUDA_WINDOW_P95_OVER_P50: 1.074683
+DATA_WAIT_SHARE: 0.000763 = 0.0763%
+PEAK_ALLOCATED/RESERVED/HEADROOM_GIB: 3.256302 / 6.433594 / 88.566406
+ATTEMPTED/ACCEPTED_EPOCH_ESTIMATE_HOURS: 1.647307 / 1.647307
+READINESS_SHA256: 08e376e767f654bb38982127ad5ffd84d94ebaa48b3026ceba2ab7ef93a6c9b6
+ARTIFACT_MANIFEST_SHA256: b229633889052c46bec5c05d6713e0102aea806a98f9170a65119f9864dbea4b
+OUTPUT_FILES/BYTES/DIRECTORIES/WRITABLE: 12 / 3178950 / 2 / 0
+```
+
+All eleven files named by the artifact manifest pass `sha256sum -c`; the output
+and both Slurm logs are read-only. Runtime/config/stdout JSON identities agree
+structurally, and current external spconv/cumm artifact manifests independently
+recompute the accepted `af422005...` and `0a7e3c1a...` builds after the job. The
+three scaler overflows occurred before the ten-successful-window timing warm-up;
+the following 100 optimizer updates were consecutive accepts at scale 64. They
+are visible invalid/overflow windows, not hidden updates; the separately frozen
+zero-nonfinite and zero-discarded gates both pass.
+
+Every O-117 threshold passes as written. Detailed loader, timing, memory,
+telemetry, counter, artifact and interpretation evidence is in `RESULTS.md`.
+O-118 used `0.282500` GPU-hours across Phase A and B; all S09 jobs through this
+point used `0.393333` GPU-hours. Unused quota is not retry or STOP-4 authority.
 
 The resulting one-shot G100 keeps every O-117 material field and gate unchanged:
 F-U, engineering seed `0`, global FP16 autocast plus SECOND FP32 island, random
