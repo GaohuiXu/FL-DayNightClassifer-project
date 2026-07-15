@@ -49,7 +49,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3 + O-119 STOP-4
 APPROVED_COMPUTE: O-119 STOP-4A <=00:30:00 + STOP-4C <=00:30:00 + conditional STOP-4D <=01:00:00 / serial <=2 GPU-hours / no retry
 APPROVED_SUBMISSIONS: prior STOP-1/2/3 and STOP-4A consumed; prospective STOP-4C plus conditional STOP-4D after each exact freeze/review
-ACTIVE_REQUEST: STOP-4C old tuple 131619f invalid/never submitted / runner performance-gate remediation pending immutable review and new freeze
+ACTIVE_REQUEST: STOP-4C old tuple 131619f invalid/never submitted / runner remediation 72a09d5 reviewed no open P0-P3 / new exact freeze pending
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-4 implementation/request/evidence/review remediation within O-119
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none

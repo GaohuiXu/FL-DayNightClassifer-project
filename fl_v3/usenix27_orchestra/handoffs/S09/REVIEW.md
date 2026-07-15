@@ -1606,3 +1606,41 @@ one non-requeue GH200/16-CPU/96-GiB/30-minute resource; and O-119 worst-case
 **The old `131619f` tuple and wrapper are forbidden and must not be executed.**
 This review authorizes only bounded source/request remediation and a new
 independent review; it does not authorize STOP-4C submission.
+
+### STOP-4C runner-gate remediation closure review
+
+```text
+REMEDIATION_SHA: 72a09d5a503a258f3f257b208180585d16ee49d0
+REMEDIATION_TREE: 887d275b71a7f6ccd34cf67188e9fac0843393c1
+REMEDIATION_PARENT: 131619f0940bd3c453969f4d211bdaa775bacbb8
+REVIEWER_TASK: /root/s09_stop4a_impl_reviewer
+REVIEWER_COMPUTE: none
+VERDICT: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / runner-gate remediation closure GO
+```
+
+Findings: **P0 none; P1 none; P2 none; P3 none.** The diff is restricted to a
+shared readiness performance validator, the existing STOP-4C runner terminal
+validation, focused positive/eight-boundary negative tests, and durable NO-GO
+records for the old request. No model, loss, gradient, precision, recipe, data,
+config, worker, profiler or harness semantic change exists.
+
+The reviewer independently verified that accepted combined latency uses
+`data_wait_ms + CUDA window` over measured accepted windows; data-wait share uses
+all measured attempts; and epoch rates separately use measured attempted samples
+and exposure samples per wall second. Post-warm overflows therefore leave accepted
+latency clean while reducing accepted ratio/exposure rate and remaining visible in
+data-wait accounting. All inclusive O-117 thresholds and the exact 1.10x limits
+are correctly implemented.
+
+Replay of accepted Job `446225` reproduced combined p50/p95
+`208.7457388394978 / 224.32667756068986 ms`, ratio `1.0746407510295195`, wait
+share `0.0007635509950495559`, both epoch estimates
+`1.6473069676229828 h`, peak reserved `6,908,018,688` bytes and no errors.
+Doubling measured CUDA windows produced the expected regression error. Eight gate
+classes plus malformed/empty/zero inputs fail closed. Validation exit `4`
+propagates to `final.exit` and the process while artifacts are sealed.
+
+Residual risk is the unexecuted replacement GH200 path. This verdict closes the
+implementation P2 only. The old `131619f` tuple remains forbidden; a fresh source/
+snapshot/config/runner/wrapper/output tuple and independent request review remain
+mandatory before submission.
