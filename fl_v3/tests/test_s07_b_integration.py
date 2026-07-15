@@ -392,7 +392,7 @@ def test_candidate_templates_name_exact_choices_and_fail_closed(name, mode, lida
     assert raw["model"]["head_arch"] == "centerhead_multitask"
     assert raw["precision"] == "fp16"
     assert raw["sparse_conv_precision"] == (
-        "fp16" if lidar == "second_075" else "not_applicable"
+        "fp32" if lidar == "second_075" else "not_applicable"
     )
     assert raw["training"]["sampling"] == sampling
     assert raw["model"]["camera_pretrained"] is None

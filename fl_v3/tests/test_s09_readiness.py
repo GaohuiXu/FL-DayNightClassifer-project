@@ -166,9 +166,12 @@ class OverflowOnceScaler:
     def __init__(self):
         self.scale_value = 8.0
         self.overflow = True
+        self.get_scale_calls = 0
 
     def is_enabled(self): return True
-    def get_scale(self): return self.scale_value
+    def get_scale(self):
+        self.get_scale_calls += 1
+        return self.scale_value
     def scale(self, loss): return loss * self.scale_value
 
     def unscale_(self, optimizer):
@@ -191,13 +194,14 @@ def test_attempted_window_cap_records_overflow_without_relabeling_success():
     model = torch.nn.Linear(1, 1)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
     state = TrainingState()
+    scaler = OverflowOnceScaler()
     metrics = train_one_epoch(
         model,
         _loader(5),
         torch.nn.MSELoss(),
         optimizer,
         torch.device("cpu"),
-        grad_scaler=OverflowOnceScaler(),
+        grad_scaler=scaler,
         precision="fp16",
         accumulation_steps=1,
         runtime_state=state,
@@ -218,6 +222,9 @@ def test_attempted_window_cap_records_overflow_without_relabeling_success():
     assert report["component_counters"]["scaler_scale_at_start"] == 8.0
     assert report["component_counters"]["scaler_scale_at_end"] == 4.0
     assert report["component_counters"]["scaler_skips"] == 1
+    # Two reads per enabled-scaler optimizer attempt plus the loop's pre-existing
+    # terminal metrics read; readiness timing must not add its own scale syncs.
+    assert scaler.get_scale_calls == 2 * state.attempted_windows + 1
 
 
 def test_readiness_timing_fails_closed_on_incompatible_state_or_options():
@@ -421,15 +428,9 @@ class _ReadinessTaskFixture:
         return torch.nn.MSELoss()
 
 
-def test_readiness_lifecycle_writes_terminal_artifact_without_checkpoint_or_eval(
-    tmp_path, monkeypatch,
-):
-    entry = _centralized_train_module()
-    config = _ReadinessConfigFixture()
-    task = _ReadinessTaskFixture()
+def _patch_readiness_main(entry, config, task, monkeypatch):
     import fl_v3.training.tasks as tasks_module
 
-    out_dir = tmp_path / "fresh-readiness-output"
     monkeypatch.setattr(entry, "load_resolved_config", lambda _path: config)
     monkeypatch.setattr(
         entry,
@@ -450,6 +451,16 @@ def test_readiness_lifecycle_writes_terminal_artifact_without_checkpoint_or_eval
         "run_strict_official_evaluation",
         lambda **_kwargs: pytest.fail("readiness ran official evaluation"),
     )
+
+
+def test_readiness_lifecycle_writes_terminal_artifact_without_checkpoint_or_eval(
+    tmp_path, monkeypatch,
+):
+    entry = _centralized_train_module()
+    config = _ReadinessConfigFixture()
+    task = _ReadinessTaskFixture()
+    _patch_readiness_main(entry, config, task, monkeypatch)
+    out_dir = tmp_path / "fresh-readiness-output"
     monkeypatch.setattr(
         sys,
         "argv",
@@ -472,4 +483,68 @@ def test_readiness_lifecycle_writes_terminal_artifact_without_checkpoint_or_eval
     assert report["checkpoint_written"] is False
     assert report["official_evaluation_executed"] is False
     assert report["training_metrics"]["readiness_timing"]["measured_accepted_windows"] == 2
+    json.dumps(report, allow_nan=False)
+
+
+def test_readiness_lifecycle_rejects_resume_and_existing_output(tmp_path, monkeypatch):
+    entry = _centralized_train_module()
+    config = _ReadinessConfigFixture()
+    _patch_readiness_main(entry, config, _ReadinessTaskFixture(), monkeypatch)
+    out_dir = tmp_path / "readiness-output"
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "centralized_train.py", "--config", "fixture.json",
+            "--out-dir", str(out_dir), "--resume",
+        ],
+    )
+    with pytest.raises(RuntimeError, match="non-resumable"):
+        entry.main()
+    assert not out_dir.exists()
+
+    out_dir.mkdir()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["centralized_train.py", "--config", "fixture.json", "--out-dir", str(out_dir)],
+    )
+    with pytest.raises(RuntimeError, match="fresh absent output directory"):
+        entry.main()
+    assert not (out_dir / "readiness.json").exists()
+
+
+def test_readiness_unmet_target_writes_fail_artifact_before_nonzero_exit(
+    tmp_path, monkeypatch,
+):
+    entry = _centralized_train_module()
+    config = _ReadinessConfigFixture()
+    config.data["training"]["max_optimizer_steps"] = 5
+    config.data["execution"]["max_attempted_windows"] = 6
+    # Rebind the fake config's canonical identity after its legitimate bounded
+    # lifecycle fields change.
+    config.canonical_bytes = json.dumps(
+        config.data, sort_keys=True, separators=(",", ":"),
+    ).encode("utf-8")
+    config.sha256 = hashlib.sha256(config.canonical_bytes).hexdigest()
+    _patch_readiness_main(entry, config, _ReadinessTaskFixture(), monkeypatch)
+    out_dir = tmp_path / "unmet-readiness-output"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["centralized_train.py", "--config", "fixture.json", "--out-dir", str(out_dir)],
+    )
+
+    with pytest.raises(RuntimeError, match="target not reached"):
+        entry.main()
+
+    report = json.loads((out_dir / "readiness.json").read_text(encoding="utf-8"))
+    assert report["status"] == "FAIL"
+    assert report["terminal_training_state"]["optimizer_step"] == 4
+    assert report["terminal_training_state"]["attempted_windows"] == 4
+    assert report["target_successful_windows"] == 5
+    assert report["checkpoint_written"] is False
+    assert report["official_evaluation_executed"] is False
+    assert not (out_dir / "checkpoint.pt").exists()
     json.dumps(report, allow_nan=False)
