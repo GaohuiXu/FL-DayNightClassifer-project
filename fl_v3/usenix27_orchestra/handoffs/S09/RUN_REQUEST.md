@@ -16,8 +16,10 @@
 > dependency-attestation submission and, only after its PASS plus independent
 > review, one strictly derived replacement G100. Neither phase permits retry.
 > Phase A was consumed exactly once by Job `442152` and is terminal technical
-> PASS; its independent evidence review is pending, so conditional Phase B has
-> not been derived or submitted.
+> PASS. Independent review accepted evidence `82a0e53` with no open P0-P2 or
+> material semantic concern. The strictly derived Phase-B source/snapshot/request
+> tuple is now frozen below; independent derivation confirmation is pending and
+> no Phase-B job has been submitted.
 
 ## Authorization state
 
@@ -31,7 +33,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3
 APPROVED_COMPUTE: O-118 Phase A exact dependency attestation + conditional strictly derived Phase B G100
 APPROVED_SUBMISSIONS: prior STOP-1/2/3 each consumed + O-118 Phase A 1 + conditional Phase B 1 / no retry
-ACTIVE_REQUEST: O-118 Phase A consumed / Job 442152 technical PASS / independent evidence review pending / Phase B blocked
+ACTIVE_REQUEST: O-118 Phase B exact derived tuple frozen / independent derivation confirmation pending / not submitted
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-3 exact config/runner/request/evidence and review remediation authorized
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -529,7 +531,7 @@ blocked until that gate is independently accepted.
 
 ```text
 REQUEST_ID: S09-STOP3-O118-RECOVERY
-REQUEST_STATE: APPROVED UNDER O-118 / PHASE A CONSUMED TECHNICAL PASS / INDEPENDENT REVIEW PENDING / PHASE B BLOCKED
+REQUEST_STATE: APPROVED UNDER O-118 / PHASE A REVIEWED PASS / PHASE B DERIVED AND FROZEN / INDEPENDENT CONFIRMATION PENDING
 OWNER_CONFIRMATION: "批准 O-118 条件式续行 envelope" / continuous execution within the frozen boundary
 PURPOSE: re-attest the drifted editable sparse runtime, then conditionally execute the unchanged O-117 loader/G100 gate
 ADDITIONAL_SUBMISSIONS: at most 2 / one dependency attestation + one conditional G100 replacement
@@ -541,13 +543,14 @@ STOP4: forbidden
 
 This is one approved serial envelope, not permission inferred from unused O-117
 time. Phase B exists only if Phase A and its independent review pass every gate
-below. O-118 approves both phases through the exact derivation rule, but Phase B
-remains blocked until the independent Phase-A evidence review passes.
+below. O-118 approves both phases through the exact derivation rule. Phase-A
+review passed; Phase-B submission now remains blocked only until independent
+confirmation of the frozen derivation below.
 
 ### Phase A — exact dependency rebuild/warm and attestation
 
 ```text
-PHASE_STATE: CONSUMED BY JOB 442152 / TERMINAL TECHNICAL PASS / INDEPENDENT EVIDENCE REVIEW PENDING
+PHASE_STATE: CONSUMED BY JOB 442152 / REVIEWED PASS_WITH_RESIDUAL_RISK / NO OPEN P0-P2 OR MATERIAL SEMANTIC CONCERN
 MODEL/DATA/TRAINING: none / no nuScenes module or read / no model construction / zero training attempts
 SOURCE_SHA: 788b493889bcf7be98f36b9cbb6686d51e8e5edf
 SOURCE_TREE: 0bc61b3c2693f818ad0feb4e749af64a3947913e
@@ -653,10 +656,10 @@ editable runtime can still drift after the job; Phase B must recheck every
 source/build identity before data or model work.
 
 O-118 Phase-A authority is consumed even though the job used less than its
-ceiling. No retry occurred or is authorized. Conditional Phase B remains blocked
-until an independent reviewer checks this exact scheduler record, the raw
-artifacts, current external source/build state, and the immutable evidence commit
-with no open P0-P2 or material semantic concern.
+ceiling. No retry occurred or is authorized. Independent review of immutable
+evidence `82a0e5315c9098056b6670afb490850cc71dc653` returned
+`PASS_WITH_RESIDUAL_RISK`, no open P0-P2, and no material semantic concern. It
+explicitly opened only the strictly derived Phase-B path recorded below.
 
 ### Phase B — strictly derived replacement loader/G100
 
@@ -681,6 +684,55 @@ The only permitted derivation is:
    config hashes, snapshot inventory, runner/submit hashes and fresh paths in
    this ledger before submission; and
 4. obtain independent confirmation that the derived diff follows items 1–3.
+
+#### Frozen Phase-B derived tuple
+
+```text
+PHASE_STATE: DERIVED / REQUEST FROZEN / INDEPENDENT DERIVATION CONFIRMATION PENDING / NOT SUBMITTED
+PHASE_A_EVIDENCE_SHA/TREE: 82a0e5315c9098056b6670afb490850cc71dc653 / 7428f5978c8d423a7c1855d9e3f858eac718aeae
+PHASE_A_REVIEW_SEAL: 386fdbd34c9fe5d420e3ac6c8e439bfe65f6f74d / PASS_WITH_RESIDUAL_RISK / Phase-B GO
+DERIVATION_SOURCE_SHA: c200bac861a42fc4338973787d3700e28ddd6c7e
+DERIVATION_SOURCE_TREE: c0cc4cb8c2e207e42dcc45a129ada28a3d40feb8
+DERIVATION_PARENT: 386fdbd34c9fe5d420e3ac6c8e439bfe65f6f74d
+DERIVATION_DIFF: exactly one JSON value / dependencies.spconv_build_sha256 74934de8... -> af422005...
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop3_g100_c200bac861a4
+SNAPSHOT_REF_MODE: detached / clean / self-contained Git object database
+SNAPSHOT_TRACKED_FILES/BYTES: 593 / 4851938
+SNAPSHOT_WRITABLE_WORKTREE_ENTRIES: 0
+SNAPSHOT_ALTERNATES/COMMIT_GRAPH: absent / absent
+SNAPSHOT_FSCK: git fsck --full --no-reflogs exit 0
+CONFIG: fl_v3/configs/s09_stop3_f_u_g100.json
+CONFIG_FILE_SHA256: 6733a47203bdf7a4da6e39867e6319a7beb9322257e9149f31b7dff6edacf3ce
+RESOLVED_CONFIG_SHA256: ba06b72e4c5f1e54f20472e3286a516e7d4328cfb0fccd8bfc7b13095f597ab6
+RUNNER: fl_v3/scripts/run_s09_stop3_g100.sh
+RUNNER_SHA256: 855bbd15877a4ceaa6919ccdf9d2ca369e1f3c84ee306415a41376c07d5d8b5d
+CENTRALIZED_TRAIN_SHA256: 9284d3950541d80417aa1a2a0a1c8e6f41dd4ae46febef53aae3359cbfa959c2
+ARRHENIUS_ENV_SHA256: a56758d72096a65708352e155d1c72adf261ae6cdaf5a56a38f7d2dd5472648f
+SUBMIT_SCRIPT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop3_g100_c200bac861a4_a2/submit.sh
+SUBMIT_SCRIPT_SHA256: 4801ddfee4cd3c04fbc7215c26ffc25efdafc1e6267599bee39bb87491de309e
+COMMAND: bash /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop3_g100_c200bac861a4_a2/submit.sh
+JOB_NAME: flv3_s09_stop3_g100_r1
+RESOURCE_CEILING: 1 GH200 / 16 CPU / 96 GiB host / 01:00:00 / 1 GPU-hour
+SUBMISSIONS: exactly 1 conditional replacement / available / no retry
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop3_g100_c200bac861a4_a2
+OUTPUT_STATE_AT_FREEZE: absent
+STDOUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop3_g100_c200bac861a4_a2_%j.out
+STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop3_g100_c200bac861a4_a2_%j.err
+EXACT_JOB_NAME_QUEUE_AT_FREEZE: empty
+SPCONV_VERSION/HEAD/STATE/BUILD: 2.3.8 / 263d6b47425ef843c82f997b12d8b714013d216c / 499efdbb5ab31c43109d48f11ee0ff79af847a3d378fd48bf9c79f8672da28db / af42200511a53ce86d77cea0306924a2dc516a74f0483ef7cfe0a6e1dc84b100
+CUMM_VERSION/HEAD/STATE/BUILD: 0.7.13 / 4dedaf43ff801e417c60c6bd7536a29d83d29ee0 / f835ee22d539bbf0ab486fecf1188c3883c3cde5860913434cbcf945ee325662 / 0a7e3c1a8c3e8d41b3b40c4fb77d05bdec8ca2dfce5dbb8863626c4b45d8296d
+LOCAL_VALIDATION: exact semantic-diff assertion + config resolution + git diff --check + runner/submit bash -n and shellcheck PASS
+DERIVATION_CONFIRMATION: pending independent review
+```
+
+The derived config's cumm build value was already equal to Phase A and therefore
+produces no textual diff; the only changed byte sequence is the spconv build
+hash. Direct config comparison found no other semantic change. The resolver
+reproduced fusion mode, seed `0`, 100 successful updates, eight training workers,
+global `fp16`, and sparse `fp32`. The runner remains byte-identical. The new
+read-only submit wrapper checks the exact detached source/tree, clean/no-alternate/
+non-writable snapshot, runner/config hashes, fresh output and empty exact-name
+queue before issuing the single frozen `sbatch` command.
 
 The resulting one-shot G100 keeps every O-117 material field and gate unchanged:
 F-U, engineering seed `0`, global FP16 autocast plus SECOND FP32 island, random
