@@ -1,4 +1,4 @@
-# S09 results ledger — STOP-1/2 closed / STOP-3 independently reviewed technical PASS / owner decision pending
+# S09 results ledger — STOP-1/2/3 closed / O-119 STOP-4A-D active
 
 ## Terminal state
 
