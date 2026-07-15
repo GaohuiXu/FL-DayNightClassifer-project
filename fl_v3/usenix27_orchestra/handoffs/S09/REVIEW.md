@@ -1705,3 +1705,36 @@ if that request receives GO. It is not convergence, recipe, mAP/NDS, model-quali
 or scientific-performance acceptance. Residual risks include single seed/B1,
 coarse utilization telemetry, unexecuted G1000 and the unresolved large LiDAR
 gradient question deferred outside S09 engineering readiness.
+
+### STOP-4D G1000 implementation review — request freeze GO
+
+```text
+IMPLEMENTATION_SHA/TREE: 5642884cdbb16e1c9b3107f529dc70b3a1243c6a / b13a08819b2e203dfe355309f1310c79f94f3023
+PARENT: 1dd3a013dd54b5cb1ef0d6a0fe29c03bbd30f5e9
+REVIEWER_TASK: /root/s09_stop4a_impl_reviewer
+REVIEWER_COMPUTE: none
+VERDICT: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / exact request freeze GO
+```
+
+The independent diff has exactly three files: a G1000 config, a one-shot runner,
+and one exact STOP-4C-to-STOP-4D config-delta test. The raw configs differ only in
+`max_optimizer_steps: 100 -> 1000` and `max_attempted_windows: 120 -> 1020`.
+F-U/B1/seed 0, accepted O-110 precision partition, checkpoint-off, optimizer/
+scheduler/EMA/clipping/augmentation/GT-paste/sampling, workers and all data and
+dependency identities are unchanged. No observer, hook, profiler, worker matrix,
+DDP, resume, checkpoint/evaluation path or generic harness is added.
+
+The reviewer reproduced `bash -n`, ShellCheck, all four embedded-Python ASTs,
+production config resolution and the exact raw-config delta. Raw config, resolved
+config and runner SHA-256 values are `dfd46e1a...`, `c3b39a3f...` and
+`43511df4...`. The runner fail-closes source/tree/config, detached clean snapshot,
+fresh output, exact GH200, focused tests, target/cap, lifecycle counters, scaler,
+nonfinite/discarded windows, accepted ratio, latency stability, data wait, memory,
+epoch estimate, telemetry, terminal exits and read-only artifact checksums. The
+accepted STOP-4C p50/p95 are descriptive references only; the previously approved
+STOP-3 1.10x performance gates remain unchanged.
+
+This is permission to freeze and independently review one exact request tuple,
+not submit permission for a mutable tuple. Residual risk is that the new selector
+and full G1000 path have not yet run on GH200. Any source/config/resource/gate or
+output drift cancels the conditional authority.

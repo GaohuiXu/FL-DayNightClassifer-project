@@ -49,8 +49,8 @@ STOP1_FIRST_EVIDENCE_SHA: b35591b1a9ac64ea50ee3ad3257304baef07f8de
 BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3 + O-119 STOP-4
 APPROVED_COMPUTE: O-119 STOP-4A <=00:30:00 + STOP-4C <=00:30:00 + conditional STOP-4D <=01:00:00 / serial <=2 GPU-hours / no retry
-APPROVED_SUBMISSIONS: prior STOP-1/2/3 and STOP-4A consumed; prospective STOP-4C plus conditional STOP-4D after each exact freeze/review
-ACTIVE_REQUEST: STOP-4C independently closed PASS / STOP-4D condition released for exact immutable freeze/review / not yet submitted / no retry
+APPROVED_SUBMISSIONS: prior STOP-1/2/3/4A/4C consumed; prospective conditional STOP-4D after exact freeze/review
+ACTIVE_REQUEST: STOP-4D implementation 5642884 independently reviewed / exact immutable request freeze pending / not submitted / no retry
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-4 implementation/request/evidence/review remediation within O-119
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -827,7 +827,7 @@ Unused Phase A or Phase B time is not retry, extra-cell, STOP-4 or other authori
 ## STOP-4 — O-119 optimize/G1000/close envelope
 
 ```text
-REQUEST_STATE: OWNER-APPROVED O-119 / STOP-4A JOB 452520 PASS / STOP-4B REVIEW CLOSED / OLD STOP-4C 131619f SUBMIT NO-GO + NEVER SUBMITTED / REPLACEMENT JOB 455539 COMPLETED 0:0 + TECHNICAL PASS + EVIDENCE REVIEW PENDING + NO RETRY
+REQUEST_STATE: OWNER-APPROVED O-119 / STOP-4A JOB 452520 PASS / STOP-4B REVIEW CLOSED / OLD STOP-4C 131619f SUBMIT NO-GO + NEVER SUBMITTED / REPLACEMENT JOB 455539 INDEPENDENTLY CLOSED PASS + NO RETRY / STOP-4D IMPLEMENTATION REVIEWED + REQUEST FREEZE PENDING
 OWNER_DECISION: O-119
 SERIAL_GPU_CEILING: 2 cumulative GH200-hours
 RETRIES: none
