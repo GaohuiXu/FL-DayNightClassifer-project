@@ -53,7 +53,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3 + O-119 STOP-4
 APPROVED_COMPUTE: O-119 STOP-4A <=00:30:00 + STOP-4C <=00:30:00 + conditional STOP-4D <=01:00:00 / serial <=2 GPU-hours / no retry
 APPROVED_SUBMISSIONS: all approved STOP-1/2/3/4A/4C/4D submissions consumed / none prospective
-ACTIVE_REQUEST: none / all approved S09 compute consumed / STOP-4 independently reviewed PASS / S09 owner-ready
+ACTIVE_REQUEST: none / S09 CLOSED PASS UNDER O-120 / all approved compute consumed / no prospective S09 compute
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-4 implementation/request/evidence/review remediation within O-119
 STOP2_REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -1115,7 +1115,7 @@ JOB_STATE/EXIT/RESTARTS: COMPLETED / 0:0 / 0
 JOB_NODE/START/END/ELAPSED: n119 / 2026-07-15T14:45:14+02:00 / 2026-07-15T14:52:08+02:00 / 00:06:54
 ACTUAL_GPU_HOURS: 0.115000
 O119_TOTAL_ACTUAL_GPU_HOURS: 0.345000 / 2.000000
-TECHNICAL_RESULT: PASS / independently reviewed / no further compute authorized / S09 owner-ready
+TECHNICAL_RESULT: PASS / independently reviewed / OWNER-ACCEPTED AND CLOSED O-120 / no further compute authorized
 ```
 
 The sole reviewed and executed command was:

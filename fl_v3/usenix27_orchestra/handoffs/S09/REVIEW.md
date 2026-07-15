@@ -1809,3 +1809,15 @@ unexplained and unfixed; 1-Hz/stage timing cannot identify a specific kernel or
 branch; and cross-job variation cannot separately attribute speedup to checkpoint
 removal versus the 19 eliminated scalar synchronizations. The milestone is
 owner-ready, not owner-accepted or closed by reviewer authority.
+
+### Owner closure decision — O-120
+
+The owner accepts review seal `ced5992ea113bd21d7d545af505debf405b556b3`, the
+final `PASS_WITH_RESIDUAL_RISK` verdict, and closes S09 PASS as a labelled
+base-uniform engineering performance/readiness milestone. This owner decision
+does not broaden the evidence: it remains single-seed bounded engineering
+stability/performance evidence, not convergence, mAP/NDS, model quality,
+recipe/batch selection, or full-GH200-utilization evidence. The unusually large
+true SECOND gradient remains unresolved for S10. Fast-forward, merge, push,
+branch/worktree mutation, and every S10 implementation or compute action require
+a separate owner decision.

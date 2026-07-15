@@ -33,7 +33,9 @@
 > unauthorized. STOP-4 Jobs `452520`, `455539`, and `456539` all completed `0:0`
 > without retry, totaling `0.345000` GPU-hours. Final independent review returned
 > `PASS_WITH_RESIDUAL_RISK` with no open P0-P3 and STOP-4 closure GO. S09 is
-> owner-ready; owner acceptance/closure remains pending.
+> owner-ready. O-120 accepts review seal `ced5992` and closes S09 PASS within its
+> bounded engineering scope. Integration and S10 execution remain separately
+> owner-gated.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -263,7 +265,7 @@ SESSION_ID: S09
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 SOURCE_BRANCH: codex/s08-s09-cl-readiness
 IMPLEMENTATION_CONTEXT: persistent S00 unless owner selects independent isolation
-STATE: STOP-1 THROUGH STOP-4 INDEPENDENTLY REVIEWED / S09 OWNER-READY / OWNER CLOSE DECISION PENDING
+STATE: S09 CLOSED PASS UNDER O-120 / ACCEPTED REVIEW SEAL ced5992 / INTEGRATION DECISION PENDING
 APPROVED_COMPUTE: fully consumed; O-119 actual 0.345000 GPU-hours / no prospective S09 compute
 APPROVED_GIT: linear S09 envelope/request/evidence/review commits; no merge/push
 DECISION_SCOPE: base-uniform full-pipeline engineering performance/readiness only
@@ -431,7 +433,8 @@ O-107 replacement.
   Swin checkpoint-off is explicit. G1000 reached 1000 accepted updates in 1003
   attempts with p50/p95 `178.024/203.231 ms`, throughput `5.542 samples/s`, and
   peak reserved `8.314 GiB`. Final independent review found no open P0-P3 and
-  marks S09 owner-ready, not owner-accepted.
+  made S09 owner-ready. O-120 subsequently accepts review seal `ced5992` and
+  closes S09 PASS without authorizing integration or S10 execution.
 
 ### Explicit non-goals
 

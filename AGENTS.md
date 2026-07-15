@@ -34,11 +34,15 @@ with `cycle_*` remain reserved for the project's experimental-design cycles unde
 `fl_v3/docs/cycle_04/` and `fl_v3/docs/roadmap/`. Do not create another
 `cycle*_orchestra` folder.
 
-S07 clean engineering and S08 precision qualification are closed. The accepted
-S08 policy is integrated at `28f79802c0868afa6290d74ae6aeb9d23c7d088f`.
-The current priority is S09 full-pipeline engineering performance/readiness for
-the current six-task centralized (CL) camera-LiDAR detector, before S10
-branch/training-recipe ablation and full CL capability work are frozen. Historical conclusions under
+S07 clean engineering, S08 precision qualification, and S09 full-pipeline
+engineering performance/readiness are closed. The accepted S08 policy is
+integrated at `28f79802c0868afa6290d74ae6aeb9d23c7d088f`; owner decision O-120
+accepts S09 review seal `ced5992ea113bd21d7d545af505debf405b556b3` as a
+bounded engineering PASS, with integration still awaiting a separate owner
+decision. The next planning priority is S10 branch/training-recipe ablation for
+the current six-task centralized (CL) camera-LiDAR detector; no S10 cells,
+compute, Git integration, or scientific recipe are authorized merely by S09
+closure. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime
 state changed.
@@ -163,14 +167,14 @@ Current Arrhenius facts:
   gradient scale healthy. Repeated tiny-group sparse GroupNorm is the leading
   unproven mechanism hypothesis.
 
-S09 STOP-3 Job `446225` records three initial GradScaler overflow windows followed
-by 100 consecutive accepted F-U updates, with zero nonfinite or discarded windows.
-This is bounded engineering health after scaler backoff; it does not explain or
-reduce the large true LiDAR gradient. S09 does not authorize a
+S09 STOP-3 Job `446225` and STOP-4D Job `456539` record three initial GradScaler
+overflow windows followed respectively by 100 and 1000 accepted F-U updates,
+with zero post-warm-up nonfinite or discarded windows. This is bounded engineering
+health after scaler backoff; it does not explain or reduce the large true LiDAR
+gradient. Closed S09 did not authorize a
 normalization, head/loss/target, gradient-clipping, optimizer, scheduler, EMA,
 augmentation, sampling, or initialization change. Those training-recipe and
-architecture decisions remain owner-gated for S10 unless the S09 gate stops and
-the owner explicitly opens a separate remediation envelope.
+architecture decisions remain owner-gated for S10.
 
 Strict byte-identical determinism is a useful development regression tool, not
 the default scientific claim criterion. For scientific claims, record hardware,
@@ -231,11 +235,12 @@ strictly derived no-retry replacement: Job `442152` established stable sparse
 build identities, and Job `446225` completed the production loader sweep and 100
 successful F-U updates in 103 attempts. Immutable evidence `c28d09c` received
 independent `PASS_WITH_RESIDUAL_RISK` with no P0-P2; documentation closure
-re-review found no open P0-P3. O-119 owner-accepts/closes STOP-3 and authorizes
-the serial STOP-4A-D profiler/capacity/output-neutral-optimization/G100/
-conditional-G1000 envelope recorded in the active Orchestra request, capped at
-two cumulative GH200-hours with no retry. No cache retry, worker matrix, model or
-recipe change, DDP, merge, or push is authorized.
+re-review found no open P0-P3. O-119 then authorized the serial STOP-4A-D
+profiler/capacity/output-neutral-optimization/G100/G1000 envelope. Jobs `452520`,
+`455539`, and `456539` completed `0:0` without retry using `0.345000` GPU-hours;
+final independent review found no open P0-P3. O-120 accepts review seal `ced5992`
+and closes S09 PASS. No cache retry, worker matrix, model or recipe change, DDP,
+merge, push, or S10 execution is authorized by that closure.
 Do not extract or duplicate the full dataset into project storage without
 explicit owner permission.
 The old `/mimer/NOBACKUP/Datasets/NuScenes_v1.0` path is not an Arrhenius data

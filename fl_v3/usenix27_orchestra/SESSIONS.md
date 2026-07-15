@@ -41,7 +41,9 @@
 > sequence under a serial two-GPU-hour ceiling and no-retry boundary. Jobs
 > `452520`, `455539`, and `456539` all completed `0:0` without retry and consumed
 > `0.345000` GPU-hours. Final independent review found no open P0-P3 and returned
-> STOP-4 closure GO. S09 is owner-ready; owner acceptance/closure is pending.
+> STOP-4 closure GO. O-120 accepts review seal `ced5992` and closes S09 PASS
+> within the bounded engineering scope. Integration and S10 execution remain
+> separately owner-gated.
 >
 > `Sxx` now names a durable evidence milestone, not necessarily a new task,
 > worker, branch, or worktree. Under O-094, persistent S00 normally performs
@@ -59,10 +61,10 @@
   ├─ S08 model/recipe audit → owner decisions → precision qualification
   │      └─ independent review only after exact implementation/evidence SHA
   │
-  ├─ S09 full-pipeline performance/readiness      [owner-ready]
+  ├─ S09 full-pipeline performance/readiness      [closed PASS under O-120]
   │      └─ independent review of exact profiling/evidence SHA
   │
-  ├─ S10 centralized branch/recipe ablation       [pending S08+S09]
+  ├─ S10 centralized branch/recipe ablation       [planning next; envelope not frozen]
   ├─ S11 CL capability/freeze                     [pending S10]
   ├─ S12 clean Protocol-A/B split/adaptation      [deferred pending CL freeze]
   ├─ S13 new threat model/attack                  [blocked pending clean adaptation]
@@ -78,8 +80,8 @@
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
-| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **owner-ready**; STOP-1 through STOP-4 independently reviewed, no open P0-P3; owner acceptance/closure pending |
-| S10 | Centralized branch/recipe ablation | S08+S09 | pending owner S09 acceptance and redefinition; no cells/gates frozen |
+| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
+| S10 | Centralized branch/recipe ablation | closed S08+S09 | planning next; no cells/gates, implementation, compute, or recipe frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
 | S12 | Protocol-A/B split and clean adaptation contract | CL freeze + fresh owner review | deferred; old proposal is historical evidence only |
 | S13 | Clean adaptation completion, then new attack | S12 clean PASS + new threat model | blocked; legacy T5 import forbidden |
@@ -345,13 +347,15 @@ its p50/p95 was `178.024/203.231 ms`, throughput `5.542 samples/s`, epoch estima
 implementation/evidence/remediation found no open P0-P3 and marks S09 owner-ready.
 This is bounded single-seed engineering evidence, not convergence, mAP/NDS,
 model-quality, recipe-selection, or full-GH200-saturation evidence.
+O-120 accepts review seal `ced5992` with those limits and closes S09 PASS.
+Integration and every S10 action remain separate owner decisions.
 
 ## 6. S10-S12 redefinition boundaries
 
 ### S10 — centralized branch and recipe ablation
 
-Pending S08/S09. Candidate topics include `C-STR8`, `L-P020` versus `L-S075`,
-`F-U` versus `F-CBGS`, and initialization. The actual cells, matched exposure,
+Pending an exact post-S09 owner envelope. Candidate topics include `C-STR8`,
+`L-P020` versus `L-S075`, `F-U` versus `F-CBGS`, and initialization. The actual cells, matched exposure,
 precision, checkpoint selection, numerical gates, and compute budget are not
 frozen. S10 will select a centralized recipe; it will not yet claim multi-seed
 capability or define Protocol-B `W_base`.

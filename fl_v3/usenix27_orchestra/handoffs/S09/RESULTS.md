@@ -1,4 +1,4 @@
-# S09 results ledger — STOP-1 through STOP-4 independently reviewed / owner-ready
+# S09 results ledger — CLOSED PASS under O-120
 
 ## Terminal state
 
@@ -1047,5 +1047,7 @@ review of evidence `54e45c5` plus documentation remediation `5e5d9a9` returned
 It proves stable lifecycle/accounting and retained performance over 1000 accepted
 updates for the exact single-seed B1 tuple. It does not prove convergence,
 generalization, recipe or batch-size quality, mAP/NDS, model quality, per-kernel
-causality, Protocol A/B, FL, attack or defense. Owner S09 acceptance/closure and
-any S10 envelope remain separate decisions.
+causality, Protocol A/B, FL, attack or defense. At review seal, owner S09
+acceptance/closure and any S10 envelope remained separate decisions. O-120 now
+accepts review seal `ced5992` and closes S09 PASS with every limitation above
+intact; integration and S10 execution remain separately owner-gated.
