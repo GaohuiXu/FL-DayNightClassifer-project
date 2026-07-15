@@ -571,6 +571,7 @@ def _apply_production_sampling(dataset, run_config: dict, *, shuffle: bool):
     from fl_v3.data.nuscenes.cbgs import (
         CBGSWrapper,
         build_cbgs_indices,
+        cbgs_index_identity,
         dataset_inrange_classes,
     )
 
@@ -581,6 +582,10 @@ def _apply_production_sampling(dataset, run_config: dict, *, shuffle: bool):
         seed=int(run_config["seed"]),
         max_repeat=float(run_config["det-cbgs-max-repeat"]),
     )
+    sample_tokens = getattr(dataset, "sample_tokens", None)
+    if sample_tokens is None:
+        raise ValueError("CBGS production dataset must expose its role-restricted sample tokens")
+    stats.update(cbgs_index_identity(sample_tokens, indices))
     wrapped = CBGSWrapper(dataset, indices)
     wrapped.stats = stats
     return wrapped

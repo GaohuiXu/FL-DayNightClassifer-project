@@ -23,6 +23,8 @@ the identical list (same seed). Lives in ``data/`` (NOT ``models/fusion/**``) â‡
 from __future__ import annotations
 
 import math
+import hashlib
+import struct
 from typing import Dict, List, Sequence, Tuple
 
 import numpy as np
@@ -105,6 +107,30 @@ def build_cbgs_indices(
         "max_repeat": float(max_repeat),
     }
     return indices, stats
+
+
+def cbgs_index_identity(sample_tokens: Sequence[str], indices: np.ndarray) -> Dict[str, str]:
+    """Bind an expanded CBGS index to the already-restricted dataset order.
+
+    The caller must construct the base dataset from its role manifest first.  We
+    hash both that ordered token list and the resulting little-endian ``int64``
+    index, so resampling cannot be reused across a different role or ordering.
+    """
+    tokens = [str(token) for token in sample_tokens]
+    if len(tokens) != len(set(tokens)):
+        raise ValueError("CBGS source sample tokens must be unique")
+    token_digest = hashlib.sha256()
+    for token in tokens:
+        encoded = token.encode("utf-8")
+        token_digest.update(struct.pack("<Q", len(encoded)))
+        token_digest.update(encoded)
+    normalized = np.ascontiguousarray(np.asarray(indices, dtype="<i8"))
+    if normalized.size and (normalized.min() < 0 or normalized.max() >= len(tokens)):
+        raise ValueError("CBGS index is outside its role-restricted source dataset")
+    return {
+        "source_sample_tokens_sha256": token_digest.hexdigest(),
+        "expanded_indices_sha256": hashlib.sha256(normalized.tobytes()).hexdigest(),
+    }
 
 
 class CBGSWrapper(Dataset):

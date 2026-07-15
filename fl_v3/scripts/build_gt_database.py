@@ -262,6 +262,21 @@ def main():
         default="",
         help="Frozen SHA-256 of the SQLite manifest file; required for ZIP mode.",
     )
+    ap.add_argument(
+        "--sample-manifest",
+        default="",
+        help="Immutable S10 split_manifest.json. Required for trainval GT-database builds.",
+    )
+    ap.add_argument(
+        "--sample-manifest-sha256",
+        default="",
+        help="Frozen physical SHA-256 of --sample-manifest.",
+    )
+    ap.add_argument(
+        "--sample-manifest-role",
+        default="",
+        help="Exact promoted train role (D_low, D_mid, or D_fit).",
+    )
     ap.add_argument("--classes", default="trailer,construction_vehicle,bus,truck,bicycle,motorcycle")
     ap.add_argument("--min-points", type=int, default=5)
     ap.add_argument("--max-per-class", type=int, default=8000)
@@ -291,6 +306,49 @@ def main():
         args.expected_manifest_hash,
         args.expected_manifest_file_sha256,
     )
+    role_provenance = {}
+    try:
+        if args.version == "v1.0-trainval":
+            if not (
+                args.sample_manifest
+                and args.sample_manifest_sha256
+                and args.sample_manifest_role in {"D_low", "D_mid", "D_fit"}
+            ):
+                raise ValueError(
+                    "trainval GT-database builds require --sample-manifest, "
+                    "--sample-manifest-sha256 and --sample-manifest-role in "
+                    "{D_low,D_mid,D_fit}"
+                )
+            from fl_v3.eval.subset_detection_eval import load_manifest_role
+
+            role = load_manifest_role(
+                args.sample_manifest,
+                args.sample_manifest_role,
+                expected_manifest_sha256=args.sample_manifest_sha256,
+                expected_parent_version=args.version,
+                expected_parent_split="train",
+                expected_source_identities={
+                    "train_cache_logical_sha256": cache_provenance["cache_hash"],
+                    "train_cache_pickle_sha256": cache_provenance["cache_pickle_sha256"],
+                    "train_cache_sidecar_sha256": cache_provenance["cache_sidecar_sha256"],
+                    "zip_manifest_logical_sha256": blob_provenance["zip_manifest_hash"],
+                    "zip_manifest_file_sha256": blob_provenance["zip_manifest_file_sha256"],
+                },
+            )
+            by_token = {str(info["sample_token"]): info for info in info_list}
+            missing = sorted(set(role.sample_tokens) - set(by_token))
+            if missing:
+                raise ValueError(f"sample manifest references cache-missing tokens: {missing[:8]}")
+            info_list = [by_token[token] for token in role.sample_tokens]
+            role_provenance = {
+                "sample_manifest_path": role.path,
+                "sample_manifest_sha256": role.sha256,
+                "sample_manifest_role": role.role,
+                "sample_manifest_samples": len(role.sample_tokens),
+            }
+    except Exception:
+        blob_store.close()
+        raise
     print(
         f"[gtdb] {len(info_list)} keyframes, classes={classes}, n_sweeps={args.n_sweeps}, "
         f"cache_hash={cache_meta['cache_hash']}, backend={blob_provenance['blob_backend']}",
@@ -353,6 +411,7 @@ def main():
         "dataroot": os.path.abspath(args.dataroot),
         **cache_provenance,
         **blob_provenance,
+        **role_provenance,
         "classes": classes,
         "min_points": args.min_points,
         "max_per_class": args.max_per_class,

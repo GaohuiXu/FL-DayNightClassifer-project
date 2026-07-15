@@ -334,3 +334,5 @@ def test_gt_database_caller_has_no_direct_t1v1_bypass():
     assert "expected_cache_hash=" in source
     assert "expected_cache_file_sha256" in source
     assert "expected_cache_sidecar_sha256" in source
+    assert "sample_manifest_sha256" in source
+    assert "sample_manifest_role" in source

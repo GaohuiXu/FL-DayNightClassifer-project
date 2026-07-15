@@ -219,15 +219,27 @@ def test_executable_manifest_uses_real_files_and_rejects_loaded_native_outside_r
 class _InfoDataset:
     def __init__(self):
         self._infos = [
-            {"gt_labels": np.asarray([0]), "gt_in_range": np.asarray([True])}
-            for _ in range(9)
-        ] + [{"gt_labels": np.asarray([4]), "gt_in_range": np.asarray([True])}]
+            {
+                "sample_token": f"sample-{index}",
+                "gt_labels": np.asarray([0]),
+                "gt_in_range": np.asarray([True]),
+            }
+            for index in range(9)
+        ] + [{
+            "sample_token": "sample-9",
+            "gt_labels": np.asarray([4]),
+            "gt_in_range": np.asarray([True]),
+        }]
 
     def __len__(self):
         return len(self._infos)
 
     def __getitem__(self, index):
         return index
+
+    @property
+    def sample_tokens(self):
+        return [info["sample_token"] for info in self._infos]
 
 
 def test_f_cbgs_is_deterministic_and_cannot_stack_loss_weights():
