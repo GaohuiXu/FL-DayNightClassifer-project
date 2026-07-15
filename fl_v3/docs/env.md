@@ -204,13 +204,19 @@ snapshot findings. O-115 Job `441293` then completed `0:0` in `00:01:04` with
 44/44 tests passing, zero restarts and no replacement. Evidence remediation
 `79f87dc` subsequently received independent `PASS_WITH_RESIDUAL_RISK` with no
 open P0-P3; O-116 owner-accepts/closes STOP-2. O-117 STOP-3 Job `441511` then
-exposed why this section's build-module rule is binding: the new runner selected
+exposed why this section's build-module rule is binding: the runner selected
 `arrhenius_load_modules run`, editable spconv triggered a JIT check without CUDA
 headers, and compilation failed on missing `cublasLt.h` before data/loader/model
-execution. The sole submission is consumed; the runner selector is corrected,
-but cumm native build identity needs a new GH200 re-attestation and exact owner
-amendment before replacement compute. This is not model/full-data readiness. Do not
-extract/duplicate the dataset or submit further full-data jobs
+execution. O-118 authorized one exact dependency re-attestation and one strictly
+derived replacement without retry. Job `442152` completed stable two-process
+attestation of spconv build `af422005...` and cumm build `0a7e3c1a...`; Job
+`446225` subsequently failed closed on those identities, completed the production
+loader sweep, and reached 100 successful F-U updates in 103 attempts. Evidence
+`c28d09c` received independent `PASS_WITH_RESIDUAL_RISK` with no P0-P2; only
+documentation closure and owner STOP-3 acceptance remain pending. O-118 compute
+is consumed and no STOP-4 compute is authorized. This is engineering readiness
+for one exact tuple, not convergence, metric, recipe, or model-capability
+evidence. Do not extract/duplicate the dataset or submit further full-data jobs
 without exact permission. O-009 covers only a recorded bounded
 engineering smoke (one node/GPU, at most 60 minutes/job, one concurrent job, two
 cumulative GPU-hours); it did not authorize Job `441191` and does not authorize an

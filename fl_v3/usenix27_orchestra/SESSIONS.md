@@ -27,12 +27,16 @@
 > and its recorded O-107 mechanical boundary. Initial Job `441293` completed
 > `0:0` in `00:01:04` with 44/44 tests passing; no replacement was used and
 > evidence remediation `79f87dc` received independent `PASS_WITH_RESIDUAL_RISK`
-> with no open P0-P3. O-116 owner-accepts/closes STOP-2. O-117 accepts the exact
-> STOP-3 G100 envelope, its 1 Hz read-only GPU telemetry update, linear commits,
-> and one derived immutable single-GH200 submission. Job `441511` consumed it and
-> failed pre-model because the runner omitted the build-module stack required by
-> editable spconv JIT; the failed import also drifted cumm native build identity.
-> No retry or STOP-4 is authorized; review and a new owner amendment are required.
+> with no open P0-P3. O-116 owner-accepts/closes STOP-2. O-117's first exact
+> STOP-3 Job `441511` failed pre-model because the runner omitted the build-module
+> stack required by editable spconv JIT. After independent failure review, O-118
+> authorized one exact dependency attestation and one conditional strictly
+> derived replacement, both without retry. Jobs `442152` and `446225` completed
+> `0:0`; the latter reached 100 accepted F-U updates in 103 attempts and passed
+> every frozen loader, numerical, timing, memory, and epoch gate. Independent
+> review of immutable evidence `c28d09c` returned `PASS_WITH_RESIDUAL_RISK` with
+> no P0-P2; its two documentation-only P3 findings are synchronized linearly.
+> STOP-3 owner acceptance remains pending, and no retry or STOP-4 is authorized.
 >
 > `Sxx` now names a durable evidence milestone, not necessarily a new task,
 > worker, branch, or worktree. Under O-094, persistent S00 normally performs
@@ -69,7 +73,7 @@
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
-| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1/2 closed; STOP-3 Job `441511` pre-model bootstrap FAIL, sole submission consumed; runner corrected but cumm runtime re-attestation/new owner amendment required |
+| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1/2 closed; STOP-3 Jobs `442152`/`446225` terminal technical PASS; evidence `c28d09c` independently reviewed with no P0-P2; documentation P3 remediated; owner acceptance pending |
 | S10 | Centralized branch/recipe ablation | S08+S09 | pending redefinition; no cells/gates frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
 | S12 | Protocol-A/B split and clean adaptation contract | CL freeze + fresh owner review | deferred; old proposal is historical evidence only |
@@ -318,9 +322,12 @@ perform an architecture experiment.
 STOP-2 focused smoke may use O-009/O-107 only when that stop approval explicitly
 opts in. Unused quota is not retry authority. O-112 STOP-1 Job `441191` and O-115
 STOP-2 Job `441293` are consumed and terminal; no replacement was used. O-117
-Job `441511` also consumed its sole exact STOP-3 submission and failed before
-loader/model execution. It has no retry authority. STOP-4 and all other later S09
-compute remain unapproved.
+Job `441511` consumed its sole exact submission and failed before loader/model
+execution. O-118 separately authorized and consumed Phase-A Job `442152` and
+conditional Phase-B Job `446225`; no retry occurred, all frozen STOP-3 gates
+pass, and independent review found no P0-P2. O-118 compute is exhausted. STOP-4
+and all other later S09 compute remain unapproved pending owner STOP-3 acceptance
+and a new exact request.
 
 ## 6. S10-S12 redefinition boundaries
 

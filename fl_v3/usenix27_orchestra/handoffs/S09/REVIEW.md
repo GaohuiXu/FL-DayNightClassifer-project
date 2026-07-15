@@ -1147,3 +1147,166 @@ field.
 This GO is invalidated by any source/config/snapshot/wrapper/output/queue or
 external dependency drift and permits no retry, replacement, altered resource,
 additional cell, STOP-4, merge, push, or scientific claim.
+
+### STOP-3 O-118 Phase-B terminal evidence review
+
+```text
+EVIDENCE_SHA: c28d09c34b0ff56fcbc3805a8361ccd26eeaccc1
+EVIDENCE_TREE: 6c8f008434363dcf41c8f30bdbbaecb4a67863a4
+EVIDENCE_PARENT: d7754e0ae0a1e05708545c934ecb507b933a32b6
+EXECUTION_SOURCE_SHA: c200bac861a42fc4338973787d3700e28ddd6c7e
+EXECUTION_SOURCE_TREE: c0cc4cb8c2e207e42dcc45a129ada28a3d40feb8
+BRANCH: codex/s08-s09-cl-readiness
+JOB: 446225
+REVIEWER_COMPUTE: none
+```
+
+Findings, ordered by severity:
+
+- **P0: none.**
+- **P1: none.**
+- **P2: none.**
+- **P3 — the durable summary reports the CUDA-only ratio instead of the exact
+  frozen combined-window ratio.** O-117 freezes
+  `(data_wait + CUDA H2D-through-update) p95/p50 <= 1.5`. `RESULTS.md` and
+  `RUN_REQUEST.md` report `224.153076 / 208.575935 = 1.074683`, which is the
+  CUDA-event window alone. Pairwise addition of each of the 90 raw record's data
+  wait and CUDA-window values gives combined mean/p50/p95
+  `210.760627 / 208.745739 / 224.326678 ms` and the exact frozen ratio
+  `1.074641`. The actual frozen gate therefore still passes by a wide margin;
+  this is a documentation/evidence-summary correction, not a failed gate or a
+  reason to rerun.
+- **P3 — active status/provenance prose is not yet synchronized to O-118 and
+  this immutable evidence.** `ORCHESTRA.md`, `SESSIONS.md`, and `KICKOFFS.md`
+  still terminate STOP-3 at failed Job `441511`/O-117 and say that a new owner
+  amendment is required. The direct O-118 owner decision and exact
+  `HANDOFF.md`/`RUN_REQUEST.md` record supersede that stale status, so it does
+  not make Jobs `442152` or `446225` unauthorized. It is nevertheless a P3 in
+  the canonical active ledgers and must be corrected linearly before STOP-3
+  closure. The same stale terminal boundary in root `AGENTS.md` and
+  `docs/env.md` should be synchronized in that bounded documentation update.
+  Within the evidence package, labels such as `immutable evidence ... pending`
+  are necessarily stale now that the SHA above exists; the linear seal should
+  bind this exact SHA/tree and review verdict. No source or compute change is
+  required.
+
+The review preflight matched the exact evidence SHA, tree, parent, branch and a
+clean worktree. Its diff changes only `HANDOFF.md`, `RESULTS.md`, and
+`RUN_REQUEST.md`; executable source, config, model, trainer, data and precision
+semantics are unchanged. `git diff --check` passes.
+
+#### Authorization, scheduler, and immutable identities
+
+- `sacct` and `scontrol` reproduce Job `446225` as the only same-name
+  `flv3_s09_stop3_g100_r1` submission: `COMPLETED 0:0`, zero restarts,
+  `Requeue=0`, submit/start/end `11:09:11/11:09:12/11:14:17`, elapsed
+  `00:05:05` under a `01:00:00` limit, node `n450`, one GH200, 16 CPUs, 96 GiB,
+  one node/task, account `naiss2025-22-1113-gpu`, and partition `gpu`. No active
+  same-name job, array, DDP, retry or replacement exists.
+- The command, detached snapshot, output/log paths and resources match the
+  reviewed strict derivation. The execution snapshot remains detached and clean
+  at `c200bac.../c0cc4cb...`; raw config, canonical resolved config, runner and
+  read-only wrapper reproduce `6733a472...`, `ba06b72e...`, `855bbd15...`, and
+  `4801ddfe...`. The wrapper contains one `sbatch` and no retry path.
+- The job consumed `0.084722` GPU-hours; O-118 Phase A/B consumed `0.282500`
+  GPU-hours and all S09 jobs through STOP-3 consumed `0.393333` GPU-hours. No
+  unused allocation is retry or STOP-4 authority.
+
+#### Raw artifacts, runtime, and external dependency state
+
+- The sealed output contains 12 regular files / 3,178,950 bytes / two
+  directories, no symlink and no writable entry. All 11 entries in
+  `artifact_sha256s.txt` independently pass content verification; the manifest
+  hashes to `b2296338...`, the readiness report to `08e376e7...`, and
+  `centralized_train.exit` is exactly zero. Both Slurm logs are read-only.
+- The two stdout JSON objects are structurally identical to the standalone
+  runtime-dependency and readiness artifacts, including the nested dependency
+  record. Independent canonicalization reproduces runtime-dependency identity
+  `3e900c90...`, resolved-config identity `ba06b72e...`, and execution identity
+  `01b7c5d1...`. Stderr contains only one Torch FX warning and one deprecated
+  spconv multidimensional-indexing warning, with no exception.
+- The accepted train/val `t1.v2`, ten-sweep and ZIP-manifest identities match the
+  frozen tuple. Post-job read-only inspection also reproduces all 73 spconv and
+  125 cumm executable artifacts and aggregate builds `af422005...` and
+  `0a7e3c1a...`; both native-copy pairs remain byte-identical. The accepted
+  spconv `pyproject.toml` tracked modification and disclosed untracked cumm stub
+  are unchanged. Shared editable sparse dependencies remain a residual runtime
+  risk, not a mismatch in this execution.
+
+#### Loader, numerical health, counters, timing, and memory
+
+- All eight `0/2/4/8`-worker repeat cells completed the exact bounded
+  `2/32/16/256` profile. Their declared 32-batch determinism digests are equal at
+  `6c6d8f06...`; 2,432 samples were consumed in total. Warm throughput is
+  `21.866943/41.573781/77.519849/141.969756 samples/s`, so worker eight is the
+  best cell and passes the frozen `>=90%` gate at `100%`.
+- The lifecycle records exactly 103 attempted windows and 100 successful
+  optimizer/scheduler/exposure updates. Attempts 1--3 are visible GradScaler
+  overflows with scale `512 -> 256 -> 128 -> 64`; attempts 4--103 are 100
+  consecutive accepts. After ten successful warm-up updates, the measured
+  region is 90/90 accepted at scale 64, with zero nonfinite, discarded or
+  post-warm invalid windows. Loss is finite (`55.333761`), pending accumulation
+  is zero, scheduler `last_epoch=100`, and all optimizer/exposure/counter
+  identities reconcile. This establishes bounded engineering health after
+  scaler backoff, not convergence, recipe quality, or resolution of the large
+  true LiDAR gradients.
+- The complete training section is `46.575035 s`, or `0.465750 s` per successful
+  update including cold compilation and the three overflow attempts. The frozen
+  post-warm region is 90 updates in `18.973603 s`: `0.210818 s/update` and
+  `4.743432 updates/s`. Independent recomputation of all 90 records exactly
+  reproduces the documented H2D, forward, loss, backward, optimizer and CUDA
+  window mean/p50/p95 statistics. Direct stage medians are
+  `0.277600/90.004463/10.870528/100.688049/6.010576 ms`; they do not partition
+  camera, LiDAR and fusion subgraphs.
+- Data wait is `0.160926/0.164987/0.187478 ms` mean/p50/p95 and contributes only
+  `0.076355%` of the integrated mean. Peak allocated/reserved memory is
+  `3.256302/6.433594 GiB`, leaving `88.566406 GiB` against the reported 95-GiB
+  total. Both frozen steady epoch estimates independently reproduce
+  `1.647307 h`; the descriptive setup-inclusive first epoch is `1.706773 h`.
+  All corresponding O-117 limits pass.
+
+#### Coarse telemetry and interpretation boundary
+
+The 1-Hz telemetry has 263 data rows. Applying the declared alignment to the
+estimated full training lifecycle yields the same 45 samples and independently
+reproduces GPU utilization mean/p50/p95/max `32.4/32/99.8/100%`, memory mean/
+p50/p95 `5550.6/6419/7503 MiB`, and power mean/p50/p95/max
+`167.92/193.79/207.01/257.64 W`. Utilization is nonzero in `66.67%`, at least
+50% in `31.11%`, and at least 80% in `8.89%` of those samples. This supports the
+limited statement that the complete 100-update lifecycle did not continuously
+saturate the GH200. The interval includes cold/JIT/backoff time, its boundaries
+carry approximately one-sample uncertainty, and 1-Hz device telemetry plus
+stage-level events cannot identify steady-state kernel occupancy, Tensor-Core
+use, or a camera/LiDAR/fusion root cause. Those remain residual risks and
+explicit non-claims.
+
+| Frozen STOP-3 gate | Independent disposition |
+|---|---|
+| Exact source/config/runtime/data/dependency identity | PASS |
+| Exactly one authorized Phase-B submission / no retry | PASS |
+| All loader digests equal | PASS |
+| Worker-8 warm throughput `>=90%` of best | PASS (`100%`) |
+| 100 successful updates within 120 attempts | PASS (`100/103`) |
+| Zero nonfinite/discarded windows and exact counters | PASS (`0/0`) |
+| Post-warm accepted ratio `>=95%` | PASS (`90/90 = 100%`) |
+| Combined `(data_wait + CUDA window)` p95/p50 `<=1.5` | PASS (`1.074641`) |
+| Data-wait share `<=10%` | PASS (`0.076355%`) |
+| Peak reserved memory `<=86 GiB` | PASS (`6.433594 GiB`) |
+| Both steady epoch estimates `<=24 h` | PASS (`1.647307 h`) |
+| Finite aggregate loss | PASS |
+| Continuous GH200 saturation or branch/kernel attribution | NOT CLAIMED |
+| Convergence, recipe quality, capability, metric or science | NOT CLAIMED |
+| Canonical/evidence-state wording | PASS WITH P3 REMEDIATION |
+
+**STOP-3 technical verdict: PASS WITH RESIDUAL RISK / no open P0-P2.** Every
+frozen execution gate independently passes, including the exact combined-window
+ratio. The two documentation-only P3 findings should be corrected and sealed
+linearly; neither requires compute or changes the technical outcome.
+
+Subject to that bounded documentation closure, this evidence is owner-ready for
+a STOP-3 PASS/REMEDIATE decision. It supports one exact F-U/seed/runtime tuple's
+100-update engineering stability, performance, memory and coarse-utilization
+record. It does not establish convergence, detector capability, mAP/NDS,
+per-branch causality, normalization health, multi-seed behavior, Protocol A/B,
+FL, attack or defense. This review supplies no retry, STOP-4 compute, merge or
+push authority.

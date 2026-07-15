@@ -1,4 +1,4 @@
-# S09 results ledger — STOP-1/2 closed / STOP-3 G100 technical PASS / terminal review pending
+# S09 results ledger — STOP-1/2 closed / STOP-3 independently reviewed technical PASS / owner decision pending
 
 ## Terminal state
 
@@ -620,12 +620,16 @@ post-warm measurement covers 90 accepted updates in `18.973603 s`:
 | Loss | `10.922225` | `10.870528` | `14.178488` |
 | Backward | `102.846034` | `100.688049` | `113.517565` |
 | Optimizer/scheduler/EMA | `6.022698` | `6.010576` | `6.162656` |
-| Integrated window | `210.599701` | `208.575935` | `224.153076` |
+| CUDA-only integrated window | `210.599701` | `208.575935` | `224.153076` |
 
-The integrated-window `p95/p50` is `1.074683`, below the frozen `1.5` limit.
+The frozen gate pairs each record's host data wait with its CUDA-only integrated
+window. That exact combined distribution is mean/p50/p95
+`210.760627 / 208.745739 / 224.326678 ms`, with `p95/p50=1.074641`, below the
+frozen `1.5` limit. The CUDA-only `1.074683` ratio remains a stage diagnostic,
+not the gate value.
 Median-stage shares are approximately backward `48.27%`, forward `43.15%`, loss
 `5.21%`, optimizer `2.88%`, and H2D `0.13%`. Training data wait is
-`0.160926 / 0.164987 / 0.187478 ms` mean/p50/p95 and only `0.0763%` of the
+`0.160926 / 0.164987 / 0.187478 ms` mean/p50/p95 and only `0.076355%` of the
 integrated mean window, below the `10%` threshold.
 
 Peak allocated/reserved memory was `3.256302 / 6.433594 GiB`, leaving
@@ -669,14 +673,16 @@ STOP-3 intentionally added no profiler, module hook, or branch observer.
 | 100 successful updates within 120 attempts | PASS (`100/103`) |
 | Zero nonfinite and discarded windows | PASS (`0 / 0`) |
 | Counter reconciliation and post-warm accepted ratio `>=95%` | PASS / `100%` |
-| Integrated p95/p50 `<=1.5` | PASS (`1.074683`) |
-| Data-wait share `<=10%` | PASS (`0.0763%`) |
+| Combined `(data_wait + CUDA window)` p95/p50 `<=1.5` | PASS (`1.074641`) |
+| Data-wait share `<=10%` | PASS (`0.076355%`) |
 | Peak reserved memory `<=86 GiB` | PASS (`6.433594 GiB`) |
 | Both steady epoch estimates `<=24 h` | PASS (`1.647307 h`) |
 | Aggregate finite loss | PASS |
 
-The exact O-117/O-118 engineering qualification therefore returns technical
-PASS pending immutable evidence sealing and independent terminal review. It
+The exact O-117/O-118 engineering qualification therefore returns independently
+reviewed technical PASS. Immutable evidence `c28d09c` received
+`PASS_WITH_RESIDUAL_RISK` with no P0-P2; its two documentation-only P3 findings
+are corrected in the current closure candidate. It
 establishes 100-update lifecycle health, steady stage timing, loader readiness,
 large memory headroom, and lack of sustained GH200 saturation for this exact
 F-U/seed/config/runtime tuple. It does not prove convergence, recipe quality,

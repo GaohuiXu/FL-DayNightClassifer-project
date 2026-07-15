@@ -20,13 +20,16 @@
 > and recorded O-107 boundary. Job `441293` completed `0:0` in `00:01:04` with
 > 44/44 tests passing and no replacement. Evidence remediation `79f87dc` received
 > independent `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. O-116 owner-accepts
-> and closes STOP-2. O-117 accepts the exact STOP-3 G100 plan and its 1 Hz
-> read-only GPU telemetry update, authorizes linear immutable commits and exactly
-> one derived/frozen single-GH200 submission, and forbids retry and STOP-4. Job
-> `441511` consumed that submission and failed before loader/model execution due
-> to a runner build-module omission; cumm native identity now needs re-attestation.
-> Independent review and a new owner amendment are required before replacement.
-> Push and merge remain unauthorized.
+> and closes STOP-2. O-117's first STOP-3 Job `441511` failed before loader/model
+> execution due to a runner build-module omission. O-118 then authorized exactly
+> one dependency-attestation phase and one conditional strictly derived G100,
+> without retry. Jobs `442152` and `446225` completed `0:0`; Phase B reached 100
+> accepted F-U updates in 103 attempts and passed every frozen STOP-3 gate.
+> Independent review of immutable evidence `c28d09c` returned
+> `PASS_WITH_RESIDUAL_RISK` with no P0-P2; its two documentation-only P3 findings
+> are synchronized in the current linear closure candidate. Owner STOP-3
+> acceptance remains pending. O-118 compute is exhausted; STOP-4, push, and merge
+> remain unauthorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -256,7 +259,7 @@ SESSION_ID: S09
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 SOURCE_BRANCH: codex/s08-s09-cl-readiness
 IMPLEMENTATION_CONTEXT: persistent S00 unless owner selects independent isolation
-APPROVED_COMPUTE: O-112 STOP-1 Job 441191, O-115 STOP-2 Job 441293, and O-117 STOP-3 Job 441511 consumed; none active
+APPROVED_COMPUTE: O-112 Job 441191, O-115 Job 441293, O-117 Job 441511, and O-118 Jobs 442152/446225 consumed; none active
 APPROVED_GIT: linear S09 envelope/request/evidence/review commits; no merge/push
 DECISION_SCOPE: base-uniform full-pipeline engineering performance/readiness only
 ```
@@ -372,8 +375,17 @@ O-107 replacement.
   training. The runner used `arrhenius_load_modules run` despite `env.md`'s
   editable-spconv requirement for build modules; missing `cublasLt.h` stopped
   JIT compilation. The current branch fixes that selector, but cumm native build
-  identity also drifted. No retry is authorized; review plus a new owner amendment
-  is required for runtime re-attestation and any replacement G100.
+  identity also drifted. At the O-117 boundary, no retry was authorized and a new
+  owner amendment was required for runtime re-attestation or replacement; O-118
+  subsequently supplied only the bounded authority recorded in the next item.
+- Independent failure review preserved Job `441511` as negative pre-model
+  evidence. O-118 then authorized exactly one bounded dependency attestation and,
+  only after its independent PASS, one strictly derived unchanged G100. Job
+  `442152` returned stable spconv/cumm build identities; Job `446225` completed the
+  exact loader sweep and 100 successful F-U updates in 103 attempts with all
+  O-117 gates passing. There was no retry. Evidence `c28d09c` received independent
+  `PASS_WITH_RESIDUAL_RISK` with no P0-P2; its two documentation P3 corrections
+  are the current closure candidate. This does not authorize STOP-4.
 - An independent reviewer reads exact source/config/cache/records/artifacts before
   the owner STOP-3 decision.
 - If a throughput/stability threshold fails, STOP-3 may return a narrowly measured

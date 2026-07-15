@@ -22,9 +22,10 @@
 > `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. The one exact submission was
 > consumed by Job `446225` at `2026-07-15T11:09:11+02:00`; it started on `n450`
 > one second later and completed `0:0` in `00:05:05`. The production lifecycle
-> reports technical PASS for every frozen gate; immutable evidence sealing and
-> independent terminal review are pending. No retry or additional submission
-> exists, and O-118 compute authority is exhausted.
+> reports technical PASS for every frozen gate. Immutable evidence `c28d09c`
+> received independent `PASS_WITH_RESIDUAL_RISK` with no P0-P2; its two
+> documentation-only P3 corrections are in the linear closure candidate. No
+> retry or additional submission exists, and O-118 compute authority is exhausted.
 
 ## Authorization state
 
@@ -38,7 +39,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3
 APPROVED_COMPUTE: none active / O-118 Phase A and Phase B consumed
 APPROVED_SUBMISSIONS: prior STOP-1/2/3 each consumed + O-118 Phase A 1 + conditional Phase B 1 / no retry
-ACTIVE_REQUEST: O-118 Phase B Job 446225 terminal technical PASS / immutable evidence and independent review pending / no retry
+ACTIVE_REQUEST: none / O-118 Phase B independently reviewed technical PASS / documentation closure and owner decision pending / no retry
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-3 exact config/runner/request/evidence and review remediation authorized
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -536,7 +537,7 @@ blocked until that gate is independently accepted.
 
 ```text
 REQUEST_ID: S09-STOP3-O118-RECOVERY
-REQUEST_STATE: O-118 CONSUMED / PHASE A REVIEWED PASS / PHASE B JOB 446225 TECHNICAL PASS / EVIDENCE REVIEW PENDING
+REQUEST_STATE: O-118 CONSUMED / PHASE A REVIEWED PASS / PHASE B JOB 446225 INDEPENDENTLY REVIEWED TECHNICAL PASS / DOC CLOSURE CANDIDATE
 OWNER_CONFIRMATION: "批准 O-118 条件式续行 envelope" / continuous execution within the frozen boundary
 PURPOSE: re-attest the drifted editable sparse runtime, then conditionally execute the unchanged O-117 loader/G100 gate
 ADDITIONAL_SUBMISSIONS: at most 2 / one dependency attestation + one conditional G100 replacement
@@ -693,7 +694,7 @@ The only permitted derivation is:
 #### Frozen Phase-B derived tuple
 
 ```text
-PHASE_STATE: JOB 446225 COMPLETED 0:0 / TECHNICAL PASS / EVIDENCE REVIEW PENDING / NO RETRY
+PHASE_STATE: JOB 446225 COMPLETED 0:0 / INDEPENDENTLY REVIEWED TECHNICAL PASS / DOC CLOSURE CANDIDATE / NO RETRY
 PHASE_A_EVIDENCE_SHA/TREE: 82a0e5315c9098056b6670afb490850cc71dc653 / 7428f5978c8d423a7c1855d9e3f858eac718aeae
 PHASE_A_REVIEW_SEAL: 386fdbd34c9fe5d420e3ac6c8e439bfe65f6f74d / PASS_WITH_RESIDUAL_RISK / Phase-B GO
 DERIVATION_SOURCE_SHA: c200bac861a42fc4338973787d3700e28ddd6c7e
@@ -763,9 +764,10 @@ POST_WARM_ACCEPTED_RATIO: 90/90 = 1.0
 LOADER_CONTENT_SHA256: 6c6d8f0674c66f756ae3003bc765596994ec1be0816a6db94f3b214ec7925feb / all cells equal
 WORKER8_WARM_SAMPLES_PER_SECOND: 141.969756 / 100% of best warm cell
 STEADY_WALL_SECONDS_PER_UPDATE: 0.210818
-CUDA_WINDOW_P50/P95_MS: 208.575935 / 224.153076
-CUDA_WINDOW_P95_OVER_P50: 1.074683
-DATA_WAIT_SHARE: 0.000763 = 0.0763%
+CUDA_ONLY_WINDOW_P50/P95_MS: 208.575935 / 224.153076
+COMBINED_DATA_WAIT_PLUS_CUDA_WINDOW_MEAN/P50/P95_MS: 210.760627 / 208.745739 / 224.326678
+COMBINED_WINDOW_P95_OVER_P50: 1.074641
+DATA_WAIT_SHARE_OF_COMBINED_MEAN: 0.00076355 = 0.076355%
 PEAK_ALLOCATED/RESERVED/HEADROOM_GIB: 3.256302 / 6.433594 / 88.566406
 ATTEMPTED/ACCEPTED_EPOCH_ESTIMATE_HOURS: 1.647307 / 1.647307
 READINESS_SHA256: 08e376e767f654bb38982127ad5ffd84d94ebaa48b3026ceba2ab7ef93a6c9b6
@@ -782,7 +784,8 @@ the following 100 optimizer updates were consecutive accepts at scale 64. They
 are visible invalid/overflow windows, not hidden updates; the separately frozen
 zero-nonfinite and zero-discarded gates both pass.
 
-Every O-117 threshold passes as written. Detailed loader, timing, memory,
+Every O-117 threshold passes as written, including the exact pairwise combined
+`data_wait + CUDA window` ratio above. Detailed loader, timing, memory,
 telemetry, counter, artifact and interpretation evidence is in `RESULTS.md`.
 O-118 used `0.282500` GPU-hours across Phase A and B; all S09 jobs through this
 point used `0.393333` GPU-hours. Unused quota is not retry or STOP-4 authority.

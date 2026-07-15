@@ -163,8 +163,10 @@ Current Arrhenius facts:
   gradient scale healthy. Repeated tiny-group sparse GroupNorm is the leading
   unproven mechanism hypothesis.
 
-S09 records whether that residual numerical risk causes scaler skips, nonfinite
-windows, or unstable 100/1000-step engineering behavior. It does not authorize a
+S09 STOP-3 Job `446225` records three initial GradScaler overflow windows followed
+by 100 consecutive accepted F-U updates, with zero nonfinite or discarded windows.
+This is bounded engineering health after scaler backoff; it does not explain or
+reduce the large true LiDAR gradient. S09 does not authorize a
 normalization, head/loss/target, gradient-clipping, optimizer, scheduler, EMA,
 augmentation, sampling, or initialization change. Those training-recipe and
 architecture decisions remain owner-gated for S10 unless the S09 gate stops and
@@ -221,15 +223,18 @@ immutable implementation/evidence commits, and independent review. O-115 approve
 the exact reviewed STOP-2 smoke; Job `441293` completed `0:0` in `00:01:04` with
 44/44 tests passing, zero restarts, and no O-107 replacement. Independent evidence
 remediation `79f87dc` received `PASS_WITH_RESIDUAL_RISK` with no open P0-P3;
-the owner accepted and closed STOP-2 under O-116. O-117 then authorized one exact
-STOP-3 loader/G100 submission. Job `441511` consumed that authority but failed
-before data/model execution because its runner selected the runtime-only module
-stack while editable cumm/spconv attempted a native build. The tracked dependency
-sources were restored, but the cumm native build identity drifted; dependency
-restoration/re-attestation and any replacement G100 now require a new exact owner
-amendment. No cache retry or S09 compute is currently authorized.
-Do not extract or
-duplicate the full dataset into project storage without explicit owner permission.
+the owner accepted and closed STOP-2 under O-116. O-117's first exact STOP-3
+loader/G100 Job `441511` failed before data/model execution because its runner
+selected the runtime-only module stack while editable cumm/spconv attempted a
+native build. O-118 then authorized one bounded dependency re-attestation plus a
+strictly derived no-retry replacement: Job `442152` established stable sparse
+build identities, and Job `446225` completed the production loader sweep and 100
+successful F-U updates in 103 attempts. Immutable evidence `c28d09c` received
+independent `PASS_WITH_RESIDUAL_RISK` with no P0-P2; its documentation-only P3
+closure candidate is linear and STOP-3 owner acceptance remains pending. O-118 compute is
+consumed; no cache retry, further S09 compute, or STOP-4 is currently authorized.
+Do not extract or duplicate the full dataset into project storage without
+explicit owner permission.
 The old
 `/mimer/NOBACKUP/Datasets/NuScenes_v1.0` path is not an Arrhenius data path.
 
