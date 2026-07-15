@@ -1023,7 +1023,7 @@ health and quantify checkpoint-off plus source-proven synchronization removal. I
 cannot establish convergence, recipe quality, mAP/NDS, fusion gain, backward
 branch attribution, multi-seed behavior, Protocol A/B, FL, attack, or defense.
 
-#### STOP-4C replacement exact tuple — pending independent request review
+#### STOP-4C replacement exact tuple — consumed by Job 455539 / evidence review remediation pending
 
 ```text
 RUNNER_REMEDIATION_SHA/TREE: 72a09d5a503a258f3f257b208180585d16ee49d0 / 887d275b71a7f6ccd34cf67188e9fac0843393c1

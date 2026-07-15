@@ -808,8 +808,10 @@ FP16 global autocast with the accepted SECOND FP32 island, AdamW `lr=1e-4` /
 paste, eight workers, world size and accumulation one, and no checkpoint or
 official evaluation. The two intentional engineering changes are Swin activation
 checkpointing off and quiet multi-task loss telemetry when neither S08 precision
-diagnostics nor runtime telemetry needs per-term host scalars. All model outputs,
-losses and gradients are protected by the reviewed exact-neutrality tests.
+diagnostics nor runtime telemetry needs per-term host scalars. The quiet-loss
+switch is covered by an exact loss-value and loss-input-gradient equality test.
+Checkpoint-off is instead bound by explicit config/construction checks and this
+G100 health/performance evidence.
 
 ### Artifact, runtime and data identity
 
@@ -896,7 +898,7 @@ than steady data wait.
 
 The one-Hz telemetry alignment estimates 43 samples during the 44.1-second
 training interval. GPU utilization is mean/p50/p95/max
-`29.65% / 13% / 99% / 100%`; it is nonzero in `58.14%`, at least 50% in
+`29.65% / 13% / 99.9% / 100%`; it is nonzero in `58.14%`, at least 50% in
 `27.91%`, and at least 80% in `9.30%` of samples. Mean/p50/p95/max memory use is
 approximately `7,320 / 8,391 / 9,477 / 9,477 MiB`; mean/max power is
 `187.66 / 280.59 W`. Boundary uncertainty is up to one sampling interval.
