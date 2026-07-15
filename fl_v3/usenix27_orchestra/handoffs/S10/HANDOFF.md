@@ -379,3 +379,11 @@ It also makes signal termination fail closed. This may be implemented and locall
 proved without changing split science; however, Job `463649` consumed STOP-A's
 one-GH200-hour ceiling. A fresh execution tuple therefore requires an owner
 resource amendment even though one aggregate debug/fix submission slot remains.
+
+That remediation is now immutable at
+`d7caf53414ade2d5db794ecd90851d0e5a3535b5`. The old and new synthetic canonical
+payload hashes are identical, repeated solve output is identical, and the exact
+call count is 19. The detached read-only snapshot, command and hashes are frozen
+in `RUN_REQUEST.md` as non-executable tuple 2. The sole open action is a
+resource-only amendment for that exact one-hour allocation; no scientific or
+split-policy amendment is requested.

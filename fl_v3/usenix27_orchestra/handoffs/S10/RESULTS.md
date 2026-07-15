@@ -33,6 +33,9 @@ The runner's `final.exit=0` is invalidated by authoritative Slurm `TIMEOUT` and
 the missing `gate.exit`; this fail-open artifact state is itself retained as
 negative evidence.
 
-An exact blocked-radix implementation and signal-safe runner remediation are in
-local preparation. A further job is not authorized by the exhausted STOP-A
-one-GH200-hour ceiling. STOP-B and STOP-C have not started.
+The exact blocked-radix implementation and signal-safe runner remediation are
+immutable at `d7caf53414ade2d5db794ecd90851d0e5a3535b5`. Legacy/new synthetic
+canonical output identity, repeated determinism, 19-call topology, radix bounds,
+static checks and signal lifecycle pass locally. Its read-only snapshot and exact
+tuple are frozen in `RUN_REQUEST.md`, but a further job is not authorized by the
+exhausted STOP-A one-GH200-hour ceiling. STOP-B and STOP-C have not started.

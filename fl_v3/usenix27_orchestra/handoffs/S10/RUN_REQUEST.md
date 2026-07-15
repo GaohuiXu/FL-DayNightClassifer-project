@@ -359,3 +359,66 @@ The remaining debug/fix slot does not override STOP-A's approved cumulative
 one-GH200-hour ceiling. S00 may implement, test, commit, snapshot and freeze the
 strictly equivalent remediation, but another GH200 submission requires an owner
 resource amendment. No B/C execution starts before STOP-A closes.
+
+## 10. STOP-A derived debug/fix tuple 2 — frozen, resource amendment required
+
+The output-equivalent remediation is immutable at
+`d7caf53414ade2d5db794ecd90851d0e5a3535b5`. On the CPU SciPy diagnostic module,
+the pre-change and post-change synthetic split/report canonical payloads have the
+same SHA-256,
+`e0396504e68729d34e16012e03ff8e99fb41b4ed652cd65e03cd5fab6be6ab56`.
+Both runs emit the same base vector, `D_low`, `D_mid`, 55 base objectives and 39
+nested objectives. The new implementation repeats identically, performs exactly
+19 MILP calls, and proves the block objective is at most 59,048. `bash -n`, Python
+bytecode compilation and `git diff --check` pass. Signal-lifecycle probes return
+`TERM=143`, incomplete-zero `125`, and complete-zero `0`.
+
+```text
+TUPLE_STATE: FROZEN / NOT EXECUTABLE WITHOUT OWNER RESOURCE AMENDMENT
+DERIVATION: §8 tuple plus only exact blocked-radix tie-break and fail-closed signal handling
+SOURCE_SHA: d7caf53414ade2d5db794ecd90851d0e5a3535b5
+SOURCE_TREE: d4e25ae7ce074ef0b9b0350b329ccaf806756f77
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_fix2_d7caf53414ad
+SNAPSHOT_MODE: detached / clean / read-only
+SNAPSHOT_TRACKED_FILES: 596
+SNAPSHOT_LS_TREE_SHA256: 265d2f94defbecaafd2b3337eb963c4b46fb3071f61dbb663910c1e075ed845f
+RUNNER_SHA256: 637cea4b1400629c38e355ae686289709c8ba3b929cbf5ae445a8bba165ef119
+GATE_SCRIPT_SHA256: b52b13efb923c0154104e9ff8286be46fc173faf7b915a6ec3a51cc128cdf5df
+INTERNAL_SPLIT_SHA256: 0ba005b157cc3246f6de3c2d94366d3962d306c1b89928b520bfdda133b3ad4b
+SPLIT_TEST_SHA256: b2c4400c843c2b7c7a2725a5b654cf4ed21e7e60ae6c7347067f293247d57ec7
+DATA/CELLS/ORDER/GATES: identical to §6 and §8
+TEST_SELECTORS: identical file/selectors to §8; one in-file radix/call-count property test added
+RESOLVED_CONFIG_SHA256: N/A — no model/config/training path
+RESOURCE: one node / one nvidia_gh200_120gb / 16 CPU / 96 GiB / 01:00:00
+ACCOUNT/PARTITION: naiss2025-22-1113-gpu / gpu
+CONCURRENCY/REQUEUE/ARRAY/DDP: one active / no-requeue / none / none
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_d7caf53414ad_a3
+STDOUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_fix2_d7caf53414ad_%j.out
+STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_fix2_d7caf53414ad_%j.err
+SCIENTIFIC_ALLOCATIONS_AFTER_SUBMIT: 1 / 7
+DEBUG_FIX_ALLOCATIONS_AFTER_SUBMIT: 2 / 2
+SUBMISSIONS_AFTER_SUBMIT: 3 / 9
+```
+
+Canonical sorted compact JSON submission-envelope SHA-256:
+`2c35d7d2397b27c399abb277ca840a25750536fe7e6d40ee110553e9852f42a3`.
+The exact command, which remains forbidden until the amendment below, is:
+
+```bash
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G --gpus=nvidia_gh200_120gb:1 --time=01:00:00 --no-requeue --job-name=s10-stop-a-fix2-d7caf53 --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_fix2_d7caf53414ad --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_fix2_d7caf53414ad_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_fix2_d7caf53414ad_%j.err --export=ALL,S10_STOPA_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_fix2_d7caf53414ad,S10_STOPA_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_d7caf53414ad_a3,S10_STOPA_EXPECTED_SOURCE_SHA=d7caf53414ade2d5db794ecd90851d0e5a3535b5,S10_STOPA_EXPECTED_TREE=d4e25ae7ce074ef0b9b0350b329ccaf806756f77,S10_STOPA_EXPECTED_RUNNER_SHA256=637cea4b1400629c38e355ae686289709c8ba3b929cbf5ae445a8bba165ef119 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_fix2_d7caf53414ad/fl_v3/scripts/run_s10_stop_a_gate.sh
+```
+
+Proposed resource-only amendment:
+
+```text
+ADDITIONAL_STOP_A_AUTHORITY: exactly the frozen tuple above, executable once
+ADDITIONAL_NOMINAL_GPU_HOURS: 1.0 (actual elapsed charged; no reuse of savings)
+STOP_A_CUMULATIVE_CEILING: 2.1 elapsed GH200-hours
+ABC_CUMULATIVE_CEILING: 28.1 elapsed GH200-hours
+OTHER_STOP/CELL/SEED/HORIZON/RESOURCE BOUNDS: unchanged
+ON_ANY_FAILURE_OR_TIMEOUT: STOP-A blocked; no further fix/retry; return to owner
+```
+
+The 0.1-hour margin accounts only for the already observed Slurm termination
+grace and possible equivalent grace on the frozen one-hour job; it does not
+extend the requested job walltime. Unused time cannot be transferred.
