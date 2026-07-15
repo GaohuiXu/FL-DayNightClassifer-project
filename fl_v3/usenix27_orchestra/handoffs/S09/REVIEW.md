@@ -816,3 +816,49 @@ consumed, frozen cumm build identity is invalid, and STOP-4 remains blocked.
 Runtime re-attestation and any replacement G100 require the new exact owner
 envelope above. This verdict authorizes no compute, merge, push, or scientific
 interpretation.
+
+### STOP-3 bounded closure re-review — seal `05f96c84c52216b39fa919067b135a77ac795028`
+
+```text
+CLOSURE_SHA: 05f96c84c52216b39fa919067b135a77ac795028
+CLOSURE_TREE: a9744d737b6cee43d9028b4fc248d9a3577ffd17
+CLOSURE_PARENT: 4fc78d508d4ac9ad7c46b9d3ad81c87646f8f0d3
+BRANCH: codex/s08-s09-cl-readiness
+REVIEWER_COMPUTE: none
+```
+
+The closure preflight matched exact HEAD/branch and a clean worktree. The
+`4fc78d5..05f96c8` diff is limited to the prior review append and the four
+requested P3 closures; `git diff --check` and `bash -n` for
+`fl_v3/scripts/arrhenius_env.sh` pass.
+
+Findings after bounded re-review:
+
+- **P0: none.**
+- **P1: none.**
+- **P2: none.**
+- **P3: none open.** The prior P3 is closed in all four requested respects:
+  `AGENTS.md` now records O-116 closure, consumed Job `441511`, no active compute,
+  and the new-owner boundary; the STOP-2 block in `RUN_REQUEST.md` now records
+  owner acceptance/closure; `arrhenius_env.sh` now accurately calls `run` a
+  Miniforge-only path without changing a single executable statement or module
+  behavior; and `HANDOFF.md` binds failure evidence SHA/tree plus the independent
+  evidence/STOP-3 verdict.
+
+The committed REVIEW section retains the exact failed source/request/evidence
+identities, findings, gate table, residuals, and authority boundary reviewed
+above. No model, config, data, trainer, loss, precision, optimizer, scheduler,
+EMA, metric, test, or production-runtime behavior changed. Scheduler inspection
+still shows only Job `441511`, terminal `FAILED`; no same-name replacement or
+active job exists.
+
+**Closure verdict: PASS WITH RESIDUAL RISK / no open P0-P3 for the terminal
+failure-evidence seal.** Evidence candidate `4fc78d5` remains accepted only as
+honest negative engineering evidence. The substantive residuals are unchanged:
+the corrected STOP-3 runner is unexecuted, the cumm native build identity remains
+drifted/unattested, and every loader/G100/performance/numerical gate remains
+untested.
+
+**STOP-3 remains REMEDIATE / BLOCKED PENDING NEW OWNER AUTHORITY.** This closure
+does not authorize dependency rebuild/re-attestation, replacement G100, retry,
+STOP-4, merge, push, or scientific interpretation.
