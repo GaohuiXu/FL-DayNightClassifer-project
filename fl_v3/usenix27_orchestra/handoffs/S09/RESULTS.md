@@ -1,4 +1,4 @@
-# S09 results ledger — STOP-1/2 closed / STOP-3 terminal pre-model FAIL
+# S09 results ledger — STOP-1/2 closed / STOP-3 Phase A technical PASS / G100 pending
 
 ## Terminal state
 
@@ -380,11 +380,111 @@ binary was guessed, copied, rebuilt, or relabelled after the failure.
 
 ### Exit boundary
 
-O-117's only submission is consumed and explicitly forbids retry/replacement.
-STOP-3 remains incomplete and STOP-4 remains blocked. A future attempt requires a
-new owner decision covering at least: build-module bootstrap, a bounded GH200
-runtime dependency rebuild/attestation or another exact restoration method, new
-dependency/config identity if it changes, a new immutable source/snapshot/request/
-output tuple, and a replacement G100 allocation. Job `441511` provides no basis
+O-117's only submission was consumed and explicitly forbade retry/replacement.
+At that boundary STOP-3 remained incomplete and STOP-4 blocked; a future attempt
+required a new owner decision covering build-module bootstrap, bounded GH200
+runtime dependency attestation, new dependency/config identity, a new immutable
+source/snapshot/request/output tuple, and a replacement G100 allocation. O-118
+later supplied that exact conditional authority without reinterpreting Job
+`441511`. That failed job provides no basis
 for convergence, precision stability, throughput, epoch time, model utilization,
 mAP/NDS, recipe, Protocol A/B, attack, or defense claims.
+
+---
+
+## STOP-3 O-118 Phase A Job 442152 — dependency attestation technical PASS
+
+```text
+REQUEST_ID: S09-STOP3-O118-RECOVERY / PHASE A
+OWNER_AUTHORITY: O-118
+EXECUTION_SOURCE_SHA: 788b493889bcf7be98f36b9cbb6686d51e8e5edf
+EXECUTION_SOURCE_TREE: 0bc61b3c2693f818ad0feb4e749af64a3947913e
+REQUEST_APPROVAL_RECORD_SHA: 3578a9e4924576b5f66469926d7178b7be885501
+AUTHORITY_RECONCILIATION_SHA: 6323a5820863ed5c2e2d544efee3c6f53d98f9e5
+JOB_ID/STATE/EXIT/RESTARTS: 442152 / COMPLETED / 0:0 / 0
+NODE/SUBMIT/START/END: n507 / 2026-07-15T10:37:28 / 2026-07-15T10:37:29 / 2026-07-15T10:49:21
+ELAPSED/LIMIT/GPU_HOURS: 00:11:52 / 00:20:00 / 0.197778
+ACCOUNT/PARTITION/RESOURCES: naiss2025-22-1113-gpu / gpu / 1 GH200 / 8 CPU / 32 GiB
+BATCH_MAX_RSS/MAX_VM/TOTAL_CPU: 5041170K / 17851008K / 01:03:52
+SUBMISSIONS: 1 / exact Phase-A authority consumed / no retry or replacement
+RESULT: TERMINAL TECHNICAL PASS / INDEPENDENT EVIDENCE REVIEW PENDING
+```
+
+The exact read-only submit wrapper hashes to
+`93848490f485ab38a74ce9818a1ce9d8c35a5eaa17e389fc6b437e9238aa9706`.
+It submitted the reviewed runner at SHA-256
+`a00d4631600ce92d4954fc8dbbcdc47cf16d636c4e8fa9ad116679a89888282b`
+from the clean detached self-contained snapshot. Scheduler state reproduces the
+frozen command, snapshot working directory, exact resource tuple, logs,
+`--no-requeue`, zero restarts, and no array/DDP/replacement.
+
+### Stable identity result
+
+Both fresh processes emitted byte-identical 169,518-byte manifests with SHA-256
+`52b956995d19b2598836d31246790d4c724cde97e089e84f63132e627ec3d97c`:
+
+| Identity | Accepted value | Observation |
+|---|---|---|
+| Torch build | `a58ba749ac7947ce123a6af8d4cdc595d2aff5dccccec5d6e10bcfe522040f10` | unchanged |
+| spconv source | `499efdbb5ab31c43109d48f11ee0ff79af847a3d378fd48bf9c79f8672da28db` | exact before/after/current |
+| spconv executable build | `af42200511a53ce86d77cea0306924a2dc516a74f0483ef7cfe0a6e1dc84b100` | new stable post-warm identity |
+| cumm source | `f835ee22d539bbf0ab486fecf1188c3883c3cde5860913434cbcf945ee325662` | exact before/after/current |
+| cumm executable build | `0a7e3c1a8c3e8d41b3b40c4fb77d05bdec8ca2dfce5dbb8863626c4b45d8296d` | restored S08-accepted identity |
+| raw G100 config | `e8a17b392c071e3d28c489264d7d051ddfed3d125038a41766250a56dde0083f` | unchanged old dependency declaration |
+| resolved G100 config | `cb1723322c756579ab6740eb126de8455b65f808849ec977258c76b919f2c58c` | unchanged old dependency declaration |
+
+The two cumm native `core_cc` copies are byte-identical at 2,877,128 bytes and
+SHA-256 `9970ccc54041c7aee3272604ca7bb4e0d339e7ff37698b74159862c1ba2eface`.
+The two spconv native copies are byte-identical at 45,180,616 bytes and SHA-256
+`37f2ef8dfff8a199d7ffe18b765cd23c26fa1096a1b8ac77082024e086c816aa`.
+The aggregate manifests contain 125 cumm executable artifacts / 7,858,249 bytes
+and 73 spconv executable artifacts / 91,328,998 bytes.
+
+The build environment was the frozen aarch64/GH200 stack with CUDA `12.9.1`,
+`GPU/buildenv-nvhpc/25.9-cu12.9.1-eb`, and Miniforge `26.3.2-2-eb`; `nvcc`
+reported release `12.9`, `V12.9.86`. Before and after the job, spconv tracked
+state contained only the accepted `pyproject.toml` modification and cumm tracked
+state was clean. The pre-existing untracked cumm
+`cumm/core_cc/common.pyi` remained outside tracked-source identity. Every
+post-warm/EXIT new-tracked-change inventory is empty; no tracked stub was
+restored.
+
+### Artifact and boundary checks
+
+Output root:
+
+```text
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop3_dep_attest_788b493889bc_a1
+```
+
+It contains exactly 30 regular files / 1,637,056 bytes / one directory / zero
+writable entries. All 29 artifacts listed by `artifact_sha256s.txt` pass
+`sha256sum -c`. Key hashes are:
+
+| Artifact | SHA-256 |
+|---|---|
+| `acceptance.json` | `4b60f319660124d3bfac23a21bfbfa1b7c66ca920a0e4a4df03b1a512833e9b4` |
+| `artifact_sha256s.txt` | `b176faa88df06ab955a295cac2ef63e09d51d59427b36c2c8bc11f3b27e73133` |
+| `dependency_probe_a.json` / `dependency_probe_b.json` | `52b956995d19b2598836d31246790d4c724cde97e089e84f63132e627ec3d97c` |
+| `warm_import.stdout` | `20626c3291e01114b8068b1550165d5c709a703dd763999be917ad4a90ed1c12` |
+| `source_identity_before.json` | `64e58a13296f6d931654df5fb099e59d56dcbf7c8db4a1789f88ea1bfa603672` |
+| Slurm stdout / stderr | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` / `ae6330855ac405b2e19691ca1681d7f9eeedc6216718d1516023d9376d891b57` |
+
+Warm-import and both probe stderr files are zero bytes.
+`dependency_attestation.exit` is `0`; original, cleanup, seal and final statuses
+are all zero. `acceptance.json` explicitly records `data_loaded=false`,
+`model_constructed=false`, and `training_attempts=0`.
+
+This PASS means only that the exact editable sparse runtime reached a stable,
+checksum-bound point-in-time build identity under two complete fresh-process
+probes. Because Phase A did not save a complete pre-warm executable-artifact
+manifest, it cannot identify an exact per-file mutation delta. It also cannot
+guarantee that the shared editable runtime will remain immutable. The derived
+G100 must fail-close on the exact source/build values above before loading data.
+
+Phase A did not touch nuScenes, profile a loader, construct the detector, execute
+forward/backward, or attempt an optimizer update. It therefore answers none of
+the owner's four G100 questions about 100-update health, time/update, stage timing,
+or GH200 utilization. Conditional Phase B remains unexecuted and blocked until
+independent Phase-A evidence review finds no open P0-P2 or material semantic
+concern.

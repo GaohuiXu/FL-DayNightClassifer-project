@@ -15,6 +15,9 @@
 > model execution. O-118 now approves the exact serial recovery below: one
 > dependency-attestation submission and, only after its PASS plus independent
 > review, one strictly derived replacement G100. Neither phase permits retry.
+> Phase A was consumed exactly once by Job `442152` and is terminal technical
+> PASS; its independent evidence review is pending, so conditional Phase B has
+> not been derived or submitted.
 
 ## Authorization state
 
@@ -28,7 +31,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3
 APPROVED_COMPUTE: O-118 Phase A exact dependency attestation + conditional strictly derived Phase B G100
 APPROVED_SUBMISSIONS: prior STOP-1/2/3 each consumed + O-118 Phase A 1 + conditional Phase B 1 / no retry
-ACTIVE_REQUEST: O-118 Phase A exact dependency attestation / approved / not yet submitted
+ACTIVE_REQUEST: O-118 Phase A consumed / Job 442152 technical PASS / independent evidence review pending / Phase B blocked
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-3 exact config/runner/request/evidence and review remediation authorized
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -522,11 +525,11 @@ under unused quota. A replacement requires an owner amendment binding the files,
 semantics, immutable source/config/command, and resource tuple; STOP-4 remains
 blocked until that gate is independently accepted.
 
-## STOP-3 — proposed O-118 dependency recovery plus conditional replacement
+## STOP-3 — approved O-118 dependency recovery plus conditional replacement
 
 ```text
 REQUEST_ID: S09-STOP3-O118-RECOVERY
-REQUEST_STATE: APPROVED UNDER O-118 / PHASE A NOT YET SUBMITTED
+REQUEST_STATE: APPROVED UNDER O-118 / PHASE A CONSUMED TECHNICAL PASS / INDEPENDENT REVIEW PENDING / PHASE B BLOCKED
 OWNER_CONFIRMATION: "批准 O-118 条件式续行 envelope" / continuous execution within the frozen boundary
 PURPOSE: re-attest the drifted editable sparse runtime, then conditionally execute the unchanged O-117 loader/G100 gate
 ADDITIONAL_SUBMISSIONS: at most 2 / one dependency attestation + one conditional G100 replacement
@@ -536,15 +539,15 @@ RETRY_OR_SPARE_GPU: forbidden
 STOP4: forbidden
 ```
 
-This proposal is one serial envelope, not permission inferred from unused O-117
+This is one approved serial envelope, not permission inferred from unused O-117
 time. Phase B exists only if Phase A and its independent review pass every gate
-below. A single owner decision may approve both phases through the exact
-derivation rule; otherwise neither phase is authorized.
+below. O-118 approves both phases through the exact derivation rule, but Phase B
+remains blocked until the independent Phase-A evidence review passes.
 
 ### Phase A — exact dependency rebuild/warm and attestation
 
 ```text
-PHASE_STATE: APPROVED UNDER O-118 / NOT YET SUBMITTED
+PHASE_STATE: CONSUMED BY JOB 442152 / TERMINAL TECHNICAL PASS / INDEPENDENT EVIDENCE REVIEW PENDING
 MODEL/DATA/TRAINING: none / no nuScenes module or read / no model construction / zero training attempts
 SOURCE_SHA: 788b493889bcf7be98f36b9cbb6686d51e8e5edf
 SOURCE_TREE: 0bc61b3c2693f818ad0feb4e749af64a3947913e
@@ -568,7 +571,7 @@ SUBMIT_SCRIPT_SHA256: 93848490f485ab38a74ce9818a1ce9d8c35a5eaa17e389fc6b437e9238
 COMMAND: bash /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop3_dep_attest_788b493889bc/submit.sh
 JOB_NAME: flv3_s09_stop3_dep_attest
 RESOURCE_CEILING: 1 GH200 / 8 CPU / 32 GiB host / 00:20:00 / 0.333334 GPU-hours
-SUBMISSIONS: exactly 1 if approved / no retry or replacement
+SUBMISSIONS: exactly 1 / consumed by Job 442152 / no retry or replacement
 OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop3_dep_attest_788b493889bc_a1
 STDOUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop3_dep_attest_788b493889bc_%j.out
 STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop3_dep_attest_788b493889bc_%j.err
@@ -608,9 +611,56 @@ loss, missing artifact, or identity drift terminates Phase A and the entire O-11
 chain. Native state after any failure remains explicit evidence; there is no
 automatic repair or second dependency job.
 
+#### Phase-A terminal execution record
+
+```text
+JOB_ID/STATE/EXIT/RESTARTS: 442152 / COMPLETED / 0:0 / 0
+SUBMIT/START/END: 2026-07-15T10:37:28 / 2026-07-15T10:37:29 / 2026-07-15T10:49:21
+NODE/ELAPSED/LIMIT/GPU_HOURS: n507 / 00:11:52 / 00:20:00 / 0.197778
+ACCOUNT/PARTITION/RESOURCES: naiss2025-22-1113-gpu / gpu / 1 GH200 / 8 CPU / 32 GiB
+BATCH_MAX_RSS/MAX_VM/TOTAL_CPU: 5041170K / 17851008K / 01:03:52
+ACCEPTANCE_SHA256: 4b60f319660124d3bfac23a21bfbfa1b7c66ca920a0e4a4df03b1a512833e9b4
+ARTIFACT_MANIFEST_SHA256: b176faa88df06ab955a295cac2ef63e09d51d59427b36c2c8bc11f3b27e73133
+PROBE_A/B_SHA256: 52b956995d19b2598836d31246790d4c724cde97e089e84f63132e627ec3d97c / byte-identical
+TORCH_BUILD_SHA256: a58ba749ac7947ce123a6af8d4cdc595d2aff5dccccec5d6e10bcfe522040f10
+SPCONV_BUILD_SHA256: af42200511a53ce86d77cea0306924a2dc516a74f0483ef7cfe0a6e1dc84b100
+CUMM_BUILD_SHA256: 0a7e3c1a8c3e8d41b3b40c4fb77d05bdec8ca2dfce5dbb8863626c4b45d8296d
+OUTPUT_FILES/BYTES/DIRECTORIES/WRITABLE: 30 / 1637056 / 1 / 0
+ORIGINAL/CLEANUP/SEAL/FINAL_STATUS: 0 / 0 / 0 / 0
+DATA_LOADED/MODEL_CONSTRUCTED/TRAINING_ATTEMPTS: false / false / 0
+```
+
+The scheduler command, working directory, logs, resource tuple and no-requeue
+state match the frozen request. All 29 files named by
+`artifact_sha256s.txt` pass `sha256sum -c`; probe A and probe B are byte-identical
+fresh-process manifests. Warm-import and both probe stderr files are empty. The
+output and Slurm logs are read-only. Before and after the job, tracked external
+state remained exact: spconv contains only the accepted modified
+`pyproject.toml`, and cumm has no tracked change (the pre-existing untracked
+`cumm/core_cc/common.pyi` is outside tracked-source identity). All four generated-
+tracked-change inventories are empty, so no tracked stub was restored.
+
+The two cumm `core_cc` copies are now byte-identical at 2,877,128 bytes and
+SHA-256 `9970ccc54041c7aee3272604ca7bb4e0d339e7ff37698b74159862c1ba2eface`;
+the two spconv copies are byte-identical at 45,180,616 bytes and SHA-256
+`37f2ef8dfff8a199d7ffe18b765cd23c26fa1096a1b8ac77082024e086c816aa`.
+The aggregate cumm build identity is restored to the S08-accepted value while
+spconv has the new stable aggregate identity above. Phase A did not capture a
+complete executable-artifact manifest before the warm import, so it does not
+support an exact per-file mutation-delta claim. It establishes only the stable,
+point-in-time post-warm identity reproduced by two fresh processes. The shared
+editable runtime can still drift after the job; Phase B must recheck every
+source/build identity before data or model work.
+
+O-118 Phase-A authority is consumed even though the job used less than its
+ceiling. No retry occurred or is authorized. Conditional Phase B remains blocked
+until an independent reviewer checks this exact scheduler record, the raw
+artifacts, current external source/build state, and the immutable evidence commit
+with no open P0-P2 or material semantic concern.
+
 ### Phase B — strictly derived replacement loader/G100
 
-Phase B is authorized by the proposed single O-118 decision only if Phase A is
+Phase B is authorized by O-118 only if Phase A is
 terminal PASS and an independent reviewer confirms its exact scheduler record,
 raw artifacts, final external source state and emitted build identities with no
 open P0-P2 or material semantic concern. Documentation-only P3 closure may be

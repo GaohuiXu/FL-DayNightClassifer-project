@@ -4,7 +4,7 @@
 
 ```text
 SESSION_ID: S09
-MILESTONE_STATE: STOP-1/2 CLOSED / STOP-3 JOB 441511 PRE-MODEL FAIL / OWNER AMENDMENT REQUIRED
+MILESTONE_STATE: STOP-1/2 CLOSED / STOP-3 O-118 PHASE A TECHNICAL PASS / INDEPENDENT REVIEW PENDING / PHASE B BLOCKED
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
@@ -42,7 +42,11 @@ STOP3_DEP_ATTEST_SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/
 STOP3_DEP_ATTEST_SUBMIT_SHA256: 93848490f485ab38a74ce9818a1ce9d8c35a5eaa17e389fc6b437e9238aa9706
 STOP3_O118_DECISION: APPROVED / exact dependency attestation + conditionally derived unchanged O-117 G100 / no retry
 APPROVED_COMPUTE: O-118 Phase A exact dependency attestation + conditional Phase B G100 after PASS/review
-JOBS: 441191 COMPLETED 0:0 in 00:03:06; 441293 COMPLETED 0:0 in 00:01:04; 441511 FAILED 1:0 in 00:02:29 / no retries
+STOP3_DEP_ATTEST_JOB: 442152 COMPLETED 0:0 in 00:11:52 / 0.197778 GPU-hours / technical PASS
+STOP3_DEP_ATTEST_BUILDS: spconv af42200511a53ce86d77cea0306924a2dc516a74f0483ef7cfe0a6e1dc84b100 / cumm 0a7e3c1a8c3e8d41b3b40c4fb77d05bdec8ca2dfce5dbb8863626c4b45d8296d
+STOP3_DEP_ATTEST_ACCEPTANCE_SHA256: 4b60f319660124d3bfac23a21bfbfa1b7c66ca920a0e4a4df03b1a512833e9b4
+STOP3_DEP_ATTEST_EVIDENCE_STATE: immutable evidence commit pending / independent evidence review required before Phase B
+JOBS: 441191 COMPLETED 0:0 in 00:03:06; 441293 COMPLETED 0:0 in 00:01:04; 441511 FAILED 1:0 in 00:02:29; 442152 COMPLETED 0:0 in 00:11:52 / no retries
 INDEPENDENT_REVIEW: STOP-1 5252a59 PASS_WITH_RESIDUAL_RISK; STOP-2 impl 37aef4d PASS_WITH_RESIDUAL_RISK; request cad7262 PASS_WITH_RESIDUAL_RISK; evidence 79f87dc PASS_WITH_RESIDUAL_RISK
 OWNER_STOP1_DECISION: O-113 / ACCEPTED
 ```
@@ -71,9 +75,15 @@ physical data verification, loader profiling, model construction, or training:
 the source-controlled runner selected runtime-only modules despite `env.md`'s
 build-module requirement for editable cumm/spconv imports, and spconv JIT could
 not find `cublasLt.h`. The runner selector is corrected in the current branch,
-but the failed import also changed the cumm native build identity. No replacement
-is authorized; STOP-3 requires independent failure/remediation review and a new
-owner decision before any runtime re-attestation or G100.
+but the failed import also changed the cumm native build identity. Independent
+failure/remediation review accepted that negative evidence. O-118 then authorized
+one exact dependency-attestation job and, conditionally, one strictly derived
+unchanged O-117 G100. Job `442152` consumed Phase A and returned technical PASS:
+two fresh processes reproduced exact Torch, spconv, cumm, source and config
+identities; no data/model/training path ran. The stable aggregate executable-build
+identities are spconv `af422005...` and cumm `0a7e3c1a...`. Phase B remains blocked
+until an independent reviewer accepts the immutable Phase-A evidence and current
+external state. No Phase-B tuple has been derived or submitted.
 
 ## S08 residual carried into S09
 
