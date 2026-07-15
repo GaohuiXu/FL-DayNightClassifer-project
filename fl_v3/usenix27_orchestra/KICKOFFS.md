@@ -253,7 +253,7 @@ SESSION_ID: S09
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 SOURCE_BRANCH: codex/s08-s09-cl-readiness
 IMPLEMENTATION_CONTEXT: persistent S00 unless owner selects independent isolation
-APPROVED_COMPUTE: O-112 STOP-1 Job 441191 and O-115 STOP-2 Job 441293 consumed; O-117 authorizes one STOP-3 G100 after exact immutable tuple freeze
+APPROVED_COMPUTE: O-112 STOP-1 Job 441191 and O-115 STOP-2 Job 441293 consumed; O-117 exact STOP-3 G100 tuple frozen at 4d6bd82, one submission active and unconsumed
 APPROVED_GIT: linear S09 envelope/request/evidence/review commits; no merge/push
 DECISION_SCOPE: base-uniform full-pipeline engineering performance/readiness only
 ```

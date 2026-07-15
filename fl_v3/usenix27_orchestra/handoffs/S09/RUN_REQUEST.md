@@ -23,7 +23,7 @@ STOP1_REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
 STOP1_FIRST_EVIDENCE_SHA: b35591b1a9ac64ea50ee3ad3257304baef07f8de
 BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117 STOP-3
-APPROVED_COMPUTE: STOP-1/2 consumed / STOP-3 one exact G100 pending immutable tuple freeze
+APPROVED_COMPUTE: STOP-1/2 consumed / STOP-3 exact frozen G100 tuple active and unconsumed
 APPROVED_SUBMISSIONS: STOP-1 1 consumed / STOP-2 1 consumed; STOP-3 1 pending / no replacement
 ACTIVE_REQUEST: S09-STOP3-G100 / approved derivation envelope / unsubmitted
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-3 exact config/runner/request/evidence and review remediation authorized
@@ -389,7 +389,7 @@ unused submission/time ceiling is not STOP-3 or other compute authority.
 ## STOP-3 — loader selection and G100
 
 ```text
-REQUEST_STATE: APPROVED UNDER O-117 / IMMUTABLE SOURCE TUPLE DERIVATION IN PROGRESS / UNSUBMITTED
+REQUEST_STATE: FROZEN + APPROVED UNDER O-117 / UNSUBMITTED
 PRIMARY_CELL: F-U only
 PRECISION: global FP16 autocast + explicit SECOND FP32 island
 INITIALIZATION: random / engineering seed 0
@@ -400,8 +400,49 @@ MICROBATCH/ACCUMULATION/GPU: 1 / 1 / 1 GH200
 RESOURCE_CEILING: 1 GH200 / 16 CPU / 96 GiB host / 01:00:00 / 1 GPU-hour
 SUBMISSIONS: exactly 1 / unsubmitted / no retry or replacement
 RESOLVED_CONFIG_SHA256: cb1723322c756579ab6740eb126de8455b65f808849ec977258c76b919f2c58c
-EXECUTION_SOURCE/TREE/SNAPSHOT/RUNNER_HASH/OUTPUT: pending immutable derivation before submission
+EXECUTION_SOURCE_SHA: 4d6bd829450021aa0813bcece066fb1fac85f478
+EXECUTION_SOURCE_TREE: affb4854689a0bf65d829a273d769c87c000174c
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop3_g100_4d6bd8294500
+SNAPSHOT_REF_MODE: detached / clean / self-contained Git object database
+SNAPSHOT_TRACKED_FILES/BYTES: 592 / 4776222
+SNAPSHOT_WRITABLE_WORKTREE_ENTRIES: 0
+CONFIG: fl_v3/configs/s09_stop3_f_u_g100.json
+CONFIG_FILE_SHA256: e8a17b392c071e3d28c489264d7d051ddfed3d125038a41766250a56dde0083f
+RUNNER: fl_v3/scripts/run_s09_stop3_g100.sh
+RUNNER_SHA256: 18cca984a65aaa3d462037b931afa100ff046742e06d48fbbeee0c79d0067195
+CENTRALIZED_TRAIN_SHA256: 9284d3950541d80417aa1a2a0a1c8e6f41dd4ae46febef53aae3359cbfa959c2
+ARRHENIUS_ENV_SHA256: f57befbb5082aaf4d4bb186958a88420ea873e0fdee5c65da1091b73f566c2bf
+SUBMIT_SCRIPT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop3_g100_4d6bd8294500/submit.sh
+SUBMIT_SCRIPT_SHA256: 82790e4cc22c246dc5b458d652d5ca6cb4b9147a9aebb712349e0c0d5c482b1d
+JOB_NAME: flv3_s09_stop3_g100
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop3_g100_4d6bd8294500_a1
+STDOUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop3_g100_4d6bd8294500_%j.out
+STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop3_g100_4d6bd8294500_%j.err
+DATAROOT: /dataset/easybuild/data/nuScenes-data/1.0-map-1.3-zip
+TRAIN_CACHE_LOGICAL_SHA256: 310e1bba8f65912450e864b634a47b4ca2ea4feb20ed26018e087c93299eed0a
+TRAIN_CACHE_PICKLE_SHA256: 57fce20f035a99c0c0ab96fdef418c1b0e04e28bd3e32d191a8298f99919be30
+TRAIN_CACHE_SIDECAR_SHA256: f4c45dd12ea0db8ec35d9235de52e51981870b91f175c376d5c34747da661b6c
+VAL_CACHE_LOGICAL_SHA256: bb692de4c1eb8b66e8c74f4e807eb208ad891b45ce8f233e8017dc4f3a3b6e2f
+VAL_CACHE_PICKLE_SHA256: d4ed7aee9978c2294e2087c917006cbb3d69276453266d0f9c92591340084837
+VAL_CACHE_SIDECAR_SHA256: 4f5390815720e14625be31b20fb1596cafe9869ad95b08dc098aea65413be432
+ZIP_MANIFEST_LOGICAL_SHA256: 023f72b4220bb0db587be00920308bf9074384740fe186d243be92f9a53119f6
+ZIP_MANIFEST_FILE_SHA256: 228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb
 ```
+
+The only authorized submission command is:
+
+```bash
+bash /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop3_g100_4d6bd8294500/submit.sh
+```
+
+That read-only script rechecks the exact detached/clean source/tree, config and
+runner file hashes, fresh output path, and empty exact-name queue before calling
+`sbatch --parsable` with account `naiss2025-22-1113-gpu`, partition `gpu`, one
+node/task, `nvidia_gh200_120gb:1`, 16 CPUs, 96 GiB host memory, `01:00:00`,
+`--no-requeue`, and the frozen snapshot as the Slurm working directory. It exports
+only the exact snapshot/output/source/tree/resolved-config identities consumed by
+the source-controlled runner. No array, DDP, second seed, retry, replacement, or
+derived output is authorized.
 
 The approved immutable request binds:
 

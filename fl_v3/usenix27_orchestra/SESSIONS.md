@@ -66,7 +66,7 @@
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
-| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1/2 closed; STOP-3 exact config/runner/request preparation active under O-117; one G100 submission authorized only after immutable tuple freeze |
+| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1/2 closed; STOP-3 immutable tuple frozen at `4d6bd82` under O-117; one exact G100 submission active and unconsumed |
 | S10 | Centralized branch/recipe ablation | S08+S09 | pending redefinition; no cells/gates frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
 | S12 | Protocol-A/B split and clean adaptation contract | CL freeze + fresh owner review | deferred; old proposal is historical evidence only |
