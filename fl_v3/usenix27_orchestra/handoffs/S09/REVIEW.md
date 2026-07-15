@@ -862,3 +862,62 @@ untested.
 **STOP-3 remains REMEDIATE / BLOCKED PENDING NEW OWNER AUTHORITY.** This closure
 does not authorize dependency rebuild/re-attestation, replacement G100, retry,
 STOP-4, merge, push, or scientific interpretation.
+
+### STOP-3 dependency-attestation bounded pre-compute review
+
+```text
+INITIAL_SHA: 42a9bff34b0517b11de144e7bda42b62524b7d3e
+INITIAL_TREE: c48d7358f99e95b17f862a91726f5c40857d1817
+INITIAL_PARENT: e221de672f8a1de010b01869b720ee5d6a523e8c
+REMEDIATION_SHA: 788b493889bcf7be98f36b9cbb6686d51e8e5edf
+REMEDIATION_TREE: 0bc61b3c2693f818ad0feb4e749af64a3947913e
+REMEDIATION_PARENT: 42a9bff34b0517b11de144e7bda42b62524b7d3e
+REVIEW_SCOPE: fl_v3/scripts/run_s09_stop3_dependency_attestation.sh only
+REVIEWER_COMPUTE: none
+```
+
+The initial one-file implementation was narrow and did not load data, construct
+a model, or train, but required remediation before a compute request could be
+frozen:
+
+- **P1:** `seal_on_exit` was not fail-closed. Status/manifest/chmod failures
+  could be ignored, cleanup failures were not reliably accumulated, and the
+  trap was installed after initial artifact writes.
+- **P2:** before the mutation-capable warm import, the script bound the two
+  checkout HEADs and tracked states but not the active editable distributions,
+  exact versions, direct URLs, or import origins.
+- **P2:** the EXIT cleanup reused the post-warm evidence filenames and therefore
+  overwrote the concrete restored-stub path inventory with an empty second pass.
+- **P2:** the two probes and acceptance artifact did not explicitly record the
+  raw config-file SHA-256 and canonical resolved-config SHA-256.
+
+The remediation closes all four findings. It installs the EXIT trap immediately
+after output creation/entry and before the first artifact write or sparse import;
+separately records original, cleanup, seal, and final statuses; propagates every
+restore and artifact-seal failure to a nonzero result; and preserves independent
+`post_warm` and `exit` restoration records plus an append-only restored-path
+ledger. The pre-warm probe now fail-closes on exact package version, editable
+file direct URL, expected checkout, HEAD, tracked state, and import origin without
+importing cumm/spconv. Both fresh-process identity records and the acceptance
+artifact now bind the config path, raw file SHA-256, and `ResolvedConfig.sha256`.
+The existing spconv `pyproject.toml` diff remains outside the generated-stub
+allowlist and is never restored.
+
+Bounded static validation passed: `git diff --check`, `bash -n`, `shellcheck -x`,
+and AST parsing of all four embedded Python heredocs. The review performed no
+GPU compute, data/model/training execution, sparse import, or external checkout
+mutation. No new P0-P3 was introduced.
+
+**Pre-compute implementation verdict: PASS WITH RESIDUAL RISK / no open P0-P3.**
+The two fresh-process probes are sufficient to bind a stable point-in-time
+dependency identity, not to prove that a shared editable runtime remains
+immutable after the job. A later G100 must fail-close against the exact emitted
+source/build/config identities. EXIT sealing also cannot cover SIGKILL, node
+loss, or power loss. The dependency-attestation execution intentionally permits
+only its separately declared warm/build effects and bounded tracked-stub
+restoration; those external effects must remain explicit in the exact request.
+
+This review permits `788b493889bcf7be98f36b9cbb6686d51e8e5edf` to be used as
+the immutable source for a proposed dependency-attestation compute request. It
+is **not compute authorization** and does not authorize submission, retry,
+replacement G100, STOP-4, merge, push, or scientific interpretation.

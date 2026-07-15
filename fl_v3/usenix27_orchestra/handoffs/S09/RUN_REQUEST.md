@@ -26,7 +26,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117 STOP-3
 APPROVED_COMPUTE: STOP-1/2 consumed / STOP-3 Job 441511 consumed and terminal failed
 APPROVED_SUBMISSIONS: STOP-1 1 consumed / STOP-2 1 consumed / STOP-3 1 consumed / no replacement
-ACTIVE_REQUEST: none / STOP-3 pre-model bootstrap FAIL / new owner amendment required
+ACTIVE_REQUEST: proposed O-118 two-phase STOP-3 recovery / NOT AUTHORIZED
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-3 exact config/runner/request/evidence and review remediation authorized
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -519,6 +519,139 @@ candidate and equivalence plan. It does not change source or submit another G100
 under unused quota. A replacement requires an owner amendment binding the files,
 semantics, immutable source/config/command, and resource tuple; STOP-4 remains
 blocked until that gate is independently accepted.
+
+## STOP-3 — proposed O-118 dependency recovery plus conditional replacement
+
+```text
+REQUEST_ID: S09-STOP3-O118-RECOVERY
+REQUEST_STATE: PROPOSED / OWNER APPROVAL REQUIRED / DO NOT SUBMIT
+OWNER_CONFIRMATION: pending
+PURPOSE: re-attest the drifted editable sparse runtime, then conditionally execute the unchanged O-117 loader/G100 gate
+ADDITIONAL_SUBMISSIONS: at most 2 / one dependency attestation + one conditional G100 replacement
+ADDITIONAL_GPU_HOUR_CEILING: 1.333334
+S09_CUMULATIVE_GPU_HOUR_CEILING_IF_FULLY_USED: 1.444167 / below the standing 2-hour ceiling
+RETRY_OR_SPARE_GPU: forbidden
+STOP4: forbidden
+```
+
+This proposal is one serial envelope, not permission inferred from unused O-117
+time. Phase B exists only if Phase A and its independent review pass every gate
+below. A single owner decision may approve both phases through the exact
+derivation rule; otherwise neither phase is authorized.
+
+### Phase A — exact dependency rebuild/warm and attestation
+
+```text
+PHASE_STATE: PROPOSED / NOT AUTHORIZED
+MODEL/DATA/TRAINING: none / no nuScenes module or read / no model construction / zero training attempts
+SOURCE_SHA: 788b493889bcf7be98f36b9cbb6686d51e8e5edf
+SOURCE_TREE: 0bc61b3c2693f818ad0feb4e749af64a3947913e
+SOURCE_PARENT: 42a9bff34b0517b11de144e7bda42b62524b7d3e
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop3_dep_attest_788b493889bc
+SNAPSHOT_REF_MODE: detached / clean / self-contained Git object database
+SNAPSHOT_TRACKED_FILES/BYTES: 593 / 4822669
+SNAPSHOT_WRITABLE_WORKTREE_ENTRIES: 0
+SNAPSHOT_ALTERNATES: absent
+SNAPSHOT_FSCK: git fsck --full --no-reflogs exit 0
+RUNNER: fl_v3/scripts/run_s09_stop3_dependency_attestation.sh
+RUNNER_SHA256: a00d4631600ce92d4954fc8dbbcdc47cf16d636c4e8fa9ad116679a89888282b
+CONFIG: fl_v3/configs/s09_stop3_f_u_g100.json
+CONFIG_FILE_SHA256: e8a17b392c071e3d28c489264d7d051ddfed3d125038a41766250a56dde0083f
+RESOLVED_CONFIG_SHA256: cb1723322c756579ab6740eb126de8455b65f808849ec977258c76b919f2c58c
+ARRHENIUS_ENV_SHA256: a56758d72096a65708352e155d1c72adf261ae6cdaf5a56a38f7d2dd5472648f
+RUNTIME_IDENTITY_SOURCE_SHA256: da84c73932584e9fe0a2ddd37fce6945e84686a625d3cef91be2bebcf08b78f7
+SOURCE_IDENTITY_SOURCE_SHA256: fdda00cdbe910582385fc8bc2d6b2475037e8740c395f1fb55a8c080981b4986
+SUBMIT_SCRIPT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop3_dep_attest_788b493889bc/submit.sh
+SUBMIT_SCRIPT_SHA256: 93848490f485ab38a74ce9818a1ce9d8c35a5eaa17e389fc6b437e9238aa9706
+COMMAND: bash /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop3_dep_attest_788b493889bc/submit.sh
+JOB_NAME: flv3_s09_stop3_dep_attest
+RESOURCE_CEILING: 1 GH200 / 8 CPU / 32 GiB host / 00:20:00 / 0.333334 GPU-hours
+SUBMISSIONS: exactly 1 if approved / no retry or replacement
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop3_dep_attest_788b493889bc_a1
+STDOUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop3_dep_attest_788b493889bc_%j.out
+STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop3_dep_attest_788b493889bc_%j.err
+SPCONV_VERSION/HEAD/STATE: 2.3.8 / 263d6b47425ef843c82f997b12d8b714013d216c / 499efdbb5ab31c43109d48f11ee0ff79af847a3d378fd48bf9c79f8672da28db
+CUMM_VERSION/HEAD/STATE: 0.7.13 / 4dedaf43ff801e417c60c6bd7536a29d83d29ee0 / f835ee22d539bbf0ab486fecf1188c3883c3cde5860913434cbcf945ee325662
+PRECOMPUTE_REVIEW: 788b493 PASS_WITH_RESIDUAL_RISK / no open P0-P3
+```
+
+The read-only submit script rechecks the exact detached source/tree, no
+alternates, zero writable worktree entries, runner/config file hashes, canonical
+resolved-config hash, both external source HEADs/tracked states, absent output,
+and empty exact-name queue before `sbatch --parsable`. It requests account
+`naiss2025-22-1113-gpu`, partition `gpu`, one node/task, one
+`nvidia_gh200_120gb`, eight CPUs, 32 GiB, `00:20:00`, `--no-requeue`, no array,
+and the frozen snapshot as working directory.
+
+The runner loads `arrhenius_load_modules build`, requires aarch64/GH200 and
+`nvcc`, then fail-closes before sparse import on the active installed versions,
+editable direct URLs, exact expected checkouts, HEADs, tracked states, and import
+origins. The first cumm/spconv import is the only mutation-capable warm/build
+operation. It may replace or create native build artifacts under the two exact
+editable checkouts and their existing build/cache roots. It may restore only
+newly modified tracked paths matching
+`{spconv,cumm}/core_cc/**/*.pyi` that were clean in the pre-job tracked state;
+every path is recorded separately for `post_warm` and EXIT. It never restores or
+changes the accepted pre-existing `spconv/pyproject.toml` modification. Any other
+new tracked path is a hard failure and is not silently restored.
+
+PASS requires Slurm `COMPLETED 0:0` with zero restarts; exact identities above;
+successful build-module warm import; final spconv/cumm tracked states equal the
+accepted hashes; two fresh Python processes producing byte-identical config,
+Torch, spconv and cumm identity JSON; stable executable-build hashes; an
+`acceptance.json` declaring no data/model/training; original/cleanup/seal/final
+statuses all zero; checksum-valid artifacts; and zero writable output entries.
+Failure, timeout, unexpected mutation, probe mismatch, cleanup/seal failure, node
+loss, missing artifact, or identity drift terminates Phase A and the entire O-118
+chain. Native state after any failure remains explicit evidence; there is no
+automatic repair or second dependency job.
+
+### Phase B — strictly derived replacement loader/G100
+
+Phase B is authorized by the proposed single O-118 decision only if Phase A is
+terminal PASS and an independent reviewer confirms its exact scheduler record,
+raw artifacts, final external source state and emitted build identities with no
+open P0-P2 or material semantic concern. Documentation-only P3 closure may be
+sealed linearly; it may not alter the derived compute tuple.
+
+The only permitted derivation is:
+
+1. replace only `dependencies.spconv_build_sha256` and
+   `dependencies.cumm_build_sha256` in
+   `fl_v3/configs/s09_stop3_f_u_g100.json` with the two stable values emitted by
+   Phase A; source HEAD/state, versions, Torch identity, data identities, model,
+   precision, seed and recipe remain unchanged;
+2. update S09 provenance documents and no production behavior; the corrected
+   `fl_v3/scripts/run_s09_stop3_g100.sh` remains byte-identical at SHA-256
+   `855bbd15877a4ceaa6919ccdf9d2ca369e1f3c84ee306415a41376c07d5d8b5d`;
+3. run local config/static tests, create a new linear immutable commit and
+   detached self-contained snapshot, then record exact source/tree, raw/resolved
+   config hashes, snapshot inventory, runner/submit hashes and fresh paths in
+   this ledger before submission; and
+4. obtain independent confirmation that the derived diff follows items 1–3.
+
+The resulting one-shot G100 keeps every O-117 material field and gate unchanged:
+F-U, engineering seed `0`, global FP16 autocast plus SECOND FP32 island, random
+initialization, AdamW `1e-4/0.01`, constant scheduler, EMA/clip/BEV augmentation/
+GT-paste disabled, microbatch/accumulation `1/1`, production train cache and ZIP
+manifest identities, observational loader cells `0/2/4/8` in the same order and
+bounds, training workers `8`, 100 successful optimizer updates within 120
+attempted windows, first ten successful updates excluded from timing, one-Hz GPU
+telemetry, all existing timing/memory/epoch/numerical gates, one GH200, 16 CPUs,
+96 GiB and `01:00:00`. The derived naming rule is:
+
+```text
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop3_g100_<derived_source_sha12>
+REQUEST_DIR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop3_g100_<derived_source_sha12>_a2
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop3_g100_<derived_source_sha12>_a2
+JOB_NAME: flv3_s09_stop3_g100_r1
+SUBMISSIONS: exactly 1 conditional replacement / no retry
+```
+
+Any deviation from the four derivation items, Phase A evidence/review failure,
+new dependency/source drift, changed data/cell/order/bounds/seed/precision/recipe/
+resources, or an existing derived path cancels Phase B and returns to the owner.
+Unused Phase A or Phase B time is not retry, extra-cell, STOP-4 or other authority.
 
 ## STOP-4 — conditional G1000
 
