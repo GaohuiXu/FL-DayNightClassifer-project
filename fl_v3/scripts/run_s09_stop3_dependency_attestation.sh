@@ -49,8 +49,125 @@ test "${SLURM_GPUS_ON_NODE:-1}" != "0"
 command -v nvcc >/dev/null
 nvcc --version >/dev/null
 
+restore_generated_stubs() {
+  local source="$1"
+  local baseline="$2"
+  local label="$3"
+  local phase="$4"
+  local current new_changes path
+  test -f "${baseline}" || return 0
+  current="${S09_STOP3_DEP_OUTPUT}/${label}_tracked_changes_${phase}.txt"
+  new_changes="${S09_STOP3_DEP_OUTPUT}/${label}_new_tracked_changes_${phase}.txt"
+  git -C "${source}" diff --name-only --no-renames | LC_ALL=C sort > "${current}" \
+    || return $?
+  comm -13 "${baseline}" "${current}" > "${new_changes}" || return $?
+  while IFS= read -r path; do
+    test -n "${path}" || continue
+    case "${path}" in
+      "${label}"/core_cc/*.pyi)
+        git -C "${source}" restore --source=HEAD --worktree -- "${path}" \
+          || return $?
+        printf '%s\t%s\t%s\n' "${phase}" "${label}" "${path}" \
+          >> "${S09_STOP3_DEP_OUTPUT}/restored_generated_stubs.txt" \
+          || return $?
+        ;;
+      *)
+        printf 'refusing to restore unexpected generated path: %s/%s\n' \
+          "${label}" "${path}" >&2
+        return 1
+        ;;
+    esac
+  done < "${new_changes}"
+}
+
+seal_on_exit() {
+  local original_status=$?
+  local cleanup_status=0
+  local seal_status=0
+  local final_status=0
+  local step_status=0
+  local artifact_manifest_tmp
+  trap - EXIT
+  set +e
+
+  restore_generated_stubs \
+    "${SPCONV_SOURCE}" "${S09_STOP3_DEP_OUTPUT}/spconv_tracked_changes_before.txt" \
+    spconv exit
+  step_status=$?
+  if (( step_status != 0 && cleanup_status == 0 )); then cleanup_status=${step_status}; fi
+  restore_generated_stubs \
+    "${CUMM_SOURCE}" "${S09_STOP3_DEP_OUTPUT}/cumm_tracked_changes_before.txt" \
+    cumm exit
+  step_status=$?
+  if (( step_status != 0 && cleanup_status == 0 )); then cleanup_status=${step_status}; fi
+
+  git -C "${SPCONV_SOURCE}" status --short --untracked-files=all \
+    > spconv_status_after.txt 2>&1
+  step_status=$?
+  if (( step_status != 0 && seal_status == 0 )); then seal_status=${step_status}; fi
+  git -C "${CUMM_SOURCE}" status --short --untracked-files=all \
+    > cumm_status_after.txt 2>&1
+  step_status=$?
+  if (( step_status != 0 && seal_status == 0 )); then seal_status=${step_status}; fi
+
+  if (( original_status != 0 )); then
+    final_status=${original_status}
+  elif (( cleanup_status != 0 )); then
+    final_status=${cleanup_status}
+  elif (( seal_status != 0 )); then
+    final_status=${seal_status}
+  fi
+  printf '%s\n' "${final_status}" > dependency_attestation.exit
+  step_status=$?
+  if (( step_status != 0 && seal_status == 0 )); then seal_status=${step_status}; fi
+  printf 'original_status=%s\ncleanup_status=%s\nseal_status=%s\nfinal_status=%s\n' \
+    "${original_status}" "${cleanup_status}" "${seal_status}" "${final_status}" \
+    > terminal_status.txt
+  step_status=$?
+  if (( step_status != 0 && seal_status == 0 )); then seal_status=${step_status}; fi
+
+  artifact_manifest_tmp="${S09_STOP3_DEP_OUTPUT}.artifact_sha256s.$$"
+  find . -type f ! -name artifact_sha256s.txt -print0 \
+    | LC_ALL=C sort -z \
+    | xargs -0 sha256sum > "${artifact_manifest_tmp}"
+  step_status=$?
+  if (( step_status == 0 )); then
+    mv "${artifact_manifest_tmp}" artifact_sha256s.txt
+    step_status=$?
+  fi
+  if (( step_status != 0 && seal_status == 0 )); then seal_status=${step_status}; fi
+  find . -type f -exec chmod 0444 {} +
+  step_status=$?
+  if (( step_status != 0 && seal_status == 0 )); then seal_status=${step_status}; fi
+  find . -type d -exec chmod 0555 {} +
+  step_status=$?
+  if (( step_status != 0 && seal_status == 0 )); then seal_status=${step_status}; fi
+
+  if (( seal_status != 0 )); then
+    final_status=${original_status}
+    if (( final_status == 0 )); then final_status=${cleanup_status}; fi
+    if (( final_status == 0 )); then final_status=${seal_status}; fi
+    chmod u+w . dependency_attestation.exit terminal_status.txt \
+      artifact_sha256s.txt 2>/dev/null || true
+    printf '%s\n' "${final_status}" > dependency_attestation.exit 2>/dev/null || true
+    printf 'original_status=%s\ncleanup_status=%s\nseal_status=%s\nfinal_status=%s\n' \
+      "${original_status}" "${cleanup_status}" "${seal_status}" "${final_status}" \
+      > terminal_status.txt 2>/dev/null || true
+    artifact_manifest_tmp="${S09_STOP3_DEP_OUTPUT}.artifact_sha256s.recovery.$$"
+    if find . -type f ! -name artifact_sha256s.txt -print0 \
+      | LC_ALL=C sort -z \
+      | xargs -0 sha256sum > "${artifact_manifest_tmp}" 2>/dev/null; then
+      mv "${artifact_manifest_tmp}" artifact_sha256s.txt 2>/dev/null || true
+    fi
+    find . -type f -exec chmod 0444 {} + 2>/dev/null || true
+    find . -type d -exec chmod 0555 {} + 2>/dev/null || true
+  fi
+  exit "${final_status}"
+}
+
 mkdir -p "${S09_STOP3_DEP_OUTPUT}"
 cd "${S09_STOP3_DEP_OUTPUT}"
+trap seal_on_exit EXIT
 
 module -t list > modules.txt 2>&1
 nvcc --version > nvcc.txt 2>&1
@@ -139,7 +256,8 @@ def sparse_identity(
 
 
 config_path, spconv_source, cumm_source, output_path = sys.argv[1:]
-resolved = load_resolved_config(config_path)
+config_file = Path(config_path).resolve(strict=True)
+resolved = load_resolved_config(config_file)
 run = resolved.to_run_config()
 torch_metadata = {
     "version": str(torch.__version__),
@@ -167,6 +285,11 @@ result = {
     "schema": "s09.stop3-dependency-attestation.v1",
     "machine": platform.machine(),
     "device": torch.cuda.get_device_name(0),
+    "config": {
+        "path": str(config_file),
+        "file_sha256": hashlib.sha256(config_file.read_bytes()).hexdigest(),
+        "resolved_sha256": resolved.sha256,
+    },
     "torch": {
         "version": torch.__version__,
         "source_sha": torch_metadata["git_version"],
@@ -195,82 +318,52 @@ Path(output_path).write_text(
 )
 PY
 
-restore_generated_stubs() {
-  local source="$1"
-  local baseline="$2"
-  local label="$3"
-  local current new_changes path
-  current="${S09_STOP3_DEP_OUTPUT}/${label}_tracked_changes_current.txt"
-  new_changes="${S09_STOP3_DEP_OUTPUT}/${label}_new_tracked_changes.txt"
-  git -C "${source}" diff --name-only --no-renames | LC_ALL=C sort > "${current}"
-  comm -13 "${baseline}" "${current}" > "${new_changes}"
-  while IFS= read -r path; do
-    test -n "${path}" || continue
-    case "${path}" in
-      "${label}"/core_cc/*.pyi)
-        git -C "${source}" restore --source=HEAD --worktree -- "${path}"
-        ;;
-      *)
-        printf 'refusing to restore unexpected generated path: %s/%s\n' \
-          "${label}" "${path}" >&2
-        return 1
-        ;;
-    esac
-  done < "${new_changes}"
-}
-
-seal_on_exit() {
-  local status=$?
-  local cleanup_status=0
-  trap - EXIT
-  set +e
-  restore_generated_stubs \
-    "${SPCONV_SOURCE}" "${S09_STOP3_DEP_OUTPUT}/spconv_tracked_changes_before.txt" spconv \
-    || cleanup_status=$?
-  restore_generated_stubs \
-    "${CUMM_SOURCE}" "${S09_STOP3_DEP_OUTPUT}/cumm_tracked_changes_before.txt" cumm \
-    || cleanup_status=$?
-  if (( status == 0 && cleanup_status != 0 )); then
-    status="${cleanup_status}"
-  fi
-  git -C "${SPCONV_SOURCE}" status --short --untracked-files=all \
-    > spconv_status_after.txt 2>&1
-  git -C "${CUMM_SOURCE}" status --short --untracked-files=all \
-    > cumm_status_after.txt 2>&1
-  printf '%s\n' "${status}" > dependency_attestation.exit
-  artifact_manifest_tmp="${S09_STOP3_DEP_OUTPUT}.artifact_sha256s.$$"
-  find . -type f ! -name artifact_sha256s.txt -print0 \
-    | LC_ALL=C sort -z \
-    | xargs -0 sha256sum > "${artifact_manifest_tmp}"
-  mv "${artifact_manifest_tmp}" artifact_sha256s.txt
-  find . -type f -exec chmod 0444 {} +
-  find . -type d -exec chmod 0555 {} +
-  exit "${status}"
-}
-trap seal_on_exit EXIT
-
 python - "${SPCONV_SOURCE}" "${CUMM_SOURCE}" <<'PY' > source_identity_before.json
 import json
+import importlib.metadata
 import os
-import subprocess
 import sys
+from pathlib import Path
+from urllib.parse import unquote, urlparse
 
-from fl_v3.source_identity import inspect_tracked_source_state
+from fl_v3.utils.runtime import _source_checkout_identity
 
 
-def record(label: str, source: str, expected_head: str, expected_state: str):
-    head = subprocess.run(
-        ["git", "-C", source, "rev-parse", "HEAD"],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    state = inspect_tracked_source_state(source)
+def record(
+    label: str,
+    source: str,
+    expected_version: str,
+    expected_head: str,
+    expected_state: str,
+):
+    version = importlib.metadata.version(label)
+    if version != expected_version:
+        raise RuntimeError(f"{label} version drift before warm import")
+    distribution = importlib.metadata.distribution(label)
+    direct = json.loads(distribution.read_text("direct_url.json") or "")
+    parsed = urlparse(str(direct.get("url", "")))
+    if parsed.scheme != "file" or direct.get("dir_info", {}).get("editable") is not True:
+        raise RuntimeError(f"{label} is not installed from an editable file checkout")
+    direct_root = Path(unquote(parsed.path)).resolve(strict=True)
+    head, origin, state = _source_checkout_identity(label, label)
     if head != expected_head:
         raise RuntimeError(f"{label} source HEAD drift before warm import")
     if state["sha256"] != expected_state:
         raise RuntimeError(f"{label} tracked source-state drift before warm import")
-    return {"source": source, "head": head, "tracked_state": state}
+    expected_root = Path(source).resolve(strict=True)
+    if direct_root != expected_root:
+        raise RuntimeError(f"{label} direct URL is not the expected source checkout")
+    origin_path = Path(origin).resolve(strict=True)
+    if expected_root not in origin_path.parents:
+        raise RuntimeError(f"{label} import origin is not under expected source")
+    return {
+        "version": version,
+        "source": str(expected_root),
+        "direct_url": direct,
+        "head": head,
+        "tracked_state": state,
+        "import_origin": str(origin_path),
+    }
 
 
 spconv_source, cumm_source = sys.argv[1:]
@@ -279,12 +372,14 @@ print(json.dumps({
     "spconv": record(
         "spconv",
         spconv_source,
+        "2.3.8",
         os.environ["S09_STOP3_DEP_EXPECTED_SPCONV_HEAD"],
         os.environ["S09_STOP3_DEP_EXPECTED_SPCONV_STATE"],
     ),
     "cumm": record(
         "cumm",
         cumm_source,
+        "0.7.13",
         os.environ["S09_STOP3_DEP_EXPECTED_CUMM_HEAD"],
         os.environ["S09_STOP3_DEP_EXPECTED_CUMM_STATE"],
     ),
@@ -310,9 +405,11 @@ print(json.dumps({
 PY
 
 restore_generated_stubs \
-  "${SPCONV_SOURCE}" "${S09_STOP3_DEP_OUTPUT}/spconv_tracked_changes_before.txt" spconv
+  "${SPCONV_SOURCE}" "${S09_STOP3_DEP_OUTPUT}/spconv_tracked_changes_before.txt" \
+  spconv post_warm
 restore_generated_stubs \
-  "${CUMM_SOURCE}" "${S09_STOP3_DEP_OUTPUT}/cumm_tracked_changes_before.txt" cumm
+  "${CUMM_SOURCE}" "${S09_STOP3_DEP_OUTPUT}/cumm_tracked_changes_before.txt" \
+  cumm post_warm
 
 python dependency_probe.py \
   "${S09_STOP3_DEP_SNAPSHOT}/${CONFIG_REL}" "${SPCONV_SOURCE}" "${CUMM_SOURCE}" \
@@ -345,6 +442,9 @@ print(json.dumps({
     "source_sha": source_sha,
     "source_tree": source_tree,
     "runner_sha256": hashlib.sha256(runner.read_bytes()).hexdigest(),
+    "config_path": probe["config"]["path"],
+    "config_file_sha256": probe["config"]["file_sha256"],
+    "resolved_config_sha256": probe["config"]["resolved_sha256"],
     "torch_build_sha256": probe["torch"]["build_sha256"],
     "spconv_build_sha256": probe["spconv"]["build_sha256"],
     "spconv_source_state_sha256": probe["spconv"]["source_state"]["sha256"],
