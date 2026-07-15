@@ -1428,3 +1428,37 @@ they do not support an exact camera/LiDAR/fusion backward decomposition.
 candidate. S00 may remediate the findings linearly under O-119, seal one new
 immutable SHA, and request independent re-review; no retry, merge, or push is
 authorized.
+
+### STOP-4A implementation closure re-review
+
+```text
+REMEDIATION_SHA: b509f5e527c2dd28d2db506c3f87b5a06b3b1b6a
+REMEDIATION_TREE: 9c556d37d1e45ece7aad31b10881bb9eb8686424
+REMEDIATION_PARENT: 5a577062bf0c06faf1f1fa67c209e734569d855e
+REVIEWER_COMPUTE: none
+VERDICT: PASS_WITH_RESIDUAL_RISK / no open P0-P3
+```
+
+The independent reviewer found no P0, P1, P2, or P3. All four initial findings
+are closed: producer and runner share one fail-closed readiness validator;
+explicit CUDA-OOM signatures replace the generic match; schema v2 requires the
+timing warm-up to cover the profiler schedule; every expected F-U range is kept
+outside the operator top-k with shape metadata and completeness checks; and both
+active documents accurately qualify `record_shapes` retention.
+
+The reviewer directly constructed a valid `20 accepted + 1 GradScaler overflow`
+ledger, which produced zero validation errors, while a direct-nonfinite ledger
+was rejected. Legacy `s09.v1` retains resolved hash `ba06b72e...`, checkpoint-on
+mapping and no operator profile; all four v2 hashes remain exact. Missing/non-
+boolean production checkpoint fields fail closed. Static compile, all three
+runner Python heredocs, `bash -n`, ShellCheck, diff checks, schema positive/
+negative cases and clean-worktree checks passed. No model output, loss, gradient/
+update, data/order, precision, optimizer/scheduler/EMA, or recipe semantic change
+was found, and the single bounded profiler does not restore an observer, hook
+chain, worker matrix, or general harness.
+
+Residual risk is bounded to actual aarch64 Torch/CUDA focused tests, which have
+not run yet, and the fact that forward named ranges cannot provide exact C/L/F
+backward decomposition. **This is implementation closure, not submission GO:**
+the exact source/tree/snapshot/submit/output tuple requires a separate immutable
+request freeze and independent request review before the sole O-119 STOP-4A job.

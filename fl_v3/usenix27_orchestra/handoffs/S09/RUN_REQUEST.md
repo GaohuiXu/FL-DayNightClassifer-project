@@ -41,7 +41,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3 + O-119 STOP-4
 APPROVED_COMPUTE: O-119 STOP-4A <=00:30:00 + STOP-4C <=00:30:00 + conditional STOP-4D <=01:00:00 / serial <=2 GPU-hours / no retry
 APPROVED_SUBMISSIONS: prior STOP-1/2/3 consumed; three prospective serial O-119 STOP-4 jobs after exact freeze/review
-ACTIVE_REQUEST: STOP-4A implementation and immutable tuple preparation
+ACTIVE_REQUEST: STOP-4A exact tuple frozen / independent request review pending / not submitted
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-4 implementation/request/evidence/review remediation within O-119
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -818,7 +818,7 @@ Unused Phase A or Phase B time is not retry, extra-cell, STOP-4 or other authori
 ## STOP-4 — O-119 optimize/G1000/close envelope
 
 ```text
-REQUEST_STATE: OWNER-APPROVED O-119 / IMPLEMENTATION IN PROGRESS / NO SUBMISSION UNTIL EACH IMMUTABLE TUPLE IS FROZEN AND REVIEWED
+REQUEST_STATE: OWNER-APPROVED O-119 / STOP-4A TUPLE FROZEN / INDEPENDENT REQUEST REVIEW PENDING / NOT SUBMITTED
 OWNER_DECISION: O-119
 SERIAL_GPU_CEILING: 2 cumulative GH200-hours
 RETRIES: none
@@ -835,17 +835,26 @@ resource change cancels remaining authority.
 ### STOP-4A — bounded profiler and capacity characterization
 
 ```text
-IMPLEMENTATION_SOURCE_SHA/TREE: pending immutable commit
-SNAPSHOT: pending / detached clean self-contained clone derived from implementation source
+IMPLEMENTATION_SOURCE_SHA/TREE: b509f5e527c2dd28d2db506c3f87b5a06b3b1b6a / 9c556d37d1e45ece7aad31b10881bb9eb8686424
+IMPLEMENTATION_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop4a_profile_capacity_b509f5e527c2
+SNAPSHOT_REF_MODE: detached / clean / self-contained / no alternates / zero writable worktree entries
+SNAPSHOT_TRACKED_FILES/BYTES: 598 / 4968985
 RUNNER: fl_v3/scripts/run_s09_stop4a_profile_capacity.sh
-RUNNER_SHA256: pending immutable commit
+RUNNER_SHA256: 5b321a7001b7636331d40b5a6d34f55738551f834a77c22b694c7508d26f499e
+CENTRALIZED_TRAIN_SHA256: 9a57bc72d620351724888632f93911ef7c19081149619abe108554e1e4c8a478
+ARRHENIUS_ENV_SHA256: a56758d72096a65708352e155d1c72adf261ae6cdaf5a56a38f7d2dd5472648f
 CONFIG_B1_PROFILE: fl_v3/configs/s09_stop4a_f_u_b1_profile.json
+CONFIG_B1_PROFILE_FILE_SHA256: 1bd9bce1b1a34f603990f07d72ac250d38465d9dd5d0a7eb1188012ab7f2eaa6
 RESOLVED_B1_PROFILE_SHA256: a0cb86122d607849f479fd04c70acac3b2b7c66d6e65875ad06c638e0db6ad2e
 CONFIG_B1_NO_CKPT: fl_v3/configs/s09_stop4a_f_u_b1_no_ckpt.json
+CONFIG_B1_NO_CKPT_FILE_SHA256: 555e2b7f278d39e2965cf19e1d15ecd4a8fa0ffe6e358eab2b43ea75219e98d3
 RESOLVED_B1_NO_CKPT_SHA256: 5291290d0dbc372eb012bfcc2eeff4877e34db66aa654055c2ebfdf398820a87
 CONFIG_B2_NO_CKPT: fl_v3/configs/s09_stop4a_f_u_b2_no_ckpt.json
+CONFIG_B2_NO_CKPT_FILE_SHA256: b30e837cc26ef8ce3ec001f0e17a171eec67d0b2e0ba65090f2229acc346d6ff
 RESOLVED_B2_NO_CKPT_SHA256: ac841713cf5c996705afb2ddf628965c4fffa169130925285f03c6113d669f6f
 CONFIG_B4_NO_CKPT: fl_v3/configs/s09_stop4a_f_u_b4_no_ckpt.json
+CONFIG_B4_NO_CKPT_FILE_SHA256: 8d3a3f7847f32c25c319b2ca77fd7a7702457e9c9fcbd02797048a06e8e88f4f
 RESOLVED_B4_NO_CKPT_SHA256: cf6f4effe0c9532a45f3a2503a3f98423af2e340b16ae0419d6b287655709a48
 DATA: exact accepted STOP-1 train t1.v2 n_sweeps=10 plus accepted ZIP manifest; val identity-bound/not iterated
 COMMON_MODEL/PRECISION/SEED: F-U / random seed 0 / global fp16 + SECOND fp32 island
@@ -856,8 +865,29 @@ PROFILER_SCHEDULE: B1 baseline only / wait5 + warmup2 + active3 attempted window
 FOCUSED_TESTS: exact selectors frozen in runner before model cells
 RESOURCE: one GH200 / 16 CPU / 96 GiB / 00:30:00 / <=0.5 GPU-hours
 SUBMISSIONS: exactly one / serial / no retry
-OUTPUT/JOB/SUBMIT: pending immutable source and fresh-path freeze
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop4a_profile_capacity_b509f5e527c2_a1
+JOB_NAME: flv3_s09_stop4a
+STDOUT/STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop4a_profile_capacity_b509f5e527c2_%j.{out,err}
+SUBMIT_SCRIPT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop4a_profile_capacity_b509f5e527c2/submit.sh
+SUBMIT_SCRIPT_SHA256: fb59ad993bca04ff3156813c9c584ad83ceefcc35352ca5b1b62ad372fdb315e
+REQUEST_REVIEW: pending / do not submit before independent GO
 ```
+
+The sole prospective submission command is:
+
+```bash
+bash /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop4a_profile_capacity_b509f5e527c2/submit.sh
+```
+
+The read-only wrapper rechecks the detached source/tree, clean snapshot, absent
+alternates/writable worktree entries, runner/trainer and all four raw config
+hashes, fresh output, and empty exact-name queue. It invokes one non-requeue
+`sbatch` on account `naiss2025-22-1113-gpu`, partition `gpu`, one node/task, one
+`nvidia_gh200_120gb`, 16 CPUs, 96 GiB host memory, and `00:30:00`. The snapshot,
+output, source/tree and four resolved hashes are passed explicitly to the runner.
+At freeze time the output is absent, the exact-name queue is empty, and `sacct`
+contains zero prior `flv3_s09_stop4a` jobs since 2026-07-01. No array, DDP,
+replacement, retry, extra cell, or derived output path exists.
 
 Mandatory B1 outcomes are terminal PASS with one checksum-bound profiler trace/
 summary, 20 accepted updates within 30 attempts, no nonfinite/discarded window and
