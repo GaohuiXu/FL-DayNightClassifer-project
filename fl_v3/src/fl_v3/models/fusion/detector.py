@@ -18,7 +18,7 @@ unreachable from the strict ``centerhead_multitask`` constructor.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 import threading
 from typing import Dict, List, Optional
 
@@ -236,12 +236,9 @@ class BEVFusionDetector(nn.Module):
                 self._operator_profile_ranges = False
 
     def _profiled(self, name: str, function, *args, **kwargs):
-        context = (
-            torch.profiler.record_function(f"fl_v3::{name}")
-            if self._operator_profile_ranges
-            else nullcontext()
-        )
-        with context:
+        if not self._operator_profile_ranges:
+            return function(*args, **kwargs)
+        with torch.profiler.record_function(f"fl_v3::{name}"):
             return function(*args, **kwargs)
 
     @contextmanager

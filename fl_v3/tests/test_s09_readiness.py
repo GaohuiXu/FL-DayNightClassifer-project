@@ -356,16 +356,18 @@ def test_bounded_operator_profiler_emits_one_trace_and_summary(monkeypatch, tmp_
     entry = _centralized_train_module()
 
     class Event:
-        key = "fl_v3::camera.backbone"
-        count = 3
-        self_cpu_time_total = 4.0
-        cpu_time_total = 5.0
-        self_device_time_total = 6.0
-        device_time_total = 7.0
-        self_cpu_memory_usage = 8
-        cpu_memory_usage = 9
-        self_device_memory_usage = 10
-        device_memory_usage = 11
+        def __init__(self, key, input_shapes=()):
+            self.key = key
+            self.input_shapes = input_shapes
+            self.count = 3
+            self.self_cpu_time_total = 4.0
+            self.cpu_time_total = 5.0
+            self.self_device_time_total = 6.0
+            self.device_time_total = 7.0
+            self.self_cpu_memory_usage = 8
+            self.cpu_memory_usage = 9
+            self.self_device_memory_usage = 10
+            self.device_memory_usage = 11
 
     class FakeProfiler:
         def __init__(self, **kwargs):
@@ -379,7 +381,11 @@ def test_bounded_operator_profiler_emits_one_trace_and_summary(monkeypatch, tmp_
                 self.handler(self)
         def export_chrome_trace(self, path):
             Path(path).write_text("{}\n", encoding="utf-8")
-        def key_averages(self, **_kwargs): return [Event()]
+        def key_averages(self, **_kwargs):
+            return [
+                *(Event(key) for key in sorted(entry._EXPECTED_FUSION_PROFILE_RANGES)),
+                Event("aten::mm", ([2, 3], [3, 4])),
+            ]
 
     monkeypatch.setattr(entry.torch.cuda, "is_available", lambda: True)
     monkeypatch.setattr(entry.torch.profiler, "schedule", lambda **kwargs: kwargs)
@@ -400,10 +406,44 @@ def test_bounded_operator_profiler_emits_one_trace_and_summary(monkeypatch, tmp_
     report = profiler.report()
     assert report["attempted_window_step_calls"] == 3
     summary = json.loads((tmp_path / "operator" / "summary.json").read_text())
-    assert summary["all_row_count"] == 1
-    assert summary["rows"][0]["key"] == "fl_v3::camera.backbone"
-    assert summary["rows"][0]["self_device_time_total_us"] == 6.0
+    assert summary["schema"] == "s09.operator-profile-summary.v2"
+    assert summary["all_row_count"] == 9
+    assert summary["range_row_count"] == 8
+    assert summary["missing_range_keys"] == []
+    assert {row["key"] for row in summary["range_rows"]} == set(
+        entry._EXPECTED_FUSION_PROFILE_RANGES
+    )
+    assert summary["operator_rows"][0]["key"] == "aten::mm"
+    assert summary["operator_rows"][0]["input_shapes"] == [[2, 3], [3, 4]]
+    assert summary["operator_rows"][0]["self_device_time_total_us"] == 6.0
     json.dumps(report, allow_nan=False)
+
+
+def test_bounded_operator_profiler_fails_closed_on_missing_fusion_ranges(tmp_path):
+    entry = _centralized_train_module()
+
+    class Event:
+        key = "fl_v3::camera.backbone"
+        count = 1
+
+    class IncompleteProfiler:
+        def export_chrome_trace(self, path):
+            Path(path).write_text("{}\n", encoding="utf-8")
+        def key_averages(self, **_kwargs):
+            return [Event()]
+
+    output = tmp_path / "incomplete"
+    output.mkdir()
+    profiler = entry.BoundedOperatorProfiler({
+        "wait_attempted_windows": 0,
+        "warmup_attempted_windows": 1,
+        "active_attempted_windows": 1,
+        "record_shapes": True,
+        "profile_memory": True,
+        "row_limit": 10,
+    }, output)
+    with pytest.raises(RuntimeError, match="omitted required F-U module ranges"):
+        profiler._trace_ready(IncompleteProfiler())
 
 
 class _ReadinessConfigFixture:
@@ -548,6 +588,22 @@ def test_readiness_lifecycle_writes_terminal_artifact_without_checkpoint_or_eval
     assert report["checkpoint_written"] is False
     assert report["official_evaluation_executed"] is False
     assert report["training_metrics"]["readiness_timing"]["measured_accepted_windows"] == 2
+    assert entry.readiness_evidence_errors(
+        report, expect_operator_profile=False
+    ) == []
+    invalid = copy.deepcopy(report)
+    invalid["training_metrics"]["readiness_timing"]["component_counters"][
+        "scheduler_last_epoch"
+    ] -= 1
+    assert any(
+        "scheduler_last_epoch drifted" in error
+        for error in entry.readiness_evidence_errors(
+            invalid, expect_operator_profile=False
+        )
+    )
+    assert "operator profile was required but is missing" in entry.readiness_evidence_errors(
+        report, expect_operator_profile=True
+    )
     json.dumps(report, allow_nan=False)
 
 

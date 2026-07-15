@@ -288,7 +288,10 @@ DECISION_SCOPE: base-uniform full-pipeline engineering performance/readiness onl
 - No S08 precision diagnostics/window observer is enabled in performance jobs.
   STOP-3/4C/4D timing uses direct loop timestamps/CUDA events. O-119 permits only
   one bounded STOP-4A `torch.profiler` cycle with temporary named ranges and no
-  retained activations; it does not restore a general profiler/harness chain.
+  application-level activation hooks. `record_shapes` may temporarily retain
+  tensor references inside the three active diagnostic windows, so their memory/
+  latency is not capacity/throughput evidence; this does not restore a general
+  profiler/harness chain.
 
 ### Stop workflow
 

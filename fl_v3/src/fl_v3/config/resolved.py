@@ -551,6 +551,12 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
                     "execution.operator_profile schedule must finish within "
                     "training.max_optimizer_steps even when no scaler window is skipped"
                 )
+            if timing_warmup < wait + warmup + active:
+                raise ConfigError(
+                    "execution.timing_warmup_successful_windows must be >= the "
+                    "complete operator-profile schedule so diagnostic windows are "
+                    "excluded from throughput evidence"
+                )
 
     normalized = json.loads(canonical_json(root).decode("utf-8"))
     encoded = canonical_json(normalized)

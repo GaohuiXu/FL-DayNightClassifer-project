@@ -375,7 +375,7 @@ def _det_config_from_run(run_config: dict):
         required_arch = {
             "det-camera-arch", "det-camera-pretrained", "det-lidar-arch",
             "det-fusion-arch", "det-head-arch", "precision",
-            "det-sparse-conv-precision",
+            "det-sparse-conv-precision", "det-camera-activation-checkpoint",
         }
         missing = sorted(required_arch - set(run_config))
         if missing:
@@ -444,9 +444,7 @@ def _det_config_from_run(run_config: dict):
             raise ValueError(
                 "legacy det-sparse-conv-fp16 is forbidden in the strict S08 production runtime"
             )
-        camera_activation_checkpoint = run_config.get(
-            "det-camera-activation-checkpoint", True
-        )
+        camera_activation_checkpoint = run_config["det-camera-activation-checkpoint"]
         if not isinstance(camera_activation_checkpoint, bool):
             raise ValueError("det-camera-activation-checkpoint must be boolean")
         precision = run_config["precision"]

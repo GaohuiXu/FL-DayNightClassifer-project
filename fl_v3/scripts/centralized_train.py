@@ -86,6 +86,29 @@ def _event_number(event, *names: str) -> float:
     return 0.0
 
 
+_EXPECTED_FUSION_PROFILE_RANGES = frozenset({
+    "fl_v3::camera.preprocess",
+    "fl_v3::camera.backbone",
+    "fl_v3::camera.neck",
+    "fl_v3::camera.view_transform",
+    "fl_v3::lidar.encoder",
+    "fl_v3::fusion.fuser",
+    "fl_v3::shared.bev_neck",
+    "fl_v3::shared.head",
+})
+
+
+def _json_profile_value(value):
+    """Convert profiler shape metadata to a finite JSON-native value."""
+    if value is None:
+        return []
+    if isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, (list, tuple)):
+        return [_json_profile_value(item) for item in value]
+    return str(value)
+
+
 class BoundedOperatorProfiler:
     """One bounded ``torch.profiler`` cycle advanced once per attempted window."""
 
@@ -110,6 +133,9 @@ class BoundedOperatorProfiler:
             rows.append({
                 "key": str(event.key),
                 "count": int(event.count),
+                "input_shapes": _json_profile_value(
+                    getattr(event, "input_shapes", None)
+                ),
                 "self_cpu_time_total_us": _event_number(event, "self_cpu_time_total"),
                 "cpu_time_total_us": _event_number(event, "cpu_time_total"),
                 "self_device_time_total_us": _event_number(
@@ -136,12 +162,34 @@ class BoundedOperatorProfiler:
                 row["key"],
             )
         )
+        range_rows = [
+            row for row in rows if row["key"].startswith("fl_v3::")
+        ]
+        operator_rows = [
+            row for row in rows if not row["key"].startswith("fl_v3::")
+        ]
+        observed_ranges = frozenset(row["key"] for row in range_rows)
+        missing_ranges = sorted(_EXPECTED_FUSION_PROFILE_RANGES - observed_ranges)
+        if missing_ranges:
+            raise RuntimeError(
+                "operator profile omitted required F-U module ranges: "
+                f"{missing_ranges}"
+            )
         _write_json(self.summary_path, {
-            "schema": "s09.operator-profile-summary.v1",
+            "schema": "s09.operator-profile-summary.v2",
             "units": {"time": "microseconds", "memory": "bytes"},
             "schedule": self.spec,
             "all_row_count": len(rows),
-            "rows": rows[: int(self.spec["row_limit"])],
+            "range_row_count": len(range_rows),
+            "operator_row_count": len(operator_rows),
+            "expected_range_keys": sorted(_EXPECTED_FUSION_PROFILE_RANGES),
+            "observed_range_keys": sorted(observed_ranges),
+            "missing_range_keys": missing_ranges,
+            # Module ranges are never subject to the operator top-k cap. This
+            # preserves the complete forward decomposition even when many aten
+            # kernels have larger self-device time.
+            "range_rows": range_rows,
+            "operator_rows": operator_rows[: int(self.spec["row_limit"])],
         })
 
     def __enter__(self):
@@ -188,7 +236,7 @@ class BoundedOperatorProfiler:
         if self._handler_calls != 1:
             raise RuntimeError("operator profiler report requested before trace completion")
         return {
-            "schema": "s09.operator-profile-artifacts.v1",
+            "schema": "s09.operator-profile-artifacts.v2",
             "schedule": self.spec,
             "attempted_window_step_calls": self._step_calls,
             "trace": {
@@ -202,6 +250,146 @@ class BoundedOperatorProfiler:
                 "bytes": self.summary_path.stat().st_size,
             },
         }
+
+
+def readiness_evidence_errors(
+    report: object,
+    *,
+    expect_operator_profile: bool,
+    verify_profile_artifacts: bool = False,
+) -> list[str]:
+    """Return fail-closed S09 readiness evidence violations.
+
+    This is shared by the producer and the immutable Slurm wrapper so a process
+    exit code alone can never classify a numerically or counter-invalid cell as
+    PASS. Dynamic-scaler overflows are allowed; direct nonfinite windows are not.
+    """
+    errors: list[str] = []
+    if not isinstance(report, dict):
+        return ["readiness report is not an object"]
+
+    def require(condition: bool, message: str) -> None:
+        if not condition:
+            errors.append(message)
+
+    try:
+        state = TrainingState.from_checkpoint(report["terminal_training_state"])
+        training = report["recipe"]["training"]
+        metrics = report["training_metrics"]
+        timing = metrics["readiness_timing"]
+        counters = timing["component_counters"]
+        target = report["target_successful_windows"]
+        cap = report["max_attempted_windows"]
+
+        require(state.optimizer_step == target, "optimizer_step did not reach target")
+        require(state.attempted_windows <= cap, "attempted-window cap was exceeded")
+        require(state.nonfinite_windows == 0, "direct nonfinite windows are forbidden")
+        require(state.discarded_windows == 0, "discarded readiness windows are forbidden")
+        require(
+            training["world_size"] == training["accumulation_steps"] == 1,
+            "readiness requires world_size=accumulation_steps=1",
+        )
+        batch = training["micro_batch_size"]
+        require(
+            state.attempted_microbatches == state.attempted_windows,
+            "attempted microbatch/window accounting drifted",
+        )
+        require(
+            state.exposure_samples == state.successful_windows * batch,
+            "successful-window exposure accounting drifted",
+        )
+        require(
+            state.attempted_samples == state.attempted_windows * batch,
+            "attempted-window sample accounting drifted",
+        )
+        for key, expected in {
+            "optimizer_steps_total": state.optimizer_step,
+            "exposure_samples": state.exposure_samples,
+            "attempted_samples": state.attempted_samples,
+            "attempted_windows": state.attempted_windows,
+            "successful_windows": state.successful_windows,
+            "grad_scaler_skips": state.overflow_windows,
+            "nonfinite_loss_steps": 0,
+        }.items():
+            require(
+                float(metrics[key]) == float(expected),
+                f"training_metrics.{key} drifted",
+            )
+        for key, expected in {
+            "optimizer_step": state.optimizer_step,
+            "scheduler_last_epoch": state.optimizer_step,
+            "scaler_skips": state.overflow_windows,
+        }.items():
+            require(counters[key] == expected, f"{key} drifted")
+        expected_ema = None if training["ema_decay"] is None else state.optimizer_step
+        require(counters["ema_n_averaged"] == expected_ema, "ema_n_averaged drifted")
+        require(timing["warmup_boundary_reached"] is True, "timing warm-up was not reached")
+        require(timing["measured_accepted_windows"] > 0, "no measured accepted windows")
+
+        profile = report.get("operator_profile")
+        if not expect_operator_profile:
+            require(profile is None, "unexpected operator-profile artifacts")
+            return errors
+        if not isinstance(profile, dict):
+            errors.append("operator profile was required but is missing")
+            return errors
+        require(
+            profile["schema"] == "s09.operator-profile-artifacts.v2",
+            "operator-profile artifact schema drifted",
+        )
+        require(
+            profile["attempted_window_step_calls"] == state.attempted_windows,
+            "operator profiler was not stepped once per attempted window",
+        )
+        schedule = profile["schedule"]
+        profile_windows = sum(
+            schedule[key] for key in (
+                "wait_attempted_windows",
+                "warmup_attempted_windows",
+                "active_attempted_windows",
+            )
+        )
+        require(
+            timing["warmup_boundary_attempted_window"] >= profile_windows,
+            "operator-profile cycle overlaps throughput windows",
+        )
+
+        for artifact_name in ("trace", "summary"):
+            artifact = profile[artifact_name]
+            path = Path(artifact["path"])
+            require(
+                isinstance(artifact["sha256"], str)
+                and len(artifact["sha256"]) == 64
+                and artifact["bytes"] > 0,
+                f"operator-profile {artifact_name} identity is invalid",
+            )
+            if verify_profile_artifacts:
+                require(path.is_file(), f"operator-profile {artifact_name} is missing")
+                if path.is_file():
+                    require(
+                        path.stat().st_size == artifact["bytes"],
+                        f"operator-profile {artifact_name} size drifted",
+                    )
+                    require(
+                        _checkpoint_sha256(path) == artifact["sha256"],
+                        f"operator-profile {artifact_name} hash drifted",
+                    )
+        if verify_profile_artifacts:
+            summary = json.loads(Path(profile["summary"]["path"]).read_text())
+            expected_ranges = sorted(_EXPECTED_FUSION_PROFILE_RANGES)
+            require(
+                summary["schema"] == "s09.operator-profile-summary.v2",
+                "operator-profile summary schema drifted",
+            )
+            require(
+                summary["expected_range_keys"] == expected_ranges
+                and set(expected_ranges).issubset(summary["observed_range_keys"])
+                and summary["missing_range_keys"] == [],
+                "operator profile omitted required F-U ranges",
+            )
+    except (KeyError, TypeError, ValueError, RuntimeError, OSError, json.JSONDecodeError) as exc:
+        errors.append(f"readiness evidence is malformed: {exc}")
+    return errors
 
 
 def _percentile(values: list[float], quantile: float) -> float:
@@ -401,7 +589,7 @@ def run_strict_official_evaluation(
 
     Loading deliberately reuses the production checkpoint loader (including
     config/data identity checks and rollback).  The raw/EMA choice and timing
-    collection are both fields of the hashed ``s09.v1`` config.
+    collection are both fields of the hashed resolved config.
     """
     _, checkpoint_identity = load_checkpoint(
         str(checkpoint), model=model, optimizer=optimizer, scheduler=scheduler,
@@ -747,6 +935,22 @@ def main() -> None:
                 "no checkpoint or official evaluation was produced",
             ],
         }
+        evidence_errors = readiness_evidence_errors(
+            report,
+            expect_operator_profile=operator_profile_report is not None,
+            verify_profile_artifacts=True,
+        )
+        if evidence_errors:
+            evidence_reason = "; ".join(evidence_errors)
+            terminal_reason = (
+                f"readiness evidence validation failed: {evidence_reason}"
+                if passed
+                else f"{terminal_reason}; evidence validation: {evidence_reason}"
+            )
+            passed = False
+        report["status"] = "PASS" if passed else "FAIL"
+        report["terminal_reason"] = terminal_reason
+        report["evidence_validation_errors"] = evidence_errors
         (out_dir / "resolved_config.json").write_bytes(config.canonical_bytes + b"\n")
         _write_json(out_dir / "runtime_dependencies.json", runtime_dependencies)
         _write_json(out_dir / "readiness.json", report)

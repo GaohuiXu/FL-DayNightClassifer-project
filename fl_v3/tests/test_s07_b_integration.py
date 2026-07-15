@@ -43,6 +43,7 @@ def _run_config(mode: str, camera: str, lidar: str, fusion: str) -> dict:
         "model-mode": mode,
         "det-camera-arch": camera,
         "det-camera-pretrained": False if camera != "none" else None,
+        "det-camera-activation-checkpoint": True,
         "det-lidar-arch": lidar,
         "det-fusion-arch": fusion,
         "det-head-arch": "centerhead_multitask",
@@ -74,6 +75,10 @@ def test_resolved_camera_checkpoint_switch_is_explicit_and_boolean():
     assert _det_config_from_run(run).activation_checkpoint is False
     run["det-camera-activation-checkpoint"] = 0
     with pytest.raises(ValueError, match="must be boolean"):
+        _det_config_from_run(run)
+    run = _run_config("camera_only", "swin_t_stride8", "none", "none")
+    run.pop("det-camera-activation-checkpoint")
+    with pytest.raises(ValueError, match="mapping fields missing"):
         _det_config_from_run(run)
 
 

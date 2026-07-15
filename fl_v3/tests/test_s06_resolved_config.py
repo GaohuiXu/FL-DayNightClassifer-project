@@ -121,8 +121,9 @@ def readiness_v2_config(tmp_path):
     raw = readiness_config(tmp_path)
     raw["schema_version"] = "s09.v2"
     raw["model"]["camera_activation_checkpoint"] = False
+    raw["execution"]["timing_warmup_successful_windows"] = 3
     raw["execution"]["operator_profile"] = {
-        "wait_attempted_windows": 1,
+        "wait_attempted_windows": 0,
         "warmup_attempted_windows": 1,
         "active_attempted_windows": 2,
         "record_shapes": True,
@@ -177,6 +178,10 @@ def test_s09_v2_checkpoint_and_operator_profile_are_explicit_and_hash_bound(tmp_
             wait_attempted_windows=3, warmup_attempted_windows=2,
             active_attempted_windows=2,
         ), "schedule must finish"),
+        (lambda c: c["execution"]["operator_profile"].update(
+            wait_attempted_windows=1, warmup_attempted_windows=1,
+            active_attempted_windows=2,
+        ), "must be >= the complete operator-profile schedule"),
     ],
 )
 def test_s09_v2_rejects_checkpoint_or_profiler_drift(tmp_path, mutation, message):

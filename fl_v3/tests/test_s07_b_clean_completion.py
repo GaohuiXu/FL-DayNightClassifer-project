@@ -152,6 +152,7 @@ def _mode_run_config(tag: str) -> dict:
         "model-mode": mode,
         "det-camera-arch": camera,
         "det-camera-pretrained": False if camera != "none" else None,
+        "det-camera-activation-checkpoint": True,
         "det-lidar-arch": lidar,
         "det-fusion-arch": fusion,
         "det-head-arch": "centerhead_multitask",

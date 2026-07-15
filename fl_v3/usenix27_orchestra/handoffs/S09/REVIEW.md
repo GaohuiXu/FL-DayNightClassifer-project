@@ -1378,3 +1378,53 @@ S00 may now create only a linear review-artifact seal and mechanically replace
 `P3 closed / owner-ready / owner decision pending`. That seal must not change any
 number, claim or authority and does not require a third review. This verdict
 authorizes no compute, retry, STOP-4, merge or push.
+
+## STOP-4A initial implementation review
+
+```text
+CANDIDATE_SHA: 5a577062bf0c06faf1f1fa67c209e734569d855e
+CANDIDATE_TREE: e8b68372cf73b5a96ea03a5c4dcb4cccd3edb477
+CANDIDATE_PARENT: 6b6cf2c60f8c54cfc2e24c7507b8dcc853db4566
+REVIEWER: independent S09 STOP-4A implementation reviewer
+REVIEWER_COMPUTE: none
+VERDICT: REMEDIATE
+```
+
+Findings, ordered by severity:
+
+- **P0/P1: none.**
+- **P2 — cell PASS classification was too weak.** The runner relied on process
+  exit plus `readiness.status`, while the producer did not reject direct
+  nonfinite windows or reconcile scheduler/exposure counters. Its generic
+  `"out of memory"` match could also misclassify a non-CUDA B2/B4 failure as a
+  capacity limit. Remediation must share one fail-closed numerical/counter/
+  artifact validator between producer and runner, require explicit CUDA-OOM
+  evidence, and cover positive/negative cases.
+- **P2 — profiler and throughput windows were not fail-closed separated.** The
+  v2 resolver required the profiler schedule to fit within the optimizer bound,
+  but did not require timing warm-up to cover that complete schedule. The exact
+  candidate tuple is safe (`12 >= 5+2+3`); the schema still requires the general
+  invariant and a negative test.
+- **P2 — the bounded summary could lose its central evidence.** Input shapes
+  were not serialized, and a global self-device-time top-250 could omit all
+  low-self-time `fl_v3::*` parent ranges. Remediation must preserve every expected
+  F-U module range outside the operator cap, emit shape metadata, and fail if the
+  expected range set is incomplete.
+- **P3 — profiler retention wording was too broad.** Named ranges add no
+  application hook/activation retention, but Torch `record_shapes=true` may
+  temporarily hold tensor references during active diagnostic windows. The
+  handoff and kickoff must state that those windows are excluded from capacity/
+  throughput evidence.
+
+The review independently confirmed that legacy `s09.v1` semantics/hash remain
+unchanged; all four STOP-4A hashes and intended semantic deltas are correct; the
+checkpoint switch maps to Swin; the attempted-window callback occurs once after
+complete window accounting; the required Torch 2.11 APIs exist; and no worker
+matrix, DDP, recipe, model/loss math, precision, or data change entered the
+candidate. Static checks passed. The named ranges cover forward modules only:
+they do not support an exact camera/LiDAR/fusion backward decomposition.
+
+**Initial verdict: REMEDIATE.** No STOP-4A compute may be submitted from this
+candidate. S00 may remediate the findings linearly under O-119, seal one new
+immutable SHA, and request independent re-review; no retry, merge, or push is
+authorized.

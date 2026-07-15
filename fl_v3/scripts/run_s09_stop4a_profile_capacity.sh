@@ -208,12 +208,18 @@ if (( telemetry_lines < 2 )); then
 fi
 
 set +e
-python - <<'PY' > cell_statuses.json
+python - "${S09_STOP4A_SNAPSHOT}" <<'PY' > cell_statuses.json
 import csv
 import json
+import sys
 from pathlib import Path
 
+snapshot = Path(sys.argv[1]).resolve(strict=True)
+sys.path.insert(0, str(snapshot / "fl_v3" / "scripts"))
+from centralized_train import readiness_evidence_errors
+
 allowed_capacity_limits = {"b2_no_ckpt", "b4_no_ckpt"}
+cuda_oom_signatures = ("cuda out of memory", "cuda error: out of memory")
 rows = list(csv.DictReader(Path("cell_windows.csv").open(encoding="utf-8")))
 result = {"schema": "s09.stop4a-cell-statuses.v1", "cells": [], "status": "PASS"}
 for row in rows:
@@ -222,13 +228,30 @@ for row in rows:
     readiness_path = Path(label) / "readiness.json"
     stderr = Path(f"{label}.stderr").read_text(encoding="utf-8", errors="replace")
     classification = "PASS"
+    evidence_errors = []
     readiness = None
     if readiness_path.is_file():
         readiness = json.loads(readiness_path.read_text(encoding="utf-8"))
     if status == 0:
-        if readiness is None or readiness.get("status") != "PASS":
+        if readiness is None:
             classification = "UNCLASSIFIED_FAILURE"
-    elif label in allowed_capacity_limits and "out of memory" in stderr.lower():
+            evidence_errors.append("readiness.json is missing")
+        else:
+            evidence_errors = readiness_evidence_errors(
+                readiness,
+                expect_operator_profile=label == "b1_profile",
+                verify_profile_artifacts=True,
+            )
+            if readiness.get("status") != "PASS":
+                evidence_errors.append(
+                    f"readiness status is {readiness.get('status')!r}, not PASS"
+                )
+            if evidence_errors:
+                classification = "UNCLASSIFIED_FAILURE"
+    elif (
+        label in allowed_capacity_limits
+        and any(signature in stderr.lower() for signature in cuda_oom_signatures)
+    ):
         classification = "CAPACITY_LIMIT"
     else:
         classification = "UNCLASSIFIED_FAILURE"
@@ -239,6 +262,7 @@ for row in rows:
         "exit_status": status,
         "classification": classification,
         "readiness_status": None if readiness is None else readiness.get("status"),
+        "evidence_validation_errors": evidence_errors,
     })
 print(json.dumps(result, indent=2, sort_keys=True))
 if result["status"] != "PASS":

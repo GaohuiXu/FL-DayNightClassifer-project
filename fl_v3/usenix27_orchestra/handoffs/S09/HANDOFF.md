@@ -44,6 +44,9 @@ STOP3_O118_DECISION: APPROVED / exact dependency attestation + conditionally der
 OWNER_STOP3_DECISION: O-119 / ACCEPTED AND CLOSED
 STOP4_DECISION: O-119 / IMPLEMENTATION + THREE SERIAL CONDITIONAL JOBS / <=2 GPU-HOURS / NO RETRY
 APPROVED_COMPUTE: STOP-4A <=00:30:00; STOP-4C <=00:30:00; conditional STOP-4D <=01:00:00 / each 1 GH200, 16 CPU, 96 GiB
+STOP4A_INITIAL_IMPLEMENTATION: 5a577062bf0c06faf1f1fa67c209e734569d855e / tree e8b68372cf73b5a96ea03a5c4dcb4cccd3edb477
+STOP4A_INITIAL_REVIEW: REMEDIATE / no P0-P1 / three P2 + one P3 / no compute submitted
+STOP4A_REMEDIATION: pending immutable commit and independent re-review
 STOP3_DEP_ATTEST_JOB: 442152 COMPLETED 0:0 in 00:11:52 / 0.197778 GPU-hours / technical PASS
 STOP3_DEP_ATTEST_BUILDS: spconv af42200511a53ce86d77cea0306924a2dc516a74f0483ef7cfe0a6e1dc84b100 / cumm 0a7e3c1a8c3e8d41b3b40c4fb77d05bdec8ca2dfce5dbb8863626c4b45d8296d
 STOP3_DEP_ATTEST_ACCEPTANCE_SHA256: 4b60f319660124d3bfac23a21bfbfa1b7c66ca920a0e4a4df03b1a512833e9b4
@@ -207,7 +210,10 @@ Initial implementation ownership is deliberately small:
   readiness-only callback advanced exactly once per attempted optimizer window;
 - `models/fusion/detector.py` supplies temporary profiler-only ranges for camera
   preprocess/backbone/neck/view transform, LiDAR encoder/backbone, fusion, BEV
-  neck and head without retaining tensors;
+  neck and head. The ranges add no application-level activation hooks or retained
+  tensors; profiler `record_shapes` may itself temporarily hold tensor references
+  inside its three active diagnostic windows, whose memory/latency is excluded
+  from capacity and throughput evidence;
 - `scripts/centralized_train.py` emits one bounded CPU/CUDA trace/summary and
   excludes its active windows from post-warm-up throughput interpretation;
 - four STOP-4A configs freeze exact B=1 profile and checkpoint-off B=1/2/4
