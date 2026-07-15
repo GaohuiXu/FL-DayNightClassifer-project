@@ -1013,9 +1013,9 @@ validation artifact. A positive replay over accepted STOP-3 evidence reproduces
 combined p50/p95 `208.745738839 / 224.326677561 ms`, ratio `1.074640751`,
 data-wait share `0.000763551`, and both epoch estimates `1.647306968 h`, returning
 PASS. A negative replay with measured CUDA windows multiplied by two returns
-exit `4` and the frozen 1.10x-regression error. The replacement source, hashes,
-snapshot, wrapper and output are pending a new immutable commit/review; no old
-identity may be reused.
+exit `4` and the frozen 1.10x-regression error. The new immutable source,
+snapshot, hashes, wrapper and fresh output are now bound by the replacement tuple
+below; no identity from the forbidden old tuple is reused.
 
 Allowed interpretation is one exact B1 engineering before/after regression under
 the accepted O-110 precision partition. It may establish retained 100-update
