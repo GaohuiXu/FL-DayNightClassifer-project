@@ -4,7 +4,7 @@
 
 ```text
 SESSION_ID: S09
-MILESTONE_STATE: STOP-1/2 CLOSED / STOP-3 O-118 PHASE A REVIEWED PASS / PHASE B INDEPENDENTLY CONFIRMED / EXACT SUBMISSION READY
+MILESTONE_STATE: STOP-1/2 CLOSED / STOP-3 O-118 PHASE A REVIEWED PASS / PHASE B JOB 446225 RUNNING / NO RETRY
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
@@ -51,8 +51,8 @@ STOP3_PHASEB_SOURCE: c200bac861a42fc4338973787d3700e28ddd6c7e / tree c0cc4cb8c2e
 STOP3_PHASEB_CONFIG_SHA256: raw 6733a47203bdf7a4da6e39867e6319a7beb9322257e9149f31b7dff6edacf3ce / resolved ba06b72e4c5f1e54f20472e3286a516e7d4328cfb0fccd8bfc7b13095f597ab6
 STOP3_PHASEB_SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop3_g100_c200bac861a4
 STOP3_PHASEB_SUBMIT_SHA256: 4801ddfee4cd3c04fbc7215c26ffc25efdafc1e6267599bee39bb87491de309e
-STOP3_PHASEB_STATE: exact derived tuple frozen / independent PASS_WITH_RESIDUAL_RISK / no open P0-P3 / SUBMIT GO / not yet submitted
-JOBS: 441191 COMPLETED 0:0 in 00:03:06; 441293 COMPLETED 0:0 in 00:01:04; 441511 FAILED 1:0 in 00:02:29; 442152 COMPLETED 0:0 in 00:11:52 / no retries
+STOP3_PHASEB_STATE: Job 446225 running / sole conditional submission consumed / no retry
+JOBS: 441191 COMPLETED 0:0 in 00:03:06; 441293 COMPLETED 0:0 in 00:01:04; 441511 FAILED 1:0 in 00:02:29; 442152 COMPLETED 0:0 in 00:11:52; 446225 RUNNING / no retries
 INDEPENDENT_REVIEW: STOP-1 5252a59 PASS_WITH_RESIDUAL_RISK; STOP-2 impl 37aef4d PASS_WITH_RESIDUAL_RISK; request cad7262 PASS_WITH_RESIDUAL_RISK; evidence 79f87dc PASS_WITH_RESIDUAL_RISK
 OWNER_STOP1_DECISION: O-113 / ACCEPTED
 ```
@@ -93,7 +93,8 @@ material semantic concern. O-118 now permits the strict Phase-B derivation; its
 source `c200bac`, self-contained snapshot, raw/resolved config identities and
 read-only submit wrapper are frozen. Independent derivation review returned
 `PASS_WITH_RESIDUAL_RISK`, no open P0-P3, and `SUBMIT GO` for that wrapper only.
-No Phase-B job has yet been submitted.
+Job `446225` consumed that exact command at `2026-07-15T11:09:11+02:00`, started
+on `n450` one second later, and is running. No retry is authorized.
 
 ## S08 residual carried into S09
 

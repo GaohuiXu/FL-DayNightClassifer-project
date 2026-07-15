@@ -19,8 +19,9 @@
 > PASS. Independent review accepted evidence `82a0e53` with no open P0-P2 or
 > material semantic concern. The strictly derived Phase-B source/snapshot/request
 > tuple is frozen below and independent derivation confirmation returned
-> `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. The one exact submission is ready;
-> no Phase-B job has yet been submitted.
+> `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. The one exact submission was
+> consumed by Job `446225` at `2026-07-15T11:09:11+02:00`; it started on `n450`
+> one second later and is running. No retry or additional submission exists.
 
 ## Authorization state
 
@@ -34,7 +35,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3
 APPROVED_COMPUTE: O-118 Phase A exact dependency attestation + conditional strictly derived Phase B G100
 APPROVED_SUBMISSIONS: prior STOP-1/2/3 each consumed + O-118 Phase A 1 + conditional Phase B 1 / no retry
-ACTIVE_REQUEST: O-118 Phase B exact derived tuple independently confirmed / ready for one exact submission / not yet submitted
+ACTIVE_REQUEST: O-118 Phase B Job 446225 running / sole conditional submission consumed / no retry
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-3 exact config/runner/request/evidence and review remediation authorized
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -532,7 +533,7 @@ blocked until that gate is independently accepted.
 
 ```text
 REQUEST_ID: S09-STOP3-O118-RECOVERY
-REQUEST_STATE: APPROVED UNDER O-118 / PHASE A REVIEWED PASS / PHASE B DERIVED, FROZEN, AND INDEPENDENTLY CONFIRMED / READY
+REQUEST_STATE: APPROVED UNDER O-118 / PHASE A REVIEWED PASS / PHASE B JOB 446225 RUNNING / SOLE SUBMISSION CONSUMED
 OWNER_CONFIRMATION: "批准 O-118 条件式续行 envelope" / continuous execution within the frozen boundary
 PURPOSE: re-attest the drifted editable sparse runtime, then conditionally execute the unchanged O-117 loader/G100 gate
 ADDITIONAL_SUBMISSIONS: at most 2 / one dependency attestation + one conditional G100 replacement
@@ -689,7 +690,7 @@ The only permitted derivation is:
 #### Frozen Phase-B derived tuple
 
 ```text
-PHASE_STATE: DERIVED / REQUEST FROZEN / INDEPENDENT PASS_WITH_RESIDUAL_RISK / READY / NOT SUBMITTED
+PHASE_STATE: JOB 446225 RUNNING / SOLE SUBMISSION CONSUMED / NO RETRY
 PHASE_A_EVIDENCE_SHA/TREE: 82a0e5315c9098056b6670afb490850cc71dc653 / 7428f5978c8d423a7c1855d9e3f858eac718aeae
 PHASE_A_REVIEW_SEAL: 386fdbd34c9fe5d420e3ac6c8e439bfe65f6f74d / PASS_WITH_RESIDUAL_RISK / Phase-B GO
 DERIVATION_SOURCE_SHA: c200bac861a42fc4338973787d3700e28ddd6c7e
@@ -714,7 +715,7 @@ SUBMIT_SCRIPT_SHA256: 4801ddfee4cd3c04fbc7215c26ffc25efdafc1e6267599bee39bb87491
 COMMAND: bash /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop3_g100_c200bac861a4_a2/submit.sh
 JOB_NAME: flv3_s09_stop3_g100_r1
 RESOURCE_CEILING: 1 GH200 / 16 CPU / 96 GiB host / 01:00:00 / 1 GPU-hour
-SUBMISSIONS: exactly 1 conditional replacement / available / no retry
+SUBMISSIONS: exactly 1 conditional replacement / consumed by Job 446225 / no retry
 OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop3_g100_c200bac861a4_a2
 OUTPUT_STATE_AT_FREEZE: absent
 STDOUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s09_stop3_g100_c200bac861a4_a2_%j.out
@@ -737,6 +738,12 @@ queue before issuing the single frozen `sbatch` command.
 Independent review reproduced the complete derivation, snapshot, hashes, current
 external sparse state and wrapper preflights, and issued `SUBMIT GO` only for the
 exact command above. Any pre-submit drift still cancels that GO.
+
+Job `446225` consumed the command exactly once. Scheduler submission/start were
+`2026-07-15T11:09:11/11:09:12+02:00`; the initial `scontrol` record matched
+account, partition, job name, source-controlled runner, snapshot working
+directory, output/error paths, one GH200, 16 CPUs, 96 GiB, `01:00:00`,
+`Requeue=0`, and zero restarts. Terminal state and all gates remain pending.
 
 The resulting one-shot G100 keeps every O-117 material field and gate unchanged:
 F-U, engineering seed `0`, global FP16 autocast plus SECOND FP32 island, random
