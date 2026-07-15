@@ -30,7 +30,10 @@
 > `84adfd0` found no open P0-P3. O-119 owner-accepts/closes STOP-3 and authorizes
 > the serial STOP-4A-D implementation/profile/capacity/output-neutral-
 > optimization/G100/conditional-G1000 envelope. Push and merge remain
-> unauthorized.
+> unauthorized. STOP-4 Jobs `452520`, `455539`, and `456539` all completed `0:0`
+> without retry, totaling `0.345000` GPU-hours. Final independent review returned
+> `PASS_WITH_RESIDUAL_RISK` with no open P0-P3 and STOP-4 closure GO. S09 is
+> owner-ready; owner acceptance/closure remains pending.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -260,7 +263,8 @@ SESSION_ID: S09
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 SOURCE_BRANCH: codex/s08-s09-cl-readiness
 IMPLEMENTATION_CONTEXT: persistent S00 unless owner selects independent isolation
-APPROVED_COMPUTE: O-119 STOP-4A <=00:30:00, STOP-4C <=00:30:00, conditional STOP-4D <=01:00:00; serial one GH200, 16 CPU, 96 GiB, <=2 cumulative GPU-hours, no retry
+STATE: STOP-1 THROUGH STOP-4 INDEPENDENTLY REVIEWED / S09 OWNER-READY / OWNER CLOSE DECISION PENDING
+APPROVED_COMPUTE: fully consumed; O-119 actual 0.345000 GPU-hours / no prospective S09 compute
 APPROVED_GIT: linear S09 envelope/request/evidence/review commits; no merge/push
 DECISION_SCOPE: base-uniform full-pipeline engineering performance/readiness only
 ```
@@ -420,6 +424,14 @@ O-107 replacement.
   capped at two cumulative GPU-hours. Any model/recipe/data/precision/resource or
   scientific-scope drift cancels the remaining conditional authority. No worker
   matrix, DDP, merge, or push.
+- Terminal outcome: Jobs `452520`, `455539`, and `456539` completed `0:0` without
+  retry, using `0.345000` GPU-hours. The quiet path removes exactly 19 proven
+  redundant loss-term scalar synchronizations per ordinary attempted window;
+  S08 diagnostics retain terms, and exact loss/input-gradient equality is tested.
+  Swin checkpoint-off is explicit. G1000 reached 1000 accepted updates in 1003
+  attempts with p50/p95 `178.024/203.231 ms`, throughput `5.542 samples/s`, and
+  peak reserved `8.314 GiB`. Final independent review found no open P0-P3 and
+  marks S09 owner-ready, not owner-accepted.
 
 ### Explicit non-goals
 

@@ -1,4 +1,4 @@
-# S09 results ledger — STOP-1/2/3 closed / O-119 STOP-4A-D active
+# S09 results ledger — STOP-1 through STOP-4 independently reviewed / owner-ready
 
 ## Terminal state
 
@@ -927,7 +927,7 @@ ELAPSED/LIMIT/GPU_HOURS: 00:06:54 / 01:00:00 / 0.115000
 RESOURCES: 1 GH200 / 16 CPU / 96 GiB
 SUBMISSIONS: 1 / no retry, requeue, array or DDP
 O119_TOTAL_ACTUAL_GPU_HOURS: 0.345000 / 2.000000
-RESULT: TERMINAL TECHNICAL PASS / IMMUTABLE EVIDENCE REVIEW PENDING
+RESULT: TERMINAL TECHNICAL PASS / INDEPENDENTLY REVIEWED / S09 OWNER-READY
 ```
 
 This was a fresh seed-0 initialization, not a resume. Relative to accepted
@@ -1041,8 +1041,11 @@ away from the loader and toward B1 model/kernel granularity without proving one
 specific kernel or branch cause. B2/B4 capacity evidence remains for S10 recipe
 selection, not an S09 batch-size change.
 
-STOP-4D is a bounded engineering technical PASS and satisfies the precondition
-for final independent STOP-4 evidence review. It proves stable lifecycle/accounting
-and retained performance over 1000 accepted updates for the exact single-seed B1
-tuple. It does not prove convergence, generalization, recipe or batch-size quality,
-mAP/NDS, model quality, per-kernel causality, Protocol A/B, FL, attack or defense.
+STOP-4D is an independently reviewed bounded engineering PASS. Final closure
+review of evidence `54e45c5` plus documentation remediation `5e5d9a9` returned
+`PASS_WITH_RESIDUAL_RISK / no open P0-P3 / STOP-4 closure GO / S09 owner-ready`.
+It proves stable lifecycle/accounting and retained performance over 1000 accepted
+updates for the exact single-seed B1 tuple. It does not prove convergence,
+generalization, recipe or batch-size quality, mAP/NDS, model quality, per-kernel
+causality, Protocol A/B, FL, attack or defense. Owner S09 acceptance/closure and
+any S10 envelope remain separate decisions.

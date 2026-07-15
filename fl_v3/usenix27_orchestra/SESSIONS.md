@@ -38,7 +38,10 @@
 > no P0-P2; closure re-review of remediation `84adfd0` found no open P0-P3 and
 > marks STOP-3 owner-ready. O-119 owner-accepts/closes STOP-3 and starts the
 > approved STOP-4A-D implementation/profile/capacity/optimization/G100/G1000
-> sequence under a serial two-GPU-hour ceiling and no-retry boundary.
+> sequence under a serial two-GPU-hour ceiling and no-retry boundary. Jobs
+> `452520`, `455539`, and `456539` all completed `0:0` without retry and consumed
+> `0.345000` GPU-hours. Final independent review found no open P0-P3 and returned
+> STOP-4 closure GO. S09 is owner-ready; owner acceptance/closure is pending.
 >
 > `Sxx` now names a durable evidence milestone, not necessarily a new task,
 > worker, branch, or worktree. Under O-094, persistent S00 normally performs
@@ -56,7 +59,7 @@
   ├─ S08 model/recipe audit → owner decisions → precision qualification
   │      └─ independent review only after exact implementation/evidence SHA
   │
-  ├─ S09 full-pipeline performance/readiness
+  ├─ S09 full-pipeline performance/readiness      [owner-ready]
   │      └─ independent review of exact profiling/evidence SHA
   │
   ├─ S10 centralized branch/recipe ablation       [pending S08+S09]
@@ -75,8 +78,8 @@
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
-| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1/2/3 closed; O-119 STOP-4A-D active: bounded profiler + B=1/2/4 capacity, output-neutral remediation, optimized G100, conditional fresh G1000 |
-| S10 | Centralized branch/recipe ablation | S08+S09 | pending redefinition; no cells/gates frozen |
+| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **owner-ready**; STOP-1 through STOP-4 independently reviewed, no open P0-P3; owner acceptance/closure pending |
+| S10 | Centralized branch/recipe ablation | S08+S09 | pending owner S09 acceptance and redefinition; no cells/gates frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
 | S12 | Protocol-A/B split and clean adaptation contract | CL freeze + fresh owner review | deferred; old proposal is historical evidence only |
 | S13 | Clean adaptation completion, then new attack | S12 clean PASS + new threat model | blocked; legacy T5 import forbidden |
@@ -333,6 +336,15 @@ STOP-3 and approves three serial STOP-4 jobs at `00:30:00`, `00:30:00`, and
 `01:00:00`, one GH200/16 CPUs/96 GiB each, at most two cumulative GPU-hours and
 no retry; each immutable tuple is recorded and independently reviewed before its
 conditional submission.
+
+O-119 is now fully consumed. STOP-4A Job `452520`, optimized G100 Job `455539`,
+and fresh G1000 Job `456539` completed `0:0` without retry, totaling `0.345000`
+GPU-hours. The final B=1 G1000 run reached 1000 accepted updates in 1003 attempts;
+its p50/p95 was `178.024/203.231 ms`, throughput `5.542 samples/s`, epoch estimate
+`1.409821 h`, and peak reserved memory `8.314 GiB`. Final independent review of
+implementation/evidence/remediation found no open P0-P3 and marks S09 owner-ready.
+This is bounded single-seed engineering evidence, not convergence, mAP/NDS,
+model-quality, recipe-selection, or full-GH200-saturation evidence.
 
 ## 6. S10-S12 redefinition boundaries
 

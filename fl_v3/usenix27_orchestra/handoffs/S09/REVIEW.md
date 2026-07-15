@@ -1770,3 +1770,42 @@ The GO is restricted to the exact command and wrapper SHA-256 recorded in
 `RUN_REQUEST.md`. Any source/snapshot/config/output/resource/queue/history/hash
 drift cancels it. There is one submission and no retry. Residual risk is the
 actual G1000 result; even PASS remains single-seed B1 engineering evidence only.
+
+### Final STOP-4 evidence closure review — S09 owner-ready
+
+```text
+IMPLEMENTATION_SHA: 5642884cdbb16e1c9b3107f529dc70b3a1243c6a
+EVIDENCE_SHA/TREE: 54e45c5fabe0a353ddd904f19cca655351ac09d1 / 474a77286aaa80a02d147ea3956d99dd0cd34b8c
+CLOSURE_REMEDIATION_SHA/TREE: 5e5d9a9d35e04711e30bbe98512dfcd0866929b2 / c7270a81251fa6e2625a5ae0e908dc479dd52991
+REVIEWER_TASK: /root/s09_stop4a_impl_reviewer
+REVIEWER_COMPUTE: none
+VERDICT: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / STOP-4 closure GO / S09 owner-ready
+```
+
+The first closure pass found only two stale STOP-4D tense labels. Remediation
+`5e5d9a9` changes only `RUN_REQUEST.md`, records Job 456539 as executed technical
+PASS, and leaves source, raw evidence and interpretation unchanged. Final review
+finds no open P0-P3.
+
+The reviewer independently verifies all three STOP-4 raw manifests
+`fbd07bee... / 542862b2... / 6b90ae38...`, read-only outputs without symlinks,
+and exactly Jobs 452520/455539/456539 at `COMPLETED 0:0`, zero restart and
+`0.345` cumulative O-119 GPU-hours. The old `131619f` tuple remains unsubmitted
+with no output or logs. G1000 accounting is exact at 1000/1003, followed by
+990/990 measured accepted windows, no direct-nonfinite/discarded/pending window,
+and reproduced p50/p95 `178.024250/203.231362 ms`, throughput `5.542467
+samples/s`, epoch estimate `1.409821 h` and peak reserved `8.314 GiB`.
+
+Source and test review confirms the quiet path removes 19 loss-term `.item()`
+calls per ordinary attempted window while S08 diagnostics retain terms and exact
+loss/input-gradient equality holds. Swin checkpoint-off is explicit and verified
+by G100/G1000 with its memory cost disclosed. No speculative allocation rewrite,
+worker matrix, DDP, recipe/batch choice or model/loss/precision/data change enters
+STOP-4; B2/B4 remain capacity evidence for S10.
+
+Residual risks are explicit: this is single-seed B1 bounded engineering evidence,
+not convergence, mAP/NDS or model quality; the true large LiDAR gradient remains
+unexplained and unfixed; 1-Hz/stage timing cannot identify a specific kernel or
+branch; and cross-job variation cannot separately attribute speedup to checkpoint
+removal versus the 19 eliminated scalar synchronizations. The milestone is
+owner-ready, not owner-accepted or closed by reviewer authority.
