@@ -12,7 +12,9 @@
 > open P0-P3. O-116 owner-accepts/closes STOP-2. O-117 accepts the updated exact
 > STOP-3 envelope, its linear commits, and one derived immutable G100 submission.
 > Exact Job `441511` consumed that sole submission and failed before data/loader/
-> model execution; no retry is authorized, and a new owner amendment is required.
+> model execution. O-118 now approves the exact serial recovery below: one
+> dependency-attestation submission and, only after its PASS plus independent
+> review, one strictly derived replacement G100. Neither phase permits retry.
 
 ## Authorization state
 
@@ -23,10 +25,10 @@ STOP1_EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 STOP1_REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
 STOP1_FIRST_EVIDENCE_SHA: b35591b1a9ac64ea50ee3ad3257304baef07f8de
 BRANCH: codex/s08-s09-cl-readiness
-OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117 STOP-3
-APPROVED_COMPUTE: STOP-1/2 consumed / STOP-3 Job 441511 consumed and terminal failed
-APPROVED_SUBMISSIONS: STOP-1 1 consumed / STOP-2 1 consumed / STOP-3 1 consumed / no replacement
-ACTIVE_REQUEST: proposed O-118 two-phase STOP-3 recovery / NOT AUTHORIZED
+OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3
+APPROVED_COMPUTE: O-118 Phase A exact dependency attestation + conditional strictly derived Phase B G100
+APPROVED_SUBMISSIONS: prior STOP-1/2/3 each consumed + O-118 Phase A 1 + conditional Phase B 1 / no retry
+ACTIVE_REQUEST: O-118 Phase A exact dependency attestation / approved / not yet submitted
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-3 exact config/runner/request/evidence and review remediation authorized
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -524,8 +526,8 @@ blocked until that gate is independently accepted.
 
 ```text
 REQUEST_ID: S09-STOP3-O118-RECOVERY
-REQUEST_STATE: PROPOSED / OWNER APPROVAL REQUIRED / DO NOT SUBMIT
-OWNER_CONFIRMATION: pending
+REQUEST_STATE: APPROVED UNDER O-118 / PHASE A NOT YET SUBMITTED
+OWNER_CONFIRMATION: "批准 O-118 条件式续行 envelope" / continuous execution within the frozen boundary
 PURPOSE: re-attest the drifted editable sparse runtime, then conditionally execute the unchanged O-117 loader/G100 gate
 ADDITIONAL_SUBMISSIONS: at most 2 / one dependency attestation + one conditional G100 replacement
 ADDITIONAL_GPU_HOUR_CEILING: 1.333334

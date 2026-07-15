@@ -40,8 +40,8 @@ STOP3_DEP_ATTEST_SOURCE: 788b493889bcf7be98f36b9cbb6686d51e8e5edf / tree 0bc61b3
 STOP3_DEP_ATTEST_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / NOT compute authorization
 STOP3_DEP_ATTEST_SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop3_dep_attest_788b493889bc
 STOP3_DEP_ATTEST_SUBMIT_SHA256: 93848490f485ab38a74ce9818a1ce9d8c35a5eaa17e389fc6b437e9238aa9706
-STOP3_O118_PROPOSAL: exact dependency attestation + conditionally derived unchanged O-117 G100 / OWNER APPROVAL PENDING
-APPROVED_COMPUTE: STOP-1 Job 441191 consumed / STOP-2 Job 441293 consumed / STOP-3 Job 441511 consumed / no active compute
+STOP3_O118_DECISION: APPROVED / exact dependency attestation + conditionally derived unchanged O-117 G100 / no retry
+APPROVED_COMPUTE: O-118 Phase A exact dependency attestation + conditional Phase B G100 after PASS/review
 JOBS: 441191 COMPLETED 0:0 in 00:03:06; 441293 COMPLETED 0:0 in 00:01:04; 441511 FAILED 1:0 in 00:02:29 / no retries
 INDEPENDENT_REVIEW: STOP-1 5252a59 PASS_WITH_RESIDUAL_RISK; STOP-2 impl 37aef4d PASS_WITH_RESIDUAL_RISK; request cad7262 PASS_WITH_RESIDUAL_RISK; evidence 79f87dc PASS_WITH_RESIDUAL_RISK
 OWNER_STOP1_DECISION: O-113 / ACCEPTED
