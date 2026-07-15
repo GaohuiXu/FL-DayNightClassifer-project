@@ -108,14 +108,13 @@ class _ReadinessTiming:
         self.warmup_boundary_attempted_window = int(state.attempted_windows)
 
     def begin_window(
-        self, *, attempted_window: int, data_wait_ms: float, scaler_before: float
+        self, *, attempted_window: int, data_wait_ms: float
     ) -> None:
         if self.active is not None:
             raise RuntimeError("nested readiness timing window")
         self.active = {
             "attempted_window": int(attempted_window),
             "data_wait_ms": float(data_wait_ms),
-            "scaler_before": float(scaler_before),
             "measured": bool(self.measurement_started),
             "total_start": self._mark(),
             "pairs": {},
@@ -142,7 +141,6 @@ class _ReadinessTiming:
         self,
         *,
         outcome: str,
-        scaler_after: float,
         global_samples: int,
     ) -> None:
         if self.active is None or self.active["stage_name"] is not None:
@@ -152,7 +150,6 @@ class _ReadinessTiming:
             self._mark(),
         )
         self.active["outcome"] = str(outcome)
-        self.active["scaler_after"] = float(scaler_after)
         self.active["global_samples"] = int(global_samples)
         self.records.append(self.active)
         self.active = None
@@ -456,7 +453,9 @@ def train_one_epoch(
     ):
         raise ValueError("readiness timing warm-up must be below max_optimizer_steps")
     scaler = grad_scaler if grad_scaler is not None else make_grad_scaler(device, precision)
-    scaler_scale_at_start = float(scaler.get_scale()) if readiness_timing else None
+    scaler_scale_at_start = (
+        1.0 if readiness_timing and not scaler.is_enabled() else None
+    )
     timing = (
         _ReadinessTiming(device, readiness_warmup_successful_windows)
         if readiness_timing
@@ -527,7 +526,6 @@ def train_one_epoch(
                 timing.begin_window(
                     attempted_window=state.attempted_windows + 1,
                     data_wait_ms=data_wait_ms,
-                    scaler_before=float(scaler.get_scale()),
                 )
                 timing.begin_stage("h2d")
             inputs, targets = _unpack_batch(batch, device)
@@ -629,6 +627,8 @@ def train_one_epoch(
                     )
             elif scaler.is_enabled():
                 scale_before = float(scaler.get_scale())
+                if readiness_timing and scaler_scale_at_start is None:
+                    scaler_scale_at_start = scale_before
                 scaler.unscale_(optimizer)
                 if precision_diagnostics is not None:
                     precision_diagnostics.prepare_window(
@@ -725,7 +725,6 @@ def train_one_epoch(
             if timing is not None:
                 timing.finish_window(
                     outcome=outcome,
-                    scaler_after=float(scaler.get_scale()),
                     global_samples=global_bs,
                 )
                 if (
@@ -760,6 +759,9 @@ def train_one_epoch(
         )
     state.validate(checkpoint_boundary=True)
     timing_report = timing.finalize(state) if timing is not None else None
+    # This is the single terminal scaler read that the pre-S09 metrics path already
+    # performed. Reuse it for readiness evidence instead of adding per-window syncs.
+    final_scaler_scale = float(scaler.get_scale())
     if timing_report is not None:
         n_averaged = getattr(ema_model, "n_averaged", None)
         timing_report["component_counters"] = {
@@ -775,7 +777,7 @@ def train_one_epoch(
                 else int(n_averaged)
             ),
             "scaler_scale_at_start": scaler_scale_at_start,
-            "scaler_scale_at_end": float(scaler.get_scale()),
+            "scaler_scale_at_end": final_scaler_scale,
             "scaler_skips": int(scaler_skips),
         }
     metrics: Dict[str, Any] = {
@@ -796,7 +798,7 @@ def train_one_epoch(
         "discarded_samples": float(state.discarded_samples),
         "precision": precision,
         "grad_scaler_enabled": float(scaler.is_enabled()),
-        "grad_scaler_scale": float(scaler.get_scale()),
+        "grad_scaler_scale": final_scaler_scale,
         "grad_scaler_skips": float(scaler_skips),
         "nonfinite_loss_steps": float(nonfinite_loss_count.item()),
         "last_grad_norm": float(last_grad_norm),

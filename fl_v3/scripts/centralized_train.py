@@ -379,14 +379,16 @@ def main() -> None:
             )
         out_dir.mkdir(parents=True)
 
-    startup_started = time.perf_counter()
-    identity_started = time.perf_counter()
+    startup_started = time.perf_counter() if readiness else 0.0
+    identity_started = time.perf_counter() if readiness else 0.0
     runtime_dependencies = verify_runtime_dependency_identity(config.to_run_config())
     print(json.dumps({"runtime_dependencies": runtime_dependencies}, sort_keys=True), flush=True)
     verify_physical_data_identities(config)
-    startup_phases = {
-        "runtime_and_data_identity_seconds": time.perf_counter() - identity_started,
-    }
+    startup_phases = {}
+    if readiness:
+        startup_phases["runtime_and_data_identity_seconds"] = (
+            time.perf_counter() - identity_started
+        )
     train_spec = config.data["training"]
     declared_world = int(train_spec["world_size"])
     actual_world = int(os.environ.get("WORLD_SIZE", "1"))
@@ -404,12 +406,13 @@ def main() -> None:
 
     run_config = config.to_run_config()
     task = get_task("nuscenes_detection")
-    data_started = time.perf_counter()
+    data_started = time.perf_counter() if readiness else 0.0
     train_split = str(run_config["nuscenes-train-split"])
     infos, _ = task._load_info(run_config, train_split)
     part = task._partition(run_config)
     tokens = sorted({token for shard in part["client_tokens"].values() for token in shard})
-    startup_phases["info_and_partition_seconds"] = time.perf_counter() - data_started
+    if readiness:
+        startup_phases["info_and_partition_seconds"] = time.perf_counter() - data_started
 
     loader_profile = None
     profile_spec = execution["loader_profile"]
@@ -452,12 +455,15 @@ def main() -> None:
                 "training was not started"
             )
 
-    loader_started = time.perf_counter()
+    loader_started = time.perf_counter() if readiness else 0.0
     loader = task._make_loader(run_config, infos, tokens, shuffle=True)
     stream = PersistentEpochIterator(loader)
-    startup_phases["fixed_training_loader_seconds"] = time.perf_counter() - loader_started
+    if readiness:
+        startup_phases["fixed_training_loader_seconds"] = (
+            time.perf_counter() - loader_started
+        )
 
-    model_started = time.perf_counter()
+    model_started = time.perf_counter() if readiness else 0.0
     model = task.build_model(run_config).to(device)
     criterion = task.build_criterion(run_config)
     optimizer = _build_optimizer(model, config)
@@ -467,9 +473,10 @@ def main() -> None:
     scaler = make_grad_scaler(device, config.precision)
     ema = _build_ema(model, train_spec["ema_decay"])
     state = TrainingState()
-    startup_phases["model_and_training_components_seconds"] = (
-        time.perf_counter() - model_started
-    )
+    if readiness:
+        startup_phases["model_and_training_components_seconds"] = (
+            time.perf_counter() - model_started
+        )
 
     if readiness:
         max_updates = int(train_spec["max_optimizer_steps"])
