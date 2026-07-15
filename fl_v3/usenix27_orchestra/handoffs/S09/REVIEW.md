@@ -1738,3 +1738,35 @@ This is permission to freeze and independently review one exact request tuple,
 not submit permission for a mutable tuple. Residual risk is that the new selector
 and full G1000 path have not yet run on GH200. Any source/config/resource/gate or
 output drift cancels the conditional authority.
+
+### STOP-4D exact-request closure review — SUBMIT GO
+
+```text
+REQUEST_SEAL: 96471f766e2865e20a305e89b2b23bd49f7dad6d
+REQUEST_SEAL_TREE: f558168c486b84054c6aa38c7fa593f39ae2efbc
+REQUEST_REMEDIATION_SHA/TREE: 62877e112d8e13a2680f4a09999d26df0ba95378 / a641a10d40b071995cfe6a0a8f8f669cf2771788
+EXECUTION_SOURCE/TREE: 5642884cdbb16e1c9b3107f529dc70b3a1243c6a / b13a08819b2e203dfe355309f1310c79f94f3023
+REVIEWER_TASK: /root/s09_stop4a_impl_reviewer
+REVIEWER_COMPUTE: none
+VERDICT: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / SUBMIT GO
+```
+
+The initial exact-request review found four documentation-only P3 status drifts;
+`62877e1` closes them without changing execution source, snapshot, config, runner,
+wrapper, output or resources. Closure review independently verifies the detached,
+clean, self-contained 602-file snapshot with `git fsck --full`, no alternates,
+symlinks or writable worktree entries, and preserved executable modes. Raw and
+resolved config, runner, trainer and environment hashes all match; accepted cache/
+manifest physical hashes, cumm/spconv source state, and all 2,439 accepted runtime
+executable artifacts were independently rechecked.
+
+STOP-4D differs from accepted STOP-4C only in `100 -> 1000` successful updates
+and `120 -> 1020` attempted cap. The reviewer confirms the 72 expected focused
+cases, unchanged numerical/accounting/performance gates, fresh output/queue/history
+and logs, and wrapper mode `0555` with syntax/ShellCheck/safe-prefix PASS and one
+non-requeue `sbatch`. O-119 remains at most `1.230000/2.000000` GPU-hours.
+
+The GO is restricted to the exact command and wrapper SHA-256 recorded in
+`RUN_REQUEST.md`. Any source/snapshot/config/output/resource/queue/history/hash
+drift cancels it. There is one submission and no retry. Residual risk is the
+actual G1000 result; even PASS remains single-seed B1 engineering evidence only.
