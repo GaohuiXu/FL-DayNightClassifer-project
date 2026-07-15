@@ -799,7 +799,7 @@ NODE/SUBMIT/START/END: n414 / 2026-07-15T14:14:48 / 2026-07-15T14:14:49 / 2026-0
 ELAPSED/LIMIT/GPU_HOURS: 00:04:06 / 00:30:00 / 0.068333
 RESOURCES: 1 GH200 / 16 CPU / 96 GiB
 SUBMISSIONS: 1 / no retry, requeue, array or DDP
-RESULT: TERMINAL TECHNICAL PASS / IMMUTABLE EVIDENCE REVIEW PENDING
+RESULT: TERMINAL TECHNICAL PASS / INDEPENDENTLY REVIEWED / STOP-4D RELEASED
 ```
 
 The exact cell was the same F-U, seed-0, B1 engineering recipe as STOP-3:
@@ -906,9 +906,143 @@ This still does not demonstrate sustained GH200 saturation; together with the
 negligible data wait, it remains consistent with B1 model/kernel granularity.
 
 STOP-4C is therefore a bounded engineering technical PASS and satisfies the
-precondition for independent evidence review. It proves 100-update lifecycle
+independently reviewed precondition that released STOP-4D. It proves 100-update lifecycle
 health and a non-regressing, faster checkpoint-off/quiet-telemetry path for this
 exact tuple. It does not prove convergence, recipe or batch-size quality,
 mAP/NDS, model quality, exact per-optimization or per-kernel causality, multi-seed
-behavior, Protocol A/B, FL, attack or defense. STOP-4D remains blocked until this
-immutable evidence receives independent PASS.
+behavior, Protocol A/B, FL, attack or defense.
+
+## STOP-4D Job 456539 — fresh optimized G1000 technical PASS
+
+```text
+OWNER_AUTHORITY: O-119 conditional STOP-4D after reviewed STOP-4C PASS
+EXECUTION_SOURCE/TREE: 5642884cdbb16e1c9b3107f529dc70b3a1243c6a / b13a08819b2e203dfe355309f1310c79f94f3023
+REQUEST_SEAL/REMEDIATION: 96471f766e2865e20a305e89b2b23bd49f7dad6d / 62877e112d8e13a2680f4a09999d26df0ba95378
+REQUEST_REVIEW_ARTIFACT: 0887c7e18b6b7c1f8c06104dff4a743881e9bff6 / SUBMIT GO / no open P0-P3
+SUBMISSION_RECORD: 56da54d
+RAW/RESOLVED_CONFIG_SHA256: dfd46e1a179b3b10d98055762fe8cfc9f9f312f4faa5aec05c9f5b14a7b37928 / c3b39a3f9dbfccd673a494f8ec976aa0cad1424a63cda3e56f836b4b733f7a1b
+JOB_ID/STATE/EXIT/RESTARTS: 456539 / COMPLETED / 0:0 / 0
+NODE/SUBMIT/START/END: n119 / 2026-07-15T14:45:13 / 2026-07-15T14:45:14 / 2026-07-15T14:52:08
+ELAPSED/LIMIT/GPU_HOURS: 00:06:54 / 01:00:00 / 0.115000
+RESOURCES: 1 GH200 / 16 CPU / 96 GiB
+SUBMISSIONS: 1 / no retry, requeue, array or DDP
+O119_TOTAL_ACTUAL_GPU_HOURS: 0.345000 / 2.000000
+RESULT: TERMINAL TECHNICAL PASS / IMMUTABLE EVIDENCE REVIEW PENDING
+```
+
+This was a fresh seed-0 initialization, not a resume. Relative to accepted
+STOP-4C, the raw config changes only 100 to 1000 successful updates and the
+attempted cap from 120 to 1020. F-U/B1, the O-110 global-FP16/SECOND-FP32
+partition, checkpoint-off, AdamW `1e-4/0.01`, constant scheduler, no EMA,
+clipping, augmentation or GT paste, uniform sampling, eight workers, and every
+data/dependency identity are unchanged. No loader/operator profile, checkpoint
+or official evaluation was run.
+
+### Artifact, runtime and data identity
+
+The immutable output is:
+
+```text
+/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop4d_g1000_5642884cdbb1_a1
+```
+
+It contains 17 regular files / 3,752,314 bytes, no symlink and no writable entry.
+All 16 files named by `artifact_sha256s.txt` pass `sha256sum -c`; the manifest
+hashes to `6b90ae38...`. The focused suite passed `72/72`; the sole warning is
+pytest's expected inability to write cache into the read-only snapshot. Training,
+readiness validation and final exits are all zero. Both Slurm logs are mode
+`0444`; stdout is empty (`e3b0c442...`) and stderr contains only the normal
+module/data notices (`8db5d05b...`). Centralized stderr contains only the known
+Torch FX and spconv multidimensional-indexing warnings, with no exception.
+
+| Artifact | SHA-256 |
+|---|---|
+| readiness report | `e61c1f6e6761a74b787dcdf9303fd1911868e44ebf1e5195765a2214396968b8` |
+| readiness validation | `27bf64b2eed8025050b7af0669ba1863843b91a2087a0257d041dc6157cb12f8` |
+| artifact manifest | `6b90ae38427bb6efaa043f1a7c93432473cade8862ea5d1f9e432e87003107b3` |
+| runtime dependencies | `0755df255eb69d1501bdfa183f996b33dd3ffb6bad45393ef7f5fa041d722a3c` |
+| resolved-config artifact | `15e998cd0669c431c510a765a33c1171966b5e33220434810e59d810734d6eb1` |
+| execution / config identities | `61151539... / d4de4fe8...` |
+| GPU telemetry / alignment | `2ac8c0d0... / 531613e4...` |
+| centralized stdout / stderr | `7dbb4fc0... / 410f5448...` |
+
+The in-job identity binds source/tree and config, GH200 node `n119`, aarch64
+Python `3.11.15`, Torch `2.11.0+cu128` / CUDA `12.8`, spconv `2.3.8`, cumm
+`0.7.13`, accepted train/val `t1.v2` caches, ten sweeps and the accepted ZIP
+manifest. Runtime-dependency and execution identities are `3e900c90...` and
+`23450c00...`, preserving the accepted runtime/data contract.
+
+### G1000 lifecycle health
+
+The lifecycle reached 1000 successful optimizer updates in 1003 attempts, well
+inside the 1020 cap. Attempts one through three performed the expected persistent
+GradScaler backoff `512 -> 256 -> 128 -> 64`; after ten accepted warm-up updates
+at attempt 13, every one of 990 measured windows was accepted at scale 64.
+
+Terminal accounting reconciles exactly: 1003 attempted microbatches/samples/
+windows and loss-evaluated samples, 1000 successful windows/optimizer steps/
+exposure samples, three overflow/invalid windows, and zero direct-nonfinite,
+discarded or pending windows/samples. Scheduler `last_epoch=1000`; EMA is absent.
+The horizon-average aggregate loss is finite (`19.640391`). It is lower than the
+short G100 horizon average, but there is no validation metric or loss-trajectory
+gate here, so this is not convergence or model-quality evidence.
+
+### Steady performance, memory and epoch estimate
+
+The fail-closed validator recomputes the pairwise `(data_wait + CUDA window)`
+distribution over 990 accepted measured windows. Every frozen gate passes:
+
+| Metric | STOP-3 reference | STOP-4C G100 | STOP-4D G1000 |
+|---|---:|---:|---:|
+| Combined p50 | `208.745739 ms` | `183.215146 ms` | `178.024250 ms` |
+| Combined p95 | `224.326678 ms` | `217.673521 ms` | `203.231362 ms` |
+| Accepted throughput | `4.743432 samples/s` | `5.237023 samples/s` | `5.542467 samples/s` |
+| Steady epoch estimate | `1.647307 h` | `1.492048 h` | `1.409821 h` |
+| Combined p95/p50 | `1.074641` | `1.188076` | `1.141594` |
+| Data-wait share | `0.076355%` | `0.099441%` | `0.096934%` |
+| Peak allocated / reserved | `3.256 / 6.434 GiB` | `4.764 / 8.361 GiB` | `4.765 / 8.314 GiB` |
+
+Relative to G100, the longer steady sample improves p50/p95 latency by
+`2.83%/6.63%`, throughput by `5.83%`, and the epoch estimate by `5.51%`.
+Relative to STOP-3, the corresponding changes are `14.72%/9.40%`, `+16.85%`,
+and `-14.42%`. Cross-run variation prevents treating the extra G1000 improvement
+as another code speedup; the durable conclusion is no regression and stable
+optimized behavior across the longer window.
+
+| CUDA-event stage | Mean (ms) | p50 (ms) | p95 (ms) |
+|---|---:|---:|---:|
+| H2D | `0.274271` | `0.266976` | `0.344259` |
+| Forward | `86.903799` | `86.730446` | `91.956580` |
+| Loss | `11.451489` | `11.404656` | `14.714667` |
+| Backward | `74.819702` | `72.236893` | `93.902079` |
+| Optimizer/scheduler/EMA | `6.048701` | `6.016848` | `6.360600` |
+| CUDA-only integrated window | `180.157168` | `177.805153` | `203.070365` |
+
+The 990-window measurement lasted `178.621 s`, or `180.425 ms` wall time per
+accepted update. The complete training section, including cold/scaler-backoff
+windows, lasted `205.592 s`. One-time setup before training was `119.272 s`,
+dominated by runtime/data identity checks. Peak reserved memory leaves
+`86.686 GiB` of reported headroom and remains far below the 86-GiB reserved cap.
+
+### Coarse GH200 utilization and limits
+
+The one-Hz alignment contains 199 samples during the 205.6-second training
+interval. GPU utilization mean/p50/linear-p95/max is
+`47.56% / 51% / 74.1% / 100%`; utilization is nonzero in `91.96%`, at least
+50% in `53.27%`, and at least 80% in `2.51%` of samples. Memory used has
+mean/p50/p95/max `8,973 / 9,429 / 9,429 / 9,429 MiB`; power mean/p50/p95/max is
+`219.31 / 227.18 / 232.79 / 275.05 W`. Boundaries retain up to one-second
+uncertainty.
+
+The longer interval shows more continuous B1 utilization than the short G100,
+but it still does not make full use of GH200: median utilization is about 51% and
+only 2.5% of samples reach at least 80%. Data wait remains negligible, pointing
+away from the loader and toward B1 model/kernel granularity without proving one
+specific kernel or branch cause. B2/B4 capacity evidence remains for S10 recipe
+selection, not an S09 batch-size change.
+
+STOP-4D is a bounded engineering technical PASS and satisfies the precondition
+for final independent STOP-4 evidence review. It proves stable lifecycle/accounting
+and retained performance over 1000 accepted updates for the exact single-seed B1
+tuple. It does not prove convergence, generalization, recipe or batch-size quality,
+mAP/NDS, model quality, per-kernel causality, Protocol A/B, FL, attack or defense.
