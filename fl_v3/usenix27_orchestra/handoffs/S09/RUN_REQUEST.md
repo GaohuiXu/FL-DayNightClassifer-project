@@ -1,8 +1,9 @@
 # S09 RUN_REQUEST — four-stop execution ledger
 
 > **Ledger state:** O-112 STOP-1 was submitted exactly once as Job `441191` and is
-> terminal PASS. The submission authority is consumed; independent review is
-> pending and no later stop is authorized.
+> terminal technical PASS. The submission authority is consumed. First review
+> passed raw evidence but returned `REMEDIATE` for durable documentation
+> provenance; bounded re-review is pending and no later stop is authorized.
 
 ## Authorization state
 
@@ -10,11 +11,13 @@
 SESSION_ID: S09
 S09_BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 STOP1_EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
+STOP1_REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
+STOP1_FIRST_EVIDENCE_SHA: b35591b1a9ac64ea50ee3ad3257304baef07f8de
 BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112 STOP-1 execution
 APPROVED_COMPUTE: STOP-1 only / <=0.5 GPU-hours
 APPROVED_SUBMISSIONS: 1 / consumed by Job 441191
-ACTIVE_REQUEST: none / S09-STOP1-DATA terminal PASS pending review
+ACTIVE_REQUEST: none / S09-STOP1-DATA technical PASS / doc remediation re-review pending
 IMPLEMENTATION_COMMIT_AUTHORITY: no production implementation; linear STOP-1 docs/evidence commits allowed
 MERGE_OR_PUSH_AUTHORITY: none
 ```
@@ -35,7 +38,7 @@ conditional next stop is implicit.
 ## STOP-1 — production `t1.v2` cache identity
 
 ```text
-REQUEST_STATE: CONSUMED / TERMINAL PASS / INDEPENDENT REVIEW PENDING
+REQUEST_STATE: CONSUMED / TERMINAL TECHNICAL PASS / FIRST REVIEW DOC-REMEDIATE
 OBJECTIVE: materialize and attest exact train/val t1.v2 caches for n_sweeps=10
 MODEL_OR_TRAINING: none
 RESOURCE_CEILING: 1 GH200 / 8 CPU / 96 GiB host / 00:30:00 / 0.5 GPU-hours

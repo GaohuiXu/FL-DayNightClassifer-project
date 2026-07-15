@@ -112,12 +112,13 @@ Precision status:
   cumm/spconv path; `bf16` configs should fail loudly instead of falling back.
 - Trainer, smoke, and provenance paths use the explicit `precision` policy
   rather than inferring AMP dtype from cuDNN deterministic flags.
-- Current six-task S07 evidence is deliberately narrower: one FP32 optimizer
-  update passed for each C/L/F mode; FP16 scale 512 overflowed all three, and
-  scale 1 recovered camera but left direct nonfinite SECOND LiDAR/fusion
-  gradients. This is not an environment failure. S08 must qualify full FP16 AMP
-  against an AMP path that keeps SECOND/spconv in FP32 and an FP32 reference,
-  including real dynamic-scaler continuation.
+- S08 Q1/Q2 and independent R3 are accepted under O-110. The active model policy
+  is global FP16 autocast for camera/dense-pillar; global FP16 with an explicit
+  FP32 island covering SECOND voxelization/VFE/spconv/dense-collapse/to-BEV for
+  sparse LiDAR/fusion; and uniform FP32 as reference/fallback. Full sparse FP16 is
+  not the accepted unified fusion route. The unusually large true unscaled SECOND
+  gradients remain an unresolved model/recipe risk rather than an environment
+  failure.
 - The checked-in S07 C/L/F JSON files are template-only. Their `precision` fields
   do not freeze the later training regime.
 
@@ -188,13 +189,17 @@ directory/ZIP decoded parity and fork/spawn lifecycle execution passed in focuse
 GH200 job `333206` (`56 passed`, zero skipped). S01-R then returned **PASS** for
 worker `abe5c58b174dbbe1f7045ce91c8b15168d97b87b`; the separate review artifact is
 `7cf7fcc4b17d43806f1a134cf8c8a7b6868aa5bc`. S07-A migrated the permission-out GT
-database caller to explicit `t1.v2` depth/cache/manifest validation. Full trainval
-`t1.v2` cache materialization is still pending exact owner approval, so this is not
-model/full-data readiness. Do not extract/duplicate the dataset or submit further
-full-data jobs without exact permission. O-009 covers only a recorded bounded
+database caller to explicit `t1.v2` depth/cache/manifest validation. O-112 S09
+STOP-1 Job `441191` subsequently materialized exact read-only train/val `t1.v2`,
+`n_sweeps=10` caches and passed the execution/cache/hash gates. Independent review
+found only durable Git/status-provenance wording that must be corrected and
+re-reviewed before production binding; this is still not model/full-data
+readiness. Do not extract/duplicate the dataset or submit further full-data jobs
+without exact permission. O-009 covers only a recorded bounded
 engineering smoke (one node/GPU, at most 60 minutes/job, one concurrent job, two
-cumulative GPU-hours); it does not authorize this cache materialization, full-data
-coverage/profile, model steps, metrics, matrices, reruns, arrays, DDP, or retries.
+cumulative GPU-hours); it did not authorize Job `441191` and does not authorize an
+additional cache materialization, full-data coverage/profile, model steps,
+metrics, matrices, reruns, arrays, DDP, or retries.
 
 A bounded one-archive GH200 engineering smoke (`Slurm 330409`, 2026-07-10) passed:
 module/table discovery, four real samples with all six cameras plus keyframe and

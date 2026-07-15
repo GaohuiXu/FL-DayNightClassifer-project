@@ -4,15 +4,18 @@
 
 ```text
 SESSION_ID: S09
-MILESTONE_STATE: STOP-1 TERMINAL PASS / INDEPENDENT REVIEW PENDING
-BASE_AND_CURRENT_HEAD: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
+MILESTONE_STATE: STOP-1 RAW EVIDENCE PASS / DOC-PROVENANCE REMEDIATION / RE-REVIEW PENDING
+BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
+EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
+REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
+FIRST_EVIDENCE_SHA: b35591b1a9ac64ea50ee3ad3257304baef07f8de
 BRANCH: codex/s08-s09-cl-readiness
 S08_POLICY_DECISION: O-110 / CLOSED PASS
 S09_SCOPE_DECISION: O-111
 IMPLEMENTATION_COMMIT: none
 APPROVED_COMPUTE: STOP-1 Job 441191 consumed / no active compute
 JOBS: 441191 COMPLETED 0:0 in 00:03:06 / no retry
-INDEPENDENT_REVIEW: not started
+INDEPENDENT_REVIEW: b35591b REMEDIATE / P2-P3 docs only / raw evidence PASS
 ```
 
 This file records the accepted S09 execution envelope. The owner accepted
@@ -22,7 +25,10 @@ S09, and deferred scientific training-recipe and sparse-normalization decisions 
 S10. O-112 separately started STOP-1 DATA and authorized its exact request/evidence
 commits plus one bounded cache-materialization submission. Job `441191` consumed
 that submission and is terminal PASS at the execution/evidence level; independent
-data/provenance review remains required before owner STOP-1 acceptance. STOP-2
+data/provenance review found no P0/P1 and passed the raw source/cache/job gates,
+but returned `REMEDIATE` for one nonexistent request SHA, a stale current-HEAD
+label, and active status drift. The candidate now corrects only those durable
+records and requires bounded re-review before owner STOP-1 acceptance. STOP-2
 through STOP-4 still require their own owner-reviewed plan and Git/Slurm authority.
 
 ## S08 residual carried into S09

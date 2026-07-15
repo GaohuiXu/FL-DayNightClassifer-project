@@ -210,10 +210,14 @@ fork/spawn lifecycle, cache-depth, and ZIP-integrity tests with zero skips.
 Historical job `332651` `t1.v1` caches remain coverage evidence only and are
 forbidden production inputs; it does not gain retroactive source attestation.
 S07-A has migrated `build_gt_database.py` to explicit depth/cache/manifest
-provenance, but full trainval `t1.v2` cache materialization remains pending exact
-owner approval and is still required before model/full-data readiness. Do not
-extract or duplicate the full dataset into project storage without explicit owner
-permission. The old
+provenance. Under O-112, S09 STOP-1 Job `441191` materialized the exact train and
+val `t1.v2`, `n_sweeps=10` caches and completed all in-job plus S00 post-job
+identity checks. Their independent review returned `REMEDIATE` only for durable
+Git/status wording; the raw cache/source/job evidence passed. Do not production-
+bind these caches until that documentation remediation is immutably re-reviewed
+and accepted. No cache retry or later S09 job is authorized. Do not extract or
+duplicate the full dataset into project storage without explicit owner permission.
+The old
 `/mimer/NOBACKUP/Datasets/NuScenes_v1.0` path is not an Arrhenius data path.
 
 The module root is discovered from `NUSCENES_DATA_DIR` after explicit config and
