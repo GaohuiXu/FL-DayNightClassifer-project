@@ -1,6 +1,6 @@
 # USENIX Security '27 Orchestra — milestone contracts
 
-> **Status (2026-07-14).** S07 is closed at clean engineering anchor
+> **Status (2026-07-15).** S07 is closed at clean engineering anchor
 > `2a584053e6f6a3860b6f812681dc8d7342ca52ad`. S08 implementation/remediation is
 > sealed at `103c7389a47938b1f9dd0cba60251df6dce9e5bb` with independent R2
 > `PASS_WITH_RESIDUAL_RISK`. Under O-109, exact Q1 Job `431013` and Q2 Job
@@ -10,9 +10,12 @@
 > compatibility cells also passed. Independent R3 reviewed exact evidence SHA
 > `c0ef86235ead753fee3b790b19d40f82f875ec59` with
 > `PASS_WITH_RESIDUAL_RISK` and no P0-P2 findings. O-110 accepts seal `d31adea`,
-> freezes the recommended precision policy, and closes S08 PASS. S09 discussion
-> is open, but detailed planning waits on its additional reading gate and compute
-> remains unapproved. S10-S12 are pending/deferred and not copy-ready.
+> freezes the recommended precision policy, and closes S08 PASS; closing commit
+> `28f79802c0868afa6290d74ae6aeb9d23c7d088f` is fast-forward integrated. The S09
+> reading gate is complete. O-111 accepts the four-stop engineering-readiness
+> direction and defers branch/training-recipe selection to S10. O-112 activates
+> STOP-1 DATA with one exact cache-materialization submission capped at 0.5
+> GPU-hours; STOP-2 implementation and all later compute remain unapproved.
 >
 > `Sxx` now names a durable evidence milestone, not necessarily a new task,
 > worker, branch, or worktree. Under O-094, persistent S00 normally performs
@@ -25,7 +28,7 @@
 ## 1. Active graph and status
 
 ```text
-2a58405 accepted clean engineering anchor
+28f7980 accepted S08 close / S09 base
   │
   ├─ S08 model/recipe audit → owner decisions → precision qualification
   │      └─ independent review only after exact implementation/evidence SHA
@@ -49,7 +52,7 @@
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
-| S09 | Full-pipeline performance/readiness | accepted S08 policy | discussion/required-reading gate active; exact cache/100/1000-step/profile compute not approved |
+| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1 DATA active under O-112; exact request freeze/materialization/review only; STOP-2 not started |
 | S10 | Centralized branch/recipe ablation | S08+S09 | pending redefinition; no cells/gates frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
 | S12 | Protocol-A/B split and clean adaptation contract | CL freeze + fresh owner review | deferred; old proposal is historical evidence only |
@@ -218,8 +221,9 @@ that gate.
 
 ## 5. S09 — full-pipeline performance and readiness
 
-**Starts when.** The owner accepts reviewed S08 evidence and freezes the precision
-policy to be measured.
+**Starts when.** O-110 has accepted reviewed S08 evidence and frozen the precision
+policy. O-111 accepts the engineering-focused four-stop direction; each stop still
+requires one exact owner approval before S00 creates its completion goal.
 
 **Question.** Can the selected current C/L/F training path achieve stable,
 resource-efficient optimizer steps on production-shaped data before expensive CL
@@ -232,7 +236,8 @@ capability runs?
 - run a 100-step engineering gate first; run 1000 steps only when the 100-step
   acceptance criteria are met and the second exact request is approved;
 - collect warm-up-separated p50/p95 step time, samples/s, forward/loss/backward/
-  optimizer time, data wait, evaluation overhead if invoked, and epoch estimate;
+  optimizer time, data wait, and epoch estimate; official evaluation is not
+  invoked in this engineering gate;
 - collect peak allocated/reserved memory and headroom under the 96 GiB envelope;
 - compare `num_workers=0/2/4/8` on the actual ZIP/cache path without conflating
   iterator reset or first-epoch warm-up with steady state;
@@ -257,8 +262,45 @@ but the owner must approve thresholds for:
 **Not S09.** mAP/NDS, per-class capability, fusion gain, recipe selection,
 multi-seed science, Protocol A/B, attack, or defense.
 
-**Compute.** The 100-step, 1000-step, profile, worker sweep, full cache, and any DDP
-execution are material compute outside O-009 and require separate exact approvals.
+**Engineering-optimization boundary.** S09 may use measured evidence to remove
+output-neutral ZIP/cache, loader-lifecycle, H2D, redundant conversion/sync/
+allocation, logging, or checkpoint overhead. It must preserve data/sample order,
+model/loss/gradient/update semantics, O-110 precision, and exposure accounting.
+Any candidate source change receives an exact owner-reviewed file and equivalence-
+test envelope; an unsuccessful G100 does not authorize a silent optimization or
+rerun. Model math, normalization and training-recipe changes remain S10 work.
+
+**Residual large-gradient boundary.** S08 did not reduce the true optimizer
+gradient: GradScaler unscales before step, and the accepted SECOND-FP32 island
+avoids sparse-FP16 overflow. Job `389356` still shows approximately 1.91M/1.22M
+FP32 L/F maxima. Repeated tiny-group per-voxel sparse GroupNorm is the leading but
+unproven mechanism. S09 records accepted/skipped/nonfinite windows and loss/scaler
+behavior without enabling S08 diagnostics or changing normalization, loss/head,
+clip, optimizer, scheduler, EMA, augmentation, sampling, or initialization. A
+100-step instability attributable to this residual is a stop, not permission to
+perform an architecture experiment.
+
+**Four owner stops.** The durable details live in
+`handoffs/S09/{HANDOFF,RUN_REQUEST}.md`.
+
+1. `STOP-1 DATA`: materialize/review/bind the exact full trainval `t1.v2` caches.
+2. `STOP-2 IMPLEMENTATION`: add minimal hash-bound readiness mode and direct
+   timing/memory accounting, verify output neutrality, seal an implementation
+   commit, and run only an owner-approved O-009 focused smoke.
+3. `STOP-3 G100`: execute one exact production ZIP/cache worker sweep and one F-U
+   100-successful-step single-GH200 gate, then independently review it. If a
+   performance threshold fails, the stop returns an exact output-neutral
+   optimization proposal rather than silently patching/rerunning.
+4. `STOP-4 G1000/CLOSE`: only after reviewed G100 acceptance, execute a fresh
+   1000-successful-step single-GH200 gate, independently review the complete S09
+   evidence, and prepare a close-ready linear state. It does not resume the
+   mid-epoch G100 state or imply DDP.
+
+**Compute.** STOP-1/3/4 material jobs require their own exact stop approval. The
+STOP-2 focused smoke may use O-009/O-107 only when that stop approval explicitly
+opts in. Unused quota is not retry authority. O-112 approves only the one STOP-1
+cache-materialization submission after its exact tuple is frozen; no later S09 job
+is approved.
 
 ## 6. S10-S12 redefinition boundaries
 

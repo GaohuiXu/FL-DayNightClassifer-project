@@ -34,10 +34,11 @@ with `cycle_*` remain reserved for the project's experimental-design cycles unde
 `fl_v3/docs/cycle_04/` and `fl_v3/docs/roadmap/`. Do not create another
 `cycle*_orchestra` folder.
 
-S07 clean engineering is closed. The current priority is to qualify precision for
-the current six-task centralized (CL) camera-LiDAR detector (S08), then establish
-full-pipeline performance/readiness (S09) before branch/recipe ablation and full CL
-capability work are frozen. Historical conclusions under
+S07 clean engineering and S08 precision qualification are closed. The accepted
+S08 policy is integrated at `28f79802c0868afa6290d74ae6aeb9d23c7d088f`.
+The current priority is S09 full-pipeline engineering performance/readiness for
+the current six-task centralized (CL) camera-LiDAR detector, before S10
+branch/training-recipe ablation and full CL capability work are frozen. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime
 state changed.
@@ -150,15 +151,24 @@ Current Arrhenius facts:
   do not apply old "no spconv" rules without re-checking the current design.
 - Direct sparse `torch.bfloat16` is not supported by the validated cumm/spconv
   path.
-- The runtime can execute `fp32` and `fp16` AMP with GradScaler, but that is not a
-  model-level acceptance statement. Current six-task S07 evidence proves only one
-  FP32 update for C/L/F; FP16 scale 1 recovered camera but not SECOND LiDAR/fusion.
-  The scientific precision policy remains open until S08.
+- S08 Q1/Q2 and independent R3 are accepted under O-110. The active policy is
+  global FP16 autocast for camera and dense-pillar routes; global FP16 with an
+  explicit FP32 island covering SECOND voxelization/VFE/spconv/dense collapse/
+  to-BEV for current sparse LiDAR and fusion routes; and uniform FP32 as the
+  reference/fallback. Full sparse-convolution FP16 is not accepted as the unified
+  fusion-capable route.
+- S08 did not explain the large true unscaled LiDAR gradients. Dynamic loss
+  scaling does not shrink the gradient applied by the optimizer, and the accepted
+  FP32 island avoids sparse-FP16 overflow rather than proving the underlying
+  gradient scale healthy. Repeated tiny-group sparse GroupNorm is the leading
+  unproven mechanism hypothesis.
 
-S08 must make sparse precision partitioning explicit in configs, trainers, and
-manifests, and compare the current full-AMP path with an AMP path that keeps
-SECOND/spconv in FP32 against an FP32 reference. Do not mix precision regimes in
-one comparison without labeling it as an engineering qualification or ablation.
+S09 records whether that residual numerical risk causes scaler skips, nonfinite
+windows, or unstable 100/1000-step engineering behavior. It does not authorize a
+normalization, head/loss/target, gradient-clipping, optimizer, scheduler, EMA,
+augmentation, sampling, or initialization change. Those training-recipe and
+architecture decisions remain owner-gated for S10 unless the S09 gate stops and
+the owner explicitly opens a separate remediation envelope.
 
 Strict byte-identical determinism is a useful development regression tool, not
 the default scientific claim criterion. For scientific claims, record hardware,

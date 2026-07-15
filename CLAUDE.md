@@ -23,26 +23,27 @@ T5/T6/T7 or old defense code/routes from them or from Git history.
 
 ## Current status
 
-S07 clean engineering is closed at the accepted post-S07 rebaseline
-`2a584053e6f6a3860b6f812681dc8d7342ca52ad`. This proves a bounded clean FedAvg
-construction, one FP32 optimizer update for each current C/L/F mode, and a
-worker-0/2 first-batch equality check. It is not full training, detector
-capability, performance, precision freeze, Protocol-A/B, attack, defense, or
-scientific evidence.
+S07 clean engineering and S08 precision qualification are closed. The accepted
+S08 close and fast-forward integration commit is
+`28f79802c0868afa6290d74ae6aeb9d23c7d088f`. S08 supports global FP16 for camera/
+dense-pillar, global FP16 with SECOND/spconv kept in an explicit FP32 island for
+sparse LiDAR/fusion, and uniform FP32 as reference/fallback. It rejects full
+sparse FP16 as the unified fusion-capable route within its bounded evidence.
 
 The next milestones are:
 
-1. S08: first resolve the owner decisions in the pre-implementation model/recipe
-   audit, then qualify the current six-task model's FP32, full FP16 AMP, and FP16
-   AMP with SECOND/spconv FP32 island behavior;
-2. S09: after S08, establish production-shaped 100/conditional-1000-step
-   performance, memory, DataLoader-worker, and single-GH200 readiness;
-3. redefine S10-S12 only from reviewed S08/S09 evidence.
+1. S09: establish production-shaped 100/conditional-1000-step engineering
+   performance, memory, DataLoader-worker, and single-GH200 readiness through the
+   owner-approved four-stop envelope;
+2. S10: separately select branch and training recipe, including any sparse
+   normalization experiment or initialization/scheduler/EMA/augmentation change;
+3. redefine later capability/protocol milestones only from reviewed S09/S10 evidence.
 
-The Arrhenius environment supports FP32 and FP16 AMP as runtime mechanisms, but
-the current scientific precision policy is not selected. Current evidence shows
-FP16 scale 1 recovers camera on one mini batch but leaves direct nonfinite
-SECOND LiDAR/fusion gradients. Direct sparse BF16 is unsupported.
+The accepted S08 precision policy is selected as stated above. The true unscaled
+LiDAR gradients remain unusually large; S08 localized the practical FP16 failure
+to sparse SECOND weight-gradient dynamic range but did not prove its architectural
+cause. S09 observes engineering impact without changing normalization or recipe.
+Direct sparse BF16 remains unsupported.
 
 ## Collaboration
 

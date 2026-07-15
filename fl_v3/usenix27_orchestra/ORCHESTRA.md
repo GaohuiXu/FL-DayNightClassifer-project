@@ -1,6 +1,6 @@
 # USENIX Security '27 Orchestra — clean CL to federated multimodal security
 
-> **Rebaseline status (2026-07-14).** S07-C and S07-B-COMPLETE are closed.
+> **Active status (2026-07-15).** S07-C and S07-B-COMPLETE are closed.
 > The current clean engineering anchor is
 > `2a584053e6f6a3860b6f812681dc8d7342ca52ad` on
 > `codex/s07-b-clean-completion`. It contains the accepted S01/S07-A and
@@ -22,11 +22,15 @@
 > evidence SHA `c0ef86235ead753fee3b790b19d40f82f875ec59` with
 > `PASS_WITH_RESIDUAL_RISK` and no P0-P2 findings. Under O-110, the owner accepted
 > close-ready seal `d31adea049c84e47a0e4f82f38f22a2ca91a5a6f`, froze the
-> recommended policy, and closed S08 as PASS. S09 discussion may now begin after
-> its additional reading gate; no S09 compute is approved. No harness/work-chain expansion,
-> merge, push, attack, defense, or S09 execution is authorized.
-> Only after an accepted S08 precision policy may **S09 full-pipeline
-> performance/readiness** begin. S10-S12 remain pending redefinition.
+> recommended policy, and closed S08 as PASS. Closing commit
+> `28f79802c0868afa6290d74ae6aeb9d23c7d088f` is fast-forward integrated into
+> `v3-ad-perception`. The S09 additional reading gate is complete. Under O-111,
+> the owner accepts a four-stop S09 engineering-performance path and keeps
+> branch/training-recipe selection in S10. This authorizes preparation of the S09
+> envelope. Under O-112, STOP-1 DATA is now active: S00 may freeze its immutable
+> request/source, create the required linear documentation/evidence commits, and
+> execute exactly one cache-materialization job within 0.5 GPU-hours. STOP-2,
+> retry, merge, push, attack, and defense remain unauthorized.
 >
 > Canonical companions: [`SESSIONS.md`](SESSIONS.md) and
 > [`KICKOFFS.md`](KICKOFFS.md). `fl_v3/collab/**`,
@@ -177,9 +181,10 @@ change and returns to the owner before implementation.
 
 ## 4. S09 performance/readiness target
 
-S09 begins only after the owner accepts the S08 precision policy. Its purpose is
-to characterize and improve the full current training pipeline before expensive
-CL capability work.
+S09 begins from accepted close commit `28f7980`. Its purpose is to characterize
+and improve the full current training pipeline before expensive CL capability
+work. It is explicitly a **base-uniform engineering performance/readiness**
+milestone. Branch and scientific training-recipe selection belong to S10.
 
 Required evidence, under exact later-approved requests:
 
@@ -197,6 +202,38 @@ Required evidence, under exact later-approved requests:
 Instrumentation must be production-minimal and output-neutral. Do not resurrect
 the retired S07 audit wrapper, old profiling harnesses, process matrices, or
 warnings-as-errors. S09 is not an mAP/NDS or model-selection session.
+
+S09 may make **measurement-backed, output-neutral engineering optimizations** to
+the current pipeline: ZIP/cache access, DataLoader lifecycle, host-to-device
+transfer, redundant conversion/synchronization/allocation, and bounded logging or
+checkpoint overhead. Each candidate must preserve sample order/contents, model
+and loss semantics, accepted precision partition, gradients/updates, and exposure
+accounting, and must have an exact owner-reviewed file/equivalence envelope before
+implementation. S09 does not speculate or force a change when the measured gate
+already passes. A material tensor-math, model-output, data-ownership, or recipe
+change is not an engineering shortcut and remains outside S09.
+
+S08 did not make the unusually large true LiDAR gradients healthy by scaling
+them: GradScaler unscales before optimizer mutation, while the accepted policy
+keeps the sparse backward path in FP32. Repeated tiny-group sparse GroupNorm is
+the leading unproven mechanism hypothesis. S09 records scaler skips, nonfinite
+windows and stability under the accepted policy, but does not change sparse
+normalization, loss/head/targets, clipping, optimizer, scheduler, EMA,
+augmentation, sampling, or initialization. If this residual blocks the 100-step
+gate, S09 stops for a new owner decision instead of expanding into a root-cause
+architecture experiment.
+
+The owner-facing S09 workflow has four stops:
+
+1. exact full-trainval `t1.v2` cache materialization, identity review, and bind;
+2. minimal readiness instrumentation/runner implementation, local validation,
+   immutable implementation commit, and focused O-009 smoke;
+3. one exact production-path worker sweep plus F-U 100-successful-step gate,
+   followed by independent evidence review; a failed performance threshold may
+   motivate a separately owner-scoped output-neutral optimization and new exact
+   G100 gate, never a hidden retry;
+4. conditional fresh 1000-successful-step run, final independent review, and a
+   close-ready S09 state. No mid-epoch resume or automatic DDP is implied.
 
 ## 5. CL-to-FL scientific protocols
 
@@ -307,8 +344,9 @@ does not broaden scientific, Git, compute, upload, or publication authority.
   pre-implementation audit.
 - Legacy T5/T6/T7, old defense code, e231 history, `collab/**`, and old cycle_04
   contracts cannot be recovered as implementation or scientific authority.
-- S08 qualifies precision; S09 qualifies performance/readiness; S10-S12 remain
-  pending results-driven rebaseline.
+- S08 precision is frozen under O-110; S09 qualifies labelled base-uniform
+  engineering performance/readiness; S10-S12 remain pending results-driven
+  rebaseline.
 - Persistent S00 is the default implementer; independent reviewer subagent or,
   when required, a separate review worktree supplies the quality gate.
 
@@ -317,8 +355,8 @@ does not broaden scientific, Git, compute, upload, or publication authority.
 | Decision | Latest freeze point |
 |---|---|
 | Any sparse-normalization or later Swin/LSS precision-boundary amendment beyond the accepted unchanged v1 architecture | only after reviewed S08 numerical evidence and a new owner architecture decision |
-| Current six-task FP32/FP16/mixed precision policy | after reviewed S08 evidence, before S09 or any capability run |
-| Production optimizer groups/LR/scheduler/clip/EMA/augmentation/sampling recipe | before S09 can be called final production readiness; otherwise S09 remains a labelled base-uniform pipeline gate |
+| Production optimizer groups/LR/scheduler/clip/EMA/augmentation/sampling recipe | S10 before scientific CL recipe/capability work; S09 remains a labelled base-uniform engineering pipeline gate |
+| Cause and amendment, if any, for unusually large SECOND gradients/tiny-group sparse GroupNorm | S10 architecture/recipe work after S09 engineering evidence, unless S09 stops as numerically blocked and the owner opens a separate remediation envelope |
 | Single-GPU batch/accumulation/workers and whether DDP is needed | after reviewed S09 measurements, before full CL runs |
 | S10 branch/recipe cells (`C-STR8`, `L-P020`, `L-S075`, `F-U`, `F-CBGS`, initialization) | after S08/S09, before an ablation request |
 | mAP/NDS, fusion-gain, per-class, speed, memory, and selection gates | before the exact run whose outcome they judge |
@@ -362,6 +400,8 @@ O-ledger authority; closed ranges below are provenance.
 | O-108 | Authorize persistent S00 to create one immutable S08 remediation/evidence commit from the reviewed working candidate after local verification, then launch an independent re-review pinned to that SHA. The reviewer reads the exact diff, handoff/request/results, and raw smoke artifacts and does not fix source. No Q1 compute, precision-policy acceptance, S09 execution, merge, push, or upload is authorized. | active S08 remediation seal/re-review |
 | O-109 | Set the persistent completion goal to finish Q1 primary, the minimal required Q2 L-P020/F-CBGS compatibility gate, independent evidence review, and a close-ready S08 linear commit state. Authorize all exact in-scope commits and Slurm submissions once their immutable tuples are recorded, with cumulative one-GPU elapsed allocation across all new Q1/Q2 jobs capped at two GPU-hours. Short earlier jobs leave only their unused elapsed budget for later jobs. The simplified O-107 mechanical workflow applies to obvious non-scientific defects, but no scientific cell/seed/data/resource expansion or silent reinterpretation is allowed. Forbid work-chain/harness expansion, merge, push, S09 execution, attacks, and defenses. | consumed S08 completion authority |
 | O-110 | Accept reviewed S08 close-ready seal `d31adea049c84e47a0e4f82f38f22a2ca91a5a6f` and R3 `PASS_WITH_RESIDUAL_RISK`; freeze global FP16 for camera/dense-pillar, global FP16 with explicit SECOND/spconv FP32 island for sparse LiDAR/fusion, and uniform FP32 as reference/fallback; reject full sparse FP16 as the unified F-capable route; close S08 PASS; authorize a fast-forward-only integration into `v3-ad-perception`; open S09 discussion after its reading gate. No S09 compute, merge commit, push, attack, or defense is authorized. | accepted S08 close / active S09 discussion gate |
+| O-111 | Accept closing commit `28f79802c0868afa6290d74ae6aeb9d23c7d088f` as the S09 base; accept the streamlined four-stop S09 direction; define S09 as engineering optimization/readiness of the current model/code under the O-110 precision policy; defer branch and scientific training-recipe selection, including any sparse-normalization amendment, to S10. At each future stop the owner will review one exact plan plus Git/Slurm authority and GPU quota; after that approval S00 creates a concrete goal and works continuously to the stop boundary. This decision authorizes envelope/document preparation only, not S09 implementation, commit, Slurm execution, retry, merge, push, attack, or defense. | active S09 envelope gate |
+| O-112 | Accept the S09 four-stop envelope and start `STOP-1 DATA`; authorize S00 to create the bounded STOP-1 goal, seal the envelope/request/evidence in linear commits, derive and record the exact immutable source/snapshot, command/script hashes and fresh output from the accepted `28f7980` base, then submit exactly one full-trainval metadata-only `t1.v2`, `n_sweeps=10` train/val cache job on one GH200 with eight CPUs, 96 GiB host memory, `00:30:00`, and at most 0.5 GPU-hours. The job must reverify the accepted S01 manifest and declared counts before STOP-1 independent review. No retry, payload extraction/scan, model, loader/profile, STOP-2 implementation, merge, push, attack, or defense is authorized. | active S09 STOP-1 execution gate |
 
 ## 10. Closed and consumed history
 

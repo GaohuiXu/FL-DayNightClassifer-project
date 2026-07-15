@@ -1,20 +1,15 @@
 # USENIX Security '27 Orchestra — active envelopes
 
-> **Status (2026-07-14).** The closed S01-S07 worker/reviewer prompts have been
-> removed from active routing. Their exact history remains in Git and handoff
-> packages. O-094 makes persistent S00 the default implementer. The only current
-> technical work is S08. Its implementation/remediation is sealed at
-> `103c7389a47938b1f9dd0cba60251df6dce9e5bb` with R2
-> `PASS_WITH_RESIDUAL_RISK`; detailed smoke history remains in its handoff.
-> O-109 exact Q1 Job `431013` and Q2 Job `435151` are terminal at the runner level,
-> checksum-verified, and consumed `00:07:58` total GPU elapsed. Numerical evidence
-> selects global FP16 with SECOND/spconv FP32 as the close-ready sparse-route
-> candidate and preserves uniform FP32 as reference/fallback. Independent R3
-> reviewed evidence SHA `c0ef86235ead753fee3b790b19d40f82f875ec59` with
-> `PASS_WITH_RESIDUAL_RISK` and no P0-P2 findings. O-110 accepts seal `d31adea`,
-> freezes the recommended policy, closes S08 PASS, and authorizes fast-forward-
-> only integration into `v3-ad-perception`. S09 discussion is open after its
-> required reading gate; no S09 compute, push, or merge commit is authorized.
+> **Status (2026-07-15).** The closed S01-S08 worker/reviewer history remains in
+> Git and durable handoff packages. O-094 makes persistent S00 the default
+> implementer. O-110 accepts S08 seal `d31adea`, freezes global FP16 with a
+> SECOND/spconv FP32 island for sparse routes, and closes S08 PASS. Closing commit
+> `28f79802c0868afa6290d74ae6aeb9d23c7d088f` is fast-forward integrated into
+> `v3-ad-perception`. The S09 reading gate is complete. O-111 accepts the
+> four-stop engineering-readiness direction and defers branch/training-recipe
+> selection to S10. O-112 activates STOP-1 DATA and authorizes its exact request/
+> evidence commits plus one bounded cache-materialization submission. STOP-2,
+> retry, push, and merge remain unauthorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -237,30 +232,142 @@ Default: reviewer subagent from the exact immutable SHA. Use a separate review
 worktree if the implementation state is not clean/immutable, runtime reproduction
 is required, or the owner requests it.
 
-## 5. S09 planning envelope — not implementation-ready
+## 5. S09 envelope v1 — four owner stops, no execution yet
 
 ```text
 SESSION_ID: S09
-BASE_SHA: d31adea049c84e47a0e4f82f38f22a2ca91a5a6f (owner-accepted S08 close-ready seal)
+BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
+SOURCE_BRANCH: codex/s08-s09-cl-readiness
 IMPLEMENTATION_CONTEXT: persistent S00 unless owner selects independent isolation
-APPROVED_COMPUTE: none
-DECISION_SCOPE: full-pipeline performance/readiness only
+APPROVED_COMPUTE: O-112 STOP-1 only; one GH200/8 CPU/96 GiB/00:30:00/0.5 GPU-hour submission
+APPROVED_GIT: linear STOP-1 envelope/request/evidence commits only; no merge/push
+DECISION_SCOPE: base-uniform full-pipeline engineering performance/readiness only
 ```
 
-Before S09 implementation, S00 must present reviewed S08 evidence and propose:
+### Binding scientific and engineering boundary
 
-- exact precision policy and current model/config SHA;
-- exact production `t1.v2` cache/manifest identities or a separate materialization
-  request;
-- minimal timing/memory/data-wait instrumentation and its output-neutral tests;
-- 100-step gate thresholds and stop conditions;
-- conditional 1000-step request, which is not preapproved by the 100-step plan;
-- worker-count cells 0/2/4/8, microbatch/accumulation candidates, one-GH200 first;
-- a decision rule for whether a separate two-GPU DDP request is justified.
+- Precision is frozen by O-110: camera/dense-pillar uses global FP16; sparse
+  SECOND LiDAR/fusion uses global FP16 with voxelization/VFE/spconv/dense-collapse/
+  to-BEV in FP32; uniform FP32 remains reference/fallback.
+- S08 dynamic scaling did not shrink the true unscaled LiDAR gradient. It
+  localized sparse-FP16 overflow to SECOND stem weight-gradient dynamic range but
+  did not prove why the FP32 gradient is unusually large. Tiny-group sparse
+  GroupNorm remains a leading hypothesis, not a finding.
+- S09 monitors scaler skips, nonfinite windows, accepted-step stability, timing,
+  memory and data wait. It must not change normalization, head/loss/targets,
+  gradient clipping, optimizer/scheduler/EMA, augmentation, sampling,
+  initialization, official metric/decode/NMS, or branch architecture.
+- Scientific training-recipe and branch selection are S10 work. S09 may close
+  only as a labelled base-uniform engineering-readiness milestone.
+- Measurement-backed, output-neutral optimization of ZIP/cache access, loader
+  lifecycle, H2D transfer, redundant conversion/sync/allocation, and bounded
+  logging/checkpoint overhead is in S09 scope. It must preserve data order and
+  contents, model/loss/gradient/update semantics, O-110 precision, and exposure
+  accounting, and it needs an exact owner-reviewed file/equivalence envelope.
+- No S08 precision diagnostics/window observer is enabled in performance jobs.
+  S09 timing uses direct, bounded, output-neutral loop timestamps/CUDA events;
+  no module hooks, activation retention, general profiler, or harness chain.
+
+### Stop workflow
+
+At each stop, S00 presents one exact plan containing file ownership, local checks,
+commit authority, immutable source/config/data/command/output, one-GPU resource
+quota and stop conditions. After the owner approves that exact stop, S00 creates a
+concrete goal and works continuously until the stop is complete or a material
+boundary is hit. Obvious local defects may be fixed continuously within the
+approved semantics. Only an explicitly approved STOP-2 O-009/O-107 smoke may use
+derived mechanical replacement submissions. STOP-1/3/4 are material jobs: their
+one exact submission has no retry/resubmission authority merely because quota
+remains.
+
+#### STOP-1 DATA — production `t1.v2` bind
+
+- Rebind the existing cache launcher/builder to an immutable current source.
+- Reuse, but re-verify, accepted ZIP manifest logical SHA-256
+  `023f72b4220bb0db587be00920308bf9074384740fe186d243be92f9a53119f6`
+  and file SHA-256
+  `228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb`.
+- Materialize train/val `t1.v2`, `n_sweeps=10`; require train
+  `28130/944881` samples/boxes and val `6019/187528`, sidecar equality,
+  per-record depth, canonical logical hashes, physical SHA-256s and fresh output.
+- No sensor extraction, payload-wide scan, model, loader sweep, metric or profile.
+- Proposed later resource ceiling: one GH200/aarch64 environment, eight CPUs,
+  96 GiB host memory, `00:30:00`, one submission/0.5 GPU-hour. **Approved only
+  for STOP-1 under O-112; exact tuple must be frozen before submission.**
+- Independent data-identity review and owner STOP-1 inspection precede STOP-2/3
+  production binding.
+
+#### STOP-2 IMPLEMENTATION — minimal readiness mode
+
+Proposed file ownership, to be frozen before implementation:
+
+- `fl_v3/src/fl_v3/config/resolved.py`: add a fail-closed, hash-bound S09
+  readiness execution contract while preserving accepted S08 configs;
+- `fl_v3/scripts/centralized_train.py`: explicit readiness-only termination after
+  the update budget; refuse readiness resume; do not save a misleading resumable
+  mid-epoch checkpoint or invoke official evaluation;
+- `fl_v3/src/fl_v3/training/loop.py` plus at most one small timing helper: direct
+  data-wait/H2D/forward/loss/backward/optimizer/end-to-end CUDA-event accounting,
+  warm-up separation, percentile summary, peak allocated/reserved memory, and
+  existing scaler/exposure counters;
+- the three SECOND templates: replace stale sparse-FP16 placeholders with the
+  accepted sparse-FP32 island while retaining template-only status;
+- focused S09 config/runner/timing/output-neutral tests and S09 handoff records.
+
+No checkpoint schema/sampler-cursor system, generic observer, profiler harness,
+metric, model, data, loss or recipe change is in scope. Local validation precedes
+one immutable implementation commit. A later exact focused GH200 smoke may be
+proposed under O-009; an O-107 mechanical loop exists only if the owner explicitly
+opts in at STOP-2. Proposed initial ceiling: one GH200, eight CPUs, 96 GiB,
+`00:30:00`. **Not approved.**
+
+#### STOP-3 G100 — worker sweep plus 100 accepted F-U updates
+
+- Exact data: accepted STOP-1 train `t1.v2`; val is identity-bound but not read.
+- Exact model cell: only F-U, random initialization with one frozen engineering
+  seed, uniform sampling, AdamW `1e-4/0.01`, constant scheduler, EMA/clip/3D-BEV
+  aug/GT-paste off, microbatch 1, accumulation 1, world size 1, O-110 FP32 island.
+- Loader-only cells: `num_workers=0/2/4/8`, fixed token order, two persistent
+  repeats each with 16 warm-up and 256 measured batches. The full model run uses
+  a worker count frozen before submission (provisional recommendation: 8); no
+  dynamic in-job model-config selection.
+- Model gate: 100 successful optimizer steps, at most 120 attempted windows; first
+  ten successful steps excluded from steady-state timing. Record p50/p95, samples/s,
+  epoch estimate, stage timing, data-wait share, memory, scale/skip/nonfinite and
+  exact optimizer/scheduler/EMA/exposure accounting.
+- Candidate thresholds for STOP-3 owner review: no nonfinite loss; no counter
+  drift; warm-up-separated accepted ratio at least 95%; end-to-end p95/p50 at
+  most 1.5; peak reserved memory at most 86 GiB; data-wait and epoch-walltime
+  thresholds frozen in the exact request (provisional epoch ceiling: 24 h).
+- One GH200, no DDP, no retry, no official evaluation or metrics. Proposed ceiling:
+  one submission and `<=01:00:00`. **Not approved.**
+- An independent reviewer reads exact source/config/cache/records/artifacts before
+  the owner STOP-3 decision.
+- If a throughput/stability threshold fails, STOP-3 may return a narrowly measured
+  output-neutral optimization proposal. It does not silently change source or
+  resubmit G100; a replacement implementation and exact G100 tuple require an
+  owner amendment at this stop before STOP-4 can start.
+
+#### STOP-4 G1000/CLOSE — conditional only
+
+- Starts only after reviewed STOP-3 PASS and a new exact owner approval.
+- Fresh run from initialization; it does not resume the mid-epoch 100-step state.
+- Same O-110 precision and base-uniform recipe; exact worker count and runtime
+  thresholds are selected from reviewed STOP-3 evidence and then frozen by the
+  owner. No automatic batch/recipe/branch/DDP amendment.
+- Execute at most one exact 1000-successful-step job, then independently review the
+  complete S09 source/data/100/1000-step evidence and prepare a close-ready linear
+  commit. Walltime/GPU quota is derived from STOP-3 and is currently unset.
+- If single-GH200 performance is unacceptable, STOP-4 returns to the owner for a
+  distinct decision; it does not infer DDP authority.
+
+### Explicit non-goals
 
 Do not copy old profiler/audit wrappers or use mini throughput to freeze production
-settings. S09 has no mAP/NDS, branch selection, Protocol A/B, attack, or defense
-authority.
+settings. No mAP/NDS, per-class capability, fusion gain, convergence/scientific
+recipe claim, multi-seed, Protocol A/B, attack, defense, DDP, full-data payload
+scan, branch selection, normalization experiment, or publication/upload is
+authorized.
 
 ## 6. S10-S15 launch state
 
