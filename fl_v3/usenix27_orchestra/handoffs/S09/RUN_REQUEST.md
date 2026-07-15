@@ -37,8 +37,9 @@
 > gates. That tuple and wrapper are forbidden. A source-level runner remediation
 > passed immutable review. Its completely new replacement tuple produced Job
 > `455539`, which completed `0:0` and independently closed PASS with no retry. The
-> separate STOP-4D source/snapshot/config/wrapper/output tuple is frozen below and
-> remains unsubmitted pending exact request review.
+> separate STOP-4D source/snapshot/config/wrapper/output tuple was frozen and
+> independently reviewed below; its sole command produced Job `456539`, which
+> completed `0:0` with technical PASS and no retry.
 
 ## Authorization state
 
@@ -1117,7 +1118,7 @@ O119_TOTAL_ACTUAL_GPU_HOURS: 0.345000 / 2.000000
 TECHNICAL_RESULT: PASS / immutable evidence review pending
 ```
 
-The sole prospective command is:
+The sole reviewed and executed command was:
 
 ```bash
 bash /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_requests/s09_stop4d_g1000_5642884cdbb1/submit.sh
