@@ -4,7 +4,7 @@
 
 ```text
 SESSION_ID: S09
-MILESTONE_STATE: STOP-1/2 CLOSED / STOP-3 O-118 PHASE A/B REVIEWED TECHNICAL PASS / P3 DOC CLOSURE CANDIDATE / OWNER DECISION PENDING
+MILESTONE_STATE: STOP-1/2 CLOSED / STOP-3 O-118 PHASE A/B REVIEWED TECHNICAL PASS / NO OPEN P0-P3 / OWNER-READY / OWNER DECISION PENDING
 BASE_SHA: 28f79802c0868afa6290d74ae6aeb9d23c7d088f
 EXECUTION_SOURCE_SHA: 1f276b9d2cc54f705b0b6800a573258707711045
 REQUEST_COMMIT: d4b64964f56738ec388a39c277f01b3d45a4eeee
@@ -51,13 +51,13 @@ STOP3_PHASEB_SOURCE: c200bac861a42fc4338973787d3700e28ddd6c7e / tree c0cc4cb8c2e
 STOP3_PHASEB_CONFIG_SHA256: raw 6733a47203bdf7a4da6e39867e6319a7beb9322257e9149f31b7dff6edacf3ce / resolved ba06b72e4c5f1e54f20472e3286a516e7d4328cfb0fccd8bfc7b13095f597ab6
 STOP3_PHASEB_SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s09_stop3_g100_c200bac861a4
 STOP3_PHASEB_SUBMIT_SHA256: 4801ddfee4cd3c04fbc7215c26ffc25efdafc1e6267599bee39bb87491de309e
-STOP3_PHASEB_STATE: Job 446225 COMPLETED 0:0 in 00:05:05 / independently reviewed technical PASS / documentation P3 closure candidate / no retry
+STOP3_PHASEB_STATE: Job 446225 COMPLETED 0:0 in 00:05:05 / independently reviewed technical PASS / P3 closed / owner-ready / no retry
 STOP3_PHASEB_READINESS_SHA256: 08e376e767f654bb38982127ad5ffd84d94ebaa48b3026ceba2ab7ef93a6c9b6
 STOP3_PHASEB_ARTIFACT_MANIFEST_SHA256: b229633889052c46bec5c05d6713e0102aea806a98f9170a65119f9864dbea4b
 STOP3_PHASEB_EVIDENCE_SHA/TREE: c28d09c34b0ff56fcbc3805a8361ccd26eeaccc1 / 6c8f008434363dcf41c8f30bdbbaecb4a67863a4
-STOP3_PHASEB_REVIEW: PASS_WITH_RESIDUAL_RISK / no P0-P2 / two documentation-only P3 remediated in closure candidate
+STOP3_PHASEB_REVIEW: evidence c28d09c PASS_WITH_RESIDUAL_RISK / remediation 84adfd0 closure PASS_WITH_RESIDUAL_RISK / no open P0-P3 / owner-ready
 JOBS: 441191 COMPLETED 0:0 in 00:03:06; 441293 COMPLETED 0:0 in 00:01:04; 441511 FAILED 1:0 in 00:02:29; 442152 COMPLETED 0:0 in 00:11:52; 446225 COMPLETED 0:0 in 00:05:05 / no retries
-INDEPENDENT_REVIEW: STOP-1 5252a59 PASS_WITH_RESIDUAL_RISK; STOP-2 impl 37aef4d/request cad7262/evidence 79f87dc PASS_WITH_RESIDUAL_RISK; STOP-3 evidence c28d09c PASS_WITH_RESIDUAL_RISK / no P0-P2
+INDEPENDENT_REVIEW: STOP-1 5252a59 PASS_WITH_RESIDUAL_RISK; STOP-2 impl 37aef4d/request cad7262/evidence 79f87dc PASS_WITH_RESIDUAL_RISK; STOP-3 evidence c28d09c no P0-P2 / closure 84adfd0 no open P0-P3 / owner-ready
 OWNER_STOP1_DECISION: O-113 / ACCEPTED
 ```
 
@@ -104,7 +104,7 @@ accepted all 90 post-warm-up measured windows; all loader, counter, latency,
 data-wait, memory and epoch-estimate thresholds pass. Immutable evidence
 `c28d09c` received independent `PASS_WITH_RESIDUAL_RISK` with no P0-P2. The two
 documentation-only P3 findings—combined-window gate wording and active-ledger
-state—are corrected in the current closure candidate. No retry is authorized;
+state—are closed by independently reviewed remediation `84adfd0`. No retry is authorized;
 STOP-3 owner acceptance is pending, and STOP-4 remains blocked.
 
 ## S08 residual carried into S09

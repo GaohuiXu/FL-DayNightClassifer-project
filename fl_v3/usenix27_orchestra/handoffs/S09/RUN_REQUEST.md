@@ -23,8 +23,8 @@
 > consumed by Job `446225` at `2026-07-15T11:09:11+02:00`; it started on `n450`
 > one second later and completed `0:0` in `00:05:05`. The production lifecycle
 > reports technical PASS for every frozen gate. Immutable evidence `c28d09c`
-> received independent `PASS_WITH_RESIDUAL_RISK` with no P0-P2; its two
-> documentation-only P3 corrections are in the linear closure candidate. No
+> received independent `PASS_WITH_RESIDUAL_RISK` with no P0-P2; closure re-review
+> of remediation `84adfd0` found no open P0-P3 and marks STOP-3 owner-ready. No
 > retry or additional submission exists, and O-118 compute authority is exhausted.
 
 ## Authorization state
@@ -39,7 +39,7 @@ BRANCH: codex/s08-s09-cl-readiness
 OWNER_DIRECTION: O-111 envelope + O-112/O-113 STOP-1 + O-114/O-115/O-116 STOP-2 + O-117/O-118 STOP-3
 APPROVED_COMPUTE: none active / O-118 Phase A and Phase B consumed
 APPROVED_SUBMISSIONS: prior STOP-1/2/3 each consumed + O-118 Phase A 1 + conditional Phase B 1 / no retry
-ACTIVE_REQUEST: none / O-118 Phase B independently reviewed technical PASS / documentation closure and owner decision pending / no retry
+ACTIVE_REQUEST: none / O-118 Phase B owner-ready with no open P0-P3 / owner decision pending / no retry
 IMPLEMENTATION_COMMIT_AUTHORITY: STOP-3 exact config/runner/request/evidence and review remediation authorized
 REQUEST_REMEDIATION/REVIEW: cad72621e0e3ba409ae19bb0b62829118134b2d0 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 MERGE_OR_PUSH_AUTHORITY: none
@@ -537,7 +537,7 @@ blocked until that gate is independently accepted.
 
 ```text
 REQUEST_ID: S09-STOP3-O118-RECOVERY
-REQUEST_STATE: O-118 CONSUMED / PHASE A REVIEWED PASS / PHASE B JOB 446225 INDEPENDENTLY REVIEWED TECHNICAL PASS / DOC CLOSURE CANDIDATE
+REQUEST_STATE: O-118 CONSUMED / PHASE A REVIEWED PASS / PHASE B JOB 446225 INDEPENDENTLY REVIEWED TECHNICAL PASS / P3 CLOSED / OWNER-READY
 OWNER_CONFIRMATION: "批准 O-118 条件式续行 envelope" / continuous execution within the frozen boundary
 PURPOSE: re-attest the drifted editable sparse runtime, then conditionally execute the unchanged O-117 loader/G100 gate
 ADDITIONAL_SUBMISSIONS: at most 2 / one dependency attestation + one conditional G100 replacement
@@ -694,7 +694,7 @@ The only permitted derivation is:
 #### Frozen Phase-B derived tuple
 
 ```text
-PHASE_STATE: JOB 446225 COMPLETED 0:0 / INDEPENDENTLY REVIEWED TECHNICAL PASS / DOC CLOSURE CANDIDATE / NO RETRY
+PHASE_STATE: JOB 446225 COMPLETED 0:0 / INDEPENDENTLY REVIEWED TECHNICAL PASS / NO OPEN P0-P3 / OWNER-READY / NO RETRY
 PHASE_A_EVIDENCE_SHA/TREE: 82a0e5315c9098056b6670afb490850cc71dc653 / 7428f5978c8d423a7c1855d9e3f858eac718aeae
 PHASE_A_REVIEW_SEAL: 386fdbd34c9fe5d420e3ac6c8e439bfe65f6f74d / PASS_WITH_RESIDUAL_RISK / Phase-B GO
 DERIVATION_SOURCE_SHA: c200bac861a42fc4338973787d3700e28ddd6c7e

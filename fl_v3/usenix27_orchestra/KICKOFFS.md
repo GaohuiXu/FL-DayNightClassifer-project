@@ -26,9 +26,9 @@
 > without retry. Jobs `442152` and `446225` completed `0:0`; Phase B reached 100
 > accepted F-U updates in 103 attempts and passed every frozen STOP-3 gate.
 > Independent review of immutable evidence `c28d09c` returned
-> `PASS_WITH_RESIDUAL_RISK` with no P0-P2; its two documentation-only P3 findings
-> are synchronized in the current linear closure candidate. Owner STOP-3
-> acceptance remains pending. O-118 compute is exhausted; STOP-4, push, and merge
+> `PASS_WITH_RESIDUAL_RISK` with no P0-P2. Closure re-review of remediation
+> `84adfd0` found no open P0-P3 and marks STOP-3 owner-ready. Owner acceptance
+> remains pending. O-118 compute is exhausted; STOP-4, push, and merge
 > remain unauthorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
@@ -384,8 +384,9 @@ O-107 replacement.
   `442152` returned stable spconv/cumm build identities; Job `446225` completed the
   exact loader sweep and 100 successful F-U updates in 103 attempts with all
   O-117 gates passing. There was no retry. Evidence `c28d09c` received independent
-  `PASS_WITH_RESIDUAL_RISK` with no P0-P2; its two documentation P3 corrections
-  are the current closure candidate. This does not authorize STOP-4.
+  `PASS_WITH_RESIDUAL_RISK` with no P0-P2; closure re-review of remediation
+  `84adfd0` found no open P0-P3 and marks STOP-3 owner-ready. This does not
+  authorize STOP-4.
 - An independent reviewer reads exact source/config/cache/records/artifacts before
   the owner STOP-3 decision.
 - If a throughput/stability threshold fails, STOP-3 may return a narrowly measured

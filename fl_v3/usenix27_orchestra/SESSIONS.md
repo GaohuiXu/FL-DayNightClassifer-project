@@ -35,8 +35,9 @@
 > `0:0`; the latter reached 100 accepted F-U updates in 103 attempts and passed
 > every frozen loader, numerical, timing, memory, and epoch gate. Independent
 > review of immutable evidence `c28d09c` returned `PASS_WITH_RESIDUAL_RISK` with
-> no P0-P2; its two documentation-only P3 findings are synchronized linearly.
-> STOP-3 owner acceptance remains pending, and no retry or STOP-4 is authorized.
+> no P0-P2; closure re-review of remediation `84adfd0` found no open P0-P3 and
+> marks STOP-3 owner-ready. Owner acceptance remains pending, and no retry or
+> STOP-4 is authorized.
 >
 > `Sxx` now names a durable evidence milestone, not necessarily a new task,
 > worker, branch, or worktree. Under O-094, persistent S00 normally performs
@@ -73,7 +74,7 @@
 | S06 | C/L/F resolved runtime/checkpoint/eval contract | closed | reviewed bounded contract integrated into clean anchor |
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
-| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1/2 closed; STOP-3 Jobs `442152`/`446225` terminal technical PASS; evidence `c28d09c` independently reviewed with no P0-P2; documentation P3 remediated; owner acceptance pending |
+| S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | STOP-1/2 closed; STOP-3 Jobs `442152`/`446225` terminal technical PASS; evidence `c28d09c` reviewed with no P0-P2; remediation `84adfd0` closure review no P0-P3; owner-ready, acceptance pending |
 | S10 | Centralized branch/recipe ablation | S08+S09 | pending redefinition; no cells/gates frozen |
 | S11 | Full CL capability and architecture freeze | S10 | pending redefinition; no seeds/matrix approved |
 | S12 | Protocol-A/B split and clean adaptation contract | CL freeze + fresh owner review | deferred; old proposal is historical evidence only |

@@ -1310,3 +1310,71 @@ record. It does not establish convergence, detector capability, mAP/NDS,
 per-branch causality, normalization health, multi-seed behavior, Protocol A/B,
 FL, attack or defense. This review supplies no retry, STOP-4 compute, merge or
 push authority.
+
+### STOP-3 O-118 Phase-B documentation closure re-review
+
+Findings, ordered by severity:
+
+- **P0: none.**
+- **P1: none.**
+- **P2: none.**
+- **P3: none.**
+
+```text
+REMEDIATION_SHA: 84adfd05354a356aeb64a5a30a72153980826859
+REMEDIATION_TREE: 265973df165c08fdd95d41f473a0bc80f7010b42
+REMEDIATION_PARENT/EVIDENCE_SHA: c28d09c34b0ff56fcbc3805a8361ccd26eeaccc1
+BRANCH: codex/s08-s09-cl-readiness
+REVIEWER_COMPUTE: none
+```
+
+Preflight matched the exact remediation SHA, tree, parent, branch and a clean
+worktree. `git diff --check c28d09c..84adfd0` passes. The complete diff changes
+only eight active documentation/ledger files plus the previously authored
+terminal `REVIEW.md` section: root `AGENTS.md`, `docs/env.md`, the three canonical
+Orchestra documents, and `handoffs/S09/{HANDOFF,RESULTS,RUN_REQUEST,REVIEW}.md`.
+No source, config, runner, test, runtime, data, model, precision, recipe, metric,
+resource or artifact content changes.
+
+The first P3 is closed. `RESULTS.md` now labels the original
+`210.599701 / 208.575935 / 224.153076 ms` distribution and its `1.074683` ratio
+as CUDA-only stage diagnostics. Both `RESULTS.md` and `RUN_REQUEST.md` use the
+pairwise host-data-wait plus CUDA-window distribution as the frozen O-117 gate.
+Independent read-only recomputation over all 90 measured raw records reproduces
+combined mean/p50/p95 `210.760627245 / 208.745738839 / 224.326677561 ms`, ratio
+`1.074640751030`, and data-wait share `0.000763550995 = 0.076355100%`. The durable
+rounded values `210.760627 / 208.745739 / 224.326678 ms`, `1.074641`, and
+`0.076355%` are therefore correct. The gate remains PASS; no threshold or result
+was changed retroactively.
+
+The second P3 is closed. `AGENTS.md`, `docs/env.md`, `ORCHESTRA.md`,
+`SESSIONS.md`, `KICKOFFS.md`, and the S09 handoff package consistently record:
+
+- O-117 Job `441511` as retained pre-model negative evidence;
+- O-118's bounded, serial, no-retry authority and completed Jobs `442152` and
+  `446225`;
+- immutable evidence `c28d09c`, independent
+  `PASS_WITH_RESIDUAL_RISK`, and no P0-P2 in the terminal review;
+- consumed O-118 compute, no active request or retry, and no STOP-4, merge or
+  push authority; and
+- reviewed STOP-3 technical PASS with documentation closure complete at the
+  remediation-candidate level, while **owner STOP-3 acceptance/closure remains
+  pending**.
+
+The synchronization does not convert bounded engineering health into convergence,
+model capability, recipe quality, mAP/NDS, branch/kernel causality, LiDAR-gradient
+root cause, multi-seed, Protocol A/B, FL, attack or defense evidence. It does not
+modify any execution identity or create new compute authority.
+
+**Closure verdict: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / owner-ready
+STOP-3.** Both documentation-only findings are closed without compute or semantic
+change. The remaining residual risks are those already recorded in the terminal
+review: shared editable sparse dependencies, the unresolved large true LiDAR
+gradients, bounded single-tuple/100-update evidence, and coarse lifecycle-level
+telemetry without branch/kernel attribution.
+
+S00 may now create only a linear review-artifact seal and mechanically replace
+`closure candidate` / `documentation closure pending` labels with
+`P3 closed / owner-ready / owner decision pending`. That seal must not change any
+number, claim or authority and does not require a third review. This verdict
+authorizes no compute, retry, STOP-4, merge or push.

@@ -681,8 +681,8 @@ STOP-3 intentionally added no profiler, module hook, or branch observer.
 
 The exact O-117/O-118 engineering qualification therefore returns independently
 reviewed technical PASS. Immutable evidence `c28d09c` received
-`PASS_WITH_RESIDUAL_RISK` with no P0-P2; its two documentation-only P3 findings
-are corrected in the current closure candidate. It
+`PASS_WITH_RESIDUAL_RISK` with no P0-P2; closure re-review of remediation
+`84adfd0` found no open P0-P3 and marks STOP-3 owner-ready. It
 establishes 100-update lifecycle health, steady stage timing, loader readiness,
 large memory headroom, and lack of sustained GH200 saturation for this exact
 F-U/seed/config/runtime tuple. It does not prove convergence, recipe quality,

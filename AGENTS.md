@@ -230,13 +230,14 @@ native build. O-118 then authorized one bounded dependency re-attestation plus a
 strictly derived no-retry replacement: Job `442152` established stable sparse
 build identities, and Job `446225` completed the production loader sweep and 100
 successful F-U updates in 103 attempts. Immutable evidence `c28d09c` received
-independent `PASS_WITH_RESIDUAL_RISK` with no P0-P2; its documentation-only P3
-closure candidate is linear and STOP-3 owner acceptance remains pending. O-118 compute is
-consumed; no cache retry, further S09 compute, or STOP-4 is currently authorized.
+independent `PASS_WITH_RESIDUAL_RISK` with no P0-P2; documentation closure
+re-review found no open P0-P3. STOP-3 is owner-ready, but owner acceptance remains
+pending. O-118 compute is consumed; no cache retry, further S09 compute, or
+STOP-4 is currently authorized.
 Do not extract or duplicate the full dataset into project storage without
 explicit owner permission.
-The old
-`/mimer/NOBACKUP/Datasets/NuScenes_v1.0` path is not an Arrhenius data path.
+The old `/mimer/NOBACKUP/Datasets/NuScenes_v1.0` path is not an Arrhenius data
+path.
 
 The module root is discovered from `NUSCENES_DATA_DIR` after explicit config and
 the legacy dataroot environment overrides. ZIP runs additionally require

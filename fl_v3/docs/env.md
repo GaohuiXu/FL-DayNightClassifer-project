@@ -212,9 +212,10 @@ derived replacement without retry. Job `442152` completed stable two-process
 attestation of spconv build `af422005...` and cumm build `0a7e3c1a...`; Job
 `446225` subsequently failed closed on those identities, completed the production
 loader sweep, and reached 100 successful F-U updates in 103 attempts. Evidence
-`c28d09c` received independent `PASS_WITH_RESIDUAL_RISK` with no P0-P2; only
-documentation closure and owner STOP-3 acceptance remain pending. O-118 compute
-is consumed and no STOP-4 compute is authorized. This is engineering readiness
+`c28d09c` received independent `PASS_WITH_RESIDUAL_RISK` with no P0-P2, and
+documentation closure re-review found no open P0-P3. STOP-3 is owner-ready but
+owner acceptance remains pending. O-118 compute is consumed and no STOP-4
+compute is authorized. This is engineering readiness
 for one exact tuple, not convergence, metric, recipe, or model-capability
 evidence. Do not extract/duplicate the dataset or submit further full-data jobs
 without exact permission. O-009 covers only a recorded bounded
