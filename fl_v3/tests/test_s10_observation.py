@@ -11,6 +11,7 @@ from fl_v3.models.fusion.second_sparse_backbone import _ObservedGroupNorm
 from fl_v3.training.s10_observation import (
     StopBObservationRecorder,
     attribute_term_gradients,
+    compare_parameter_gradient_tensors,
     loss_term_snapshot,
     recompose_from_sample_terms,
 )
@@ -139,3 +140,30 @@ def test_term_projection_reconstructs_aggregate_boundary_gradient():
         for source in attribution["sources"].values()
     )
     assert shares == pytest.approx(1.0, rel=1e-5, abs=1e-6)
+
+
+def test_fixed_gradient_parity_gate_separates_hash_drift_from_numerical_drift():
+    reference = {
+        "lidar_encoder.backbone.stem.weight": torch.tensor([64.0, -128.0]),
+        "head.bias": torch.tensor([0.0]),
+        "unused": None,
+    }
+    numerically_neutral = {
+        "lidar_encoder.backbone.stem.weight": torch.tensor([64.00001, -128.0]),
+        "head.bias": torch.tensor([0.0]),
+        "unused": None,
+    }
+    accepted = compare_parameter_gradient_tensors(
+        reference, numerically_neutral, scale_divisor=64.0
+    )
+    assert accepted["gate_pass"]
+    assert accepted["missing_gradient_sets_equal"]
+    assert accepted["global"]["relative_l2_error"] <= 1e-6
+
+    drifted = dict(numerically_neutral)
+    drifted["head.bias"] = torch.tensor([1.0])
+    rejected = compare_parameter_gradient_tensors(
+        reference, drifted, scale_divisor=64.0
+    )
+    assert not rejected["gate_pass"]
+    assert "head.bias" in rejected["allclose_failure_parameters"]

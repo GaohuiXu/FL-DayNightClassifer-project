@@ -18,6 +18,10 @@ FP32_REL="fl_v3/configs/s10_b_fp32.json"
 FP16_REL="fl_v3/configs/s10_b_fp16_second_fp32.json"
 SPLIT_MANIFEST="/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_feasible_ad93c89333b0_o127_a1/split/split_manifest.json"
 SPLIT_SHA256="7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8"
+PANEL_MANIFEST="/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_diag_8fd832dc7d46_o128_a1/panel_manifest.json"
+PANEL_FILE_SHA256="c2826effeba2e074ef8f76ab582bbb5dc796f41b9555348d56e252a2d70138a6"
+PANEL_CONTENT_SHA256="8e4f2d992d7a27d771c6fdf00098afc14b9621bc50ea1e52319b84d406f9ad55"
+EXPECTED_W0_SHA256="e58bcd46d588c68b31335fe87cc5fbff06cbc0fbcdae7e88b0b1ed70d1d65395"
 ZIP_MANIFEST="/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_v2_1fe651700bd0/nuscenes_trainval_zip_manifest.sqlite"
 WORK="${S10_STOPB_OUTPUT}.control"
 
@@ -29,6 +33,7 @@ test -f "${S10_STOPB_SNAPSHOT}/${OBSERVER_REL}"
 test -f "${S10_STOPB_SNAPSHOT}/${FP32_REL}"
 test -f "${S10_STOPB_SNAPSHOT}/${FP16_REL}"
 test -f "${SPLIT_MANIFEST}"
+test -f "${PANEL_MANIFEST}"
 test -f "${ZIP_MANIFEST}"
 
 actual_source_sha="$(git -C "${S10_STOPB_SNAPSHOT}" rev-parse HEAD)"
@@ -44,6 +49,7 @@ test "${actual_observer_sha256}" = "${S10_STOPB_EXPECTED_OBSERVER_SHA256}"
 test "${actual_fp32_sha256}" = "${S10_STOPB_EXPECTED_FP32_CONFIG_SHA256}"
 test "${actual_fp16_sha256}" = "${S10_STOPB_EXPECTED_FP16_CONFIG_SHA256}"
 test "$(sha256sum "${SPLIT_MANIFEST}" | cut -d' ' -f1)" = "${SPLIT_SHA256}"
+test "$(sha256sum "${PANEL_MANIFEST}" | cut -d' ' -f1)" = "${PANEL_FILE_SHA256}"
 test -z "$(git -C "${S10_STOPB_SNAPSHOT}" status --short --untracked-files=all)"
 test "$(git -C "${S10_STOPB_SNAPSHOT}" branch --show-current)" = ""
 
@@ -165,6 +171,10 @@ python "${OBSERVER_REL}" \
   --fp16-config "${FP16_REL}" \
   --split-manifest "${SPLIT_MANIFEST}" \
   --split-sha256 "${SPLIT_SHA256}" \
+  --panel-manifest "${PANEL_MANIFEST}" \
+  --panel-file-sha256 "${PANEL_FILE_SHA256}" \
+  --panel-content-sha256 "${PANEL_CONTENT_SHA256}" \
+  --expected-w0-sha256 "${EXPECTED_W0_SHA256}" \
   --output-dir "${S10_STOPB_OUTPUT}" \
   --source-sha "${actual_source_sha}" \
   --source-tree "${actual_tree}" \

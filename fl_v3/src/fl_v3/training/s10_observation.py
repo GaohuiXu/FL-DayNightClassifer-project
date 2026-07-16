@@ -359,6 +359,165 @@ def parameter_gradient_snapshot(model: nn.Module, *, scale_divisor: float) -> di
     }
 
 
+def capture_parameter_gradient_tensors(
+    model: nn.Module,
+) -> dict[str, torch.Tensor | None]:
+    """Copy raw trainable-parameter gradients to CPU before they are cleared."""
+    return {
+        name: None if parameter.grad is None else parameter.grad.detach().cpu().clone()
+        for name, parameter in model.named_parameters()
+        if parameter.requires_grad
+    }
+
+
+def compare_parameter_gradient_tensors(
+    reference: Mapping[str, torch.Tensor | None],
+    candidate: Mapping[str, torch.Tensor | None],
+    *,
+    scale_divisor: float,
+    rtol: float = 1e-5,
+    atol: float = 1e-7,
+    relative_l2_limit: float = 1e-6,
+) -> dict[str, Any]:
+    """Compare two raw gradient snapshots under the fixed STOP-B envelope."""
+    _require(
+        math.isfinite(scale_divisor) and scale_divisor > 0.0,
+        "gradient comparison divisor must be finite and positive",
+    )
+    reference_names = set(reference)
+    candidate_names = set(candidate)
+    names = sorted(reference_names | candidate_names)
+    reference_missing = sorted(
+        name for name in reference_names if reference[name] is None
+    )
+    candidate_missing = sorted(
+        name for name in candidate_names if candidate[name] is None
+    )
+    entries: list[dict[str, Any]] = []
+    shape_mismatches: list[str] = []
+    dtype_mismatches: list[str] = []
+    allclose_failures: list[str] = []
+    nonfinite_parameters: list[str] = []
+
+    for name in names:
+        left = reference.get(name)
+        right = candidate.get(name)
+        if left is None or right is None:
+            continue
+        if tuple(left.shape) != tuple(right.shape):
+            shape_mismatches.append(name)
+            continue
+        if left.dtype != right.dtype:
+            dtype_mismatches.append(name)
+            continue
+        left_unscaled = left / float(scale_divisor)
+        right_unscaled = right / float(scale_divisor)
+        left_finite = torch.isfinite(left_unscaled)
+        right_finite = torch.isfinite(right_unscaled)
+        both_finite = left_finite & right_finite
+        all_finite = bool(left_finite.all().item() and right_finite.all().item())
+        if not all_finite:
+            nonfinite_parameters.append(name)
+        close = bool(
+            all_finite
+            and torch.allclose(left_unscaled, right_unscaled, rtol=rtol, atol=atol)
+        )
+        if not close:
+            allclose_failures.append(name)
+        if bool(both_finite.any().item()):
+            left64 = left_unscaled[both_finite].to(torch.float64)
+            delta64 = (
+                right_unscaled[both_finite].to(torch.float64) - left64
+            )
+            reference_sum_sq = float(torch.square(left64).sum().item())
+            error_sum_sq = float(torch.square(delta64).sum().item())
+            max_abs_error = float(delta64.abs().max().item())
+        else:
+            reference_sum_sq = 0.0
+            error_sum_sq = 0.0
+            max_abs_error = 0.0
+        entries.append({
+            "name": name,
+            "prefix": _parameter_prefix(name),
+            "elements": int(left.numel()),
+            "finite_pair_elements": int(both_finite.sum().item()),
+            "reference_nonfinite_elements": int((~left_finite).sum().item()),
+            "candidate_nonfinite_elements": int((~right_finite).sum().item()),
+            "all_finite": all_finite,
+            "allclose": close,
+            "reference_sum_sq": reference_sum_sq,
+            "error_sum_sq": error_sum_sq,
+            "max_abs_error": max_abs_error,
+        })
+
+    def summarize(group: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        reference_sum_sq = sum(float(item["reference_sum_sq"]) for item in group)
+        error_sum_sq = sum(float(item["error_sum_sq"]) for item in group)
+        reference_l2 = math.sqrt(max(0.0, reference_sum_sq))
+        absolute_l2 = math.sqrt(max(0.0, error_sum_sq))
+        return {
+            "parameter_count": len(group),
+            "elements": sum(int(item["elements"]) for item in group),
+            "finite_pair_elements": sum(
+                int(item["finite_pair_elements"]) for item in group
+            ),
+            "reference_nonfinite_elements": sum(
+                int(item["reference_nonfinite_elements"]) for item in group
+            ),
+            "candidate_nonfinite_elements": sum(
+                int(item["candidate_nonfinite_elements"]) for item in group
+            ),
+            "all_finite": all(bool(item["all_finite"]) for item in group),
+            "allclose": all(bool(item["allclose"]) for item in group),
+            "reference_l2": reference_l2,
+            "absolute_l2_error": absolute_l2,
+            "relative_l2_error": (
+                absolute_l2 / reference_l2 if reference_l2 > 0.0 else absolute_l2
+            ),
+            "max_abs_error": max(
+                (float(item["max_abs_error"]) for item in group), default=0.0
+            ),
+        }
+
+    by_prefix: dict[str, list[dict[str, Any]]] = {}
+    for entry in entries:
+        by_prefix.setdefault(str(entry["prefix"]), []).append(entry)
+    global_summary = summarize(entries)
+    name_set_equal = reference_names == candidate_names
+    missing_set_equal = reference_missing == candidate_missing
+    gate = bool(
+        name_set_equal
+        and missing_set_equal
+        and not shape_mismatches
+        and not dtype_mismatches
+        and not nonfinite_parameters
+        and not allclose_failures
+        and global_summary["relative_l2_error"] <= relative_l2_limit
+    )
+    return {
+        "gradient_domain": "explicit_true_unscaled_cpu_copy",
+        "raw_scale_divisor": float(scale_divisor),
+        "rtol": float(rtol),
+        "atol": float(atol),
+        "relative_l2_limit": float(relative_l2_limit),
+        "reference_parameter_count": len(reference_names),
+        "candidate_parameter_count": len(candidate_names),
+        "name_set_equal": name_set_equal,
+        "reference_missing_gradients": reference_missing,
+        "candidate_missing_gradients": candidate_missing,
+        "missing_gradient_sets_equal": missing_set_equal,
+        "shape_mismatch_parameters": shape_mismatches,
+        "dtype_mismatch_parameters": dtype_mismatches,
+        "nonfinite_parameters": nonfinite_parameters,
+        "allclose_failure_parameters": allclose_failures,
+        "global": global_summary,
+        "by_prefix": {
+            prefix: summarize(group) for prefix, group in sorted(by_prefix.items())
+        },
+        "gate_pass": gate,
+    }
+
+
 def loss_term_snapshot(bundle: Mapping[str, Any]) -> dict[str, Any]:
     aggregate = bundle["aggregate_total"]
     tasks = []
@@ -552,6 +711,8 @@ __all__ = [
     "StopBObservationError",
     "StopBObservationRecorder",
     "attribute_term_gradients",
+    "capture_parameter_gradient_tensors",
+    "compare_parameter_gradient_tensors",
     "loss_term_snapshot",
     "module_state_sha256",
     "parameter_gradients_sha256",

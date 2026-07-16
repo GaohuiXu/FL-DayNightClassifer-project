@@ -360,6 +360,39 @@ def validate_stop_b_panel(panel: Mapping[str, Any], binding: FrozenSplitRole) ->
     }
 
 
+def load_frozen_stop_b_panel(
+    panel_path: str | Path,
+    *,
+    expected_file_sha256: str,
+    expected_content_sha256: str,
+    binding: FrozenSplitRole,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Load the one accepted physical STOP-B panel without reconstructing it."""
+    path = Path(panel_path).resolve()
+    _require(path.is_file(), f"STOP-B panel is missing: {path}")
+    actual_file_sha256 = sha256_file(path)
+    _require(
+        actual_file_sha256 == expected_file_sha256,
+        "STOP-B panel physical SHA-256 drift",
+    )
+    try:
+        panel = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise S10BindingError(f"cannot read STOP-B panel: {exc}") from exc
+    _require(isinstance(panel, dict), "STOP-B panel root must be an object")
+    report = validate_stop_b_panel(panel, binding)
+    _require(
+        report["panel_sha256"] == expected_content_sha256,
+        "STOP-B panel expected content SHA-256 drift",
+    )
+    return panel, {
+        **report,
+        "panel_path": str(path),
+        "panel_file_sha256": actual_file_sha256,
+        "reconstructed": False,
+    }
+
+
 def write_canonical_json(path: str | Path, value: Any) -> None:
     Path(path).write_bytes(canonical_json_bytes(value) + b"\n")
 
@@ -370,6 +403,7 @@ __all__ = [
     "S10BindingError",
     "build_stop_b_panel",
     "canonical_json_bytes",
+    "load_frozen_stop_b_panel",
     "load_frozen_split_role",
     "sha256_file",
     "token_vector_sha256",

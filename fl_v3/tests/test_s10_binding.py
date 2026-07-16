@@ -10,6 +10,7 @@ from fl_v3.data.nuscenes.s10_binding import (
     S10BindingError,
     build_stop_b_panel,
     canonical_json_bytes,
+    load_frozen_stop_b_panel,
     load_frozen_split_role,
     token_vector_sha256,
     validate_stop_b_panel,
@@ -145,3 +146,38 @@ def test_panel_reload_rejects_mutation_and_out_of_role_token(tmp_path):
     panel["tokens"]["P_term"][0] = "outside-D-low"
     with pytest.raises(S10BindingError, match="panel content SHA drift"):
         validate_stop_b_panel(panel, binding)
+
+
+def test_frozen_panel_loader_binds_physical_and_content_hashes(tmp_path):
+    split_path, split_digest, by_log = _manifest(tmp_path)
+    binding = load_frozen_split_role(
+        split_path, expected_manifest_sha256=split_digest, role="D_low"
+    )
+    panel = build_stop_b_panel(binding, _infos(by_log))
+    panel_path = tmp_path / "panel_manifest.json"
+    panel_path.write_bytes(canonical_json_bytes(panel) + b"\n")
+    file_digest = hashlib.sha256(panel_path.read_bytes()).hexdigest()
+    loaded, report = load_frozen_stop_b_panel(
+        panel_path,
+        expected_file_sha256=file_digest,
+        expected_content_sha256=panel["panel_sha256"],
+        binding=binding,
+    )
+    assert loaded == panel
+    assert report["reconstructed"] is False
+    assert report["panel_file_sha256"] == file_digest
+
+    with pytest.raises(S10BindingError, match="physical SHA-256 drift"):
+        load_frozen_stop_b_panel(
+            panel_path,
+            expected_file_sha256="0" * 64,
+            expected_content_sha256=panel["panel_sha256"],
+            binding=binding,
+        )
+    with pytest.raises(S10BindingError, match="expected content SHA-256 drift"):
+        load_frozen_stop_b_panel(
+            panel_path,
+            expected_file_sha256=file_digest,
+            expected_content_sha256="0" * 64,
+            binding=binding,
+        )

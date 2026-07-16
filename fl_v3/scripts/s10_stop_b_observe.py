@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Execute the approved S10 STOP-B main observation allocation.
+"""Execute the approved S10 STOP-B observation allocation.
 
-The script freezes the deterministic D_low panel before model construction, then
-runs fixed-W0 FP32 and global-FP16/SECOND-FP32 observations without constructing
-an optimizer or advancing any training state.
+The replacement reuses the exact Job-477892 D_low panel, calibrates diagnostic
+parity against a repeated disabled path, and runs fixed-W0 FP32 and global-FP16/
+SECOND-FP32 observations without constructing an optimizer or advancing state.
 """
 from __future__ import annotations
 
@@ -27,10 +27,8 @@ import torch
 
 from fl_v3.config import load_resolved_config, verify_physical_data_identities
 from fl_v3.data.nuscenes.s10_binding import (
-    build_stop_b_panel,
+    load_frozen_stop_b_panel,
     load_frozen_split_role,
-    validate_stop_b_panel,
-    write_canonical_json,
 )
 from fl_v3.training.loop import _move_to_device
 from fl_v3.training.precision_diagnostics import runtime_rng_state_sha256
@@ -40,6 +38,8 @@ from fl_v3.training.s10_observation import (
     STOP_B_SCHEMA,
     StopBObservationRecorder,
     attribute_term_gradients,
+    capture_parameter_gradient_tensors,
+    compare_parameter_gradient_tensors,
     loss_term_snapshot,
     module_state_sha256,
     parameter_gradient_snapshot,
@@ -64,6 +64,10 @@ def _parse_args():
     parser.add_argument("--fp16-config", required=True)
     parser.add_argument("--split-manifest", required=True)
     parser.add_argument("--split-sha256", required=True)
+    parser.add_argument("--panel-manifest", required=True)
+    parser.add_argument("--panel-file-sha256", required=True)
+    parser.add_argument("--panel-content-sha256", required=True)
+    parser.add_argument("--expected-w0-sha256", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--source-sha", required=True)
     parser.add_argument("--source-tree", required=True)
@@ -206,7 +210,8 @@ def _run_once(
     diagnostic: bool,
     seed: int,
     term_attribution: bool = False,
-) -> dict[str, Any]:
+    capture_raw_gradients: bool = False,
+) -> tuple[dict[str, Any], dict[str, torch.Tensor | None] | None]:
     seed_everything(seed)
     zero_model_gradients(model)
     batch = _move_to_device(batch_cpu, device)
@@ -220,6 +225,7 @@ def _run_once(
 
         model_context = nullcontext()
         loss_context = nullcontext()
+    gradient_tensors = None
     with model_context:
         with loss_context:
             with precision_autocast_context(precision, device):
@@ -248,6 +254,8 @@ def _run_once(
                     "output_sha256": output_sha,
                     "parameter_gradients_sha256": parameter_gradients_sha256(model),
                 }
+                if capture_raw_gradients:
+                    gradient_tensors = capture_parameter_gradient_tensors(model)
                 if diagnostic:
                     bundle = criterion.s10_term_bundle()
                     record.update({
@@ -282,60 +290,228 @@ def _run_once(
         child.last_s10_terms = {}
         child._s10_focal = {}
     del output, loss, batch, recorder
-    return record
+    return record, gradient_tensors
 
 
-def _parity_cells(model, criterion, task, run_config, panel, *, device, precision, scale):
+def _parity_exact_predicates(reference, candidate, *, model_state_reference, model_state_candidate):
+    return {
+        "output_sha256_equal": reference["output_sha256"] == candidate["output_sha256"],
+        "loss_exact_equal": reference["loss"] == candidate["loss"],
+        "scaled_loss_exact_equal": reference["scaled_loss"] == candidate["scaled_loss"],
+        "rng_state_sha256_equal": (
+            reference["rng_state_sha256_after"] == candidate["rng_state_sha256_after"]
+        ),
+        "model_state_equal": model_state_reference == model_state_candidate,
+        "raw_parameter_gradient_sha256_equal": (
+            reference["parameter_gradients_sha256"]
+            == candidate["parameter_gradients_sha256"]
+        ),
+    }
+
+
+def _parity_cells(
+    model,
+    criterion,
+    task,
+    run_config,
+    panel,
+    *,
+    device,
+    precision,
+    scale,
+    expected_w0_sha256,
+    output,
+    raw,
+):
     tokens = [*panel["batches_b4"]["P_core"][0], *panel["batches_b4"]["P_term"][0]]
     loader = task.fixed_train_subset_loader(run_config, tokens)
-    records = []
     expected_batches = [panel["batches_b4"]["P_core"][0], panel["batches_b4"]["P_term"][0]]
-    for index, (batch, expected) in enumerate(zip(loader, expected_batches, strict=True)):
+    batches = list(loader)
+    if len(batches) != 2:
+        raise RuntimeError("STOP-B parity loader did not emit exactly two B4 batches")
+    for batch, expected in zip(batches, expected_batches, strict=True):
         _batch_tokens(batch, expected)
+
+    warmup_before_state = module_state_sha256(model)
+    warmup, _ = _run_once(
+        model,
+        criterion,
+        batches[0],
+        device=device,
+        precision=precision,
+        scale=scale,
+        diagnostic=False,
+        seed=9000,
+    )
+    warmup_after_state = module_state_sha256(model)
+    warmup.update({
+        "cell": f"B-PARITY-WARMUP-{precision.upper()}",
+        "role": "runtime_algorithm_cache_warmup_excluded_from_parity",
+        "model_state_before": warmup_before_state,
+        "model_state_after": warmup_after_state,
+        "model_state_equal": warmup_before_state == warmup_after_state,
+        "expected_w0_sha256": expected_w0_sha256,
+        "status": (
+            "PASS"
+            if warmup_before_state == warmup_after_state == expected_w0_sha256
+            else "FAIL"
+        ),
+    })
+    _append_jsonl(raw / "parity_warmup.jsonl", warmup)
+    if warmup["status"] != "PASS":
+        failure = {
+            "schema": "fl_v3.s10.stop_b_failure.v1",
+            "stage": "parity_warmup",
+            "precision": precision,
+            "classification": "model_state_mutation",
+            "failed_predicates": ["warmup_model_state_equal_to_W0"],
+        }
+        _write_json(output / "failure_summary.json", failure)
+        _write_json(output / "artifact_sha256s.json", _artifact_manifest(output))
+        raise RuntimeError(f"STOP-B {precision} parity warmup mutated W0")
+
+    records = []
+    for index, (batch, expected) in enumerate(zip(batches, expected_batches, strict=True)):
         seed = 10000 + index
         before_state = module_state_sha256(model)
-        off = _run_once(
-            model, criterion, batch, device=device, precision=precision,
-            scale=scale, diagnostic=False, seed=seed,
+        off0, off0_gradients = _run_once(
+            model,
+            criterion,
+            batch,
+            device=device,
+            precision=precision,
+            scale=scale,
+            diagnostic=False,
+            seed=seed,
+            capture_raw_gradients=True,
         )
-        after_off_state = module_state_sha256(model)
-        on = _run_once(
-            model, criterion, batch, device=device, precision=precision,
-            scale=scale, diagnostic=True, seed=seed,
+        after_off0_state = module_state_sha256(model)
+        off1, off1_gradients = _run_once(
+            model,
+            criterion,
+            batch,
+            device=device,
+            precision=precision,
+            scale=scale,
+            diagnostic=False,
+            seed=seed,
+            capture_raw_gradients=True,
+        )
+        after_off1_state = module_state_sha256(model)
+        on, on_gradients = _run_once(
+            model,
+            criterion,
+            batch,
+            device=device,
+            precision=precision,
+            scale=scale,
+            diagnostic=True,
+            seed=seed,
+            capture_raw_gradients=True,
         )
         after_on_state = module_state_sha256(model)
+        if off0_gradients is None or off1_gradients is None or on_gradients is None:
+            raise RuntimeError("STOP-B parity raw gradient capture is missing")
+        off0_off1_gradients = compare_parameter_gradient_tensors(
+            off0_gradients, off1_gradients, scale_divisor=scale
+        )
+        off0_on_gradients = compare_parameter_gradient_tensors(
+            off0_gradients, on_gradients, scale_divisor=scale
+        )
+        off0_off1_exact = _parity_exact_predicates(
+            off0,
+            off1,
+            model_state_reference=after_off0_state,
+            model_state_candidate=after_off1_state,
+        )
+        off0_on_exact = _parity_exact_predicates(
+            off0,
+            on,
+            model_state_reference=after_off0_state,
+            model_state_candidate=after_on_state,
+        )
+        state_chain_equal = (
+            before_state
+            == after_off0_state
+            == after_off1_state
+            == after_on_state
+            == expected_w0_sha256
+        )
+        off0_off1_gate = bool(
+            all(
+                value
+                for name, value in off0_off1_exact.items()
+                if name != "raw_parameter_gradient_sha256_equal"
+            )
+            and off0_off1_gradients["gate_pass"]
+            and state_chain_equal
+        )
+        off0_on_gate = bool(
+            all(
+                value
+                for name, value in off0_on_exact.items()
+                if name != "raw_parameter_gradient_sha256_equal"
+            )
+            and off0_on_gradients["gate_pass"]
+            and state_chain_equal
+        )
+        if not off0_off1_gate:
+            classification = "baseline_instability"
+        elif not off0_on_gate:
+            classification = "instrumentation_nonneutral"
+        else:
+            classification = "parity_pass"
         parity = {
             "schema": STOP_B_SCHEMA,
             "cell": f"B-PARITY-{precision.upper()}",
             "batch_index": index,
             "sample_tokens": list(expected),
-            "output_sha256_equal": off["output_sha256"] == on["output_sha256"],
-            "parameter_gradients_sha256_equal": (
-                off["parameter_gradients_sha256"] == on["parameter_gradients_sha256"]
-            ),
-            "loss_exact_equal": off["loss"] == on["loss"],
-            "rng_state_sha256_equal": (
-                off["rng_state_sha256_after"] == on["rng_state_sha256_after"]
-            ),
+            "warmup_executed_before_parity": True,
             "model_state_before": before_state,
-            "model_state_after_off": after_off_state,
+            "model_state_after_off0": after_off0_state,
+            "model_state_after_off1": after_off1_state,
             "model_state_after_on": after_on_state,
-            "model_state_equal": before_state == after_off_state == after_on_state,
-            "off": off,
-            "on": on,
+            "model_state_chain_equal_to_W0": state_chain_equal,
+            "disabled0_disabled1": {
+                "exact_predicates": off0_off1_exact,
+                "numerical_gradients": off0_off1_gradients,
+                "gate_pass": off0_off1_gate,
+            },
+            "disabled0_enabled": {
+                "exact_predicates": off0_on_exact,
+                "numerical_gradients": off0_on_gradients,
+                "gate_pass": off0_on_gate,
+            },
+            "classification": classification,
+            "status": "PASS" if off0_off1_gate and off0_on_gate else "FAIL",
+            "disabled0": off0,
+            "disabled1": off1,
+            "enabled": on,
         }
-        parity["status"] = "PASS" if all((
-            parity["output_sha256_equal"],
-            parity["parameter_gradients_sha256_equal"],
-            parity["loss_exact_equal"],
-            parity["rng_state_sha256_equal"],
-            parity["model_state_equal"],
-        )) else "FAIL"
-        if parity["status"] != "PASS":
-            raise RuntimeError(f"STOP-B diagnostic parity failed for {precision} batch {index}")
+        _append_jsonl(raw / "parity.jsonl", parity)
+        del off0_gradients, off1_gradients, on_gradients
         records.append(parity)
-    if len(records) != 2:
-        raise RuntimeError("STOP-B parity loader did not emit exactly two B4 batches")
+        if parity["status"] != "PASS":
+            failed = []
+            if not off0_off1_gate:
+                failed.append("disabled0_disabled1")
+            if not off0_on_gate:
+                failed.append("disabled0_enabled")
+            failure = {
+                "schema": "fl_v3.s10.stop_b_failure.v1",
+                "stage": "parity",
+                "precision": precision,
+                "batch_index": index,
+                "sample_tokens": list(expected),
+                "classification": classification,
+                "failed_predicates": failed,
+                "parity_record_index": len(records) - 1,
+            }
+            _write_json(output / "failure_summary.json", failure)
+            _write_json(output / "artifact_sha256s.json", _artifact_manifest(output))
+            raise RuntimeError(
+                f"STOP-B {classification} for {precision} parity batch {index}"
+            )
     return records
 
 
@@ -346,7 +522,7 @@ def _broad_cells(model, criterion, task, run_config, panel, *, device, precision
     records = []
     for index, (batch, expected_tokens) in enumerate(zip(loader, expected, strict=True)):
         _batch_tokens(batch, expected_tokens)
-        record = _run_once(
+        record, _ = _run_once(
             model, criterion, batch, device=device, precision=precision,
             scale=scale, diagnostic=True, seed=20000 + index,
         )
@@ -368,7 +544,7 @@ def _term_cells(model, criterion, task, run_config, panel, *, device):
     records = []
     for index, (batch, expected_tokens) in enumerate(zip(loader, expected, strict=True)):
         _batch_tokens(batch, expected_tokens)
-        record = _run_once(
+        record, _ = _run_once(
             model, criterion, batch, device=device, precision="fp32",
             scale=1.0, diagnostic=True, seed=30000 + index, term_attribution=True,
         )
@@ -668,14 +844,7 @@ def _artifact_manifest(root: Path) -> dict[str, Any]:
     return {"schema": "fl_v3.s10.stop_b_artifacts.v1", "files": files}
 
 
-def main() -> None:
-    args = _parse_args()
-    output = Path(args.output_dir).resolve()
-    if output.exists():
-        raise RuntimeError(f"STOP-B output must be fresh: {output}")
-    output.mkdir(parents=True)
-    raw = output / "raw"
-    raw.mkdir()
+def _execute(args, output: Path, raw: Path) -> None:
     runtime = _runtime_assertions(args.loss_scale)
     fp32 = load_resolved_config(args.fp32_config)
     fp16 = load_resolved_config(args.fp16_config)
@@ -689,23 +858,28 @@ def main() -> None:
         expected_source_identities=_expected_split_sources(fp16),
     )
 
-    # PRE-MODEL HARD PHASE: no model has been constructed above this line.
+    # PRE-MODEL HARD PHASE: reuse the exact Job-477892 physical panel.  No
+    # production metadata traversal, panel reconstruction, or reroll is allowed.
     task = NuScenesDetectionTask()
-    train_info, train_meta = task.load_production_train_info(fp16.to_run_config())
-    panel = build_stop_b_panel(binding, train_info)
-    validate_stop_b_panel(panel, binding)
-    panel_path = output / "panel_manifest.json"
-    write_canonical_json(panel_path, panel)
-    panel_file_sha = _sha256_file(panel_path)
-    panel_path.chmod(0o444)
+    panel, panel_report = load_frozen_stop_b_panel(
+        args.panel_manifest,
+        expected_file_sha256=args.panel_file_sha256,
+        expected_content_sha256=args.panel_content_sha256,
+        binding=binding,
+    )
+    panel_file_sha = panel_report["panel_file_sha256"]
     pre_model = {
-        "schema": "fl_v3.s10.stop_b_pre_model_freeze.v1",
-        "model_constructed_before_panel_freeze": False,
-        "model_output_observed_before_panel_freeze": False,
+        "schema": "fl_v3.s10.stop_b_pre_model_panel_reuse.v2",
+        "model_constructed_before_panel_validation": False,
+        "model_output_observed_before_panel_validation": False,
+        "panel_reconstructed": False,
+        "panel_rerolled": False,
+        "panel_source_job": "477892",
+        "panel_source_path": panel_report["panel_path"],
         "split_binding": binding.identity(),
         "panel_content_sha256": panel["panel_sha256"],
         "panel_file_sha256": panel_file_sha,
-        "train_cache_meta": train_meta,
+        "validation": panel_report,
     }
     _write_json(output / "pre_model_freeze.json", pre_model)
 
@@ -718,6 +892,7 @@ def main() -> None:
         "fp16_config_path": str(Path(args.fp16_config).resolve()),
         "fp16_config_sha256": fp16.sha256,
         "split_manifest_sha256": args.split_sha256,
+        "panel_source_path": panel_report["panel_path"],
         "panel_content_sha256": panel["panel_sha256"],
         "panel_file_sha256": panel_file_sha,
         "fixed_amp_loss_scale": args.loss_scale,
@@ -736,6 +911,10 @@ def main() -> None:
     seed_everything(0)
     base_model = task.build_model(fp32.to_run_config())
     w0_hash = module_state_sha256(base_model)
+    if w0_hash != args.expected_w0_sha256:
+        raise RuntimeError(
+            f"STOP-B W0 drift: expected {args.expected_w0_sha256}, got {w0_hash}"
+        )
     w0_state = {
         name: value.detach().cpu().clone() for name, value in base_model.state_dict().items()
     }
@@ -748,6 +927,8 @@ def main() -> None:
         "camera_pretrained": False,
         "checkpoint_loaded": False,
         "state_dict_sha256": w0_hash,
+        "expected_state_dict_sha256": args.expected_w0_sha256,
+        "matches_expected": True,
     })
 
     device = torch.device("cuda", 0)
@@ -755,8 +936,11 @@ def main() -> None:
     broad_by_precision = {}
     term_records = []
     aggregation = None
-    cell_timing = {}
+    cell_timing = {"parity": {}, "observation": {}}
     total_started = time.perf_counter()
+
+    # All four calibrated parity gates must pass before any broad, term, or
+    # aggregation observation is allowed to execute.
     for precision, config in (("fp32", fp32), ("fp16", fp16)):
         enforce_determinism(strict=(precision == "fp32"), precision=precision)
         seed_everything(0)
@@ -772,10 +956,40 @@ def main() -> None:
         parity = _parity_cells(
             model, criterion, task, config.to_run_config(), panel,
             device=device, precision=precision, scale=(1.0 if precision == "fp32" else args.loss_scale),
+            expected_w0_sha256=w0_hash, output=output, raw=raw,
         )
         parity_records.extend(parity)
-        for record in parity:
-            _append_jsonl(raw / "parity.jsonl", record)
+        final_state = module_state_sha256(model)
+        if final_state != w0_hash:
+            raise RuntimeError(f"STOP-B {precision} parity phase mutated model state")
+        torch.cuda.synchronize(device)
+        cell_timing["parity"][precision] = {
+            "wall_seconds": time.perf_counter() - phase_start,
+            "peak_allocated_bytes": int(torch.cuda.max_memory_allocated(device)),
+            "peak_reserved_bytes": int(torch.cuda.max_memory_reserved(device)),
+            "final_state_dict_sha256": final_state,
+        }
+        del criterion, model
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    if len(parity_records) != 4 or not all(
+        record["status"] == "PASS" for record in parity_records
+    ):
+        raise RuntimeError("STOP-B calibrated parity did not pass all four gates")
+
+    for precision, config in (("fp32", fp32), ("fp16", fp16)):
+        enforce_determinism(strict=(precision == "fp32"), precision=precision)
+        seed_everything(0)
+        model = task.build_model(config.to_run_config())
+        model.load_state_dict(w0_state, strict=True)
+        model.to(device)
+        model.train()
+        criterion = task.build_criterion(config.to_run_config())
+        if module_state_sha256(model) != w0_hash:
+            raise RuntimeError(f"{precision} observation model does not match frozen W0")
+        torch.cuda.reset_peak_memory_stats(device)
+        phase_start = time.perf_counter()
         broad = _broad_cells(
             model, criterion, task, config.to_run_config(), panel,
             device=device, precision=precision, scale=(1.0 if precision == "fp32" else args.loss_scale),
@@ -797,7 +1011,7 @@ def main() -> None:
         if final_state != w0_hash:
             raise RuntimeError(f"STOP-B {precision} mutated model state")
         torch.cuda.synchronize(device)
-        cell_timing[precision] = {
+        cell_timing["observation"][precision] = {
             "wall_seconds": time.perf_counter() - phase_start,
             "peak_allocated_bytes": int(torch.cuda.max_memory_allocated(device)),
             "peak_reserved_bytes": int(torch.cuda.max_memory_reserved(device)),
@@ -833,7 +1047,7 @@ def main() -> None:
         "optimizer_constructed": False,
         "optimizer_updates": 0,
         "full_detector_B1_forwards": 0,
-        "full_detector_forwards": 45,
+        "full_detector_forwards": 51,
         "broad_samples_per_precision": 64,
         "term_samples": 16,
         "official_evaluation_executed": False,
@@ -849,6 +1063,30 @@ def main() -> None:
     _write_json(output / "artifact_sha256s.json", _artifact_manifest(output))
     if summary["status"] != "PASS":
         raise RuntimeError("STOP-B hard gate failed")
+
+
+def main() -> None:
+    args = _parse_args()
+    output = Path(args.output_dir).resolve()
+    if output.exists():
+        raise RuntimeError(f"STOP-B output must be fresh: {output}")
+    output.mkdir(parents=True)
+    raw = output / "raw"
+    raw.mkdir()
+    try:
+        _execute(args, output, raw)
+    except BaseException as exc:
+        failure_path = output / "failure_summary.json"
+        if not failure_path.exists():
+            _write_json(failure_path, {
+                "schema": "fl_v3.s10.stop_b_failure.v1",
+                "stage": "execution",
+                "classification": "runner_failure",
+                "exception_type": type(exc).__name__,
+                "exception_message": str(exc),
+            })
+        _write_json(output / "artifact_sha256s.json", _artifact_manifest(output))
+        raise
 
 
 if __name__ == "__main__":
