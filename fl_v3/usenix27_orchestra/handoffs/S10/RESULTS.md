@@ -1,4 +1,4 @@
-# S10 results — STOP-A CLOSED PASS; STOP-B early parity FAIL
+# S10 results — STOP-A CLOSED PASS; STOP-B baseline-instability FAIL under review
 
 ## STOP-A
 
@@ -174,7 +174,7 @@ official-val capability PASS.
 ## STOP-B
 
 ```text
-OWNER_DECISION: O-128
+OWNER_DECISION: O-128 + O-129 parity remediation/replacement
 IMPLEMENTATION_SHA: 8fd832dc7d46e8818216ecbcf228ef8fd0590ecb
 IMPLEMENTATION_TREE: d5ce6c060279271295abdca41c3ad7aec5870315
 B_DIAG_TUPLE: consumed once by Job 477892
@@ -186,7 +186,13 @@ RESULT: first FP32 disabled/on parity combined gate FAIL
 BROAD/TERM/FP16/OPTIMIZER/EVALUATOR: not executed
 LOCALIZATION_VERDICT: none; neither LOCALIZED nor INCONCLUSIVE
 B_REFINE: not triggered and not authorized
-INDEPENDENT_REVIEW: not started; no scientific STOP-B evidence package exists
+REPLACEMENT_IMPLEMENTATION_SHA: 43f157b3eca7ca72633358b5a2d2dbc4c4e4684b
+REPLACEMENT_JOB: 478250 / FAILED 1:0 / 00:04:28 / zero restarts / 0.074444 GH200-hours
+REPLACEMENT_TESTS: 41 passed in 12.40s
+REPLACEMENT_RESULT: FP32 P_core disabled0/disabled1 baseline_instability
+REPLACEMENT_LOCALIZATION_VERDICT: none; neither LOCALIZED nor INCONCLUSIVE
+REPLACEMENT_B_REFINE: trigger false; forbidden
+INDEPENDENT_REVIEW: pending exact replacement evidence commit
 ```
 
 The combined parity gate checked exact output hash, raw parameter-gradient hash,
@@ -201,3 +207,32 @@ Immutable output root:
 `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_diag_8fd832dc7d46_o128_a1`.
 Its runner artifact manifest SHA-256 is
 `0dc23faf982a2905709f83b1cc2b0fde87d4850da7ad256a98dddd91acdec0a2`.
+
+O-129's replacement reused that exact physical panel without reconstruction or
+reroll, required the same W0 hash, performed one no-update FP32 warm-up, and
+persisted disabled-0/disabled-1/enabled predicates before failing. Job `478250`
+passed all 41 focused tests and every identity gate. W0 stayed exactly
+`e58bcd46...`; RNG-state hashes were identical across all three parity runs.
+
+Nevertheless, the repeated disabled path was not numerically repeatable on the
+first `P_core` B4 batch. Output hashes differed and loss moved from
+`391.5013732910156` to `388.7950134277344`. All 459 parameter gradients were
+finite with identical empty missing-gradient sets, but 434 failed the fixed
+allclose gate; global relative-L2 error was `3.5323887774502536` and max-absolute
+error was `2422412.736328125`. The model state remained byte-identical to W0.
+This satisfies §20's predeclared `baseline_instability` classification.
+
+The enabled run also differed, but instrumentation neutrality cannot be inferred
+in either direction because its disabled control already fails. The evidence
+establishes a same-input/same-W0/same-framework-RNG numerical-repeatability
+failure after one declared warm-up; it does not identify spconv, GroupNorm,
+loss normalization or any other mechanism. It also does not locate the original
+large LiDAR gradient, assess convergence, or authorize a model/recipe change.
+
+The job stopped before every later parity/scientific cell, made zero updates and
+ran no evaluator. B-REFINE is not triggered. All sealed checksums verify; the
+runner manifest SHA-256 is
+`801e98c129797a6a71665c5227cbe6684a4001b39d617da91bbb7970b92c3543`.
+Actual STOP-B compute is `0.153333` GH200-hours and cumulative ABC compute is
+`1.566667` GH200-hours. Independent review of the exact replacement evidence is
+required before STOP-B disposition.

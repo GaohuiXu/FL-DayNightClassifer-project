@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-129 replacement B-DIAG §21 APPROVED / FROZEN / NOT YET CONSUMED
+REQUEST_STATE: O-129 replacement B-DIAG §21 CONSUMED / Job 478250 baseline-instability FAIL
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
 EXECUTION_AUTHORITY: O-129 §20 implementation + one replacement B-DIAG + conditional B-REFINE
 SOURCE_SHA: 43f157b3eca7ca72633358b5a2d2dbc4c4e4684b
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-128 STOP-B plan; O-129 §20 remediation/replacement approved 2026-07-16
-EXECUTABLE_NOW: exact §21 replacement B-DIAG only; STOP-C remains unauthorized
+EXECUTABLE_NOW: none; B-REFINE trigger false; STOP-B evidence review/owner decision pending
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -757,11 +757,11 @@ is not model capability, convergence, recipe, official-val performance or
 selection evidence. A4 must independently review the exact evidence commit
 before STOP-A closes or STOP-B/C may start.
 
-## 18. O-128 STOP-B / B-DIAG exact immutable tuple — frozen for sole submission
+## 18. O-128 STOP-B / B-DIAG exact immutable tuple — consumed by Job 477892
 
 ```text
 REQUEST_ID: S10-STOP-B-DIAG-O128-v1
-REQUEST_STATE: APPROVED / FROZEN / NOT YET CONSUMED
+REQUEST_STATE: APPROVED / FROZEN / CONSUMED ONCE
 DERIVATION: O-128 exact activation inside O-124 STOP-B and 27-hour aggregate caps
 SOURCE_SHA: 8fd832dc7d46e8818216ecbcf228ef8fd0590ecb
 SOURCE_TREE: d5ce6c060279271295abdca41c3ad7aec5870315
@@ -912,11 +912,11 @@ Owner approval O-129 authorizes the exact protocol and resource amendment above.
 Execution still requires S00 to freeze and record the exact immutable replacement
 source/snapshot/config/data/cells/command/output tuple without semantic drift.
 
-## 21. O-129 replacement B-DIAG exact immutable tuple — frozen for sole submission
+## 21. O-129 replacement B-DIAG exact immutable tuple — consumed by Job 478250
 
 ```text
 REQUEST_ID: S10-STOP-B-DIAG-O129-v2
-REQUEST_STATE: APPROVED / FROZEN / NOT YET CONSUMED
+REQUEST_STATE: APPROVED / FROZEN / CONSUMED ONCE
 DERIVATION: exact O-129 §20 activation inside the 0.5-GH200-hour replacement cap
 SOURCE_SHA: 43f157b3eca7ca72633358b5a2d2dbc4c4e4684b
 SOURCE_TREE: 1235a76b3192812881da23b86ab280cb33dd4c20
@@ -972,3 +972,61 @@ The conditional B-REFINE remains absent from this command. It may be frozen and
 submitted at most once only if this replacement reaches `LOCALIZED` and its
 unchanged `refinement_recommended` predicate is true. Any parity failure,
 `INCONCLUSIVE`, non-trigger interval, or hard failure forbids B-REFINE.
+
+## 22. O-129 replacement Job 478250 — terminal baseline-instability FAIL
+
+Job `478250` consumed §21 exactly once on node `n409`. Slurm reports
+`FAILED 1:0`, no restart, `00:04:28` (`268 / 3600 = 0.074444` allocated
+GH200-hours). The 41 focused tests passed in `12.40s`. Source/tree, resources,
+configs, data, split, runtime dependencies, the direct read-only Job-477892
+panel reuse, and the exact expected W0 all passed. The sole FP32 disabled
+warm-up preserved W0 and was excluded as declared.
+
+The first calibrated `P_core` parity batch then produced:
+
+```text
+DISABLED0_LOSS: 391.5013732910156
+DISABLED1_LOSS: 388.7950134277344
+ENABLED_LOSS: 390.8602600097656
+DISABLED0_DISABLED1_OUTPUT_EXACT: false
+DISABLED0_DISABLED1_LOSS_EXACT: false
+DISABLED0_DISABLED1_RNG_EXACT: true
+DISABLED0_DISABLED1_MODEL_STATE_EXACT_TO_W0: true
+DISABLED0_DISABLED1_RAW_GRADIENT_HASH_EXACT: false
+DISABLED0_DISABLED1_GRADIENTS_FINITE: true
+DISABLED0_DISABLED1_MISSING_GRADIENTS: 0 / 0; sets equal
+DISABLED0_DISABLED1_PARAMETERS_COMPARED: 459
+DISABLED0_DISABLED1_ALLCLOSE_FAILURES: 434
+DISABLED0_DISABLED1_GLOBAL_RELATIVE_L2_ERROR: 3.5323887774502536
+DISABLED0_DISABLED1_GLOBAL_MAX_ABS_ERROR: 2422412.736328125
+CLASSIFICATION: baseline_instability
+```
+
+The disabled-0/enabled pair also failed, but §20 forbids attributing that
+difference to instrumentation once disabled-0/disabled-1 already fails. The
+same-path failure is large and affects output, loss and gradients, not merely
+raw gradient bytes. Identical RNG-state and W0-state hashes rule out observed
+framework RNG/state advancement, but do not identify a kernel or module cause.
+
+The job stopped before the second FP32 parity batch, all FP16 parity, broad,
+term, aggregation and localization cells. No optimizer, update, scheduler, EMA,
+GradScaler update, checkpoint or evaluator ran. There is no
+`LOCALIZED`/`INCONCLUSIVE` gradient-localization verdict and the predeclared
+`B-REFINE` trigger is false; no B-REFINE tuple may be derived.
+
+```text
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_diag_43f157b3eca7_o129_a1
+FAILURE_SUMMARY_SHA256: 1b33f286f704760a3ced86cd5b27ddba0483916a888eaf76b0e2a2f1ed0b91c7
+PARITY_JSONL_SHA256: 3b9ec27926baa93ca24ea533851f4f1d4628032f3c86a3d033d5909c6d059fcc
+PARITY_WARMUP_SHA256: d588a6aacd6cd492d0eb5de70963b556e94bf3408ccbfb59776f88d7a7d161f9
+INNER_ARTIFACT_MANIFEST_SHA256: d733bcb6db833a7ebb206d0eedd787909e695f962ba8160e110aab0c67174977
+RUNNER_ARTIFACT_MANIFEST_SHA256: 801e98c129797a6a71665c5227cbe6684a4001b39d617da91bbb7970b92c3543
+FINAL_EXIT/FOCUSED_TESTS_EXIT/OBSERVE_EXIT: 1 / 0 / 1
+```
+
+Every runner-manifest entry verifies and the output is recursively read-only.
+Actual STOP-B allocation is now `0.078889 + 0.074444 = 0.153333`
+GH200-hours; actual cumulative ABC allocation is `1.492223 + 0.074444 =
+1.566667` GH200-hours. Unused O-129 allocation is not a retry or alternative-
+probe entitlement. The bounded evidence now requires independent review before
+an owner decision on STOP-B disposition or any new diagnostic design.

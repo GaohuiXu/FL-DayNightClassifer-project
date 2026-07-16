@@ -26,8 +26,11 @@
 > pre-model panel/W0 freeze, before broad/term observations. No localization
 > verdict or refinement trigger exists from that job. O-129 now authorizes the
 > exact §20 parity correction, one replacement B-DIAG capped at `0.5` GH200-hour,
-> and zero or one trigger-bound B-REFINE capped at `0.25` GH200-hour. STOP-C is
-> unstarted. STOP-D/E/F and S11+ remain pending.
+> and zero or one trigger-bound B-REFINE capped at `0.25` GH200-hour. Replacement
+> Job `478250` passed its tests/identities and then failed the first FP32
+> disabled/disabled parity as calibrated `baseline_instability`; it stopped
+> before later cells, B-REFINE is false, and evidence review is pending. STOP-C
+> is unstarted. STOP-D/E/F and S11+ remain pending.
 >
 > `Sxx` is an evidence namespace, not automatically a worker, task, branch, or
 > worktree. Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Active launch
@@ -44,7 +47,7 @@
   ├─ S09 full-pipeline performance/readiness      [closed PASS under O-120]
   │      └─ independent review of exact profiling/evidence SHA
   │
-  ├─ S10 A-F CL health/recipe/speed/full claim     [STOP-A CLOSED; B remediation active]
+  ├─ S10 A-F CL health/recipe/speed/full claim     [STOP-A CLOSED; B evidence review]
   └─ S11 and later                                 [roles pending owner decision]
 ```
 
@@ -57,7 +60,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | STOP-A closed; O-129 replacement source `43f157b` and exact §21 tuple frozen; C unstarted |
+| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | STOP-A closed; Job `478250` calibrated baseline-instability FAIL, evidence review pending; C unstarted |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract

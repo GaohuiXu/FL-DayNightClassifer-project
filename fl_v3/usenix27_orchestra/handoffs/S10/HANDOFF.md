@@ -1,4 +1,4 @@
-# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B parity remediation active
+# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B baseline-instability FAIL under review
 
 ## 1. State and authority
 
@@ -8,10 +8,10 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-129 exact replacement B-DIAG frozen at RUN_REQUEST §21; conditional B-REFINE remains trigger-gated
+CURRENT_AUTHORITY: O-129 replacement consumed; evidence sealing/review only; no executable compute
 ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-128/O-129 bounded authority
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
-STOP_B: Job 477892 early parity FAIL; replacement source 43f157b/§21 tuple frozen; no verdict yet
+STOP_B: Job 478250 calibrated FP32 baseline-instability FAIL; localization verdict absent; review pending
 STOP_C: unstarted
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
@@ -513,3 +513,25 @@ instability from instrumentation non-neutrality without using observed Job
 `477892` differences to choose a tolerance. O-129 authorizes implementation,
 one immutable replacement B-DIAG capped at `0.5` GH200-hour, and zero or one
 trigger-bound B-REFINE capped at `0.25` GH200-hour.
+
+## 15. STOP-B O-129 replacement terminal state
+
+Implementation `43f157b3eca7ca72633358b5a2d2dbc4c4e4684b` and exact
+§21 Job `478250` completed the approved parity remediation. The job passed 41
+focused tests, reused the exact physical Job-477892 panel without reconstruction,
+matched the exact W0, and preserved W0 across the excluded FP32 warm-up.
+
+The first repeated disabled `P_core` B4 path then failed output/loss/gradient
+repeatability while RNG and model-state hashes remained exact. Disabled losses
+were `391.5013732910156` and `388.7950134277344`; all gradients were finite and
+present, but global relative-L2 difference was `3.5323887774502536` with 434/459
+parameters failing the fixed allclose envelope. Per the approved attribution
+rule this is **baseline_instability**, not an instrumentation-neutrality verdict.
+
+Job `478250` stopped before FP16 and every broad/term/aggregation/localization
+cell. It provides no `LOCALIZED`/`INCONCLUSIVE` gradient-localization verdict,
+does not explain the large LiDAR gradient, and does not prove a specific sparse
+kernel, GroupNorm, loss or architecture mechanism. B-REFINE is not triggered.
+The sealed runner manifest is `801e98c...`; exact hashes and compute accounting
+are in `RUN_REQUEST.md` §22 and `RESULTS.md`. No further compute is executable;
+independent review of the immutable evidence precedes owner disposition.
