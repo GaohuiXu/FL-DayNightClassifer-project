@@ -237,8 +237,8 @@ stochasticity but not a causal mechanism proof.
 
 The remediation is documentation-only. It changes no source, snapshot, config,
 data, panel, model, raw artifact, checksum, metric, classification or compute.
-Targeted re-review of the exact remediation SHA is required before final
-STOP-B disposition.
+Targeted re-review of the exact remediation SHA was required before final
+STOP-B disposition and is recorded in §9.
 
 Residual risks retained by the initial verdict:
 
@@ -250,3 +250,42 @@ Residual risks retained by the initial verdict:
   recomputed the actual raw classification;
 - no evidence explains the large true unscaled LiDAR-gradient mechanism or
   proves a specific sparse kernel/module/normalization cause.
+
+## 9. O-130 targeted remediation re-review and final verdict
+
+The same independent reviewer checked exact remediation SHA
+`02ba3b44202092894f2c1c3e7ee53bb56ba92a1d` read-only. The diff changes only
+five Markdown files. Implementation, configs, scripts, tests, the §24 tuple,
+snapshot `0bf9c0c`, raw outputs, checksums, classification and compute accounting
+are unchanged.
+
+```text
+P0: none open
+P1: none open
+P2: none open
+P3: none open
+NEW_FINDINGS: none
+FINAL_VERDICT: PASS_WITH_RESIDUAL_RISK
+STOP_B_CLOSURE: GO
+```
+
+The canonical lower graph/decision records now reflect Job `479667`, bounded
+route-level decomposition, large-gradient `INCONCLUSIVE`, no executable
+STOP-B compute and owner-gated STOP-C. The camera wording now states only
+RNG-dependent variation on a graph containing active stochastic-depth modules
+and explicitly records the absent mask capture/SD-disabled counterfactual.
+
+STOP-B's final accepted disposition is:
+
+```text
+STOP-B: CLOSED / INCONCLUSIVE
+B-RAND: integrity PASS
+ACCEPTED: bounded route-level repeatability decomposition
+NOT RESOLVED: large true LiDAR-gradient causality
+FURTHER STOP-B COMPUTE: none
+MODEL/RECIPE CHANGE: not authorized
+STOP-C: remains separately owner-gated
+```
+
+Residual risk remains exactly the bounded evidence limitations in §8. None is
+an open P0-P3 or a reason to rerun Job `479667`.

@@ -1,4 +1,4 @@
-# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B O-130 review pending
+# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B CLOSED INCONCLUSIVE
 
 ## 1. State and authority
 
@@ -8,10 +8,10 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-130 evidence sealing + one independent review; no compute
+CURRENT_AUTHORITY: no compute; STOP-C requires separate owner activation
 ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-128/O-129/O-130 bounded authority
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
-STOP_B: Job 479667 integrity PASS / MIXED_INCONCLUSIVE descriptive result / independent review pending
+STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
 STOP_C: unstarted
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
@@ -609,5 +609,14 @@ with summary SHA
 `dd51f5801084714fccbd0c351b0696c3a6a2843b462662c74f757fc12cd147c5`
 and runner-manifest SHA
 `d964b7cc5fa09692a9b8bd95b83cf8cfed85768ff771eaf8cc2a9c8c3cb11ac0`.
-STOP-B remains review-pending until an independent reviewer checks the exact
-evidence/docs SHA and raw artifacts. No compute is executable.
+Independent review of evidence SHA `fdf223b` found no P0-P2 and two
+documentation-only P3. Targeted re-review of remediation
+`02ba3b44202092894f2c1c3e7ee53bb56ba92a1d` closed both, found no new issues and
+returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P3.
+
+STOP-B is CLOSED / `INCONCLUSIVE`. Accepted evidence is the bounded route-level
+repeatability decomposition: camera RNG-dependent variation on the current
+stochastic graph and LiDAR sparse-route same-seed runtime variation. The large
+true unscaled LiDAR-gradient mechanism remains unresolved. No further STOP-B
+compute, model change or recipe change is authorized; STOP-C remains separately
+owner-gated.

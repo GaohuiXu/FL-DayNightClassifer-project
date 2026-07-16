@@ -66,8 +66,13 @@ read-only snapshot/command tuple are frozen in S10 `RUN_REQUEST.md` §24 and are
 the sole B-RAND submission. Job `479667` consumed it, completed `0:0` in
 `00:07:08`, passed 43 tests and the 33-run integrity gate, and returned the
 descriptive label `MIXED_INCONCLUSIVE` with both camera stochasticity and LiDAR
-runtime variation qualified. Independent review is pending; no retry or further
-compute is authorized. STOP-C and STOP-D/E/F execution remain separately gated.
+runtime variation qualified. Independent review and targeted remediation
+re-review at `02ba3b44202092894f2c1c3e7ee53bb56ba92a1d` returned
+`PASS_WITH_RESIDUAL_RISK` with no open P0-P3. STOP-B is CLOSED /
+`INCONCLUSIVE`: bounded route-level repeatability decomposition is accepted,
+but large-gradient causality remains unresolved. No retry, further STOP-B
+compute, or model/recipe change is authorized. STOP-C and STOP-D/E/F execution
+remain separately owner-gated.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-130 B-RAND §24 tuple CONSUMED by Job 479667 / review pending
+REQUEST_STATE: O-130 B-RAND consumed/reviewed / STOP-B CLOSED INCONCLUSIVE
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
 EXECUTION_AUTHORITY: O-130 one B-RAND at 00:15:00 / 0.25 GH200-hour
 SOURCE_SHA: 0bf9c0ce4148bc82d977e0d66615f606144971b6
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-128/O-129 prior STOP-B; O-130 B-RAND modification and compute approved 2026-07-16
-EXECUTABLE_NOW: no compute; evidence sealing and one independent review only
+EXECUTABLE_NOW: no compute; STOP-C requires separate owner activation
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly

@@ -1,4 +1,4 @@
-# S10 results — STOP-A CLOSED PASS; STOP-B O-130 evidence review pending
+# S10 results — STOP-A CLOSED PASS; STOP-B CLOSED INCONCLUSIVE
 
 ## STOP-A
 
@@ -333,3 +333,16 @@ GH200-hours. Actual cumulative ABC compute is
 `1.566667 + 0.118889 = 1.685556` GH200-hours, leaving
 `25.314444` hours under the active 27-hour aggregate. No unused O-130 time is a
 retry or follow-up entitlement.
+
+Independent review of exact evidence SHA `fdf223b` found no P0-P2 and two
+documentation-only P3: lower canonical status lag and causal overstatement of
+stochastic depth. Remediation `02ba3b44202092894f2c1c3e7ee53bb56ba92a1d`
+updated only five Markdown files. Targeted re-review verified unchanged
+implementation, tuple, raw hashes, classification and compute, closed both P3,
+found no new findings and returned `PASS_WITH_RESIDUAL_RISK` with no open
+P0-P3.
+
+Final STOP-B disposition is **CLOSED / INCONCLUSIVE**. The route-level
+repeatability decomposition is accepted; large-gradient causality remains
+unresolved. No further STOP-B compute or model/recipe change is authorized, and
+STOP-C is not started by this closure.
