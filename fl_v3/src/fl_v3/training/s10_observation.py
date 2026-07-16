@@ -426,15 +426,18 @@ def compare_parameter_gradient_tensors(
             allclose_failures.append(name)
         if bool(both_finite.any().item()):
             left64 = left_unscaled[both_finite].to(torch.float64)
-            delta64 = (
-                right_unscaled[both_finite].to(torch.float64) - left64
-            )
+            right64 = right_unscaled[both_finite].to(torch.float64)
+            delta64 = right64 - left64
             reference_sum_sq = float(torch.square(left64).sum().item())
+            candidate_sum_sq = float(torch.square(right64).sum().item())
             error_sum_sq = float(torch.square(delta64).sum().item())
+            dot_product = float((left64 * right64).sum().item())
             max_abs_error = float(delta64.abs().max().item())
         else:
             reference_sum_sq = 0.0
+            candidate_sum_sq = 0.0
             error_sum_sq = 0.0
+            dot_product = 0.0
             max_abs_error = 0.0
         entries.append({
             "name": name,
@@ -446,15 +449,26 @@ def compare_parameter_gradient_tensors(
             "all_finite": all_finite,
             "allclose": close,
             "reference_sum_sq": reference_sum_sq,
+            "candidate_sum_sq": candidate_sum_sq,
             "error_sum_sq": error_sum_sq,
+            "dot_product": dot_product,
             "max_abs_error": max_abs_error,
         })
 
     def summarize(group: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         reference_sum_sq = sum(float(item["reference_sum_sq"]) for item in group)
+        candidate_sum_sq = sum(float(item["candidate_sum_sq"]) for item in group)
         error_sum_sq = sum(float(item["error_sum_sq"]) for item in group)
+        dot_product = sum(float(item["dot_product"]) for item in group)
         reference_l2 = math.sqrt(max(0.0, reference_sum_sq))
+        candidate_l2 = math.sqrt(max(0.0, candidate_sum_sq))
         absolute_l2 = math.sqrt(max(0.0, error_sum_sq))
+        if reference_l2 > 0.0 and candidate_l2 > 0.0:
+            cosine = max(-1.0, min(1.0, dot_product / (reference_l2 * candidate_l2)))
+        elif reference_l2 == 0.0 and candidate_l2 == 0.0:
+            cosine = 1.0
+        else:
+            cosine = 0.0
         return {
             "parameter_count": len(group),
             "elements": sum(int(item["elements"]) for item in group),
@@ -470,10 +484,12 @@ def compare_parameter_gradient_tensors(
             "all_finite": all(bool(item["all_finite"]) for item in group),
             "allclose": all(bool(item["allclose"]) for item in group),
             "reference_l2": reference_l2,
+            "candidate_l2": candidate_l2,
             "absolute_l2_error": absolute_l2,
             "relative_l2_error": (
                 absolute_l2 / reference_l2 if reference_l2 > 0.0 else absolute_l2
             ),
+            "cosine_similarity": cosine,
             "max_abs_error": max(
                 (float(item["max_abs_error"]) for item in group), default=0.0
             ),
@@ -515,6 +531,221 @@ def compare_parameter_gradient_tensors(
             prefix: summarize(group) for prefix, group in sorted(by_prefix.items())
         },
         "gate_pass": gate,
+    }
+
+
+def capture_tensor_tree_tensors(value: Any) -> dict[str, torch.Tensor]:
+    """Copy a tensor-only nested output tree to named CPU tensors."""
+    result: dict[str, torch.Tensor] = {}
+
+    def visit(item: Any, path: str) -> None:
+        if torch.is_tensor(item):
+            result[path] = item.detach().cpu().clone()
+        elif isinstance(item, Mapping):
+            for key in sorted(item):
+                visit(item[key], f"{path}.{key}")
+        elif isinstance(item, (list, tuple)):
+            for index, child in enumerate(item):
+                visit(child, f"{path}[{index}]")
+        else:
+            raise TypeError(f"tensor tree contains unsupported {type(item)!r} at {path}")
+
+    visit(value, "root")
+    return result
+
+
+def compare_tensor_tree_tensors(
+    reference: Mapping[str, torch.Tensor],
+    candidate: Mapping[str, torch.Tensor],
+) -> dict[str, Any]:
+    """Return finite global/per-tensor numerical differences for output trees."""
+    reference_names = set(reference)
+    candidate_names = set(candidate)
+    shape_mismatches: list[str] = []
+    dtype_mismatches: list[str] = []
+    entries: list[dict[str, Any]] = []
+    for name in sorted(reference_names | candidate_names):
+        left = reference.get(name)
+        right = candidate.get(name)
+        if left is None or right is None:
+            continue
+        if tuple(left.shape) != tuple(right.shape):
+            shape_mismatches.append(name)
+            continue
+        if left.dtype != right.dtype:
+            dtype_mismatches.append(name)
+            continue
+        left_finite = torch.isfinite(left)
+        right_finite = torch.isfinite(right)
+        both_finite = left_finite & right_finite
+        if bool(both_finite.any().item()):
+            left64 = left[both_finite].to(torch.float64)
+            right64 = right[both_finite].to(torch.float64)
+            delta64 = right64 - left64
+            reference_sum_sq = float(torch.square(left64).sum().item())
+            candidate_sum_sq = float(torch.square(right64).sum().item())
+            error_sum_sq = float(torch.square(delta64).sum().item())
+            dot_product = float((left64 * right64).sum().item())
+            max_abs_error = float(delta64.abs().max().item())
+        else:
+            reference_sum_sq = candidate_sum_sq = error_sum_sq = dot_product = 0.0
+            max_abs_error = 0.0
+        entries.append({
+            "name": name,
+            "elements": int(left.numel()),
+            "finite_pair_elements": int(both_finite.sum().item()),
+            "reference_nonfinite_elements": int((~left_finite).sum().item()),
+            "candidate_nonfinite_elements": int((~right_finite).sum().item()),
+            "reference_sum_sq": reference_sum_sq,
+            "candidate_sum_sq": candidate_sum_sq,
+            "error_sum_sq": error_sum_sq,
+            "dot_product": dot_product,
+            "max_abs_error": max_abs_error,
+        })
+
+    def summarize(group: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        reference_l2 = math.sqrt(max(
+            0.0, sum(float(item["reference_sum_sq"]) for item in group)
+        ))
+        candidate_l2 = math.sqrt(max(
+            0.0, sum(float(item["candidate_sum_sq"]) for item in group)
+        ))
+        absolute_l2 = math.sqrt(max(
+            0.0, sum(float(item["error_sum_sq"]) for item in group)
+        ))
+        dot_product = sum(float(item["dot_product"]) for item in group)
+        if reference_l2 > 0.0 and candidate_l2 > 0.0:
+            cosine = max(-1.0, min(1.0, dot_product / (reference_l2 * candidate_l2)))
+        elif reference_l2 == 0.0 and candidate_l2 == 0.0:
+            cosine = 1.0
+        else:
+            cosine = 0.0
+        return {
+            "tensor_count": len(group),
+            "elements": sum(int(item["elements"]) for item in group),
+            "finite_pair_elements": sum(
+                int(item["finite_pair_elements"]) for item in group
+            ),
+            "reference_nonfinite_elements": sum(
+                int(item["reference_nonfinite_elements"]) for item in group
+            ),
+            "candidate_nonfinite_elements": sum(
+                int(item["candidate_nonfinite_elements"]) for item in group
+            ),
+            "all_finite": all(
+                int(item["reference_nonfinite_elements"]) == 0
+                and int(item["candidate_nonfinite_elements"]) == 0
+                for item in group
+            ),
+            "reference_l2": reference_l2,
+            "candidate_l2": candidate_l2,
+            "absolute_l2_error": absolute_l2,
+            "relative_l2_error": (
+                absolute_l2 / reference_l2 if reference_l2 > 0.0 else absolute_l2
+            ),
+            "cosine_similarity": cosine,
+            "max_abs_error": max(
+                (float(item["max_abs_error"]) for item in group), default=0.0
+            ),
+        }
+
+    return {
+        "name_set_equal": reference_names == candidate_names,
+        "shape_mismatch_tensors": shape_mismatches,
+        "dtype_mismatch_tensors": dtype_mismatches,
+        "global": summarize(entries),
+        "by_tensor": {
+            str(item["name"]): summarize([item]) for item in entries
+        },
+    }
+
+
+def classify_stop_b_randomness(
+    mode_summaries: Mapping[str, Mapping[str, Any]],
+    *,
+    dominance_factor: float = 4.0,
+    denominator_floor: float = 1e-8,
+) -> dict[str, Any]:
+    """Classify only the operational source of repeated STOP-B variation.
+
+    This intentionally does not claim a kernel, module, or large-gradient cause.
+    A label needs support from at least two of loss/output/gradient relative-L2
+    medians; otherwise the bounded result remains mixed/inconclusive.
+    """
+    _require(
+        math.isfinite(dominance_factor) and dominance_factor > 1.0,
+        "randomness dominance factor must be finite and greater than one",
+    )
+    _require(
+        math.isfinite(denominator_floor) and denominator_floor > 0.0,
+        "randomness denominator floor must be finite and positive",
+    )
+    mode_order = ("C-STR8", "L-S075", "F-U")
+    metric_fields = {
+        "loss": "loss_relative_difference",
+        "output": "output_relative_l2",
+        "gradient": "gradient_relative_l2",
+    }
+
+    def medians(mode: str, group: str) -> dict[str, float]:
+        try:
+            summary = mode_summaries[mode]["groups"][group]
+            return {
+                metric: float(summary[field]["median"])
+                for metric, field in metric_fields.items()
+            }
+        except (KeyError, TypeError, ValueError) as exc:
+            raise StopBObservationError(
+                f"invalid randomness summary for {mode}/{group}"
+            ) from exc
+
+    fixed = {mode: medians(mode, "fixed_seed") for mode in mode_order}
+    varying = {mode: medians(mode, "varying_seed") for mode in mode_order}
+    support = {
+        "CAMERA_STOCHASTICITY": [],
+        "LIDAR_RUNTIME_VARIATION": [],
+        "FUSION_ONLY_INTERACTION": [],
+    }
+    ratios = {}
+    for metric in metric_fields:
+        camera_ratio = varying["C-STR8"][metric] / max(
+            fixed["C-STR8"][metric], denominator_floor
+        )
+        lidar_ratio = fixed["L-S075"][metric] / max(
+            fixed["C-STR8"][metric], denominator_floor
+        )
+        fusion_ratio = fixed["F-U"][metric] / max(
+            fixed["C-STR8"][metric],
+            fixed["L-S075"][metric],
+            denominator_floor,
+        )
+        ratios[metric] = {
+            "camera_varying_over_fixed": camera_ratio,
+            "lidar_fixed_over_camera_fixed": lidar_ratio,
+            "fusion_fixed_over_max_unimodal_fixed": fusion_ratio,
+        }
+        if camera_ratio >= dominance_factor:
+            support["CAMERA_STOCHASTICITY"].append(metric)
+        if lidar_ratio >= dominance_factor:
+            support["LIDAR_RUNTIME_VARIATION"].append(metric)
+        if fusion_ratio >= dominance_factor:
+            support["FUSION_ONLY_INTERACTION"].append(metric)
+    qualified = sorted(
+        label for label, metrics in support.items() if len(metrics) >= 2
+    )
+    label = qualified[0] if len(qualified) == 1 else "MIXED_INCONCLUSIVE"
+    return {
+        "label": label,
+        "dominance_factor": float(dominance_factor),
+        "denominator_floor": float(denominator_floor),
+        "support_metrics": support,
+        "qualified_labels": qualified,
+        "ratios": ratios,
+        "fixed_seed_medians": fixed,
+        "varying_seed_medians": varying,
+        "interpretation": (
+            "operational candidate source only; no kernel/module/causal claim"
+        ),
     }
 
 
@@ -712,7 +943,10 @@ __all__ = [
     "StopBObservationRecorder",
     "attribute_term_gradients",
     "capture_parameter_gradient_tensors",
+    "capture_tensor_tree_tensors",
+    "classify_stop_b_randomness",
     "compare_parameter_gradient_tensors",
+    "compare_tensor_tree_tensors",
     "loss_term_snapshot",
     "module_state_sha256",
     "parameter_gradients_sha256",

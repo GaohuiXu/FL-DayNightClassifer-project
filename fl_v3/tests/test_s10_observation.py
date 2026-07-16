@@ -11,7 +11,10 @@ from fl_v3.models.fusion.second_sparse_backbone import _ObservedGroupNorm
 from fl_v3.training.s10_observation import (
     StopBObservationRecorder,
     attribute_term_gradients,
+    capture_tensor_tree_tensors,
+    classify_stop_b_randomness,
     compare_parameter_gradient_tensors,
+    compare_tensor_tree_tensors,
     loss_term_snapshot,
     recompose_from_sample_terms,
 )
@@ -159,6 +162,7 @@ def test_fixed_gradient_parity_gate_separates_hash_drift_from_numerical_drift():
     assert accepted["gate_pass"]
     assert accepted["missing_gradient_sets_equal"]
     assert accepted["global"]["relative_l2_error"] <= 1e-6
+    assert accepted["global"]["cosine_similarity"] == pytest.approx(1.0)
 
     drifted = dict(numerically_neutral)
     drifted["head.bias"] = torch.tensor([1.0])
@@ -167,3 +171,59 @@ def test_fixed_gradient_parity_gate_separates_hash_drift_from_numerical_drift():
     )
     assert not rejected["gate_pass"]
     assert "head.bias" in rejected["allclose_failure_parameters"]
+
+
+def test_tensor_tree_comparison_reports_relative_l2_and_cosine():
+    reference = capture_tensor_tree_tensors([
+        {"heatmap": torch.tensor([[1.0, 2.0]])},
+        {"reg": torch.tensor([[3.0]])},
+    ])
+    candidate = capture_tensor_tree_tensors([
+        {"heatmap": torch.tensor([[1.0, 2.5]])},
+        {"reg": torch.tensor([[3.0]])},
+    ])
+    report = compare_tensor_tree_tensors(reference, candidate)
+    assert report["name_set_equal"]
+    assert report["shape_mismatch_tensors"] == []
+    assert report["dtype_mismatch_tensors"] == []
+    assert report["global"]["all_finite"]
+    assert report["global"]["relative_l2_error"] > 0.0
+    assert 0.0 < report["global"]["cosine_similarity"] < 1.0
+    assert report["global"]["max_abs_error"] == pytest.approx(0.5)
+
+
+def test_randomness_classification_requires_two_metric_dominance():
+    def group(loss, output, gradient):
+        return {
+            "loss_relative_difference": {"median": loss},
+            "output_relative_l2": {"median": output},
+            "gradient_relative_l2": {"median": gradient},
+        }
+
+    summaries = {
+        "C-STR8": {
+            "groups": {
+                "fixed_seed": group(1e-9, 1e-9, 1e-9),
+                "varying_seed": group(1e-4, 2e-4, 3e-4),
+            }
+        },
+        "L-S075": {
+            "groups": {
+                "fixed_seed": group(2e-9, 2e-9, 2e-9),
+                "varying_seed": group(2e-9, 2e-9, 2e-9),
+            }
+        },
+        "F-U": {
+            "groups": {
+                "fixed_seed": group(2e-9, 2e-9, 2e-9),
+                "varying_seed": group(2e-9, 2e-9, 2e-9),
+            }
+        },
+    }
+    report = classify_stop_b_randomness(summaries)
+    assert report["label"] == "CAMERA_STOCHASTICITY"
+    assert report["support_metrics"]["CAMERA_STOCHASTICITY"] == [
+        "loss",
+        "output",
+        "gradient",
+    ]
