@@ -1,4 +1,4 @@
-# S10 results — STOP-A CLOSED PASS; STOP-B/C unstarted
+# S10 results — STOP-A CLOSED PASS; STOP-B B-DIAG frozen
 
 ## STOP-A
 
@@ -169,5 +169,16 @@ STOP-A is therefore CLOSED PASS for its exact interpretation: one immutable,
 log-owned, leakage-checked limited-rung proxy split and an internal evaluator
 that is tolerance-zero identical to the unchanged official path on both frozen
 full-val fixtures. It is not a model, recipe, convergence, fusion-gain or
-official-val capability PASS. STOP-B/C remain unstarted; no new job was prepared
-or submitted by this closure.
+official-val capability PASS.
+
+## STOP-B
+
+```text
+OWNER_DECISION: O-128
+IMPLEMENTATION_SHA: 8fd832dc7d46e8818216ecbcf228ef8fd0590ecb
+IMPLEMENTATION_TREE: d5ce6c060279271295abdca41c3ad7aec5870315
+B_DIAG_TUPLE: frozen in RUN_REQUEST.md §18; not yet consumed
+B_REFINE: conditional zero-or-one; not prepared
+RESULT: pending
+INDEPENDENT_REVIEW: pending immutable execution evidence
+```

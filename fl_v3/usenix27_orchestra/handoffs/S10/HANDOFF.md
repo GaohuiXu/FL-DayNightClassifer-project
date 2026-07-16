@@ -1,4 +1,4 @@
-# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B/C unstarted
+# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B B-DIAG frozen
 
 ## 1. State and authority
 
@@ -6,12 +6,13 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement
+OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: STOP-A closure docs only; no executable tuple
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124 remains bounded authority; exact future tuple still required
+CURRENT_AUTHORITY: exact STOP-B B-DIAG tuple frozen under O-128
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-128 bounded authority
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
-STOP_B/C: unstarted; STOP-A dependency met, but no B/C compute is prepared or running
+STOP_B: implementation 8fd832d; B-DIAG frozen/not yet consumed; B-REFINE conditional only
+STOP_C: unstarted
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```

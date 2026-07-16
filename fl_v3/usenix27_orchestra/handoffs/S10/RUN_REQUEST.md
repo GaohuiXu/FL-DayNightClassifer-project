@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: STOP-A CLOSED PASS / O-127 consumed / no executable tuple
+REQUEST_STATE: STOP-B B-DIAG exact tuple frozen / O-128 active / not yet consumed
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
-EXECUTION_AUTHORITY: STOP-A authority consumed; O-124 remains bounded for future exact B/C tuples
-SOURCE_SHA: ad93c89333b0a8f19abf138c8d6816e742b51e35
+EXECUTION_AUTHORITY: STOP-A consumed; O-124/O-128 authorize exact §18 B-DIAG once
+SOURCE_SHA: 8fd832dc7d46e8818216ecbcf228ef8fd0590ecb
 BRANCH: codex/s10-cl-model-recipe
-OWNER_APPROVAL: O-127 replacement approved 2026-07-16
-EXECUTABLE_NOW: none; §16 consumed once, STOP-A reviewed closed, no B/C tuple frozen
+OWNER_APPROVAL: O-128 STOP-B plan and compute approved 2026-07-16
+EXECUTABLE_NOW: §18 B-DIAG sole submission; STOP-A closed; STOP-C not authorized
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -756,3 +756,58 @@ train-only proxy split, ownership checker and evaluator engineering contract. It
 is not model capability, convergence, recipe, official-val performance or
 selection evidence. A4 must independently review the exact evidence commit
 before STOP-A closes or STOP-B/C may start.
+
+## 18. O-128 STOP-B / B-DIAG exact immutable tuple — frozen for sole submission
+
+```text
+REQUEST_ID: S10-STOP-B-DIAG-O128-v1
+REQUEST_STATE: APPROVED / FROZEN / NOT YET CONSUMED
+DERIVATION: O-128 exact activation inside O-124 STOP-B and 27-hour aggregate caps
+SOURCE_SHA: 8fd832dc7d46e8818216ecbcf228ef8fd0590ecb
+SOURCE_TREE: d5ce6c060279271295abdca41c3ad7aec5870315
+BRANCH_AT_FREEZE: codex/s10-cl-model-recipe
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_b_diag_8fd832dc7d46
+SNAPSHOT_MODE: detached HEAD; clean; read-only; exact source/tree above
+JOB_RUNNER_SHA256: 6cc4bfdea56f9c73c5e1b35fee55c269ee417256dffeab348d4a0c1a2536e818
+OBSERVER_RUNNER_SHA256: 767fdcd8a62b0d24f0cd2a1471d880dcc4a030db2723cdea7dfadd4a0a78b36a
+FP32_CONFIG_FILE_SHA256: 11e756e7174e4146d7809b0ec4cc29ceae917e46c268bd9e991283479d6eb612
+FP32_RESOLVED_SHA256: 561145f41c83a0ac739c17c818aee36f9963142df7c3251c05683e5eba0e6337
+FP16_CONFIG_FILE_SHA256: e61139b457b28fb2cb5fce478a7469d193162e4fd1c03e056f372862ccc22819
+FP16_RESOLVED_SHA256: cf6f4effe0c9532a45f3a2503a3f98423af2e340b16ae0419d6b287655709a48
+SPLIT_MANIFEST: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_feasible_ad93c89333b0_o127_a1/split/split_manifest.json
+SPLIT_MANIFEST_SHA256: 7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8
+ROLE: D_low / 10 logs / 153 scenes / 6,155 samples
+PANEL: generated and hash-frozen before model construction; P_core48 + disjoint P_term16; no reroll
+MODEL/INIT: unchanged F-U current graph; A0 all-scratch W0 seed 0; identical W0 bytes across precision cells
+PRECISION_ORDER: uniform FP32, then global FP16 autocast plus complete SECOND FP32 island
+PHYSICAL_MICROBATCH: B4 for every detector forward
+B1_EXCEPTION: four criterion-only evaluations sliced from one B4 detector output; zero B1 detector forwards
+CELLS_IN_ORDER: pre-model panel freeze; focused tests; FP32 parity x2; FP32 broad x16; FP32 term x4; FP32 aggregation x1; FP16 parity x2; FP16 broad x16
+DETECTOR_FORWARDS: 45 total; no optimizer construction/update, scheduler, EMA, GradScaler update, checkpoint or evaluator
+TERM_REPLAYS: 4 batches x (aggregate + 12 exact task/term sources); bounded below accepted ~400 replay cap
+LOCALIZATION_GATE: same adjacent interval in FP32/FP16; each precision median upstream/downstream RMS >=4, >=36/48 P_core samples ratio >2 and top interval, cross-precision median within 2x
+TERM_GATE: if localized, one exact task/term is dominant only at >=3/4 P_term batches and median projection share >=0.5
+EXIT: LOCALIZED or honest INCONCLUSIVE; neither is a causal model-change claim
+PARTITION/NODES/NTASKS: gpu / 1 / 1
+GPU: 1 x nvidia_gh200_120gb; one visible GH200; no DDP/array/spare GPU
+CPU/MEMORY/TIME: 8 / 64 GiB / 00:30:00
+MAX_THIS_ALLOCATION: 0.5 elapsed GH200-hour
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_diag_8fd832dc7d46_o128_a1
+CONCURRENCY_PREFLIGHT: require no other owner job before submission
+REQUEUE/RETRY: forbidden
+STOP: any source/config/data/panel/resource/runtime/test/parity/reconstruction/state/artifact failure or timeout
+ALLOWED_INTERPRETATION: current-W0 numerical localization or honest INCONCLUSIVE only
+FORBIDDEN_INTERPRETATION: convergence, capability, production recipe, official-val performance, causal architecture proof, trained-checkpoint health
+```
+
+Exact command:
+
+```bash
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=8 --mem=64G --gpus=nvidia_gh200_120gb:1 --time=00:30:00 --no-requeue --job-name=s10-stop-b-8fd832d --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_b_diag_8fd832dc7d46 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_b_diag_8fd832dc7d46_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_b_diag_8fd832dc7d46_%j.err --export=ALL,S10_STOPB_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_b_diag_8fd832dc7d46,S10_STOPB_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_diag_8fd832dc7d46_o128_a1,S10_STOPB_EXPECTED_SOURCE_SHA=8fd832dc7d46e8818216ecbcf228ef8fd0590ecb,S10_STOPB_EXPECTED_TREE=d5ce6c060279271295abdca41c3ad7aec5870315,S10_STOPB_EXPECTED_RUNNER_SHA256=6cc4bfdea56f9c73c5e1b35fee55c269ee417256dffeab348d4a0c1a2536e818,S10_STOPB_EXPECTED_OBSERVER_SHA256=767fdcd8a62b0d24f0cd2a1471d880dcc4a030db2723cdea7dfadd4a0a78b36a,S10_STOPB_EXPECTED_FP32_CONFIG_SHA256=11e756e7174e4146d7809b0ec4cc29ceae917e46c268bd9e991283479d6eb612,S10_STOPB_EXPECTED_FP16_CONFIG_SHA256=e61139b457b28fb2cb5fce478a7469d193162e4fd1c03e056f372862ccc22819 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_b_diag_8fd832dc7d46/fl_v3/scripts/run_s10_stop_b.sh
+```
+
+B-REFINE is not part of this command. It remains zero-or-one and can be derived
+only after a successful B-DIAG `LOCALIZED` result explicitly recommends one of
+the predeclared unresolved multi-operation intervals. `INCONCLUSIVE`, a hard
+failure or a single-operation interval does not authorize panel growth, a rerun
+or another hypothesis family.
