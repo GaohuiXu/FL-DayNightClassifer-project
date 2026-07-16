@@ -1,4 +1,4 @@
-# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B baseline-instability FAIL under review
+# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B reviewed baseline-instability FAIL
 
 ## 1. State and authority
 
@@ -8,10 +8,10 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-129 replacement consumed; evidence sealing/review only; no executable compute
+CURRENT_AUTHORITY: O-129 replacement consumed/reviewed; owner rebaseline required; no executable compute
 ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-128/O-129 bounded authority
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
-STOP_B: Job 478250 calibrated FP32 baseline-instability FAIL; localization verdict absent; review pending
+STOP_B: reviewed PASS_WITH_RESIDUAL_RISK; calibrated baseline-instability FAIL; localization absent; owner rebaseline required
 STOP_C: unstarted
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
@@ -533,5 +533,6 @@ cell. It provides no `LOCALIZED`/`INCONCLUSIVE` gradient-localization verdict,
 does not explain the large LiDAR gradient, and does not prove a specific sparse
 kernel, GroupNorm, loss or architecture mechanism. B-REFINE is not triggered.
 The sealed runner manifest is `801e98c...`; exact hashes and compute accounting
-are in `RUN_REQUEST.md` §22 and `RESULTS.md`. No further compute is executable;
-independent review of the immutable evidence precedes owner disposition.
+are in `RUN_REQUEST.md` §22 and `RESULTS.md`. Independent review returned
+`PASS_WITH_RESIDUAL_RISK` with no open P0-P3. No further compute is executable;
+STOP-B is sealed as this bounded negative result and requires owner rebaseline.

@@ -1,4 +1,4 @@
-# S10 independent review — STOP-A A4
+# S10 independent review — STOP-A A4 and STOP-B
 
 ## 1. Review envelope
 
@@ -122,3 +122,47 @@ scripts, tests and all raw hashes unchanged.
 Residual risk remains limited to the two interpretation notes in §4. STOP-A may
 close as a constrained split/evaluator engineering PASS. It does not establish
 model quality or authorize STOP-B compute.
+
+## 7. STOP-B independent review
+
+```text
+REVIEWER: independent /root/s10_stop_a_reviewer subagent reused; read-only
+IMPLEMENTATION_SHA: 43f157b3eca7ca72633358b5a2d2dbc4c4e4684b
+EVIDENCE_SHA: 36ae78521f96963c610eb94af440216396a1c8b7
+RAW_OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_diag_43f157b3eca7_o129_a1
+JOB: 478250
+REVIEWER_EDITS: none
+OPEN_P0_P1_P2_P3: none / none / none / none
+FINAL_VERDICT: PASS_WITH_RESIDUAL_RISK
+STOP_B_DISPOSITION: calibrated baseline-instability FAIL; localization absent; owner rebaseline required
+```
+
+The reviewer independently read the pinned implementation diff, O-129 and
+`RUN_REQUEST.md` §20-§22, evidence/docs commit, exact raw files and Slurm
+accounting. It found no defect that could turn a runner/gate error into the
+reported baseline-instability classification.
+
+Independently reproduced checks:
+
+- the snapshot is detached, clean and recursively read-only; source/tree,
+  runner/observer/config and diagnostic-source hashes match the frozen tuple;
+- all 41 focused tests passed; Job `478250` used one GH200, 8 CPUs, 64 GiB,
+  `00:04:28`, zero restarts and terminal `FAILED 1:0` as declared;
+- the exact physical Job-477892 panel was loaded read-only with matching
+  file/content hashes, and W0 remained byte-identical across warm-up and parity;
+- disabled-0/disabled-1 used the same `P_core` B4, seed `10000` and W0. RNG and
+  model-state hashes match, while output/loss differ; all 459 gradients are
+  finite and present, 434 fail the fixed allclose envelope, global relative-L2
+  is `3.5323887774502536`, and max-absolute error is `2422412.736328125`;
+- the attribution priority correctly chooses `baseline_instability` before
+  considering disabled/enabled neutrality; evidence was durable before raise;
+- both artifact manifests verify, no FP16/broad/term/aggregation/summary/refine
+  artifacts exist, and B-REFINE is not triggered.
+
+The residual risk is an interpretation boundary, not an open finding. Evidence
+proves only that this fixed batch/current W0/current runtime is numerically
+non-repeatable after one declared warm-up. It does not identify a kernel,
+module or mechanism, and cannot support a spconv, GroupNorm, loss-normalization,
+large-gradient-causality, convergence or recipe claim. STOP-B may be sealed as
+the bounded negative result above, but any further diagnosis or STOP-C advance
+requires an owner rebaseline and new exact authority.

@@ -1,4 +1,4 @@
-# S10 results — STOP-A CLOSED PASS; STOP-B baseline-instability FAIL under review
+# S10 results — STOP-A CLOSED PASS; STOP-B baseline-instability FAIL reviewed
 
 ## STOP-A
 
@@ -192,7 +192,7 @@ REPLACEMENT_TESTS: 41 passed in 12.40s
 REPLACEMENT_RESULT: FP32 P_core disabled0/disabled1 baseline_instability
 REPLACEMENT_LOCALIZATION_VERDICT: none; neither LOCALIZED nor INCONCLUSIVE
 REPLACEMENT_B_REFINE: trigger false; forbidden
-INDEPENDENT_REVIEW: pending exact replacement evidence commit
+INDEPENDENT_REVIEW: PASS_WITH_RESIDUAL_RISK / no open P0-P3 / owner rebaseline required
 ```
 
 The combined parity gate checked exact output hash, raw parameter-gradient hash,
@@ -234,5 +234,7 @@ ran no evaluator. B-REFINE is not triggered. All sealed checksums verify; the
 runner manifest SHA-256 is
 `801e98c129797a6a71665c5227cbe6684a4001b39d617da91bbb7970b92c3543`.
 Actual STOP-B compute is `0.153333` GH200-hours and cumulative ABC compute is
-`1.566667` GH200-hours. Independent review of the exact replacement evidence is
-required before STOP-B disposition.
+`1.566667` GH200-hours. Independent review returned
+`PASS_WITH_RESIDUAL_RISK` with no open P0-P3 and accepts only the bounded
+disposition **calibrated baseline-instability FAIL; localization absent; owner
+rebaseline required**.

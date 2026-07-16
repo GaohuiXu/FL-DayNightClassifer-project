@@ -12,7 +12,7 @@ EXECUTION_AUTHORITY: O-129 §20 implementation + one replacement B-DIAG + condit
 SOURCE_SHA: 43f157b3eca7ca72633358b5a2d2dbc4c4e4684b
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-128 STOP-B plan; O-129 §20 remediation/replacement approved 2026-07-16
-EXECUTABLE_NOW: none; B-REFINE trigger false; STOP-B evidence review/owner decision pending
+EXECUTABLE_NOW: none; B-REFINE false; STOP-B reviewed and requires owner rebaseline
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1029,4 +1029,7 @@ Actual STOP-B allocation is now `0.078889 + 0.074444 = 0.153333`
 GH200-hours; actual cumulative ABC allocation is `1.492223 + 0.074444 =
 1.566667` GH200-hours. Unused O-129 allocation is not a retry or alternative-
 probe entitlement. The bounded evidence now requires independent review before
-an owner decision on STOP-B disposition or any new diagnostic design.
+an owner decision on any rebaseline or new diagnostic design. Independent
+review subsequently returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P3 and
+accepted only: calibrated baseline-instability FAIL; localization absent; owner
+rebaseline required.

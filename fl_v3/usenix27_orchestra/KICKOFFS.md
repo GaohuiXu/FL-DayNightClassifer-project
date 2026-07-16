@@ -26,8 +26,9 @@
 > correction, one replacement B-DIAG capped at `0.5` GH200-hour and zero or one
 > trigger-bound B-REFINE capped at `0.25` GH200-hour. Replacement Job `478250`
 > passed 41 tests and every identity, then failed the first repeated-disabled
-> FP32 parity as `baseline_instability`; no later cell ran, B-REFINE is false,
-> and independent evidence review is pending. STOP-C is unstarted;
+> FP32 parity as `baseline_instability`; no later cell ran and B-REFINE is false.
+> Independent review returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P3;
+> owner rebaseline is required. STOP-C is unstarted;
 > STOP-D/E/F and S11+ remain unapproved.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
@@ -456,8 +457,9 @@ authorized.
   trigger B-REFINE (`0.25` GH200-hour maximum). Replacement source `43f157b`
   and the sole exact tuple were frozen in `RUN_REQUEST.md` §21. Job `478250`
   consumed it and failed the first FP32 disabled/disabled parity as calibrated
-  `baseline_instability`; no later cell ran, B-REFINE is false, and evidence
-  review is pending. STOP-C remains unstarted.
+  `baseline_instability`; no later cell ran and B-REFINE is false. Independent
+  review returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P3; owner rebaseline
+  is required. STOP-C remains unstarted.
 - **O-123 batch correction:** the B=1-based v0 request is rejected. Revised ABC
   scientific rungs use physical B=4 at minimum and bind a fixed-batch tail policy;
   B=1 may appear only in a tiny paired diagnostic check. B=8/16 belong to a later
