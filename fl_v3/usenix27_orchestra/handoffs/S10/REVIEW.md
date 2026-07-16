@@ -166,3 +166,87 @@ module or mechanism, and cannot support a spconv, GroupNorm, loss-normalization,
 large-gradient-causality, convergence or recipe claim. STOP-B may be sealed as
 the bounded negative result above, but any further diagnosis or STOP-C advance
 requires an owner rebaseline and new exact authority.
+
+## 8. STOP-B O-130 B-RAND independent review
+
+```text
+REVIEWER: independent /root/s10_stop_b_rand_reviewer subagent; read-only
+IMPLEMENTATION_SHA: 0bf9c0ce4148bc82d977e0d66615f606144971b6
+IMPLEMENTATION_TREE: 1852db34197c142714456f3fa07e999393dc1ba9
+EVIDENCE_SHA: fdf223bb1fbe6656e9c543bb3beac52aab13e6f4
+RAW_OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_rand_0bf9c0c_o130_a1
+JOB: 479667
+REVIEWER_EDITS: none
+P0/P1/P2: none / none / none
+P3: two documentation findings; remediation below
+INITIAL_VERDICT: PASS_WITH_RESIDUAL_RISK
+```
+
+The reviewer independently checked the pinned implementation/evidence diff,
+exact §23-§25 tuple, detached clean read-only snapshot, raw JSON/JSONL,
+checksum manifests and Slurm accounting. It found no defect that invalidates
+the B-RAND integrity PASS or the predeclared `MIXED_INCONCLUSIVE`
+classification.
+
+Independently reproduced evidence:
+
+- source/tree, split, panel, first `P_core` token vector, config file/resolved
+  hashes, F-U W0 and runtime/resource identities match;
+- Job `479667` completed `0:0` in `00:07:08` with zero restarts, one GH200,
+  8 CPUs and 64 GiB; both checksum layers pass and the output has no writable
+  paths;
+- 43 tests passed; raw cardinality is exactly 33 physical-B4
+  forward/backward runs and 24 reference comparisons in the approved mode/seed
+  order, with no optimizer, update or evaluator;
+- loss/output/gradients are finite, missing-gradient sets are stably empty,
+  fixed-seed post-run RNG hashes agree and model state remains W0;
+- independent recomputation of relative-L2/cosine/max-abs, prefix ordering,
+  medians, the fourfold floor-`1e-8` ratios and two-of-three rule matches the
+  summary;
+- C-STR8 fixed-seed is exact, while changing its seed produces camera
+  RNG-dependent variation on a graph containing active stochastic-depth
+  modules; L-S075 fixed/varying variation is comparable and its largest
+  gradient-direction changes occur in early SECOND prefixes; F-U fusion-only
+  support is loss-only and does not qualify;
+- the arithmetic is correct: Job `0.118889`, STOP-B `0.272222`, cumulative ABC
+  `1.685556`, and active 27-hour remainder `25.314444`.
+
+### P3 — canonical lower-level status lag
+
+The active top-level status and O-130 ledger were correct, but the lower graph
+and unresolved-decision rows in `ORCHESTRA.md`, plus a lower STOP-B paragraph in
+`SESSIONS.md`, still stopped at O-128/O-129 parity failure and owner rebaseline.
+This could mislead a later reader about the latest evidence, although it did not
+affect execution or raw interpretation.
+
+Remediation: update those lower canonical records to Job `479667` integrity
+PASS, route-level decomposition, large-gradient `INCONCLUSIVE`, no executable
+compute and owner-gated STOP-C.
+
+### P3 — stochastic-depth causal wording
+
+`HANDOFF.md` and `RESULTS.md` described changing seeds as directly activating or
+observing stochastic depth. Raw evidence directly proves only that the train-mode
+camera graph contains twelve `StochasticDepth` modules and that camera-only
+outputs/gradients vary with RNG seed. It does not retain masks or run an
+SD-disabled counterfactual.
+
+Remediation: describe the result as camera RNG-dependent variation on a graph
+containing active stochastic-depth modules, consistent with intended
+stochasticity but not a causal mechanism proof.
+
+The remediation is documentation-only. It changes no source, snapshot, config,
+data, panel, model, raw artifact, checksum, metric, classification or compute.
+Targeted re-review of the exact remediation SHA is required before final
+STOP-B disposition.
+
+Residual risks retained by the initial verdict:
+
+- one B4 token vector and four reference comparisons per group are bounded
+  operational evidence, not a population estimate;
+- no stochastic-depth mask/disable counterfactual exists;
+- the classification unit test covers a unique camera-label path rather than
+  the observed multi-label mixed path, although the reviewer independently
+  recomputed the actual raw classification;
+- no evidence explains the large true unscaled LiDAR-gradient mechanism or
+  proves a specific sparse kernel/module/normalization cause.

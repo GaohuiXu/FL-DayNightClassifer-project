@@ -369,8 +369,13 @@ P0-P3 and closed STOP-A. O-128 subsequently approved STOP-B as a continuous
 observation-first stop and froze its exact B-DIAG tuple. Job `477892` consumed
 that tuple and failed at the first FP32 disabled/on parity gate before broad/term
 observations. The failed runner did not persist the individual parity predicates,
-so STOP-B has no localization verdict and requires an owner decision. STOP-C
-remains unstarted and D/E/F remain separate future execution gates.
+so O-128 had no localization verdict. O-129 then durably classified same-path
+baseline instability, and O-130 Job `479667` separated exact fixed-seed camera
+repeatability plus camera RNG-dependent variation from LiDAR sparse-route
+same-seed runtime variation. B-RAND passed integrity but remains scientifically
+`INCONCLUSIVE` for the large-gradient mechanism; its independent remediation
+review is pending. No further STOP-B compute is executable. STOP-C remains
+unstarted and owner-gated; D/E/F remain separate future execution gates.
 
 O-123 rejects the first B=1-based ABC estimate. O-124 approves the revised v1 ABC
 completion envelope and starts continuous implementation/execution/review under

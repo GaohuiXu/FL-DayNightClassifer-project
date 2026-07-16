@@ -581,9 +581,11 @@ evaluator. Slurm reports `COMPLETED 0:0`, `00:07:08`, zero restarts and
 `0.118889` GH200-hours.
 
 C-STR8 is exactly repeatable for five seed-10000 repeats: loss, output and
-gradients all have zero relative difference and one exact hash. Varying seeds
-activate the declared Swin-T stochastic depth and produce median
-loss/output/gradient relative differences `0.033634 / 0.226290 / 0.165922`.
+gradients all have zero relative difference and one exact hash. On the graph
+containing twelve train-mode Swin-T stochastic-depth modules, varying seeds
+produce camera RNG-dependent median loss/output/gradient relative differences
+`0.033634 / 0.226290 / 0.165922`. The run did not capture stochastic-depth
+masks or execute an SD-disabled counterfactual.
 
 L-S075 has no stochastic-depth modules but is not same-seed repeatable. Its
 fixed-seed median output/gradient relative-L2 is `0.034248 / 0.657438`; changing

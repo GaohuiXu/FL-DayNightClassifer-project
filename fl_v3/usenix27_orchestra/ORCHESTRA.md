@@ -90,7 +90,7 @@ accepted clean engineering anchor 2a58405
                   ├── S09 performance/readiness
                   │      100 steps, then conditional 1000 steps; no mAP claim
                   │
-                  ├── S10 A-F CL health/recipe/speed/full claim     [STOP-A CLOSED; B parity FAIL]
+                  ├── S10 A-F CL health/recipe/speed/full claim     [STOP-A CLOSED; B O-130 REVIEW]
                   └── S11 and later                                  [pending]
 ```
 
@@ -398,9 +398,9 @@ does not broaden scientific, Git, compute, upload, or publication authority.
 |---|---|
 | Which, if any, sparse-normalization/head/view-transform amendment is promoted | observation-first STOP-B evidence followed by the bounded strong-contrast STOP-C gate; tiny-group GN remains a hypothesis, not a diagnosis |
 | Production optimizer groups/LR/scheduler/clip/EMA/augmentation/sampling recipe | select and freeze only in STOP-D after STOP-C architecture/init closure |
-| Cause of unusually large true SECOND gradients | Job `478250` first exposed a more basic same-path numerical-repeatability failure and could not enter localization; no mechanism or model change is accepted without owner rebaseline |
+| Cause of unusually large true SECOND gradients | Job `479667` operationally separates camera RNG-dependent variation from LiDAR sparse-route same-seed runtime variation, but large-gradient causality remains `INCONCLUSIVE`; no kernel/module/GN mechanism or model change is accepted |
 | Single-GPU batch/accumulation/workers and whether DDP is needed | STOP-D/E decision; B=2/B=4 remain capacity evidence until qualified, and DDP is not authorized |
-| STOP-A/B/C implementation, commit, isolated review topology, Slurm tuple and cumulative budget | STOP-A closed; O-129 Job `478250` reviewed baseline-instability FAIL, owner rebaseline required, no executable compute; STOP-C unstarted |
+| STOP-A/B/C implementation, commit, isolated review topology, Slurm tuple and cumulative budget | STOP-A closed; O-130 Job `479667` integrity PASS / `MIXED_INCONCLUSIVE`, remediation review pending, no executable compute; STOP-C unstarted and still owner-gated |
 | STOP-D/E/F exact cells, resources and execution | separately owner-gated after upstream evidence; STOP-F owns the single-seed primary full run and sealed official-val decision |
 | Absolute clean capability, fusion contribution, mAP/NDS, per-class and speed claims | only after the corresponding frozen STOP-F/E evidence; internal evaluator outputs are explicitly proxy-only |
 | S11 and later milestone roles | pending; do not inherit the historical S11-S15 outline without a new owner decision |

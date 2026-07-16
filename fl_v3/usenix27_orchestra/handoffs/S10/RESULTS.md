@@ -277,10 +277,13 @@ The controlled camera result is exact:
 | varying `11000..11004` | `0.0336344` | `0.2262902` | `0.1659221` | five unique hashes each |
 
 The trainable Swin-T registry contains twelve active stochastic-depth modules
-from probability `0.0` through `0.2`. Therefore intended camera stochasticity
-is directly observed under varying seeds, while same-seed C-STR8 is exactly
-repeatable. The prior Job-478250 same-seed failure cannot be explained by
-generic training chaos or fixed-seed camera stochastic depth.
+from probability `0.0` through `0.2`. The observed camera RNG-dependent
+variation under changing seeds is consistent with that intended stochastic
+graph, while same-seed C-STR8 is exactly repeatable. The run did not capture
+individual stochastic-depth masks or execute an SD-disabled counterfactual, so
+it does not prove that specific mechanism causally. The prior Job-478250
+same-seed failure cannot be explained by generic training chaos or fixed-seed
+camera RNG variation.
 
 The LiDAR result separates a second source:
 
