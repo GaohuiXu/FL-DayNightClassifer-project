@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: STOP-B B-DIAG consumed / Job 477892 early parity FAIL / no executable tuple
+REQUEST_STATE: O-129 parity remediation active / replacement tuple pending immutable freeze
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
-EXECUTION_AUTHORITY: STOP-A and O-128 B-DIAG consumed; no retry/replacement authorized
+EXECUTION_AUTHORITY: O-129 §20 implementation + one replacement B-DIAG + conditional B-REFINE
 SOURCE_SHA: 8fd832dc7d46e8818216ecbcf228ef8fd0590ecb
 BRANCH: codex/s10-cl-model-recipe
-OWNER_APPROVAL: O-128 STOP-B plan and compute approved 2026-07-16
-EXECUTABLE_NOW: none; STOP-B requires owner decision; STOP-C not authorized
+OWNER_APPROVAL: O-128 STOP-B plan; O-129 §20 remediation/replacement approved 2026-07-16
+EXECUTABLE_NOW: implementation/validation; replacement only after exact immutable tuple is recorded
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -858,9 +858,10 @@ first persist all parity predicates and measure disabled/disabled run-to-run
 variation before deciding whether disabled/on differences are instrumentation
 effects or the accepted sparse backend's non-bit-deterministic baseline.
 
-## 20. Proposed B-DIAG parity-remediation amendment — NOT APPROVED
+## 20. O-129 B-DIAG parity-remediation amendment — APPROVED
 
-This is a request design, not an executable tuple or a retroactive relaxation of
+This is an approved bounded amendment, not yet an executable immutable tuple and
+not a retroactive relaxation of
 Job `477892`. It preserves the exact model, W0, precision partitions, panel,
 seeds, broad/term/localization gates and no-update interpretation. The only
 proposed change is to make the parity test distinguish instrumentation effects
@@ -907,5 +908,6 @@ ABC_TOTAL_IF_FULLY_CONSUMED: 1.492223 + 0.75 = 2.242223 GH200-hours (< 27-hour a
 IDENTICAL_RETRY/DDP/ARRAY/SPARE_GPU: forbidden
 ```
 
-Owner approval is required before changing the parity gate, implementing this
-amendment, freezing a replacement source/tuple or submitting compute.
+Owner approval O-129 authorizes the exact protocol and resource amendment above.
+Execution still requires S00 to freeze and record the exact immutable replacement
+source/snapshot/config/data/cells/command/output tuple without semantic drift.

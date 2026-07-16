@@ -1,4 +1,4 @@
-# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B early parity FAIL
+# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B parity remediation active
 
 ## 1. State and authority
 
@@ -6,12 +6,12 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B
+OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-128 B-DIAG consumed by Job 477892; no executable tuple
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-128 bounded authority
+CURRENT_AUTHORITY: O-129 §20 implementation plus one replacement B-DIAG and conditional B-REFINE
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-128/O-129 bounded authority
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
-STOP_B: Job 477892 early parity FAIL; no LOCALIZED/INCONCLUSIVE verdict; owner decision required
+STOP_B: Job 477892 early parity FAIL; O-129 parity remediation/replacement active; no verdict yet
 STOP_C: unstarted
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
@@ -504,11 +504,12 @@ or B-REFINE. The sole O-128 B-DIAG submission is consumed and no automatic
 replacement exists. Exact job, panel, W0 and artifact identities are in
 `RUN_REQUEST.md` §19 and `RESULTS.md`.
 
-`RUN_REQUEST.md` §20 now records a **pending, unapproved** correction: reuse the
+`RUN_REQUEST.md` §20 records the **O-129-approved** correction: reuse the
 physical frozen panel, warm the sparse runtime without updates, compare two
 disabled runs before enabled diagnostics, retain exact hashes, apply the same
 fixed `rtol=1e-5/atol=1e-7` numerical envelope already used elsewhere in
 STOP-B, and persist every predicate before failing. This separates baseline
 instability from instrumentation non-neutrality without using observed Job
-`477892` differences to choose a tolerance. It is not implemented or executable
-until the owner approves the parity-gate and replacement-compute amendment.
+`477892` differences to choose a tolerance. O-129 authorizes implementation,
+one immutable replacement B-DIAG capped at `0.5` GH200-hour, and zero or one
+trigger-bound B-REFINE capped at `0.25` GH200-hour.
