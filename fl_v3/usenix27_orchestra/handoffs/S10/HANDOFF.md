@@ -8,10 +8,10 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-129 §20 implementation plus one replacement B-DIAG and conditional B-REFINE
+CURRENT_AUTHORITY: O-129 exact replacement B-DIAG frozen at RUN_REQUEST §21; conditional B-REFINE remains trigger-gated
 ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-128/O-129 bounded authority
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
-STOP_B: Job 477892 early parity FAIL; O-129 parity remediation/replacement active; no verdict yet
+STOP_B: Job 477892 early parity FAIL; replacement source 43f157b/§21 tuple frozen; no verdict yet
 STOP_C: unstarted
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized

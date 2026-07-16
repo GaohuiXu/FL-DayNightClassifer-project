@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-129 parity remediation active / replacement tuple pending immutable freeze
+REQUEST_STATE: O-129 replacement B-DIAG §21 APPROVED / FROZEN / NOT YET CONSUMED
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
 EXECUTION_AUTHORITY: O-129 §20 implementation + one replacement B-DIAG + conditional B-REFINE
-SOURCE_SHA: 8fd832dc7d46e8818216ecbcf228ef8fd0590ecb
+SOURCE_SHA: 43f157b3eca7ca72633358b5a2d2dbc4c4e4684b
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-128 STOP-B plan; O-129 §20 remediation/replacement approved 2026-07-16
-EXECUTABLE_NOW: implementation/validation; replacement only after exact immutable tuple is recorded
+EXECUTABLE_NOW: exact §21 replacement B-DIAG only; STOP-C remains unauthorized
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -911,3 +911,64 @@ IDENTICAL_RETRY/DDP/ARRAY/SPARE_GPU: forbidden
 Owner approval O-129 authorizes the exact protocol and resource amendment above.
 Execution still requires S00 to freeze and record the exact immutable replacement
 source/snapshot/config/data/cells/command/output tuple without semantic drift.
+
+## 21. O-129 replacement B-DIAG exact immutable tuple — frozen for sole submission
+
+```text
+REQUEST_ID: S10-STOP-B-DIAG-O129-v2
+REQUEST_STATE: APPROVED / FROZEN / NOT YET CONSUMED
+DERIVATION: exact O-129 §20 activation inside the 0.5-GH200-hour replacement cap
+SOURCE_SHA: 43f157b3eca7ca72633358b5a2d2dbc4c4e4684b
+SOURCE_TREE: 1235a76b3192812881da23b86ab280cb33dd4c20
+BRANCH_AT_FREEZE: codex/s10-cl-model-recipe
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_b_diag_43f157b3eca7_o129
+SNAPSHOT_MODE: standalone clone; detached HEAD; clean; recursively read-only; exact source/tree above
+JOB_RUNNER_SHA256: 2d267d25f9dcc8bc2ec8979ed86004ce0b7e40f9e028c80cd6a5d6cf36f66473
+OBSERVER_RUNNER_SHA256: 08f490e0e9d77396dd20d5a6bff62e98a7eb979556833c86fa8f46780304d36b
+BINDING_SOURCE_SHA256: dfbad494f2e0ca6cd70d881835bf3527aa5a39e38fca599bd0c507b140e13f19
+OBSERVATION_SOURCE_SHA256: 309ab4326c801f03aa4184fd30a4c280be6c1ea184c8af385bebe0a4865bc9b1
+FP32_CONFIG_FILE_SHA256: 11e756e7174e4146d7809b0ec4cc29ceae917e46c268bd9e991283479d6eb612
+FP32_RESOLVED_SHA256: 561145f41c83a0ac739c17c818aee36f9963142df7c3251c05683e5eba0e6337
+FP16_CONFIG_FILE_SHA256: e61139b457b28fb2cb5fce478a7469d193162e4fd1c03e056f372862ccc22819
+FP16_RESOLVED_SHA256: cf6f4effe0c9532a45f3a2503a3f98423af2e340b16ae0419d6b287655709a48
+SPLIT_MANIFEST: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_feasible_ad93c89333b0_o127_a1/split/split_manifest.json
+SPLIT_MANIFEST_SHA256: 7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8
+ROLE: D_low / 10 logs / 153 scenes / 6,155 samples
+PANEL_SOURCE_JOB: 477892
+PANEL_PHYSICAL_PATH: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_diag_8fd832dc7d46_o128_a1/panel_manifest.json
+PANEL_FILE_SHA256: c2826effeba2e074ef8f76ab582bbb5dc796f41b9555348d56e252a2d70138a6
+PANEL_CONTENT_SHA256: 8e4f2d992d7a27d771c6fdf00098afc14b9621bc50ea1e52319b84d406f9ad55
+PANEL_POLICY: direct read-only reuse; no metadata traversal, reconstruction, copy, reroll or growth
+MODEL/INIT: unchanged F-U current graph; A0 all-scratch W0 seed 0
+EXPECTED_W0_STATE_SHA256: e58bcd46d588c68b31335fe87cc5fbff06cbc0fbcdae7e88b0b1ed70d1d65395
+PRECISION_ORDER: all FP32 parity, all FP16 parity, then FP32 observations, then FP16 observations
+PHYSICAL_MICROBATCH: B4 for every detector forward
+PARITY_ORDER_PER_PRECISION: disabled P_core-batch0 warm-up; then disabled-0/disabled-1/enabled on P_core-batch0 and P_term-batch0
+PARITY_GATE: exact output/loss/RNG/model-state; raw gradient hashes retained; both off0-off1 and off0-on gradients allclose rtol=1e-5 atol=1e-7 and global relative-L2 <=1e-6
+SCIENTIFIC_CELLS_AFTER_ALL_PARITY_PASS: FP32 broad x16; FP32 term x4; FP32 aggregation x1; FP16 broad x16
+DETECTOR_FORWARDS: 51 total; no optimizer/update/scheduler/EMA/GradScaler/checkpoint/evaluator
+FOCUSED_TESTS: 41 expected; test_s10_binding, test_s10_observation, S08 precision partition/diagnostics, S04 SECOND contract, two model-task selectors
+LOCAL_VALIDATION: python3 py_compile PASS; bash -n PASS; git diff --check PASS; login pytest unavailable by environment and is not substituted for GH200 tests
+FAILURE_DURABILITY: parity runs/predicates/errors precede raise; failure_summary.json and artifact_sha256s.json required
+PARTITION/NODES/NTASKS: gpu / 1 / 1
+GPU: 1 x nvidia_gh200_120gb; one visible GH200; no DDP/array/spare GPU
+CPU/MEMORY/TIME: 8 / 64 GiB / 00:30:00
+MAX_THIS_ALLOCATION: 0.5 elapsed GH200-hour
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_diag_43f157b3eca7_o129_a1
+CONCURRENCY_PREFLIGHT: no owner job at tuple freeze; recheck immediately before submission
+REQUEUE/RETRY: forbidden
+STOP: any source/config/data/panel/W0/resource/runtime/test/parity/reconstruction/state/artifact failure or timeout
+ALLOWED_INTERPRETATION: current-W0 numerical localization or honest INCONCLUSIVE only
+FORBIDDEN_INTERPRETATION: convergence, capability, production recipe, official-val performance, causal architecture proof, trained-checkpoint health
+```
+
+Exact command:
+
+```bash
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=8 --mem=64G --gpus=nvidia_gh200_120gb:1 --time=00:30:00 --no-requeue --job-name=s10-stop-b-o129 --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_b_diag_43f157b3eca7_o129 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_b_diag_43f157b3eca7_o129_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_b_diag_43f157b3eca7_o129_%j.err --export=ALL,S10_STOPB_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_b_diag_43f157b3eca7_o129,S10_STOPB_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_diag_43f157b3eca7_o129_a1,S10_STOPB_EXPECTED_SOURCE_SHA=43f157b3eca7ca72633358b5a2d2dbc4c4e4684b,S10_STOPB_EXPECTED_TREE=1235a76b3192812881da23b86ab280cb33dd4c20,S10_STOPB_EXPECTED_RUNNER_SHA256=2d267d25f9dcc8bc2ec8979ed86004ce0b7e40f9e028c80cd6a5d6cf36f66473,S10_STOPB_EXPECTED_OBSERVER_SHA256=08f490e0e9d77396dd20d5a6bff62e98a7eb979556833c86fa8f46780304d36b,S10_STOPB_EXPECTED_FP32_CONFIG_SHA256=11e756e7174e4146d7809b0ec4cc29ceae917e46c268bd9e991283479d6eb612,S10_STOPB_EXPECTED_FP16_CONFIG_SHA256=e61139b457b28fb2cb5fce478a7469d193162e4fd1c03e056f372862ccc22819 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_b_diag_43f157b3eca7_o129/fl_v3/scripts/run_s10_stop_b.sh
+```
+
+The conditional B-REFINE remains absent from this command. It may be frozen and
+submitted at most once only if this replacement reaches `LOCALIZED` and its
+unchanged `refinement_recommended` predicate is true. Any parity failure,
+`INCONCLUSIVE`, non-trigger interval, or hard failure forbids B-REFINE.
