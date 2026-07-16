@@ -19,7 +19,7 @@ O127_REPLACEMENT_SHA: ad93c89333b0a8f19abf138c8d6816e742b51e35
 O127_REPLACEMENT_TUPLE: consumed once by Job 468404
 JOB: 468404 / COMPLETED 0:0 / 00:07:59 / zero restarts
 A3_RESULT: PASS — one-shot split, ownership checker and evaluator parity accepted for review
-INDEPENDENT_REVIEW: A4 pending exact immutable evidence SHA
+INDEPENDENT_REVIEW: initial A4 REMEDIATE on P2/P3 docs only; targeted re-review pending
 ```
 
 Job `463593` passed source/runtime preflight, then failed one focused test because
@@ -134,3 +134,23 @@ scientifically constrained, reusable limited-rung proxy split plus an exact
 evaluator path. It does not establish balance optimality, model capability,
 convergence, recipe quality or official-val performance. A4 independent high-
 risk review must accept the exact evidence commit before B/C can start.
+
+Initial A4 independently reviewed evidence SHA
+`2a0153be88311ce1f8d502f2593218494d579014` in a detached clean worktree. It
+found no data/split/evaluator P0/P1 defect and independently reproduced the
+checksum, ownership, parity, resource and negative-history evidence, but returned
+`REMEDIATE` on two documentation findings:
+
+- P2: `RUN_REQUEST.md` exposed both 27 and 28.1 hours as possible active ABC
+  aggregate ceilings. The remediation keeps the binding `AGENTS.md`/O-124
+  27-hour ceiling as the unique fail-closed aggregate. O-125 remains a
+  STOP-A-local, non-transferable contingency and does not broaden B/C authority.
+- P3: the phrase “role-bound CBGS seam” was stronger than the current helper,
+  which hashes caller-provided tokens and indices but does not verify an expected
+  manifest SHA or role. The remediation calls it a CBGS identity seam and makes
+  manifest/role/expected-token verification a STOP-D hard gate before CBGS can be
+  enabled.
+
+Neither finding changes Job `468404`, the immutable split, ownership, evaluator,
+model math or compute. STOP-A remains open pending targeted review of the
+documentation remediation; no rerun is needed or authorized.

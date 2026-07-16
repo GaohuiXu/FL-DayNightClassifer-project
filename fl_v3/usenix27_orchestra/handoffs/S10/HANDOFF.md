@@ -8,9 +8,9 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-127 A3 tuple consumed; immutable evidence commit and independent A4 review
+CURRENT_AUTHORITY: O-127 A3 tuple consumed; A4 docs remediation and targeted re-review
 ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-127 active only for STOP-A evidence/A4; B/C remain gated
-STOP_A: A3 engineering gate PASS at Job 468404; closure pending independent A4
+STOP_A: A3 engineering gate PASS; initial A4 REMEDIATE on docs only; targeted re-review pending
 STOP_B/C: unstarted because STOP-A exit gate is unmet
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
@@ -141,9 +141,14 @@ sha256sums.txt
 
 GT databases are role- and manifest-bound. Save source identities and build a
 separate database per promoted rung only when STOP-D needs GT paste; until that
-seam is implemented and accepted, GT paste remains off. CBGS first restricts to
-the role manifest, then derives and hashes its index. STOP-A does not prebuild
-unused GT databases.
+seam is implemented and accepted, GT paste remains off. CBGS is also off. STOP-A
+provides only a CBGS identity seam that hashes the token order already supplied
+by its caller and the expanded index; it does not itself verify an expected
+manifest SHA or role. Before STOP-D may enable CBGS, the production caller must
+first restrict the dataset to the accepted role manifest, verify the manifest
+SHA/role/expected token identity, then derive and record the CBGS index identity,
+with focused fail-closed tests. STOP-A does not prebuild unused GT databases or
+claim that this future caller integration is already complete.
 
 ## 4. STOP-A exact evaluator gate
 
@@ -355,7 +360,8 @@ Immutable implementation candidate
 `e27053a5b141e1afaa68363ce6deb2efdb60518e` adds only the accepted STOP-A
 surface: a no-seed log-level MILP plus emitted-artifact checker, inherited raw-
 dependency ownership audit, manifest-bound internal evaluator, exact official-
-path parity gate, and role-bound GTDB/CBGS seams. The existing official val entry
+path parity gate, a role-bound GTDB seam, and a CBGS token/index identity seam.
+The existing official val entry
 point is unchanged. GT paste and CBGS remain disabled; no model, loss, optimizer,
 schedule or precision behavior changes in STOP-A.
 
@@ -466,4 +472,10 @@ This is split/evaluator engineering evidence only, not model quality, recipe,
 convergence or official-val selection evidence. A3 consumed `0.133056`
 allocated GPU-hours, bringing cumulative STOP-A/ABC allocation to `1.413334`
 GPU-hours. The evidence is now ready for an immutable commit and independent A4
-review; B/C remain unstarted until review closure.
+review; B/C remain unstarted until review closure. The first A4 review found no
+split/evaluator/data P0/P1 finding, but returned `REMEDIATE` for an ambiguous
+27-versus-28.1-hour aggregate record (P2) and the over-strong CBGS role-binding
+description (P3). Both are documentation-only: the active aggregate is clarified
+to the binding, stricter 27-hour ceiling, and CBGS is explicitly gated on future
+STOP-D manifest/role caller integration. A targeted re-review is required before
+closure.

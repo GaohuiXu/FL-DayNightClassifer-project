@@ -5,7 +5,7 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-127 CONSUMED / Job 468404 A3 PASS / A4 review pending
+REQUEST_STATE: O-127 CONSUMED / Job 468404 A3 PASS / A4 docs remediation pending re-review
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
 EXECUTION_AUTHORITY: O-127 replacement consumed; evidence/A4 only, no further execution
@@ -36,7 +36,7 @@ full-train equivalent epoch). B1 is not an epoch/rung baseline.
 | A — split/evaluator | 0 GPU-h when a compatible CPU compute node is available; otherwise about 0.5 | 2.1 GH200-h after O-125 | metadata/MILP/checker/devkit parity are CPU work; O-125 added one contingency hour but authorized only one 15-minute A3 allocation |
 | B — observation-first | about 0.5–1 GH200-h | 2 GH200-h | B4 main panels/replays, one tiny paired B4-vs-four-B1 aggregation check, and at most one local boundary refinement |
 | C — architecture/init | about 12–16 GH200-h | 24 GH200-h | every scientific training cell is B4; six low/three mid slot stress case, up to two donor lineages, reference-graph penalty, eval and bounded step-debug allowance included |
-| **ABC total** | **about 13–18 GH200-h** | **28.1 GH200-h after O-125** | serial one-GPU execution; O-125's increment was STOP-A-only contingency |
+| **ABC total** | **about 13–18 GH200-h** | **27 GH200-h active aggregate** | binding O-124/`AGENTS.md` fail-closed ceiling; STOP-A contingency does not expand or transfer into the aggregate |
 
 The lower C expectation assumes only one staged donor survives. Two incompatible
 donor lineages (for example local and coherent-reference SECOND graphs) push the
@@ -69,10 +69,16 @@ measured STOP-C performance. O-124 approves these execution horizons and the har
 ceiling, including allowed sample-count upper bounds and at most two qualifying
 debug/fix cycles.
 
-The 28.1-hour amended ceiling is a safety ceiling, not a spending target. Job
-`467862` used only 0.253889 of O-125's contingency; the unused balance is not an
-execution entitlement and cannot be transferred to another candidate, seed,
-rung, longer horizon, STOP-D/E/F, DDP, array, profiler campaign or full run.
+The unique active aggregate ceiling is `27` elapsed one-GH200 hours under binding
+`AGENTS.md` and O-124. O-125 supplied a STOP-A-only contingency and raised that
+stop's local ceiling to `2.1` hours; it did not expand the active ABC aggregate or
+create transferable B/C budget. Every STOP-A allocation, including the O-126
+scheduler mismatch and O-127 replacement, still counts against the 27-hour
+aggregate. Stop-specific ceilings and the aggregate apply together; the most
+restrictive reached boundary wins. Job `467862` used only 0.253889 of O-125's
+contingency, but the unused balance is not an execution entitlement and cannot be
+transferred to another candidate, seed, rung, longer horizon, STOP-D/E/F, DDP,
+array, profiler campaign or full run.
 
 ## 3. Proposed allocation map
 
@@ -415,14 +421,20 @@ Owner decision O-125:
 ADDITIONAL_STOP_A_AUTHORITY: exactly the frozen 15-minute tuple above, executable once
 ADDITIONAL_NOMINAL_GPU_HOURS: 1.0 contingency; this tuple requests at most 0.25
 STOP_A_CUMULATIVE_CEILING: 2.1 elapsed GH200-hours
-ABC_CUMULATIVE_CEILING: 28.1 elapsed GH200-hours
+HISTORICAL_O125_REQUEST_RECORD_ABC_CEILING: 28.1 elapsed GH200-hours; non-operative after A4 conflict audit
+ACTIVE_FAIL_CLOSED_ABC_AGGREGATE_CEILING: 27 elapsed GH200-hours under binding AGENTS.md/O-124
 OTHER_STOP/CELL/SEED/HORIZON/RESOURCE BOUNDS: unchanged
 ON_ANY_FAILURE_OR_TIMEOUT: STOP-A blocked; no further fix/retry; return to owner
 ```
 
-The exact job asks for 15 minutes rather than reserving the one-hour contingency.
-The unused 45 minutes are neither spent nor an automatic identical retry or new
-submission authority. Any later tuple still requires a fresh diagnosed boundary.
+The historical O-125 request record arithmetically added the STOP-A contingency
+to the 27-hour envelope and called the result 28.1 hours. A4 found that this
+conflicted with binding `AGENTS.md`, O-124 and the fail-closed aggregate gate in
+§5. The stricter `27`-hour aggregate is therefore the only active execution
+boundary; this clarification narrows rather than expands authority. The exact job
+asked for 15 minutes rather than reserving the one-hour contingency. The unused
+45 minutes are neither spent nor an automatic identical retry or new submission
+authority. Any later tuple still requires a fresh diagnosed boundary.
 
 ## 11. A-GATE Job 467862 terminal timeout
 
@@ -464,7 +476,7 @@ SCIENTIFIC_ALLOCATIONS_CONSUMED: 1 / 7
 DEBUG_FIX_ALLOCATIONS_CONSUMED: 2 / 2
 SUBMISSIONS_CONSUMED: 3 / 9
 STOP_A_GPU_HOURS_CONSUMED: 1.271389 / 2.100000 amended ceiling
-ABC_GPU_HOURS_CONSUMED: 1.271389 / 28.100000 amended ceiling
+ABC_GPU_HOURS_CONSUMED: 1.271389 / 27.000000 active aggregate ceiling
 ```
 
 O-125 requires any timeout to return to the owner with no identical retry. STOP-A
@@ -675,6 +687,7 @@ SLURM_BATCH_GPU_MEMORY/UTILIZATION: 0 / 0
 TOTAL_CPU/MAX_RSS/MAX_VMEM: 07:05.995 / 9.39 GiB / 22.97 GiB
 ALLOCATED_GPU_HOURS: 479 / 3600 = 0.133056
 CUMULATIVE_STOP_A_AND_ABC_ALLOCATED_GPU_HOURS: 1.413334
+ACTIVE_ABC_AGGREGATE_CEILING/ARITHMETIC_REMAINDER: 27.000000 / 25.586666
 O127_SUBMISSIONS: 1 / 1 consumed
 REAL_SPLIT_CANDIDATES: 1 / 1 consumed; no reroll
 ```
