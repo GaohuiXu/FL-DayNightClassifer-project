@@ -19,8 +19,11 @@
 > O-124 authorizes bounded STOP-A/B/C completion. O-125's sole 15-minute final
 > STOP-A remediation tuple was consumed by Job `467862`: focused tests and the
 > 28,130-sample metadata traversal passed, but the exact MILP remained incomplete
-> at Slurm `TIMEOUT`. No split/parity artifact exists. STOP-A is blocked pending
-> an owner amendment; STOP-B/C have not started. STOP-D/E/F execution, merge,
+> at Slurm `TIMEOUT`. O-126 corrects the over-specified optimizer into a one-shot
+> feasibility constructor while retaining every ownership, support, leakage and
+> evaluator gate, and authorizes A1-A4 plus one CPU-only aarch64 A-GATE
+> (`0 GPU`, 4 CPU, 32 GiB, 15 minutes, no retry/reroll). STOP-A is active under
+> that serial protocol; STOP-B/C have not started. STOP-D/E/F execution, merge,
 > push, upload, publication, Protocol-A/B execution, attack, defense, and S11+
 > remain unauthorized.
 >
@@ -62,10 +65,11 @@ accepted clean engineering anchor 2a58405
 
 No deadline or milestone name creates execution authority. O-122 freezes the S10
 ordering and scientific boundaries recorded in
-[`handoffs/S10/HANDOFF.md`](handoffs/S10/HANDOFF.md); O-124/O-125 supplied only
+[`handoffs/S10/HANDOFF.md`](handoffs/S10/HANDOFF.md); O-124-O-126 supply only
 their recorded bounded execution authority. Job `467862` consumed O-125 and
-returned to the owner under its timeout rule. S11 and later remain undefined and
-pending rather than inheriting any historical graph.
+returned to the owner; O-126 is the explicit post-timeout scientific/resource
+amendment. S11 and later remain undefined and pending rather than inheriting any
+historical graph.
 
 ## 2. Accepted clean-foundation evidence
 
@@ -364,7 +368,7 @@ does not broaden scientific, Git, compute, upload, or publication authority.
 | Production optimizer groups/LR/scheduler/clip/EMA/augmentation/sampling recipe | select and freeze only in STOP-D after STOP-C architecture/init closure |
 | Cause of unusually large true SECOND gradients | STOP-B must return `LOCALIZED` or honestly `INCONCLUSIVE`; neither permits silent STOP-B model changes |
 | Single-GPU batch/accumulation/workers and whether DDP is needed | STOP-D/E decision; B=2/B=4 remain capacity evidence until qualified, and DDP is not authorized |
-| STOP-A/B/C implementation, commit, isolated review topology, Slurm tuple and cumulative budget | one bounded owner completion authority after GPU-budget review; currently not authorized |
+| STOP-A/B/C implementation, commit, isolated review topology, Slurm tuple and cumulative budget | O-126 authorizes only STOP-A A1-A4 and its one CPU-only tuple now; STOP-B/C remain ordered downstream and unstarted |
 | STOP-D/E/F exact cells, resources and execution | separately owner-gated after upstream evidence; STOP-F owns the single-seed primary full run and sealed official-val decision |
 | Absolute clean capability, fusion contribution, mAP/NDS, per-class and speed claims | only after the corresponding frozen STOP-F/E evidence; internal evaluator outputs are explicitly proxy-only |
 | S11 and later milestone roles | pending; do not inherit the historical S11-S15 outline without a new owner decision |
@@ -425,6 +429,7 @@ Closed ranges below are provenance.
 | O-123 | Reject `S10-ABC-COMPLETION-v0-estimate`: B=1 is proven under-utilization and cannot be the epoch/rung cost or execution basis for STOP-A/B/C. Any revised ABC request must use physical B=4 as the minimum scientific-training microbatch, reuse S09's accepted B4 20-update/throughput/memory evidence, and account for its fixed-batch tail explicitly; B=1 is allowed only for a tiny paired diagnostic decomposition and never for a rung or epoch. B=8/16 may be investigated later at the frozen recipe/performance boundary rather than silently added to ABC. An obvious implementation/training-correctness failure must stop the long cell and use bounded deterministic step probes before a fresh restart; finite but scientifically unhelpful or non-converging training is evidence, not permission for an open-ended debug/tuning chain. Reaffirm the simplified O-094 persistent-S00 collaboration model. No revised budget, implementation, commit, review worktree or Slurm authority is granted yet. | v0 compute estimate rejected / B4 minimum frozen / v1 replan pending |
 | O-124 | Approve `S10-ABC-COMPLETION-v1-B4-estimate` and start one continuous STOP-A/B/C completion goal. Authorize persistent S00 to implement, locally validate, create linear planning/implementation/evidence/remediation commits, derive and record every exact immutable job tuple before submission, submit and monitor serial Slurm work without repeated owner approval, and obtain stop-level independent review. The aggregate ceiling is 27 elapsed one-GH200 hours, at most one active job, at most seven scientific allocations plus two diagnosed debug/fix allocations (nine submissions total), no identical retry, no DDP/array/spare GPU, physical B4 minimum for scientific training, B1 diagnostic decomposition only, and the STOP-C `drop_last=true` matched-token proxy policy. Obvious correctness failures use the recorded `1 -> 5 -> 20` B4 step protocol; weak but finite scientific outcomes do not open tuning loops. Authorize one isolated S10-R review context/worktree required for high-risk STOP-A and reuse it rather than creating a review chain. Any changed data/metric/model/candidate/seed/horizon/resource boundary, repeated blocker, uncertain classification or exhausted cap returns to the owner. STOP-D/E/F, B8/16 execution, full run, merge, push, upload, publication, Protocol A/B execution, attack, defense and S11+ remain unauthorized. | aggregate ABC authority recorded / execution gated at STOP-A after O-125 |
 | O-125 | After STOP-A Job `463593` failed before real solve and derived Job `463649` passed focused tests/metadata traversal but exhausted its one-hour allocation inside the 94-cold-MILP exact tie-break, approve the output-equivalent `d7caf53` blocked-radix/fail-closed remediation and one exact final A-GATE tuple. The owner grants one additional GH200-hour of STOP-A contingency but requires the next allocation to request only `00:15:00`; unused contingency is not an automatic retry/submission entitlement. The frozen tuple keeps one GH200, 16 CPUs, 96 GiB, identical data/gates/output scope, no requeue/array/DDP, consumes debug/fix slot 2/2 and submission 3/9, and has canonical envelope SHA-256 `24de0be54806fbd1270bec2f560451ee62a138a593a5cb0a542f0a7c76d7f061`. Job `467862` consumed that tuple and timed out after `00:15:14`: 13 focused tests and full metadata traversal passed, but the exact split solve emitted no accepted split/parity artifact. Per the decision, no identical retry is authorized and STOP-A returns to the owner. Actual cumulative STOP-A/ABC allocation is `1.271389` GH200-hours; unused contingency confers no execution right. | consumed STOP-A final remediation / STOP-A blocked pending owner |
+| O-126 | Approve the corrected STOP-A scientific protocol and serial A1-A4 completion goal. Retain all frozen input identities, log-level ownership, quotas, sample/support/prevalence/dominance bounds, raw-dependency leakage proof, official-filter semantics and exact full-val evaluator parity, but remove the global balance-optimality hierarchy and sorted-log lexicographic certificate. Base and nested construction each execute exactly one zero-objective feasibility MILP; before either solve, freeze the input/feature hash and real-candidate ordinal `1`; accept and hash only that first feasible assignment, with no reroll, candidate shopping or cross-environment optimality claim. This produces a scientifically constrained, reusable limited-rung proxy split, not a balanced-optimal split or official benchmark. Authorize S00 to implement/validate/commit A1-A2, freeze and submit exactly one serial aarch64 CPU-only A-GATE on the `gpu` partition with no GPU GRES, 4 CPUs, 32 GiB and `00:15:00`, then seal evidence and obtain independent high-risk review in A4. Any failure/timeout returns to the owner with no retry; STOP-B/C do not start before reviewed STOP-A PASS. | active STOP-A A1-A4 authority / one CPU-only gate / B-C gated |
 
 ## 10. Closed and consumed history
 

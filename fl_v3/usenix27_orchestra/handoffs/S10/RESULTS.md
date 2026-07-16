@@ -1,4 +1,4 @@
-# S10 results — STOP-A blocked; STOP-B/C unstarted
+# S10 results — STOP-A corrected protocol active; STOP-B/C unstarted
 
 ## STOP-A
 
@@ -10,7 +10,8 @@ JOB: 463593 / FAILED 1:0 / 00:00:49 / zero restarts
 JOB: 463649 / TIMEOUT 0:0 / 01:00:14 / zero restarts
 JOB: 467862 / TIMEOUT 0:0 / 00:15:14 / zero restarts
 RESULT: no accepted split/parity; exact split solve exceeded all frozen walltimes
-FINAL_A3: consumed under O-125; no retry authorized
+LEGACY_A3: consumed under O-125; no retry or reinterpretation
+CORRECTED_A1-A4: approved under O-126; evidence pending
 INDEPENDENT_REVIEW: pending immutable PASS evidence
 ```
 
@@ -53,6 +54,14 @@ execution identity is
 `b149c366cbd1427e0c2d2a2e51af4782bca9376641c55d3147e5e9cc33b2566a`;
 gate stderr is
 `3534797b3098669b99befbe99286eac3bcd4ebb5c501fd18c62aa3515e24b63b`.
-O-125 forbids an identical retry after timeout. STOP-A is blocked pending an
-owner decision on the exact-solver/gate boundary; STOP-B and STOP-C have not
-started.
+O-125 forbade an identical retry after timeout, so STOP-A returned to the owner
+at that boundary; STOP-B and STOP-C did not start.
+
+O-126 supplies that explicit amendment: the hard scientific constraints,
+ownership/leakage proof and exact evaluator-parity gate remain unchanged, while
+the unnecessary global balance/lexicographic optimizer is replaced by base and
+nested one-shot zero-objective feasibility solves. The feature table and ordinal
+one are frozen before solving; no alternative candidate or reroll is allowed.
+No corrected A-GATE result is recorded yet. The sole authorized allocation is
+CPU-only (`0 GPU`, 4 CPU, 32 GiB, 15 minutes) and will appear here only after its
+exact A2 tuple is frozen and actually executed.

@@ -1,5 +1,5 @@
 #!/bin/bash
-# One-shot S10 STOP-A split/ownership/evaluator gate. No model or training path.
+# One-shot CPU-only S10 STOP-A split/ownership/evaluator gate. No model/training path.
 set -euo pipefail
 umask 077
 
@@ -41,6 +41,7 @@ arrhenius_activate_env
 export PYTHONPATH="${S10_STOPA_SNAPSHOT}/fl_v3/src"
 export PYTHONNOUSERSITE=1
 export PYTHONUNBUFFERED=1
+export CUDA_VISIBLE_DEVICES=""
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 export WORLD_SIZE=1
@@ -48,7 +49,11 @@ export NUSCENES_DATAROOT="${NUSCENES_DATA_DIR}"
 export NUSCENES_ZIP_MANIFEST="${ZIP_MANIFEST}"
 
 test "${NUSCENES_DATAROOT}" = "/dataset/easybuild/data/nuScenes-data/1.0-map-1.3-zip"
-test "${SLURM_GPUS_ON_NODE:-1}" != "0"
+test "${SLURM_JOB_PARTITION:-}" = "gpu"
+test "${SLURM_CPUS_PER_TASK:-}" = "4"
+test "${SLURM_MEM_PER_NODE:-}" = "32768"
+test -z "${SLURM_JOB_GPUS:-}"
+test "${SLURM_GPUS_ON_NODE:-0}" = "0"
 mkdir -p "${WORK}"
 runner_complete=0
 
@@ -108,12 +113,16 @@ import torch
 snapshot, source_sha, source_tree, runner_sha256 = sys.argv[1:]
 if platform.machine() != "aarch64":
     raise RuntimeError("STOP-A validated environment requires an aarch64 compute node")
-if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
-    raise RuntimeError("STOP-A allocation requires exactly one visible GH200")
-if torch.cuda.get_device_name(0) != "NVIDIA GH200 120GB":
-    raise RuntimeError("unexpected accelerator target")
+if os.environ.get("CUDA_VISIBLE_DEVICES") != "":
+    raise RuntimeError("STOP-A CPU-only gate requires empty CUDA_VISIBLE_DEVICES")
+if os.environ.get("SLURM_JOB_GPUS"):
+    raise RuntimeError("STOP-A CPU-only gate received an unexpected GPU allocation")
+if os.environ.get("SLURM_GPUS_ON_NODE", "0") != "0":
+    raise RuntimeError("STOP-A CPU-only gate received nonzero GPUs on node")
+if torch.cuda.is_available() or torch.cuda.device_count() != 0:
+    raise RuntimeError("STOP-A CPU-only gate unexpectedly exposes a CUDA device")
 print(json.dumps({
-    "schema": "fl_v3.s10.stop_a_execution_identity.v1",
+    "schema": "fl_v3.s10.stop_a_execution_identity.v2",
     "job_id": os.environ.get("SLURM_JOB_ID"),
     "node": platform.node(),
     "machine": platform.machine(),
@@ -122,7 +131,13 @@ print(json.dumps({
     "torch_cuda": torch.version.cuda,
     "scipy": scipy.__version__,
     "nuscenes_devkit": version("nuscenes-devkit"),
-    "device": torch.cuda.get_device_name(0),
+    "allocation": "cpu_only_no_gpu_gres",
+    "device": "CPU-only aarch64; no GPU GRES",
+    "slurm_job_gpus": os.environ.get("SLURM_JOB_GPUS", ""),
+    "slurm_gpus_on_node": os.environ.get("SLURM_GPUS_ON_NODE", "0"),
+    "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
+    "torch_cuda_available": torch.cuda.is_available(),
+    "torch_cuda_device_count": torch.cuda.device_count(),
     "snapshot": str(Path(snapshot).resolve(strict=True)),
     "source_sha": source_sha,
     "source_tree": source_tree,

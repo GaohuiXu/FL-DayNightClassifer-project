@@ -12,9 +12,11 @@
 > “absolute clean capability + fusion contribution”. O-124 activates bounded
 > STOP-A/B/C completion. O-125's exact final 15-minute STOP-A remediation tuple
 > was consumed by Job `467862`, which passed focused tests and metadata traversal
-> but timed out in the exact MILP without a split/parity artifact. STOP-A is
-> blocked pending owner direction; STOP-B/C are unstarted. STOP-D/E/F execution
-> and S11+ remain pending.
+> but timed out in the exact MILP without a split/parity artifact. O-126 replaces
+> only the unnecessary global optimum/tie certificate with a one-shot frozen
+> feasibility protocol and authorizes serial A1-A4 plus one 0-GPU aarch64 gate.
+> STOP-A is active; STOP-B/C are unstarted. STOP-D/E/F execution and S11+ remain
+> pending.
 >
 > `Sxx` is an evidence namespace, not automatically a worker, task, branch, or
 > worktree. Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Active launch
@@ -31,7 +33,7 @@
   ├─ S09 full-pipeline performance/readiness      [closed PASS under O-120]
   │      └─ independent review of exact profiling/evidence SHA
   │
-  ├─ S10 A-F CL health/recipe/speed/full claim     [STOP-A blocked after final A3 timeout]
+  ├─ S10 A-F CL health/recipe/speed/full claim     [STOP-A A1-A4 active under O-126]
   └─ S11 and later                                 [roles pending owner decision]
 ```
 
@@ -44,7 +46,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | six-stop A-F envelope accepted under O-122; O-125 consumed by Job `467862` timeout; STOP-A blocked with no accepted split/parity, B/C unstarted |
+| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | six-stop A-F envelope accepted under O-122; O-126 activates corrected one-shot feasibility A1-A4 after Job `467862`; B/C unstarted |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract
@@ -318,7 +320,7 @@ candidate and claim limits are in
 
 | STOP | Question and exit | Explicit non-goal |
 |---|---|---|
-| A — Split/Metric | Materialize the deterministic train-only nested ownership split; prove no leakage; make the internal-subset evaluator exactly agree with the unchanged official evaluator on full-val parity fixtures; freeze artifact hashes. | No model training, checkpoint selection, or official-val observation for selection. |
+| A — Split/Metric | Materialize the one-shot frozen train-only nested feasibility split; prove no leakage; make the internal-subset evaluator exactly agree with the unchanged official evaluator on full-val parity fixtures; freeze artifact hashes. | No reroll/balance-optimality claim, model training, checkpoint selection, or official-val observation for selection. |
 | B — Observation-first | On a fixed `D_low` panel and the current graph, compare FP32 with accepted FP16+SECOND-FP32; decompose targets, loss normalization, sparse occupancy, norm placement and boundary gradients without optimizer updates; exit `LOCALIZED` or `INCONCLUSIVE`. | No clipping, normalization, head, loss, view-transform or architecture amendment. |
 | C — Architecture/Initialization | Run the current local family against one coherent MIT-reference-derived package, all-scratch negative control and at most two B-triggered single-factor counterfactuals through `D_low -> D_mid`; compare joint and staged-L initialization; retain at most two graph/init families. | No recipe Cartesian product, LR/WD/EMA/augmentation/batch sweep, extra seed, `D_audit`, official val, or full run. |
 | D — Recipe/Production Freeze | On the accepted graph/init finalists, select optimizer groups, LR/WD, schedule/warmup, clipping, EMA, sampling/CBGS, augmentation/GT-paste, batch/accumulation and exposure on `D_select`; bind `candidate_freeze.json`; open `D_audit` exactly once; then freeze the final graph/recipe or report `INCONCLUSIVE`. | No architecture reopening, audit-driven reselection, second `D_audit`, or official-val tuning. |
@@ -334,13 +336,13 @@ LiDAR-conditioned `DepthLSS` consideration requires B/C evidence of a current
 graph defect or material capability loss and must consume, not expand, the
 counterfactual cap.
 
-Current authority is documentation only. After the owner accepts the cumulative
-ABC resource envelope, one completion decision may authorize persistent S00 to
-implement, validate, commit, submit serial Slurm jobs, record evidence and obtain
-independent review without per-job permission, provided every exact immutable
-tuple is recorded before submission and stays within the frozen cells, seeds,
-derivation rules and cumulative cap. This completion authority must not be
-mislabelled as O-107. D/E/F remain separate future execution gates.
+O-126 now authorizes STOP-A A1-A4 only: implement and locally validate the
+one-shot feasibility protocol, freeze an immutable source/tuple, run exactly one
+CPU-only aarch64 gate, seal its evidence, and obtain independent high-risk
+review. The split freezes the first feasible assignment after a pre-solve input/
+feature hash; it has no global balance-optimality claim and cannot be rerolled.
+STOP-B/C remain downstream of reviewed STOP-A PASS. D/E/F remain separate future
+execution gates.
 
 O-123 rejects the first B=1-based ABC estimate. O-124 approves the revised v1 ABC
 completion envelope and starts continuous implementation/execution/review under

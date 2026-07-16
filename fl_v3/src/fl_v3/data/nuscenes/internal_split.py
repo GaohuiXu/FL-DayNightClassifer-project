@@ -1,9 +1,12 @@
-"""Deterministic S10 train-only split and ownership audit.
+"""One-shot frozen S10 train-only split and ownership audit.
 
 The split unit is a nuScenes ``log_token``.  A no-seed MILP chooses the
 ``D_fit/D_select/D_audit`` ownership and the nested ``D_low/D_mid`` rungs.  The
-solver is followed by a separate reconstruction checker which consumes emitted
-features/ownership rather than trusting solver summaries.
+MILP is a feasibility constructor: the first solution satisfying every frozen
+hard constraint is emitted once and then bound by artifact hashes.  It makes no
+global balance-optimality or lexicographic-minimality claim.  A separate
+reconstruction checker consumes emitted features/ownership rather than trusting
+solver summaries.
 
 Two support definitions stay explicit throughout:
 
@@ -25,7 +28,7 @@ import os
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Sequence, Tuple
 
 
-SCHEMA_PROTOCOL = "fl_v3.s10.split_protocol.v1"
+SCHEMA_PROTOCOL = "fl_v3.s10.split_protocol.v2"
 SCHEMA_MANIFEST = "fl_v3.s10.split_manifest.v1"
 SCHEMA_OWNERSHIP = "fl_v3.s10.sample_ownership.v1"
 DETECTION_NAMES = (
@@ -52,7 +55,6 @@ BASE_LOG_QUOTAS = {
     "D_select": (3, 3, 1, 1),
     "D_audit": (3, 3, 1, 1),
 }
-BASE_TARGETS = {"D_fit": (7, 10), "D_select": (3, 20), "D_audit": (3, 20)}
 BASE_SAMPLE_BOUNDS = {
     "D_fit": ((67, 100), (73, 100)),
     "D_select": ((12, 100), (18, 100)),
@@ -60,12 +62,11 @@ BASE_SAMPLE_BOUNDS = {
 }
 NESTED_ROLES = ("D_low", "D_mid")
 NESTED_LOG_QUOTAS = {"D_low": (5, 3, 1, 1), "D_mid": (9, 7, 3, 1)}
-NESTED_TARGETS = {"D_low": (3, 10), "D_mid": (3, 5)}
 NESTED_SAMPLE_BOUNDS = {
     "D_low": ((27, 100), (33, 100)),
     "D_mid": ((57, 100), (63, 100)),
 }
-ASSIGNMENT_LEX_BLOCK_SIZE = 10
+SELECTION_POLICY = "first_feasible_one_shot_frozen"
 
 
 class SplitContractError(ValueError):
@@ -352,20 +353,14 @@ class _MilpProblem:
         )
         if result.status != 0 or not result.success or result.x is None:
             raise SplitContractError(
-                f"MILP did not reach OPTIMAL: status={result.status}, message={result.message}"
+                "MILP did not find and certify a feasible integer assignment: "
+                f"status={result.status}, message={result.message}"
+            )
+        if abs(float(result.fun)) > 1e-9:
+            raise SplitContractError(
+                f"feasibility MILP returned nonzero objective {result.fun}"
             )
         return result
-
-
-def _sum_expr(indices: Iterable[int], weights: Iterable[float] | None = None) -> Dict[int, float]:
-    out: Dict[int, float] = defaultdict(float)
-    if weights is None:
-        for index in indices:
-            out[int(index)] += 1.0
-    else:
-        for index, weight in zip(indices, weights):
-            out[int(index)] += float(weight)
-    return dict(out)
 
 
 def _plus(*expressions: Mapping[int, float]) -> Dict[int, float]:
@@ -378,32 +373,6 @@ def _plus(*expressions: Mapping[int, float]) -> Dict[int, float]:
 
 def _scaled(expression: Mapping[int, float], factor: float) -> Dict[int, float]:
     return {index: float(value) * factor for index, value in expression.items()}
-
-
-def _add_ppm_deviation(
-    problem: _MilpProblem,
-    expression: Mapping[int, float],
-    total: int,
-    target: Tuple[int, int],
-    name: str,
-) -> int:
-    if total <= 0:
-        raise SplitContractError(f"cannot define ppm objective {name} with total={total}")
-    numerator, denominator = target
-    target_ppm = 1_000_000.0 * numerator / denominator
-    scale = 1_000_000.0 / total
-    dev = problem.add_var(name, lower=0, upper=1_000_000, integer=True)
-    problem.add_constraint(
-        _plus(_scaled(expression, scale), {dev: -1}),
-        upper=target_ppm,
-        name=f"{name}:positive",
-    )
-    problem.add_constraint(
-        _plus(_scaled(expression, -scale), {dev: -1}),
-        upper=-target_ppm,
-        name=f"{name}:negative",
-    )
-    return dev
 
 
 def _integer_interval(total: int, bounds: Tuple[Tuple[int, int], Tuple[int, int]]) -> Tuple[int, int]:
@@ -422,36 +391,6 @@ def _feature_expr(
         for index, record in enumerate(features)
         if float(getter(record)) != 0.0
     }
-
-
-def _fix_lex_stage(problem: _MilpProblem, objective: Mapping[int, float], label: str):
-    result = problem.solve(objective)
-    value = float(result.fun)
-    rounded = round(value)
-    if abs(value - rounded) > 1e-5:
-        raise SplitContractError(f"non-integral lex objective {label}: {value}")
-    problem.add_constraint(objective, lower=rounded, upper=rounded, name=f"fix:{label}")
-    return result, int(rounded)
-
-
-def _radix3_weights(length: int) -> Tuple[int, ...]:
-    """Return safe exact weights for one contiguous assignment-vector block."""
-    if not 1 <= length <= ASSIGNMENT_LEX_BLOCK_SIZE:
-        raise SplitContractError(
-            f"radix-3 block length must be in [1, {ASSIGNMENT_LEX_BLOCK_SIZE}], "
-            f"found {length}"
-        )
-    weights = tuple(3 ** exponent for exponent in range(length - 1, -1, -1))
-    if weights[0] > 19_683 or 2 * sum(weights) > 59_048:
-        raise SplitContractError("radix-3 assignment objective exceeded its exact bound")
-    return weights
-
-
-def _ternary_digit(value: float, label: str) -> int:
-    rounded = round(float(value))
-    if abs(float(value) - rounded) > 1e-5 or rounded not in (0, 1, 2):
-        raise SplitContractError(f"non-ternary assignment digit {label}: {value}")
-    return int(rounded)
 
 
 def _build_base_problem(features: Sequence[dict]):
@@ -536,161 +475,26 @@ def _build_base_problem(features: Sequence[dict]):
                         name=f"dominance:{role}:{class_name}:{record['log_token']}",
                     )
 
-    stages: List[Tuple[str, Dict[int, float]]] = []
-    sample_devs = [
-        _add_ppm_deviation(
-            problem, sample_exprs[role], total_samples, BASE_TARGETS[role], f"dev_sample:{role}"
-        )
-        for role in BASE_ROLES
-    ]
-    max_sample = problem.add_var("dev_sample:max", lower=0, upper=1_000_000, integer=True)
-    for dev in sample_devs:
-        problem.add_constraint({dev: 1, max_sample: -1}, upper=0, name=f"max_sample:{dev}")
-    stages.append(("max_sample_deviation_ppm", {max_sample: 1}))
-    stages.append(("total_sample_deviation_ppm", {dev: 1 for dev in sample_devs}))
-
-    pos_devs, box_devs = [], []
-    for role in BASE_ROLES:
-        for class_name in DETECTION_NAMES:
-            pos_total = sum(r["training_support"]["positive_frames"][class_name] for r in features)
-            box_total = sum(r["evaluation_support"]["eligible_boxes"][class_name] for r in features)
-            pos_devs.append(
-                _add_ppm_deviation(
-                    problem,
-                    _feature_expr(
-                        features, variables, role,
-                        lambda r, c=class_name: r["training_support"]["positive_frames"][c],
-                    ),
-                    pos_total,
-                    BASE_TARGETS[role],
-                    f"dev_pos:{role}:{class_name}",
-                )
-            )
-            box_devs.append(
-                _add_ppm_deviation(
-                    problem,
-                    _feature_expr(
-                        features, variables, role,
-                        lambda r, c=class_name: r["evaluation_support"]["eligible_boxes"][c],
-                    ),
-                    box_total,
-                    BASE_TARGETS[role],
-                    f"dev_box:{role}:{class_name}",
-                )
-            )
-    stages.append(("class_positive_frame_deviation_ppm", {dev: 1 for dev in pos_devs}))
-    stages.append(("eligible_gt_deviation_ppm", {dev: 1 for dev in box_devs}))
-
-    context_devs = []
-    total_scenes = sum(record["n_scenes"] for record in features)
-    condition_names = sorted({key for record in features for key in record["condition_scenes"]})
-    for role in BASE_ROLES:
-        context_devs.append(
-            _add_ppm_deviation(
-                problem,
-                _feature_expr(features, variables, role, lambda r: r["n_scenes"]),
-                total_scenes,
-                BASE_TARGETS[role],
-                f"dev_scene:{role}",
-            )
-        )
-        for condition in condition_names:
-            total = sum(record["condition_scenes"].get(condition, 0) for record in features)
-            if total:
-                context_devs.append(
-                    _add_ppm_deviation(
-                        problem,
-                        _feature_expr(
-                            features, variables, role,
-                            lambda r, c=condition: r["condition_scenes"].get(c, 0),
-                        ),
-                        total,
-                        BASE_TARGETS[role],
-                        f"dev_condition:{role}:{condition}",
-                    )
-                )
-        for location_index, location in enumerate(LOCATIONS):
-            local_total = sum(
-                record["n_samples"] for record in features if record["location"] == location
-            )
-            target = (BASE_LOG_QUOTAS[role][location_index], (22, 17, 7, 4)[location_index])
-            context_devs.append(
-                _add_ppm_deviation(
-                    problem,
-                    _feature_expr(
-                        features,
-                        variables,
-                        role,
-                        lambda r, loc=location: r["n_samples"] if r["location"] == loc else 0,
-                    ),
-                    local_total,
-                    target,
-                    f"dev_location_sample:{role}:{location}",
-                )
-            )
-    stages.append(("scene_location_condition_deviation_ppm", {dev: 1 for dev in context_devs}))
-    return problem, variables, stages
+    return problem, variables
 
 
 def _solve_base(features: Sequence[dict]):
-    problem, variables, stages = _build_base_problem(features)
-    objectives = []
-    result = None
-    for label, objective in stages:
-        result, optimum = _fix_lex_stage(problem, objective, label)
-        objectives.append({"name": label, "optimum": optimum})
-    assignment_codes: List[int] = []
-    for start in range(0, len(features), ASSIGNMENT_LEX_BLOCK_SIZE):
-        stop = min(start + ASSIGNMENT_LEX_BLOCK_SIZE, len(features))
-        weights = _radix3_weights(stop - start)
-        objective: Dict[int, float] = defaultdict(float)
-        for index, weight in zip(range(start, stop), weights):
-            objective[variables[(index, "D_select")]] += weight
-            objective[variables[(index, "D_audit")]] += 2 * weight
-        result, optimum = _fix_lex_stage(
-            problem,
-            dict(objective),
-            f"assignment_block:{start:02d}-{stop - 1:02d}",
-        )
-        block_codes = []
-        for index in range(start, stop):
-            code = _ternary_digit(
-                result.x[variables[(index, "D_select")]]
-                + 2 * result.x[variables[(index, "D_audit")]],
-                features[index]["log_token"],
-            )
-            block_codes.append(code)
-            select_value, audit_value = ((0, 0), (1, 0), (0, 1))[code]
-            problem.add_constraint(
-                {variables[(index, "D_select")]: 1},
-                lower=select_value,
-                upper=select_value,
-                name=f"fix_assignment_select:{features[index]['log_token']}",
-            )
-            problem.add_constraint(
-                {variables[(index, "D_audit")]: 1},
-                lower=audit_value,
-                upper=audit_value,
-                name=f"fix_assignment_audit:{features[index]['log_token']}",
-            )
-        if sum(code * weight for code, weight in zip(block_codes, weights)) != optimum:
-            raise SplitContractError("base radix-3 block failed exact objective reconstruction")
-        assignment_codes.extend(block_codes)
-    assert result is not None
+    problem, variables = _build_base_problem(features)
+    result = problem.solve({})
     assignment = {}
-    for index, (record, code) in enumerate(zip(features, assignment_codes)):
+    for index, record in enumerate(features):
         chosen = [role for role in BASE_ROLES if result.x[variables[(index, role)]] > 0.5]
         if len(chosen) != 1:
             raise SplitContractError(f"non-integral base assignment for {record['log_token']}")
-        if chosen[0] != BASE_ROLES[code]:
-            raise SplitContractError(f"base assignment decode drift for {record['log_token']}")
         assignment[record["log_token"]] = chosen[0]
-        objectives.append({"name": f"assignment:{record['log_token']}", "optimum": code})
     return assignment, {
-        "status": "OPTIMAL",
+        "status": "FEASIBLE_FROZEN",
         "status_code": int(result.status),
         "message": str(result.message),
-        "objectives": objectives,
+        "selection_policy": SELECTION_POLICY,
+        "objective": "constant_zero",
+        "objective_value": float(result.fun),
+        "optimization_claim": "none",
         "assignment_vector": [assignment[r["log_token"]] for r in features],
     }
 
@@ -790,172 +594,28 @@ def _build_nested_problem(features: Sequence[dict], base_assignment: Mapping[str
                     name=f"nested_prevalence_high:{class_name}",
                 )
 
-    stages = []
-    sample_devs = [
-        _add_ppm_deviation(
-            problem, sample_exprs[role], fit_samples, NESTED_TARGETS[role], f"nested_dev_sample:{role}"
-        )
-        for role in NESTED_ROLES
-    ]
-    max_sample = problem.add_var("nested_dev_sample:max", lower=0, upper=1_000_000, integer=True)
-    for dev in sample_devs:
-        problem.add_constraint({dev: 1, max_sample: -1}, upper=0, name=f"nested_max:{dev}")
-    stages.append(("nested_max_sample_deviation_ppm", {max_sample: 1}))
-    stages.append(("nested_total_sample_deviation_ppm", {dev: 1 for dev in sample_devs}))
-
-    pos_devs, box_devs, context_devs = [], [], []
-    for role in NESTED_ROLES:
-        for class_name in DETECTION_NAMES:
-            fit_pos = sum(r["training_support"]["positive_frames"][class_name] for r in fit)
-            fit_boxes = sum(r["evaluation_support"]["eligible_boxes"][class_name] for r in fit)
-            pos_devs.append(
-                _add_ppm_deviation(
-                    problem,
-                    _feature_expr(
-                        fit, variables, role,
-                        lambda r, c=class_name: r["training_support"]["positive_frames"][c],
-                    ),
-                    fit_pos,
-                    NESTED_TARGETS[role],
-                    f"nested_dev_pos:{role}:{class_name}",
-                )
-            )
-            box_devs.append(
-                _add_ppm_deviation(
-                    problem,
-                    _feature_expr(
-                        fit, variables, role,
-                        lambda r, c=class_name: r["evaluation_support"]["eligible_boxes"][c],
-                    ),
-                    fit_boxes,
-                    NESTED_TARGETS[role],
-                    f"nested_dev_box:{role}:{class_name}",
-                )
-            )
-        fit_scenes = sum(r["n_scenes"] for r in fit)
-        context_devs.append(
-            _add_ppm_deviation(
-                problem,
-                _feature_expr(fit, variables, role, lambda r: r["n_scenes"]),
-                fit_scenes,
-                NESTED_TARGETS[role],
-                f"nested_dev_scene:{role}",
-            )
-        )
-        condition_names = sorted({key for record in fit for key in record["condition_scenes"]})
-        for condition in condition_names:
-            total = sum(record["condition_scenes"].get(condition, 0) for record in fit)
-            if total:
-                context_devs.append(
-                    _add_ppm_deviation(
-                        problem,
-                        _feature_expr(
-                            fit, variables, role,
-                            lambda r, c=condition: r["condition_scenes"].get(c, 0),
-                        ),
-                        total,
-                        NESTED_TARGETS[role],
-                        f"nested_dev_condition:{role}:{condition}",
-                    )
-                )
-        for location_index, location in enumerate(LOCATIONS):
-            local_total = sum(
-                record["n_samples"] for record in fit if record["location"] == location
-            )
-            context_devs.append(
-                _add_ppm_deviation(
-                    problem,
-                    _feature_expr(
-                        fit,
-                        variables,
-                        role,
-                        lambda r, loc=location: r["n_samples"] if r["location"] == loc else 0,
-                    ),
-                    local_total,
-                    (
-                        NESTED_LOG_QUOTAS[role][location_index],
-                        BASE_LOG_QUOTAS["D_fit"][location_index],
-                    ),
-                    f"nested_dev_location_sample:{role}:{location}",
-                )
-            )
-    stages.append(("nested_class_positive_frame_deviation_ppm", {dev: 1 for dev in pos_devs}))
-    stages.append(("nested_eligible_gt_deviation_ppm", {dev: 1 for dev in box_devs}))
-    stages.append(("nested_scene_location_condition_deviation_ppm", {dev: 1 for dev in context_devs}))
-    return problem, variables, stages, fit
+    return problem, variables, fit
 
 
 def _solve_nested(features: Sequence[dict], base_assignment: Mapping[str, str]):
-    problem, variables, stages, fit = _build_nested_problem(features, base_assignment)
-    objectives = []
-    result = None
-    for label, objective in stages:
-        result, optimum = _fix_lex_stage(problem, objective, label)
-        objectives.append({"name": label, "optimum": optimum})
-    assignment_codes: List[int] = []
-    for start in range(0, len(fit), ASSIGNMENT_LEX_BLOCK_SIZE):
-        stop = min(start + ASSIGNMENT_LEX_BLOCK_SIZE, len(fit))
-        weights = _radix3_weights(stop - start)
-        objective: Dict[int, float] = defaultdict(float)
-        for index, weight in zip(range(start, stop), weights):
-            # Code is D_low=0, D_mid-only=1, D_fit-only=2.  The constant
-            # ``2 * weight`` is omitted from each digit without changing argmin.
-            objective[variables[(index, "D_low")]] -= weight
-            objective[variables[(index, "D_mid")]] -= weight
-        result, optimum = _fix_lex_stage(
-            problem,
-            dict(objective),
-            f"nested_assignment_block:{start:02d}-{stop - 1:02d}",
-        )
-        block_codes = []
-        for index in range(start, stop):
-            code = _ternary_digit(
-                2
-                - result.x[variables[(index, "D_low")]]
-                - result.x[variables[(index, "D_mid")]],
-                fit[index]["log_token"],
-            )
-            block_codes.append(code)
-            low_value, mid_value = ((1, 1), (0, 1), (0, 0))[code]
-            problem.add_constraint(
-                {variables[(index, "D_low")]: 1},
-                lower=low_value,
-                upper=low_value,
-                name=f"fix_nested_low:{fit[index]['log_token']}",
-            )
-            problem.add_constraint(
-                {variables[(index, "D_mid")]: 1},
-                lower=mid_value,
-                upper=mid_value,
-                name=f"fix_nested_mid:{fit[index]['log_token']}",
-            )
-        encoded = sum(code * weight for code, weight in zip(block_codes, weights))
-        if encoded - 2 * sum(weights) != optimum:
-            raise SplitContractError("nested radix-3 block failed exact objective reconstruction")
-        assignment_codes.extend(block_codes)
-    assert result is not None
+    problem, variables, fit = _build_nested_problem(features, base_assignment)
+    result = problem.solve({})
     low, mid = set(), set()
-    for index, (record, code) in enumerate(zip(fit, assignment_codes)):
+    for index, record in enumerate(fit):
         if result.x[variables[(index, "D_mid")]] > 0.5:
             mid.add(record["log_token"])
         if result.x[variables[(index, "D_low")]] > 0.5:
             low.add(record["log_token"])
-        observed_code = _ternary_digit(
-            2
-            - result.x[variables[(index, "D_low")]]
-            - result.x[variables[(index, "D_mid")]],
-            record["log_token"],
-        )
-        if observed_code != code:
-            raise SplitContractError(f"nested assignment decode drift for {record['log_token']}")
-        objectives.append({"name": f"nested_assignment:{record['log_token']}", "optimum": code})
     if not low <= mid:
         raise SplitContractError("D_low is not nested inside D_mid")
     return low, mid, {
-        "status": "OPTIMAL",
+        "status": "FEASIBLE_FROZEN",
         "status_code": int(result.status),
         "message": str(result.message),
-        "objectives": objectives,
+        "selection_policy": SELECTION_POLICY,
+        "objective": "constant_zero",
+        "objective_value": float(result.fun),
+        "optimization_claim": "none",
         "assignment_vector": [
             "D_low" if r["log_token"] in low else "D_mid" if r["log_token"] in mid else "D_fit"
             for r in fit
@@ -964,7 +624,7 @@ def _solve_nested(features: Sequence[dict], base_assignment: Mapping[str, str]):
 
 
 def solve_split(features: Sequence[dict]):
-    """Run both lexicographic no-seed MILPs and reconstruct their hard gates."""
+    """Run both one-shot feasibility MILPs and reconstruct their hard gates."""
     features = sorted(features, key=lambda record: record["log_token"])
     _assert_initial_topology(features)
     base, base_report = _solve_base(features)
@@ -973,7 +633,10 @@ def solve_split(features: Sequence[dict]):
     return base, low, mid, {
         "solver": "scipy.optimize.milp/HiGHS",
         "seed": None,
-        "integer_ppm_objectives": True,
+        "selection_policy": SELECTION_POLICY,
+        "real_candidate_policy": "exactly_one",
+        "hard_constraints_only": True,
+        "optimization_claim": "none",
         "base": base_report,
         "nested": nested_report,
         "checker_summary": checker,
@@ -1246,6 +909,7 @@ def check_ownership(
 def verify_artifact_directory(output_dir: str) -> dict:
     """Reload emitted artifacts and independently reconstruct split + leakage gates."""
     required = {
+        "pre_solve_identity.json",
         "split_protocol.json",
         "log_features.jsonl",
         "sample_ownership.jsonl",
@@ -1256,12 +920,54 @@ def verify_artifact_directory(output_dir: str) -> dict:
         raise SplitContractError(f"split artifact directory is missing {missing}")
     if os.path.exists(os.path.join(output_dir, "candidate_freeze.json")):
         raise SplitContractError("candidate_freeze.json must be absent before terminal STOP-D")
+    pre_solve = json.load(open(os.path.join(output_dir, "pre_solve_identity.json"), encoding="utf-8"))
     protocol = json.load(open(os.path.join(output_dir, "split_protocol.json"), encoding="utf-8"))
     manifest = json.load(open(os.path.join(output_dir, "split_manifest.json"), encoding="utf-8"))
     features = read_jsonl(os.path.join(output_dir, "log_features.jsonl"))
     ownership = read_jsonl(os.path.join(output_dir, "sample_ownership.jsonl"))
+    _require(
+        pre_solve.get("schema") == "fl_v3.s10.pre_solve_identity.v1",
+        "pre-solve identity schema mismatch",
+    )
+    _require(
+        pre_solve.get("selection_policy") == SELECTION_POLICY,
+        "pre-solve selection policy mismatch",
+    )
+    _require(pre_solve.get("real_candidate_ordinal") == 1, "candidate ordinal must be one")
+    _require(pre_solve.get("reroll_allowed") is False, "candidate reroll must be disabled")
+    _require(pre_solve.get("feature_count") == len(features) == 50, "feature-count drift")
+    _require(
+        pre_solve.get("train_sample_count") == sum(r["n_samples"] for r in features) == 28130,
+        "pre-solve train-sample count drift",
+    )
+    _require(
+        pre_solve.get("official_val_sample_count") == 6019,
+        "pre-solve official-val count drift",
+    )
+    _require(
+        pre_solve.get("log_features_sha256")
+        == sha256_file(os.path.join(output_dir, "log_features.jsonl")),
+        "pre-solve log-feature identity mismatch",
+    )
     _require(protocol.get("schema") == SCHEMA_PROTOCOL, "split protocol schema mismatch")
+    _require(protocol.get("selection_policy") == SELECTION_POLICY, "selection policy mismatch")
+    _require(protocol.get("optimization_claim") == "none", "optimization claim drift")
     _require(manifest.get("schema") == SCHEMA_MANIFEST, "split manifest schema mismatch")
+    _require(
+        pre_solve.get("source_identities")
+        == protocol.get("source_identities")
+        == manifest.get("source_identities"),
+        "source identities differ across pre-solve/protocol/manifest artifacts",
+    )
+    solver_report = protocol.get("solver_report", {})
+    _require(solver_report.get("selection_policy") == SELECTION_POLICY, "solver policy drift")
+    _require(solver_report.get("real_candidate_policy") == "exactly_one", "candidate policy drift")
+    _require(solver_report.get("optimization_claim") == "none", "solver claim drift")
+    for phase in ("base", "nested"):
+        phase_report = solver_report.get(phase, {})
+        _require(phase_report.get("status") == "FEASIBLE_FROZEN", f"{phase} status drift")
+        _require(phase_report.get("objective") == "constant_zero", f"{phase} objective drift")
+        _require(phase_report.get("objective_value") == 0.0, f"{phase} objective value drift")
     base = {}
     for role in BASE_ROLES:
         for log in manifest["roles"][role]["log_tokens"]:
@@ -1302,6 +1008,21 @@ def materialize_split_artifacts(
         raise SplitContractError("accepted train/val sample count identity drift")
 
     features, _official_gt = build_log_features(nusc, train_info)
+    log_features_path = os.path.join(output_dir, "log_features.jsonl")
+    write_jsonl(log_features_path, features)
+    log_features_sha256 = sha256_file(log_features_path)
+    pre_solve_identity = {
+        "schema": "fl_v3.s10.pre_solve_identity.v1",
+        "source_identities": dict(source_identities),
+        "selection_policy": SELECTION_POLICY,
+        "real_candidate_ordinal": 1,
+        "reroll_allowed": False,
+        "feature_count": len(features),
+        "train_sample_count": len(train_info),
+        "official_val_sample_count": len(val_info),
+        "log_features_sha256": log_features_sha256,
+    }
+    write_json(os.path.join(output_dir, "pre_solve_identity.json"), pre_solve_identity)
     base, low, mid, solve_report = solve_split(features)
     manifest = build_manifest(features, base, low, mid, source_identities)
     ownership = build_sample_ownership(nusc, train_info, val_info, base, low, mid)
@@ -1309,6 +1030,9 @@ def materialize_split_artifacts(
         "schema": SCHEMA_PROTOCOL,
         "parent_version": "v1.0-trainval",
         "parent_split": "train",
+        "selection_policy": SELECTION_POLICY,
+        "real_candidate_policy": "exactly_one",
+        "optimization_claim": "none",
         "source_identities": dict(source_identities),
         "support_semantics": {
             "positive_frames_and_prevalence": "training_support.cache_gt_in_range",
@@ -1324,13 +1048,13 @@ def materialize_split_artifacts(
         "candidate_freeze_policy": "file_absent_and_locked_until_terminal_STOP_D",
     }
     write_json(os.path.join(output_dir, "split_protocol.json"), protocol)
-    write_jsonl(os.path.join(output_dir, "log_features.jsonl"), features)
     write_jsonl(os.path.join(output_dir, "sample_ownership.jsonl"), ownership)
     write_json(os.path.join(output_dir, "split_manifest.json"), manifest)
     leakage = verify_artifact_directory(output_dir)
     write_json(os.path.join(output_dir, "leakage_report.json"), leakage)
 
     names = (
+        "pre_solve_identity.json",
         "split_protocol.json",
         "log_features.jsonl",
         "sample_ownership.jsonl",
@@ -1343,6 +1067,7 @@ def materialize_split_artifacts(
     return {
         "status": "PASS",
         "output_dir": os.path.abspath(output_dir),
+        "log_features_sha256": log_features_sha256,
         "split_manifest_sha256": sha256_file(os.path.join(output_dir, "split_manifest.json")),
         "sha256sums_sha256": sha256_file(os.path.join(output_dir, "sha256sums.txt")),
         "roles": leakage["constraint_report"]["roles"],

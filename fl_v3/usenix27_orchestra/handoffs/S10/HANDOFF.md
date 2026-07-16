@@ -1,4 +1,4 @@
-# S10 HANDOFF — accepted six-stop plan, STOP-A blocked
+# S10 HANDOFF — accepted six-stop plan, corrected STOP-A active
 
 ## 1. State and authority
 
@@ -6,11 +6,11 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-123 rejects B1-based compute v0; O-124 approves v1 ABC completion; O-125 final 15-minute STOP-A remediation consumed
+OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 final legacy optimizer tuple consumed; O-126 corrected STOP-A A1-A4
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: documentation/evidence sealing; further STOP-A execution requires owner amendment
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124 authority recorded; further execution gated by open STOP-A
-STOP_A: blocked after Job 467862 timeout; no accepted split/parity
+CURRENT_AUTHORITY: implement/validate/commit corrected A1-A2; one exact CPU-only A3; evidence + independent high-risk A4
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-126 active only for STOP-A A1-A4; B/C remain gated
+STOP_A: active under O-126 after Job 467862 negative evidence; no accepted split/parity yet
 STOP_B/C: unstarted because STOP-A exit gate is unmet
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
@@ -26,7 +26,7 @@ amendment point; it does not permit fallback checkpoint selection.
 
 | STOP | Accepted purpose | Exit boundary |
 |---|---|---|
-| A — Split/Metric | deterministic train-only nested split, ownership proof, internal evaluator and exact full-val parity gate | immutable split/evaluator identities independently accepted |
+| A — Split/Metric | one-shot frozen train-only nested feasibility split, ownership proof, internal evaluator and exact full-val parity gate | immutable split/evaluator identities independently accepted |
 | B — Observation-first | locate or bound the current large true LiDAR-gradient mechanism without changing model math | `LOCALIZED` or honestly `INCONCLUSIVE`, with output-neutral evidence |
 | C — Architecture/Initialization | strong current-vs-reference comparison, joint-vs-staged initialization, bounded causal counterfactuals | at most two graph/init families survive |
 | D — Recipe/Production Freeze | select the production optimizer/schedule/EMA/augmentation/sampling/batch/exposure bundle on `D_select`, bind `candidate_freeze.json`, then open `D_audit` exactly once | one final graph/init/recipe or an honest `INCONCLUSIVE` result; no audit-driven reselection |
@@ -101,17 +101,21 @@ For every class, `D_low` requires at least 50 positive frames, 5 scenes and 2
 logs, with prevalence 0.5–1.5x `D_fit`; `D_mid` requires at least 100 positive
 frames, 10 scenes and 3 logs, with prevalence 0.65–1.35x `D_fit`.
 
-### 3.3 Deterministic solver and checker
+### 3.3 One-shot feasibility constructor and checker
 
-Use a no-seed integer/MILP formulation with integer ppm features. Solver status
-must be `OPTIMAL`. After all hard constraints, lexicographically minimize:
+Use a no-seed integer/MILP formulation for hard constraints only. Before solving,
+emit and hash the exact ordered log-feature table, all source identities and real
+candidate ordinal `1`. The base ownership and nested-rung problems each run
+exactly once with a constant-zero objective. Accept only the first solver result
+that certifies an integral feasible assignment, immediately hash it, and never
+reroll or compare an alternative assignment. The zero-objective optimum is only
+a feasibility certificate; it is not evidence that class/context balance is
+globally optimal, lexicographically minimal, or invariant across solver versions.
 
-1. maximum sample-count deviation;
-2. total sample-count deviation;
-3. class-positive-frame deviation;
-4. official-filtered eligible-GT deviation;
-5. scene/location/condition deviation;
-6. the sorted log-token assignment vector.
+This is scientifically meaningful because all predeclared ownership, location,
+sample-volume, class-support, prevalence and dominance constraints remain hard,
+and downstream cells reuse one immutable split. It is a limited-rung proxy design,
+not an official benchmark or a claim that all feasible splits are equivalent.
 
 An independent checker must reconstruct every constraint from emitted ownership,
 not trust solver summaries. The checker proves disjoint ownership across log,
@@ -126,11 +130,12 @@ Required frozen outputs:
 
 ```text
 split_protocol.json
+pre_solve_identity.json
 log_features.jsonl
 sample_ownership.jsonl
 split_manifest.json
 leakage_report.json
-candidate_freeze.json  # absent/locked until the D_audit gate
+candidate_freeze.json  # intentionally absent/locked until the D_audit gate
 sha256sums.txt
 ```
 
@@ -172,7 +177,7 @@ Broad exception swallowing is forbidden.
 Adversarial tests cover unknown/missing/duplicate tokens, out-of-manifest boxes,
 manifest/cache/devkit identity drift, reordered predictions, zero-point objects,
 bicycle-rack cases and empty predictions. A parity mismatch, unsupported class,
-ownership leak or solver non-optimal result fails STOP-A; thresholds are not
+ownership leak or solver infeasibility/integrality failure fails STOP-A; thresholds are not
 relaxed and roles are not swapped.
 
 ## 5. STOP-B observation-first contract
@@ -399,3 +404,13 @@ no false zero `final.exit`. This neither proves infeasibility nor accepts the
 split. STOP-A has consumed both debug/fix slots and its final O-125 submission;
 no automatic retry is authorized. STOP-B/C remain unstarted pending an owner
 decision on the exact-solver boundary.
+
+O-126 resolves that boundary by classifying the global five-stage balance
+optimizer and per-log lexicographic certificate as unnecessary protocol
+overreach. A1-A4 now preserve the hard science/checker/evaluator surface while
+using exactly two real zero-objective solves, pre-solve feature identity, ordinal
+one and no reroll. The one authorized A3 allocation is CPU-only on an aarch64
+node (`gpu` partition solely for compatible node/runtime access, no GPU GRES),
+4 CPUs, 32 GiB and 15 minutes. It is one attempt; any failure or timeout returns
+to the owner. Successful immutable evidence must pass independent high-risk A4
+review before STOP-A closes or STOP-B/C may begin.

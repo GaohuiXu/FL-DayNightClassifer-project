@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-125 CONSUMED / STOP-A BLOCKED / no executable tuple
+REQUEST_STATE: O-126 APPROVED / corrected STOP-A A1-A4 active / exact tuple pending A2 freeze
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
-EXECUTION_AUTHORITY: O-124 aggregate ABC envelope; O-125 final STOP-A tuple consumed
-SOURCE_SHA: STOP-A d7caf53414ade2d5db794ecd90851d0e5a3535b5; B/C pending
+EXECUTION_AUTHORITY: O-126 one corrected CPU-only STOP-A gate; O-124 aggregate record otherwise unchanged
+SOURCE_SHA: corrected STOP-A pending immutable A2 commit; B/C pending
 BRANCH: codex/s10-cl-model-recipe
-OWNER_APPROVAL: O-124 approved 2026-07-15; O-125 exact 15-minute A3 approved 2026-07-16
-EXECUTABLE_NOW: none — STOP-A gate unmet; owner amendment required
+OWNER_APPROVAL: O-126 corrected A1-A4 plan and exact resource envelope approved 2026-07-16
+EXECUTABLE_NOW: only after A2 freezes exact immutable source/snapshot/command/output below
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -143,7 +143,7 @@ within every recorded bound.
 
 ## 5. Fail-closed boundaries
 
-- STOP-A: any input-identity mismatch, non-`OPTIMAL` solve, support failure,
+- STOP-A: any input-identity mismatch, solver infeasibility/integrality failure, support failure,
   ownership leak, unsupported devkit semantic or exact full-val parity mismatch;
 - STOP-B: diagnostics are not output/gradient/state neutral, aggregate loss cannot
   be reconstructed, or the one bounded refinement remains inconclusive (record
@@ -472,3 +472,38 @@ is therefore blocked; no B/C job may start because the accepted stop order makes
 STOP-A's immutable split/evaluator identity their prerequisite. Any future tuple
 requires an explicit owner amendment after deciding whether to retain exact MILP,
 change its solver/algorithm, or revise the gate.
+
+## 12. O-126 corrected one-shot feasibility amendment — approved, tuple pending
+
+O-126 approves the following replacement for the exhausted O-125 optimizer
+protocol. It does not reinterpret Jobs `463593`, `463649` or `467862`; those
+remain immutable negative evidence.
+
+```text
+PROTOCOL: first feasible one-shot frozen
+REAL_CANDIDATES: exactly one
+BASE_SOLVES: one constant-zero feasibility MILP
+NESTED_SOLVES: one constant-zero feasibility MILP
+PRE_SOLVE_FREEZE: exact source/data identities + ordered log_features SHA-256 + candidate ordinal 1
+REROLL/CANDIDATE_SHOPPING: forbidden
+HARD_GATES_RETAINED: all location/sample/support/prevalence/dominance/ownership/leakage/evaluator gates
+OPTIMIZATION_CLAIM: none
+SCIENTIFIC_SCOPE: reusable limited-rung proxy split; not official benchmark or balance optimum
+PARTITION: gpu (aarch64/runtime compatibility only)
+GPU_GRES: omitted / zero
+CPUS_PER_TASK: 4
+MEMORY: 32 GiB
+WALLTIME: 00:15:00
+SUBMISSIONS: exactly one
+REQUEUE/RETRY/REROLL/ARRAY/DDP: forbidden
+ON_FAILURE_OR_TIMEOUT: return to owner; do not start B/C
+ON_PASS: immutable evidence commit, then independent high-risk A4 review
+```
+
+The exact `SOURCE_SHA`, source tree, detached read-only snapshot, tracked-tree
+identity, runner/gate/script hashes, fresh absent output path and literal `sbatch`
+command are intentionally blank until A1 implementation passes A2 validation and
+is committed. They must be appended and committed here before the sole
+submission. The command must omit `--gpus` entirely and the runner must fail
+closed unless `SLURM_JOB_GPUS` is empty, `SLURM_GPUS_ON_NODE` is zero/absent,
+`CUDA_VISIBLE_DEVICES` is empty and PyTorch exposes zero CUDA devices.

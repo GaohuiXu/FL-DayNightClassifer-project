@@ -12,8 +12,10 @@
 > capability + fusion contribution”. O-124 activates bounded STOP-A/B/C
 > completion; O-125's exact final `00:15:00` STOP-A tuple was consumed by Job
 > `467862` and timed out inside the exact MILP after tests and metadata traversal.
-> No split/parity artifact exists and no further STOP-A job is authorized.
-> STOP-B/C are unstarted; STOP-D/E/F execution and S11+ remain unapproved.
+> O-126 approves a corrected one-shot feasibility protocol and serial A1-A4,
+> including exactly one aarch64 CPU-only A-GATE (`0 GPU`, 4 CPU, 32 GiB,
+> `00:15:00`, no retry/reroll). STOP-A is active; STOP-B/C are unstarted;
+> STOP-D/E/F execution and S11+ remain unapproved.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -432,11 +434,11 @@ authorized.
   architecture/init, D recipe freeze, E final-graph GH200 optimization, F
   single-seed full/official-val close. Exact scientific limits are in
   `handoffs/S10/HANDOFF.md`.
-- **Current authority:** O-124's aggregate ABC envelope remains recorded, but its
-  gate order prevents B/C from starting while STOP-A is open. O-125's final
-  STOP-A tuple is consumed and its timeout rule forbids an identical retry.
-  Documentation/evidence sealing remains authorized; further STOP-A execution or
-  a changed split solver requires an explicit owner amendment.
+- **Current authority:** O-126 is that explicit owner amendment. It authorizes
+  STOP-A A1-A4, one immutable CPU-only tuple, linear commits/evidence and one
+  independent high-risk review. It removes global lexicographic optimality but
+  preserves every scientific hard constraint and parity/leakage gate. Any
+  failure/timeout returns to the owner; B/C cannot start before reviewed A PASS.
 - **O-123 batch correction:** the B=1-based v0 request is rejected. Revised ABC
   scientific rungs use physical B=4 at minimum and bind a fixed-batch tail policy;
   B=1 may appear only in a tiny paired diagnostic check. B=8/16 belong to a later
