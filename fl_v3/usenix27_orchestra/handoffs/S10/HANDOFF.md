@@ -1,4 +1,4 @@
-# S10 HANDOFF — accepted six-stop plan, STOP-A resource-blocked
+# S10 HANDOFF — accepted six-stop plan, STOP-A A3 replacement active
 
 ## 1. State and authority
 
@@ -6,11 +6,11 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 final legacy optimizer tuple consumed; O-126 corrected STOP-A A1-A4
+OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: document/seal Job 468295 scheduler failure; replacement A3 requires owner amendment
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-126 A1/A2 complete; its one A3 submission consumed before execution
-STOP_A: resource-blocked after Job 468295 site-transformed 0-GPU request into 4 GPUs; no accepted split/parity
+CURRENT_AUTHORITY: minimal O-127 runner/docs commit, immutable tuple, one replacement A3, evidence and A4 review
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-127 active only for STOP-A A3/A4; B/C remain gated
+STOP_A: A3 replacement active; no accepted split/parity yet
 STOP_B/C: unstarted because STOP-A exit gate is unmet
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
@@ -430,3 +430,11 @@ checks showed both `--gpus=0` and `--gres=none` receive the same four-GPU defaul
 so neither is a valid zero-GPU replacement. The scientific candidate ordinal is
 unconsumed, but O-126's submission authority is consumed; a one-GPU allocated-
 but-CUDA-hidden replacement or another resource route requires owner approval.
+
+O-127 now authorizes the narrow viable route: reserve exactly one GH200 but
+force `CUDA_VISIBLE_DEVICES=""` before Python and require PyTorch CUDA availability
+false/device count zero. The Slurm allocation must also attest exactly one GPU,
+4 CPUs, 32 GiB, `gpu` partition and 15-minute walltime. The process remains
+CPU-only; the reserved GPU is a scheduler compatibility cost capped at `0.25`
+GPU-hours. Science/data/candidate ordinal/output gates are unchanged. One
+replacement submission, no retry/reroll; A4 begins only after immutable A3 PASS.

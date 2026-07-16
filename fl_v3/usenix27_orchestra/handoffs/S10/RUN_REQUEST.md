@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-126 SOLE SUBMISSION CONSUMED / scheduler-resource FAIL / STOP-A blocked
+REQUEST_STATE: O-127 APPROVED / A3 replacement implementation+tuple pending freeze
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
-EXECUTION_AUTHORITY: none executable; O-126 Job 468295 cancelled after site transformed it to four GPUs
-SOURCE_SHA: corrected STOP-A 7c01cc3f1e75691339f41f101794945748f03305; B/C pending
+EXECUTION_AUTHORITY: one explicit-one-GH200/CUDA-hidden STOP-A replacement under O-127
+SOURCE_SHA: corrected science 7c01cc3f1e75691339f41f101794945748f03305; resource-attestation commit pending
 BRANCH: codex/s10-cl-model-recipe
-OWNER_APPROVAL: O-126 corrected A1-A4 plan and exact resource envelope approved 2026-07-16
-EXECUTABLE_NOW: none — replacement resource tuple requires owner amendment; B/C remain gated
+OWNER_APPROVAL: O-127 replacement approved 2026-07-16
+EXECUTABLE_NOW: only after exact O-127 immutable source/snapshot/command/output is appended and committed
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -586,3 +586,29 @@ rewritten to four GPUs. They are not replacement commands. There is no automatic
 retry. The narrow viable route is an owner-amended one-GPU allocation with CUDA
 hidden from the CPU-only process, or an externally provided aarch64 CPU queue;
 neither is authorized here.
+
+## 15. O-127 one-GH200-reserved / CPU-only-process replacement — approved
+
+Owner amendment O-127 authorizes exactly one replacement of the scheduler-
+rejected §13 tuple:
+
+```text
+SCIENCE/DATA/EVALUATOR/CANDIDATE: unchanged from O-126
+ALLOCATION_GPU: exactly 1 x nvidia_gh200_120gb
+PROCESS_CUDA_VISIBLE_DEVICES: empty
+PROCESS_TORCH_CUDA_AVAILABLE/COUNT: false / 0
+CPU/MEMORY/TIME: 4 / 32 GiB / 00:15:00
+MAX_NEW_ALLOCATED_GPU_HOURS: 0.25
+REAL_CANDIDATE_ORDINAL: 1, still unconsumed
+SUBMISSIONS: exactly one replacement
+RETRY/REROLL/ARRAY/DDP: forbidden
+ON_FAILURE_OR_TIMEOUT: return to owner
+ON_PASS: seal evidence, then independent high-risk A4 review
+B/C: forbidden until reviewed STOP-A PASS
+```
+
+The minimal runner change may only attest the scheduler allocation and hide CUDA;
+it may not alter features, MILP constraints, checker, ownership, evaluator or
+artifact semantics. The exact immutable resource-attestation source, detached
+read-only snapshot, file/tree hashes, fresh output and literal command must be
+appended and committed before submission.

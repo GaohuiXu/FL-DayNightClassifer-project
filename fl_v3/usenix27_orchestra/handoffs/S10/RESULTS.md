@@ -1,4 +1,4 @@
-# S10 results — STOP-A resource-blocked; STOP-B/C unstarted
+# S10 results — STOP-A A3 replacement active; STOP-B/C unstarted
 
 ## STOP-A
 
@@ -15,6 +15,7 @@ CORRECTED_A1-A4: approved under O-126; evidence pending
 CORRECTED_IMPLEMENTATION_SHA: 7c01cc3f1e75691339f41f101794945748f03305
 JOB: 468295 / CANCELLED by owner 0:0 / 00:00:08 / site transformed 0 GPU to 4 GPU
 CORRECTED_A3: not executed; O-126 submission consumed at scheduler boundary
+O127_REPLACEMENT: approved; implementation/tuple pending
 INDEPENDENT_REVIEW: pending immutable PASS evidence
 ```
 

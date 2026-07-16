@@ -52,8 +52,8 @@ test "${NUSCENES_DATAROOT}" = "/dataset/easybuild/data/nuScenes-data/1.0-map-1.3
 test "${SLURM_JOB_PARTITION:-}" = "gpu"
 test "${SLURM_CPUS_PER_TASK:-}" = "4"
 test "${SLURM_MEM_PER_NODE:-}" = "32768"
-test -z "${SLURM_JOB_GPUS:-}"
-test "${SLURM_GPUS_ON_NODE:-0}" = "0"
+test -n "${SLURM_JOB_GPUS:-}"
+test "${SLURM_GPUS_ON_NODE:-0}" = "1"
 mkdir -p "${WORK}"
 runner_complete=0
 
@@ -115,14 +115,14 @@ if platform.machine() != "aarch64":
     raise RuntimeError("STOP-A validated environment requires an aarch64 compute node")
 if os.environ.get("CUDA_VISIBLE_DEVICES") != "":
     raise RuntimeError("STOP-A CPU-only gate requires empty CUDA_VISIBLE_DEVICES")
-if os.environ.get("SLURM_JOB_GPUS"):
-    raise RuntimeError("STOP-A CPU-only gate received an unexpected GPU allocation")
-if os.environ.get("SLURM_GPUS_ON_NODE", "0") != "0":
-    raise RuntimeError("STOP-A CPU-only gate received nonzero GPUs on node")
+if not os.environ.get("SLURM_JOB_GPUS"):
+    raise RuntimeError("STOP-A replacement requires one explicitly reserved GH200")
+if os.environ.get("SLURM_GPUS_ON_NODE", "0") != "1":
+    raise RuntimeError("STOP-A replacement requires exactly one allocated GPU on node")
 if torch.cuda.is_available() or torch.cuda.device_count() != 0:
     raise RuntimeError("STOP-A CPU-only gate unexpectedly exposes a CUDA device")
 print(json.dumps({
-    "schema": "fl_v3.s10.stop_a_execution_identity.v2",
+    "schema": "fl_v3.s10.stop_a_execution_identity.v3",
     "job_id": os.environ.get("SLURM_JOB_ID"),
     "node": platform.node(),
     "machine": platform.machine(),
@@ -131,8 +131,8 @@ print(json.dumps({
     "torch_cuda": torch.version.cuda,
     "scipy": scipy.__version__,
     "nuscenes_devkit": version("nuscenes-devkit"),
-    "allocation": "cpu_only_no_gpu_gres",
-    "device": "CPU-only aarch64; no GPU GRES",
+    "allocation": "one_gh200_reserved_cpu_only_process",
+    "device": "CPU-only aarch64 process; one reserved GH200 hidden",
     "slurm_job_gpus": os.environ.get("SLURM_JOB_GPUS", ""),
     "slurm_gpus_on_node": os.environ.get("SLURM_GPUS_ON_NODE", "0"),
     "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
