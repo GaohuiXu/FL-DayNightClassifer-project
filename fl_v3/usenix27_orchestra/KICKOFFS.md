@@ -9,9 +9,9 @@
 > `a080d49c1c22de20ccb5b1353d4922c7df14a729` and is active on
 > `codex/s10-cl-model-recipe`. O-122 accepts the six-stop A-F scientific envelope,
 > exact STOP-A split/evaluator gate, and primary full claim “absolute clean
-> capability + fusion contribution”. Current authority is planning/documentation
-> only. STOP-A/B/C execution awaits one bounded completion decision after
-> GPU-budget review; STOP-D/E/F execution and S11+ remain unapproved.
+> capability + fusion contribution”. O-124 activates bounded STOP-A/B/C
+> completion; O-125 authorizes the exact final STOP-A remediation tuple at
+> `00:15:00`. STOP-D/E/F execution and S11+ remain unapproved.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

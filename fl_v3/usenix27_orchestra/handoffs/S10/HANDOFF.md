@@ -6,9 +6,9 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-123 rejects B1-based compute v0; O-124 approves v1 ABC completion
+OWNER_DECISION: O-122 scientific envelope; O-123 rejects B1-based compute v0; O-124 approves v1 ABC completion; O-125 authorizes final 15-minute STOP-A remediation
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: STOP-A/B/C implementation, linear commits, exact derived serial Slurm, and stop-level review under O-124
+CURRENT_AUTHORITY: STOP-A/B/C implementation/review under O-124 plus exact final STOP-A A3 under O-125
 ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: authorized within v1 caps
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
@@ -385,5 +385,6 @@ That remediation is now immutable at
 payload hashes are identical, repeated solve output is identical, and the exact
 call count is 19. The detached read-only snapshot, command and hashes are frozen
 in `RUN_REQUEST.md` as non-executable tuple 2. The sole open action is a
-resource-only amendment for that exact one-hour allocation; no scientific or
-split-policy amendment is requested.
+resource-only amendment. O-125 now supplies it while limiting the exact next job
+to `00:15:00`; the remaining contingency is not an automatic resubmission right.
+No scientific or split-policy amendment is made.

@@ -8,7 +8,8 @@ A_GATE_TUPLE: frozen in RUN_REQUEST.md
 JOB: 463593 / FAILED 1:0 / 00:00:49 / zero restarts
 JOB: 463649 / TIMEOUT 0:0 / 01:00:14 / zero restarts
 RESULT: no accepted split/parity; exact split solve exceeded the frozen walltime
-INDEPENDENT_REVIEW: pending immutable evidence
+FINAL_A3: exact 15-minute tuple authorized under O-125; submission pending
+INDEPENDENT_REVIEW: pending immutable PASS evidence
 ```
 
 Job `463593` passed source/runtime preflight, then failed one focused test because

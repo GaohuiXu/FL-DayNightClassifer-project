@@ -8,10 +8,10 @@ REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
 REQUEST_STATE: APPROVED AGGREGATE ENVELOPE / exact job tuples pending derivation
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
-EXECUTION_AUTHORITY: O-124
+EXECUTION_AUTHORITY: O-124 + O-125 final STOP-A remediation amendment
 SOURCE_SHA: pending implementation SHA; current clean base was a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_APPROVAL: approved 2026-07-15; exact in-envelope tuples need no repeated approval
+OWNER_APPROVAL: O-124 approved 2026-07-15; O-125 exact 15-minute A3 approved 2026-07-16
 EXECUTABLE_NOW: only after each tuple is frozen below from an immutable SHA
 ```
 
@@ -360,7 +360,7 @@ one-GH200-hour ceiling. S00 may implement, test, commit, snapshot and freeze the
 strictly equivalent remediation, but another GH200 submission requires an owner
 resource amendment. No B/C execution starts before STOP-A closes.
 
-## 10. STOP-A derived debug/fix tuple 2 — frozen, resource amendment required
+## 10. STOP-A derived debug/fix tuple 2 — frozen and executable once under O-125
 
 The output-equivalent remediation is immutable at
 `d7caf53414ade2d5db794ecd90851d0e5a3535b5`. On the CPU SciPy diagnostic module,
@@ -374,7 +374,7 @@ bytecode compilation and `git diff --check` pass. Signal-lifecycle probes return
 `TERM=143`, incomplete-zero `125`, and complete-zero `0`.
 
 ```text
-TUPLE_STATE: FROZEN / NOT EXECUTABLE WITHOUT OWNER RESOURCE AMENDMENT
+TUPLE_STATE: FROZEN / EXECUTABLE ONCE UNDER O-125
 DERIVATION: §8 tuple plus only exact blocked-radix tie-break and fail-closed signal handling
 SOURCE_SHA: d7caf53414ade2d5db794ecd90851d0e5a3535b5
 SOURCE_TREE: d4e25ae7ce074ef0b9b0350b329ccaf806756f77
@@ -389,7 +389,7 @@ SPLIT_TEST_SHA256: b2c4400c843c2b7c7a2725a5b654cf4ed21e7e60ae6c7347067f293247d57
 DATA/CELLS/ORDER/GATES: identical to §6 and §8
 TEST_SELECTORS: identical file/selectors to §8; one in-file radix/call-count property test added
 RESOLVED_CONFIG_SHA256: N/A — no model/config/training path
-RESOURCE: one node / one nvidia_gh200_120gb / 16 CPU / 96 GiB / 01:00:00
+RESOURCE: one node / one nvidia_gh200_120gb / 16 CPU / 96 GiB / 00:15:00
 ACCOUNT/PARTITION: naiss2025-22-1113-gpu / gpu
 CONCURRENCY/REQUEUE/ARRAY/DDP: one active / no-requeue / none / none
 OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_d7caf53414ad_a3
@@ -401,24 +401,24 @@ SUBMISSIONS_AFTER_SUBMIT: 3 / 9
 ```
 
 Canonical sorted compact JSON submission-envelope SHA-256:
-`2c35d7d2397b27c399abb277ca840a25750536fe7e6d40ee110553e9852f42a3`.
-The exact command, which remains forbidden until the amendment below, is:
+`24de0be54806fbd1270bec2f560451ee62a138a593a5cb0a542f0a7c76d7f061`.
+The exact O-125 command is:
 
 ```bash
-sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G --gpus=nvidia_gh200_120gb:1 --time=01:00:00 --no-requeue --job-name=s10-stop-a-fix2-d7caf53 --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_fix2_d7caf53414ad --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_fix2_d7caf53414ad_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_fix2_d7caf53414ad_%j.err --export=ALL,S10_STOPA_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_fix2_d7caf53414ad,S10_STOPA_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_d7caf53414ad_a3,S10_STOPA_EXPECTED_SOURCE_SHA=d7caf53414ade2d5db794ecd90851d0e5a3535b5,S10_STOPA_EXPECTED_TREE=d4e25ae7ce074ef0b9b0350b329ccaf806756f77,S10_STOPA_EXPECTED_RUNNER_SHA256=637cea4b1400629c38e355ae686289709c8ba3b929cbf5ae445a8bba165ef119 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_fix2_d7caf53414ad/fl_v3/scripts/run_s10_stop_a_gate.sh
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G --gpus=nvidia_gh200_120gb:1 --time=00:15:00 --no-requeue --job-name=s10-stop-a-fix2-d7caf53 --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_fix2_d7caf53414ad --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_fix2_d7caf53414ad_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_fix2_d7caf53414ad_%j.err --export=ALL,S10_STOPA_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_fix2_d7caf53414ad,S10_STOPA_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_d7caf53414ad_a3,S10_STOPA_EXPECTED_SOURCE_SHA=d7caf53414ade2d5db794ecd90851d0e5a3535b5,S10_STOPA_EXPECTED_TREE=d4e25ae7ce074ef0b9b0350b329ccaf806756f77,S10_STOPA_EXPECTED_RUNNER_SHA256=637cea4b1400629c38e355ae686289709c8ba3b929cbf5ae445a8bba165ef119 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_fix2_d7caf53414ad/fl_v3/scripts/run_s10_stop_a_gate.sh
 ```
 
-Proposed resource-only amendment:
+Owner decision O-125:
 
 ```text
-ADDITIONAL_STOP_A_AUTHORITY: exactly the frozen tuple above, executable once
-ADDITIONAL_NOMINAL_GPU_HOURS: 1.0 (actual elapsed charged; no reuse of savings)
+ADDITIONAL_STOP_A_AUTHORITY: exactly the frozen 15-minute tuple above, executable once
+ADDITIONAL_NOMINAL_GPU_HOURS: 1.0 contingency; this tuple requests at most 0.25
 STOP_A_CUMULATIVE_CEILING: 2.1 elapsed GH200-hours
 ABC_CUMULATIVE_CEILING: 28.1 elapsed GH200-hours
 OTHER_STOP/CELL/SEED/HORIZON/RESOURCE BOUNDS: unchanged
 ON_ANY_FAILURE_OR_TIMEOUT: STOP-A blocked; no further fix/retry; return to owner
 ```
 
-The 0.1-hour margin accounts only for the already observed Slurm termination
-grace and possible equivalent grace on the frozen one-hour job; it does not
-extend the requested job walltime. Unused time cannot be transferred.
+The exact job asks for 15 minutes rather than reserving the one-hour contingency.
+The unused 45 minutes are neither spent nor an automatic identical retry or new
+submission authority. Any later tuple still requires a fresh diagnosed boundary.

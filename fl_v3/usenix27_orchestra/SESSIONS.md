@@ -8,12 +8,11 @@
 > clean base `a080d49c1c22de20ccb5b1353d4922c7df14a729` and is active on
 > `codex/s10-cl-model-recipe`.
 >
-> O-122 accepts the six-stop S10 A-F scientific envelope, exact STOP-A
-> split/evaluator gate, and primary full claim “absolute clean capability +
-> fusion contribution”. It permits planning records only. STOP-A/B/C
-> implementation, commits, review topology and Slurm await one bounded owner
-> completion authority after GPU-budget review. STOP-D/E/F execution and S11+
-> remain pending.
+> O-122 accepts the six-stop S10 A-F scientific envelope and primary full claim
+> “absolute clean capability + fusion contribution”. O-124 activates bounded
+> STOP-A/B/C completion. O-125 authorizes the exact final STOP-A remediation
+> tuple with a `00:15:00` allocation inside one additional GH200-hour
+> contingency. STOP-D/E/F execution and S11+ remain pending.
 >
 > `Sxx` is an evidence namespace, not automatically a worker, task, branch, or
 > worktree. Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Active launch
@@ -43,7 +42,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | six-stop A-F envelope accepted under O-122; ABC completion authority pending GPU-budget approval |
+| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | six-stop A-F envelope accepted under O-122; ABC active under O-124; exact final STOP-A remediation authorized under O-125 |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract
