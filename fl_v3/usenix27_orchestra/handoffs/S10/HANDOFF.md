@@ -1,4 +1,4 @@
-# S10 HANDOFF — accepted six-stop plan, execution pending
+# S10 HANDOFF — accepted six-stop plan, STOP-A blocked
 
 ## 1. State and authority
 
@@ -6,10 +6,12 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-123 rejects B1-based compute v0; O-124 approves v1 ABC completion; O-125 authorizes final 15-minute STOP-A remediation
+OWNER_DECISION: O-122 scientific envelope; O-123 rejects B1-based compute v0; O-124 approves v1 ABC completion; O-125 final 15-minute STOP-A remediation consumed
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: STOP-A/B/C implementation/review under O-124 plus exact final STOP-A A3 under O-125
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: authorized within v1 caps
+CURRENT_AUTHORITY: documentation/evidence sealing; further STOP-A execution requires owner amendment
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124 authority recorded; further execution gated by open STOP-A
+STOP_A: blocked after Job 467862 timeout; no accepted split/parity
+STOP_B/C: unstarted because STOP-A exit gate is unmet
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
@@ -354,9 +356,10 @@ schedule or precision behavior changes in STOP-A.
 
 Local validation is limited to `bash -n`, Python bytecode compilation and
 `git diff --check` because the login node is x86_64 and has no project Python
-dependencies. The exact aarch64/GH200 dependency-backed A-GATE tuple is frozen in
-`RUN_REQUEST.md` under O-124. This implementation commit is not a STOP-A PASS;
-raw gate evidence and independent high-risk review remain required.
+dependencies. The exact aarch64/GH200 dependency-backed A-GATE tuples and
+outcomes are recorded in `RUN_REQUEST.md`. The implementation commit is not a
+STOP-A PASS; no accepted raw gate evidence exists from which to start independent
+high-risk review.
 
 The first exact A-GATE allocation, Job `463593`, stopped in focused tests before
 real data/gate execution because SciPy's aarch64 HiGHS wrapper rejected platform-
@@ -380,11 +383,19 @@ proved without changing split science; however, Job `463649` consumed STOP-A's
 one-GH200-hour ceiling. A fresh execution tuple therefore requires an owner
 resource amendment even though one aggregate debug/fix submission slot remains.
 
-That remediation is now immutable at
+That remediation is immutable at
 `d7caf53414ade2d5db794ecd90851d0e5a3535b5`. The old and new synthetic canonical
 payload hashes are identical, repeated solve output is identical, and the exact
 call count is 19. The detached read-only snapshot, command and hashes are frozen
-in `RUN_REQUEST.md` as non-executable tuple 2. The sole open action is a
-resource-only amendment. O-125 now supplies it while limiting the exact next job
-to `00:15:00`; the remaining contingency is not an automatic resubmission right.
-No scientific or split-policy amendment is made.
+in `RUN_REQUEST.md`. O-125 supplied exactly one `00:15:00` execution while making
+the remaining contingency non-transferable and non-retriable.
+
+Job `467862` consumed that tuple on `n409`. It passed the expanded focused suite
+(`13 passed, 8 skipped in 1.93s`) and traversed all 28,130 train samples in about
+33 seconds. The 19-call exact MILP then remained active until Slurm `TIMEOUT` at
+`00:15:14`. It emitted no `gate.exit`, solver report, split manifest, ownership
+record or evaluator-parity artifact; importantly, the fail-closed runner emitted
+no false zero `final.exit`. This neither proves infeasibility nor accepts the
+split. STOP-A has consumed both debug/fix slots and its final O-125 submission;
+no automatic retry is authorized. STOP-B/C remain unstarted pending an owner
+decision on the exact-solver boundary.

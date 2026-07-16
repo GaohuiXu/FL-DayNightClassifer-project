@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: APPROVED AGGREGATE ENVELOPE / exact job tuples pending derivation
+REQUEST_STATE: O-125 CONSUMED / STOP-A BLOCKED / no executable tuple
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
-EXECUTION_AUTHORITY: O-124 + O-125 final STOP-A remediation amendment
-SOURCE_SHA: pending implementation SHA; current clean base was a080d49c1c22de20ccb5b1353d4922c7df14a729
+EXECUTION_AUTHORITY: O-124 aggregate ABC envelope; O-125 final STOP-A tuple consumed
+SOURCE_SHA: STOP-A d7caf53414ade2d5db794ecd90851d0e5a3535b5; B/C pending
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-124 approved 2026-07-15; O-125 exact 15-minute A3 approved 2026-07-16
-EXECUTABLE_NOW: only after each tuple is frozen below from an immutable SHA
+EXECUTABLE_NOW: none — STOP-A gate unmet; owner amendment required
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -33,10 +33,10 @@ full-train equivalent epoch). B1 is not an epoch/rung baseline.
 
 | STOP | Expected elapsed allocation | Proposed hard ceiling | Basis |
 |---|---:|---:|---|
-| A — split/evaluator | 0 GPU-h when a compatible CPU compute node is available; otherwise about 0.5 | 1 GH200-h contingency | metadata/MILP/checker/devkit parity are CPU work; a GH200 allocation is used only if the validated aarch64 environment cannot run on CPU-only compute |
+| A — split/evaluator | 0 GPU-h when a compatible CPU compute node is available; otherwise about 0.5 | 2.1 GH200-h after O-125 | metadata/MILP/checker/devkit parity are CPU work; O-125 added one contingency hour but authorized only one 15-minute A3 allocation |
 | B — observation-first | about 0.5–1 GH200-h | 2 GH200-h | B4 main panels/replays, one tiny paired B4-vs-four-B1 aggregation check, and at most one local boundary refinement |
 | C — architecture/init | about 12–16 GH200-h | 24 GH200-h | every scientific training cell is B4; six low/three mid slot stress case, up to two donor lineages, reference-graph penalty, eval and bounded step-debug allowance included |
-| **ABC total** | **about 13–18 GH200-h** | **27 GH200-h** | serial one-GPU execution; A's 1 h is contingency only |
+| **ABC total** | **about 13–18 GH200-h** | **28.1 GH200-h after O-125** | serial one-GPU execution; O-125's increment was STOP-A-only contingency |
 
 The lower C expectation assumes only one staged donor survives. Two incompatible
 donor lineages (for example local and coherent-reference SECOND graphs) push the
@@ -69,9 +69,10 @@ measured STOP-C performance. O-124 approves these execution horizons and the har
 ceiling, including allowed sample-count upper bounds and at most two qualifying
 debug/fix cycles.
 
-The 27-hour ceiling is a safety ceiling, not a spending target. Unused time cannot
-be transferred to another candidate, seed, rung, longer horizon, STOP-D/E/F, DDP,
-array, profiler campaign or full run.
+The 28.1-hour amended ceiling is a safety ceiling, not a spending target. Job
+`467862` used only 0.253889 of O-125's contingency; the unused balance is not an
+execution entitlement and cannot be transferred to another candidate, seed,
+rung, longer horizon, STOP-D/E/F, DDP, array, profiler campaign or full run.
 
 ## 3. Proposed allocation map
 
@@ -270,10 +271,10 @@ committed, snapshotted and frozen below. It is not an identical retry; Job
 `463593` remains the required negative result. The replacement consumes debug/fix
 slot 1/2 and submission 2/9, while the scientific-allocation count remains 1/7.
 
-## 8. STOP-A derived debug/fix tuple 1 — frozen under O-124
+## 8. STOP-A derived debug/fix tuple 1 — consumed under O-124
 
 ```text
-TUPLE_STATE: FROZEN / executable once
+TUPLE_STATE: CONSUMED / Job 463649 TIMEOUT / NOT EXECUTABLE
 DERIVATION: exact §6 tuple plus only the §7 int32/cache-provider remediation
 SOURCE_SHA: 3f7ab76f7043384705b109e40fd4c1d1fcde01ae
 SOURCE_TREE: 32e2648defbb9a84763b1d993668139f78a2e0d4
@@ -360,7 +361,7 @@ one-GH200-hour ceiling. S00 may implement, test, commit, snapshot and freeze the
 strictly equivalent remediation, but another GH200 submission requires an owner
 resource amendment. No B/C execution starts before STOP-A closes.
 
-## 10. STOP-A derived debug/fix tuple 2 — frozen and executable once under O-125
+## 10. STOP-A derived debug/fix tuple 2 — consumed under O-125
 
 The output-equivalent remediation is immutable at
 `d7caf53414ade2d5db794ecd90851d0e5a3535b5`. On the CPU SciPy diagnostic module,
@@ -374,7 +375,7 @@ bytecode compilation and `git diff --check` pass. Signal-lifecycle probes return
 `TERM=143`, incomplete-zero `125`, and complete-zero `0`.
 
 ```text
-TUPLE_STATE: FROZEN / EXECUTABLE ONCE UNDER O-125
+TUPLE_STATE: CONSUMED / TIMEOUT / NOT EXECUTABLE
 DERIVATION: §8 tuple plus only exact blocked-radix tie-break and fail-closed signal handling
 SOURCE_SHA: d7caf53414ade2d5db794ecd90851d0e5a3535b5
 SOURCE_TREE: d4e25ae7ce074ef0b9b0350b329ccaf806756f77
@@ -422,3 +423,52 @@ ON_ANY_FAILURE_OR_TIMEOUT: STOP-A blocked; no further fix/retry; return to owner
 The exact job asks for 15 minutes rather than reserving the one-hour contingency.
 The unused 45 minutes are neither spent nor an automatic identical retry or new
 submission authority. Any later tuple still requires a fresh diagnosed boundary.
+
+## 11. A-GATE Job 467862 terminal timeout
+
+Job `467862` consumed the exact §10 tuple once on `n409` with zero restarts.
+Source/runtime/data preflight passed. The expanded focused suite completed
+`13 passed, 8 skipped in 1.93s`, and the accepted train metadata traversal reached
+all 28,130 samples in about 33 seconds. The process then remained inside the exact
+blocked-radix MILP until Slurm terminated it at `00:15:14`. The requested
+`00:15:00` limit was therefore sufficient to prove that a 10-minute request would
+also have failed, but it was insufficient to complete the exact split.
+
+No `gate.exit`, `final.exit`, solver report, split manifest, ownership record or
+evaluator-parity artifact exists. The gate created the target directory and an
+empty `split/` subdirectory before solving, but wrote no files there; partial
+fail-closed evidence remains under the sibling `.control` path. Neither directory
+is a reusable split. This is not split infeasibility evidence and is not a STOP-A
+PASS. The observed 19-call topology did not provide enough wall-time reduction
+on the real problem; without per-solve output-neutral telemetry, the completed
+call count and slowest objective remain unknown.
+
+```text
+JOB: 467862
+STATE/EXIT/ELAPSED/RESTARTS: TIMEOUT / 0:0 / 00:15:14 / 0
+BATCH_STEP: CANCELLED / 0:9 / 00:17:13 after timeout cleanup
+NODE: n409
+CONSUMED_GPU_HOURS: 0.253889
+TOTAL_CPU/MAX_RSS: 16:28.628 / 11553920K
+PARTIAL_CONTROL: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_d7caf53414ad_a3.control
+TARGET_OUTPUT: exists with empty split/ directory and zero files; not reusable
+EXECUTION_IDENTITY_SHA256: b149c366cbd1427e0c2d2a2e51af4782bca9376641c55d3147e5e9cc33b2566a
+FOCUSED_TEST_STDOUT_SHA256: 607134486ddc03317432193fee030862b17d7d03fbefd1a50b267857e0d969bb
+FOCUSED_TEST_STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+FOCUSED_TEST_EXIT_SHA256: 9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa
+GATE_STDOUT_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+GATE_STDERR_SHA256: 3534797b3098669b99befbe99286eac3bcd4ebb5c501fd18c62aa3515e24b63b
+PARTIAL_CONTROL_TREE_SHA256: d10b25999440e86f278e7dfeb13a0ddfe114b8fc347584691d37793138666f4e
+SLURM_LOG_PAIR_SHA256: 709bb321bdf2050cae15f7266088dec7e39f0bf312e974ada0beef21887f4fea
+SCIENTIFIC_ALLOCATIONS_CONSUMED: 1 / 7
+DEBUG_FIX_ALLOCATIONS_CONSUMED: 2 / 2
+SUBMISSIONS_CONSUMED: 3 / 9
+STOP_A_GPU_HOURS_CONSUMED: 1.271389 / 2.100000 amended ceiling
+ABC_GPU_HOURS_CONSUMED: 1.271389 / 28.100000 amended ceiling
+```
+
+O-125 requires any timeout to return to the owner with no identical retry. STOP-A
+is therefore blocked; no B/C job may start because the accepted stop order makes
+STOP-A's immutable split/evaluator identity their prerequisite. Any future tuple
+requires an explicit owner amendment after deciding whether to retain exact MILP,
+change its solver/algorithm, or revise the gate.

@@ -1,14 +1,16 @@
-# S10 results — STOP-A/B/C active
+# S10 results — STOP-A blocked; STOP-B/C unstarted
 
 ## STOP-A
 
 ```text
 IMPLEMENTATION_SHA: e27053a5b141e1afaa68363ce6deb2efdb60518e
-A_GATE_TUPLE: frozen in RUN_REQUEST.md
+REMEDIATION_SHA: d7caf53414ade2d5db794ecd90851d0e5a3535b5
+A_GATE_TUPLES: recorded in RUN_REQUEST.md
 JOB: 463593 / FAILED 1:0 / 00:00:49 / zero restarts
 JOB: 463649 / TIMEOUT 0:0 / 01:00:14 / zero restarts
-RESULT: no accepted split/parity; exact split solve exceeded the frozen walltime
-FINAL_A3: exact 15-minute tuple authorized under O-125; submission pending
+JOB: 467862 / TIMEOUT 0:0 / 00:15:14 / zero restarts
+RESULT: no accepted split/parity; exact split solve exceeded all frozen walltimes
+FINAL_A3: consumed under O-125; no retry authorized
 INDEPENDENT_REVIEW: pending immutable PASS evidence
 ```
 
@@ -37,6 +39,20 @@ negative evidence.
 The exact blocked-radix implementation and signal-safe runner remediation are
 immutable at `d7caf53414ade2d5db794ecd90851d0e5a3535b5`. Legacy/new synthetic
 canonical output identity, repeated determinism, 19-call topology, radix bounds,
-static checks and signal lifecycle pass locally. Its read-only snapshot and exact
-tuple are frozen in `RUN_REQUEST.md`, but a further job is not authorized by the
-exhausted STOP-A one-GH200-hour ceiling. STOP-B and STOP-C have not started.
+static checks and signal lifecycle pass locally. Job `467862` then exercised its
+exact O-125 tuple: the focused suite passed (`13 passed, 8 skipped in 1.93s`) and
+all 28,130 train metadata samples were traversed in about 33 seconds, proving the
+data path was not the long pole. The exact MILP still had not completed at the
+15-minute wall-time. No `gate.exit`, false-success `final.exit`, split, ownership,
+solver-report or parity artifact exists.
+
+Job `467862` consumed `0.253889` GH200-hours, bringing cumulative STOP-A/ABC
+allocation to `1.271389` GH200-hours. Partial-control tree SHA-256 is
+`d10b25999440e86f278e7dfeb13a0ddfe114b8fc347584691d37793138666f4e`;
+execution identity is
+`b149c366cbd1427e0c2d2a2e51af4782bca9376641c55d3147e5e9cc33b2566a`;
+gate stderr is
+`3534797b3098669b99befbe99286eac3bcd4ebb5c501fd18c62aa3515e24b63b`.
+O-125 forbids an identical retry after timeout. STOP-A is blocked pending an
+owner decision on the exact-solver/gate boundary; STOP-B and STOP-C have not
+started.

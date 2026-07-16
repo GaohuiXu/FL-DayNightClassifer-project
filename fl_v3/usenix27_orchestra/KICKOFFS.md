@@ -1,6 +1,6 @@
 # USENIX Security '27 Orchestra — active envelopes
 
-> **Launch state (2026-07-15).** S08 and S09 are closed and integrated through
+> **Launch state (2026-07-16).** S08 and S09 are closed and integrated through
 > `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`. Their complete pre-compaction
 > execution ledgers remain recoverable at that Git object; compact terminal
 > records remain under `handoffs/S08` and `handoffs/S09`.
@@ -10,8 +10,10 @@
 > `codex/s10-cl-model-recipe`. O-122 accepts the six-stop A-F scientific envelope,
 > exact STOP-A split/evaluator gate, and primary full claim “absolute clean
 > capability + fusion contribution”. O-124 activates bounded STOP-A/B/C
-> completion; O-125 authorizes the exact final STOP-A remediation tuple at
-> `00:15:00`. STOP-D/E/F execution and S11+ remain unapproved.
+> completion; O-125's exact final `00:15:00` STOP-A tuple was consumed by Job
+> `467862` and timed out inside the exact MILP after tests and metadata traversal.
+> No split/parity artifact exists and no further STOP-A job is authorized.
+> STOP-B/C are unstarted; STOP-D/E/F execution and S11+ remain unapproved.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -430,24 +432,26 @@ authorized.
   architecture/init, D recipe freeze, E final-graph GH200 optimization, F
   single-seed full/official-val close. Exact scientific limits are in
   `handoffs/S10/HANDOFF.md`.
-- **Current authority:** O-124 approves continuous STOP-A/B/C implementation,
-  local validation, linear commits, exact derived serial Slurm submissions and
-  stop-level independent review within the v1 cumulative caps. Every material job
-  tuple is still frozen in `RUN_REQUEST.md` before submission.
+- **Current authority:** O-124's aggregate ABC envelope remains recorded, but its
+  gate order prevents B/C from starting while STOP-A is open. O-125's final
+  STOP-A tuple is consumed and its timeout rule forbids an identical retry.
+  Documentation/evidence sealing remains authorized; further STOP-A execution or
+  a changed split solver requires an explicit owner amendment.
 - **O-123 batch correction:** the B=1-based v0 request is rejected. Revised ABC
   scientific rungs use physical B=4 at minimum and bind a fixed-batch tail policy;
   B=1 may appear only in a tiny paired diagnostic check. B=8/16 belong to a later
   bounded STOP-D/E batch ladder after final-graph selection unless the owner
   explicitly amends ABC.
-- **Future ABC completion authority:** one owner decision may cover in-envelope
-  implementation, linear implementation/evidence/remediation commits, at most one
-  active GH200 job, exact pre-recorded serial submissions, and stop-level review.
-  It must freeze total/per-stop GPU ceilings, cell/seed/candidate caps, derivation
-  rules and stop conditions. It is not O-107 and never transfers unused budget to
-  extra candidates, seeds, horizons or STOP-D/E/F.
+- **ABC completion authority:** O-124 covers in-envelope linear
+  implementation/evidence/remediation commits, at most one active GH200 job,
+  exact pre-recorded serial submissions, and stop-level review within its caps.
+  It is not O-107 and never transfers unused budget to extra candidates, seeds,
+  horizons or STOP-D/E/F. O-125's unused contingency is likewise not a spare-job
+  entitlement.
 - **Review:** STOP-A split/metric requires one isolated high-risk review worktree
-  after an immutable SHA; reuse one bounded S10-R context when later isolation is
-  required. Reviewers read and report but never fix. S00 remediates linearly;
+  after a successful immutable evidence SHA; incomplete Job `467862` does not
+  trigger a closure review. Reuse one bounded S10-R context when later isolation
+  is required. Reviewers read and report but never fix. S00 remediates linearly;
   P3-only polish is batched, and a repeated material blocker returns to the owner.
 - **S11 and later:** pending. Historical role descriptions and sequencing do not
   create scope or authority; Protocol A/B execution, attack, defense, upload and
