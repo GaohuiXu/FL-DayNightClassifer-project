@@ -20,8 +20,10 @@
 > passed the first/only feasibility split, independent ownership checker and
 > exact evaluator-parity gate. A4 re-review of `b0478a2` returned
 > `PASS_WITH_RESIDUAL_RISK` with no open P0-P3; STOP-A is CLOSED PASS and
-> O-128 freezes the exact `8fd832d` STOP-B B-DIAG tuple for its sole submission.
-> STOP-C is unstarted; STOP-D/E/F execution and S11+ remain unapproved.
+> O-128's exact `8fd832d` STOP-B B-DIAG Job `477892` failed at the first FP32
+> disabled/on parity gate after tests and pre-model panel/W0 freeze, before any
+> broad/term localization evidence. Its sole submission is consumed; no retry or
+> B-REFINE is authorized. STOP-C is unstarted; STOP-D/E/F and S11+ remain unapproved.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -443,8 +445,8 @@ authorized.
 - **Current authority:** O-127's one explicit-one-GH200 replacement is consumed.
   Job `468404` ran with `CUDA_VISIBLE_DEVICES=""`, PyTorch CUDA count zero, 4
   CPUs and 32 GiB, and STOP-A closed after A4 re-review of `b0478a2`. There is
-  no STOP-A retry. O-128 activates STOP-B and freezes the exact `8fd832d`
-  one-GH200 B-DIAG tuple in `RUN_REQUEST.md`; it is the sole executable tuple.
+  no STOP-A retry. O-128's exact `8fd832d` B-DIAG was consumed by failed Job
+  `477892`; no executable tuple remains. STOP-B awaits an owner decision and
   STOP-C remains unstarted.
 - **O-123 batch correction:** the B=1-based v0 request is rejected. Revised ABC
   scientific rungs use physical B=4 at minimum and bind a fixed-batch tail policy;

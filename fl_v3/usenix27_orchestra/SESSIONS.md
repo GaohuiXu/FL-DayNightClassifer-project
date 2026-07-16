@@ -21,8 +21,10 @@
 > passed focused tests, the first/only feasibility split, independent ownership
 > checker and exact evaluator-parity fixtures. Targeted A4 re-review of remediation
 > `b0478a2` returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P3; STOP-A is
-> CLOSED PASS. O-128 now activates the exact immutable `8fd832d` STOP-B
-> observation-first B-DIAG tuple; it is frozen but not yet consumed. STOP-C is
+> CLOSED PASS. O-128's exact immutable `8fd832d` STOP-B B-DIAG Job `477892`
+> failed at the first FP32 disabled/on parity gate after focused tests and the
+> pre-model panel/W0 freeze, before broad/term observations. No localization
+> verdict or refinement trigger exists and no retry is authorized. STOP-C is
 > unstarted. STOP-D/E/F and S11+ remain pending.
 >
 > `Sxx` is an evidence namespace, not automatically a worker, task, branch, or
@@ -40,7 +42,7 @@
   ├─ S09 full-pipeline performance/readiness      [closed PASS under O-120]
   │      └─ independent review of exact profiling/evidence SHA
   │
-  ├─ S10 A-F CL health/recipe/speed/full claim     [STOP-A CLOSED; B-DIAG frozen]
+  ├─ S10 A-F CL health/recipe/speed/full claim     [STOP-A CLOSED; B parity FAIL]
   └─ S11 and later                                 [roles pending owner decision]
 ```
 
@@ -53,7 +55,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | STOP-A **CLOSED PASS_WITH_RESIDUAL_RISK** at reviewed `b0478a2`; O-128 exact STOP-B B-DIAG frozen at `8fd832d`; C unstarted |
+| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | STOP-A closed; O-128 B-DIAG Job `477892` early parity FAIL/no verdict; owner decision required; C unstarted |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract
@@ -352,10 +354,12 @@ independent ownership checker and exact full-val evaluator parity, and consumed
 `0.133056` allocated GPU-hours. It makes no global balance-optimality claim and
 cannot be rerolled. Initial A4 documentation findings were remediated at
 `b0478a2`; targeted re-review returned `PASS_WITH_RESIDUAL_RISK` with no open
-P0-P3 and closed STOP-A. O-128 subsequently approves STOP-B as a continuous
-observation-first stop and freezes the exact B-DIAG source/snapshot/config/panel/
-resource tuple in `handoffs/S10/RUN_REQUEST.md`. STOP-C remains unstarted and
-D/E/F remain separate future execution gates.
+P0-P3 and closed STOP-A. O-128 subsequently approved STOP-B as a continuous
+observation-first stop and froze its exact B-DIAG tuple. Job `477892` consumed
+that tuple and failed at the first FP32 disabled/on parity gate before broad/term
+observations. The failed runner did not persist the individual parity predicates,
+so STOP-B has no localization verdict and requires an owner decision. STOP-C
+remains unstarted and D/E/F remain separate future execution gates.
 
 O-123 rejects the first B=1-based ABC estimate. O-124 approves the revised v1 ABC
 completion envelope and starts continuous implementation/execution/review under

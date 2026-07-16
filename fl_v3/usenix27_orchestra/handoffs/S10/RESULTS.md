@@ -1,4 +1,4 @@
-# S10 results — STOP-A CLOSED PASS; STOP-B B-DIAG frozen
+# S10 results — STOP-A CLOSED PASS; STOP-B early parity FAIL
 
 ## STOP-A
 
@@ -177,8 +177,27 @@ official-val capability PASS.
 OWNER_DECISION: O-128
 IMPLEMENTATION_SHA: 8fd832dc7d46e8818216ecbcf228ef8fd0590ecb
 IMPLEMENTATION_TREE: d5ce6c060279271295abdca41c3ad7aec5870315
-B_DIAG_TUPLE: frozen in RUN_REQUEST.md §18; not yet consumed
-B_REFINE: conditional zero-or-one; not prepared
-RESULT: pending
-INDEPENDENT_REVIEW: pending immutable execution evidence
+B_DIAG_TUPLE: consumed once by Job 477892
+JOB: 477892 / FAILED 1:0 / 00:04:44 / zero restarts / 0.078889 GH200-hours
+FOCUSED_TESTS: 39 passed in 13.36s
+PRE_MODEL_PANEL: PASS / 48 core + 16 term / content SHA 8e4f2d9
+W0: frozen all-scratch seed-0 state SHA e58bcd4
+RESULT: first FP32 disabled/on parity combined gate FAIL
+BROAD/TERM/FP16/OPTIMIZER/EVALUATOR: not executed
+LOCALIZATION_VERDICT: none; neither LOCALIZED nor INCONCLUSIVE
+B_REFINE: not triggered and not authorized
+INDEPENDENT_REVIEW: not started; no scientific STOP-B evidence package exists
 ```
+
+The combined parity gate checked exact output hash, raw parameter-gradient hash,
+loss, RNG hash and model-state hash. The runner failed before persisting its
+per-predicate parity record, so the raw evidence does not identify which one or
+more predicates differed. Consequently this failure is an instrumentation/
+parity-boundary failure, not evidence that the large LiDAR gradient was located
+or that the current model is unhealthy. No optimizer was constructed, no update
+was made, and `D_select`, `D_audit` and official val remained unobserved.
+
+Immutable output root:
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_diag_8fd832dc7d46_o128_a1`.
+Its runner artifact manifest SHA-256 is
+`0dc23faf982a2905709f83b1cc2b0fde87d4850da7ad256a98dddd91acdec0a2`.

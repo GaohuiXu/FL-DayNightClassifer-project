@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: STOP-B B-DIAG exact tuple frozen / O-128 active / not yet consumed
+REQUEST_STATE: STOP-B B-DIAG consumed / Job 477892 early parity FAIL / no executable tuple
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
-EXECUTION_AUTHORITY: STOP-A consumed; O-124/O-128 authorize exact §18 B-DIAG once
+EXECUTION_AUTHORITY: STOP-A and O-128 B-DIAG consumed; no retry/replacement authorized
 SOURCE_SHA: 8fd832dc7d46e8818216ecbcf228ef8fd0590ecb
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-128 STOP-B plan and compute approved 2026-07-16
-EXECUTABLE_NOW: §18 B-DIAG sole submission; STOP-A closed; STOP-C not authorized
+EXECUTABLE_NOW: none; STOP-B requires owner decision; STOP-C not authorized
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -811,3 +811,49 @@ only after a successful B-DIAG `LOCALIZED` result explicitly recommends one of
 the predeclared unresolved multi-operation intervals. `INCONCLUSIVE`, a hard
 failure or a single-operation interval does not authorize panel growth, a rerun
 or another hypothesis family.
+
+## 19. O-128 B-DIAG Job 477892 — terminal early parity FAIL
+
+Job `477892` consumed §18 exactly once. It received the exact one-GH200/eight-
+CPU/64-GiB allocation on aarch64 node `n434`, ran without restart and failed
+`1:0` after `00:04:44` (`284 / 3600 = 0.078889` allocated GH200-hours).
+Cumulative STOP-A/ABC allocation is therefore `1.492223` GH200-hours, leaving
+arithmetic room under the aggregate ceiling but no submission authority.
+
+The 39 focused tests passed in `13.36s`. Runtime, source, config, cache, split
+and dependency identities passed. The runner then froze, before model
+construction, the accepted `D_low`-bound panel:
+
+```text
+PANEL_CONTENT_SHA256: 8e4f2d992d7a27d771c6fdf00098afc14b9621bc50ea1e52319b84d406f9ad55
+PANEL_FILE_SHA256: c2826effeba2e074ef8f76ab582bbb5dc796f41b9555348d56e252a2d70138a6
+P_CORE/P_TERM: 48 / 16; disjoint; no reroll
+P_TERM_TASK_POSITIVE_FRAMES: 16 / 11 / 8 / 7 / 9 / 15
+W0_STATE_DICT_SHA256: e58bcd46d588c68b31335fe87cc5fbff06cbc0fbcdae7e88b0b1ed70d1d65395
+MODEL_BEFORE_PANEL_FREEZE: false
+MODEL_OUTPUT_BEFORE_PANEL_FREEZE: false
+```
+
+The first FP32 parity batch failed the combined disabled/on gate. The combined
+gate covered output tensor hash, raw parameter-gradient hash, exact loss, RNG
+state hash and model-state hash. The runner raised before appending the failing
+parity record, so this evidence cannot identify which predicate(s) differed.
+No FP32 broad, term replay, aggregation, FP16, optimizer, evaluation or model
+update occurred. There is no `LOCALIZED`/`INCONCLUSIVE` STOP-B verdict and no
+B-REFINE trigger. Raw artifacts are immutable and fully checksummed:
+
+```text
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_diag_8fd832dc7d46_o128_a1
+RUNNER_ARTIFACT_SHA256: 0dc23faf982a2905709f83b1cc2b0fde87d4850da7ad256a98dddd91acdec0a2
+OBSERVE_STDERR_SHA256: e375302f297a2a8963822c4e91c68d49a50cbbc94452ac4c6892c19993e2c24d
+SLURM_STDOUT_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+SLURM_STDERR_SHA256: 8db5d05b4abfa9c9cc1bd7028c410675c3e2d697af110ce6c6d9aa51f2e1e830
+FINAL_EXIT: 1
+```
+
+`SLURM_STDOUT_SHA256` above is the standard empty-file digest; its displayed
+value is retained exactly as emitted by `sha256sum`. O-128 forbids an identical
+retry and supplies no replacement. A future owner-approved diagnosis should
+first persist all parity predicates and measure disabled/disabled run-to-run
+variation before deciding whether disabled/on differences are instrumentation
+effects or the accepted sparse backend's non-bit-deterministic baseline.

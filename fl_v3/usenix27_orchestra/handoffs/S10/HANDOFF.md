@@ -1,4 +1,4 @@
-# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B B-DIAG frozen
+# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B early parity FAIL
 
 ## 1. State and authority
 
@@ -8,10 +8,10 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: exact STOP-B B-DIAG tuple frozen under O-128
+CURRENT_AUTHORITY: O-128 B-DIAG consumed by Job 477892; no executable tuple
 ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-128 bounded authority
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
-STOP_B: implementation 8fd832d; B-DIAG frozen/not yet consumed; B-REFINE conditional only
+STOP_B: Job 477892 early parity FAIL; no LOCALIZED/INCONCLUSIVE verdict; owner decision required
 STOP_C: unstarted
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
@@ -485,3 +485,21 @@ Its output is the canonical reusable limited-rung split/evaluator identity for
 downstream S10 work. This closure satisfies STOP-B's data/evaluator dependency;
 it does not itself start STOP-B, authorize a new Slurm tuple, or broaden any
 candidate, seed, resource or interpretation boundary.
+
+## 14. STOP-B O-128 terminal state
+
+Implementation `8fd832dc7d46e8818216ecbcf228ef8fd0590ecb` added only
+explicit detector/SECOND/loss observation seams, frozen split/panel binding, a
+single one-shot runner and focused tests. Exact Job `477892` passed all 39 tests,
+the physical STOP-A manifest binding, runtime/config identities and the pre-model
+`P_core48/P_term16` freeze. It then failed at the first FP32 disabled/on parity
+batch before broad or term observations.
+
+The runner combined exact output, raw-gradient, loss, RNG and model-state parity
+into one fail-closed predicate but raised before persisting the individual
+booleans. Therefore the evidence supports only **early parity FAIL with unknown
+failing subpredicate(s)**. It does not support a LiDAR-gradient localization,
+GroupNorm mechanism, architecture failure, convergence statement, recipe change
+or B-REFINE. The sole O-128 B-DIAG submission is consumed and no automatic
+replacement exists. Exact job, panel, W0 and artifact identities are in
+`RUN_REQUEST.md` §19 and `RESULTS.md`.
