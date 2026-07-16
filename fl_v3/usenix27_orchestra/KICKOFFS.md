@@ -29,7 +29,8 @@
 > FP32 parity as `baseline_instability`; no later cell ran and B-REFINE is false.
 > Independent review returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P3;
 > O-130 now authorizes one 15-minute/0.25-GH200-hour B-RAND decomposition on the
-> frozen first P_core B4. STOP-C is unstarted;
+> frozen first P_core B4. Implementation `0bf9c0c` and the sole §24 detached
+> snapshot/command tuple are frozen for one no-retry submission. STOP-C is unstarted;
 > STOP-D/E/F and S11+ remain unapproved.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
@@ -460,8 +461,9 @@ authorized.
   consumed it and failed the first FP32 disabled/disabled parity as calibrated
   `baseline_instability`; no later cell ran and B-REFINE is false. Independent
   review returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. O-130 now permits
-  implementation/freeze/submission of exactly one 15-minute B-RAND job and one
-  stop-level review. STOP-C remains unstarted.
+  exactly one 15-minute B-RAND job from implementation `0bf9c0c` and the frozen
+  `RUN_REQUEST.md` §24 tuple, followed by one stop-level review. STOP-C remains
+  unstarted.
 - **O-123 batch correction:** the B=1-based v0 request is rejected. Revised ABC
   scientific rungs use physical B=4 at minimum and bind a fixed-batch tail policy;
   B=1 may appear only in a tiny paired diagnostic check. B=8/16 belong to a later

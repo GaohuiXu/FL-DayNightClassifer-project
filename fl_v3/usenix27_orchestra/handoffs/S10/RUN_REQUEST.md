@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-130 B-RAND APPROVED / implementation and exact tuple pending
+REQUEST_STATE: O-130 B-RAND APPROVED / exact §24 tuple FROZEN / ready once
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
 EXECUTION_AUTHORITY: O-130 one B-RAND at 00:15:00 / 0.25 GH200-hour
-SOURCE_SHA: 43f157b3eca7ca72633358b5a2d2dbc4c4e4684b
+SOURCE_SHA: 0bf9c0ce4148bc82d977e0d66615f606144971b6
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-128/O-129 prior STOP-B; O-130 B-RAND modification and compute approved 2026-07-16
-EXECUTABLE_NOW: implementation/validation only until exact immutable tuple is recorded
+EXECUTABLE_NOW: exact §24 B-RAND only; one submission/no retry
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1038,7 +1038,7 @@ rebaseline required.
 
 ```text
 REQUEST_ID: S10-STOP-B-RAND-O130-v1
-REQUEST_STATE: APPROVED DESIGN / EXACT SOURCE-SNAPSHOT-COMMAND PENDING
+REQUEST_STATE: APPROVED DESIGN / exact execution frozen in §24
 DATA/PANEL: exact Job-477892 physical panel; first P_core B4 token vector only; no rebuild/reroll/growth
 MODES: C-STR8 camera_only; L-S075 lidar_only; F-U fusion
 MODE_STATUS: current component graphs for diagnosis; not candidate acceptance cells
@@ -1067,4 +1067,59 @@ WORST_CASE_ABC_AFTER: 1.816667 GH200-hours
 STOP: any identity/resource/test/integrity/artifact failure or timeout; return to owner
 FORBIDDEN: output-equality acceptance, tolerance fitting, extra repeats/seeds/batches, model/recipe change, training, evaluator, DDP/array/spare GPU, automatic follow-up
 OWNER_APPROVAL: O-130, 2026-07-16
+```
+
+## 24. O-130 B-RAND exact immutable tuple — FROZEN / READY ONCE
+
+```text
+REQUEST_ID: S10-STOP-B-RAND-O130-v1
+REQUEST_STATE: APPROVED / FROZEN / READY ONCE
+DERIVATION: exact implementation of approved §23 with no scientific or resource expansion
+SOURCE_SHA: 0bf9c0ce4148bc82d977e0d66615f606144971b6
+SOURCE_TREE: 1852db34197c142714456f3fa07e999393dc1ba9
+BRANCH_AT_FREEZE: codex/s10-cl-model-recipe
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_b_rand_0bf9c0c_o130
+SNAPSHOT_MODE: detached HEAD; clean; recursively read-only; zero group/other-writable paths
+JOB_RUNNER_SHA256: 88f36ba78afa394465ccc7e774ac54165ec0afeff1ee857c940c4990b16ad3a2
+OBSERVER_SHA256: 0e8cd0c221d91dbb2e174f5c920a20b02f6b5c2e82f568a7a77fa698715a2da0
+OBSERVATION_HELPER_SHA256: af083dd6c4106ed822935c80e719965a57368b08f38c1232cbe09c39d5cc552f
+OBSERVATION_TEST_SHA256: 8b0a44db59ec0fd61e02ffa8909a4214da67365e77ff481d2e25240c18ce38b6
+CAMERA_CONFIG_FILE_SHA256: 1c597fb026f8634354562e8cad4f24ee7fb934844c24cc6c66a39ad729cff7bd
+CAMERA_CONFIG_RESOLVED_SHA256: 7eb29f64746a631e496a4512997d02d221672c9ba2100291497abaf8f23415a4
+LIDAR_CONFIG_FILE_SHA256: 5043b09195b3c05a7d94e8d88b3e3cd1bffdb6eba49ed93776fd966b28642698
+LIDAR_CONFIG_RESOLVED_SHA256: bacf186c8cd7e965f332dec00691a666147cd0a62231581517bf3d0f246bff34
+FUSION_CONFIG_FILE_SHA256: 11e756e7174e4146d7809b0ec4cc29ceae917e46c268bd9e991283479d6eb612
+FUSION_CONFIG_RESOLVED_SHA256: 561145f41c83a0ac739c17c818aee36f9963142df7c3251c05683e5eba0e6337
+SPLIT_MANIFEST: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_feasible_ad93c89333b0_o127_a1/split/split_manifest.json
+SPLIT_MANIFEST_SHA256: 7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8
+ROLE: D_low
+PANEL_MANIFEST: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_diag_8fd832dc7d46_o128_a1/panel_manifest.json
+PANEL_FILE_SHA256: c2826effeba2e074ef8f76ab582bbb5dc796f41b9555348d56e252a2d70138a6
+PANEL_CONTENT_SHA256: 8e4f2d992d7a27d771c6fdf00098afc14b9621bc50ea1e52319b84d406f9ad55
+PANEL_CELL: batches_b4.P_core[0] only
+TOKENS_IN_ORDER: 5fd95d1f56744e88adaef6f87d6e8559, 2da5b4573e734cc698798e40cfe542f0, b819c59bb4864a878beef275e9178672, 9a798a9c3ed04a389c5a51120edb3573
+MODE_ORDER: C-STR8, L-S075, F-U
+PRECISION/MICROBATCH: uniform FP32 / physical B4
+RUN_ORDER_PER_MODE: seed 9000 warm-up; seed 10000 x5; seeds 11000..11004
+TOTAL_FORWARD_BACKWARD_RUNS: 33
+OPTIMIZER/UPDATE/EVALUATOR: absent / zero / absent
+FOCUSED_TESTS: binding + observation + precision partition/diagnostics + SECOND contract + selected model-task guards
+CUBLAS_WORKSPACE_CONFIG: :4096:8 before first Python/Torch process
+PARTITION/NODES/NTASKS: gpu / 1 / 1
+GPU: 1 x nvidia_gh200_120gb; one visible GH200; no DDP/array/spare GPU
+CPU/MEMORY/TIME: 8 / 64 GiB / 00:15:00
+MAX_THIS_ALLOCATION: 0.25 elapsed GH200-hour
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_rand_0bf9c0c_o130_a1
+SUBMIT_COMMAND_SHA256_NO_TRAILING_NEWLINE: 66d7b7ed060c678fa3128ee9eda0d01d397e4ef07204ea58966b5b6816c78f95
+CONCURRENCY_PREFLIGHT: require no other owner job before submission
+REQUEUE/RETRY/REROLL: forbidden
+STOP: any source/config/data/panel/resource/runtime/test/integrity/artifact failure or timeout; return to owner
+ALLOWED_INTERPRETATION: bounded operational candidate-source triage under §23 only
+FORBIDDEN_INTERPRETATION: numerical-equality gate, kernel/module causality, large-gradient explanation, convergence, capability, recipe/architecture acceptance, automatic continuation, STOP-C
+```
+
+Exact command:
+
+```bash
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=8 --mem=64G --gpus=nvidia_gh200_120gb:1 --time=00:15:00 --no-requeue --job-name=s10-stop-b-rand-0bf9c0c --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_b_rand_0bf9c0c_o130 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_b_rand_0bf9c0c_o130_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_b_rand_0bf9c0c_o130_%j.err --export=ALL,S10_STOPB_RAND_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_b_rand_0bf9c0c_o130,S10_STOPB_RAND_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_rand_0bf9c0c_o130_a1,S10_STOPB_RAND_EXPECTED_SOURCE_SHA=0bf9c0ce4148bc82d977e0d66615f606144971b6,S10_STOPB_RAND_EXPECTED_TREE=1852db34197c142714456f3fa07e999393dc1ba9,S10_STOPB_RAND_EXPECTED_RUNNER_SHA256=88f36ba78afa394465ccc7e774ac54165ec0afeff1ee857c940c4990b16ad3a2,S10_STOPB_RAND_EXPECTED_OBSERVER_SHA256=0e8cd0c221d91dbb2e174f5c920a20b02f6b5c2e82f568a7a77fa698715a2da0,S10_STOPB_RAND_EXPECTED_CAMERA_CONFIG_SHA256=1c597fb026f8634354562e8cad4f24ee7fb934844c24cc6c66a39ad729cff7bd,S10_STOPB_RAND_EXPECTED_LIDAR_CONFIG_SHA256=5043b09195b3c05a7d94e8d88b3e3cd1bffdb6eba49ed93776fd966b28642698,S10_STOPB_RAND_EXPECTED_FUSION_CONFIG_SHA256=11e756e7174e4146d7809b0ec4cc29ceae917e46c268bd9e991283479d6eb612 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_b_rand_0bf9c0c_o130/fl_v3/scripts/run_s10_stop_b_randomness.sh
 ```
