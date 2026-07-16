@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-127 APPROVED / A3 replacement implementation+tuple pending freeze
+REQUEST_STATE: O-127 APPROVED / exact A3 replacement tuple frozen in §16
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
 EXECUTION_AUTHORITY: one explicit-one-GH200/CUDA-hidden STOP-A replacement under O-127
-SOURCE_SHA: corrected science 7c01cc3f1e75691339f41f101794945748f03305; resource-attestation commit pending
+SOURCE_SHA: ad93c89333b0a8f19abf138c8d6816e742b51e35
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-127 replacement approved 2026-07-16
-EXECUTABLE_NOW: only after exact O-127 immutable source/snapshot/command/output is appended and committed
+EXECUTABLE_NOW: sole §16 tuple after this request-freeze commit; no other STOP-A/B/C tuple
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -607,8 +607,48 @@ ON_PASS: seal evidence, then independent high-risk A4 review
 B/C: forbidden until reviewed STOP-A PASS
 ```
 
-The minimal runner change may only attest the scheduler allocation and hide CUDA;
-it may not alter features, MILP constraints, checker, ownership, evaluator or
+The minimal runner change only attests the scheduler allocation and hides CUDA;
+it does not alter features, MILP constraints, checker, ownership, evaluator or
 artifact semantics. The exact immutable resource-attestation source, detached
-read-only snapshot, file/tree hashes, fresh output and literal command must be
-appended and committed before submission.
+read-only snapshot, file/tree hashes, fresh output and literal command are now
+frozen in §16 and must be committed before submission.
+
+## 16. O-127 exact immutable replacement tuple — frozen for sole submission
+
+```text
+TUPLE_STATE: READY / owner-approved under O-127 / not yet submitted
+SOURCE_SHA: ad93c89333b0a8f19abf138c8d6816e742b51e35
+SOURCE_TREE: d9715477cc6d5e0b6bf9d35c7005222d0d4f63c3
+SCIENCE_PARENT: 7c01cc3f1e75691339f41f101794945748f03305
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_o127_ad93c89333b0
+SNAPSHOT_MODE: detached / clean / read-only / zero writable paths
+SNAPSHOT_TRACKED_FILES: 596
+SNAPSHOT_LS_TREE_SHA256: 0695aebb4623ac931c0c297b9d83df9a5084b9e947ba22d27c183a39e0d39e4e
+RUNNER_SHA256: 94c52a7ceecadec166786990980801d05a153b2d8a710dd597af5a8da973225a
+GATE_SCRIPT_SHA256: b52b13efb923c0154104e9ff8286be46fc173faf7b915a6ec3a51cc128cdf5df
+MATERIALIZER_SHA256: 08e5fb7c33b577ef9fc8a572065ba4251920ba0cafbb0408c2c1c4ee7cadf4b0
+INTERNAL_SPLIT_SHA256: bf3af675ed56755a220abf76bce551f503279f2f63c8dab7f2bbd827167119cb
+SUBSET_EVALUATOR_SHA256: bbf2b5ebbf1f04671295038cf9214976f5c17564ecef43ba819eeb00f385bc26
+INTERNAL_SPLIT_TEST_SHA256: c268f9b7a028fddb04c8d363a3e4a8aa9056cbeb8a53cfa2c4fb58d84f28d013
+SUBSET_EVALUATOR_TEST_SHA256: e64b73e668faf70acaa934b3f2500cf1c0b80454cee1154c814047ab3b050caa
+SUBMIT_COMMAND_SHA256_NO_TRAILING_NEWLINE: 08d936a515a5a80a8687b53306f63fd1da67179644ffb6032268f193e995adcc
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_feasible_ad93c89333b0_o127_a1
+OUTPUT_PREFLIGHT: target and sibling .control absent
+DATA: exact S09 train/val t1.v2 and S01 ZIP-manifest identities frozen in §6
+MODEL/CONFIG/TRAINING: N/A
+PARTITION/NODES/NTASKS: gpu / 1 / 1
+ALLOCATED_GPU: 1 x nvidia_gh200_120gb
+PROCESS_VISIBLE_GPU: 0 (CUDA_VISIBLE_DEVICES empty; torch CUDA false/count zero)
+CPU/MEMORY/TIME: 4 / 32 GiB / 00:15:00
+CONCURRENCY_PREFLIGHT: squeue --me empty
+TEST_ONLY_PREFLIGHT: accepted exact request without four-GPU default warning
+REQUEUE/RETRY/REROLL/ARRAY/DDP: forbidden
+STOP: any allocation/identity/test/data/solve/checker/leakage/parity/artifact failure or timeout
+INTERPRETATION: constrained limited-rung proxy split/evaluator gate only
+```
+
+Exact command:
+
+```bash
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=4 --mem=32G --gpus=nvidia_gh200_120gb:1 --time=00:15:00 --no-requeue --job-name=s10-stop-a-o127-ad93c89 --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_o127_ad93c89333b0 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_o127_ad93c89333b0_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_o127_ad93c89333b0_%j.err --export=ALL,S10_STOPA_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_o127_ad93c89333b0,S10_STOPA_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_feasible_ad93c89333b0_o127_a1,S10_STOPA_EXPECTED_SOURCE_SHA=ad93c89333b0a8f19abf138c8d6816e742b51e35,S10_STOPA_EXPECTED_TREE=d9715477cc6d5e0b6bf9d35c7005222d0d4f63c3,S10_STOPA_EXPECTED_RUNNER_SHA256=94c52a7ceecadec166786990980801d05a153b2d8a710dd597af5a8da973225a /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_o127_ad93c89333b0/fl_v3/scripts/run_s10_stop_a_gate.sh
+```

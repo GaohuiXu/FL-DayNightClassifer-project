@@ -438,3 +438,8 @@ false/device count zero. The Slurm allocation must also attest exactly one GPU,
 CPU-only; the reserved GPU is a scheduler compatibility cost capped at `0.25`
 GPU-hours. Science/data/candidate ordinal/output gates are unchanged. One
 replacement submission, no retry/reroll; A4 begins only after immutable A3 PASS.
+
+The O-127 resource-attestation source is immutable at
+`ad93c89333b0a8f19abf138c8d6816e742b51e35`; its science parent remains
+`7c01cc3f1e75691339f41f101794945748f03305`. The detached read-only snapshot,
+hashes, fresh output and literal sole command are frozen in `RUN_REQUEST.md` §16.

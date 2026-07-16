@@ -15,7 +15,8 @@ CORRECTED_A1-A4: approved under O-126; evidence pending
 CORRECTED_IMPLEMENTATION_SHA: 7c01cc3f1e75691339f41f101794945748f03305
 JOB: 468295 / CANCELLED by owner 0:0 / 00:00:08 / site transformed 0 GPU to 4 GPU
 CORRECTED_A3: not executed; O-126 submission consumed at scheduler boundary
-O127_REPLACEMENT: approved; implementation/tuple pending
+O127_REPLACEMENT_SHA: ad93c89333b0a8f19abf138c8d6816e742b51e35
+O127_REPLACEMENT_TUPLE: frozen in RUN_REQUEST §16; execution pending
 INDEPENDENT_REVIEW: pending immutable PASS evidence
 ```
 
