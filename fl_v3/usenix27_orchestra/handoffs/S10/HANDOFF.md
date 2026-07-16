@@ -1,4 +1,4 @@
-# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B B-RAND amendment active
+# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B O-130 review pending
 
 ## 1. State and authority
 
@@ -8,10 +8,10 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-130 exact §24 B-RAND job once/no-retry + evidence sealing + one review
+CURRENT_AUTHORITY: O-130 evidence sealing + one independent review; no compute
 ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-128/O-129/O-130 bounded authority
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
-STOP_B: reviewed Job 478250 baseline-instability evidence; implementation 0bf9c0c and exact §24 B-RAND tuple frozen
+STOP_B: Job 479667 integrity PASS / MIXED_INCONCLUSIVE descriptive result / independent review pending
 STOP_C: unstarted
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
@@ -534,8 +534,9 @@ does not explain the large LiDAR gradient, and does not prove a specific sparse
 kernel, GroupNorm, loss or architecture mechanism. B-REFINE is not triggered.
 The sealed runner manifest is `801e98c...`; exact hashes and compute accounting
 are in `RUN_REQUEST.md` §22 and `RESULTS.md`. Independent review returned
-`PASS_WITH_RESIDUAL_RISK` with no open P0-P3. No further compute is executable;
-STOP-B is sealed as this bounded negative result and requires owner rebaseline.
+`PASS_WITH_RESIDUAL_RISK` with no open P0-P3. At the O-129 boundary no further
+compute was executable and owner rebaseline was required; O-130 subsequently
+superseded only that execution boundary with the single B-RAND amendment below.
 
 ## 16. STOP-B O-130 B-RAND amendment
 
@@ -568,3 +569,43 @@ two-of-three signal may label camera stochasticity, LiDAR runtime variation or
 fusion-only interaction; multiple/no signals return mixed/inconclusive. These
 labels are operational triage, not causal proof. No automatic broad/term,
 counterfactual, model/recipe change or STOP-C follows.
+
+## 17. STOP-B O-130 Job 479667 evidence state
+
+Implementation `0bf9c0ce4148bc82d977e0d66615f606144971b6` and exact
+§24 Job `479667` completed the approved B-RAND decomposition. The job passed 43
+focused tests, all source/config/data/panel/runtime/resource identities and the
+complete structural/finite integrity gate. It executed exactly 33 physical-B4
+forward/backward runs and 24 reference comparisons with no optimizer, update or
+evaluator. Slurm reports `COMPLETED 0:0`, `00:07:08`, zero restarts and
+`0.118889` GH200-hours.
+
+C-STR8 is exactly repeatable for five seed-10000 repeats: loss, output and
+gradients all have zero relative difference and one exact hash. Varying seeds
+activate the declared Swin-T stochastic depth and produce median
+loss/output/gradient relative differences `0.033634 / 0.226290 / 0.165922`.
+
+L-S075 has no stochastic-depth modules but is not same-seed repeatable. Its
+fixed-seed median output/gradient relative-L2 is `0.034248 / 0.657438`; changing
+the RNG seed produces comparable `0.033945 / 0.609070`. F-U fixed-seed
+output/gradient relative-L2 is larger at `0.041844 / 1.223123`. Prefix evidence
+is strongest in the early sparse SECOND stem/stage1/down path. This narrows the
+repeatability source operationally to the LiDAR sparse route while explicitly
+not proving a specific kernel, module or normalization cause.
+
+Both camera stochasticity and LiDAR runtime variation qualify the predeclared
+two-of-three dominance rule, so the descriptive label is
+`MIXED_INCONCLUSIVE`; fusion-only interaction qualifies only on loss and is not
+accepted. The result removes byte equality as a sensible scientific gate and
+explains Job-478250 repeatability at the route level. It still does not explain
+the large true unscaled LiDAR gradient, establish convergence or model health,
+or authorize a model/recipe change or STOP-C.
+
+Both checksum manifests verify; the immutable output is
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_rand_0bf9c0c_o130_a1`
+with summary SHA
+`dd51f5801084714fccbd0c351b0696c3a6a2843b462662c74f757fc12cd147c5`
+and runner-manifest SHA
+`d964b7cc5fa09692a9b8bd95b83cf8cfed85768ff771eaf8cc2a9c8c3cb11ac0`.
+STOP-B remains review-pending until an independent reviewer checks the exact
+evidence/docs SHA and raw artifacts. No compute is executable.

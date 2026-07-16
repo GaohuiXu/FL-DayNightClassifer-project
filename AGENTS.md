@@ -63,8 +63,11 @@ stochasticity from runtime variation across C-STR8, L-S075 and F-U on the same
 frozen B4 token panel, with no update/evaluator, one GH200, `00:15:00`, and at
 most `0.25` GH200-hour. Exact implementation `0bf9c0c` and its detached,
 read-only snapshot/command tuple are frozen in S10 `RUN_REQUEST.md` §24 and are
-the sole executable B-RAND submission; no retry is authorized. STOP-C and
-STOP-D/E/F execution remain separately gated.
+the sole B-RAND submission. Job `479667` consumed it, completed `0:0` in
+`00:07:08`, passed 43 tests and the 33-run integrity gate, and returned the
+descriptive label `MIXED_INCONCLUSIVE` with both camera stochasticity and LiDAR
+runtime variation qualified. Independent review is pending; no retry or further
+compute is authorized. STOP-C and STOP-D/E/F execution remain separately gated.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

@@ -1,4 +1,4 @@
-# S10 results — STOP-A CLOSED PASS; STOP-B baseline-instability FAIL reviewed
+# S10 results — STOP-A CLOSED PASS; STOP-B O-130 evidence review pending
 
 ## STOP-A
 
@@ -238,3 +238,95 @@ Actual STOP-B compute is `0.153333` GH200-hours and cumulative ABC compute is
 `PASS_WITH_RESIDUAL_RISK` with no open P0-P3 and accepts only the bounded
 disposition **calibrated baseline-instability FAIL; localization absent; owner
 rebaseline required**.
+
+### O-130 B-RAND result — integrity PASS / descriptive MIXED_INCONCLUSIVE
+
+```text
+OWNER_DECISION: O-130
+IMPLEMENTATION_SHA: 0bf9c0ce4148bc82d977e0d66615f606144971b6
+IMPLEMENTATION_TREE: 1852db34197c142714456f3fa07e999393dc1ba9
+TUPLE: RUN_REQUEST.md §24, consumed exactly once
+JOB: 479667 / COMPLETED 0:0 / 00:07:08 / zero restarts
+ALLOCATION: 1 GH200 / 8 CPUs / 64 GiB / 0.118889 GH200-hours
+FOCUSED_TESTS: 43 passed in 12.75s
+RUNS/COMPARISONS: 33 physical-B4 forward/backward / 24 reference comparisons
+INTEGRITY_GATE: PASS
+DESCRIPTIVE_CLASSIFICATION: MIXED_INCONCLUSIVE
+SUPPORTED_SIGNALS: CAMERA_STOCHASTICITY + LIDAR_RUNTIME_VARIATION
+FUSION_ONLY_SIGNAL: loss only; fails two-of-three support rule
+OPTIMIZER/UPDATES/EVALUATOR: absent / zero / absent
+INDEPENDENT_REVIEW: pending exact evidence SHA
+```
+
+Job `479667` matched source/tree, detached read-only snapshot, all three resolved
+configs, the accepted `D_low` split and exact Job-477892 first-`P_core` B4 token
+vector. Each mode reproduced its independently constructed seed-0 W0; F-U
+matched the previously accepted W0 SHA
+`e58bcd46d588c68b31335fe87cc5fbff06cbc0fbcdae7e88b0b1ed70d1d65395`.
+Every loss, output and parameter gradient was finite, the missing-gradient set
+was stably empty, fixed-seed post-run RNG hashes were identical, and model state
+remained W0. Exact hashes were retained as evidence but were not acceptance
+gates. Both checksum manifests verify and the complete output is recursively
+read-only.
+
+The controlled camera result is exact:
+
+| C-STR8 group | median loss rel. diff | median output rel-L2 | median gradient rel-L2 | output/gradient hashes |
+|---|---:|---:|---:|---|
+| fixed seed `10000` | `0.0` | `0.0` | `0.0` | one unique hash each |
+| varying `11000..11004` | `0.0336344` | `0.2262902` | `0.1659221` | five unique hashes each |
+
+The trainable Swin-T registry contains twelve active stochastic-depth modules
+from probability `0.0` through `0.2`. Therefore intended camera stochasticity
+is directly observed under varying seeds, while same-seed C-STR8 is exactly
+repeatable. The prior Job-478250 same-seed failure cannot be explained by
+generic training chaos or fixed-seed camera stochastic depth.
+
+The LiDAR result separates a second source:
+
+| mode/group | median loss rel. diff | median output rel-L2 / cosine | median gradient rel-L2 / cosine |
+|---|---:|---:|---:|
+| L-S075 fixed seed | `0.000156455` | `0.0342479 / 0.999414` | `0.657438 / 0.768679` |
+| L-S075 varying seed | `0.000221258` | `0.0339449 / 0.999424` | `0.609070 / 0.821667` |
+| F-U fixed seed | `0.00262014` | `0.0418436 / 0.999125` | `1.223123 / 0.273609` |
+| F-U varying seed | `0.0132509` | `0.1127151 / 0.993646` | `1.154219 / 0.059822` |
+
+L-S075 has no stochastic-depth modules, yet all five same-seed output and
+gradient hashes differ. Its fixed- and varying-seed variation have comparable
+scale, so framework RNG choice is not the dominant source. Prefix evidence
+places the largest fixed-seed gradient-direction changes in the early sparse
+SECOND path: L-S075 `stage1` median relative-L2/cosine is
+`0.9641 / 0.5437` and `stem` is `0.6542 / 0.7709`; F-U `stage1` is
+`1.2674 / 0.1653`, `stem` `1.2102 / 0.2804`, and `down1`
+`1.1565 / 0.3046`. This is operational localization to the LiDAR sparse route,
+not proof of a specific spconv kernel, layer or normalization defect.
+
+The predeclared fourfold rule qualifies both `CAMERA_STOCHASTICITY` and
+`LIDAR_RUNTIME_VARIATION` in loss/output/gradient, so the unique-label result is
+honestly `MIXED_INCONCLUSIVE`. `FUSION_ONLY_INTERACTION` is supported by loss
+only and does not qualify. The scientific interpretation remains bounded:
+O-130 explains the sources of repeatability variation sufficiently to replace
+byte-equality as the STOP-B gate, but it does not explain why the true unscaled
+LiDAR gradients are large, establish causal architecture health, assess
+convergence, or authorize a model/recipe change or STOP-C.
+
+Immutable evidence:
+
+```text
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_rand_0bf9c0c_o130_a1
+SUMMARY_SHA256: dd51f5801084714fccbd0c351b0696c3a6a2843b462662c74f757fc12cd147c5
+EXECUTION_IDENTITY_SHA256: a3d34532655d5c2faff68219b56b717a9a418f8da2879b54f76673fd1a1c1397
+RUNS_JSONL_SHA256: ddef313efc036ca70c494d0fc717e71970cda3a070d821690561aa42a511ec94
+COMPARISONS_JSONL_SHA256: d59a39971663e43da2b17104948cd9110334040dfd06e1e5eb9615ff98b98924
+INNER_ARTIFACT_MANIFEST_SHA256: 8429dfe63f674215c1a3ca78ed11f30a44041d071d7477141424cb1d464db3a9
+RUNNER_ARTIFACT_MANIFEST_SHA256: d964b7cc5fa09692a9b8bd95b83cf8cfed85768ff771eaf8cc2a9c8c3cb11ac0
+STDOUT_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDERR_SHA256: 8db5d05b4abfa9c9cc1bd7028c410675c3e2d697af110ce6c6d9aa51f2e1e830
+FINAL/TEST/OBSERVE_EXIT: 0 / 0 / 0
+```
+
+Actual STOP-B compute is now `0.153333 + 0.118889 = 0.272222`
+GH200-hours. Actual cumulative ABC compute is
+`1.566667 + 0.118889 = 1.685556` GH200-hours, leaving
+`25.314444` hours under the active 27-hour aggregate. No unused O-130 time is a
+retry or follow-up entitlement.

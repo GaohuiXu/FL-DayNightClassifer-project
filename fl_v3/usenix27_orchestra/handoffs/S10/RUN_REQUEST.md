@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-130 B-RAND APPROVED / exact §24 tuple FROZEN / ready once
+REQUEST_STATE: O-130 B-RAND §24 tuple CONSUMED by Job 479667 / review pending
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
 EXECUTION_AUTHORITY: O-130 one B-RAND at 00:15:00 / 0.25 GH200-hour
 SOURCE_SHA: 0bf9c0ce4148bc82d977e0d66615f606144971b6
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-128/O-129 prior STOP-B; O-130 B-RAND modification and compute approved 2026-07-16
-EXECUTABLE_NOW: exact §24 B-RAND only; one submission/no retry
+EXECUTABLE_NOW: no compute; evidence sealing and one independent review only
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1069,11 +1069,11 @@ FORBIDDEN: output-equality acceptance, tolerance fitting, extra repeats/seeds/ba
 OWNER_APPROVAL: O-130, 2026-07-16
 ```
 
-## 24. O-130 B-RAND exact immutable tuple — FROZEN / READY ONCE
+## 24. O-130 B-RAND exact immutable tuple — CONSUMED ONCE
 
 ```text
 REQUEST_ID: S10-STOP-B-RAND-O130-v1
-REQUEST_STATE: APPROVED / FROZEN / READY ONCE
+REQUEST_STATE: APPROVED / FROZEN / CONSUMED by Job 479667
 DERIVATION: exact implementation of approved §23 with no scientific or resource expansion
 SOURCE_SHA: 0bf9c0ce4148bc82d977e0d66615f606144971b6
 SOURCE_TREE: 1852db34197c142714456f3fa07e999393dc1ba9
@@ -1123,3 +1123,40 @@ Exact command:
 ```bash
 sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=8 --mem=64G --gpus=nvidia_gh200_120gb:1 --time=00:15:00 --no-requeue --job-name=s10-stop-b-rand-0bf9c0c --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_b_rand_0bf9c0c_o130 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_b_rand_0bf9c0c_o130_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_b_rand_0bf9c0c_o130_%j.err --export=ALL,S10_STOPB_RAND_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_b_rand_0bf9c0c_o130,S10_STOPB_RAND_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_rand_0bf9c0c_o130_a1,S10_STOPB_RAND_EXPECTED_SOURCE_SHA=0bf9c0ce4148bc82d977e0d66615f606144971b6,S10_STOPB_RAND_EXPECTED_TREE=1852db34197c142714456f3fa07e999393dc1ba9,S10_STOPB_RAND_EXPECTED_RUNNER_SHA256=88f36ba78afa394465ccc7e774ac54165ec0afeff1ee857c940c4990b16ad3a2,S10_STOPB_RAND_EXPECTED_OBSERVER_SHA256=0e8cd0c221d91dbb2e174f5c920a20b02f6b5c2e82f568a7a77fa698715a2da0,S10_STOPB_RAND_EXPECTED_CAMERA_CONFIG_SHA256=1c597fb026f8634354562e8cad4f24ee7fb934844c24cc6c66a39ad729cff7bd,S10_STOPB_RAND_EXPECTED_LIDAR_CONFIG_SHA256=5043b09195b3c05a7d94e8d88b3e3cd1bffdb6eba49ed93776fd966b28642698,S10_STOPB_RAND_EXPECTED_FUSION_CONFIG_SHA256=11e756e7174e4146d7809b0ec4cc29ceae917e46c268bd9e991283479d6eb612 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_b_rand_0bf9c0c_o130/fl_v3/scripts/run_s10_stop_b_randomness.sh
 ```
+
+## 25. O-130 B-RAND Job 479667 — COMPLETED / integrity PASS
+
+Job `479667` consumed §24 exactly once and no retry exists.
+
+```text
+STATE/EXIT/ELAPSED/RESTARTS: COMPLETED / 0:0 / 00:07:08 / 0
+START/END: 2026-07-16T10:15:44 / 2026-07-16T10:22:52
+NODE/MACHINE: n452 / aarch64
+REQ_AND_ALLOC: cpu=8, mem=64G, node=1, gres/gpu=1, nvidia_gh200_120gb=1
+VISIBLE_DEVICE: NVIDIA GH200 120GB / CUDA_VISIBLE_DEVICES=0
+MAX_RSS/MAX_VMEM/TOTAL_CPU: 16,607,988 KiB / 388,061,248 KiB / 00:05:09.651
+ACCOUNTED_GPU_MEMORY/UTILIZATION: 55,934 MiB / 54%
+FOCUSED_TESTS: 43 passed in 12.75s
+FORWARD_BACKWARD_RUNS/COMPARISONS: 33 / 24
+FINAL/TEST/OBSERVE_EXIT: 0 / 0 / 0
+INTEGRITY_GATE: PASS
+CLASSIFICATION: MIXED_INCONCLUSIVE
+QUALIFIED_SIGNALS: CAMERA_STOCHASTICITY and LIDAR_RUNTIME_VARIATION
+OPTIMIZER/UPDATE/EVALUATOR: absent / zero / absent
+ACTUAL_ALLOCATION: 428 / 3600 = 0.118889 GH200-hours
+ACTUAL_STOP_B: 0.272222 GH200-hours
+ACTUAL_CUMULATIVE_ABC: 1.685556 GH200-hours
+ACTIVE_27_HOUR_REMAINDER: 25.314444 GH200-hours
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_rand_0bf9c0c_o130_a1
+SUMMARY_SHA256: dd51f5801084714fccbd0c351b0696c3a6a2843b462662c74f757fc12cd147c5
+RUNNER_ARTIFACT_MANIFEST_SHA256: d964b7cc5fa09692a9b8bd95b83cf8cfed85768ff771eaf8cc2a9c8c3cb11ac0
+```
+
+Both checksum layers verify and the output tree has zero writable paths.
+Numerical differences did not fail the job. The bounded evidence qualifies
+intended varying-seed camera stochasticity and same-seed LiDAR-route runtime
+variation, while the predeclared unique-label rule returns
+`MIXED_INCONCLUSIVE`. This is operational triage only: it does not explain the
+large true unscaled LiDAR gradient, identify a causal kernel/module, select an
+architecture/recipe, or authorize STOP-C. Independent review of an exact
+evidence/docs SHA is required before STOP-B disposition.
