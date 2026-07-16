@@ -1,4 +1,4 @@
-# S10 results — STOP-A A3 PASS pending A4; STOP-B/C unstarted
+# S10 results — STOP-A CLOSED PASS; STOP-B/C unstarted
 
 ## STOP-A
 
@@ -11,7 +11,7 @@ JOB: 463649 / TIMEOUT 0:0 / 01:00:14 / zero restarts
 JOB: 467862 / TIMEOUT 0:0 / 00:15:14 / zero restarts
 LEGACY_RESULT: no accepted split/parity; exact split solve exceeded all frozen walltimes
 LEGACY_A3: consumed under O-125; no retry or reinterpretation
-CORRECTED_A1-A4: approved under O-126; evidence pending
+CORRECTED_A1-A4: completed under O-126/O-127 plus A4 review
 CORRECTED_IMPLEMENTATION_SHA: 7c01cc3f1e75691339f41f101794945748f03305
 JOB: 468295 / CANCELLED by owner 0:0 / 00:00:08 / site transformed 0 GPU to 4 GPU
 CORRECTED_A3: not executed; O-126 submission consumed at scheduler boundary
@@ -19,7 +19,8 @@ O127_REPLACEMENT_SHA: ad93c89333b0a8f19abf138c8d6816e742b51e35
 O127_REPLACEMENT_TUPLE: consumed once by Job 468404
 JOB: 468404 / COMPLETED 0:0 / 00:07:59 / zero restarts
 A3_RESULT: PASS — one-shot split, ownership checker and evaluator parity accepted for review
-INDEPENDENT_REVIEW: initial A4 REMEDIATE on P2/P3 docs only; targeted re-review pending
+INDEPENDENT_REVIEW: PASS_WITH_RESIDUAL_RISK at b0478a2 / no open P0-P3
+STOP_A_FINAL: CLOSED PASS — constrained split/evaluator engineering gate only
 ```
 
 Job `463593` passed source/runtime preflight, then failed one focused test because
@@ -154,3 +155,19 @@ checksum, ownership, parity, resource and negative-history evidence, but returne
 Neither finding changes Job `468404`, the immutable split, ownership, evaluator,
 model math or compute. STOP-A remains open pending targeted review of the
 documentation remediation; no rerun is needed or authorized.
+
+Targeted re-review of remediation SHA
+`b0478a298a0a3b5e538bedcca63e2541d71c2146` confirmed the isolated worktree was
+detached and clean, the remediation touched only four S10 Markdown files, and
+both P2/P3 were closed. Final verdict is `PASS_WITH_RESIDUAL_RISK` with no open
+P0-P3. The two residual risks are bounded and recorded in `REVIEW.md`: the full
+40×101 arrays are asserted at runtime and represented by hashes rather than
+separate persisted array files, and the bicycle-rack count is trainval-wide
+rather than val-only. Neither changes exact parity or ownership evidence.
+
+STOP-A is therefore CLOSED PASS for its exact interpretation: one immutable,
+log-owned, leakage-checked limited-rung proxy split and an internal evaluator
+that is tolerance-zero identical to the unchanged official path on both frozen
+full-val fixtures. It is not a model, recipe, convergence, fusion-gain or
+official-val capability PASS. STOP-B/C remain unstarted; no new job was prepared
+or submitted by this closure.

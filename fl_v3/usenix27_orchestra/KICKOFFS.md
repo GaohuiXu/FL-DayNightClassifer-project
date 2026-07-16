@@ -18,7 +18,8 @@
 > four-GPU request and protection-cancelled before gate execution. O-127's
 > explicit-one-GH200/CUDA-hidden Job `468404` completed `0:0` in `00:07:59` and
 > passed the first/only feasibility split, independent ownership checker and
-> exact evaluator-parity gate. STOP-A A3 evidence is pending A4 review and
+> exact evaluator-parity gate. A4 re-review of `b0478a2` returned
+> `PASS_WITH_RESIDUAL_RISK` with no open P0-P3; STOP-A is CLOSED PASS and
 > STOP-B/C are unstarted;
 > STOP-D/E/F execution and S11+ remain unapproved.
 >
@@ -441,9 +442,9 @@ authorized.
   `handoffs/S10/HANDOFF.md`.
 - **Current authority:** O-127's one explicit-one-GH200 replacement is consumed.
   Job `468404` ran with `CUDA_VISIBLE_DEVICES=""`, PyTorch CUDA count zero, 4
-  CPUs and 32 GiB, and passed A3. Only immutable evidence sealing and A4 review
-  remain authorized at this boundary. No retry or B/C execution; B/C cannot
-  start before reviewed A PASS.
+  CPUs and 32 GiB, and STOP-A closed after A4 re-review of `b0478a2`. There is
+  no STOP-A retry or executable tuple. B/C remain unstarted; any future material
+  job still requires an exact immutable tuple inside the active O-124 bounds.
 - **O-123 batch correction:** the B=1-based v0 request is rejected. Revised ABC
   scientific rungs use physical B=4 at minimum and bind a fixed-batch tail policy;
   B=1 may appear only in a tiny paired diagnostic check. B=8/16 belong to a later
@@ -455,10 +456,10 @@ authorized.
   It is not O-107 and never transfers unused budget to extra candidates, seeds,
   horizons or STOP-D/E/F. O-125's unused contingency is likewise not a spare-job
   entitlement.
-- **Review:** STOP-A split/metric requires one isolated high-risk review context
-  after a successful immutable evidence SHA; Job `468404` supplies the successful
-  A3 evidence and therefore triggers A4 after that commit is sealed. Reuse one
-  bounded S10-R context. Reviewers read and report but never fix. S00 remediates linearly;
+- **Review:** STOP-A reused one isolated high-risk S10-R context. Initial review
+  returned documentation-only P2/P3; S00 remediated linearly and targeted
+  re-review returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. Reviewers read
+  and report but never fix. Future stop review remains stop-level rather than a chain;
   P3-only polish is batched, and a repeated material blocker returns to the owner.
 - **S11 and later:** pending. Historical role descriptions and sequencing do not
   create scope or authority; Protocol A/B execution, attack, defense, upload and

@@ -1,4 +1,4 @@
-# S10 HANDOFF — accepted six-stop plan, STOP-A A3 PASS pending A4 review
+# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B/C unstarted
 
 ## 1. State and authority
 
@@ -8,10 +8,10 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-127 A3 tuple consumed; A4 docs remediation and targeted re-review
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-127 active only for STOP-A evidence/A4; B/C remain gated
-STOP_A: A3 engineering gate PASS; initial A4 REMEDIATE on docs only; targeted re-review pending
-STOP_B/C: unstarted because STOP-A exit gate is unmet
+CURRENT_AUTHORITY: STOP-A closure docs only; no executable tuple
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124 remains bounded authority; exact future tuple still required
+STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
+STOP_B/C: unstarted; STOP-A dependency met, but no B/C compute is prepared or running
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
@@ -472,10 +472,15 @@ This is split/evaluator engineering evidence only, not model quality, recipe,
 convergence or official-val selection evidence. A3 consumed `0.133056`
 allocated GPU-hours, bringing cumulative STOP-A/ABC allocation to `1.413334`
 GPU-hours. The evidence is now ready for an immutable commit and independent A4
-review; B/C remain unstarted until review closure. The first A4 review found no
+review; B/C remained unstarted until review closure. The first A4 review found no
 split/evaluator/data P0/P1 finding, but returned `REMEDIATE` for an ambiguous
 27-versus-28.1-hour aggregate record (P2) and the over-strong CBGS role-binding
 description (P3). Both are documentation-only: the active aggregate is clarified
 to the binding, stricter 27-hour ceiling, and CBGS is explicitly gated on future
-STOP-D manifest/role caller integration. A targeted re-review is required before
-closure.
+STOP-D manifest/role caller integration. Targeted re-review of exact remediation
+SHA `b0478a298a0a3b5e538bedcca63e2541d71c2146` returned
+`PASS_WITH_RESIDUAL_RISK` with no open P0-P3. STOP-A is therefore CLOSED PASS.
+Its output is the canonical reusable limited-rung split/evaluator identity for
+downstream S10 work. This closure satisfies STOP-B's data/evaluator dependency;
+it does not itself start STOP-B, authorize a new Slurm tuple, or broaden any
+candidate, seed, resource or interpretation boundary.

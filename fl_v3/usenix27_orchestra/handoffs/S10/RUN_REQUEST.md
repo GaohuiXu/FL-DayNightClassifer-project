@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-127 CONSUMED / Job 468404 A3 PASS / A4 docs remediation pending re-review
+REQUEST_STATE: STOP-A CLOSED PASS / O-127 consumed / no executable tuple
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
-EXECUTION_AUTHORITY: O-127 replacement consumed; evidence/A4 only, no further execution
+EXECUTION_AUTHORITY: STOP-A authority consumed; O-124 remains bounded for future exact B/C tuples
 SOURCE_SHA: ad93c89333b0a8f19abf138c8d6816e742b51e35
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-127 replacement approved 2026-07-16
-EXECUTABLE_NOW: none; §16 consumed once and B/C remain gated by A4
+EXECUTABLE_NOW: none; §16 consumed once, STOP-A reviewed closed, no B/C tuple frozen
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly

@@ -30,8 +30,11 @@
 > the process to expose zero CUDA devices. Job `468404` consumed it and completed
 > `0:0` in `00:07:59`: 13 focused tests passed, the first/only feasibility
 > candidate and independent ownership checker passed, and both exact evaluator-
-> parity fixtures passed. A3 evidence is immutable pending independent high-risk
-> A4 review; STOP-A is not closed and STOP-B/C have not started. STOP-D/E/F execution, merge,
+> parity fixtures passed. Initial A4 returned documentation-only P2/P3 findings;
+> targeted re-review of remediation SHA `b0478a298a0a3b5e538bedcca63e2541d71c2146`
+> closed both and returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. STOP-A
+> is CLOSED PASS for the constrained split/evaluator engineering contract;
+> STOP-B/C have not started. STOP-D/E/F execution, merge,
 > push, upload, publication, Protocol-A/B execution, attack, defense, and S11+
 > remain unauthorized.
 >
@@ -67,7 +70,7 @@ accepted clean engineering anchor 2a58405
                   ├── S09 performance/readiness
                   │      100 steps, then conditional 1000 steps; no mAP claim
                   │
-                  ├── S10 A-F CL health/recipe/speed/full claim     [STOP-A A3 PASS; A4 pending]
+                  ├── S10 A-F CL health/recipe/speed/full claim     [STOP-A CLOSED PASS; B/C unstarted]
                   └── S11 and later                                  [pending]
 ```
 
@@ -76,7 +79,8 @@ ordering and scientific boundaries recorded in
 [`handoffs/S10/HANDOFF.md`](handoffs/S10/HANDOFF.md); O-124-O-127 supply only
 their recorded bounded execution authority. Job `467862` consumed O-125 and
 returned to the owner; O-126 is the explicit post-timeout scientific/resource
-amendment. S11 and later remain undefined and pending rather than inheriting any
+amendment, and O-127 plus A4 review closed STOP-A without model compute. S11 and
+later remain undefined and pending rather than inheriting any
 historical graph.
 
 ## 2. Accepted clean-foundation evidence
@@ -376,7 +380,7 @@ does not broaden scientific, Git, compute, upload, or publication authority.
 | Production optimizer groups/LR/scheduler/clip/EMA/augmentation/sampling recipe | select and freeze only in STOP-D after STOP-C architecture/init closure |
 | Cause of unusually large true SECOND gradients | STOP-B must return `LOCALIZED` or honestly `INCONCLUSIVE`; neither permits silent STOP-B model changes |
 | Single-GPU batch/accumulation/workers and whether DDP is needed | STOP-D/E decision; B=2/B=4 remain capacity evidence until qualified, and DDP is not authorized |
-| STOP-A/B/C implementation, commit, isolated review topology, Slurm tuple and cumulative budget | O-127's explicit-one-GPU/CUDA-hidden Job `468404` passed A3; A4 independent review is pending and STOP-B/C remain unstarted |
+| STOP-A/B/C implementation, commit, isolated review topology, Slurm tuple and cumulative budget | STOP-A CLOSED PASS at reviewed remediation `b0478a2`; unique active ABC aggregate remains 27 GH200-hours; STOP-B/C unstarted and no new tuple frozen |
 | STOP-D/E/F exact cells, resources and execution | separately owner-gated after upstream evidence; STOP-F owns the single-seed primary full run and sealed official-val decision |
 | Absolute clean capability, fusion contribution, mAP/NDS, per-class and speed claims | only after the corresponding frozen STOP-F/E evidence; internal evaluator outputs are explicitly proxy-only |
 | S11 and later milestone roles | pending; do not inherit the historical S11-S15 outline without a new owner decision |
@@ -438,7 +442,7 @@ Closed ranges below are provenance.
 | O-124 | Approve `S10-ABC-COMPLETION-v1-B4-estimate` and start one continuous STOP-A/B/C completion goal. Authorize persistent S00 to implement, locally validate, create linear planning/implementation/evidence/remediation commits, derive and record every exact immutable job tuple before submission, submit and monitor serial Slurm work without repeated owner approval, and obtain stop-level independent review. The aggregate ceiling is 27 elapsed one-GH200 hours, at most one active job, at most seven scientific allocations plus two diagnosed debug/fix allocations (nine submissions total), no identical retry, no DDP/array/spare GPU, physical B4 minimum for scientific training, B1 diagnostic decomposition only, and the STOP-C `drop_last=true` matched-token proxy policy. Obvious correctness failures use the recorded `1 -> 5 -> 20` B4 step protocol; weak but finite scientific outcomes do not open tuning loops. Authorize one isolated S10-R review context/worktree required for high-risk STOP-A and reuse it rather than creating a review chain. Any changed data/metric/model/candidate/seed/horizon/resource boundary, repeated blocker, uncertain classification or exhausted cap returns to the owner. STOP-D/E/F, B8/16 execution, full run, merge, push, upload, publication, Protocol A/B execution, attack, defense and S11+ remain unauthorized. | aggregate ABC authority recorded / execution gated at STOP-A after O-125 |
 | O-125 | After STOP-A Job `463593` failed before real solve and derived Job `463649` passed focused tests/metadata traversal but exhausted its one-hour allocation inside the 94-cold-MILP exact tie-break, approve the output-equivalent `d7caf53` blocked-radix/fail-closed remediation and one exact final A-GATE tuple. The owner grants one additional GH200-hour of STOP-A contingency but requires the next allocation to request only `00:15:00`; unused contingency is not an automatic retry/submission entitlement. The frozen tuple keeps one GH200, 16 CPUs, 96 GiB, identical data/gates/output scope, no requeue/array/DDP, consumes debug/fix slot 2/2 and submission 3/9, and has canonical envelope SHA-256 `24de0be54806fbd1270bec2f560451ee62a138a593a5cb0a542f0a7c76d7f061`. Job `467862` consumed that tuple and timed out after `00:15:14`: 13 focused tests and full metadata traversal passed, but the exact split solve emitted no accepted split/parity artifact. Per the decision, no identical retry is authorized and STOP-A returns to the owner. Actual cumulative STOP-A/ABC allocation is `1.271389` GH200-hours; unused contingency confers no execution right. | consumed STOP-A final remediation / STOP-A blocked pending owner |
 | O-126 | Approve the corrected STOP-A scientific protocol and serial A1-A4 completion goal. Retain all frozen input identities, log-level ownership, quotas, sample/support/prevalence/dominance bounds, raw-dependency leakage proof, official-filter semantics and exact full-val evaluator parity, but remove the global balance-optimality hierarchy and sorted-log lexicographic certificate. Base and nested construction each execute exactly one zero-objective feasibility MILP; before either solve, freeze the input/feature hash and real-candidate ordinal `1`; accept and hash only that first feasible assignment, with no reroll, candidate shopping or cross-environment optimality claim. This produces a scientifically constrained, reusable limited-rung proxy split, not a balanced-optimal split or official benchmark. Authorize S00 to implement/validate/commit A1-A2, freeze and submit exactly one serial aarch64 CPU-only A-GATE on the `gpu` partition with no GPU GRES, 4 CPUs, 32 GiB and `00:15:00`, then seal evidence and obtain independent high-risk review in A4. Any failure/timeout returns to the owner with no retry; STOP-B/C do not start before reviewed STOP-A PASS. Exact Job `468295` was site-transformed to four GPUs and protection-cancelled after 8 seconds before execution; the sole submission is consumed. | consumed at scheduler-resource boundary / STOP-A blocked pending owner amendment |
-| O-127 | After Job `468295` proved that Arrhenius `job_submit/lua` converts an omitted/zero GPU request on the only accessible aarch64 partition into four GPUs, approve exactly one resource-only replacement: explicitly reserve `1 x nvidia_gh200_120gb`, 4 CPUs, 32 GiB and `00:15:00`, then force `CUDA_VISIBLE_DEVICES=""` and fail unless PyTorch exposes zero CUDA devices. Preserve the exact O-126 data, scientific constraints, evaluator gate, candidate ordinal, no-reroll rule and single real attempt. Authorize the minimal runner/docs assertion change, local validation, immutable commit/snapshot/tuple, one submission, evidence sealing and independent A4 review. The replacement may allocate at most `0.25` GPU-hours; no retry, B/C, model/training, D/E/F, merge or push is authorized. Job `468404` consumed the tuple, completed `0:0` in `00:07:59`, used `0.133056` allocated GPU-hours with zero process-visible CUDA devices and passed the split/checker/parity gate; A4 review remains required. | A3 PASS evidence pending A4 / B-C gated |
+| O-127 | After Job `468295` proved that Arrhenius `job_submit/lua` converts an omitted/zero GPU request on the only accessible aarch64 partition into four GPUs, approve exactly one resource-only replacement: explicitly reserve `1 x nvidia_gh200_120gb`, 4 CPUs, 32 GiB and `00:15:00`, then force `CUDA_VISIBLE_DEVICES=""` and fail unless PyTorch exposes zero CUDA devices. Preserve the exact O-126 data, scientific constraints, evaluator gate, candidate ordinal, no-reroll rule and single real attempt. Authorize the minimal runner/docs assertion change, local validation, immutable commit/snapshot/tuple, one submission, evidence sealing and independent A4 review. The replacement may allocate at most `0.25` GPU-hours; no retry, B/C, model/training, D/E/F, merge or push is authorized. Job `468404` consumed the tuple, completed `0:0` in `00:07:59`, used `0.133056` allocated GPU-hours with zero process-visible CUDA devices and passed the split/checker/parity gate. A4 re-review of `b0478a2` returned `PASS_WITH_RESIDUAL_RISK`, no open P0-P3, and STOP-A closure GO. | consumed / STOP-A CLOSED PASS / B-C unstarted |
 
 ## 10. Closed and consumed history
 

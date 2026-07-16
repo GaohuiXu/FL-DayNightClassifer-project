@@ -13,6 +13,8 @@ RAW_OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3
 JOB: 468404
 REVIEWER_EDITS: none
 INITIAL_VERDICT: REMEDIATE
+REMEDIATION_SHA: b0478a298a0a3b5e538bedcca63e2541d71c2146
+FINAL_VERDICT: PASS_WITH_RESIDUAL_RISK / no open P0-P3
 ```
 
 The review covered the exact source/evidence diff, immutable data and config
@@ -93,3 +95,30 @@ or engineering-to-model-result overclaim was found.
 The P2/P3 remediation is documentation-only and changes no split, evaluator,
 data, model, source snapshot, output or compute. STOP-A remains open until a
 targeted independent re-review accepts the remediation SHA.
+
+## 6. Targeted re-review and final verdict
+
+The same independent reviewer reused the isolated review worktree, checked that
+it was detached, clean and exactly at remediation SHA
+`b0478a298a0a3b5e538bedcca63e2541d71c2146`, and reviewed only the P2/P3 fixes and
+their review record.
+
+```text
+P0: none open
+P1: none open
+P2: closed — unique active ABC aggregate is 27 elapsed GH200-hours
+P3: closed — CBGS is an identity seam with a STOP-D manifest/role hard gate
+FINAL_VERDICT: PASS_WITH_RESIDUAL_RISK
+STOP_A_CLOSURE: GO
+STOP_B_DEPENDENCY: satisfied; this review grants no compute authority
+```
+
+The reviewer confirmed the 27-hour active ceiling, 1.413334-hour actual use and
+25.586666-hour arithmetic remainder are consistent; the historical 28.1 record
+is explicitly non-operative. It also confirmed the CBGS/GTDB distinction and
+that the remediation diff changes only four Markdown files, leaving source,
+scripts, tests and all raw hashes unchanged.
+
+Residual risk remains limited to the two interpretation notes in §4. STOP-A may
+close as a constrained split/evaluator engineering PASS. It does not establish
+model quality or authorize STOP-B compute.

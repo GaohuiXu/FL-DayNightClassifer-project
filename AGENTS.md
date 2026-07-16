@@ -51,7 +51,12 @@ records only under O-122. O-124 now authorizes bounded STOP-A/B/C implementation
 linear commits, exact derived serial Slurm execution and stop-level review within
 27 cumulative one-GH200 hours. O-123 rejects the B=1-based v0 estimate and
 requires physical B=4 as the minimum ABC scientific-training microbatch; B=1 is diagnostic-only and
-B=8/16 remain later STOP-D/E candidates. STOP-D/E/F execution remains separately
+B=8/16 remain later STOP-D/E candidates. S10 STOP-A closed
+`PASS_WITH_RESIDUAL_RISK` after Job `468404` and independent A4 re-review of
+remediation SHA `b0478a298a0a3b5e538bedcca63e2541d71c2146`, with no open P0-P3.
+This closes only the constrained split/evaluator engineering gate; STOP-B/C are
+unstarted and no new tuple exists merely because their STOP-A dependency is met.
+STOP-D/E/F execution remains separately
 gated. S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime
