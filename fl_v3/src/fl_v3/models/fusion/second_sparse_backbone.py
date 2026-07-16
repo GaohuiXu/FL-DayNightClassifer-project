@@ -149,11 +149,34 @@ class SECONDShapeContract:
         )
 
 
-def _gn(channels: int, max_groups: int = 8) -> nn.GroupNorm:
+class _ObservedGroupNorm(nn.GroupNorm):
+    """A state-dict-identical GroupNorm with one explicit STOP-B callback."""
+
+    def __init__(self, groups: int, channels: int, *, observation_label: str):
+        super().__init__(groups, channels)
+        self.observation_label = str(observation_label)
+        self._s10_observer = None
+
+    def forward(self, value: torch.Tensor) -> torch.Tensor:
+        output = super().forward(value)
+        observer = self._s10_observer
+        if observer is not None:
+            observer.record_group_norm(self.observation_label, value, output, self)
+        return output
+
+
+def _gn(
+    channels: int,
+    max_groups: int = 8,
+    *,
+    observation_label: str | None = None,
+) -> nn.GroupNorm:
     groups = min(max_groups, max(1, int(channels) // 2))
     while channels % groups != 0:
         groups -= 1
-    return nn.GroupNorm(groups, channels)
+    if observation_label is None:
+        return nn.GroupNorm(groups, channels)
+    return _ObservedGroupNorm(groups, channels, observation_label=observation_label)
 
 
 def _replace_feature(x, features: torch.Tensor):
@@ -164,19 +187,19 @@ def _replace_feature(x, features: torch.Tensor):
 class _SparseResidualBlock(nn.Module):
     """Two SubMConv3d layers with sample-local per-voxel GroupNorm."""
 
-    def __init__(self, channels: int, indice_key: str):
+    def __init__(self, channels: int, indice_key: str, observation_label: str):
         super().__init__()
         import spconv.pytorch as spconv
 
         self.conv1 = spconv.SubMConv3d(
             channels, channels, 3, padding=1, bias=False, indice_key=indice_key
         )
-        self.norm1 = _gn(channels)
+        self.norm1 = _gn(channels, observation_label=f"{observation_label}.norm1")
         self.act1 = nn.ReLU(inplace=True)
         self.conv2 = spconv.SubMConv3d(
             channels, channels, 3, padding=1, bias=False, indice_key=indice_key
         )
-        self.norm2 = _gn(channels)
+        self.norm2 = _gn(channels, observation_label=f"{observation_label}.norm2")
         self.act2 = nn.ReLU(inplace=True)
 
     def forward(self, x):
@@ -197,6 +220,7 @@ class SECONDSparseBackbone(nn.Module):
 
         self.contract = contract
         self.last_shapes_zyx: tuple[tuple[int, int, int], ...] | None = None
+        self._s10_observer = None
 
         def sparse_norm_act(
             cin: int,
@@ -206,6 +230,7 @@ class SECONDSparseBackbone(nn.Module):
             stride: int | tuple[int, int, int] = 1,
             padding: int | tuple[int, int, int] = 0,
             indice_key: str,
+            observation_label: str,
             subm: bool = False,
         ) -> nn.Module:
             conv_cls = spconv.SubMConv3d if subm else spconv.SparseConv3d
@@ -220,39 +245,47 @@ class SECONDSparseBackbone(nn.Module):
             ) if not subm else conv_cls(
                 cin, cout, kernel, padding=padding, bias=False, indice_key=indice_key
             )
-            return spconv.SparseSequential(conv, _gn(cout), nn.ReLU(inplace=True))
+            return spconv.SparseSequential(
+                conv,
+                _gn(cout, observation_label=f"{observation_label}.norm"),
+                nn.ReLU(inplace=True),
+            )
 
         self.stem = sparse_norm_act(
-            in_channels, 16, padding=1, indice_key="second_stem", subm=True
+            in_channels, 16, padding=1, indice_key="second_stem",
+            observation_label="second.stem", subm=True
         )
         # Custom residual blocks must be called explicitly. spconv.SparseSequential
         # treats an arbitrary nn.Module as a dense feature-only module and calls it
         # with ``input.features``; _SparseResidualBlock consumes/returns the complete
         # SparseConvTensor to preserve indices and residual semantics.
         self.stage1 = nn.ModuleList((
-            _SparseResidualBlock(16, "second_s1"),
-            _SparseResidualBlock(16, "second_s1"),
+            _SparseResidualBlock(16, "second_s1", "second.stage1.block0"),
+            _SparseResidualBlock(16, "second_s1", "second.stage1.block1"),
         ))
         self.down1 = sparse_norm_act(
-            16, 32, stride=(2, 2, 2), padding=(1, 1, 1), indice_key="second_down1"
+            16, 32, stride=(2, 2, 2), padding=(1, 1, 1), indice_key="second_down1",
+            observation_label="second.down1",
         )
         self.stage2 = nn.ModuleList((
-            _SparseResidualBlock(32, "second_s2"),
-            _SparseResidualBlock(32, "second_s2"),
+            _SparseResidualBlock(32, "second_s2", "second.stage2.block0"),
+            _SparseResidualBlock(32, "second_s2", "second.stage2.block1"),
         ))
         self.down2 = sparse_norm_act(
-            32, 64, stride=(2, 2, 2), padding=(1, 1, 1), indice_key="second_down2"
+            32, 64, stride=(2, 2, 2), padding=(1, 1, 1), indice_key="second_down2",
+            observation_label="second.down2",
         )
         self.stage3 = nn.ModuleList((
-            _SparseResidualBlock(64, "second_s3"),
-            _SparseResidualBlock(64, "second_s3"),
+            _SparseResidualBlock(64, "second_s3", "second.stage3.block0"),
+            _SparseResidualBlock(64, "second_s3", "second.stage3.block1"),
         ))
         self.down3 = sparse_norm_act(
-            64, 128, stride=(2, 2, 2), padding=(0, 1, 1), indice_key="second_down3"
+            64, 128, stride=(2, 2, 2), padding=(0, 1, 1), indice_key="second_down3",
+            observation_label="second.down3",
         )
         self.stage4 = nn.ModuleList((
-            _SparseResidualBlock(128, "second_s4"),
-            _SparseResidualBlock(128, "second_s4"),
+            _SparseResidualBlock(128, "second_s4", "second.stage4.block0"),
+            _SparseResidualBlock(128, "second_s4", "second.stage4.block1"),
         ))
         self.conv_out = sparse_norm_act(
             128,
@@ -261,7 +294,16 @@ class SECONDSparseBackbone(nn.Module):
             stride=(2, 1, 1),
             padding=0,
             indice_key="second_z_collapse",
+            observation_label="second.output",
         )
+
+    def set_s10_observer(self, observer) -> None:
+        if observer is not None and self._s10_observer is not None:
+            raise RuntimeError("nested SECOND STOP-B observation is forbidden")
+        self._s10_observer = observer
+        for module in self.modules():
+            if isinstance(module, _ObservedGroupNorm):
+                module._s10_observer = observer
 
     @staticmethod
     def _shape(x) -> tuple[int, int, int]:
@@ -278,25 +320,44 @@ class SECONDSparseBackbone(nn.Module):
         if boundary_capture is not None:
             boundary_capture(name, x.features)
 
+    def _observe(self, name: str, x) -> None:
+        if self._s10_observer is not None:
+            self._s10_observer.capture_sparse_boundary(
+                name,
+                x.features,
+                x.indices,
+                int(x.batch_size),
+                tuple(int(value) for value in x.spatial_shape),
+            )
+
     def forward(self, x, *, boundary_capture=None):
         shapes: list[tuple[int, int, int]] = []
         x = self.stem(x)
         self._capture(boundary_capture, "second.stem", x)
+        self._observe("second.stem", x)
         shapes.append(self._shape(x))
         x = self._run_residual_stage(self.stage1, x)
         self._capture(boundary_capture, "second.stage1", x)
+        self._observe("second.stage1", x)
         x = self.down1(x)
+        self._observe("second.down1", x)
         shapes.append(self._shape(x))
         x = self._run_residual_stage(self.stage2, x)
+        self._observe("second.stage2", x)
         x = self.down2(x)
+        self._observe("second.down2", x)
         shapes.append(self._shape(x))
         x = self._run_residual_stage(self.stage3, x)
+        self._observe("second.stage3", x)
         x = self.down3(x)
+        self._observe("second.down3", x)
         shapes.append(self._shape(x))
         x = self._run_residual_stage(self.stage4, x)
+        self._observe("second.stage4", x)
         shapes.append(self._shape(x))
         x = self.conv_out(x)
         self._capture(boundary_capture, "second.output", x)
+        self._observe("second.output", x)
         shapes.append(self._shape(x))
         self.last_shapes_zyx = tuple(shapes)
         expected = self.contract.stage_shapes_zyx

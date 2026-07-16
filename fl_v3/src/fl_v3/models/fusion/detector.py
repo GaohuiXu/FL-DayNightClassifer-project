@@ -104,6 +104,7 @@ class BEVFusionDetector(nn.Module):
         self.model_mode = normalize_model_mode(c.model_mode)
         self._runtime_lock = threading.RLock()
         self._training_boundary_tensors: dict[str, torch.Tensor] | None = None
+        self._s10_observer = None
         self._operator_profile_ranges = False
         use_camera = self.model_mode in {"camera_only", "fusion"}
         use_lidar = self.model_mode in {"lidar_only", "fusion"}
@@ -198,9 +199,12 @@ class BEVFusionDetector(nn.Module):
         """Locks are runtime-only; allow EMA/deepcopy to create its own instance lock."""
         if self._training_boundary_tensors is not None:
             raise RuntimeError("cannot copy detector while training-boundary capture is active")
+        if self._s10_observer is not None:
+            raise RuntimeError("cannot copy detector while STOP-B observation is active")
         state = self.__dict__.copy()
         state.pop("_runtime_lock", None)
         state.pop("_training_boundary_tensors", None)
+        state.pop("_s10_observer", None)
         state.pop("_operator_profile_ranges", None)
         return state
 
@@ -208,6 +212,7 @@ class BEVFusionDetector(nn.Module):
         self.__dict__.update(state)
         self._runtime_lock = threading.RLock()
         self._training_boundary_tensors = None
+        self._s10_observer = None
         self._operator_profile_ranges = False
 
     # --- forward ---
@@ -276,6 +281,42 @@ class BEVFusionDetector(nn.Module):
         tensor.retain_grad()
         tensors[name] = tensor
 
+    @contextmanager
+    def capture_s10_observation(self, observer):
+        """Attach one explicit STOP-B recorder without changing model outputs."""
+        with self._runtime_lock:
+            if self._s10_observer is not None:
+                raise RuntimeError("nested STOP-B observation is forbidden")
+            if self._training_boundary_tensors is not None:
+                raise RuntimeError("STOP-B and S08 boundary capture cannot overlap")
+            if not self.training:
+                raise RuntimeError("STOP-B observation requires model.train()")
+            self._s10_observer = observer
+            sparse_backbone = None
+            sparse_encoder = None
+            old_sparse_debug = None
+            old_sparse_meta = None
+            if self.cfg.lidar_encoder == "voxel" and self.lidar_encoder is not None:
+                sparse_encoder = self.lidar_encoder
+                old_sparse_debug = bool(sparse_encoder.record_debug)
+                old_sparse_meta = sparse_encoder.last_sparse_meta
+                sparse_encoder.record_debug = True
+                sparse_backbone = self.lidar_encoder.backbone
+                sparse_backbone.set_s10_observer(observer)
+            try:
+                yield observer
+            finally:
+                if sparse_backbone is not None:
+                    sparse_backbone.set_s10_observer(None)
+                if sparse_encoder is not None:
+                    sparse_encoder.record_debug = old_sparse_debug
+                    sparse_encoder.last_sparse_meta = old_sparse_meta
+                self._s10_observer = None
+
+    def _capture_s10_dense(self, name: str, tensor: torch.Tensor) -> None:
+        if self._s10_observer is not None:
+            self._s10_observer.capture_dense_boundary(name, tensor)
+
     def _forward_locked(self, batch: dict, return_intermediates: bool):
         c = self.cfg
         camera_bev = lidar_bev = vt = None
@@ -341,6 +382,8 @@ class BEVFusionDetector(nn.Module):
                     "camera/LiDAR BEV geometry mismatch: "
                     f"camera={tuple(camera_bev.shape[-2:])}, lidar={tuple(lidar_bev.shape[-2:])}"
                 )
+            self._capture_s10_dense("fusion.camera_input", camera_bev)
+            self._capture_s10_dense("fusion.lidar_input", lidar_bev)
             fused = self._profiled(
                 "fusion.fuser", self.fusion, camera_bev, lidar_bev
             )
@@ -348,8 +391,10 @@ class BEVFusionDetector(nn.Module):
             fused = self._profiled("fusion.camera_adapter", self.camera_adapter, camera_bev)
         else:
             fused = self._profiled("fusion.lidar_adapter", self.lidar_adapter, lidar_bev)
+        self._capture_s10_dense("bev_neck.input", fused)
         neck = self._profiled("shared.bev_neck", self.bev_neck, fused)
         self._capture_training_boundary("head.input", neck)
+        self._capture_s10_dense("head.input", neck)
         out = self._profiled("shared.head", self.head, neck)
         if return_intermediates:
             out = {"task_outputs": out} if isinstance(out, list) else dict(out)

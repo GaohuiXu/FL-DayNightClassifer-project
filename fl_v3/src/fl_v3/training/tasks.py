@@ -877,6 +877,40 @@ class NuScenesDetectionTask(Task):
             sampler=sampler,
         )
 
+    def load_production_train_info(self, run_config: dict):
+        """Expose the identity-checked train cache for a frozen S10 role consumer."""
+        if not bool(run_config.get("s06-production-runtime", False)):
+            raise ValueError("fixed S10 subsets require the strict production runtime")
+        split = str(run_config["nuscenes-train-split"])
+        return self._load_info(run_config, split)
+
+    def fixed_train_subset_loader(self, run_config: dict, sample_tokens) -> object:
+        """Build one ordered, unaugmented, unshuffled production subset loader.
+
+        The caller must first bind the tokens to an accepted S10 manifest role.
+        This method deliberately knows nothing about role names and cannot solve,
+        sample, repeat, or rebalance a split.
+        """
+        if not bool(run_config.get("s06-production-runtime", False)):
+            raise ValueError("fixed S10 subsets require the strict production runtime")
+        if str(run_config.get("sampling", "uniform")) != "uniform":
+            raise ValueError("STOP-B fixed subsets require uniform sampling")
+        if truthy(run_config.get("det-cbgs", False)):
+            raise ValueError("STOP-B fixed subsets forbid CBGS")
+        if _aug_from_run(run_config) is not None or _gtpaste_from_run(run_config) is not None:
+            raise ValueError("STOP-B fixed subsets forbid augmentation and GT-paste")
+        tokens = [str(token) for token in sample_tokens]
+        if not tokens or len(tokens) != len(set(tokens)):
+            raise ValueError("fixed subset tokens must be non-empty and unique")
+        info_list, _ = self.load_production_train_info(run_config)
+        return self._make_loader(
+            run_config,
+            info_list,
+            tokens,
+            shuffle=False,
+            augment=None,
+        )
+
     def client_data(self, client_id: int, run_config: dict) -> ClientData:
         split = str(run_config["nuscenes-train-split"])
         info_list, _ = self._load_info(run_config, split)

@@ -26,8 +26,9 @@ cells (index gather — deterministic) and matches the **T1 canonical** paramete
 from __future__ import annotations
 
 import math
+from contextlib import contextmanager
 from functools import lru_cache
-from typing import Dict, List, Sequence
+from typing import Any, Dict, List, Sequence
 
 import numpy as np
 import torch
@@ -160,6 +161,9 @@ class CenterPointLoss(nn.Module):
             self.reg_class_weights = None
         self.record_terms = True
         self.last_terms: Dict[str, float] = {}
+        self._s10_capture = False
+        self._s10_focal: Dict[str, Any] = {}
+        self.last_s10_terms: Dict[str, Any] = {}
 
     # --- target construction (RNG-free, atomic-free) ---
     def build_targets(self, batch: dict, device, dtype=torch.float32):
@@ -267,13 +271,39 @@ class CenterPointLoss(nn.Module):
         neg_w = (1.0 - gt).pow(self.gamma)
         pos_loss = torch.log(pred) * (1.0 - pred).pow(self.alpha) * pos
         neg_loss = torch.log(1.0 - pred) * pred.pow(self.alpha) * neg_w * neg
-        n_pos = pos.sum().clamp_min(1.0)
+        n_pos_raw = pos.sum()
+        n_pos = n_pos_raw.clamp_min(1.0)
         if self.class_weights is not None:                 # per-class rebalance (mean-1 normalized)
             # move on-the-fly (like code_weights L258) so the generic loop need not .to() the criterion
             w = self.class_weights.to(pred_logits.device).view(1, -1, 1, 1)
             pos_loss = pos_loss * w
             neg_loss = neg_loss * w
-        return -(pos_loss.sum() + neg_loss.sum()) / n_pos
+        pos_sum = pos_loss.sum()
+        neg_sum = neg_loss.sum()
+        numerator = -(pos_sum + neg_sum)
+        result = numerator / n_pos
+        if self._s10_capture:
+            self._s10_focal = {
+                "loss": result,
+                "numerator": numerator,
+                "denominator": n_pos,
+                "raw_positive_count": n_pos_raw,
+                "positive_numerator": -pos_sum,
+                "negative_numerator": -neg_sum,
+                "sample_numerators": tuple(
+                    -(pos_loss[index].sum() + neg_loss[index].sum())
+                    for index in range(pred_logits.shape[0])
+                ),
+                "sample_denominators": tuple(
+                    pos[index].sum() for index in range(pred_logits.shape[0])
+                ),
+                "sample_unique_positive_centers": tuple(
+                    pos[index].sum() for index in range(pred_logits.shape[0])
+                ),
+            }
+        else:
+            self._s10_focal = {}
+        return result
 
     def forward(self, pred: Dict[str, torch.Tensor], batch: dict) -> torch.Tensor:
         device = pred["heatmap"].device
@@ -284,6 +314,8 @@ class CenterPointLoss(nn.Module):
         # regression channels concatenated in the canonical order → [B, 10, H, W]
         reg_pred = torch.cat([pred["reg"], pred["height"], pred["dim"], pred["rot"], pred["vel"]], dim=1)
         B, C, H, W = reg_pred.shape
+        reg_sample_numerators: tuple[torch.Tensor, ...]
+        reg_sample_denominators: tuple[torch.Tensor, ...]
         if reg_target.shape[0] > 0:
             flat = reg_pred.permute(0, 2, 3, 1).reshape(B * H * W, C)  # [B*H*W, 10]
             gather_idx = bidx * (H * W) + cells
@@ -293,12 +325,92 @@ class CenterPointLoss(nn.Module):
             l1 = (pred_at - reg_target).abs() * self.code_weights.to(pred_at.device)   # [G, 10]
             if self.reg_class_weights is not None:                # per-GT class weight on the L1 (mean-1)
                 rw = self.reg_class_weights.to(pred_at.device)[labels_k]               # [G]
-                reg_loss = (l1.sum(dim=1) * rw).sum() / rw.sum().clamp_min(1e-6)       # class-weighted mean
+                weighted_rows = l1.sum(dim=1) * rw
+                reg_numerator = weighted_rows.sum()
+                reg_denominator = rw.sum().clamp_min(1e-6)
+                reg_loss = reg_numerator / reg_denominator       # class-weighted mean
+                if self._s10_capture:
+                    reg_sample_numerators = tuple(
+                        weighted_rows[bidx == index].sum() for index in range(B)
+                    )
+                    reg_sample_denominators = tuple(
+                        rw[bidx == index].sum() for index in range(B)
+                    )
+                else:
+                    reg_sample_numerators = reg_sample_denominators = ()
             else:
-                reg_loss = l1.sum() / reg_target.shape[0]
+                reg_numerator = l1.sum()
+                reg_denominator = reg_numerator.new_tensor(float(reg_target.shape[0]))
+                reg_loss = reg_numerator / reg_target.shape[0]
+                if self._s10_capture:
+                    row_sums = l1.sum(dim=1)
+                    reg_sample_numerators = tuple(
+                        row_sums[bidx == index].sum() for index in range(B)
+                    )
+                    reg_sample_denominators = tuple(
+                        reg_numerator.new_tensor(float((bidx == index).sum().item()))
+                        for index in range(B)
+                    )
+                else:
+                    reg_sample_numerators = reg_sample_denominators = ()
         else:
             reg_loss = reg_pred.sum() * 0.0
-        total = hm_loss + self.reg_weight * reg_loss
+            reg_numerator = reg_loss
+            reg_denominator = reg_loss.new_tensor(1.0)
+            if self._s10_capture:
+                reg_sample_numerators = tuple(reg_pred[index].sum() * 0.0 for index in range(B))
+                reg_sample_denominators = tuple(reg_loss.new_tensor(0.0) for _ in range(B))
+            else:
+                reg_sample_numerators = reg_sample_denominators = ()
+        weighted_reg = self.reg_weight * reg_loss
+        total = hm_loss + weighted_reg
+        if self._s10_capture:
+            input_gt = [int(boxes.shape[0]) for boxes in batch["gt_boxes"]]
+            target_gt = [int((bidx == index).sum().item()) for index in range(B)]
+            self.last_s10_terms = {
+                "tensors": {
+                    "hm_loss": hm_loss,
+                    "reg_loss": reg_loss,
+                    "weighted_reg_loss": weighted_reg,
+                    "total": total,
+                    "hm_numerator": self._s10_focal["numerator"],
+                    "hm_denominator": self._s10_focal["denominator"],
+                    "hm_raw_positive_count": self._s10_focal["raw_positive_count"],
+                    "hm_positive_numerator": self._s10_focal["positive_numerator"],
+                    "hm_negative_numerator": self._s10_focal["negative_numerator"],
+                    "hm_sample_numerators": self._s10_focal["sample_numerators"],
+                    "hm_sample_denominators": self._s10_focal["sample_denominators"],
+                    "reg_numerator": reg_numerator,
+                    "reg_denominator": reg_denominator,
+                    "reg_sample_numerators": reg_sample_numerators,
+                    "reg_sample_denominators": reg_sample_denominators,
+                },
+                "metadata": {
+                    "batch_size": B,
+                    "input_gt_per_sample": input_gt,
+                    "in_range_targets_per_sample": target_gt,
+                    "unique_heatmap_positive_centers_per_sample": [
+                        int(value.detach().item())
+                        for value in self._s10_focal["sample_unique_positive_centers"]
+                    ],
+                    "center_collisions_per_sample": [
+                        int(target - positive)
+                        for target, positive in zip(
+                            target_gt,
+                            [
+                                int(value.detach().item())
+                                for value in self._s10_focal["sample_unique_positive_centers"]
+                            ],
+                            strict=True,
+                        )
+                    ],
+                    "reg_weight": self.reg_weight,
+                    "class_weighted_heatmap": self.class_weights is not None,
+                    "class_weighted_regression": self.reg_class_weights is not None,
+                },
+            }
+        else:
+            self.last_s10_terms = {}
         if self.record_terms:
             self.last_terms = {
                 "loss": float(total.detach().item()),
@@ -348,6 +460,8 @@ class MultiTaskCenterPointLoss(nn.Module):
             )
         self._record_terms = True
         self.last_terms: Dict[str, float] = {}
+        self._s10_capture = False
+        self.last_s10_terms: Dict[str, Any] = {}
 
     @property
     def record_terms(self) -> bool:
@@ -384,6 +498,29 @@ class MultiTaskCenterPointLoss(nn.Module):
             result["gt_velocity"] = velocity_out
         return result
 
+    @contextmanager
+    def capture_s10_terms(self):
+        """Retain exact task/term tensors for one STOP-B observation forward."""
+        if self._s10_capture:
+            raise RuntimeError("nested S10 loss-term capture is forbidden")
+        self._s10_capture = True
+        self.last_s10_terms = {}
+        for criterion in self.losses:
+            criterion._s10_capture = True
+            criterion._s10_focal = {}
+            criterion.last_s10_terms = {}
+        try:
+            yield self
+        finally:
+            self._s10_capture = False
+            for criterion in self.losses:
+                criterion._s10_capture = False
+
+    def s10_term_bundle(self) -> Dict[str, Any]:
+        if not self.last_s10_terms:
+            raise RuntimeError("no captured S10 loss-term bundle is available")
+        return self.last_s10_terms
+
     def forward(self, pred, batch: dict) -> torch.Tensor:
         if isinstance(pred, dict) and "task_outputs" in pred:
             pred = pred["task_outputs"]
@@ -401,6 +538,24 @@ class MultiTaskCenterPointLoss(nn.Module):
                 aggregate["hm_loss"] += criterion.last_terms["hm_loss"]
                 aggregate["reg_loss"] += criterion.last_terms["reg_loss"]
         total = torch.stack(terms).sum()
+        if self._s10_capture:
+            task_records = []
+            for index, (criterion, global_ids) in enumerate(
+                zip(self.losses, self.global_ids, strict=True)
+            ):
+                if not criterion.last_s10_terms:
+                    raise RuntimeError(f"task {index} did not emit S10 term tensors")
+                task_records.append({
+                    "task_index": int(index),
+                    "global_class_ids": [int(value) for value in global_ids],
+                    **criterion.last_s10_terms,
+                })
+            self.last_s10_terms = {
+                "aggregate_total": total,
+                "tasks": task_records,
+            }
+        else:
+            self.last_s10_terms = {}
         if self.record_terms:
             self.last_terms = {"loss": float(total.detach().item()), **aggregate}
         else:
