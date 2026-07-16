@@ -1,4 +1,4 @@
-# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B reviewed baseline-instability FAIL
+# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B B-RAND amendment active
 
 ## 1. State and authority
 
@@ -6,12 +6,12 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation
+OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-129 replacement consumed/reviewed; owner rebaseline required; no executable compute
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-128/O-129 bounded authority
+CURRENT_AUTHORITY: O-130 B-RAND implementation + one exact 15-minute/0.25-GH200-hour job + one review
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-128/O-129/O-130 bounded authority
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
-STOP_B: reviewed PASS_WITH_RESIDUAL_RISK; calibrated baseline-instability FAIL; localization absent; owner rebaseline required
+STOP_B: reviewed Job 478250 baseline-instability evidence; O-130 stochastic/runtime decomposition active
 STOP_C: unstarted
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
@@ -536,3 +536,35 @@ The sealed runner manifest is `801e98c...`; exact hashes and compute accounting
 are in `RUN_REQUEST.md` §22 and `RESULTS.md`. Independent review returned
 `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. No further compute is executable;
 STOP-B is sealed as this bounded negative result and requires owner rebaseline.
+
+## 16. STOP-B O-130 B-RAND amendment
+
+O-130 accepts that current production training has intended randomness: the
+trainable torchvision Swin-T path uses stochastic depth up to probability `0.2`.
+The fixed STOP-B loader still forbids shuffle, augmentation, GT paste and CBGS.
+The revised observation therefore separates controlled RNG variation from
+same-seed runtime variation rather than requiring output byte identity.
+
+One exact physical first-`P_core` B4 token vector is reused for all modes, with
+mode-appropriate sensor payloads. C-STR8, L-S075 and F-U remain current component
+graphs for diagnosis, not newly accepted architecture candidates. Each is
+initialized at its own seed-0 W0 and executes:
+
+```text
+warm-up: seed 9000 x1
+fixed-seed group: seed 10000 x5
+varying-seed group: seeds 11000,11001,11002,11003,11004
+```
+
+There are exactly 33 forward/backward runs, FP32 only, physical B4, with no
+optimizer, update, scheduler, EMA, checkpoint or evaluator. The job records
+loss, output and gradient distribution metrics. Exact output/gradient hashes
+remain provenance evidence only. Completion means the observation artifact is
+integrity-complete, not that a model or localization gate passed.
+
+Candidate-source labels use a predeclared coarse fourfold dominance rule across
+loss-relative, output-relative-L2 and gradient-relative-L2 medians. A unique
+two-of-three signal may label camera stochasticity, LiDAR runtime variation or
+fusion-only interaction; multiple/no signals return mixed/inconclusive. These
+labels are operational triage, not causal proof. No automatic broad/term,
+counterfactual, model/recipe change or STOP-C follows.

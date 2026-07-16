@@ -54,10 +54,15 @@ requires physical B=4 as the minimum ABC scientific-training microbatch; B=1 is 
 B=8/16 remain later STOP-D/E candidates. S10 STOP-A closed
 `PASS_WITH_RESIDUAL_RISK` after Job `468404` and independent A4 re-review of
 remediation SHA `b0478a298a0a3b5e538bedcca63e2541d71c2146`, with no open P0-P3.
-This closes only the constrained split/evaluator engineering gate; STOP-B/C are
-unstarted and no new tuple exists merely because their STOP-A dependency is met.
-STOP-D/E/F execution remains separately
-gated. S11 and later milestones remain pending. Historical conclusions under
+STOP-B Job `477892` exposed an under-specified parity failure. O-129 replacement
+Job `478250` then passed 41 tests/identities and durably classified the first
+fixed-seed FP32 repeat as baseline instability, but could not enter gradient
+localization; independent review returned `PASS_WITH_RESIDUAL_RISK` with no open
+P0-P3. O-130 authorizes one bounded B-RAND amendment: decompose intended camera
+stochasticity from runtime variation across C-STR8, L-S075 and F-U on the same
+frozen B4 token panel, with no update/evaluator, one GH200, `00:15:00`, and at
+most `0.25` GH200-hour. STOP-C and STOP-D/E/F execution remain separately gated.
+S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime
 state changed.

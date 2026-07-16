@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-129 replacement B-DIAG §21 CONSUMED / Job 478250 baseline-instability FAIL
+REQUEST_STATE: O-130 B-RAND APPROVED / implementation and exact tuple pending
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
-EXECUTION_AUTHORITY: O-129 §20 implementation + one replacement B-DIAG + conditional B-REFINE
+EXECUTION_AUTHORITY: O-130 one B-RAND at 00:15:00 / 0.25 GH200-hour
 SOURCE_SHA: 43f157b3eca7ca72633358b5a2d2dbc4c4e4684b
 BRANCH: codex/s10-cl-model-recipe
-OWNER_APPROVAL: O-128 STOP-B plan; O-129 §20 remediation/replacement approved 2026-07-16
-EXECUTABLE_NOW: none; B-REFINE false; STOP-B reviewed and requires owner rebaseline
+OWNER_APPROVAL: O-128/O-129 prior STOP-B; O-130 B-RAND modification and compute approved 2026-07-16
+EXECUTABLE_NOW: implementation/validation only until exact immutable tuple is recorded
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1033,3 +1033,38 @@ an owner decision on any rebaseline or new diagnostic design. Independent
 review subsequently returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P3 and
 accepted only: calibrated baseline-instability FAIL; localization absent; owner
 rebaseline required.
+
+## 23. O-130 B-RAND stochastic/runtime decomposition — APPROVED
+
+```text
+REQUEST_ID: S10-STOP-B-RAND-O130-v1
+REQUEST_STATE: APPROVED DESIGN / EXACT SOURCE-SNAPSHOT-COMMAND PENDING
+DATA/PANEL: exact Job-477892 physical panel; first P_core B4 token vector only; no rebuild/reroll/growth
+MODES: C-STR8 camera_only; L-S075 lidar_only; F-U fusion
+MODE_STATUS: current component graphs for diagnosis; not candidate acceptance cells
+PRECISION: FP32 only
+INITIALIZATION: independent seed-0 W0 per mode; F-U must retain accepted W0 SHA e58bcd46...
+RUNS_PER_MODE: warm-up seed 9000 x1; fixed seed 10000 x5; varying seeds 11000..11004 x1 each
+TOTAL_FORWARD_BACKWARD_RUNS: 33 at physical B4
+RNG_SEEDS_ROLE: stochastic probes only; not scientific multi-seed evidence
+METRICS: loss relative difference; output global relative-L2/cosine/max-abs; parameter-gradient global/prefix relative-L2/cosine/max-abs; exact hashes retained as evidence
+PAIRING: each group compares four runs to its first reference run; no all-pairs expansion
+INTEGRITY_GATE: exact config/data/panel/source/runtime/resource identities; exactly 33 runs; finite loss/output/gradients; stable missing-gradient set; model state remains W0; fixed-seed post-run RNG hashes identical; complete checksums
+NUMERICAL_EQUALITY_GATE: none; observed variation is evidence, not job failure
+CLASSIFICATION_METRICS: median loss-relative, output-relative-L2, gradient-relative-L2
+DOMINANCE_RULE: ratio >=4 using denominator floor 1e-8; unique support in at least two of three metrics
+LABELS: CAMERA_STOCHASTICITY / LIDAR_RUNTIME_VARIATION / FUSION_ONLY_INTERACTION / MIXED_INCONCLUSIVE
+LABEL_LIMIT: operational candidate source only; no kernel/module/causal claim
+OPTIMIZER/UPDATE/SCHEDULER/EMA/CHECKPOINT/EVALUATOR: absent / zero
+SCIENTIFIC_CONTINUATION: none inside job; no broad/term/localization/STOP-C
+PARTITION/NODES/NTASKS: gpu / 1 / 1
+GPU/CPU/MEMORY/TIME: 1 x nvidia_gh200_120gb / 8 / 64 GiB / 00:15:00
+MAX_ALLOCATION: 0.25 GH200-hour
+SUBMISSION/RETRY: exactly one / none
+OUTPUT: one fresh immutable path derived after implementation
+ACTUAL_ABC_BEFORE: 1.566667 GH200-hours
+WORST_CASE_ABC_AFTER: 1.816667 GH200-hours
+STOP: any identity/resource/test/integrity/artifact failure or timeout; return to owner
+FORBIDDEN: output-equality acceptance, tolerance fitting, extra repeats/seeds/batches, model/recipe change, training, evaluator, DDP/array/spare GPU, automatic follow-up
+OWNER_APPROVAL: O-130, 2026-07-16
+```
