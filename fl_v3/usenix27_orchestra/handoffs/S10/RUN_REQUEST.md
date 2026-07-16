@@ -857,3 +857,55 @@ retry and supplies no replacement. A future owner-approved diagnosis should
 first persist all parity predicates and measure disabled/disabled run-to-run
 variation before deciding whether disabled/on differences are instrumentation
 effects or the accepted sparse backend's non-bit-deterministic baseline.
+
+## 20. Proposed B-DIAG parity-remediation amendment — NOT APPROVED
+
+This is a request design, not an executable tuple or a retroactive relaxation of
+Job `477892`. It preserves the exact model, W0, precision partitions, panel,
+seeds, broad/term/localization gates and no-update interpretation. The only
+proposed change is to make the parity test distinguish instrumentation effects
+from cold runtime tuning and same-path numerical variability.
+
+The observed implementation compared the first cold disabled run directly with
+the following enabled run and required raw parameter-gradient byte hashes to be
+identical. The current sparse backbone selects MaskImplicitGemm and uses the
+spconv extension's runtime tuner/backward implementation; PyTorch's strict flag
+does not by itself attest byte determinism inside that extension. This makes
+cold/warm algorithm state and same-path variability plausible confounders, not
+proven causes of the failure.
+
+Proposed immutable protocol:
+
+```text
+INPUT_PANEL: reuse the exact physical Job-477892 panel file; content SHA 8e4f2d992d7a27d771c6fdf00098afc14b9621bc50ea1e52319b84d406f9ad55; file SHA c2826effeba2e074ef8f76ab582bbb5dc796f41b9555348d56e252a2d70138a6; never rebuild/reroll
+MODEL/W0: unchanged current F-U A0 seed 0; require state SHA e58bcd46d588c68b31335fe87cc5fbff06cbc0fbcdae7e88b0b1ed70d1d65395
+PARITY_BATCHES: existing P_core batch 0 and P_term batch 0 only; physical B4
+PER_PRECISION_ORDER: one disabled warm-up on P_core batch 0; then disabled-0 / disabled-1 / enabled on each parity batch
+WARMUP_ROLE: runtime-algorithm/cache warm-up only; no update; output excluded; W0 state hash must remain exact
+OUTPUT/LOSS/RNG/STATE_GATE: exact equality across disabled-0, disabled-1 and enabled
+GRADIENT_EVIDENCE: preserve raw hashes, missing-gradient sets, finiteness, per-parameter-prefix and global max-abs/relative-L2 errors
+GRADIENT_FIXED_GATE: both disabled-0↔disabled-1 and disabled-0↔enabled must satisfy torch.allclose(rtol=1e-5, atol=1e-7) and global relative-L2 <=1e-6
+ATTRIBUTION: disabled/disabled failure means baseline instability; disabled/disabled PASS plus disabled/enabled failure means instrumentation non-neutral; both PASS permits broad/term observations
+FAILURE_DURABILITY: write every run identity, predicate and numerical error before any raise; always emit failure_summary.json plus artifact checksums
+SCIENTIFIC_CONTINUATION: only after all FP32 and FP16 parity batches PASS; then execute the unchanged broad/term/aggregation/localization cells
+```
+
+The fixed `rtol=1e-5`, `atol=1e-7` envelope is reused from the already declared
+STOP-B aggregation and term-gradient reconstruction checks; it is not estimated
+from Job `477892`. Exact hashes remain evidence but cease to be the sole gradient
+neutrality criterion. No tolerance is derived from the new disabled/disabled
+measurements, and the panel or hypothesis family cannot grow after seeing them.
+
+Proposed resource amendment:
+
+```text
+REPLACEMENT_B_DIAG: one fresh immutable source/snapshot/output; 1 GH200; 8 CPU; 64 GiB; 00:30:00; max 0.5 GH200-hour
+CONDITIONAL_B_REFINE: zero or one only after unchanged LOCALIZED trigger; 1 GH200; at most 00:15:00; max 0.25 GH200-hour
+MAX_ADDITIONAL_STOP_B: 0.75 GH200-hour
+STOP_B_TOTAL_IF_FULLY_CONSUMED: 0.078889 + 0.75 = 0.828889 GH200-hour (< 2-hour stop cap)
+ABC_TOTAL_IF_FULLY_CONSUMED: 1.492223 + 0.75 = 2.242223 GH200-hours (< 27-hour aggregate)
+IDENTICAL_RETRY/DDP/ARRAY/SPARE_GPU: forbidden
+```
+
+Owner approval is required before changing the parity gate, implementing this
+amendment, freezing a replacement source/tuple or submitting compute.

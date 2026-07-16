@@ -503,3 +503,12 @@ GroupNorm mechanism, architecture failure, convergence statement, recipe change
 or B-REFINE. The sole O-128 B-DIAG submission is consumed and no automatic
 replacement exists. Exact job, panel, W0 and artifact identities are in
 `RUN_REQUEST.md` §19 and `RESULTS.md`.
+
+`RUN_REQUEST.md` §20 now records a **pending, unapproved** correction: reuse the
+physical frozen panel, warm the sparse runtime without updates, compare two
+disabled runs before enabled diagnostics, retain exact hashes, apply the same
+fixed `rtol=1e-5/atol=1e-7` numerical envelope already used elsewhere in
+STOP-B, and persist every predicate before failing. This separates baseline
+instability from instrumentation non-neutrality without using observed Job
+`477892` differences to choose a tolerance. It is not implemented or executable
+until the owner approves the parity-gate and replacement-compute amendment.
