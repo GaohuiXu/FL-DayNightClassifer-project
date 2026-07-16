@@ -12,6 +12,7 @@ JOB: 467862 / TIMEOUT 0:0 / 00:15:14 / zero restarts
 RESULT: no accepted split/parity; exact split solve exceeded all frozen walltimes
 LEGACY_A3: consumed under O-125; no retry or reinterpretation
 CORRECTED_A1-A4: approved under O-126; evidence pending
+CORRECTED_IMPLEMENTATION_SHA: 7c01cc3f1e75691339f41f101794945748f03305
 INDEPENDENT_REVIEW: pending immutable PASS evidence
 ```
 

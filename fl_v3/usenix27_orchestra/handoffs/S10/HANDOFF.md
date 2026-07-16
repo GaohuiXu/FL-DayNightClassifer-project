@@ -414,3 +414,9 @@ node (`gpu` partition solely for compatible node/runtime access, no GPU GRES),
 4 CPUs, 32 GiB and 15 minutes. It is one attempt; any failure or timeout returns
 to the owner. Successful immutable evidence must pass independent high-risk A4
 review before STOP-A closes or STOP-B/C may begin.
+
+The corrected A1 implementation/protocol is immutable at
+`7c01cc3f1e75691339f41f101794945748f03305`. A2 local/static and synthetic
+feasibility checks pass; the detached read-only snapshot, exact file/tree hashes,
+fresh output and literal no-GPU `sbatch` command are frozen in `RUN_REQUEST.md`
+§13. This source commit and tuple freeze are not a STOP-A PASS; A3/A4 remain.
