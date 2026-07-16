@@ -1,4 +1,4 @@
-# S10 results — STOP-A A3 replacement active; STOP-B/C unstarted
+# S10 results — STOP-A A3 PASS pending A4; STOP-B/C unstarted
 
 ## STOP-A
 
@@ -9,15 +9,17 @@ A_GATE_TUPLES: recorded in RUN_REQUEST.md
 JOB: 463593 / FAILED 1:0 / 00:00:49 / zero restarts
 JOB: 463649 / TIMEOUT 0:0 / 01:00:14 / zero restarts
 JOB: 467862 / TIMEOUT 0:0 / 00:15:14 / zero restarts
-RESULT: no accepted split/parity; exact split solve exceeded all frozen walltimes
+LEGACY_RESULT: no accepted split/parity; exact split solve exceeded all frozen walltimes
 LEGACY_A3: consumed under O-125; no retry or reinterpretation
 CORRECTED_A1-A4: approved under O-126; evidence pending
 CORRECTED_IMPLEMENTATION_SHA: 7c01cc3f1e75691339f41f101794945748f03305
 JOB: 468295 / CANCELLED by owner 0:0 / 00:00:08 / site transformed 0 GPU to 4 GPU
 CORRECTED_A3: not executed; O-126 submission consumed at scheduler boundary
 O127_REPLACEMENT_SHA: ad93c89333b0a8f19abf138c8d6816e742b51e35
-O127_REPLACEMENT_TUPLE: frozen in RUN_REQUEST §16; execution pending
-INDEPENDENT_REVIEW: pending immutable PASS evidence
+O127_REPLACEMENT_TUPLE: consumed once by Job 468404
+JOB: 468404 / COMPLETED 0:0 / 00:07:59 / zero restarts
+A3_RESULT: PASS — one-shot split, ownership checker and evaluator parity accepted for review
+INDEPENDENT_REVIEW: A4 pending exact immutable evidence SHA
 ```
 
 Job `463593` passed source/runtime preflight, then failed one focused test because
@@ -84,3 +86,51 @@ stderr SHA-256 is
 Non-submitting `--test-only` checks proved `--gpus=0` and `--gres=none` are also
 site-defaulted to four GPUs. O-126 permits no replacement submission, so STOP-A
 is resource-blocked pending owner amendment and A4 cannot start.
+
+O-127 supplied that narrow resource amendment. Job `468404` reserved exactly one
+GH200 to enter the compatible aarch64 runtime but forced
+`CUDA_VISIBLE_DEVICES=""`; execution identity reports PyTorch CUDA unavailable
+with device count zero, and Slurm accounting reports `gres/gpumem=0` and
+`gres/gpuutil=0`. The job completed `0:0` in 479 seconds with zero restarts,
+using `0.133056` allocated GPU-hours. Cumulative STOP-A/ABC allocation is now
+`1.413334` GPU-hours.
+
+The focused suite passed (`13 passed, 8 skipped`). The single predeclared real
+candidate used 50 train logs and exactly two constant-zero feasibility solves;
+both base and nested reports are `FEASIBLE_FROZEN`. There was no seed, second
+candidate or reroll. The resulting immutable split is:
+
+| role | logs | scenes | samples |
+|---|---:|---:|---:|
+| `D_fit` | 34 | 494 | 19,877 |
+| `D_select` | 8 | 115 | 4,626 |
+| `D_audit` | 8 | 91 | 3,627 |
+| `D_low` | 10 | 153 | 6,155 |
+| `D_mid` | 20 | 290 | 11,661 |
+
+Post-job independent reload of the emitted source checker returns PASS. The
+34,149-row ownership ledger covers all 28,130 train and 6,019 official-val
+samples, with zero cross-owner overlap for log, scene, sample, annotation,
+instance or raw sensor path. All declared location, sample-volume, support,
+prevalence and dominance constraints pass. `candidate_freeze.json` remains
+absent and cannot be created before STOP-D.
+
+Evaluator validation also passes. `P-GT` and `P-MIX` each show
+`EXACT_PARITY`, tolerance zero, between the unchanged official full-val path and
+the internal-manifest path for filtered identities, metric-data arrays, validity
+masks and finite aggregates. The explicit empty adapter returns exact zero
+mAP/NDS. The top-level gate is PASS at SHA-256
+`ed168363a072ef25f808e789a973127fa6fbd9d592c6077cc726e539cab161f`;
+the split manifest is
+`7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8`,
+the leakage report is
+`91b956f82e9771a64205cbc0501d819eafda29d9de6e5c882e9b37eb872aa4ad`,
+and the sealed runner manifest is
+`cf7957fbe9e83a6b0b023882f53fdd86901ed7ca258cfa9cf886f12ef8b80697`.
+All nested checksum manifests verify and the output tree is read-only.
+
+This is an A3 engineering PASS, not yet STOP-A closure. It establishes one
+scientifically constrained, reusable limited-rung proxy split plus an exact
+evaluator path. It does not establish balance optimality, model capability,
+convergence, recipe quality or official-val performance. A4 independent high-
+risk review must accept the exact evidence commit before B/C can start.

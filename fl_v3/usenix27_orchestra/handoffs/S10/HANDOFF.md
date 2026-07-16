@@ -1,4 +1,4 @@
-# S10 HANDOFF — accepted six-stop plan, STOP-A A3 replacement active
+# S10 HANDOFF — accepted six-stop plan, STOP-A A3 PASS pending A4 review
 
 ## 1. State and authority
 
@@ -8,9 +8,9 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: minimal O-127 runner/docs commit, immutable tuple, one replacement A3, evidence and A4 review
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-127 active only for STOP-A A3/A4; B/C remain gated
-STOP_A: A3 replacement active; no accepted split/parity yet
+CURRENT_AUTHORITY: O-127 A3 tuple consumed; immutable evidence commit and independent A4 review
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-127 active only for STOP-A evidence/A4; B/C remain gated
+STOP_A: A3 engineering gate PASS at Job 468404; closure pending independent A4
 STOP_B/C: unstarted because STOP-A exit gate is unmet
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
@@ -362,9 +362,10 @@ schedule or precision behavior changes in STOP-A.
 Local validation is limited to `bash -n`, Python bytecode compilation and
 `git diff --check` because the login node is x86_64 and has no project Python
 dependencies. The exact aarch64/GH200 dependency-backed A-GATE tuples and
-outcomes are recorded in `RUN_REQUEST.md`. The implementation commit is not a
-STOP-A PASS; no accepted raw gate evidence exists from which to start independent
-high-risk review.
+outcomes are recorded in `RUN_REQUEST.md`. The implementation commit by itself
+was not a STOP-A PASS. Job `468404` now supplies accepted raw A3 gate evidence
+from which to start independent high-risk A4 review; STOP-A remains open until
+that review accepts the exact evidence SHA.
 
 The first exact A-GATE allocation, Job `463593`, stopped in focused tests before
 real data/gate execution because SciPy's aarch64 HiGHS wrapper rejected platform-
@@ -442,4 +443,27 @@ replacement submission, no retry/reroll; A4 begins only after immutable A3 PASS.
 The O-127 resource-attestation source is immutable at
 `ad93c89333b0a8f19abf138c8d6816e742b51e35`; its science parent remains
 `7c01cc3f1e75691339f41f101794945748f03305`. The detached read-only snapshot,
-hashes, fresh output and literal sole command are frozen in `RUN_REQUEST.md` §16.
+hashes, fresh output and literal sole command are frozen in `RUN_REQUEST.md`
+§16. Job `468404` consumed that tuple once and completed `0:0` in `00:07:59`
+with zero restarts. The process reserved one GH200 only to reach the compatible
+aarch64 node, but `CUDA_VISIBLE_DEVICES` was empty, PyTorch exposed zero CUDA
+devices, and Slurm recorded `gres/gpumem=0` and `gres/gpuutil=0`.
+
+The focused dependency-backed suite passed (`13 passed, 8 skipped`). The real
+candidate ordinal remained exactly one: both zero-objective solves returned
+`FEASIBLE_FROZEN`, no reroll occurred, and `candidate_freeze.json` remains
+absent/locked until STOP-D. The immutable roles are `D_fit=19,877/34 logs`,
+`D_select=4,626/8`, `D_audit=3,627/8`, `D_low=6,155/10`, and
+`D_mid=11,661/20`. Reloading the emitted ownership through the independent
+checker returns PASS with zero cross-owner overlap for log, scene, sample,
+annotation, instance and raw sensor path domains, including all 6,019 official-
+val samples.
+
+Evaluator parity also passes: `P-GT` and `P-MIX` both report `EXACT_PARITY`
+with tolerance zero for filtered identities, metric-data arrays, validity masks
+and aggregate metrics; the empty-prediction adapter returns exact zero mAP/NDS.
+This is split/evaluator engineering evidence only, not model quality, recipe,
+convergence or official-val selection evidence. A3 consumed `0.133056`
+allocated GPU-hours, bringing cumulative STOP-A/ABC allocation to `1.413334`
+GPU-hours. The evidence is now ready for an immutable commit and independent A4
+review; B/C remain unstarted until review closure.

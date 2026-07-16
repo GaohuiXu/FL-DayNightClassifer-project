@@ -15,8 +15,10 @@
 > O-126 approves a corrected one-shot feasibility protocol and serial A1-A4,
 > including exactly one aarch64 CPU-only A-GATE (`0 GPU`, 4 CPU, 32 GiB,
 > `00:15:00`, no retry/reroll). Exact Job `468295` was site-transformed into a
-> four-GPU request and protection-cancelled before gate execution. O-127 approves
-> one explicit-one-GH200/CUDA-hidden replacement; STOP-A A3 is active and
+> four-GPU request and protection-cancelled before gate execution. O-127's
+> explicit-one-GH200/CUDA-hidden Job `468404` completed `0:0` in `00:07:59` and
+> passed the first/only feasibility split, independent ownership checker and
+> exact evaluator-parity gate. STOP-A A3 evidence is pending A4 review and
 > STOP-B/C are unstarted;
 > STOP-D/E/F execution and S11+ remain unapproved.
 >
@@ -437,11 +439,11 @@ authorized.
   architecture/init, D recipe freeze, E final-graph GH200 optimization, F
   single-seed full/official-val close. Exact scientific limits are in
   `handoffs/S10/HANDOFF.md`.
-- **Current authority:** O-127 approves one explicit-one-GH200 replacement with
-  `CUDA_VISIBLE_DEVICES=""`, PyTorch CUDA count zero, 4 CPUs, 32 GiB and 15
-  minutes. It preserves O-126 science and permits minimal runner/docs commit,
-  one immutable submission, evidence and A4 review. No retry or B/C execution;
-  B/C cannot start before reviewed A PASS.
+- **Current authority:** O-127's one explicit-one-GH200 replacement is consumed.
+  Job `468404` ran with `CUDA_VISIBLE_DEVICES=""`, PyTorch CUDA count zero, 4
+  CPUs and 32 GiB, and passed A3. Only immutable evidence sealing and A4 review
+  remain authorized at this boundary. No retry or B/C execution; B/C cannot
+  start before reviewed A PASS.
 - **O-123 batch correction:** the B=1-based v0 request is rejected. Revised ABC
   scientific rungs use physical B=4 at minimum and bind a fixed-batch tail policy;
   B=1 may appear only in a tiny paired diagnostic check. B=8/16 belong to a later
@@ -453,10 +455,10 @@ authorized.
   It is not O-107 and never transfers unused budget to extra candidates, seeds,
   horizons or STOP-D/E/F. O-125's unused contingency is likewise not a spare-job
   entitlement.
-- **Review:** STOP-A split/metric requires one isolated high-risk review worktree
-  after a successful immutable evidence SHA; incomplete Job `467862` does not
-  trigger a closure review. Reuse one bounded S10-R context when later isolation
-  is required. Reviewers read and report but never fix. S00 remediates linearly;
+- **Review:** STOP-A split/metric requires one isolated high-risk review context
+  after a successful immutable evidence SHA; Job `468404` supplies the successful
+  A3 evidence and therefore triggers A4 after that commit is sealed. Reuse one
+  bounded S10-R context. Reviewers read and report but never fix. S00 remediates linearly;
   P3-only polish is batched, and a repeated material blocker returns to the owner.
 - **S11 and later:** pending. Historical role descriptions and sequencing do not
   create scope or authority; Protocol A/B execution, attack, defense, upload and

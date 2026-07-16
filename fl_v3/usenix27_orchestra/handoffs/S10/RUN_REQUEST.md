@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-127 APPROVED / exact A3 replacement tuple frozen in §16
+REQUEST_STATE: O-127 CONSUMED / Job 468404 A3 PASS / A4 review pending
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
-EXECUTION_AUTHORITY: one explicit-one-GH200/CUDA-hidden STOP-A replacement under O-127
+EXECUTION_AUTHORITY: O-127 replacement consumed; evidence/A4 only, no further execution
 SOURCE_SHA: ad93c89333b0a8f19abf138c8d6816e742b51e35
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-127 replacement approved 2026-07-16
-EXECUTABLE_NOW: sole §16 tuple after this request-freeze commit; no other STOP-A/B/C tuple
+EXECUTABLE_NOW: none; §16 consumed once and B/C remain gated by A4
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -616,7 +616,7 @@ frozen in §16 and must be committed before submission.
 ## 16. O-127 exact immutable replacement tuple — frozen for sole submission
 
 ```text
-TUPLE_STATE: READY / owner-approved under O-127 / not yet submitted
+TUPLE_STATE: CONSUMED / Job 468404 COMPLETED 0:0 / not executable
 SOURCE_SHA: ad93c89333b0a8f19abf138c8d6816e742b51e35
 SOURCE_TREE: d9715477cc6d5e0b6bf9d35c7005222d0d4f63c3
 SCIENCE_PARENT: 7c01cc3f1e75691339f41f101794945748f03305
@@ -652,3 +652,94 @@ Exact command:
 ```bash
 sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=4 --mem=32G --gpus=nvidia_gh200_120gb:1 --time=00:15:00 --no-requeue --job-name=s10-stop-a-o127-ad93c89 --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_o127_ad93c89333b0 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_o127_ad93c89333b0_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_o127_ad93c89333b0_%j.err --export=ALL,S10_STOPA_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_o127_ad93c89333b0,S10_STOPA_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_feasible_ad93c89333b0_o127_a1,S10_STOPA_EXPECTED_SOURCE_SHA=ad93c89333b0a8f19abf138c8d6816e742b51e35,S10_STOPA_EXPECTED_TREE=d9715477cc6d5e0b6bf9d35c7005222d0d4f63c3,S10_STOPA_EXPECTED_RUNNER_SHA256=94c52a7ceecadec166786990980801d05a153b2d8a710dd597af5a8da973225a /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_o127_ad93c89333b0/fl_v3/scripts/run_s10_stop_a_gate.sh
 ```
+
+## 17. O-127 A3 Job 468404 — PASS, immutable evidence pending A4
+
+The §16 command was submitted exactly once. Slurm allocated the exact requested
+one GH200, four CPUs and 32 GiB on aarch64 node `n409`; the job completed before
+the 15-minute limit with no restart. The resource assertion then hid the reserved
+GPU from the process and proved both `torch.cuda.is_available() == false` and
+`torch.cuda.device_count() == 0`. Slurm accounting independently reports zero
+GPU memory and utilization. This was CPU-only execution on a GPU-reserved node,
+not model/GPU compute.
+
+```text
+JOB: 468404
+STATE/EXIT/ELAPSED/RESTARTS: COMPLETED / 0:0 / 00:07:59 / 0
+START/END: 2026-07-16T05:57:40 / 2026-07-16T06:05:39
+NODE/MACHINE: n409 / aarch64
+REQ_AND_ALLOC: cpu=4, mem=32G, node=1, gres/gpu=1, gres/gpu:nvidia_gh200_120gb=1
+PROCESS_CUDA_VISIBLE_DEVICES: empty
+PROCESS_TORCH_CUDA_AVAILABLE/COUNT: false / 0
+SLURM_BATCH_GPU_MEMORY/UTILIZATION: 0 / 0
+TOTAL_CPU/MAX_RSS/MAX_VMEM: 07:05.995 / 9.39 GiB / 22.97 GiB
+ALLOCATED_GPU_HOURS: 479 / 3600 = 0.133056
+CUMULATIVE_STOP_A_AND_ABC_ALLOCATED_GPU_HOURS: 1.413334
+O127_SUBMISSIONS: 1 / 1 consumed
+REAL_SPLIT_CANDIDATES: 1 / 1 consumed; no reroll
+```
+
+The dependency-backed focused suite passed `13 passed, 8 skipped in 0.76s`.
+Both gate stages returned the frozen `FEASIBLE_FROZEN` state under their
+constant-zero objective; this is a feasibility certificate only. The pre-solve
+record binds 50 logs, 28,130 train samples, 6,019 official-val samples, candidate
+ordinal one, no reroll and feature SHA-256
+`231e879865b1fadf33f04cc65ee1b7adbc1cf1b3a1547dc525c69e137b3cf993`.
+The immutable role outcome is:
+
+| role | logs | scenes | samples | share |
+|---|---:|---:|---:|---:|
+| `D_fit` | 34 | 494 | 19,877 | 70.6612% of train |
+| `D_select` | 8 | 115 | 4,626 | 16.4451% of train |
+| `D_audit` | 8 | 91 | 3,627 | 12.8937% of train |
+| `D_low` | 10 | 153 | 6,155 | 30.9654% of `D_fit` |
+| `D_mid` | 20 | 290 | 11,661 | 58.6658% of `D_fit` |
+
+The emitted-artifact checker was independently reloaded after the job. It
+reconstructed all hard constraints and returned PASS. Across the intended grain,
+overlap counts are exactly zero for log, scene, sample, annotation, instance and
+raw path; unique counts are respectively 68, 850, 34,149, 1,166,187, 64,386 and
+534,532. The ownership ledger contains exactly 34,149 records: 28,130 training
+plus 6,019 official-val samples. `candidate_freeze.json` is absent and locked
+until terminal STOP-D.
+
+Full-val evaluator parity passed both fixtures at tolerance zero:
+
+| fixture | status | filtered GT boxes | filtered prediction boxes | proxy mAP/NDS |
+|---|---|---:|---:|---:|
+| `P-GT` | `EXACT_PARITY` | 121,861 | 121,861 | 1.0000000000000004 / 1.0000000000000002 |
+| `P-MIX` | `EXACT_PARITY` | 121,861 | 103,579 | 0.4866183371564836 / 0.7433091685782418 |
+
+Exact equality covers filtered identities, all metric-data arrays, validity
+masks and finite aggregate metrics. The adversarial filter evidence starts from
+187,528 raw official-val boxes, includes 29,275 zero-point boxes and 22
+trainval bicycle/motorcycle centers in racks, and finishes with 121,861 filtered
+official-val boxes. The explicit empty-prediction adapter returns exact
+`mAP=0.0`, `NDS=0.0` on 64 samples.
+
+Primary immutable identities:
+
+```text
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_feasible_ad93c89333b0_o127_a1
+EXECUTION_IDENTITY_SHA256: 334a3901d301e557139648fa2c7800221f4cf2eb198c9e9a5f674a3ec4601c84
+STOP_A_GATE_SHA256: ed168363a072ef25f8083e789a973127fa6fbd9d592c6077cc726e539cab161f
+PRE_SOLVE_IDENTITY_SHA256: 0b6823c01df7e1359eebe5749c5bc267d77a59ac6ed82df647ccaf3f1392890a
+SPLIT_PROTOCOL_SHA256: bc0cf5ef7c68fa5c25d54882cb49e9806d181cb0890125671d854f8650bfd24e
+SPLIT_MANIFEST_SHA256: 7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8
+OWNERSHIP_LEDGER_SHA256: d2f0de912cf7e774d21ce1630839fb50cce6b6ae66a96ec1ed9b90988319e8b8
+LEAKAGE_REPORT_SHA256: 91b956f82e9771a64205cbc0501d819eafda29d9de6e5c882e9b37eb872aa4ad
+P_GT_PARITY_SHA256: bff1e8cf611a42b81e7d030d478c345558155a1776097e97f73196eca22d17ea
+P_MIX_PARITY_SHA256: 06bbe2493dacf1390fe9c9fb3b7ea57be74b524d52d948f6fa2c7ba8fbf19e8c
+EMPTY_EVAL_SHA256: aed7acee84575c1339ecf0ce53492d29d2321a1d21fd4bbe819cb3d3aeddce41
+ARTIFACT_MANIFEST_SHA256: a9156f8256ed456fb8dd3225359f0b283b2e94ad69908165b126c33beaa5c294
+RUNNER_ARTIFACT_MANIFEST_SHA256: cf7957fbe9e83a6b0b023882f53fdd86901ed7ca258cfa9cf886f12ef8b80697
+STDOUT_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDERR_SHA256: 8db5d05b4abfa9c9cc1bd7028c410675c3e2d697af110ce6c6d9aa51f2e1e830
+```
+
+All three nested checksum manifests pass and the 305,129,578-byte, 26-file
+output tree has zero writable paths. This PASS is limited to the constrained
+train-only proxy split, ownership checker and evaluator engineering contract. It
+is not model capability, convergence, recipe, official-val performance or
+selection evidence. A4 must independently review the exact evidence commit
+before STOP-A closes or STOP-B/C may start.
