@@ -1,4 +1,4 @@
-# S10 results — STOP-A corrected protocol active; STOP-B/C unstarted
+# S10 results — STOP-A resource-blocked; STOP-B/C unstarted
 
 ## STOP-A
 
@@ -13,6 +13,8 @@ RESULT: no accepted split/parity; exact split solve exceeded all frozen walltime
 LEGACY_A3: consumed under O-125; no retry or reinterpretation
 CORRECTED_A1-A4: approved under O-126; evidence pending
 CORRECTED_IMPLEMENTATION_SHA: 7c01cc3f1e75691339f41f101794945748f03305
+JOB: 468295 / CANCELLED by owner 0:0 / 00:00:08 / site transformed 0 GPU to 4 GPU
+CORRECTED_A3: not executed; O-126 submission consumed at scheduler boundary
 INDEPENDENT_REVIEW: pending immutable PASS evidence
 ```
 
@@ -63,6 +65,20 @@ ownership/leakage proof and exact evaluator-parity gate remain unchanged, while
 the unnecessary global balance/lexicographic optimizer is replaced by base and
 nested one-shot zero-objective feasibility solves. The feature table and ordinal
 one are frozen before solving; no alternative candidate or reroll is allowed.
-No corrected A-GATE result is recorded yet. The sole authorized allocation is
-CPU-only (`0 GPU`, 4 CPU, 32 GiB, 15 minutes) and will appear here only after its
-exact A2 tuple is frozen and actually executed.
+No corrected A-GATE result is recorded. The sole authorized allocation was
+frozen as CPU-only (`0 GPU`, 4 CPU, 32 GiB, 15 minutes), but was not executed
+with those resources.
+
+The exact frozen command was submitted as Job `468295`, but Arrhenius
+`job_submit/lua` injected four GH200s when no GPU count was specified. `scontrol`
+confirmed four requested and allocated GPUs on `n428`; S00 protection-cancelled
+the job after eight seconds before execution identity/tests/data/split, so the target output
+and `.control` are both absent and the real candidate count remains zero.
+Allocated exposure was `0.008889` GPU-hours; cumulative STOP-A allocation is
+`1.280278` GPU-hours. stdout was empty
+(`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`);
+stderr SHA-256 is
+`061f652d362d5123daba8deaf776a2bd01ffc4ba12fa4c4eff0582e68a3cedb4`.
+Non-submitting `--test-only` checks proved `--gpus=0` and `--gres=none` are also
+site-defaulted to four GPUs. O-126 permits no replacement submission, so STOP-A
+is resource-blocked pending owner amendment and A4 cannot start.

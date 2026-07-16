@@ -14,7 +14,9 @@
 > `467862` and timed out inside the exact MILP after tests and metadata traversal.
 > O-126 approves a corrected one-shot feasibility protocol and serial A1-A4,
 > including exactly one aarch64 CPU-only A-GATE (`0 GPU`, 4 CPU, 32 GiB,
-> `00:15:00`, no retry/reroll). STOP-A is active; STOP-B/C are unstarted;
+> `00:15:00`, no retry/reroll). Exact Job `468295` was site-transformed into a
+> four-GPU request and protection-cancelled before gate execution. STOP-A is resource-
+> blocked pending owner amendment; STOP-B/C are unstarted;
 > STOP-D/E/F execution and S11+ remain unapproved.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
@@ -434,11 +436,11 @@ authorized.
   architecture/init, D recipe freeze, E final-graph GH200 optimization, F
   single-seed full/official-val close. Exact scientific limits are in
   `handoffs/S10/HANDOFF.md`.
-- **Current authority:** O-126 is that explicit owner amendment. It authorizes
-  STOP-A A1-A4, one immutable CPU-only tuple, linear commits/evidence and one
-  independent high-risk review. It removes global lexicographic optimality but
-  preserves every scientific hard constraint and parity/leakage gate. Any
-  failure/timeout returns to the owner; B/C cannot start before reviewed A PASS.
+- **Current authority:** O-126's sole CPU-only submission is consumed by Job
+  `468295`'s site-level four-GPU transformation and protection cancellation.
+  A1/A2 remain valid; no runner/test/data/split executed and no real candidate
+  was consumed. A replacement resource tuple requires owner amendment; B/C
+  cannot start before reviewed A PASS.
 - **O-123 batch correction:** the B=1-based v0 request is rejected. Revised ABC
   scientific rungs use physical B=4 at minimum and bind a fixed-batch tail policy;
   B=1 may appear only in a tiny paired diagnostic check. B=8/16 belong to a later

@@ -1,4 +1,4 @@
-# S10 HANDOFF — accepted six-stop plan, corrected STOP-A active
+# S10 HANDOFF — accepted six-stop plan, STOP-A resource-blocked
 
 ## 1. State and authority
 
@@ -8,9 +8,9 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 final legacy optimizer tuple consumed; O-126 corrected STOP-A A1-A4
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: implement/validate/commit corrected A1-A2; one exact CPU-only A3; evidence + independent high-risk A4
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-126 active only for STOP-A A1-A4; B/C remain gated
-STOP_A: active under O-126 after Job 467862 negative evidence; no accepted split/parity yet
+CURRENT_AUTHORITY: document/seal Job 468295 scheduler failure; replacement A3 requires owner amendment
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-126 A1/A2 complete; its one A3 submission consumed before execution
+STOP_A: resource-blocked after Job 468295 site-transformed 0-GPU request into 4 GPUs; no accepted split/parity
 STOP_B/C: unstarted because STOP-A exit gate is unmet
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
@@ -420,3 +420,13 @@ The corrected A1 implementation/protocol is immutable at
 feasibility checks pass; the detached read-only snapshot, exact file/tree hashes,
 fresh output and literal no-GPU `sbatch` command are frozen in `RUN_REQUEST.md`
 §13. This source commit and tuple freeze are not a STOP-A PASS; A3/A4 remain.
+
+That exact command was submitted once as Job `468295`. Arrhenius
+`job_submit/lua` printed that no GPU count was specified and injected four GPUs;
+`scontrol` confirmed both `ReqTRES` and `AllocTRES` contained `gres/gpu=4`.
+S00 protection-cancelled the job after 8 seconds, before the runner created any
+output or executed tests/data/split. Follow-up non-submitting `sbatch --test-only`
+checks showed both `--gpus=0` and `--gres=none` receive the same four-GPU default,
+so neither is a valid zero-GPU replacement. The scientific candidate ordinal is
+unconsumed, but O-126's submission authority is consumed; a one-GPU allocated-
+but-CUDA-hidden replacement or another resource route requires owner approval.

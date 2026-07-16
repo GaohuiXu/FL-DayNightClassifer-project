@@ -14,9 +14,10 @@
 > was consumed by Job `467862`, which passed focused tests and metadata traversal
 > but timed out in the exact MILP without a split/parity artifact. O-126 replaces
 > only the unnecessary global optimum/tie certificate with a one-shot frozen
-> feasibility protocol and authorizes serial A1-A4 plus one 0-GPU aarch64 gate.
-> STOP-A is active; STOP-B/C are unstarted. STOP-D/E/F execution and S11+ remain
-> pending.
+> feasibility protocol and authorized serial A1-A4 plus one 0-GPU aarch64 gate.
+> Exact Job `468295` was site-transformed to four GPUs and protection-cancelled
+> after 8 seconds before execution identity/test/data/split work. STOP-A is blocked at
+> the resource boundary; STOP-B/C are unstarted. STOP-D/E/F and S11+ remain pending.
 >
 > `Sxx` is an evidence namespace, not automatically a worker, task, branch, or
 > worktree. Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Active launch
@@ -33,7 +34,7 @@
   ├─ S09 full-pipeline performance/readiness      [closed PASS under O-120]
   │      └─ independent review of exact profiling/evidence SHA
   │
-  ├─ S10 A-F CL health/recipe/speed/full claim     [STOP-A A1-A4 active under O-126]
+  ├─ S10 A-F CL health/recipe/speed/full claim     [STOP-A resource-blocked after Job 468295]
   └─ S11 and later                                 [roles pending owner decision]
 ```
 
@@ -46,7 +47,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | six-stop A-F envelope accepted under O-122; O-126 activates corrected one-shot feasibility A1-A4 after Job `467862`; B/C unstarted |
+| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | corrected A1/A2 immutable at `7c01cc3`; O-126 Job `468295` site-transformed to four GPUs and cancelled before execution; STOP-A resource-blocked, B/C unstarted |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract
@@ -336,13 +337,13 @@ LiDAR-conditioned `DepthLSS` consideration requires B/C evidence of a current
 graph defect or material capability loss and must consume, not expand, the
 counterfactual cap.
 
-O-126 now authorizes STOP-A A1-A4 only: implement and locally validate the
-one-shot feasibility protocol, freeze an immutable source/tuple, run exactly one
-CPU-only aarch64 gate, seal its evidence, and obtain independent high-risk
-review. The split freezes the first feasible assignment after a pre-solve input/
-feature hash; it has no global balance-optimality claim and cannot be rerolled.
-STOP-B/C remain downstream of reviewed STOP-A PASS. D/E/F remain separate future
-execution gates.
+O-126 authorized STOP-A A1-A4 only. A1/A2 completed, but its sole A3 submission
+was transformed by the site plugin into four allocated GPUs and cancelled before
+execution; no real candidate was solved. A replacement allocation requires a new
+owner amendment. The corrected split still freezes the first feasible assignment
+after a pre-solve input/feature hash, has no global balance-optimality claim and
+cannot be rerolled. STOP-B/C remain downstream of reviewed STOP-A PASS. D/E/F
+remain separate future execution gates.
 
 O-123 rejects the first B=1-based ABC estimate. O-124 approves the revised v1 ABC
 completion envelope and starts continuous implementation/execution/review under

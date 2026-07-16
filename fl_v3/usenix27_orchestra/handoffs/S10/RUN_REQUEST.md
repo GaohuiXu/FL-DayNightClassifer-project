@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-126 APPROVED / corrected STOP-A A1-A4 active / exact CPU-only tuple frozen in §13
+REQUEST_STATE: O-126 SOLE SUBMISSION CONSUMED / scheduler-resource FAIL / STOP-A blocked
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
-EXECUTION_AUTHORITY: O-126 one corrected CPU-only STOP-A gate; O-124 aggregate record otherwise unchanged
+EXECUTION_AUTHORITY: none executable; O-126 Job 468295 cancelled after site transformed it to four GPUs
 SOURCE_SHA: corrected STOP-A 7c01cc3f1e75691339f41f101794945748f03305; B/C pending
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-126 corrected A1-A4 plan and exact resource envelope approved 2026-07-16
-EXECUTABLE_NOW: sole §13 tuple after this request-freeze commit; no other STOP-A/B/C tuple
+EXECUTABLE_NOW: none — replacement resource tuple requires owner amendment; B/C remain gated
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -510,7 +510,7 @@ exposes zero CUDA devices.
 ## 13. O-126 corrected A-GATE exact immutable tuple — frozen for sole submission
 
 ```text
-TUPLE_STATE: READY / owner-approved under O-126 / not yet submitted
+TUPLE_STATE: CONSUMED / Job 468295 scheduler-resource mismatch / cancelled before gate execution
 SOURCE_SHA: 7c01cc3f1e75691339f41f101794945748f03305
 SOURCE_TREE: 93a0ac39b49df51f0f75a08e73d1f12268be50db
 SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_feasible_7c01cc3f1e75
@@ -551,3 +551,38 @@ Exact command (there is deliberately no `--gpus` option):
 ```bash
 sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=4 --mem=32G --time=00:15:00 --no-requeue --job-name=s10-stop-a-o126-7c01cc3 --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_feasible_7c01cc3f1e75 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_o126_7c01cc3f1e75_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_a_o126_7c01cc3f1e75_%j.err --export=ALL,S10_STOPA_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_feasible_7c01cc3f1e75,S10_STOPA_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_feasible_7c01cc3f1e75_o126_a1,S10_STOPA_EXPECTED_SOURCE_SHA=7c01cc3f1e75691339f41f101794945748f03305,S10_STOPA_EXPECTED_TREE=93a0ac39b49df51f0f75a08e73d1f12268be50db,S10_STOPA_EXPECTED_RUNNER_SHA256=a36b201497c2451752e436930acef6939a9b430373b2d80692746d120df41cd1 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_a_feasible_7c01cc3f1e75/fl_v3/scripts/run_s10_stop_a_gate.sh
 ```
+
+## 14. O-126 A3 Job 468295 — terminal scheduler-resource FAIL
+
+The §13 command was submitted exactly once. `sbatch` immediately reported:
+`A number of GPUs not specified. Allocating 4 per node for a total of 4 GPUs.`
+The site `job_submit/lua` plugin therefore changed the approved zero-GPU request;
+`scontrol show job -dd` confirmed `ReqTRES=cpu=4,mem=32G,node=1,gres/gpu=4` and
+`AllocTRES=cpu=4,mem=32G,node=1,gres/gpu=4` on aarch64 node `n428`. S00
+protection-cancelled the job rather than allow unauthorized four-GPU allocation.
+
+```text
+JOB: 468295
+STATE/EXIT/ELAPSED: CANCELLED by 4004328 / 0:0 / 00:00:08
+START/END: 2026-07-16T05:45:36 / 2026-07-16T05:45:44
+NODE: n428 / aarch64
+REQ_AND_ALLOC_GPU: 4 x nvidia_gh200_120gb
+ALLOCATED_GPU_HOURS: 4 * 8 / 3600 = 0.008889
+CONSUMED_ENERGY_RAW: 0
+EXECUTION_IDENTITY/TEST/DATA/SOLVE/PARITY: not emitted/not entered
+TARGET_OUTPUT_AND_CONTROL: both absent
+STDOUT_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+STDERR_SHA256: 061f652d362d5123daba8deaf776a2bd01ffc4ba12fa4c4eff0582e68a3cedb4
+O126_SUBMISSIONS: 1 / 1 consumed
+REAL_SPLIT_CANDIDATES: 0 / 1 consumed
+CUMULATIVE_STOP_A_ALLOCATED_GPU_HOURS: 1.280278
+```
+
+The current partition has `JobSubmitPlugins=lua`; the `gpu` partition contains
+only aarch64 GH200 nodes and the `cpu`/`fat` partitions are separate x86 nodes.
+Two non-submitting `sbatch --test-only` diagnostics (Slurm documents that this
+validates without creating a job) showed `--gpus=0` and `--gres=none` are also
+rewritten to four GPUs. They are not replacement commands. There is no automatic
+retry. The narrow viable route is an owner-amended one-GPU allocation with CUDA
+hidden from the CPU-only process, or an externally provided aarch64 CPU queue;
+neither is authorized here.
