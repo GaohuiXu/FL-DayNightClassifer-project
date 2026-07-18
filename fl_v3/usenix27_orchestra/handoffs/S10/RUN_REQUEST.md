@@ -1190,7 +1190,7 @@ C0-L-A0: D_low physical B4 drop_last / 1,538 attempted windows / terminal D_sele
 C0-F-A0-P64: D_low physical B4 / 64 attempted windows / no evaluator
 SEED/PRECISION: 0 / global FP16 plus complete SECOND FP32 island
 RECIPE: AdamW 1e-4/0.01; constant; uniform; no clip/EMA/augmentation/CBGS/GT-paste
-DROPPED_TOKENS: three, identical for the two full cells and hash-recorded from the seed-0 epoch permutation
+DROPPED_TOKENS (REQUEST-TIME CLAIM; INVALIDATED BY REVIEW): the remainder count three is correct and the two full cells used the same actual order/remainder, but the raw named tokens were predicted from the wrong DataLoader RNG state and are not exact
 LOSS_CHUNK_BOUNDARIES: 64,384,768,1152,1538; short control 16,64
 DIAGNOSTIC_ATTEMPTS: 1,4,16,64,256,768,1538; short control through 64
 PROFILE: C0-F-A1 only / wait 16 / warmup 2 / active 10 / one trace cycle; no sampled-diagnostic overlap
@@ -1233,6 +1233,7 @@ AGGREGATE_SUMMARY: absent
 FAILURE: short 64-window control was incorrectly required to exhaust the 1,538-window epoch iterator
 RAW_MECHANICAL_HEALTH_LABELS: F-A1 HARD_FAIL; L-A0 HARD_FAIL
 HEALTH_GATE_DEFECT: lidar_encoder.to_bev is nn.Identity in SECOND-075 and has no trainable parameter
+DROP_TOKEN_PROVENANCE: INVALID for the three raw named tokens; DataLoader consumed a base seed before RandomSampler randperm, so only the remainder count and same-order F/L construction remain supported
 OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_c0_89958be_o131_a1
 RUNNER_ARTIFACT_MANIFEST_SHA256: 950a79919dbf07b1dab54f4ff91c4bf9c49692bf05417c532725dd508c93397e
 ARTIFACT_MANIFEST_CHECK: 25/25 OK
@@ -1244,4 +1245,5 @@ REQUEUE/RETRY/REROLL: none / forbidden / forbidden
 
 The two complete cell artifacts remain bounded evidence; the exact C0 protocol
 does not pass because the scratch control and aggregate summary are absent. The
-post-job output-neutral fixes and regression tests are not execution authority.
+post-job model/loss/gradient/update-neutral v2 artifact fixes and regression tests
+are not execution authority and were not run on GH200.

@@ -15,6 +15,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import statistics
 import sys
 import time
 from typing import Any, Iterator
@@ -26,7 +27,7 @@ import torch
 
 from centralized_train import BoundedOperatorProfiler, _build_optimizer
 from fl_v3.config import resolve_config, verify_physical_data_identities
-from fl_v3.data.nuscenes.s10_binding import load_frozen_split_role
+from fl_v3.data.nuscenes.s10_binding import load_frozen_split_role, token_vector_sha256
 from fl_v3.eval.detection_eval import build_results_dict, decode_eval_set
 from fl_v3.eval.subset_detection_eval import run_internal_manifest_eval, write_strict_json
 from fl_v3.training.checkpoint import save_checkpoint
@@ -44,7 +45,7 @@ from fl_v3.utils.runtime import (
 )
 
 
-SCHEMA = "fl_v3.s10.stop_c0_health.v1"
+SCHEMA = "fl_v3.s10.stop_c0_health.v2"
 EXPECTED_SPLIT_SHA256 = "7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8"
 EXPECTED_SWINT_SHA256 = "704ceda373461b0a224fcdddd75cd2a5e9f8064512ed47adbddef7f343fd147b"
 FULL_BOUNDARIES = (64, 384, 768, 1152, 1538)
@@ -163,9 +164,16 @@ def _resolved_for_cell(base: dict[str, Any], spec: dict[str, Any]):
 class _ExactChunk:
     """Expose exactly N batches from one shared epoch iterator."""
 
-    def __init__(self, source: Iterator[Any], count: int) -> None:
+    def __init__(
+        self,
+        source: Iterator[Any],
+        count: int,
+        *,
+        observed_sample_tokens: list[str] | None = None,
+    ) -> None:
         self.source = source
         self.remaining = int(count)
+        self.observed_sample_tokens = observed_sample_tokens
 
     def __iter__(self):
         return self
@@ -177,15 +185,58 @@ class _ExactChunk:
             value = next(self.source)
         except StopIteration as exc:
             raise RuntimeError("D_low loader exhausted before its declared chunk") from exc
+        if self.observed_sample_tokens is not None:
+            if not isinstance(value, dict):
+                raise RuntimeError("C0 token observation requires a dictionary batch")
+            sample_tokens = value.get("sample_token")
+            if not isinstance(sample_tokens, (list, tuple)) or not all(
+                isinstance(token, str) and token for token in sample_tokens
+            ):
+                raise RuntimeError("C0 batch has invalid sample_token provenance")
+            self.observed_sample_tokens.extend(sample_tokens)
         self.remaining -= 1
         return value
 
 
-def _dropped_tokens(tokens: tuple[str, ...], seed: int, batch_size: int) -> list[str]:
-    generator = torch.Generator().manual_seed(int(seed))
-    order = torch.randperm(len(tokens), generator=generator).tolist()
-    remainder = len(tokens) % int(batch_size)
-    return [tokens[index] for index in order[-remainder:]] if remainder else []
+def _training_token_evidence(
+    manifest_tokens: tuple[str, ...],
+    observed_tokens: list[str],
+    *,
+    attempted_windows: int,
+    batch_size: int,
+    full_epoch: bool,
+) -> dict[str, Any]:
+    """Bind actual DataLoader batches instead of predicting its RNG sequence."""
+    declared = tuple(str(token) for token in manifest_tokens)
+    observed = tuple(str(token) for token in observed_tokens)
+    expected_count = int(attempted_windows) * int(batch_size)
+    if len(observed) != expected_count:
+        raise RuntimeError(
+            f"observed training-token count drifted: {len(observed)} != {expected_count}"
+        )
+    if len(observed) != len(set(observed)):
+        raise RuntimeError("observed training-token sequence contains duplicates")
+    declared_set = set(declared)
+    outside = sorted(set(observed).difference(declared_set))
+    if outside:
+        raise RuntimeError(f"observed training tokens outside D_low: {outside[:3]}")
+
+    remainder = sorted(declared_set.difference(observed)) if full_epoch else None
+    if full_epoch and len(remainder) != len(declared) % int(batch_size):
+        raise RuntimeError("D_low drop-last remainder count drifted")
+    return {
+        "source": "actual_collated_batches",
+        "attempted_windows": int(attempted_windows),
+        "physical_microbatch": int(batch_size),
+        "consumed_sample_count": len(observed),
+        "consumed_sample_tokens_ordered_sha256": token_vector_sha256(observed),
+        "full_epoch": bool(full_epoch),
+        "drop_last_remainder_count": None if remainder is None else len(remainder),
+        "drop_last_remainder_tokens_sorted": remainder,
+        "drop_last_remainder_tokens_sorted_sha256": (
+            None if remainder is None else token_vector_sha256(remainder)
+        ),
+    }
 
 
 def _close_loader(loader: object) -> None:
@@ -305,9 +356,7 @@ def _cell_health(
         hard_errors.append("nonfinite internal evaluation")
 
     max_lidar_ratio = max(lidar_ratios, default=0.0)
-    median_head_ratio = (
-        sorted(head_ratios)[len(head_ratios) // 2] if head_ratios else 0.0
-    )
+    median_head_ratio = float(statistics.median(head_ratios)) if head_ratios else 0.0
     harm_indicators = {
         "post_warmup_invalid": post_warmup_invalid > 0,
         "extreme_lidar_realized_update": bool(
@@ -387,10 +436,6 @@ def _run_cell(
     )
     if len(loader) != 1538:
         raise RuntimeError(f"D_low B4 drop-last loader length drifted: {len(loader)}")
-    dropped = _dropped_tokens(low.sample_tokens, seed, 4)
-    if len(dropped) != 3:
-        raise RuntimeError("D_low B4 dropped-token count drifted")
-
     device = torch.device("cuda")
     model = task.build_model(run_config).to(device)
     criterion = task.build_criterion(run_config)
@@ -414,7 +459,9 @@ def _run_cell(
             "cell": spec["id"],
             "split_manifest_sha256": EXPECTED_SPLIT_SHA256,
             "D_low_sample_tokens_sha256": low.sample_tokens_sha256,
-            "dropped_tokens": dropped,
+            "drop_last": True,
+            "declared_attempted_windows": int(spec["attempted_windows"]),
+            "D_low_epoch_windows": len(loader),
         },
     )
     profiler = (
@@ -425,11 +472,16 @@ def _run_cell(
         torch.cuda.reset_peak_memory_stats(device)
 
     epoch_iterator = iter(loader)
+    observed_sample_tokens: list[str] = []
     chunks: list[dict[str, Any]] = []
     start = 0
     for index, boundary in enumerate(spec["boundaries"]):
         count = int(boundary) - start
-        chunk = _ExactChunk(epoch_iterator, count)
+        chunk = _ExactChunk(
+            epoch_iterator,
+            count,
+            observed_sample_tokens=observed_sample_tokens,
+        )
         before = state.checkpoint_dict()
         torch.cuda.synchronize(device)
         wall_started = time.perf_counter()
@@ -490,6 +542,14 @@ def _run_cell(
         raise RuntimeError("cell attempted-window horizon drifted")
     if len(diagnostics.records) != len(spec["diagnostics"]):
         raise RuntimeError("sampled diagnostic record count drifted")
+    full_epoch = int(spec["attempted_windows"]) == len(loader)
+    training_tokens = _training_token_evidence(
+        low.sample_tokens,
+        observed_sample_tokens,
+        attempted_windows=int(spec["attempted_windows"]),
+        batch_size=4,
+        full_epoch=full_epoch,
+    )
 
     state.epoch = 1 if spec["attempted_windows"] == 1538 else 0
     terminal = state.checkpoint_dict()
@@ -590,7 +650,7 @@ def _run_cell(
             "precision": "global_fp16_SECOND_fp32_island",
             "grad_scaler_init_scale": 512.0,
         },
-        "dropped_tokens": dropped,
+        "training_token_evidence": training_tokens,
         "chunks": chunks,
         "terminal_training_state": terminal,
         "diagnostic_windows": list(spec["diagnostics"]),

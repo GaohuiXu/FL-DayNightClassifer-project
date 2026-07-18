@@ -281,6 +281,12 @@ smaller final optimizer update and does not silently treat the known
 `28130 % 4 == 2` tail as a valid B4 batch. STOP-D must separately freeze the
 production/full-run tail policy.
 
+C0's executed v1 artifact failed the exact-token part of this policy: it
+predicted the remainder from a fresh generator without accounting for the
+DataLoader base-seed draw. Its count of three and matched F/L construction remain
+valid, but its three named tokens are not exact. The post-job v2 seam observes
+actual collated batch tokens; no C0 raw artifact is rewritten.
+
 A mandatory candidate that cannot execute B=4 after its allowed output-neutral
 activation-checkpoint choice and one bounded correctness-debug cycle fails the C
 capacity gate; it does not fall back to B=1. B=8/16 are not ABC cells. They are
@@ -319,7 +325,7 @@ pre-STOP-E telemetry without claiming final bottlenecks.
 
 | cell | train horizon | evaluation | role |
 |---|---:|---|---|
-| `C0-F-A1` | 1,538 attempted physical-B4 windows; 6,152 attempted samples; 3 frozen drops | one terminal `D_select` internal mAP/NDS | primary current-family health cell: ImageNet1K V1 camera, random LiDAR/fuser/head |
+| `C0-F-A1` | 1,538 attempted physical-B4 windows; 6,152 attempted samples; 3 `drop_last` remainder samples, but raw token identities are invalid | one terminal `D_select` internal mAP/NDS | primary current-family health cell: ImageNet1K V1 camera, random LiDAR/fuser/head |
 | `C0-L-A0` | same | same | LiDAR-only companion; random L-S075 |
 | `C0-F-A0-P64` | 64 attempted B4 windows | none | all-scratch initialization negative control; not a finalist |
 
@@ -368,12 +374,19 @@ large-gradient harm signal. F-A1 exceeds L-A0 by `+0.044045` internal mAP and
 internal-only and includes the A1 camera prior. It cannot select a graph/recipe
 or make the S10 primary claim.
 
-The post-job implementation replaces the invalid required prefix with the
-trainable SECOND `conv_out`, restricts exact iterator exhaustion to full-epoch
-cells, and adds regression tests. It is unexecuted remediation and confers no
-replacement compute authority. Full metrics, hashes, performance observations
-and interpretation limits are in `RESULTS.md`; the exact consumed tuple is in
-`RUN_REQUEST.md` §26.
+Independent review additionally found that the raw v1 `dropped_tokens` vector
+used the wrong RNG state and that the raw even-length “median” was an upper
+median. These do not change the exposure count, evaluator metrics, F-minus-L
+delta or `NOT_ESTABLISHED` harm label, but exact raw remainder-token identity is
+unknown. Post-job remediation advances the schema to v2, records actual batch
+tokens, uses a standard median, replaces the impossible trainable-prefix gate,
+and limits iterator exhaustion to full-epoch cells. These changes affect
+diagnostic artifact semantics but not model/loss/gradient/update math; they have
+not been executed on GH200.
+
+This unexecuted remediation confers no replacement compute authority. Full
+metrics, hashes, performance observations and interpretation limits are in
+`RESULTS.md`; the exact consumed tuple is in `RUN_REQUEST.md` §26.
 
 ## 7. STOP-D/E/F boundaries
 

@@ -1,16 +1,58 @@
-# S10 independent review — STOP-A/B closed; STOP-C0 review pending
+# S10 independent review — STOP-A/B closed; STOP-C0 remediation review
 
 ## STOP-C0 review state
 
-O-131's sole Job `492525` is consumed and terminal `FAILED 1:0`. Independent
-review has not started; it must pin the immutable post-job evidence/remediation
-SHA and cover exact D_low/D_select role binding, B4/drop/exposure accounting, A1
-weight identity, sampled true-unscaled gradient and realized-update semantics,
-token-complete internal evaluation, the missing scratch/aggregate artifacts, the
-impossible `to_bev=Identity` gradient gate, the short-horizon iterator bug,
-profiler scope, allocation arithmetic, and every prohibited recipe/architecture/
-full-claim interpretation. This pending record is not a PASS. No replacement
-compute is authorized.
+```text
+REVIEWER: independent /root/s10_c0_reviewer subagent; read-only
+INITIAL_EVIDENCE_SHA: 908fea68e320501a6e353462a828f34107fa7ebf
+EXECUTION_SOURCE_SHA: 89958be504d6abaef66810695402d2a09619794b
+RAW_OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_c0_89958be_o131_a1
+JOB: 492525 / FAILED 1:0 / 00:47:32
+INITIAL_VERDICT: REMEDIATE
+REMEDIATION_SHA: pending immutable commit
+FINAL_VERDICT: pending targeted re-review
+REVIEWER_EDITS: none
+```
+
+The reviewer found no P0/P1 and accepted source/config/split/weight/runtime
+identity, physical-B4 exposure counts, optimizer/scaler semantics, true-unscaled
+gradient and realized-update observations, token-complete evaluation and metrics,
+the false-positive `to_bev=Identity` gate diagnosis, missing scratch/aggregate
+classification, bounded profile/telemetry interpretation, allocation arithmetic
+and full-claim restrictions. Initial disposition is `REMEDIATE` for the findings
+below; it is not a C0 PASS and no replacement compute is authorized.
+
+### C0 P2 — raw dropped-token identities are not exact
+
+The executed v1 runner derived `dropped_tokens` from
+`torch.Generator(seed).randperm`, but the production DataLoader first consumes a
+`_base_seed` from the same generator and only then lets RandomSampler draw its
+permutation. The named three raw tokens and diagnostics-fixture identity are
+therefore invalid. The remainder count of three and same-order F/L construction
+remain valid; metrics and numerical comparisons are unaffected. Required
+remediation is an explicit permanent limitation plus future observation of
+actual collated batch tokens, without rewriting raw output or retrying C0.
+
+### C0 P2 — remediation changes artifact semantics
+
+The post-job changes correct the impossible required prefix and short-horizon
+assertion, so calling them generically “output-neutral” is too broad. They are
+model/loss/gradient/update-neutral but change diagnostic labels and artifact
+contents. Required remediation is schema v2 plus precise wording and an explicit
+record that the new tests were not run on GH200.
+
+### C0 P3 — raw even-length median was an upper median
+
+The v1 implementation used `sorted(values)[len(values)//2]`. Standard medians
+are `3.09258750525629e-4` for F and `3.0088933646399e-4` for L. The harm result
+does not change because maximum LiDAR update/weight is independently below the
+predeclared `1e-2` threshold. The v2 remediation uses `statistics.median`.
+
+Residual risks already accepted for re-review are: the scratch control and
+aggregate summary are absent; four initial overflow/loss windows confound the
+earliest trajectory; this is a one-seed internal comparison where F includes A1
+and independently initialized fusion modules; the trace is early and telemetry
+is mixed-phase; and large-gradient causality remains unknown.
 
 ## 1. Review envelope
 

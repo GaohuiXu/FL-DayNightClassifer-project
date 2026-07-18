@@ -40,7 +40,19 @@ therefore an impossible gate and a false positive. The raw labels are retained;
 they are not rewritten as PASS. Post-job remediation replaces that condition
 with the trainable `lidar_encoder.backbone.conv_out`, makes exact epoch
 exhaustion conditional on a full-epoch cell, and adds focused regression tests.
-Those fixes are output-neutral and were not executed on GH200.
+Those fixes are model/loss/gradient/update-neutral, but they deliberately change
+the diagnostic artifact schema and health semantics from v1 to v2. They were not
+executed on GH200 and do not repair or replace the immutable raw v1 artifacts.
+
+Independent review also invalidated the raw v1 `dropped_tokens` identities. The
+runner predicted a `randperm` from a fresh seed-0 generator, whereas the real
+DataLoader consumes a `_base_seed` from that generator before its RandomSampler
+draw. The remainder **count** of three is correct, and F/L used the same real
+loader construction and therefore the same actual order/remainder, but the three
+named raw tokens and their diagnostics-fixture identity are not the exact dropped
+tokens. Exact remainder-token identity is unavailable for this executed job. The
+v2 remediation records tokens from actual collated batches and computes the
+remainder by set difference only for a completed full epoch.
 
 ### Complete-cell numerical and internal-evaluator evidence
 
@@ -50,7 +62,7 @@ Those fixes are output-neutral and were not executed on GH200.
 | `C0-L-A0` | 1,538 / 1,534 | 4 in first 64; 0 later | 121.2631 → 19.2639 | same false-positive gate | `NOT_ESTABLISHED` | 0.020728 / 0.111537 |
 
 Both cells have zero discarded windows, zero nonfinite-loss windows, zero
-post-first-64 invalid windows, complete exposure accounting, and finite
+post-first-64 invalid windows, complete exposure-count accounting, and finite
 token-complete evaluator output. Their GradScaler backed off from `512` to `32`
 during the four initial overflow windows and then accepted every remaining
 window. If the impossible Identity-prefix requirement is excluded, no other
@@ -78,7 +90,11 @@ were extremely large and both sampled windows overflowed: F approximately
 `16/64/256/768/1538`, stem gradients remained much larger than most other
 prefixes but were finite. Maximum realized LiDAR update/weight was only
 `6.295e-4` for F and `7.689e-4` for L, versus the predeclared extreme-update
-threshold `1e-2`; sampled head medians were `3.100e-4` and `3.043e-4`.
+threshold `1e-2`. The raw v1 fields labelled “median” used the upper middle value
+for an even-length vector (`3.100e-4` and `3.043e-4`); the standard medians are
+`3.09258750525629e-4` and `3.0088933646399e-4`. This correction does not change
+the harm classification because both maximum LiDAR ratios are independently far
+below `1e-2`.
 Neither cell had a post-warm-up invalid window or adverse loss trajectory, so
 all three harm indicators are false. C0 therefore does **not** establish that
 the large gradients harm the applied optimization, but it also does not locate
@@ -97,8 +113,9 @@ unresolved.
   decode portions were `415.275 s` and `277.876 s`. Large prediction JSON and
   CPU metric aggregation are material wall-time costs and must not be confused
   with training GPU throughput.
-- Across the whole job, including tests and CPU-only evaluator aggregation,
-  1 Hz GPU utilization was mean/p50/p95 `38.89/37/100%`; power was
+- Across the 2,776 recorded in-job 1 Hz samples, spanning tests, training and
+  CPU-only evaluator aggregation but excluding unrecorded startup/teardown,
+  GPU utilization was mean/p50/p95 `38.89/37/100%`; power was
   `199.05/197.75/272.59 W`. This mixed-phase aggregate is not a steady-training
   utilization claim.
 - The single early F trace covers ten active windows only. Module range device
