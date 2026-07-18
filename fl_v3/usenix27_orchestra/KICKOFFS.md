@@ -40,7 +40,9 @@
 > STOP-C0 is `FAIL/INCOMPLETE` and the no-retry allocation is consumed.
 > Remediation `09c3945` received evidence-integrity `PASS_WITH_RESIDUAL_RISK`
 > with no open P0-P3. Retained metrics/trajectory/profile evidence is bounded and does
-> not select a graph or recipe. Later C strong contrasts, STOP-D/E/F and S11+
+> not select a graph or recipe. O-132 authorizes one exact full C0-v2 clean
+> replay from `2262b40`, one GH200/one hour/no retry, with no intermediate
+> reviewer chain. Later C strong contrasts, STOP-D/E/F and S11+
 > remain unapproved.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:

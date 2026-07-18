@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-131 sole C0 allocation consumed by Job 492525 / FAILED / no retry
+REQUEST_STATE: O-132 exact C0-v2 clean replay owner-approved / ready / not yet submitted
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
-EXECUTION_AUTHORITY: O-131 one C0 at 01:00:00 / 1.0 GH200-hour / no retry
-SOURCE_SHA: 89958be504d6abaef66810695402d2a09619794b
+EXECUTION_AUTHORITY: O-132 one full C0-v2 replacement at 01:00:00 / 1.0 GH200-hour / no retry
+SOURCE_SHA: 2262b4063a3e419b17f4b911a9e11a7ff50ea784
 BRANCH: codex/s10-cl-model-recipe
-OWNER_APPROVAL: O-131 integrated C0 plan and compute approved 2026-07-18
-EXECUTABLE_NOW: none; later C and STOP-D/E/F remain owner-gated
+OWNER_APPROVAL: O-132 full C0-v2 clean replay approved 2026-07-18
+EXECUTABLE_NOW: exact §27 tuple only; later C and STOP-D/E/F remain owner-gated
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1247,3 +1247,69 @@ The two complete cell artifacts remain bounded evidence; the exact C0 protocol
 does not pass because the scratch control and aggregate summary are absent. The
 post-job model/loss/gradient/update-neutral v2 artifact fixes and regression tests
 are not execution authority and were not run on GH200.
+
+## 27. O-132 STOP-C0-v2 full clean replay — owner-approved / ready
+
+The owner rejected closure-by-review of the incomplete C0 package and explicitly
+selected the full clean-replay option. O-132 supersedes O-131's no-retry clause
+for exactly this one replacement; it does not authorize another replacement or
+any later STOP-C/D/E/F execution. The old Job `492525` and raw v1 output remain
+immutable negative evidence.
+
+```text
+REQUEST_ID: S10-STOP-C0-V2-CLEAN-O132-v1
+REQUEST_STATE: OWNER-APPROVED / READY / NOT YET SUBMITTED
+OWNER_INSTRUCTION: 按照方案一进行完整的C0-v2 clean replay
+DERIVATION: one explicit full replacement after diagnosed O-131 runner/gate/provenance defects; inside the active 27-hour O-124 aggregate ceiling
+SOURCE_SHA: 2262b4063a3e419b17f4b911a9e11a7ff50ea784
+SOURCE_TREE: f03825398a0fb9c13a5d335f012c49bc6d787602
+SOURCE_CHANGE_FROM_REVIEWED_V2: fail-closed shell assertions only; no model/data/precision/recipe/cell change
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_c0_v2_2262b40_o132
+SNAPSHOT_MODE: detached HEAD / clean / read-only
+SNAPSHOT_TRACKED_FILES: 613
+SNAPSHOT_LS_TREE_SHA256: d3afdf5bf832a9d09e02cc575a0fcd91b95e9d3d4ef062ea7a709a7f2b52fc2c
+RUNNER: fl_v3/scripts/run_s10_stop_c0_health.sh
+RUNNER_SHA256: eea0081e321e20830e931e222e377ffff38502fe16cc94ec30b1252dba0955e9
+ENTRY: fl_v3/scripts/s10_stop_c0_health.py
+ENTRY_SHA256: 45c93983a5e522708707cdbd8c0cbb4dcd010a76b27d9412a016551d14f56047
+BASE_CONFIG: fl_v3/configs/s10_c0_f_a1.json
+BASE_CONFIG_FILE_SHA256: 44a0890689826a238291928424a6a479e80cf0aed0b8231e63146ff763b1d81a
+DERIVED_CONFIG_SHA256S: C0-F-A1 68670292d09dc57f3da4fe2dd2c51d6c4c03fe489b7e273248628da5b1a4493e; C0-L-A0 f71573de52eaec10fe8b3a92512721169aea123f9cdfff173d81da3c52a3b9df; C0-F-A0-P64 109f5eade3074895d32c5d1092825e87df8967180ebec4c200d5c446bca406ab
+SPLIT_MANIFEST: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_feasible_ad93c89333b0_o127_a1/split/split_manifest.json
+SPLIT_MANIFEST_SHA256: 7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8
+SWIN_IMAGENET1K_V1_SHA256: 704ceda373461b0a224fcdddd75cd2a5e9f8064512ed47adbddef7f343fd147b
+CELL_ORDER: C0-F-A1; C0-L-A0; C0-F-A0-P64
+C0-F-A1: D_low physical B4 drop_last / 1,538 attempted windows / terminal D_select eval
+C0-L-A0: D_low physical B4 drop_last / 1,538 attempted windows / terminal D_select eval
+C0-F-A0-P64: D_low physical B4 / 64 attempted windows / no evaluator
+SEED/PRECISION: 0 / global FP16 plus complete SECOND FP32 island
+RECIPE: AdamW 1e-4/0.01; constant; uniform; no clip/EMA/augmentation/CBGS/GT-paste
+DIAGNOSTIC_ATTEMPTS: 1,4,16,64,256,768,1538; short control through 64
+PROFILE: C0-F-A1 only / wait 16 / warmup 2 / active 10 / one trace cycle
+FOCUSED_TESTS: the exact eight selectors in the runner; expected 80 passed / 3 skipped; any failure/error stops
+V2_GATE: aggregate schema/status/source/cell-order/hard-failures; all three v2 cell summaries; exact attempted windows; actual-collated token evidence; F/L 6,152 consumed samples, three exact remainder tokens and identical ordered/remainder hashes; scratch 256 consumed samples with no full-epoch remainder claim; zero health hard errors; both checkpoints present
+PARTITION/NODES/NTASKS: gpu / 1 / 1
+GPU: 1 x nvidia_gh200_120gb; one visible GH200; no DDP/array/spare GPU
+CPU/MEMORY/TIME: 16 / 96 GiB / 01:00:00
+MAX_THIS_ALLOCATION: 1.0 elapsed GH200-hour
+PREVIOUS_ACTUAL_CUMULATIVE_ABC: 2.477778 GH200-hours
+MAX_POSTJOB_CUMULATIVE_ABC: 3.477778 GH200-hours
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_c0_v2_2262b40_o132_a1
+SUBMIT_COMMAND_SHA256_NO_TRAILING_NEWLINE: d8bebfb51a69f6825e76866f6f8bd3114105205927a8b5d7707881098fc8d188
+CONCURRENCY_PREFLIGHT: require no other owner job immediately before submission
+REQUEUE/RETRY/REROLL: forbidden; this is the sole O-132 replacement
+SUCCESS: Job COMPLETED 0:0; focused tests pass; all v2 gates pass; three cell summaries and aggregate exist; artifact checksum manifest passes
+STOP: source/config/data/weight/resource/runtime/test/v2-gate failure or timeout; return directly to owner
+REVIEW: no intermediate reviewer/re-review chain; any later final review requires a separate owner decision after a completed replay
+ALLOWED_INTERPRETATION: bounded C0 numerical/training trajectory, gradient-harm correlation and descriptive one-epoch internal fusion-minus-LiDAR delta
+FORBIDDEN_INTERPRETATION: gradient-module causality, recipe/architecture acceptance, official-val/full capability/full fusion claim, final GH200 bottleneck, automatic later-C/D/E/F continuation
+```
+
+Exact command:
+
+```bash
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G --gpus=nvidia_gh200_120gb:1 --time=01:00:00 --no-requeue --job-name=s10-c0v2-2262b40 --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_c0_v2_2262b40_o132 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_c0_v2_2262b40_o132_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_c0_v2_2262b40_o132_%j.err --export=ALL,S10_C0_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_c0_v2_2262b40_o132,S10_C0_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_c0_v2_2262b40_o132_a1,S10_C0_EXPECTED_SOURCE_SHA=2262b4063a3e419b17f4b911a9e11a7ff50ea784,S10_C0_EXPECTED_TREE=f03825398a0fb9c13a5d335f012c49bc6d787602,S10_C0_EXPECTED_RUNNER_SHA256=eea0081e321e20830e931e222e377ffff38502fe16cc94ec30b1252dba0955e9,S10_C0_EXPECTED_ENTRY_SHA256=45c93983a5e522708707cdbd8c0cbb4dcd010a76b27d9412a016551d14f56047,S10_C0_EXPECTED_CONFIG_SHA256=44a0890689826a238291928424a6a479e80cf0aed0b8231e63146ff763b1d81a /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_c0_v2_2262b40_o132/fl_v3/scripts/run_s10_stop_c0_health.sh
+```
+
+Any tuple or scope change invalidates O-132. A finite but weak scientific result
+is retained as evidence; it does not trigger tuning, retry or candidate growth.

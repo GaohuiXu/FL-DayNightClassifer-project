@@ -6,16 +6,17 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0
+OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-131 evidence closure/review only; sole compute consumed
+CURRENT_AUTHORITY: O-132 exact one-GH200 C0-v2 full clean replay; no retry
 ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-131 bounded authority
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
-STOP_C: C0 FAIL/INCOMPLETE at no-retry boundary; later cells not activated
+STOP_C: v1 C0 FAIL/INCOMPLETE; owner-approved v2 full clean replay pending; later cells not activated
 C0_IMPLEMENTATION_SHA: 89958be504d6abaef66810695402d2a09619794b
 C0_JOB: 492525 / FAILED 1:0 / 00:47:32 / 0.792222 GH200-hours
 C0_REMEDIATION_REVIEW: 09c39458a0b32ce1d4a3ae603094d76ae160ac42 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
+C0_V2_REPLAY_SOURCE: 2262b4063a3e419b17f4b911a9e11a7ff50ea784
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
