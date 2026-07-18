@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-131 C0 approved; implementation tuple pending immutable freeze
+REQUEST_STATE: O-131 C0 approved; exact §26 immutable tuple frozen / not yet consumed
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
 EXECUTION_AUTHORITY: O-131 one C0 at 01:00:00 / 1.0 GH200-hour / no retry
-SOURCE_SHA: pending immutable C0 implementation commit
+SOURCE_SHA: 89958be504d6abaef66810695402d2a09619794b
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-131 integrated C0 plan and compute approved 2026-07-18
-EXECUTABLE_NOW: only after §26 exact source/snapshot/hashes/command are frozen
+EXECUTABLE_NOW: exact §26 sole submission only
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1161,16 +1161,18 @@ large true unscaled LiDAR gradient, identify a causal kernel/module, select an
 architecture/recipe, or authorize STOP-C. Independent review of an exact
 evidence/docs SHA is required before STOP-B disposition.
 
-## 26. O-131 STOP-C0 integrated health tuple — approved / pre-freeze
+## 26. O-131 STOP-C0 integrated health tuple — approved / frozen / unconsumed
 
 ```text
 REQUEST_ID: S10-STOP-C0-HEALTH-O131-v1
-REQUEST_STATE: APPROVED; not executable until immutable fields below are replaced
+REQUEST_STATE: APPROVED / FROZEN / UNCONSUMED
 DERIVATION: O-131 exact activation inside O-124 STOP-C and 27-hour aggregate caps
-SOURCE_SHA: PENDING_IMPLEMENTATION_COMMIT
-SOURCE_TREE: PENDING_IMPLEMENTATION_COMMIT
-SNAPSHOT: PENDING_SOURCE_SHA
+SOURCE_SHA: 89958be504d6abaef66810695402d2a09619794b
+SOURCE_TREE: 3928d1869aa88398c35d179428c70bb380341378
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_c0_89958be_o131
 SNAPSHOT_MODE: detached HEAD / clean / read-only
+SNAPSHOT_TRACKED_FILES: 612
+SNAPSHOT_LS_TREE_SHA256: 0b4385192b444463e92b31799b5df926190f79772215800018cf63af5040521d
 RUNNER: fl_v3/scripts/run_s10_stop_c0_health.sh
 RUNNER_SHA256: 4cda2883cf9ef6de21fc9cf471d4b6f40d639b013c701b685233208b4e794741
 ENTRY: fl_v3/scripts/s10_stop_c0_health.py
@@ -1200,7 +1202,8 @@ PARTITION/NODES/NTASKS: gpu / 1 / 1
 GPU: 1 x nvidia_gh200_120gb; one visible GH200; no DDP/array/spare GPU
 CPU/MEMORY/TIME: 16 / 96 GiB / 01:00:00
 MAX_THIS_ALLOCATION: 1.0 elapsed GH200-hour
-OUTPUT: PENDING_SOURCE_SHA
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_c0_89958be_o131_a1
+SUBMIT_COMMAND_SHA256_NO_TRAILING_NEWLINE: 73b51d060dd148b9b196a8570f682695ae369b1f23dc3ddbd7cd5755942393af
 CONCURRENCY_PREFLIGHT: require no other owner job before submission
 REQUEUE/RETRY/REROLL: forbidden
 STOP: source/config/data/weight/resource/runtime/test failure; hard health gate; timeout; return to owner
@@ -1208,6 +1211,11 @@ ALLOWED_INTERPRETATION: bounded numerical/training trajectory, gradient-harm cor
 FORBIDDEN_INTERPRETATION: gradient-module causality, recipe/architecture acceptance, official-val or full capability/fusion claim, final GH200 bottleneck, automatic counterfactual/later-C/D/E/F continuation
 ```
 
-The implementation commit must replace every `PENDING_*` field and append the
-exact single `sbatch` command before submission. Any change to cells, horizons,
-seed, recipe, data roles, diagnostics, resource or output invalidates O-131.
+Exact command:
+
+```bash
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G --gpus=nvidia_gh200_120gb:1 --time=01:00:00 --no-requeue --job-name=s10-c0-89958be --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_c0_89958be_o131 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_c0_89958be_o131_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_stop_c0_89958be_o131_%j.err --export=ALL,S10_C0_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_c0_89958be_o131,S10_C0_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_c0_89958be_o131_a1,S10_C0_EXPECTED_SOURCE_SHA=89958be504d6abaef66810695402d2a09619794b,S10_C0_EXPECTED_TREE=3928d1869aa88398c35d179428c70bb380341378,S10_C0_EXPECTED_RUNNER_SHA256=4cda2883cf9ef6de21fc9cf471d4b6f40d639b013c701b685233208b4e794741,S10_C0_EXPECTED_ENTRY_SHA256=2b91e872493a5851e0feb4a23d45a0db4f91c070a03fcb305626e65eb0a55830,S10_C0_EXPECTED_CONFIG_SHA256=44a0890689826a238291928424a6a479e80cf0aed0b8231e63146ff763b1d81a /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_stop_c0_89958be_o131/fl_v3/scripts/run_s10_stop_c0_health.sh
+```
+
+Any change to cells, horizons, seed, recipe, data roles, diagnostics, resource
+or output invalidates O-131.

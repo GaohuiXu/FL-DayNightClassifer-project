@@ -13,6 +13,7 @@ ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-131 bounded authority
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
 STOP_C: C0 active; later strong-contrast cells not activated
+C0_IMPLEMENTATION_SHA: 89958be504d6abaef66810695402d2a09619794b
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
