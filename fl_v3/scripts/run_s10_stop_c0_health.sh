@@ -1,5 +1,5 @@
 #!/bin/bash
-# One-shot O-131 STOP-C0 integrated D_low health/training/telemetry rung.
+# One-shot O-132 STOP-C0-v2 clean-replay health/training/telemetry rung.
 set -euo pipefail
 umask 077
 
@@ -181,10 +181,45 @@ fi
 kill "${telemetry_pid}" 2>/dev/null || true
 wait "${telemetry_pid}" 2>/dev/null || true
 telemetry_pid=""
-test "$(jq -r '.status' "${WORK}/evidence/c0_summary.json")" = "PASS"
-test "$(jq -r '.terminal_training_state.attempted_windows' "${WORK}/evidence/C0-F-A1/cell_summary.json")" = "1538"
-test "$(jq -r '.terminal_training_state.attempted_windows' "${WORK}/evidence/C0-L-A0/cell_summary.json")" = "1538"
-test "$(jq -r '.terminal_training_state.attempted_windows' "${WORK}/evidence/C0-F-A0-P64/cell_summary.json")" = "64"
+SUMMARY="${WORK}/evidence/c0_summary.json"
+F_SUMMARY="${WORK}/evidence/C0-F-A1/cell_summary.json"
+L_SUMMARY="${WORK}/evidence/C0-L-A0/cell_summary.json"
+S_SUMMARY="${WORK}/evidence/C0-F-A0-P64/cell_summary.json"
+jq -e --arg source "${S10_C0_EXPECTED_SOURCE_SHA}" '
+  .schema == "fl_v3.s10.stop_c0_health.v2" and
+  .status == "PASS" and
+  .source_sha == $source and
+  .hard_failures == {} and
+  .cell_order == ["C0-F-A1", "C0-L-A0", "C0-F-A0-P64"]
+' "${SUMMARY}" >/dev/null
+for cell_summary in "${F_SUMMARY}" "${L_SUMMARY}"; do
+  jq -e --arg source "${S10_C0_EXPECTED_SOURCE_SHA}" '
+    .schema == "fl_v3.s10.stop_c0_health.v2" and
+    .source_sha == $source and
+    .terminal_training_state.attempted_windows == 1538 and
+    .training_token_evidence.source == "actual_collated_batches" and
+    .training_token_evidence.consumed_sample_count == 6152 and
+    .training_token_evidence.full_epoch == true and
+    .training_token_evidence.drop_last_remainder_count == 3 and
+    (.training_token_evidence.drop_last_remainder_tokens_sorted | length) == 3 and
+    (.health.hard_errors | length) == 0
+  ' "${cell_summary}" >/dev/null
+done
+jq -e --arg source "${S10_C0_EXPECTED_SOURCE_SHA}" '
+  .schema == "fl_v3.s10.stop_c0_health.v2" and
+  .source_sha == $source and
+  .terminal_training_state.attempted_windows == 64 and
+  .training_token_evidence.source == "actual_collated_batches" and
+  .training_token_evidence.consumed_sample_count == 256 and
+  .training_token_evidence.full_epoch == false and
+  .training_token_evidence.drop_last_remainder_count == null and
+  .training_token_evidence.drop_last_remainder_tokens_sorted == null and
+  (.health.hard_errors | length) == 0
+' "${S_SUMMARY}" >/dev/null
+test "$(jq -r '.training_token_evidence.consumed_sample_tokens_ordered_sha256' "${F_SUMMARY}")" = \
+  "$(jq -r '.training_token_evidence.consumed_sample_tokens_ordered_sha256' "${L_SUMMARY}")"
+test "$(jq -r '.training_token_evidence.drop_last_remainder_tokens_sorted_sha256' "${F_SUMMARY}")" = \
+  "$(jq -r '.training_token_evidence.drop_last_remainder_tokens_sorted_sha256' "${L_SUMMARY}")"
 test -s "${WORK}/evidence/C0-F-A1/checkpoint.pt"
 test -s "${WORK}/evidence/C0-L-A0/checkpoint.pt"
 runner_complete=1
