@@ -37,8 +37,9 @@
 > training and `D_select` evaluation, then failed on an invalid full-epoch
 > assertion applied to the 64-window scratch control. Its full-cell raw health
 > labels also contain an impossible `to_bev=Identity` gradient condition.
-> STOP-C0 is `FAIL/INCOMPLETE`, the no-retry allocation is consumed, and review
-> is pending. Retained metrics/trajectory/profile evidence is bounded and does
+> STOP-C0 is `FAIL/INCOMPLETE` and the no-retry allocation is consumed.
+> Remediation `09c3945` received evidence-integrity `PASS_WITH_RESIDUAL_RISK`
+> with no open P0-P3. Retained metrics/trajectory/profile evidence is bounded and does
 > not select a graph or recipe. Later C strong contrasts, STOP-D/E/F and S11+
 > remain unapproved.
 >

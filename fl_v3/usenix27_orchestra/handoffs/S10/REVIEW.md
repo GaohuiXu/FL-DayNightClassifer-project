@@ -1,4 +1,4 @@
-# S10 independent review — STOP-A/B closed; STOP-C0 remediation review
+# S10 independent review — STOP-A/B closed; STOP-C0 evidence reviewed incomplete
 
 ## STOP-C0 review state
 
@@ -9,18 +9,26 @@ EXECUTION_SOURCE_SHA: 89958be504d6abaef66810695402d2a09619794b
 RAW_OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_c0_89958be_o131_a1
 JOB: 492525 / FAILED 1:0 / 00:47:32
 INITIAL_VERDICT: REMEDIATE
-REMEDIATION_SHA: pending immutable commit
-FINAL_VERDICT: pending targeted re-review
+REMEDIATION_SHA: 09c39458a0b32ce1d4a3ae603094d76ae160ac42
+FINAL_VERDICT: PASS_WITH_RESIDUAL_RISK / no open P0-P3
 REVIEWER_EDITS: none
 ```
+
+Targeted re-review pinned remediation SHA
+`09c39458a0b32ce1d4a3ae603094d76ae160ac42` (tree
+`3e970c5ffa9d977f62717e5e75b44ca0d5064fe2`, parent `908fea6`) and closed all
+three findings. The review worktree was clean and the reviewer changed no file.
+This verdict certifies remediation/evidence integrity only: STOP-C0 remains
+`FAIL/INCOMPLETE`, with no scratch summary, no aggregate summary and no retry.
 
 The reviewer found no P0/P1 and accepted source/config/split/weight/runtime
 identity, physical-B4 exposure counts, optimizer/scaler semantics, true-unscaled
 gradient and realized-update observations, token-complete evaluation and metrics,
 the false-positive `to_bev=Identity` gate diagnosis, missing scratch/aggregate
 classification, bounded profile/telemetry interpretation, allocation arithmetic
-and full-claim restrictions. Initial disposition is `REMEDIATE` for the findings
-below; it is not a C0 PASS and no replacement compute is authorized.
+and full-claim restrictions. Initial disposition was `REMEDIATE` for the
+findings below; the final verdict above is not a C0 execution PASS and no
+replacement compute is authorized.
 
 ### C0 P2 — raw dropped-token identities are not exact
 
@@ -44,7 +52,7 @@ record that the new tests were not run on GH200.
 ### C0 P3 — raw even-length median was an upper median
 
 The v1 implementation used `sorted(values)[len(values)//2]`. Standard medians
-are `3.09258750525629e-4` for F and `3.0088933646399e-4` for L. The harm result
+are `3.0925875052562936e-4` for F and `3.0088933646399017e-4` for L. The harm result
 does not change because maximum LiDAR update/weight is independently below the
 predeclared `1e-2` threshold. The v2 remediation uses `statistics.median`.
 

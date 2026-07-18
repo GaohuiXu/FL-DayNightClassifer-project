@@ -7,6 +7,7 @@ AUTHORITY: O-131
 STATE: FAIL/INCOMPLETE; sole allocation consumed; no retry authorized
 JOB: 492525 / FAILED 1:0 / 00:47:32 / 0.792222 GH200-hours
 EXECUTION_SOURCE: 89958be504d6abaef66810695402d2a09619794b
+EVIDENCE_REVIEW: remediation 09c39458a0b32ce1d4a3ae603094d76ae160ac42 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 CELLS: C0-F-A1 one D_low epoch + D_select eval; C0-L-A0 one D_low epoch + D_select eval; C0-F-A0-P64 no eval
 RESOURCE: one GH200 / 16 CPU / 96 GiB / 01:00:00 / one submission / no retry
 CLAIM_LIMIT: training-health/trajectory and descriptive one-epoch fusion delta only; no recipe, architecture, official-val or full claim
@@ -92,7 +93,7 @@ prefixes but were finite. Maximum realized LiDAR update/weight was only
 `6.295e-4` for F and `7.689e-4` for L, versus the predeclared extreme-update
 threshold `1e-2`. The raw v1 fields labelled “median” used the upper middle value
 for an even-length vector (`3.100e-4` and `3.043e-4`); the standard medians are
-`3.09258750525629e-4` and `3.0088933646399e-4`. This correction does not change
+`3.0925875052562936e-4` and `3.0088933646399017e-4`. This correction does not change
 the harm classification because both maximum LiDAR ratios are independently far
 below `1e-2`.
 Neither cell had a post-warm-up invalid window or adverse loss trajectory, so

@@ -82,8 +82,12 @@ is `nn.Identity` for SECOND-075. Excluding that impossible condition, both have
 falling loss, zero post-first-64 invalid windows and no correlated large-gradient
 harm signal; the single-seed/internal F-minus-L delta is positive but is not a
 recipe, architecture, official-val or full fusion claim. STOP-C0 is
-`FAIL/INCOMPLETE`, its no-retry allocation is consumed, and independent review
-is pending. Later STOP-C strong contrasts and STOP-D/E/F remain owner-gated.
+`FAIL/INCOMPLETE` and its no-retry allocation is consumed. Independent targeted
+re-review of remediation `09c39458a0b32ce1d4a3ae603094d76ae160ac42` returned
+`PASS_WITH_RESIDUAL_RISK` with no open P0-P3 for evidence integrity only. It
+also invalidated the three raw v1 dropped-token identities (the count and matched
+F/L construction remain valid); raw output was not rewritten. Later STOP-C
+strong contrasts and STOP-D/E/F remain owner-gated.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime
