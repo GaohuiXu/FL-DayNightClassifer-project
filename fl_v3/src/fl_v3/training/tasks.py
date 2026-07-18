@@ -850,7 +850,7 @@ class NuScenesDetectionTask(Task):
         return int(self._partition(run_config)["num_clients"])
 
     def _make_loader(self, run_config: dict, info_list, tokens, shuffle: bool,
-                     augment: Optional[dict] = None):
+                     augment: Optional[dict] = None, *, drop_last: bool = False):
         from fl_v3.data.nuscenes.dataset import NuScenesMultimodalDataset, make_loader
         from fl_v3.data.nuscenes import paths as P
         from fl_v3.models.fusion.collate import detection_collate_fn
@@ -875,6 +875,39 @@ class NuScenesDetectionTask(Task):
             seed=int(run_config.get("seed", 42)),
             collate_fn=detection_collate_fn,
             sampler=sampler,
+            drop_last=drop_last,
+        )
+
+    def manifest_train_subset_loader(
+        self,
+        run_config: dict,
+        sample_tokens,
+        *,
+        shuffle: bool,
+        drop_last: bool,
+    ) -> object:
+        """Build a manifest-bound production training subset without resampling.
+
+        The caller owns role/hash validation.  This seam only applies the resolved
+        uniform recipe and deterministic epoch sampler to that exact token vector.
+        """
+        if not bool(run_config.get("s06-production-runtime", False)):
+            raise ValueError("fixed S10 subsets require the strict production runtime")
+        if bool(run_config.get("det-cbgs", False)):
+            raise ValueError("S10 manifest subsets forbid undeclared CBGS")
+        if _aug_from_run(run_config) is not None or _gtpaste_from_run(run_config) is not None:
+            raise ValueError("S10 manifest subsets forbid undeclared augmentation and GT-paste")
+        tokens = [str(token) for token in sample_tokens]
+        if not tokens or len(tokens) != len(set(tokens)):
+            raise ValueError("manifest subset tokens must be non-empty and unique")
+        info_list, _ = self.load_production_train_info(run_config)
+        return self._make_loader(
+            run_config,
+            info_list,
+            tokens,
+            shuffle=bool(shuffle),
+            augment=None,
+            drop_last=bool(drop_last),
         )
 
     def load_production_train_info(self, run_config: dict):

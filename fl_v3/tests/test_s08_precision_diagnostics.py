@@ -237,6 +237,51 @@ def test_loss_term_recording_is_quiet_by_default_but_retained_for_s08_diagnostic
     assert diagnostics.records[0]["loss_terms"] == {"record_terms": True}
 
 
+def test_sampled_diagnostics_capture_only_declared_windows_and_realized_updates():
+    torch.manual_seed(19)
+    model = ToyDetector()
+    criterion = RecordingCriterion()
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+    diagnostics = PrecisionWindowDiagnostics(
+        _identity(),
+        max_windows=2,
+        attempted_windows=(2, 4),
+        capture_parameter_updates=True,
+    )
+    state = TrainingState()
+    train_one_epoch(
+        model,
+        _loader(4),
+        criterion,
+        optimizer,
+        torch.device("cpu"),
+        runtime_state=state,
+        precision_diagnostics=diagnostics,
+    )
+    assert criterion.forward_record_terms == [False, True, False, True]
+    assert [
+        record["counters_before"]["attempted_windows"] + 1
+        for record in diagnostics.records
+    ] == [2, 4]
+    assert all(record["outcome"] == "accepted" for record in diagnostics.records)
+    assert all(
+        record["parameter_updates"]["global"]["realized_update_over_weight"] > 0.0
+        for record in diagnostics.records
+    )
+    assert state.optimizer_step == 4
+
+
+def test_sampled_diagnostic_window_registry_is_fail_closed():
+    with pytest.raises(ValueError, match="sorted unique positive"):
+        PrecisionWindowDiagnostics(
+            _identity(), max_windows=2, attempted_windows=(2, 2),
+        )
+    with pytest.raises(ValueError, match="length must equal"):
+        PrecisionWindowDiagnostics(
+            _identity(), max_windows=2, attempted_windows=(1,),
+        )
+
+
 @pytest.mark.parametrize("scale", [8.0, 0.5])
 def test_loop_records_parameter_unscale_and_scaled_boundary_domain(scale):
     torch.manual_seed(7)

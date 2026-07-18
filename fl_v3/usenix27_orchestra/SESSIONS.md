@@ -1,6 +1,6 @@
 # USENIX Security '27 Orchestra — milestone contracts
 
-> **Current handoff (2026-07-16).** S07-S09 are closed and integrated through
+> **Current handoff (2026-07-18).** S07-S09 are closed and integrated through
 > `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`. S08 accepted precision policy is
 > recorded under O-110; S09 accepted bounded engineering review seal is
 > `ced5992ea113bd21d7d545af505debf405b556b3`. O-121 records the completed
@@ -37,8 +37,12 @@
 > §24 tuple, completed `0:0`, passed the integrity gate and returned
 > `MIXED_INCONCLUSIVE`. Targeted re-review of `02ba3b4` returned
 > `PASS_WITH_RESIDUAL_RISK` with no open P0-P3; STOP-B is CLOSED /
-> `INCONCLUSIVE` and no compute remains. STOP-C is separately owner-gated.
-> STOP-D/E/F and S11+ remain pending.
+> `INCONCLUSIVE` and no STOP-B compute remains. O-131 activates exactly one
+> integrated STOP-C0 run: one-epoch B4 `D_low` A1 fusion and random L-S075 with
+> terminal `D_select` internal evaluation, plus a 64-window all-scratch fusion
+> control and bounded gradient/update/performance telemetry. It is one no-retry
+> GH200 allocation capped at one hour and requires independent review. Later
+> STOP-C strong contrasts, STOP-D/E/F and S11+ remain pending.
 >
 > `Sxx` is an evidence namespace, not automatically a worker, task, branch, or
 > worktree. Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Active launch
@@ -68,7 +72,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | STOP-A closed; STOP-B closed `INCONCLUSIVE` at reviewed remediation `02ba3b4`; C unstarted/owner-gated |
+| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | STOP-A closed; STOP-B closed `INCONCLUSIVE` at reviewed remediation `02ba3b4`; O-131 C0 active, later C cells owner-gated |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract
@@ -377,8 +381,9 @@ repeatability plus camera RNG-dependent variation from LiDAR sparse-route
 same-seed runtime variation. B-RAND passed integrity but remains scientifically
 `INCONCLUSIVE` for the large-gradient mechanism. Targeted re-review of
 `02ba3b4` returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P3 and closed
-STOP-B. No further STOP-B compute is executable. STOP-C remains unstarted and
-owner-gated; D/E/F remain separate future execution gates.
+STOP-B. No further STOP-B compute is executable. O-131 subsequently activates
+only the integrated C0 entry rung; later C and D/E/F remain separate future
+execution gates.
 
 O-123 rejects the first B=1-based ABC estimate. O-124 approves the revised v1 ABC
 completion envelope and starts continuous implementation/execution/review under

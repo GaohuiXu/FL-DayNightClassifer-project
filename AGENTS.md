@@ -71,8 +71,16 @@ re-review at `02ba3b44202092894f2c1c3e7ee53bb56ba92a1d` returned
 `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. STOP-B is CLOSED /
 `INCONCLUSIVE`: bounded route-level repeatability decomposition is accepted,
 but large-gradient causality remains unresolved. No retry, further STOP-B
-compute, or model/recipe change is authorized. STOP-C and STOP-D/E/F execution
-remain separately owner-gated.
+compute, or model/recipe change is authorized. O-131 activates exactly one
+integrated STOP-C0 entry rung: A1 fusion and random L-S075 each train for one
+physical-B4 `D_low` epoch and receive one `D_select` internal evaluation, while
+an all-scratch fusion negative control runs only 64 attempted windows. The same
+fixed engineering-baseline recipe is used throughout; sampled true-unscaled
+gradients, realized update/weight, loss chunks, memory/throughput and one bounded
+early A1 operator trace are evidence, not a recipe or STOP-E claim. O-131 allows
+one GH200/16 CPU/96 GiB/`01:00:00` submission with no retry, followed by
+independent review. Later STOP-C strong-contrast cells and STOP-D/E/F remain
+owner-gated.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

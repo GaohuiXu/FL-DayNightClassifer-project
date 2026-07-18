@@ -1,4 +1,13 @@
-# S10 independent review — STOP-A A4 and STOP-B
+# S10 independent review — STOP-A A4, STOP-B, and pending STOP-C0
+
+## STOP-C0 review state
+
+O-131 implementation and compute are active. Independent review has not started;
+it must pin the immutable implementation/evidence SHA after the sole C0 job and
+cover exact D_low/D_select role binding, B4/drop/exposure accounting, A1 weight
+identity, sampled pre-clip gradient and realized-update semantics, token-complete
+internal evaluation, omitted/failed cells, profiler scope, and every prohibited
+recipe/architecture/full-claim interpretation. This pending record is not a PASS.
 
 ## 1. Review envelope
 
@@ -284,7 +293,7 @@ ACCEPTED: bounded route-level repeatability decomposition
 NOT RESOLVED: large true LiDAR-gradient causality
 FURTHER STOP-B COMPUTE: none
 MODEL/RECIPE CHANGE: not authorized
-STOP-C: remains separately owner-gated
+STOP-C_AT_B_CLOSURE: separately owner-gated; O-131 later activates only C0
 ```
 
 Residual risk remains exactly the bounded evidence limitations in §8. None is

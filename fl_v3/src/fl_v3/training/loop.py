@@ -388,7 +388,9 @@ def train_one_epoch(
     ``swa_utils.AveragedModel``) is updated after each step. None of these fire unless passed, so
     ``train_local`` / the determinism gate are unchanged.  S08's optional
     ``precision_diagnostics`` performs all tensor reductions after unscale and
-    before clip/step; it is fail-closed to one-microbatch windows."""
+    before clip/step; it is fail-closed to one-microbatch windows.  A callable
+    ``attempted_window_callback`` is output-neutral lifecycle plumbing used by
+    bounded profilers and is invoked once after every complete attempted window."""
     if accumulation_steps < 1:
         raise ValueError("accumulation_steps must be >= 1")
     if exposure_multiplier < 1:
@@ -401,10 +403,6 @@ def train_one_epoch(
         raise TypeError("readiness_timing must be boolean")
     if attempted_window_callback is not None and not callable(attempted_window_callback):
         raise TypeError("attempted_window_callback must be callable or None")
-    if attempted_window_callback is not None and not readiness_timing:
-        raise RuntimeError(
-            "attempted_window_callback is restricted to S09 readiness instrumentation"
-        )
     if (
         isinstance(readiness_warmup_successful_windows, bool)
         or not isinstance(readiness_warmup_successful_windows, int)
@@ -525,9 +523,19 @@ def train_one_epoch(
             )
             next_step = step_count + 1
             record_step = bool(telemetry_interval and next_step % telemetry_interval == 0)
+            diagnostic_step = bool(
+                precision_diagnostics is not None
+                and (
+                    not hasattr(precision_diagnostics, "should_capture")
+                    or precision_diagnostics.should_capture(
+                        state=state,
+                        next_step=next_step,
+                    )
+                )
+            )
             if old_record_terms is not _missing:
                 criterion.record_terms = bool(
-                    precision_diagnostics is not None or record_step
+                    diagnostic_step or record_step
                 )
             if model_mode is not None:
                 batch = project_batch_for_mode(batch, model_mode)
@@ -540,7 +548,7 @@ def train_one_epoch(
             inputs, targets = _unpack_batch(batch, device)
             if timing is not None:
                 timing.end_stage("h2d")
-            if precision_diagnostics is not None:
+            if diagnostic_step:
                 active_diagnostic_token = precision_diagnostics.begin_window(
                     model=model,
                     optimizer=optimizer,
@@ -590,9 +598,7 @@ def train_one_epoch(
                     f"expected={fixed_microbatch_samples}, actual={global_bs}"
                 )
             finite_loss = bool(torch.isfinite(loss.detach()).item())
-            diagnostic_loss_value = (
-                float(loss.detach().item()) if precision_diagnostics is not None else 0.0
-            )
+            diagnostic_loss_value = float(loss.detach().item()) if diagnostic_step else 0.0
             if timing is not None:
                 timing.end_stage("loss")
                 timing.begin_stage("backward")
@@ -623,7 +629,7 @@ def train_one_epoch(
             successful = not window_invalid
             overflow = False
             if window_invalid:
-                if precision_diagnostics is not None:
+                if diagnostic_step:
                     precision_diagnostics.prepare_window(
                         active_diagnostic_token,
                         model=model,
@@ -639,7 +645,7 @@ def train_one_epoch(
                 if readiness_timing and scaler_scale_at_start is None:
                     scaler_scale_at_start = scale_before
                 scaler.unscale_(optimizer)
-                if precision_diagnostics is not None:
+                if diagnostic_step:
                     precision_diagnostics.prepare_window(
                         active_diagnostic_token,
                         model=model,
@@ -665,7 +671,7 @@ def train_one_epoch(
                 if skipped:
                     overflow = True
             else:
-                if precision_diagnostics is not None:
+                if diagnostic_step:
                     precision_diagnostics.prepare_window(
                         active_diagnostic_token,
                         model=model,
@@ -721,7 +727,7 @@ def train_one_epoch(
                 if window_nonfinite
                 else "overflow"
             )
-            if precision_diagnostics is not None:
+            if diagnostic_step:
                 precision_diagnostics.finalize_window(
                     active_diagnostic_token,
                     state=state,

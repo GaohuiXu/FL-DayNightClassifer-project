@@ -1,6 +1,6 @@
 # USENIX Security '27 Orchestra — active envelopes
 
-> **Launch state (2026-07-16).** S08 and S09 are closed and integrated through
+> **Launch state (2026-07-18).** S08 and S09 are closed and integrated through
 > `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`. Their complete pre-compaction
 > execution ledgers remain recoverable at that Git object; compact terminal
 > records remain under `handoffs/S08` and `handoffs/S09`.
@@ -33,8 +33,12 @@
 > sole §24 tuple, completed `0:0`, passed 43 tests and the integrity gate, and
 > returned `MIXED_INCONCLUSIVE`. Re-review of `02ba3b4` closed all P3 and
 > returned `PASS_WITH_RESIDUAL_RISK`; STOP-B is CLOSED / `INCONCLUSIVE` and no
-> compute remains. STOP-C is unstarted and owner-gated;
-> STOP-D/E/F and S11+ remain unapproved.
+> compute remains. O-131 activates one integrated C0 entry rung on the accepted
+> `D_low/D_select` roles: one-epoch B4 A1 fusion and random L-S075, a 64-window
+> scratch-fusion control, sampled gradients/realized updates, lightweight
+> timing/memory, and one bounded early A1 trace. The sole allocation is one
+> GH200/16 CPU/96 GiB/one hour with no retry and independent review. Later C
+> strong contrasts, STOP-D/E/F and S11+ remain unapproved.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -468,7 +472,8 @@ authorized.
   `RUN_REQUEST.md` §24 tuple. Job `479667` consumed it and completed the
   integrity gate with `MIXED_INCONCLUSIVE`. Targeted re-review of remediation
   `02ba3b4` returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P3 and closed
-  STOP-B `INCONCLUSIVE`. STOP-C remains unstarted and separately owner-gated.
+  STOP-B `INCONCLUSIVE`. O-131 subsequently activates only the integrated C0
+  entry rung; later STOP-C cells remain separately owner-gated.
 - **O-123 batch correction:** the B=1-based v0 request is rejected. Revised ABC
   scientific rungs use physical B=4 at minimum and bind a fixed-batch tail policy;
   B=1 may appear only in a tiny paired diagnostic check. B=8/16 belong to a later

@@ -13,7 +13,7 @@ import hashlib
 import json
 import math
 import random
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 import torch
@@ -277,6 +277,8 @@ class PrecisionWindowDiagnostics:
         *,
         max_windows: int = 18,
         capture_boundaries: bool = True,
+        attempted_windows: Sequence[int] | None = None,
+        capture_parameter_updates: bool = False,
         fixture_identity: Mapping[str, Any] | None = None,
     ) -> None:
         if isinstance(max_windows, bool) or int(max_windows) < 1:
@@ -284,11 +286,32 @@ class PrecisionWindowDiagnostics:
         self.identity = identity
         self.max_windows = int(max_windows)
         self.capture_boundaries = bool(capture_boundaries)
+        if attempted_windows is None:
+            self.attempted_windows = None
+        else:
+            normalized = tuple(int(value) for value in attempted_windows)
+            if (
+                not normalized
+                or any(value < 1 for value in normalized)
+                or normalized != tuple(sorted(set(normalized)))
+            ):
+                raise ValueError("attempted_windows must be sorted unique positive integers")
+            if len(normalized) != self.max_windows:
+                raise ValueError("attempted_windows length must equal max_windows")
+            self.attempted_windows = frozenset(normalized)
+        self.capture_parameter_updates = bool(capture_parameter_updates)
         self.fixture_identity = _json_safe(dict(fixture_identity or {}))
         _assert_strict_json(self.fixture_identity)
         self._slots: list[dict[str, Any] | None] = [None] * self.max_windows
         self._next_index = 0
         self._active: _WindowToken | None = None
+        self._parameter_before: dict[str, torch.Tensor] | None = None
+
+    def should_capture(self, *, state: TrainingState, next_step: int) -> bool:
+        """Return whether the next attempted optimizer window is predeclared."""
+        del next_step
+        attempted_window = int(state.attempted_windows) + 1
+        return self.attempted_windows is None or attempted_window in self.attempted_windows
 
     @property
     def records(self) -> tuple[dict[str, Any], ...]:
@@ -399,6 +422,7 @@ class PrecisionWindowDiagnostics:
             "loss_terms": None,
             "parameter_gradients_unscaled": None,
             "parameter_gradients": None,
+            "parameter_updates": None,
             "boundary_gradients": None,
             "sparse_conv_fp16_requested": None,
             "sparse_conv_fp16_active": None,
@@ -497,6 +521,17 @@ class PrecisionWindowDiagnostics:
         )
         record["parameter_gradients_unscaled"] = bool(parameters_unscaled)
         record["parameter_gradients"] = parameter_gradient_statistics(model)
+        if self.capture_parameter_updates:
+            self._parameter_before = {
+                name: parameter.detach().clone()
+                for name, parameter in model.named_parameters()
+                if parameter.requires_grad
+            }
+            token._current_parameters = {
+                name: parameter
+                for name, parameter in model.named_parameters()
+                if parameter.requires_grad
+            }
         record["boundary_gradients"] = boundary_gradient_statistics(
             boundaries,
             scale_divisor=token.scale_before if bool(record["scaler"]["enabled"]) else 1.0,
@@ -531,9 +566,61 @@ class PrecisionWindowDiagnostics:
         scaler_after: float,
         outcome: str,
     ) -> None:
-        """Pure-Python post-step completion; deliberately performs no validation."""
+        """Complete post-step state and optional realized-update summaries."""
         accepted = outcome == "accepted"
         record = token.record
+        if self.capture_parameter_updates:
+            if self._parameter_before is None:
+                raise RuntimeError("parameter-update diagnostics have no pre-step snapshot")
+            grouped: dict[str, dict[str, Any]] = {}
+            current_parameters = getattr(token, "_current_parameters", None)
+            if current_parameters is None:
+                raise RuntimeError("parameter-update diagnostics lost current parameters")
+            totals: dict[str, list[torch.Tensor | int]] = {}
+            for name, before in self._parameter_before.items():
+                current = current_parameters[name].detach()
+                prefix = _parameter_prefix(name)
+                weight_sq = before.to(torch.float64).square().sum()
+                update_sq = (current.to(torch.float64) - before.to(torch.float64)).square().sum()
+                slot = totals.setdefault(prefix, [weight_sq.new_zeros(()), update_sq.new_zeros(()), 0])
+                slot[0] = slot[0] + weight_sq
+                slot[1] = slot[1] + update_sq
+                slot[2] = int(slot[2]) + int(before.numel())
+            all_weight_sq = next(iter(totals.values()))[0].new_zeros(())
+            all_update_sq = all_weight_sq.clone()
+            all_numel = 0
+            for prefix, (weight_sq, update_sq, numel) in sorted(totals.items()):
+                weight_l2 = math.sqrt(max(0.0, float(weight_sq.item())))
+                update_l2 = math.sqrt(max(0.0, float(update_sq.item())))
+                grouped[prefix] = {
+                    "numel": int(numel),
+                    "weight_l2_before": weight_l2,
+                    "realized_update_l2": update_l2,
+                    "realized_update_over_weight": (
+                        update_l2 / weight_l2 if weight_l2 > 0.0 else None
+                    ),
+                }
+                all_weight_sq = all_weight_sq + weight_sq
+                all_update_sq = all_update_sq + update_sq
+                all_numel += int(numel)
+            global_weight_l2 = math.sqrt(max(0.0, float(all_weight_sq.item())))
+            global_update_l2 = math.sqrt(max(0.0, float(all_update_sq.item())))
+            record["parameter_updates"] = {
+                "domain": "realized_post_optimizer_step",
+                "accepted": accepted,
+                "global": {
+                    "numel": all_numel,
+                    "weight_l2_before": global_weight_l2,
+                    "realized_update_l2": global_update_l2,
+                    "realized_update_over_weight": (
+                        global_update_l2 / global_weight_l2
+                        if global_weight_l2 > 0.0 else None
+                    ),
+                },
+                "by_prefix": grouped,
+            }
+            self._parameter_before = None
+            del token._current_parameters
         record["scaler"]["scale_after"] = float(scaler_after)
         record["outcome"] = str(outcome)
         record["accepted"] = accepted

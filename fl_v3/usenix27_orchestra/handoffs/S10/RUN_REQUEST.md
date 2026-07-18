@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-130 B-RAND consumed/reviewed / STOP-B CLOSED INCONCLUSIVE
+REQUEST_STATE: O-131 C0 approved; implementation tuple pending immutable freeze
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
-EXECUTION_AUTHORITY: O-130 one B-RAND at 00:15:00 / 0.25 GH200-hour
-SOURCE_SHA: 0bf9c0ce4148bc82d977e0d66615f606144971b6
+EXECUTION_AUTHORITY: O-131 one C0 at 01:00:00 / 1.0 GH200-hour / no retry
+SOURCE_SHA: pending immutable C0 implementation commit
 BRANCH: codex/s10-cl-model-recipe
-OWNER_APPROVAL: O-128/O-129 prior STOP-B; O-130 B-RAND modification and compute approved 2026-07-16
-EXECUTABLE_NOW: no compute; STOP-C requires separate owner activation
+OWNER_APPROVAL: O-131 integrated C0 plan and compute approved 2026-07-18
+EXECUTABLE_NOW: only after §26 exact source/snapshot/hashes/command are frozen
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1160,3 +1160,54 @@ variation, while the predeclared unique-label rule returns
 large true unscaled LiDAR gradient, identify a causal kernel/module, select an
 architecture/recipe, or authorize STOP-C. Independent review of an exact
 evidence/docs SHA is required before STOP-B disposition.
+
+## 26. O-131 STOP-C0 integrated health tuple — approved / pre-freeze
+
+```text
+REQUEST_ID: S10-STOP-C0-HEALTH-O131-v1
+REQUEST_STATE: APPROVED; not executable until immutable fields below are replaced
+DERIVATION: O-131 exact activation inside O-124 STOP-C and 27-hour aggregate caps
+SOURCE_SHA: PENDING_IMPLEMENTATION_COMMIT
+SOURCE_TREE: PENDING_IMPLEMENTATION_COMMIT
+SNAPSHOT: PENDING_SOURCE_SHA
+SNAPSHOT_MODE: detached HEAD / clean / read-only
+RUNNER: fl_v3/scripts/run_s10_stop_c0_health.sh
+RUNNER_SHA256: 4cda2883cf9ef6de21fc9cf471d4b6f40d639b013c701b685233208b4e794741
+ENTRY: fl_v3/scripts/s10_stop_c0_health.py
+ENTRY_SHA256: 2b91e872493a5851e0feb4a23d45a0db4f91c070a03fcb305626e65eb0a55830
+BASE_CONFIG: fl_v3/configs/s10_c0_f_a1.json
+BASE_CONFIG_FILE_SHA256: 44a0890689826a238291928424a6a479e80cf0aed0b8231e63146ff763b1d81a
+DERIVED_CONFIG_SHA256S: C0-F-A1 68670292d09dc57f3da4fe2dd2c51d6c4c03fe489b7e273248628da5b1a4493e; C0-L-A0 f71573de52eaec10fe8b3a92512721169aea123f9cdfff173d81da3c52a3b9df; C0-F-A0-P64 109f5eade3074895d32c5d1092825e87df8967180ebec4c200d5c446bca406ab
+SPLIT_MANIFEST: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_feasible_ad93c89333b0_o127_a1/split/split_manifest.json
+SPLIT_MANIFEST_SHA256: 7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8
+SWIN_IMAGENET1K_V1: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/torch_home/hub/checkpoints/swin_t-704ceda3.pth
+SWIN_IMAGENET1K_V1_SHA256: 704ceda373461b0a224fcdddd75cd2a5e9f8064512ed47adbddef7f343fd147b
+CELL_ORDER: C0-F-A1; C0-L-A0; C0-F-A0-P64
+C0-F-A1: D_low physical B4 drop_last / 1,538 attempted windows / terminal D_select eval
+C0-L-A0: D_low physical B4 drop_last / 1,538 attempted windows / terminal D_select eval
+C0-F-A0-P64: D_low physical B4 / 64 attempted windows / no evaluator
+SEED/PRECISION: 0 / global FP16 plus complete SECOND FP32 island
+RECIPE: AdamW 1e-4/0.01; constant; uniform; no clip/EMA/augmentation/CBGS/GT-paste
+DROPPED_TOKENS: three, identical for the two full cells and hash-recorded from the seed-0 epoch permutation
+LOSS_CHUNK_BOUNDARIES: 64,384,768,1152,1538; short control 16,64
+DIAGNOSTIC_ATTEMPTS: 1,4,16,64,256,768,1538; short control through 64
+PROFILE: C0-F-A1 only / wait 16 / warmup 2 / active 10 / one trace cycle; no sampled-diagnostic overlap
+TELEMETRY: chunk wall/samples-per-second, CUDA peak allocated/reserved, 1 Hz nvidia-smi
+CHECKPOINTS: full raw training-state checkpoint for C0-F-A1 and C0-L-A0 only
+EVALUATOR: exact STOP-A manifest-bound internal D_select evaluator; official val absent
+FOCUSED_TESTS: precision partition/diagnostics, binding/subset evaluator, profile neutrality/readiness, checkpoint/resume
+PARTITION/NODES/NTASKS: gpu / 1 / 1
+GPU: 1 x nvidia_gh200_120gb; one visible GH200; no DDP/array/spare GPU
+CPU/MEMORY/TIME: 16 / 96 GiB / 01:00:00
+MAX_THIS_ALLOCATION: 1.0 elapsed GH200-hour
+OUTPUT: PENDING_SOURCE_SHA
+CONCURRENCY_PREFLIGHT: require no other owner job before submission
+REQUEUE/RETRY/REROLL: forbidden
+STOP: source/config/data/weight/resource/runtime/test failure; hard health gate; timeout; return to owner
+ALLOWED_INTERPRETATION: bounded numerical/training trajectory, gradient-harm correlation and descriptive one-epoch internal fusion-minus-LiDAR delta
+FORBIDDEN_INTERPRETATION: gradient-module causality, recipe/architecture acceptance, official-val or full capability/fusion claim, final GH200 bottleneck, automatic counterfactual/later-C/D/E/F continuation
+```
+
+The implementation commit must replace every `PENDING_*` field and append the
+exact single `sbatch` command before submission. Any change to cells, horizons,
+seed, recipe, data roles, diagnostics, resource or output invalidates O-131.

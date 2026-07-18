@@ -1,4 +1,4 @@
-# S10 HANDOFF — STOP-A CLOSED PASS; STOP-B CLOSED INCONCLUSIVE
+# S10 HANDOFF — STOP-A CLOSED; STOP-B CLOSED; STOP-C0 ACTIVE
 
 ## 1. State and authority
 
@@ -6,13 +6,13 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND
+OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: no compute; STOP-C requires separate owner activation
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-128/O-129/O-130 bounded authority
+CURRENT_AUTHORITY: O-131 one integrated C0 implementation/job/review
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-131 bounded authority
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
-STOP_C: unstarted
+STOP_C: C0 active; later strong-contrast cells not activated
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
@@ -305,6 +305,47 @@ Finite training that has weak internal NDS/mAP, flat or adverse metric trajector
 modality collapse without an implementation defect, or no persuasive convergence
 signal is a scientific outcome. It is handled by B/C health and promotion gates,
 not by adding step probes, LR tweaks, epochs, candidates or seeds.
+
+### 6.4 O-131 integrated C0 entry rung
+
+C0 answers a narrower question before the expensive strong contrast: does the
+current accepted graph, when given the declared A1 public camera prior, sustain
+meaningful normal training on `D_low`; and is the large LiDAR gradient correlated
+with harmful optimizer behavior rather than merely a parameterization scale?
+STOP boundaries are evidence boundaries, so the same run also emits bounded
+pre-STOP-E telemetry without claiming final bottlenecks.
+
+| cell | train horizon | evaluation | role |
+|---|---:|---|---|
+| `C0-F-A1` | 1,538 attempted physical-B4 windows; 6,152 attempted samples; 3 frozen drops | one terminal `D_select` internal mAP/NDS | primary current-family health cell: ImageNet1K V1 camera, random LiDAR/fuser/head |
+| `C0-L-A0` | same | same | LiDAR-only companion; random L-S075 |
+| `C0-F-A0-P64` | 64 attempted B4 windows | none | all-scratch initialization negative control; not a finalist |
+
+All three use seed 0, global FP16 with the complete SECOND FP32 island, AdamW
+`1e-4/.01`, constant LR, uniform sampling, and no clip, EMA, augmentation, CBGS
+or GT-paste. This is the unchanged engineering baseline selected for attribution,
+not the production recipe and not evidence against a graph that later needs a
+reference-aligned recipe in STOP-D.
+
+Long cells report loss over cumulative attempted-window boundaries
+`64/384/768/1152/1538`; true-unscaled gradients, target/loss terms, boundary
+gradients and realized post-optimizer update/weight are sampled only at
+`1/4/16/64/256/768/1538`. The short control samples through 64. Only A1 receives
+one bounded early operator trace (`wait=16`, `warmup=2`, `active=10`), deliberately
+non-overlapping sampled diagnostic windows; chunk wall
+time, samples/s, peak allocated/reserved memory and 1 Hz `nvidia-smi` are recorded
+for all cells. Final STOP-E must still confirm performance on the frozen graph and
+recipe.
+
+Hard failure means no accepted update, discarded windows, post-first-64 invalid
+windows, nonfinite sampled post-warmup gradients, missing gradients across a
+required modality path, invalid token-complete evaluator output, or nonfinite
+internal metrics. Gradient magnitude alone is not failure. A descriptive
+`CORRELATED_HARM_SIGNAL` requires at least two of: post-warmup invalid windows;
+sampled LiDAR update/weight at least `1e-2` and at least `10x` the sampled head
+median; final loss chunk more than `1.25x` the first. This gate may justify owner
+discussion of one single-factor C counterfactual; it does not diagnose a module or
+automatically amend the model.
 
 ## 7. STOP-D/E/F boundaries
 
@@ -618,5 +659,5 @@ STOP-B is CLOSED / `INCONCLUSIVE`. Accepted evidence is the bounded route-level
 repeatability decomposition: camera RNG-dependent variation on the current
 stochastic graph and LiDAR sparse-route same-seed runtime variation. The large
 true unscaled LiDAR-gradient mechanism remains unresolved. No further STOP-B
-compute, model change or recipe change is authorized; STOP-C remains separately
-owner-gated.
+compute, model change or recipe change was authorized at that closure boundary;
+O-131 subsequently activates only C0.

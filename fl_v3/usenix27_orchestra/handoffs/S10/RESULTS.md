@@ -1,4 +1,14 @@
-# S10 results — STOP-A CLOSED PASS; STOP-B CLOSED INCONCLUSIVE
+# S10 results — STOP-A/B closed; STOP-C0 pending execution
+
+## STOP-C0
+
+```text
+AUTHORITY: O-131
+STATE: implementation/local validation in progress; no job submitted yet
+CELLS: C0-F-A1 one D_low epoch + D_select eval; C0-L-A0 one D_low epoch + D_select eval; C0-F-A0-P64 no eval
+RESOURCE: one GH200 / 16 CPU / 96 GiB / 01:00:00 / one submission / no retry
+CLAIM_LIMIT: training-health/trajectory and descriptive one-epoch fusion delta only; no recipe, architecture, official-val or full claim
+```
 
 ## STOP-A
 

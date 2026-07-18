@@ -268,11 +268,12 @@ def test_readiness_timing_fails_closed_on_incompatible_state_or_options():
         )
 
     model, optimizer = parts()
-    with pytest.raises(RuntimeError, match="restricted to S09 readiness"):
-        train_one_epoch(
-            model, _loader(2), torch.nn.MSELoss(), optimizer, torch.device("cpu"),
-            attempted_window_callback=lambda: None, max_optimizer_steps=1,
-        )
+    observed = []
+    train_one_epoch(
+        model, _loader(2), torch.nn.MSELoss(), optimizer, torch.device("cpu"),
+        attempted_window_callback=lambda: observed.append(True), max_optimizer_steps=1,
+    )
+    assert observed == [True]
 
 
 def _profile_collate(batch):
