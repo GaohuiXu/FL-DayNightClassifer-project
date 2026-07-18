@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-132 exact C0-v2 clean replay owner-approved / ready / not yet submitted
+REQUEST_STATE: O-132 exact C0-v2 clean replay consumed / Job 496312 COMPLETED 0:0 / v2 execution gate PASS
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
-EXECUTION_AUTHORITY: O-132 one full C0-v2 replacement at 01:00:00 / 1.0 GH200-hour / no retry
+EXECUTION_AUTHORITY: O-132 one full C0-v2 replacement consumed by Job 496312; no executable replay or later-stop compute remains
 SOURCE_SHA: 2262b4063a3e419b17f4b911a9e11a7ff50ea784
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-132 full C0-v2 clean replay approved 2026-07-18
-EXECUTABLE_NOW: exact §27 tuple only; later C and STOP-D/E/F remain owner-gated
+EXECUTABLE_NOW: none; later C and STOP-D/E/F remain owner-gated
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1248,7 +1248,7 @@ does not pass because the scratch control and aggregate summary are absent. The
 post-job model/loss/gradient/update-neutral v2 artifact fixes and regression tests
 are not execution authority and were not run on GH200.
 
-## 27. O-132 STOP-C0-v2 full clean replay — owner-approved / ready
+## 27. O-132 STOP-C0-v2 full clean replay — consumed / execution PASS
 
 The owner rejected closure-by-review of the incomplete C0 package and explicitly
 selected the full clean-replay option. O-132 supersedes O-131's no-retry clause
@@ -1258,7 +1258,7 @@ immutable negative evidence.
 
 ```text
 REQUEST_ID: S10-STOP-C0-V2-CLEAN-O132-v1
-REQUEST_STATE: OWNER-APPROVED / READY / NOT YET SUBMITTED
+REQUEST_STATE: CONSUMED / JOB 496312 COMPLETED 0:0 / V2 EXECUTION GATE PASS
 OWNER_INSTRUCTION: 按照方案一进行完整的C0-v2 clean replay
 DERIVATION: one explicit full replacement after diagnosed O-131 runner/gate/provenance defects; inside the active 27-hour O-124 aggregate ceiling
 SOURCE_SHA: 2262b4063a3e419b17f4b911a9e11a7ff50ea784
@@ -1313,3 +1313,33 @@ sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cp
 
 Any tuple or scope change invalidates O-132. A finite but weak scientific result
 is retained as evidence; it does not trigger tuning, retry or candidate growth.
+
+### 27.1 Consumption record
+
+```text
+JOB: 496312
+STATE/EXIT: COMPLETED / 0:0
+ELAPSED: 00:45:15 / 2715 seconds / 0.754167 GH200-hours
+NODE: n128
+SLURM_BATCH_MAXRSS/MAXVMSIZE: 83838302K / 1076047104K
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_c0_v2_2262b40_o132_a1
+OUTPUT_MODE/SIZE: read-only / approximately 2.0 GiB / zero writable paths
+FOCUSED_TESTS: 80 passed / 3 skipped / 16.77 seconds
+FINAL/C0/FOCUSED_EXIT: 0 / 0 / 0
+AGGREGATE: fl_v3.s10.stop_c0_health.v2 / PASS / hard_failures={}
+CELL_SUMMARIES: C0-F-A1 present; C0-L-A0 present; C0-F-A0-P64 present
+TOKEN_GATE: actual_collated_batches; F/L ordered hash and three-token remainder hash identical
+ARTIFACT_MANIFEST: 28/28 OK
+ARTIFACT_MANIFEST_SHA256: dbb7a088579c14af19d7d36bcf0bde9c0dcbe48685ce00c118f178760ffa3cf2
+SLURM_STDOUT_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+SLURM_STDERR_SHA256: 8db5d05b4abfa9c9cc1bd7028c410675c3e2d697af110ce6c6d9aa51f2e1e830
+PREVIOUS_ACTUAL_CUMULATIVE_ABC: 2.477778 GH200-hours
+POSTJOB_ACTUAL_CUMULATIVE_ABC: 3.231945 GH200-hours
+REMAINING_UNDER_27_HOUR_CEILING: 23.768055 GH200-hours; not execution authority
+RETRY/REROLL: none; O-132 is consumed
+INDEPENDENT_REPLAY_REVIEW: not authorized or performed; owner explicitly rejected an intermediate reviewer chain
+```
+
+The successful execution gate completes the bounded C0-v2 replay. It does not
+authorize a second replay, later STOP-C strong contrasts, recipe or architecture
+selection, STOP-D/E/F, merge, push, upload, publication, attack or defense.

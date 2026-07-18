@@ -40,10 +40,14 @@
 > STOP-C0 is `FAIL/INCOMPLETE` and the no-retry allocation is consumed.
 > Remediation `09c3945` received evidence-integrity `PASS_WITH_RESIDUAL_RISK`
 > with no open P0-P3. Retained metrics/trajectory/profile evidence is bounded and does
-> not select a graph or recipe. O-132 authorizes one exact full C0-v2 clean
-> replay from `2262b40`, one GH200/one hour/no retry, with no intermediate
-> reviewer chain. Later C strong contrasts, STOP-D/E/F and S11+
-> remain unapproved.
+> not select a graph or recipe. O-132's sole exact full C0-v2 clean replay Job
+> `496312` completed `0:0` in `00:45:15` from `2262b40`, passed 80 tests with 3
+> skips, all three v2 cell summaries, matched actual F/L token order/remainder,
+> aggregate `PASS` and 28/28 artifact checks, and consumed `0.754167` GH200-hours.
+> It found numerically healthy bounded trajectories and no established correlated
+> large-gradient harm, but did not locate the gradient cause or select graph/
+> recipe. O-132 is consumed; no replay or intermediate reviewer chain remains.
+> Later C strong contrasts, STOP-D/E/F and S11+ remain unapproved.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -477,8 +481,10 @@ authorized.
   `RUN_REQUEST.md` §24 tuple. Job `479667` consumed it and completed the
   integrity gate with `MIXED_INCONCLUSIVE`. Targeted re-review of remediation
   `02ba3b4` returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P3 and closed
-  STOP-B `INCONCLUSIVE`. O-131 subsequently activates only the integrated C0
-  entry rung; later STOP-C cells remain separately owner-gated.
+  STOP-B `INCONCLUSIVE`. O-131's failed/incomplete C0 remains immutable negative
+  evidence. O-132's sole replacement Job `496312` passed the bounded C0-v2
+  execution gate and consumed the replay authority; later STOP-C cells remain
+  separately owner-gated and no material job is currently executable.
 - **O-123 batch correction:** the B=1-based v0 request is rejected. Revised ABC
   scientific rungs use physical B=4 at minimum and bind a fixed-batch tail policy;
   B=1 may appear only in a tiny paired diagnostic check. B=8/16 belong to a later
@@ -493,8 +499,10 @@ authorized.
 - **Review:** STOP-A reused one isolated high-risk S10-R context. Initial review
   returned documentation-only P2/P3; S00 remediated linearly and targeted
   re-review returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. Reviewers read
-  and report but never fix. Future stop review remains stop-level rather than a chain;
-  P3-only polish is batched, and a repeated material blocker returns to the owner.
+  and report but never fix. O-132 explicitly rejected an intermediate replay
+  reviewer chain, so Job `496312` has not received a separate independent review.
+  Any later final review or next-stop review requires an owner decision. P3-only
+  polish is batched, and a repeated material blocker returns to the owner.
 - **S11 and later:** pending. Historical role descriptions and sequencing do not
   create scope or authority; Protocol A/B execution, attack, defense, upload and
   publication remain unauthorized.

@@ -1,6 +1,124 @@
-# S10 results — STOP-A/B closed; STOP-C0 incomplete at no-retry boundary
+# S10 results — STOP-A/B closed; STOP-C0-v2 execution gate PASS
 
-## STOP-C0
+## STOP-C0-v2 clean replay
+
+```text
+AUTHORITY: O-132
+STATE: COMPLETED / bounded v2 execution gate PASS; allocation consumed; no retry
+JOB: 496312 / COMPLETED 0:0 / 00:45:15 / 0.754167 GH200-hours
+EXECUTION_SOURCE: 2262b4063a3e419b17f4b911a9e11a7ff50ea784
+SOURCE_TREE: f03825398a0fb9c13a5d335f012c49bc6d787602
+CELLS: C0-F-A1 full D_low B4 epoch + D_select; C0-L-A0 full D_low B4 epoch + D_select; C0-F-A0-P64 64-window scratch control
+RESOURCE: one GH200 / 16 CPU / 96 GiB / 01:00:00 / one submission / no retry
+CLAIM_LIMIT: bounded numerical/training trajectory, gradient-harm correlation and descriptive one-epoch internal F-minus-L delta only
+INDEPENDENT_REPLAY_REVIEW: not authorized or performed; O-132 forbids an intermediate reviewer chain
+```
+
+### Execution and provenance gate
+
+The sole O-132 replay consumed the exact read-only §27 snapshot and command.
+Job `496312` passed `80` focused tests with `3` skips in `16.77 s`, returned
+`COMPLETED 0:0`, and wrote the three v2 cell summaries plus aggregate
+`fl_v3.s10.stop_c0_health.v2` with `status=PASS` and no hard failures. The runner
+verified all `28/28` manifest entries. Unlike v1, the short scratch horizon is not
+mistaken for a full epoch, and SECOND-075 health requires gradients on trainable
+`lidar_encoder.backbone.conv_out` rather than parameter-free `to_bev=Identity`.
+
+Both full cells consumed exactly `6,152` actual collated samples in the same
+order. Their ordered token SHA-256 is
+`947dc9bc8441267587df6b0b88d16efc84ab3c7ff0a1a152481ac2697f0a2eb1`.
+Both independently record the same three dropped tokens:
+
+```text
+30565769163f441cae2d1b6e45d73f08
+8d61fe1f5b4140c1866835b4111cc17b
+cb1a49b9de4741eea3dda3f1cb4e34bc
+```
+
+Their sorted-remainder SHA-256 is
+`7495cdbec472ce49f29e8f19abe08fc9431a258b437a5db05ab89fae0db60443`.
+The scratch control records its actual 256-token prefix with ordered SHA-256
+`7fbfbbc165bfe66bbb12a8437e689c11ee9e04d658064e24567264ade11019b3`
+and correctly makes no full-epoch remainder claim.
+
+### Numerical health and bounded capability signal
+
+| cell | attempted / accepted | invalid placement | first → final chunk loss | v2 health | max LiDAR update/weight | internal mAP / NDS |
+|---|---:|---|---:|---|---:|---:|
+| `C0-F-A1` | 1,538 / 1,534 | 4 initial overflows; 0 post-64 | 143.9567 → 17.9905 | `NUMERICALLY_HEALTHY_WITH_TRAINING_SIGNAL` | 0.0006148 | 0.050206 / 0.141258 |
+| `C0-L-A0` | 1,538 / 1,534 | 4 initial overflows; 0 post-64 | 121.3898 → 19.2880 | `NUMERICALLY_HEALTHY_WITH_TRAINING_SIGNAL` | 0.0007870 | 0.020630 / 0.107834 |
+| `C0-F-A0-P64` | 64 / 60 | 4 initial overflows; 0 post-64 | 459.2208 → 41.7180 | `NUMERICALLY_HEALTHY_WITH_TRAINING_SIGNAL` | 0.00002888 | no evaluator |
+
+All cells have zero discarded windows, zero nonfinite-loss windows, no pending
+accumulation, no post-first-64 invalid window, falling chunk loss and all three
+predeclared harm indicators false. Each therefore labels large-gradient harm
+`NOT_ESTABLISHED`. The scratch cell's first-64 weighted mean loss is
+`146.0937`, versus `143.9567` for F-A1's first 64, so this bounded control does
+not expose a distinct all-scratch numerical-health failure. It is not a claim of
+initialization equivalence or eventual capability.
+
+The one-seed internal `D_select` descriptive delta is:
+
+```text
+fusion minus LiDAR mAP: +0.029576288608
+fusion minus LiDAR NDS: +0.033423054495
+```
+
+It is an early positive fusion/camera-prior signal only. F-A1 includes the
+declared ImageNet1K V1 Swin prior while L-A0 is random, and `D_select` is an
+internal proxy. This does not select architecture/initialization/recipe and is
+not the STOP-F absolute-capability or fusion-contribution claim. Differences
+from v1 metrics are not an architecture effect: the model math is unchanged and
+S10 already established stochastic runtime variation.
+
+True unscaled SECOND-stem gradients remain extremely large in sampled initial
+overflow windows (approximately F `6.46e6/5.77e6`, L `1.36e6/3.13e6`, scratch
+`6.81e6/6.77e6` at attempts 1/4), followed by finite accepted sampled windows
+and small realized update/weight ratios. C0 therefore answers the harm-correlation
+question negatively within this rung; it still does **not** identify the causal
+module or exclude a later convergence/recipe problem.
+
+### Timing, memory and profile observations
+
+- F post-first-chunk throughput was `8.818–8.867 samples/s`; L was
+  `13.597–13.701 samples/s`. First chunks include profile/scaler startup.
+- Peak CUDA allocated/reserved was F `17,701,058,560 / 44,432,359,424` bytes,
+  L `8,071,611,904 / 9,732,882,432`, and scratch
+  `17,472,657,920 / 39,338,377,216`.
+- `D_select` evaluator wall/decode time was F `686.383/408.184 s` and L
+  `502.900/231.607 s` across 1,157 decode batches. These CPU/output-heavy phases
+  are not steady training throughput.
+- Across 2,637 mixed-phase 1 Hz samples, GPU utilization mean/p50/p95 was
+  `40.60/39/100%`, memory mean/p50/p95 was `20,640/10,211/43,304 MiB`, and
+  power mean/p50/p95 was `224.51/220.53/301.25 W`. This spans tests, train and
+  eval, not a final GH200-utilization claim.
+- The single early F profile covers ten active windows. Approximate module device
+  time per window was camera preprocess `92.93 ms`, LiDAR encoder `58.76 ms`,
+  camera backbone `38.54 ms`, head `21.79 ms`, view transform `6.86 ms`, camera
+  neck `2.74 ms`, fuser `2.09 ms`, and BEV neck `1.91 ms`. Top self-device
+  operators include GroupNorm backward `114.07 ms`, 1D gamma/beta backward
+  `88.49 ms`, and sparse implicit-GEMM backward `40.74 ms` per window. This is
+  a later profiling target, not proof of the gradient cause or final bottleneck.
+
+### Artifacts, checksums and allocation
+
+```text
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_c0_v2_2262b40_o132_a1
+F_CHECKPOINT_SHA256: 74912e83ad6db744f651ccc3dbc45872e5961d2a8b1767adbae684ddc808607d
+L_CHECKPOINT_SHA256: 02a1a199bb8b896d5baebe6207482b1cc7c2ad3689c6fb0c5452c536242a7282
+ARTIFACT_MANIFEST_SHA256: dbb7a088579c14af19d7d36bcf0bde9c0dcbe48685ce00c118f178760ffa3cf2
+SLURM_STDOUT_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+SLURM_STDERR_SHA256: 8db5d05b4abfa9c9cc1bd7028c410675c3e2d697af110ce6c6d9aa51f2e1e830
+ARTIFACT_MANIFEST_CHECK: 28/28 OK
+OUTPUT_SIZE/MODE: approximately 2.0 GiB / read-only / zero writable paths
+```
+
+Job `496312` consumed `2,715 / 3,600 = 0.754167` GH200-hours. Cumulative
+STOP-A/B/C allocation is now `3.231945` GH200-hours, leaving `23.768055` under
+the 27-hour O-124 ceiling. That remainder is not execution authority. No C0-v2
+retry or later STOP-C/D/E/F execution is authorized.
+
+## STOP-C0 — O-131 incomplete predecessor
 
 ```text
 AUTHORITY: O-131

@@ -87,14 +87,18 @@ re-review of remediation `09c39458a0b32ce1d4a3ae603094d76ae160ac42` returned
 `PASS_WITH_RESIDUAL_RISK` with no open P0-P3 for evidence integrity only. It
 also invalidated the three raw v1 dropped-token identities (the count and matched
 F/L construction remain valid); raw output was not rewritten. Later STOP-C
-strong contrasts and STOP-D/E/F remain owner-gated. O-132 now explicitly
-supersedes only O-131's no-retry boundary for one full C0-v2 clean replay from
-exact source `2262b4063a3e419b17f4b911a9e11a7ff50ea784`: the same three cells,
-seed/data/recipe/precision/resources and one-hour ceiling, with fail-closed v2
-schema, actual-token, matched-order/remainder, health and aggregate gates. It is
-one submission with no retry and no automatic later-C continuation. No
-intermediate reviewer chain is authorized; the owner will decide any final
-review only after a completed replay.
+strong contrasts and STOP-D/E/F remain owner-gated. O-132's sole C0-v2 clean
+replay Job `496312` consumed `0.754167` GH200-hours and completed `0:0` in
+`00:45:15` from exact source
+`2262b4063a3e419b17f4b911a9e11a7ff50ea784`. It passed 80 focused tests with
+3 skips, all three v2 cell summaries, actual-token matched F/L order/remainder,
+trainable-prefix health, aggregate `PASS` and the 28/28 artifact manifest. All
+three cells have falling loss, only four initial overflow windows, zero later
+invalid/nonfinite/discarded windows and no correlated large-gradient harm signal.
+The one-seed internal F-minus-L delta is positive (`+0.029576` mAP / `+0.033423`
+NDS) but does not select a recipe/architecture or establish the full claim.
+Large-gradient causality remains unknown. O-132 is consumed; no replay, automatic
+later-C continuation or intermediate reviewer chain is authorized.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

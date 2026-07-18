@@ -1,4 +1,4 @@
-# S10 HANDOFF — STOP-A/B CLOSED; STOP-C0 INCOMPLETE
+# S10 HANDOFF — STOP-A/B CLOSED; STOP-C0-v2 EXECUTION PASS
 
 ## 1. State and authority
 
@@ -8,15 +8,18 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-132 exact one-GH200 C0-v2 full clean replay; no retry
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-131 bounded authority
+CURRENT_AUTHORITY: none; O-132 replay consumed; later C and STOP-D/E/F require owner approval
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: historical O-124/O-131/O-132 authority consumed through C0-v2; current compute none
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
-STOP_C: v1 C0 FAIL/INCOMPLETE; owner-approved v2 full clean replay pending; later cells not activated
+STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; later cells not activated
 C0_IMPLEMENTATION_SHA: 89958be504d6abaef66810695402d2a09619794b
 C0_JOB: 492525 / FAILED 1:0 / 00:47:32 / 0.792222 GH200-hours
 C0_REMEDIATION_REVIEW: 09c39458a0b32ce1d4a3ae603094d76ae160ac42 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
 C0_V2_REPLAY_SOURCE: 2262b4063a3e419b17f4b911a9e11a7ff50ea784
+C0_V2_JOB: 496312 / COMPLETED 0:0 / 00:45:15 / 0.754167 GH200-hours
+C0_V2_RESULT: aggregate PASS / all three v2 cells present / 80 passed + 3 skipped / 28/28 artifact manifest
+C0_V2_REVIEW: no intermediate review authorized or performed
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
@@ -432,12 +435,13 @@ chain. S00 fixes accepted findings linearly. Batch P3-only polish; a repeated
 material blocker, uncertain scientific classification, changed data/metric/model/
 seed/candidate/resource boundary, or exhausted cap returns to the owner.
 
-## 9. Current open execution decision
+## 9. Current execution boundary
 
 The approved ABC GPU budget and derivation limits are in
-[`RUN_REQUEST.md`](RUN_REQUEST.md). O-124 authorizes continuous in-envelope work;
-every material job still requires an exact recorded immutable tuple before
-submission.
+[`RUN_REQUEST.md`](RUN_REQUEST.md). O-132's sole replay is consumed. No C0 retry,
+later STOP-C strong contrast or STOP-D/E/F compute is currently executable; a
+new owner decision must define the next scientific cell and exact immutable
+tuple. The unused O-124 ceiling is not a spare-job entitlement.
 
 ## 10. STOP-A implementation state
 
