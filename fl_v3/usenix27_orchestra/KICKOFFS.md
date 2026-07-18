@@ -33,12 +33,14 @@
 > sole §24 tuple, completed `0:0`, passed 43 tests and the integrity gate, and
 > returned `MIXED_INCONCLUSIVE`. Re-review of `02ba3b4` closed all P3 and
 > returned `PASS_WITH_RESIDUAL_RISK`; STOP-B is CLOSED / `INCONCLUSIVE` and no
-> compute remains. O-131 activates one integrated C0 entry rung on the accepted
-> `D_low/D_select` roles: one-epoch B4 A1 fusion and random L-S075, a 64-window
-> scratch-fusion control, sampled gradients/realized updates, lightweight
-> timing/memory, and one bounded early A1 trace. The sole allocation is one
-> GH200/16 CPU/96 GiB/one hour with no retry and independent review. Later C
-> strong contrasts, STOP-D/E/F and S11+ remain unapproved.
+> compute remains. O-131's sole C0 Job `492525` completed full F-A1/L-A0
+> training and `D_select` evaluation, then failed on an invalid full-epoch
+> assertion applied to the 64-window scratch control. Its full-cell raw health
+> labels also contain an impossible `to_bev=Identity` gradient condition.
+> STOP-C0 is `FAIL/INCOMPLETE`, the no-retry allocation is consumed, and review
+> is pending. Retained metrics/trajectory/profile evidence is bounded and does
+> not select a graph or recipe. Later C strong contrasts, STOP-D/E/F and S11+
+> remain unapproved.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

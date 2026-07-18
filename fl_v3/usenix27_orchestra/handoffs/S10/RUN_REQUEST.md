@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-131 C0 approved; exact §26 immutable tuple frozen / not yet consumed
+REQUEST_STATE: O-131 sole C0 allocation consumed by Job 492525 / FAILED / no retry
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
 EXECUTION_AUTHORITY: O-131 one C0 at 01:00:00 / 1.0 GH200-hour / no retry
 SOURCE_SHA: 89958be504d6abaef66810695402d2a09619794b
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-131 integrated C0 plan and compute approved 2026-07-18
-EXECUTABLE_NOW: exact §26 sole submission only
+EXECUTABLE_NOW: none; later C and STOP-D/E/F remain owner-gated
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1161,11 +1161,11 @@ large true unscaled LiDAR gradient, identify a causal kernel/module, select an
 architecture/recipe, or authorize STOP-C. Independent review of an exact
 evidence/docs SHA is required before STOP-B disposition.
 
-## 26. O-131 STOP-C0 integrated health tuple — approved / frozen / unconsumed
+## 26. O-131 STOP-C0 integrated health tuple — consumed / terminal incomplete
 
 ```text
 REQUEST_ID: S10-STOP-C0-HEALTH-O131-v1
-REQUEST_STATE: APPROVED / FROZEN / UNCONSUMED
+REQUEST_STATE: CONSUMED / FAILED 1:0 / INCOMPLETE / NO RETRY
 DERIVATION: O-131 exact activation inside O-124 STOP-C and 27-hour aggregate caps
 SOURCE_SHA: 89958be504d6abaef66810695402d2a09619794b
 SOURCE_TREE: 3928d1869aa88398c35d179428c70bb380341378
@@ -1219,3 +1219,29 @@ sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cp
 
 Any change to cells, horizons, seed, recipe, data roles, diagnostics, resource
 or output invalidates O-131.
+
+### 26.1 Consumption record
+
+```text
+JOB_ID: 492525
+STATE/EXIT/ELAPSED: FAILED / 1:0 / 00:47:32
+NODE/RESOURCES: n405 / one GH200 / 16 CPU / 96 GiB
+FOCUSED_TESTS: 74 passed / 3 skipped / 16.51 s
+COMPLETED_CELLS: C0-F-A1; C0-L-A0
+MISSING_CELL: C0-F-A0-P64 summary/diagnostics
+AGGREGATE_SUMMARY: absent
+FAILURE: short 64-window control was incorrectly required to exhaust the 1,538-window epoch iterator
+RAW_MECHANICAL_HEALTH_LABELS: F-A1 HARD_FAIL; L-A0 HARD_FAIL
+HEALTH_GATE_DEFECT: lidar_encoder.to_bev is nn.Identity in SECOND-075 and has no trainable parameter
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_c0_89958be_o131_a1
+RUNNER_ARTIFACT_MANIFEST_SHA256: 950a79919dbf07b1dab54f4ff91c4bf9c49692bf05417c532725dd508c93397e
+ARTIFACT_MANIFEST_CHECK: 24/24 OK
+ACTUAL_ALLOCATION: 2852 / 3600 = 0.792222 GH200-hours
+ACTUAL_CUMULATIVE_ABC: 2.477778 GH200-hours
+ACTIVE_27_HOUR_REMAINDER: 24.522222 GH200-hours
+REQUEUE/RETRY/REROLL: none / forbidden / forbidden
+```
+
+The two complete cell artifacts remain bounded evidence; the exact C0 protocol
+does not pass because the scratch control and aggregate summary are absent. The
+post-job output-neutral fixes and regression tests are not execution authority.

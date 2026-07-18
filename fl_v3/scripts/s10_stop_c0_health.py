@@ -204,7 +204,10 @@ def _required_prefixes(mode: str) -> tuple[str, ...]:
     lidar = (
         "lidar_encoder.backbone.stem",
         "lidar_encoder.backbone.stage1",
-        "lidar_encoder.to_bev",
+        # SECOND-075 collapses directly to the requested BEV channels, so
+        # ``to_bev`` is intentionally nn.Identity and has no parameters.
+        # ``conv_out`` is the final trainable projection on this route.
+        "lidar_encoder.backbone.conv_out",
     )
     common = ("bev_neck", "head")
     if mode == "lidar_only":
@@ -217,6 +220,31 @@ def _required_prefixes(mode: str) -> tuple[str, ...]:
         "fusion",
         *common,
     )
+
+
+def _assert_expected_epoch_consumption(
+    epoch_iterator: Iterator[Any],
+    *,
+    attempted_windows: int,
+    epoch_windows: int,
+) -> None:
+    """Require exhaustion only when the cell declared a complete epoch.
+
+    Short negative controls deliberately stop before the shared D_low iterator
+    is exhausted.  Peeking at their iterator would both consume an undeclared
+    batch and incorrectly turn the bounded horizon into a full-epoch gate.
+    """
+    attempted = int(attempted_windows)
+    epoch = int(epoch_windows)
+    if attempted > epoch:
+        raise RuntimeError("cell attempted-window horizon exceeds the D_low epoch")
+    if attempted < epoch:
+        return
+    try:
+        next(epoch_iterator)
+    except StopIteration:
+        return
+    raise RuntimeError("D_low one-epoch cell did not consume the exact drop-last loader")
 
 
 def _cell_health(
@@ -453,12 +481,11 @@ def _run_cell(
             "metrics": metrics,
         })
         start = int(boundary)
-    try:
-        next(epoch_iterator)
-    except StopIteration:
-        pass
-    else:
-        raise RuntimeError("D_low one-epoch cell did not consume the exact drop-last loader")
+    _assert_expected_epoch_consumption(
+        epoch_iterator,
+        attempted_windows=int(spec["attempted_windows"]),
+        epoch_windows=len(loader),
+    )
     if state.attempted_windows != int(spec["attempted_windows"]):
         raise RuntimeError("cell attempted-window horizon drifted")
     if len(diagnostics.records) != len(spec["diagnostics"]):

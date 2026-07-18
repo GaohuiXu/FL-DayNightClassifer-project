@@ -146,6 +146,7 @@ python -m pytest -q -p no:cacheprovider \
   fl_v3/tests/test_s08_precision_partition.py \
   fl_v3/tests/test_s08_precision_diagnostics.py \
   fl_v3/tests/test_s10_binding.py \
+  fl_v3/tests/test_s10_c0_health.py \
   fl_v3/tests/test_s10_subset_eval.py \
   fl_v3/tests/test_profiling_neutral.py \
   fl_v3/tests/test_s09_readiness.py \

@@ -1,4 +1,4 @@
-# S10 HANDOFF — STOP-A CLOSED; STOP-B CLOSED; STOP-C0 ACTIVE
+# S10 HANDOFF — STOP-A/B CLOSED; STOP-C0 INCOMPLETE
 
 ## 1. State and authority
 
@@ -8,12 +8,13 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-131 one integrated C0 implementation/job/review
+CURRENT_AUTHORITY: O-131 evidence closure/review only; sole compute consumed
 ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-124/O-131 bounded authority
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
-STOP_C: C0 active; later strong-contrast cells not activated
+STOP_C: C0 FAIL/INCOMPLETE at no-retry boundary; later cells not activated
 C0_IMPLEMENTATION_SHA: 89958be504d6abaef66810695402d2a09619794b
+C0_JOB: 492525 / FAILED 1:0 / 00:47:32 / 0.792222 GH200-hours
 STOP_D/E/F_EXECUTION: not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
@@ -347,6 +348,32 @@ sampled LiDAR update/weight at least `1e-2` and at least `10x` the sampled head
 median; final loss chunk more than `1.25x` the first. This gate may justify owner
 discussion of one single-factor C counterfactual; it does not diagnose a module or
 automatically amend the model.
+
+### 6.5 C0 terminal execution state
+
+The sole O-131 Job `492525` completed the two full cells and failed while
+closing the short scratch cell. F-A1 and L-A0 each consumed all 1,538 declared
+B4 windows and the exact 4,626-sample `D_select`; the 64-window scratch cell has
+no accepted summary because the runner incorrectly applied the full-epoch
+iterator-exhaustion assertion to it. The job is terminal `FAILED 1:0` at
+`00:47:32`; no retry remains.
+
+Both complete cells' raw `HARD_FAIL` labels are also false positives from
+requiring gradients on `lidar_encoder.to_bev`, which is `nn.Identity` for the
+current SECOND-075 channel contract. Raw artifacts remain unchanged. Excluding
+that impossible condition, both complete trajectories have zero post-first-64
+invalid windows, falling loss, finite internal evaluation and no correlated
+large-gradient harm signal. F-A1 exceeds L-A0 by `+0.044045` internal mAP and
+`+0.037182` internal NDS after one epoch, but the comparison is single-seed,
+internal-only and includes the A1 camera prior. It cannot select a graph/recipe
+or make the S10 primary claim.
+
+The post-job implementation replaces the invalid required prefix with the
+trainable SECOND `conv_out`, restricts exact iterator exhaustion to full-epoch
+cells, and adds regression tests. It is unexecuted remediation and confers no
+replacement compute authority. Full metrics, hashes, performance observations
+and interpretation limits are in `RESULTS.md`; the exact consumed tuple is in
+`RUN_REQUEST.md` §26.
 
 ## 7. STOP-D/E/F boundaries
 

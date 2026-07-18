@@ -71,16 +71,19 @@ re-review at `02ba3b44202092894f2c1c3e7ee53bb56ba92a1d` returned
 `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. STOP-B is CLOSED /
 `INCONCLUSIVE`: bounded route-level repeatability decomposition is accepted,
 but large-gradient causality remains unresolved. No retry, further STOP-B
-compute, or model/recipe change is authorized. O-131 activates exactly one
-integrated STOP-C0 entry rung: A1 fusion and random L-S075 each train for one
-physical-B4 `D_low` epoch and receive one `D_select` internal evaluation, while
-an all-scratch fusion negative control runs only 64 attempted windows. The same
-fixed engineering-baseline recipe is used throughout; sampled true-unscaled
-gradients, realized update/weight, loss chunks, memory/throughput and one bounded
-early A1 operator trace are evidence, not a recipe or STOP-E claim. O-131 allows
-one GH200/16 CPU/96 GiB/`01:00:00` submission with no retry, followed by
-independent review. Later STOP-C strong-contrast cells and STOP-D/E/F remain
-owner-gated.
+compute, or model/recipe change is authorized. O-131's sole integrated STOP-C0
+Job `492525` consumed `0.792222` GH200-hours and ended `FAILED 1:0` at
+`00:47:32`. A1 fusion and random L-S075 each completed one physical-B4 `D_low`
+epoch and exact `D_select` internal evaluation, but the 64-window all-scratch
+control has no accepted summary because the runner incorrectly required it to
+exhaust the full epoch iterator. Both complete cells' raw `HARD_FAIL` labels are
+also false positives from requiring gradients on `lidar_encoder.to_bev`, which
+is `nn.Identity` for SECOND-075. Excluding that impossible condition, both have
+falling loss, zero post-first-64 invalid windows and no correlated large-gradient
+harm signal; the single-seed/internal F-minus-L delta is positive but is not a
+recipe, architecture, official-val or full fusion claim. STOP-C0 is
+`FAIL/INCOMPLETE`, its no-retry allocation is consumed, and independent review
+is pending. Later STOP-C strong contrasts and STOP-D/E/F remain owner-gated.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

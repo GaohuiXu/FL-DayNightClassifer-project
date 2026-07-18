@@ -37,12 +37,15 @@
 > §24 tuple, completed `0:0`, passed the integrity gate and returned
 > `MIXED_INCONCLUSIVE`. Targeted re-review of `02ba3b4` returned
 > `PASS_WITH_RESIDUAL_RISK` with no open P0-P3; STOP-B is CLOSED /
-> `INCONCLUSIVE` and no STOP-B compute remains. O-131 activates exactly one
-> integrated STOP-C0 run: one-epoch B4 `D_low` A1 fusion and random L-S075 with
-> terminal `D_select` internal evaluation, plus a 64-window all-scratch fusion
-> control and bounded gradient/update/performance telemetry. It is one no-retry
-> GH200 allocation capped at one hour and requires independent review. Later
-> STOP-C strong contrasts, STOP-D/E/F and S11+ remain pending.
+> `INCONCLUSIVE` and no STOP-B compute remains. O-131's sole C0 Job `492525`
+> completed one-epoch B4 F-A1 and L-A0 plus both exact `D_select` evaluations,
+> then failed because the 64-window scratch control was incorrectly required to
+> exhaust the full epoch. The full-cell raw health labels also contain an
+> impossible `to_bev=Identity` gradient requirement. STOP-C0 is
+> `FAIL/INCOMPLETE`; its no-retry compute is consumed and independent review is
+> pending. The retained evidence has a positive internal one-epoch F-minus-L
+> delta and no correlated large-gradient harm signal, but selects neither graph
+> nor recipe. Later STOP-C strong contrasts, STOP-D/E/F and S11+ remain pending.
 >
 > `Sxx` is an evidence namespace, not automatically a worker, task, branch, or
 > worktree. Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Active launch
@@ -59,7 +62,7 @@
   ├─ S09 full-pipeline performance/readiness      [closed PASS under O-120]
   │      └─ independent review of exact profiling/evidence SHA
   │
-  ├─ S10 A-F CL health/recipe/speed/full claim     [STOP-A CLOSED; B evidence review]
+  ├─ S10 A-F CL health/recipe/speed/full claim     [A/B closed; C0 incomplete/review]
   └─ S11 and later                                 [roles pending owner decision]
 ```
 
@@ -72,7 +75,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | STOP-A closed; STOP-B closed `INCONCLUSIVE` at reviewed remediation `02ba3b4`; O-131 C0 active, later C cells owner-gated |
+| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | STOP-A closed; STOP-B closed `INCONCLUSIVE`; O-131 C0 `FAIL/INCOMPLETE` after Job `492525`, review pending, later C owner-gated |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract

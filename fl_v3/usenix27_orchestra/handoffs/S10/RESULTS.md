@@ -1,14 +1,132 @@
-# S10 results — STOP-A/B closed; STOP-C0 pending execution
+# S10 results — STOP-A/B closed; STOP-C0 incomplete at no-retry boundary
 
 ## STOP-C0
 
 ```text
 AUTHORITY: O-131
-STATE: implementation/local validation in progress; no job submitted yet
+STATE: FAIL/INCOMPLETE; sole allocation consumed; no retry authorized
+JOB: 492525 / FAILED 1:0 / 00:47:32 / 0.792222 GH200-hours
+EXECUTION_SOURCE: 89958be504d6abaef66810695402d2a09619794b
 CELLS: C0-F-A1 one D_low epoch + D_select eval; C0-L-A0 one D_low epoch + D_select eval; C0-F-A0-P64 no eval
 RESOURCE: one GH200 / 16 CPU / 96 GiB / 01:00:00 / one submission / no retry
 CLAIM_LIMIT: training-health/trajectory and descriptive one-epoch fusion delta only; no recipe, architecture, official-val or full claim
 ```
+
+### Execution integrity and terminal failure
+
+Job `492525` consumed the exact frozen §26 command/snapshot. Its focused suite
+passed `74` tests with `3` skips in `16.51 s`; source/config/data/weight/runtime
+identities passed. `C0-F-A1` and `C0-L-A0` each completed all 1,538 attempted
+B4 windows, wrote a checkpoint and sampled diagnostics, and completed the exact
+4,626-sample `D_select` evaluation. The third cell reached its post-training
+contract check after the declared 64-window horizon, but the runner incorrectly
+required every cell to exhaust the 1,538-batch epoch iterator. It raised:
+
+```text
+RuntimeError: D_low one-epoch cell did not consume the exact drop-last loader
+```
+
+Consequently `C0-F-A0-P64` has only its resolved config; no diagnostics,
+`cell_summary.json`, or accepted scratch result exists. The aggregate
+`c0_summary.json` is also absent. This is a runner-control defect, not a model
+failure, but it makes the exact C0 protocol incomplete and the job correctly
+terminal `FAILED 1:0`. O-131 forbids retry.
+
+The two complete cells also received raw mechanical `HARD_FAIL` labels for
+`lidar_encoder.to_bev` lacking sampled gradients. In the exact SECOND-075 graph,
+`collapsed_channels == out_channels`, so `to_bev` is deliberately
+`nn.Identity` and has no trainable parameter. This required-prefix condition is
+therefore an impossible gate and a false positive. The raw labels are retained;
+they are not rewritten as PASS. Post-job remediation replaces that condition
+with the trainable `lidar_encoder.backbone.conv_out`, makes exact epoch
+exhaustion conditional on a full-epoch cell, and adds focused regression tests.
+Those fixes are output-neutral and were not executed on GH200.
+
+### Complete-cell numerical and internal-evaluator evidence
+
+| cell | attempted / accepted updates | invalid placement | first → final chunk loss | raw label | harm label | internal mAP / NDS |
+|---|---:|---|---:|---|---|---:|
+| `C0-F-A1` | 1,538 / 1,534 | 4 in first 64; 0 later | 143.6704 → 17.8161 | `HARD_FAIL` from impossible Identity-prefix gate | `NOT_ESTABLISHED` | 0.064773 / 0.148719 |
+| `C0-L-A0` | 1,538 / 1,534 | 4 in first 64; 0 later | 121.2631 → 19.2639 | same false-positive gate | `NOT_ESTABLISHED` | 0.020728 / 0.111537 |
+
+Both cells have zero discarded windows, zero nonfinite-loss windows, zero
+post-first-64 invalid windows, complete exposure accounting, and finite
+token-complete evaluator output. Their GradScaler backed off from `512` to `32`
+during the four initial overflow windows and then accepted every remaining
+window. If the impossible Identity-prefix requirement is excluded, no other
+predeclared hard error remains and both trajectories satisfy the bounded
+`NUMERICALLY_HEALTHY_WITH_TRAINING_SIGNAL` rule. That is a defect-audited
+interpretation of the retained raw evidence, not a replacement raw label or C0
+PASS.
+
+The one-epoch descriptive fusion-minus-LiDAR delta is:
+
+```text
+internal D_select mAP: +0.044045020516
+internal D_select NDS: +0.037182017642
+```
+
+This comparison uses one seed and the same split, B4 exposure, precision,
+baseline optimizer and evaluator, but F also has the declared ImageNet1K V1
+camera prior. It is evidence of an early positive current-family fusion/camera
+signal only. It does not select the graph or recipe and is not the STOP-F fusion
+claim.
+
+At sampled attempts `1` and `4`, true optimizer-unscaled SECOND stem gradients
+were extremely large and both sampled windows overflowed: F approximately
+`5.70e6/7.78e6`, L approximately `1.78e6/2.19e6`. At accepted sampled attempts
+`16/64/256/768/1538`, stem gradients remained much larger than most other
+prefixes but were finite. Maximum realized LiDAR update/weight was only
+`6.295e-4` for F and `7.689e-4` for L, versus the predeclared extreme-update
+threshold `1e-2`; sampled head medians were `3.100e-4` and `3.043e-4`.
+Neither cell had a post-warm-up invalid window or adverse loss trajectory, so
+all three harm indicators are false. C0 therefore does **not** establish that
+the large gradients harm the applied optimization, but it also does not locate
+their cause; normalization/target/loss/occupancy/head-to-stem causality remains
+unresolved.
+
+### Bounded timing, memory and profile observations
+
+- F steady post-first-chunk throughput was `8.497–8.614 samples/s`; its first
+  chunk was `2.084 samples/s` because it contains profiler/scaler-start overhead.
+  L steady throughput was `13.057–13.149 samples/s` (`9.838` first chunk).
+- CUDA peak allocated/reserved was F `17,698,519,040 / 44,434,456,576` bytes
+  and L `8,070,803,968 / 9,732,882,432` bytes. The 1 Hz device maximum was
+  `43,306 MiB`; Slurm batch MaxRSS was `82,455,693 KiB`.
+- Full `D_select` evaluator wall time was F `679.370 s` and L `571.809 s`;
+  decode portions were `415.275 s` and `277.876 s`. Large prediction JSON and
+  CPU metric aggregation are material wall-time costs and must not be confused
+  with training GPU throughput.
+- Across the whole job, including tests and CPU-only evaluator aggregation,
+  1 Hz GPU utilization was mean/p50/p95 `38.89/37/100%`; power was
+  `199.05/197.75/272.59 W`. This mixed-phase aggregate is not a steady-training
+  utilization claim.
+- The single early F trace covers ten active windows only. Module range device
+  time per window was approximately camera preprocess `105.36 ms`, LiDAR
+  encoder `59.21 ms`, camera backbone `42.42 ms`, shared head `22.66 ms`, view
+  transform `7.39 ms`, camera neck `3.73 ms`, fuser `2.09 ms`, and BEV neck
+  `1.90 ms`. Top operator self-device rows include GroupNorm backward
+  `113.95 ms/window`, its 1D gamma/beta backward kernel `88.42 ms/window`, and
+  sparse implicit-GEMM backward `40.58 ms/window`. This supports GroupNorm as a
+  performance investigation target, not as the proven gradient cause or final
+  STOP-E bottleneck.
+
+### Artifacts, checksums and allocation
+
+```text
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_c0_89958be_o131_a1
+RUNNER_MANIFEST_SHA256: 950a79919dbf07b1dab54f4ff91c4bf9c49692bf05417c532725dd508c93397e
+SLURM_STDOUT_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+SLURM_STDERR_SHA256: 8db5d05b4abfa9c9cc1bd7028c410675c3e2d697af110ce6c6d9aa51f2e1e830
+ARTIFACT_MANIFEST_CHECK: 24/24 OK
+OUTPUT_SIZE: approximately 2.0 GiB
+```
+
+Actual C0 allocation is `2,852 / 3,600 = 0.792222` GH200-hours. Cumulative
+STOP-A/B/C allocation is `1.685556 + 0.792222 = 2.477778` GH200-hours, leaving
+`24.522222` under the active 27-hour O-124 ceiling. Unused C0 walltime is not
+retry or downstream execution authority. Later C cells and STOP-D/E/F remain
+owner-gated.
 
 ## STOP-A
 

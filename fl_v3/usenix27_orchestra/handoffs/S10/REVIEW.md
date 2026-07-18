@@ -1,13 +1,16 @@
-# S10 independent review — STOP-A A4, STOP-B, and pending STOP-C0
+# S10 independent review — STOP-A/B closed; STOP-C0 review pending
 
 ## STOP-C0 review state
 
-O-131 implementation and compute are active. Independent review has not started;
-it must pin the immutable implementation/evidence SHA after the sole C0 job and
-cover exact D_low/D_select role binding, B4/drop/exposure accounting, A1 weight
-identity, sampled pre-clip gradient and realized-update semantics, token-complete
-internal evaluation, omitted/failed cells, profiler scope, and every prohibited
-recipe/architecture/full-claim interpretation. This pending record is not a PASS.
+O-131's sole Job `492525` is consumed and terminal `FAILED 1:0`. Independent
+review has not started; it must pin the immutable post-job evidence/remediation
+SHA and cover exact D_low/D_select role binding, B4/drop/exposure accounting, A1
+weight identity, sampled true-unscaled gradient and realized-update semantics,
+token-complete internal evaluation, the missing scratch/aggregate artifacts, the
+impossible `to_bev=Identity` gradient gate, the short-horizon iterator bug,
+profiler scope, allocation arithmetic, and every prohibited recipe/architecture/
+full-claim interpretation. This pending record is not a PASS. No replacement
+compute is authorized.
 
 ## 1. Review envelope
 
