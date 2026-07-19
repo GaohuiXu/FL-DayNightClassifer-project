@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-142 exact remediation/replacement approved / tuple pending
+REQUEST_STATE: O-142 exact replacement tuple frozen / sole submission executable
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-141 BN1d-B8 candidate + O-142 exact replacement
 EXECUTION_AUTHORITY: one exact O-142 replacement after immutable tuple freeze; no retry
-SOURCE_SHA: pending O-142 remediation commit
+SOURCE_SHA: 864f704f5bdf1a63db8aba342778d6bf6d36fe57
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-142 exact schema-access fix and unchanged replacement approved 2026-07-19
-EXECUTABLE_NOW: after exact source/snapshot/hash/command tuple is frozen below
+EXECUTABLE_NOW: exact §37 tuple only; one submission/no retry
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1973,19 +1973,44 @@ suite did not invoke the new `_assert_config` function, and the login-node
 dependency gap prevented the attempted direct entry import from reaching it.
 O-141 is consumed and authorizes no patch execution or replacement submission.
 
-## 37. O-142 exact schema remediation and unchanged replacement — approved / tuple pending
+## 37. O-142 exact schema remediation and unchanged replacement — approved / tuple frozen
 
 ```text
 REQUEST_ID: S10-C1B1-BN1D-B8-v1-R1
 OWNER_DECISION: O-142
-STATE: remediation and immutable tuple pending
+STATE: exact remediation committed and immutable tuple frozen; sole replacement executable
 ONLY_CODE_CHANGE: config.schema_version -> config.data["schema_version"]
 ONLY_TEST_CHANGE: resolve exact s10_c1b1_bn_b8.json and directly call _assert_config
 SCIENTIFIC/RESOURCE_SCOPE: byte-for-byte O-141 runner/config semantics outside the exact correction; same §36 envelope
 RESOURCES: one GH200 / 16 CPUs / 96 GiB / 00:30:00 / hard cap 0.5 GH200-hour
 SUBMISSIONS: exactly one replacement / no retry / no requeue
-OUTPUT: fresh immutable O-142 path pending remediation SHA
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b8_864f704_o142_a1
 CUMULATIVE_BEFORE: 4.345833 GH200-hours
 CUMULATIVE_HARD_MAX_AFTER: 4.845833 GH200-hours
 FORBIDDEN: any model/data/recipe/gate/evaluator/resource change; GN/B16/new seed/profiler/later stop/reviewer/merge/push/upload
+```
+
+### Exact immutable replacement tuple
+
+```text
+SOURCE_SHA: 864f704f5bdf1a63db8aba342778d6bf6d36fe57
+SOURCE_TREE: b9c10ef88e331510361a680768963b4406b860a4
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b8_864f704_o142
+SNAPSHOT_MODE: standalone clone; detached HEAD; clean; recursively read-only; zero group/other-writable paths
+RUNNER_SHA256: 0e1a15e5e34ce54fabd94e02136fe9ed593468742b667b31d8e1407400c7f26c
+ENTRY_SHA256: e6e3825cf65a516692fec664a8666bb19327bc5be53beb0f4ce22aa619088382
+CONFIG_SHA256: 265480319a60053ad67a0e4f7b7b722fca0630708293f1e2231d4981d7826202
+RESOLVED_CONFIG_SHA256: 2b9a3e850beedd133df269bb10571c2d2a58ea9bf05afb8e0cbebeab6ff16f71
+SPLIT_MANIFEST_SHA256: 7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8
+GN_REFERENCE_SUMMARY_SHA256: 81e31258dd783f47e8775a1b1327dbac66b0cf9b005fcf6e5f4249c98d61ea85
+GN_REFERENCE_RESULTS_SHA256: 7fc24fd757d9302096c27208c58469fdd335f22fe363a70bb32ab76875f1e549
+BN_B4_REFERENCE_SUMMARY_SHA256: 5abc990577ec99eb04f2b9fc063ecba648d342891ce3e50159b4adff62537517
+BN_B4_REFERENCE_RESULTS_SHA256: 124eddeee78d5fd3495a3f1cff820a5ab82f5aebaef4cfd4ab9996a926966268
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b8_864f704_o142_a1
+STDOUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b8_864f704_o142_%j.out
+STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b8_864f704_o142_%j.err
+```
+
+```bash
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G --gpus=nvidia_gh200_120gb:1 --time=00:30:00 --no-requeue --job-name=s10-c1b8-864f704 --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b8_864f704_o142 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b8_864f704_o142_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b8_864f704_o142_%j.err --export=ALL,S10_C1B8_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b8_864f704_o142,S10_C1B8_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b8_864f704_o142_a1,S10_C1B8_EXPECTED_SOURCE_SHA=864f704f5bdf1a63db8aba342778d6bf6d36fe57,S10_C1B8_EXPECTED_TREE=b9c10ef88e331510361a680768963b4406b860a4,S10_C1B8_EXPECTED_RUNNER_SHA256=0e1a15e5e34ce54fabd94e02136fe9ed593468742b667b31d8e1407400c7f26c,S10_C1B8_EXPECTED_ENTRY_SHA256=e6e3825cf65a516692fec664a8666bb19327bc5be53beb0f4ce22aa619088382,S10_C1B8_EXPECTED_CONFIG_SHA256=265480319a60053ad67a0e4f7b7b722fca0630708293f1e2231d4981d7826202,S10_C1B8_EXPECTED_RESOLVED_SHA256=2b9a3e850beedd133df269bb10571c2d2a58ea9bf05afb8e0cbebeab6ff16f71 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b8_864f704_o142/fl_v3/scripts/run_s10_c1b1_bn_b8.sh
 ```

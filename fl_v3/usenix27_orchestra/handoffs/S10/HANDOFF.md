@@ -1062,3 +1062,7 @@ and directly calls `_assert_config`. The replacement must otherwise reuse every
 O-141 model/data/W0/token/precision/recipe/gate/evaluator/resource field, from a
 new detached read-only snapshot into a fresh output. Exactly one 30-minute
 submission is allowed with no retry, followed by evidence sealing and stop.
+
+Remediation source/tree `864f704f5bdf1a63db8aba342778d6bf6d36fe57` /
+`b9c10ef88e331510361a680768963b4406b860a4` and its detached recursively
+read-only replacement tuple are frozen in `RUN_REQUEST.md` §37.
