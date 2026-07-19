@@ -39,6 +39,7 @@ from fl_v3.training.s10_observation import (
     paired_c1a_reduction,
     spearman_rank_correlation,
     strict_json_value,
+    validate_c1a_batch_norm_state_mapping,
     zero_model_gradients,
 )
 from fl_v3.training.tasks import NuScenesDetectionTask
@@ -526,15 +527,12 @@ def _install_batch_norm_1d(model) -> dict[str, Any]:
         normalization="batch_norm_1d",
     )
     incompatible = replacement.load_state_dict(old.state_dict(), strict=False)
-    expected_missing = sorted(
-        name for name in replacement.state_dict()
-        if name.endswith(("running_mean", "running_var", "num_batches_tracked"))
+    running_state = validate_c1a_batch_norm_state_mapping(
+        replacement,
+        missing_keys=incompatible.missing_keys,
+        unexpected_keys=incompatible.unexpected_keys,
+        expected_sites=21,
     )
-    if sorted(incompatible.missing_keys) != expected_missing or incompatible.unexpected_keys:
-        raise RuntimeError(
-            f"C1-A BN1d state mapping drift: missing={incompatible.missing_keys}, "
-            f"unexpected={incompatible.unexpected_keys}"
-        )
     model.lidar_encoder.backbone = replacement
     after_hash = _parameter_state_sha256(model)
     if before_hash != after_hash:
@@ -547,7 +545,7 @@ def _install_batch_norm_1d(model) -> dict[str, Any]:
         "affine_parameters_copied_exactly": True,
         "convolution_parameters_copied_exactly": True,
         "parameter_state_sha256": after_hash,
-        "new_running_state_keys": expected_missing,
+        "new_running_state": running_state,
     }
 
 

@@ -119,6 +119,11 @@ mapping check incorrectly expected PyTorch to report BN1d
 that buffer and reported only `running_mean/running_var`. The job consumed
 `0.050833` GH200-hour and produced no gradient verdict. O-134 is consumed; no
 retry is executable. C1-B implementation/compute remains pending.
+Owner instruction O-135 authorizes correction of that diagnosed assertion only.
+The worktree remediation now accepts only reported `running_mean/running_var`
+missing keys, separately proves every synthesized `num_batches_tracked` exists
+and is zero, and adds a direct PyTorch regression test. O-135 grants no commit or
+replacement-compute authority; the failed evidence remains immutable.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

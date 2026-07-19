@@ -33,6 +33,13 @@ the 42 reported running mean/variance keys while separately asserting that all
 21 BN1d `num_batches_tracked` buffers exist and are zero. O-134 grants no retry,
 so that correction has not been implemented or submitted.
 
+O-135 later authorizes the assertion correction only. The worktree remediation
+now implements the exact 42-key reported-missing rule, separately verifies all
+21 synthesized zero batch counters and fresh zero/one running state, and adds a
+direct PyTorch compatibility regression. It changes no candidate math or failed
+raw artifact. It remains uncommitted and has not been executed on GH200; the
+scientific result therefore remains absent.
+
 Artifact evidence:
 
 ```text

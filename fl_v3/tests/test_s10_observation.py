@@ -10,6 +10,7 @@ from fl_v3.models.fusion.losses import MultiTaskCenterPointLoss
 from fl_v3.models.fusion.second_sparse_backbone import _ObservedGroupNorm
 from fl_v3.training.s10_observation import (
     StopBObservationRecorder,
+    StopBObservationError,
     attribute_term_gradients,
     capture_tensor_tree_tensors,
     classify_c1a_gradient_causality,
@@ -20,6 +21,7 @@ from fl_v3.training.s10_observation import (
     paired_c1a_reduction,
     recompose_from_sample_terms,
     spearman_rank_correlation,
+    validate_c1a_batch_norm_state_mapping,
 )
 
 
@@ -275,3 +277,29 @@ def test_c1a_classification_prioritizes_fixed_vjp_normalization_evidence():
 def test_c1a_spearman_handles_monotone_values_and_ties():
     assert spearman_rank_correlation([1, 2, 3, 4], [4, 3, 2, 1]) == pytest.approx(-1.0)
     assert spearman_rank_correlation([1, 1, 2, 3], [2, 2, 3, 4]) == pytest.approx(1.0)
+
+
+def test_c1a_bn_mapping_accepts_pytorch_synthesized_batch_counter():
+    source = torch.nn.GroupNorm(2, 4)
+    candidate = torch.nn.BatchNorm1d(4, eps=1e-3, momentum=0.01)
+    incompatible = candidate.load_state_dict(source.state_dict(), strict=False)
+
+    assert incompatible.missing_keys == ["running_mean", "running_var"]
+    assert "num_batches_tracked" in candidate.state_dict()
+    report = validate_c1a_batch_norm_state_mapping(
+        candidate,
+        missing_keys=incompatible.missing_keys,
+        unexpected_keys=incompatible.unexpected_keys,
+        expected_sites=1,
+    )
+    assert report["fresh_running_state_valid"]
+    assert report["synthesized_num_batches_tracked"] == ["num_batches_tracked"]
+
+    candidate.num_batches_tracked.fill_(1)
+    with pytest.raises(StopBObservationError, match="must exist and initialize to zero"):
+        validate_c1a_batch_norm_state_mapping(
+            candidate,
+            missing_keys=incompatible.missing_keys,
+            unexpected_keys=incompatible.unexpected_keys,
+            expected_sites=1,
+        )

@@ -1105,6 +1105,58 @@ def classify_c1a_gradient_causality(
     }
 
 
+def validate_c1a_batch_norm_state_mapping(
+    module: nn.Module,
+    *,
+    missing_keys: Sequence[str],
+    unexpected_keys: Sequence[str],
+    expected_sites: int,
+) -> dict[str, Any]:
+    """Validate the GN-affine to fresh-BN1d state mapping used by C1-A.
+
+    PyTorch's BatchNorm compatibility loader synthesizes an absent
+    ``num_batches_tracked`` buffer and therefore does not include that key in
+    ``load_state_dict(..., strict=False).missing_keys``.  Running mean/variance
+    remain reported as missing.  Validate those two behaviours independently so
+    a compatibility detail cannot masquerade as a candidate-state drift.
+    """
+    _require(expected_sites > 0, "C1-A BN1d mapping requires at least one site")
+    state = module.state_dict()
+    running_mean_keys = sorted(name for name in state if name.endswith("running_mean"))
+    running_var_keys = sorted(name for name in state if name.endswith("running_var"))
+    tracked_keys = sorted(name for name in state if name.endswith("num_batches_tracked"))
+    _require(
+        len(running_mean_keys) == len(running_var_keys) == len(tracked_keys) == expected_sites,
+        "C1-A BN1d running-state site count drift",
+    )
+    expected_missing = sorted((*running_mean_keys, *running_var_keys))
+    _require(
+        sorted(str(name) for name in missing_keys) == expected_missing,
+        "C1-A BN1d missing-key set must contain only running_mean/running_var",
+    )
+    _require(not unexpected_keys, f"C1-A BN1d mapping has unexpected keys: {list(unexpected_keys)}")
+    _require(
+        not set(tracked_keys).intersection(str(name) for name in missing_keys),
+        "C1-A synthesized num_batches_tracked must not be reported missing",
+    )
+    for name in running_mean_keys:
+        value = state[name]
+        _require(bool(torch.count_nonzero(value).item() == 0), f"C1-A {name} must initialize to zero")
+    for name in running_var_keys:
+        value = state[name]
+        _require(bool(torch.count_nonzero(value - 1).item() == 0), f"C1-A {name} must initialize to one")
+    for name in tracked_keys:
+        value = state[name]
+        _require(value.numel() == 1 and int(value.item()) == 0, f"C1-A {name} must exist and initialize to zero")
+    return {
+        "batch_norm_sites": expected_sites,
+        "reported_missing_running_mean_var": expected_missing,
+        "synthesized_num_batches_tracked": tracked_keys,
+        "unexpected_keys": [],
+        "fresh_running_state_valid": True,
+    }
+
+
 __all__ = [
     "LIDAR_BACKWARD_CHAIN",
     "MAIN_BOUNDARIES",
@@ -1128,5 +1180,6 @@ __all__ = [
     "strict_json_value",
     "tensor_tree_sha256",
     "term_sources",
+    "validate_c1a_batch_norm_state_mapping",
     "zero_model_gradients",
 ]

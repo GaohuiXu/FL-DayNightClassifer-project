@@ -58,6 +58,8 @@
 > C1-A Job `502456` passed 36 tests but failed before candidate execution at an
 > over-strict BN1d state-mapping assertion; it consumed `0.050833` GH200-hour and
 > produced no gradient verdict. O-134 is consumed and no retry is executable.
+> O-135 authorizes only the exact BN1d mapping-assertion correction plus direct
+> regression test. It creates no commit or replacement-compute authority.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

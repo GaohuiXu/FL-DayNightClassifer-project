@@ -8,7 +8,7 @@ REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
 REQUEST_STATE: O-132 C0-v2 consumed / O-134 C1-A consumed by Job 502456 pre-execution failure
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing/amendment
-EXECUTION_AUTHORITY: none; O-134 single C1-A submission consumed
+EXECUTION_AUTHORITY: none; O-134 single C1-A submission consumed; O-135 fix-only
 SOURCE_SHA: 2262b4063a3e419b17f4b911a9e11a7ff50ea784
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-134 C1-A implementation and compute approved 2026-07-19
@@ -1444,3 +1444,18 @@ only the mapping assertion, explicitly validate that every BN1d
 `num_batches_tracked` buffer exists and equals zero after load, add a regression
 test for PyTorch's missing-key behavior, freeze a new source/snapshot/output and
 obtain new owner compute authority.
+
+## 30. O-135 exact assertion remediation — no compute
+
+```text
+STATE: CODE/TEST/DOC FIX AUTHORIZED / WORKTREE PREPARED / UNCOMMITTED / UNEXECUTED
+SCOPE: validate reported missing_keys == running_mean+running_var only; separately validate 21 num_batches_tracked buffers exist and equal zero
+ADDITIONAL_GATES: running means zero; running variances one; zero unexpected keys; unchanged exact trainable-parameter hash
+REGRESSION: standalone GroupNorm affine state -> BatchNorm1d strict=False reproduces two reported missing buffers and synthesized zero batch counter; nonzero counter rejected
+MODEL/LOSS/GRADIENT/DATA/CELLS/THRESHOLDS: unchanged
+COMMIT/SNAPSHOT/SLURM/RETRY/C1-B: not authorized
+```
+
+Login-node verification is limited to `bash -n`, Python syntax compilation and
+`git diff --check` because the x86 login environment has no project PyTorch or
+pytest. Dependency-backed execution remains pending a future exact authorization.

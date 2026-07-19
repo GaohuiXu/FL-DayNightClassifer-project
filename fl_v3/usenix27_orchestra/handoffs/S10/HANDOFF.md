@@ -6,9 +6,9 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution
+OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: none; O-134 C1-A allocation consumed by pre-execution failure; C1-B and later stops pending owner decision
+CURRENT_AUTHORITY: O-135 code/test/docs correction only; no commit or compute; C1-B and later stops pending owner decision
 ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: historical O-124/O-131/O-132 authority consumed through C0-v2; current compute none
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
@@ -506,6 +506,16 @@ No `runs.jsonl`, candidate identity, gradient metric or C1-A verdict exists.
 This is a runner assertion defect, not evidence for or against GN, BN1d, large-
 gradient causality or model health. O-134 is consumed and explicitly grants no
 retry; any correction/replacement requires a new owner decision.
+
+O-135 subsequently authorizes the correction itself. The prepared worktree change
+moves the compatibility rule into a tested helper: reported missing keys must be
+exactly the 42 `running_mean/running_var` entries; every one of the 21 separately
+synthesized `num_batches_tracked` buffers must exist and equal zero; running means
+must be zero, running variances one, unexpected keys empty and trainable-parameter
+hashes unchanged. A standalone GN→BN1d fixture directly reproduces the PyTorch
+missing-key behaviour and rejects a nonzero batch counter. Model graph/math,
+data, panel, candidates, metrics and thresholds are unchanged. This remediation
+has not been committed or executed on GH200 and supplies no replacement authority.
 
 ## 7. STOP-D/E/F boundaries
 
