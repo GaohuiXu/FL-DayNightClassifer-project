@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-132 C0-v2 consumed / O-134 C1-A consumed by Job 502456 pre-execution failure
+REQUEST_STATE: O-136 sole strictly derived C1-A replacement authorized; exact tuple pending freeze
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
-PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing/amendment
-EXECUTION_AUTHORITY: none; O-134 single C1-A submission consumed; O-135 fix-only
-SOURCE_SHA: 2262b4063a3e419b17f4b911a9e11a7ff50ea784
+PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing/amendment + O-136 replacement
+EXECUTION_AUTHORITY: O-136 one C1-A replacement only; no retry or C1-B
+SOURCE_SHA: d713bfe3b5e5c587f58ce70721b2b6eea0b050ec
 BRANCH: codex/s10-cl-model-recipe
-OWNER_APPROVAL: O-134 C1-A implementation and compute approved 2026-07-19
-EXECUTABLE_NOW: none; C1-A replacement, C1-B and STOP-D/E/F remain owner-gated
+OWNER_APPROVAL: O-136 exact remediation commit and one C1-A replacement approved 2026-07-19
+EXECUTABLE_NOW: after exact §31 tuple freeze, one C1-A replacement; C1-B and STOP-D/E/F remain owner-gated
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1459,3 +1459,24 @@ COMMIT/SNAPSHOT/SLURM/RETRY/C1-B: not authorized
 Login-node verification is limited to `bash -n`, Python syntax compilation and
 `git diff --check` because the x86 login environment has no project PyTorch or
 pytest. Dependency-backed execution remains pending a future exact authorization.
+
+## 31. O-136 strictly derived C1-A replacement — approved / tuple pending freeze
+
+```text
+REQUEST_ID: S10-C1A-GRAD-CAUSAL-O136-v2
+STATE: OWNER APPROVED / EXACT SNAPSHOT-HASH-COMMAND TUPLE MUST BE RECORDED BEFORE SOLE SUBMISSION
+REMEDIATION_SOURCE: d713bfe3b5e5c587f58ce70721b2b6eea0b050ec
+DERIVATION: only the O-135 BN1d state-mapping assertion and direct regression test differ from O-134
+DATA/PANEL/CANDIDATES/W0/PRECISION/PATHWAYS/REPEATS/RUNS: unchanged from §29
+METRICS/THRESHOLDS/EXIT: unchanged from §29
+OPTIMIZER/UPDATE/EVALUATOR: absent / zero / absent
+RESOURCE: one GH200; one node/task; 8 CPU; 64 GiB; 00:30:00; max 0.5 GH200-hour
+SUBMISSIONS/REQUEUE/RETRY/REROLL: exactly one / forbidden / forbidden / forbidden
+OUTPUT: fresh O-136 path; must not reuse or rewrite Job-502456 evidence
+STOP: any source/tree/file/config/data/panel/resource/runtime/test/identity/integrity/artifact failure or timeout; return directly to owner
+C1-B/LATER-STOPS/REVIEWER/MERGE/PUSH/UPLOAD: not authorized
+```
+
+The exact detached read-only snapshot, file/config identities, fresh output and
+literal `sbatch` command are intentionally filled only after this authorization
+record is committed. No field may change the §29 scientific tuple.

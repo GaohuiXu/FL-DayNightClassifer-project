@@ -120,10 +120,16 @@ that buffer and reported only `running_mean/running_var`. The job consumed
 `0.050833` GH200-hour and produced no gradient verdict. O-134 is consumed; no
 retry is executable. C1-B implementation/compute remains pending.
 Owner instruction O-135 authorizes correction of that diagnosed assertion only.
-The worktree remediation now accepts only reported `running_mean/running_var`
+The remediation accepts only reported `running_mean/running_var`
 missing keys, separately proves every synthesized `num_batches_tracked` exists
-and is zero, and adds a direct PyTorch regression test. O-135 grants no commit or
-replacement-compute authority; the failed evidence remains immutable.
+and is zero, and adds a direct PyTorch regression test. It is committed at exact
+source `d713bfe3b5e5c587f58ce70721b2b6eea0b050ec`; the failed evidence remains
+immutable. Owner instruction O-136 authorizes that exact commit and one strictly
+derived C1-A replacement with unchanged data, panel, candidates, FP32 pathways,
+two-repeat 128-run scope, gates and one-GH200/8-CPU/64-GiB/`00:30:00` resource
+ceiling. S00 must freeze a new detached read-only snapshot, exact hashes, fresh
+output and literal command before the sole submission. No retry, scope change,
+automatic C1-B continuation or later-stop execution is authorized.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

@@ -1,4 +1,4 @@
-# S10 results — STOP-A/B closed; C0-v2 PASS; C1-A pre-execution FAIL
+# S10 results — STOP-A/B closed; C0-v2 PASS; C1-A replacement authorized
 
 ## STOP-C1-A — O-134 consumed without a gradient verdict
 
@@ -33,12 +33,15 @@ the 42 reported running mean/variance keys while separately asserting that all
 21 BN1d `num_batches_tracked` buffers exist and are zero. O-134 grants no retry,
 so that correction has not been implemented or submitted.
 
-O-135 later authorizes the assertion correction only. The worktree remediation
-now implements the exact 42-key reported-missing rule, separately verifies all
+O-135 later authorized the assertion correction only. Remediation `d713bfe`
+implements the exact 42-key reported-missing rule, separately verifies all
 21 synthesized zero batch counters and fresh zero/one running state, and adds a
 direct PyTorch compatibility regression. It changes no candidate math or failed
-raw artifact. It remains uncommitted and has not been executed on GH200; the
-scientific result therefore remains absent.
+raw artifact. O-136 accepts that exact commit and authorizes one strictly derived
+replacement under the unchanged O-134 scientific tuple and resource ceiling.
+This section retains Job `502456` as immutable negative execution evidence; the
+replacement must use a fresh output and will be recorded separately after it
+reaches a terminal state. The scientific result remains absent meanwhile.
 
 Artifact evidence:
 

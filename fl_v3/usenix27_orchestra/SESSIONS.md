@@ -62,8 +62,10 @@
 > O-134 Job `502456` passed 36 tests but failed before candidate execution at an
 > over-strict BN1d missing-buffer assertion, consumed `0.050833` GH200-hour and
 > produced no C1-A verdict. O-134 is consumed; no retry is executable.
-> O-135 authorizes the exact mapping-assertion correction and direct regression
-> test only; no commit or replacement compute is authorized yet.
+> O-135 authorized the exact mapping-assertion correction and direct regression
+> test; remediation `d713bfe` is committed. O-136 authorizes one strictly derived
+> C1-A replacement under the unchanged O-134 panel/cells/gates/resources, with a
+> new exact detached snapshot, output and command. It grants no retry or C1-B.
 >
 > `Sxx` is an evidence namespace, not automatically a worker, task, branch, or
 > worktree. Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Active launch
@@ -93,7 +95,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | STOP-A closed; STOP-B closed `INCONCLUSIVE`; C0-v2 PASS; C1-A Job `502456` pre-execution FAIL/no verdict; O-135 minimal fix prepared but unexecuted; C1-B pending |
+| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | STOP-A closed; STOP-B closed `INCONCLUSIVE`; C0-v2 PASS; C1-A Job `502456` pre-execution FAIL/no verdict; O-136 sole exact replacement active; C1-B pending |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract

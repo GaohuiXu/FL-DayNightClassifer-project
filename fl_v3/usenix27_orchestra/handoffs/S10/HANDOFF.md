@@ -6,10 +6,10 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation
+OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-135 code/test/docs correction only; no commit or compute; C1-B and later stops pending owner decision
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: historical O-124/O-131/O-132 authority consumed through C0-v2; current compute none
+CURRENT_AUTHORITY: O-136 exact d713bfe remediation commit plus one strictly derived C1-A replacement; C1-B and later stops pending owner decision
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-136 permits canonical records, one exact detached snapshot/tuple, sole C1-A replacement submission, monitoring and evidence sealing; no retry/reviewer chain
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
 STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A Job 502456 pre-execution FAIL/no verdict; C1-B current-A1/A2-first order accepted but implementation/compute pending
@@ -507,7 +507,7 @@ This is a runner assertion defect, not evidence for or against GN, BN1d, large-
 gradient causality or model health. O-134 is consumed and explicitly grants no
 retry; any correction/replacement requires a new owner decision.
 
-O-135 subsequently authorizes the correction itself. The prepared worktree change
+O-135 subsequently authorized the correction itself. The resulting change
 moves the compatibility rule into a tested helper: reported missing keys must be
 exactly the 42 `running_mean/running_var` entries; every one of the 21 separately
 synthesized `num_batches_tracked` buffers must exist and equal zero; running means
@@ -515,7 +515,16 @@ must be zero, running variances one, unexpected keys empty and trainable-paramet
 hashes unchanged. A standalone GN→BN1d fixture directly reproduces the PyTorch
 missing-key behaviour and rejects a nonzero batch counter. Model graph/math,
 data, panel, candidates, metrics and thresholds are unchanged. This remediation
-has not been committed or executed on GH200 and supplies no replacement authority.
+is committed at `d713bfe3b5e5c587f58ce70721b2b6eea0b050ec`.
+
+O-136 accepts that exact remediation and authorizes one strictly derived C1-A
+replacement. The O-134 panel, candidates, shared W0, uniform-FP32 pathways,
+two-repeat/128-run matrix, metrics, thresholds, absence of optimizer/update/
+evaluator, and one-GH200/8-CPU/64-GiB/`00:30:00`/`0.5`-GH200-hour ceiling are
+unchanged. Before the sole submission S00 must freeze a new detached read-only
+snapshot, hashes, fresh output and literal command in `RUN_REQUEST.md`. Any
+failure or drift returns to the owner. O-136 grants no retry, C1-B continuation,
+later-stop execution, merge, push or upload.
 
 ## 7. STOP-D/E/F boundaries
 
