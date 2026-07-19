@@ -180,6 +180,15 @@ one linear commit, one detached read-only snapshot and one strictly derived
 C1-B0 replacement. Production source, runner, config, data, cells, W0/seed,
 horizon, gates and O-137 resources remain unchanged. One submission, no retry;
 no C1-B1 or later-stop authority.
+O-139 Job `504508` consumed that authority and completed `0:0` in `00:06:57`
+(`0.115833` GH200-hour). It passed all 106 focused tests and both matched H256
+cells: each completed 256/256 real B4 updates with zero overflow, invalid,
+nonfinite or discarded windows, constant scale 32 and falling loss. BN1d reduced
+sampled LiDAR-stem gradient L2 by roughly 217-1904x versus GN while realized
+AdamW stem updates remained comparable; GN's large gradients caused no bounded
+H256 update failure. BN1d loss remained higher on 251/256 matched windows but was
+about 1.41x faster. This is short single-seed/internal evidence with no evaluator
+or architecture selection. O-139 is consumed; C1-B1 remains owner-gated.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

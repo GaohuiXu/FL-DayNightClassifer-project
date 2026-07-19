@@ -1,4 +1,49 @@
-# S10 results — STOP-A/B closed; C0-v2 PASS; C1-A `LOCALIZED_NORM`; C1-B0 pre-model FAIL
+# S10 results — STOP-A/B closed; C0-v2 PASS; C1-A `LOCALIZED_NORM`; C1-B0 execution PASS
+
+## STOP-C1-B0 — O-139 replacement execution PASS
+
+```text
+AUTHORITY: O-139
+SOURCE/TREE: 5de019bf36b1dd5ca077a5a10eaa5e0e5f376ca2 / bd5d1c688bf4c25e05856351c0fcb48ce1b6c722
+JOB: 504508 / COMPLETED 0:0 / 00:06:57 / zero restarts
+ALLOCATION: 1 GH200 / 16 CPUs / 96 GiB / 0.115833 GH200-hour
+FOCUSED_TESTS: 106 passed / 0 failed / 6 warnings in 30.36s
+CELLS: GN 256/256 updates PASS; BN1d 256/256 updates PASS
+SCIENTIFIC_SCOPE: matched single-seed H256 internal observation; no evaluator/selection
+```
+
+Both cells used the exact shared initial trainable W0 and frozen 1024-token order.
+Each accepted all 256 physical-B4 updates with zero overflow, invalid, nonfinite
+or discarded windows and scale fixed at 32. First/last-16 mean loss was
+`161.242 -> 21.751` for GN and `266.228 -> 22.893` for BN1d. BN1d was higher on
+251/256 matched windows; its larger fractional decline reflects its worse start
+and is not a win.
+
+Normalization causality persists under real fusion optimizer updates. Across
+windows 1/4/16/64/128/256, BN1d reduced LiDAR-stem gradient L2 by 217-1904x,
+but its realized AdamW stem update/weight stayed 0.81-1.54x of GN. GN therefore
+retains very large true gradients, yet they did not produce a proportional update
+or bounded H256 instability. BN1d's 21 running-stat sites were finite with all
+batch counters at 256. This supports both candidates as short-horizon numerically
+trainable; it does not establish convergence or clean capability.
+
+Descriptive post-window-16 throughput was `9.25` samples/s for GN and `13.03`
+for BN1d (1.41x). Peak allocated/reserved memory was `16.44/40.81` GiB and
+`16.06/40.64` GiB respectively. These are useful later performance observations,
+not a synchronized operator-profile bottleneck claim.
+
+Evidence:
+
+```text
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b0_fix2_5de019b_o139_a1
+SUMMARY_SHA256: 08036a2ab77e25f18a657713791eeefd58274a24b95d1d2c7e584e2dd5c9b01c
+GN_CELL_SHA256: 4a9870fa877eda32f00182f7f6e4919f3fdd0f2325c31ca2a3d5fd17c64e1080
+BN1D_CELL_SHA256: 689cea68bf769c421ce85dd5a21800ae491cfebf0fb54a578c85cc233762adf7
+EXECUTION_IDENTITY_SHA256: 3200db37059e3b648d5ce352149aeb40c28cdf63fbb2f211010c814be2b2b80e
+INNER_ARTIFACT_MANIFEST_SHA256: b53bb636130d1b700c4ce08a0f6ac5d93d27f4dc1ad6c882369cc23556cfe598
+RUNNER_ARTIFACT_MANIFEST_SHA256: e8657ccf136c438f6d99055bd7ef4008642da343be3f3cb6e59414d3efe66a76
+ARTIFACT_CHECKS: inner 8/8 and runner 17/17 OK; recursively read-only
+```
 
 ## STOP-C1-B0 — O-138 replacement consumed / second pre-model fixture FAIL
 

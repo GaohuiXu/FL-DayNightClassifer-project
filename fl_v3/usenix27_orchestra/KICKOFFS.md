@@ -85,6 +85,10 @@
 > canonical S10 fixture, then freezing and submitting one strictly derived
 > replacement under unchanged production/scientific/resources. One submission,
 > no retry; stop before C1-B1 or later work.
+> Job `504508` consumed O-139 and passed 106 tests plus both 256-update H256 cells.
+> Zero overflow/invalid/discard occurred. BN1d strongly reduced LiDAR gradients,
+> but its matched loss remained higher and no evaluator ran. Stop before C1-B1;
+> no current compute authority exists.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

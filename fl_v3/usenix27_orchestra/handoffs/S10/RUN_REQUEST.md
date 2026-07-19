@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-139 canonical-fixture remediation and strictly derived C1-B0 replacement active
+REQUEST_STATE: O-139 C1-B0 replacement consumed by successful Job 504508
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing + O-137 C1-B0 + O-138/O-139 replacements
-EXECUTION_AUTHORITY: O-139 one strictly derived replacement; no retry/C1-B1
+EXECUTION_AUTHORITY: none; O-139 consumed; no retry/C1-B1
 SOURCE_SHA: 5de019bf36b1dd5ca077a5a10eaa5e0e5f376ca2
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-139 canonical-fixture remediation and replacement approved 2026-07-19
-EXECUTABLE_NOW: remediate, freeze exact tuple, submit once
+EXECUTABLE_NOW: none; C1-B1 owner decision required
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1714,12 +1714,12 @@ add the explicit operator-profile value appropriate to this fixture, but O-138
 authorizes no edit or replacement. This result remains test-infrastructure
 failure evidence only and says nothing about GN/BN1d fusion training health.
 
-## 34. O-139 canonical-fixture C1-B0 replacement — approved / tuple pending
+## 34. O-139 canonical-fixture C1-B0 replacement — consumed / execution PASS
 
 ```text
 REQUEST_ID: S10-C1B0-FUSION-NORM-HEALTH-H256-v1-fix2
 OWNER_DECISION: O-139
-STATE: approved; exact immutable tuple frozen; executable once
+STATE: consumed once by successful Job 504508; no retry/C1-B1
 CAUSE: Jobs 502958/503075 used one partial manual s09.v1-to-s10.v1 test promotion
 ALLOWED_DIFF: replace that manual promotion with s10_second_config(..., batch_norm_1d) and assert complete resolved propagation
 PRODUCTION_SOURCE/RUNNER/CONFIG: unchanged from O-137
@@ -1761,3 +1761,34 @@ STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/log
 ```bash
 sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G --gpus=nvidia_gh200_120gb:1 --time=00:30:00 --no-requeue --job-name=s10-c1b0-fix2-5de019b --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b0_fix2_5de019b_o139 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b0_fix2_5de019b_o139_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b0_fix2_5de019b_o139_%j.err --export=ALL,S10_C1B0_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b0_fix2_5de019b_o139,S10_C1B0_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b0_fix2_5de019b_o139_a1,S10_C1B0_EXPECTED_SOURCE_SHA=5de019bf36b1dd5ca077a5a10eaa5e0e5f376ca2,S10_C1B0_EXPECTED_TREE=bd5d1c688bf4c25e05856351c0fcb48ce1b6c722,S10_C1B0_EXPECTED_RUNNER_SHA256=6c8a284e4d6c760b07b3b1566a686d2a65a920b39cd298249433652bc49762ce,S10_C1B0_EXPECTED_ENTRY_SHA256=2007fb436bc11015d6578e112af666275f9b67614ea337ba7e19720b3fc8dd94,S10_C1B0_EXPECTED_CONFIG_SHA256=dfb9e05e43444fed632d08d8206383dbedd575ab5c5d3fa4db2d684668dada70 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b0_fix2_5de019b_o139/fl_v3/scripts/run_s10_c1b0_fusion_health.sh
 ```
+
+### Consumed successful outcome
+
+```text
+JOB: 504508
+STATE/EXIT: COMPLETED / 0:0
+ELAPSED/ALLOCATED: 00:06:57 / 0.115833 GH200-hour
+NODE/RESTARTS: n124 / 0
+FOCUSED_TESTS: 106 passed / 0 failed / 6 warnings / 30.36s
+CELLS: F-A1-GN-H256 PASS; F-A1-BN1D-H256 PASS
+UPDATES/TOKENS: 256 and 1024 per cell; exact matched order and shared W0
+OVERFLOW/INVALID/NONFINITE/DISCARDED: 0/0/0/0 in both cells
+FINAL_SCALE: 32 in both cells
+FINAL/TEST/C1B0_EXIT: 0 / 0 / 0
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b0_fix2_5de019b_o139_a1
+SUMMARY_SHA256: 08036a2ab77e25f18a657713791eeefd58274a24b95d1d2c7e584e2dd5c9b01c
+EXECUTION_IDENTITY_SHA256: 3200db37059e3b648d5ce352149aeb40c28cdf63fbb2f211010c814be2b2b80e
+INNER_ARTIFACT_MANIFEST_SHA256: b53bb636130d1b700c4ce08a0f6ac5d93d27f4dc1ad6c882369cc23556cfe598
+RUNNER_ARTIFACT_MANIFEST_SHA256: e8657ccf136c438f6d99055bd7ef4008642da343be3f3cb6e59414d3efe66a76
+ARTIFACT_CHECKS: inner 8/8 OK; runner 17/17 OK; recursively read-only
+CUMULATIVE_AFTER: 3.408889 + 0.115833 = 3.524722 GH200-hours
+```
+
+Both candidates are numerically and optimizer-update healthy over this bounded
+H256 observation. BN1d preserves the C1-A mechanism in the trained fusion graph,
+reducing sampled LiDAR-stem gradient L2 by 217-1904x. AdamW realized stem updates
+remain within roughly `0.81-1.54x` of GN at the same sampled windows, and GN has
+no overflow or invalid update. BN1d starts at higher loss and remains higher on
+251/256 matched windows, including last-16 mean `22.893` versus `21.751`, while
+its descriptive throughput is about 1.41x higher. This neither promotes BN1d nor
+clears GN as a full-run recipe: capability/evaluator evidence is absent.
