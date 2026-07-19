@@ -9,7 +9,7 @@ REQUEST_STATE: O-139 canonical-fixture remediation and strictly derived C1-B0 re
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing + O-137 C1-B0 + O-138/O-139 replacements
 EXECUTION_AUTHORITY: O-139 one strictly derived replacement; no retry/C1-B1
-SOURCE_SHA: 0f51e11c9f879f5bcb9ab2632bcee31969e5c0ac
+SOURCE_SHA: 5de019bf36b1dd5ca077a5a10eaa5e0e5f376ca2
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-139 canonical-fixture remediation and replacement approved 2026-07-19
 EXECUTABLE_NOW: remediate, freeze exact tuple, submit once
@@ -1719,7 +1719,7 @@ failure evidence only and says nothing about GN/BN1d fusion training health.
 ```text
 REQUEST_ID: S10-C1B0-FUSION-NORM-HEALTH-H256-v1-fix2
 OWNER_DECISION: O-139
-STATE: approved; canonical-fixture validation and immutable tuple pending
+STATE: approved; exact immutable tuple frozen; executable once
 CAUSE: Jobs 502958/503075 used one partial manual s09.v1-to-s10.v1 test promotion
 ALLOWED_DIFF: replace that manual promotion with s10_second_config(..., batch_norm_1d) and assert complete resolved propagation
 PRODUCTION_SOURCE/RUNNER/CONFIG: unchanged from O-137
@@ -1738,3 +1738,26 @@ prove no manual S10 schema promotion remains in the propagation test, and show
 zero production/runner/config diff from O-137. The one integrated job runs all
 106 focused tests first and enters H256 execution only after 106/106 pass. Any
 failure consumes O-139 and returns directly to the owner.
+
+### Exact immutable replacement tuple
+
+```text
+SOURCE_SHA: 5de019bf36b1dd5ca077a5a10eaa5e0e5f376ca2
+SOURCE_TREE: bd5d1c688bf4c25e05856351c0fcb48ce1b6c722
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b0_fix2_5de019b_o139
+SNAPSHOT_MODE: detached / clean / recursively read-only
+RUNNER_SHA256: 6c8a284e4d6c760b07b3b1566a686d2a65a920b39cd298249433652bc49762ce
+ENTRY_SHA256: 2007fb436bc11015d6578e112af666275f9b67614ea337ba7e19720b3fc8dd94
+CONFIG_SHA256: dfb9e05e43444fed632d08d8206383dbedd575ab5c5d3fa4db2d684668dada70
+RESOLVED_GN_SHA256: 67f8ebb8e5fce20794d14ffaae9e8a72e4332934dba9e6dc879dbb9d80df8313
+RESOLVED_BN1D_SHA256: 3b3a0069862136211967718bfa767cacf4e1928f142015ca0718f5579cba221d
+SPLIT_MANIFEST_SHA256: 7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8
+H256_ORDERED_TOKEN_SHA256: 62a096c0990e6d1d0932868a882b2418e731d1a816f481e741996e49c8e975f7
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b0_fix2_5de019b_o139_a1
+STDOUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b0_fix2_5de019b_o139_%j.out
+STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b0_fix2_5de019b_o139_%j.err
+```
+
+```bash
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G --gpus=nvidia_gh200_120gb:1 --time=00:30:00 --no-requeue --job-name=s10-c1b0-fix2-5de019b --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b0_fix2_5de019b_o139 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b0_fix2_5de019b_o139_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b0_fix2_5de019b_o139_%j.err --export=ALL,S10_C1B0_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b0_fix2_5de019b_o139,S10_C1B0_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b0_fix2_5de019b_o139_a1,S10_C1B0_EXPECTED_SOURCE_SHA=5de019bf36b1dd5ca077a5a10eaa5e0e5f376ca2,S10_C1B0_EXPECTED_TREE=bd5d1c688bf4c25e05856351c0fcb48ce1b6c722,S10_C1B0_EXPECTED_RUNNER_SHA256=6c8a284e4d6c760b07b3b1566a686d2a65a920b39cd298249433652bc49762ce,S10_C1B0_EXPECTED_ENTRY_SHA256=2007fb436bc11015d6578e112af666275f9b67614ea337ba7e19720b3fc8dd94,S10_C1B0_EXPECTED_CONFIG_SHA256=dfb9e05e43444fed632d08d8206383dbedd575ab5c5d3fa4db2d684668dada70 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b0_fix2_5de019b_o139/fl_v3/scripts/run_s10_c1b0_fusion_health.sh
+```

@@ -642,6 +642,12 @@ experiment file changes. After local/static schema audit, freeze one new detache
 read-only snapshot and fresh output and submit exactly once under the unchanged
 O-137 resource/scientific tuple. No retry, C1-B1 or later-stop continuation.
 
+The canonical fixture was constructed and resolved outside pytest, both real
+production candidate identities remained unchanged, and no manual schema
+promotion remains. Exact source `5de019bf36b1dd5ca077a5a10eaa5e0e5f376ca2`,
+its detached recursively read-only snapshot and replacement command are frozen
+in `RUN_REQUEST.md` §34.
+
 ## 7. STOP-D/E/F boundaries
 
 - **D:** choose the production recipe only after C closes. Sampling/CBGS and
