@@ -8,11 +8,11 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement; O-137 C1-B0 fusion health; O-138 exact test-only replacement; O-139 canonical-fixture replacement; O-140 C1-B1 capability; O-141 BN1d-B8 operational candidate; O-142 exact schema remediation/replacement
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-142 exact remediation/commit + one unchanged replacement after tuple freeze
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-142 only; no reviewer chain
+CURRENT_AUTHORITY: none; O-142 consumed / owner decision required
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: none; no reviewer chain
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
-STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A `LOCALIZED_NORM`; C1-B0 PASS; C1-B1 `FAIL/INCOMPLETE`; O-141 BN1d-B8 pre-model FAIL/no evidence
+STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A `LOCALIZED_NORM`; C1-B0 PASS; C1-B1 `FAIL/INCOMPLETE`; O-142 BN1d-B8 scientific body complete but tail evidence gate FAIL/INCOMPLETE
 C0_IMPLEMENTATION_SHA: 89958be504d6abaef66810695402d2a09619794b
 C0_JOB: 492525 / FAILED 1:0 / 00:47:32 / 0.792222 GH200-hours
 C0_REMEDIATION_REVIEW: 09c39458a0b32ce1d4a3ae603094d76ae160ac42 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
@@ -1066,3 +1066,29 @@ submission is allowed with no retry, followed by evidence sealing and stop.
 Remediation source/tree `864f704f5bdf1a63db8aba342778d6bf6d36fe57` /
 `b9c10ef88e331510361a680768963b4406b860a4` and its detached recursively
 read-only replacement tuple are frozen in `RUN_REQUEST.md` §37.
+
+Job `505316` consumed the sole O-142 submission and reached Slurm `TIMEOUT` at
+`00:30:07` (`0.501944` GH200-hour). It passed 121 focused tests with three
+skips, completed all 769 physical-B8 optimizer updates over the exact 6,152
+ordered samples with zero overflow/invalid/nonfinite/discarded windows, saved a
+terminal checkpoint, and completed exact 4,626-sample D_select prediction and
+metric generation. Training loss fell from first-boundary `1996.296` to final
+chunk `23.367`; sampled LiDAR realized update/weight stayed at or below
+`2.355e-4`. Training took `434.558s` (`14.157 samples/s`); peak Torch allocated/
+reserved memory was `31.234/77.254 GiB`.
+
+The train-only point estimate is NDS/mAP `0.078409/0.013024`, versus sealed
+GN-B4 `0.144475/0.061553` and incomplete BN1d-B4 `0.136705/0.053125`. Thus this
+joint BN1d+B8+scale8+half-update operating point is numerically stable and
+faster, but substantially weaker under the unchanged LR/exposure recipe. It
+does not support B8 promotion. The process entered `_paired_log_evidence` after
+writing the cell summary at 16:00:17 and was killed at 16:08:25; neither paired
+comparison, aggregate summary, inner manifest nor runner manifest exists.
+
+One additional evidence defect was found: `_run_cell` hardcodes the display
+field `recipe.physical_microbatch=4`. The raw report therefore
+mislabels that one field, while resolved config, cell spec,
+`training_token_evidence.physical_microbatch=8`, 769 windows and 6,152 actual
+tokens independently establish physical B8. Raw output is not rewritten. O-142
+is `FAIL/INCOMPLETE` and consumed; any report-field correction or CPU-only
+paired-statistic salvage requires a new owner decision.

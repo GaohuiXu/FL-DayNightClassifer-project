@@ -1973,12 +1973,12 @@ suite did not invoke the new `_assert_config` function, and the login-node
 dependency gap prevented the attempted direct entry import from reaching it.
 O-141 is consumed and authorizes no patch execution or replacement submission.
 
-## 37. O-142 exact schema remediation and unchanged replacement — approved / tuple frozen
+## 37. O-142 exact schema remediation and unchanged replacement — consumed / FAIL-INCOMPLETE
 
 ```text
 REQUEST_ID: S10-C1B1-BN1D-B8-v1-R1
 OWNER_DECISION: O-142
-STATE: exact remediation committed and immutable tuple frozen; sole replacement executable
+STATE: sole replacement consumed by Job 505316; no retry or post-processing authority
 ONLY_CODE_CHANGE: config.schema_version -> config.data["schema_version"]
 ONLY_TEST_CHANGE: resolve exact s10_c1b1_bn_b8.json and directly call _assert_config
 SCIENTIFIC/RESOURCE_SCOPE: byte-for-byte O-141 runner/config semantics outside the exact correction; same §36 envelope
@@ -2014,3 +2014,27 @@ STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/log
 ```bash
 sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G --gpus=nvidia_gh200_120gb:1 --time=00:30:00 --no-requeue --job-name=s10-c1b8-864f704 --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b8_864f704_o142 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b8_864f704_o142_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b8_864f704_o142_%j.err --export=ALL,S10_C1B8_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b8_864f704_o142,S10_C1B8_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b8_864f704_o142_a1,S10_C1B8_EXPECTED_SOURCE_SHA=864f704f5bdf1a63db8aba342778d6bf6d36fe57,S10_C1B8_EXPECTED_TREE=b9c10ef88e331510361a680768963b4406b860a4,S10_C1B8_EXPECTED_RUNNER_SHA256=0e1a15e5e34ce54fabd94e02136fe9ed593468742b667b31d8e1407400c7f26c,S10_C1B8_EXPECTED_ENTRY_SHA256=e6e3825cf65a516692fec664a8666bb19327bc5be53beb0f4ce22aa619088382,S10_C1B8_EXPECTED_CONFIG_SHA256=265480319a60053ad67a0e4f7b7b722fca0630708293f1e2231d4981d7826202,S10_C1B8_EXPECTED_RESOLVED_SHA256=2b9a3e850beedd133df269bb10571c2d2a58ea9bf05afb8e0cbebeab6ff16f71 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b8_864f704_o142/fl_v3/scripts/run_s10_c1b1_bn_b8.sh
 ```
+
+### Consumed outcome — scientific body complete, tail evidence gate timed out
+
+```text
+JOB: 505316
+SACCT: TIMEOUT / top-level 0:0 / batch CANCELLED 0:9
+ELAPSED: 00:30:07
+CHARGED: 0.501944 GH200-hour
+TESTS: 121 passed / 3 skipped / 6 warnings
+TRAIN: 769/769 accepted physical-B8 updates; zero overflow/invalid/nonfinite/discarded
+D_SELECT: exact 4,626 predictions + metrics + cell summary complete
+MISSING: paired_vs_gn_b4.json; paired_vs_bn_b4.json; summary.json; artifact_sha256s.json; runner_artifact_sha256s.txt
+POINT_METRICS: NDS 0.07840940894858875 / mAP 0.013023561548729617
+VERDICT: FAIL/INCOMPLETE
+CUMULATIVE_AFTER: 4.847777 GH200-hours
+```
+
+The job exhausted the wall limit inside paired-log post-processing after the
+cell summary was durable. No retry, post-processing job, report-field rewrite,
+or later-stop continuation is authorized. The raw cell report's
+`recipe.physical_microbatch=4` is a legacy hardcoded display defect; resolved
+config, cell declaration, actual token evidence and update/sample arithmetic
+prove physical B8. Any code correction or salvage envelope requires a new owner
+decision.

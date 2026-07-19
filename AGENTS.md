@@ -246,7 +246,20 @@ the exact B8 config and calls `_assert_config`, then freeze a new detached
 read-only snapshot/fresh output. All O-141 graph/data/W0/token/B8/scale8/769-
 update/evaluator/gate/resource semantics remain unchanged. One no-retry
 one-GH200/16-CPU/96-GiB/`00:30:00` replacement capped at `0.5` GH200-hour is
-authorized, followed by evidence sealing and stop.
+authorized, followed by evidence sealing and stop. Exact remediation `864f704`
+and tuple `d98eaec` were consumed by Job `505316`. The job passed 121 tests,
+completed all 769 physical-B8 updates with zero overflow/invalid/discarded
+windows, saved the terminal checkpoint, and completed exact 4,626-sample
+`D_select` evaluation. It then timed out at `00:30:07` while computing the
+post-evaluation paired-log statistics, before either paired artifact, aggregate
+summary, or runner manifest was written. The available point estimate is
+NDS/mAP `0.078409/0.013024`, below sealed GN-B4 `0.144475/0.061553` and
+incomplete BN1d-B4 `0.136705/0.053125`; B8 training throughput was
+`14.157 samples/s`. The raw cell report also incorrectly retains the legacy
+`recipe.physical_microbatch=4` display field even though resolved config, cell
+spec, actual token evidence and 769 x 8 accounting establish B8. O-142 is
+consumed and classified `FAIL/INCOMPLETE`; no retry or post-processing job is
+authorized.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

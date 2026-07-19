@@ -108,7 +108,11 @@
 > consumed; no replacement is executable without a new owner decision.
 > O-142 supplies that decision for the exact schema-access correction and direct
 > resolved-config regression only. Freeze one new snapshot/tuple and submit one
-> unchanged 30-minute replacement; no retry or scope expansion.
+> unchanged 30-minute replacement; no retry or scope expansion. Job `505316`
+> consumed the replacement. Training and D_select point evaluation completed,
+> but Slurm timed out during paired-log post-processing before final manifests;
+> the raw recipe display also contains a legacy B4 label. O-142 is
+> `FAIL/INCOMPLETE`, and no launch is currently authorized.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

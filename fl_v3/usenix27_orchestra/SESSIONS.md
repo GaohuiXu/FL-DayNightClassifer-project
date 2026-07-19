@@ -111,7 +111,13 @@
 > update or evaluator ran. O-141 is consumed and provides no scientific result.
 > O-142 authorizes the one-line canonical schema access, a direct assertion
 > regression and one otherwise unchanged fresh-output O-141 replacement. One
-> 30-minute GH200 submission/no retry, then evidence sealing and stop.
+> 30-minute GH200 submission/no retry, then evidence sealing and stop. Job
+> `505316` consumed it and timed out at `00:30:07` after the 769-update B8 cell
+> and D_select point metrics completed but before paired-log/final manifests.
+> The point estimate is materially below both B4 references despite zero
+> overflow and higher throughput. The raw recipe display also has a legacy B4
+> label inconsistent with authoritative B8 config/token evidence. O-142 is
+> `FAIL/INCOMPLETE`; no current compute or post-processing authority remains.
 >
 > `Sxx` is an evidence namespace, not automatically a worker, task, branch, or
 > worktree. Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Active launch
@@ -141,7 +147,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | STOP-A closed; STOP-B closed `INCONCLUSIVE`; C0-v2 PASS; C1-A `LOCALIZED_NORM`; C1-B0 PASS; C1-B1 `FAIL/INCOMPLETE`; owner decision required |
+| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | STOP-A closed; STOP-B closed `INCONCLUSIVE`; C0-v2 PASS; C1-A `LOCALIZED_NORM`; C1-B0 PASS; C1-B1/O-142 BN-B8 `FAIL/INCOMPLETE`; owner decision required |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract

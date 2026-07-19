@@ -1,4 +1,62 @@
-# S10 results — STOP-A/B closed; O-141 pre-model `FAIL`
+# S10 results — STOP-A/B closed; O-142 BN-B8 `FAIL/INCOMPLETE`
+
+## STOP-C1-BN1d-B8 — O-142 scientific body complete / tail gate timed out
+
+```text
+AUTHORITY: O-142
+SOURCE/TREE: 864f704f5bdf1a63db8aba342778d6bf6d36fe57 / b9c10ef88e331510361a680768963b4406b860a4
+JOB: 505316 / TIMEOUT / 00:30:07 / 0.501944 GH200-hour
+TESTS: 121 passed / 3 skipped / 6 warnings in 69.11s
+TRAIN: physical B8 / 769 attempted and accepted updates / 6,152 samples / zero overflow-invalid-nonfinite-discarded
+D_SELECT: 4,626/4,626 predictions and metrics complete
+TAIL: paired_vs_gn_b4, paired_vs_bn_b4, summary, inner manifest and runner manifest absent
+VERDICT: FAIL/INCOMPLETE; no automatic BN1d/B8 promotion
+```
+
+The exact cell is numerically healthy: loss fell from `1996.2958` at the first
+boundary to `23.3669` in the final chunk, the GradScaler remained at 8, every
+required trainable prefix received a finite gradient, and sampled maximum
+LiDAR update/weight was `2.3547e-4`. Training wall time was `434.558s`
+(`14.1569 samples/s`), 66.72% faster than sealed GN-B4 and 16.36% faster than
+incomplete BN1d-B4. Peak Torch allocated/reserved memory was
+`31.234/77.254 GiB` on the reported 95.000-GiB device.
+
+Point estimates are adverse:
+
+| cell | accepted updates | NDS | mAP |
+|---|---:|---:|---:|
+| GN-B4 sealed reference | 1,538 | 0.144475 | 0.061553 |
+| BN1d-B4 incomplete reference | 1,537 | 0.136705 | 0.053125 |
+| BN1d-B8 O-142 | 769 | 0.078409 | 0.013024 |
+
+BN1d-B8 minus GN-B4 is `-0.066065` NDS / `-0.048530` mAP; versus incomplete
+BN1d-B4 it is `-0.058296` / `-0.040101`. All nonzero B8 per-class mAP values
+are also below GN-B4. This is single-seed train-only proxy evidence, and B8 has
+half as many optimizer updates at the same sample exposure, so it is evidence
+against this unchanged joint operating point rather than proof that B8 itself
+is harmful.
+
+The cell summary was written at 16:00:17; Slurm killed the job at 16:08:25 while
+the entry was computing the two paired eight-log comparisons. Because those
+artifacts and both manifests are absent, the execution cannot pass its exact
+evidence gate. The raw report also contains a known display defect:
+`recipe.physical_microbatch=4` is legacy hardcoded metadata. Authoritative
+resolved config, `cell.physical_microbatch=8`, token evidence B8, and
+`769 x 8 = 6,152` establish the actual execution. The immutable raw directory
+is retained as `.control` and was not rewritten:
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b8_864f704_o142_a1.control`.
+
+```text
+EXECUTION_IDENTITY_SHA256: f5a4d70fc1ecb6086f2c6ba6ea359d693e7013dab930fb7e46ee84de957e3c54
+RESOLVED_CONFIG_SHA256: 9d5424da55df709255d9d34d7add6f600a4060caa22da94adb616962b1c0d5b7
+SAMPLED_WINDOWS_SHA256: 176a4455c4845feb9a8626290e582b6bb664e3dc46696bd86cde3b8a3ade3915
+CHECKPOINT_SHA256: 7ecf0c3c806ce56daf7af4fa93f1ba7bca594804e75542889c2fedc141fe8535
+D_SELECT_RESULTS_SHA256: c6f4afe9873da02c3478717619040d65c9a07a689a3a6ac7c8fa8df324c60d1e
+D_SELECT_METRICS_SHA256: 8d95c8e9afd864fbd37506cb7fb76e57f92c6a7820f38cfcccf576eb0003a9b1
+CELL_SUMMARY_SHA256: c65e74e72aaf756bb6bf1fd1f76129dc0f7fd779761021febccc80a07ec40d33
+TELEMETRY_SHA256: e16a10e3bbdaf7d20552723d128412d3f925ed1ddce51209bf95b5813df319f4
+CUMULATIVE_ABC: 4.847777 GH200-hours
+```
 
 ## STOP-C1-BN1d-B8 — O-141 consumed / no experimental cell ran
 
