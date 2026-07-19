@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-132 C0-v2 consumed / O-134 C1-A authorized pending exact implementation freeze
+REQUEST_STATE: O-132 C0-v2 consumed / O-134 C1-A exact tuple frozen and executable once
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing/amendment
 EXECUTION_AUTHORITY: O-134 one exact C1-A job after immutable implementation/source/command freeze
 SOURCE_SHA: 2262b4063a3e419b17f4b911a9e11a7ff50ea784
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-134 C1-A implementation and compute approved 2026-07-19
-EXECUTABLE_NOW: pending exact C1-A implementation commit/tuple freeze; C1-B and STOP-D/E/F remain owner-gated
+EXECUTABLE_NOW: exact §29 C1-A tuple once; C1-B and STOP-D/E/F remain owner-gated
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1365,12 +1365,30 @@ O-134 below supersedes this no-executable state for C1-A only. The exact MIT
 anchor remains pending before any C1-B reference-guided repair. Unused O-124
 aggregate budget is not execution authority.
 
-## 29. O-134 C1-A authorization — implementation freeze pending
+## 29. O-134 C1-A exact immutable tuple — executable once
 
 ```text
 REQUEST_ID: S10-C1A-GRAD-CAUSAL-O134-v1
-STATE: OWNER APPROVED / IMPLEMENTATION AND EXACT HASH FREEZE IN PROGRESS
+STATE: OWNER APPROVED / FROZEN / EXECUTABLE EXACTLY ONCE
+SOURCE_SHA: 95c09a149029d63e243e5e418385f39d2d1aed66
+SOURCE_TREE: 10b8da87eff3b5aed171a4d325061a2baf9dee0e
+BRANCH_AT_FREEZE: codex/s10-cl-model-recipe
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1a_95c09a1_o134
+SNAPSHOT_MODE: detached HEAD; clean; recursively read-only; zero group/other-writable paths
+RUNNER_SHA256: e178080b7be31c981e0366ba9894caba5e268f2be58efc547aec9befab65e039
+ENTRY_SHA256: 6247b732e1054480a082416f635dce04b56182f09c720538cd34beca3a92f6c4
+SECOND_SHA256: 9238d33e3cc28ffc1693585c691ee9967444b19da532a9cdc56a7210ec8c153d
+OBSERVATION_HELPER_SHA256: 13b27eaf94fc07c7752db7a1090c0bcf307e5e804ee18f74b2bfd9be15602189
+CONFIG: fl_v3/configs/s10_b_rand_l_fp32.json
+CONFIG_FILE_SHA256: 5043b09195b3c05a7d94e8d88b3e3cd1bffdb6eba49ed93776fd966b28642698
+CONFIG_RESOLVED_SHA256: bacf186c8cd7e965f332dec00691a666147cd0a62231581517bf3d0f246bff34
+EXPECTED_CURRENT_GN_W0: a1a98033131d5496308f0a2694032a1473d582d3435cabd9db285f60b357ef0a
 DATA: accepted STOP-A D_low plus complete accepted STOP-B panel; P_core48 + P_term16 as 16 disjoint physical-B4 batches / 64 samples
+SPLIT_MANIFEST: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_feasible_ad93c89333b0_o127_a1/split/split_manifest.json
+SPLIT_MANIFEST_SHA256: 7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8
+PANEL_MANIFEST: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_diag_8fd832dc7d46_o128_a1/panel_manifest.json
+PANEL_FILE_SHA256: c2826effeba2e074ef8f76ab582bbb5dc796f41b9555348d56e252a2d70138a6
+PANEL_CONTENT_SHA256: 8e4f2d992d7a27d771c6fdf00098afc14b9621bc50ea1e52319b84d406f9ad55
 GRAPH: L-S075 only; current tiny-group GN versus direct-reference BN1d(eps=1e-3,momentum=0.01); identical convolution and affine W0
 PRECISION: uniform FP32
 PATHWAYS: normal detection-loss backward; coordinate/channel-derived fixed SECOND-output VJP
@@ -1380,13 +1398,19 @@ EXIT: LOCALIZED_NORM / LOCALIZED_HEAD_LOSS / LOCALIZED_SPARSE_OCCUPANCY / INCONC
 OPTIMIZER/UPDATE/EVALUATOR: absent / zero / absent
 RESOURCE: one GH200; one node/task; 8 CPU; 64 GiB; 00:30:00; max 0.5 GH200-hour
 SUBMISSIONS/RETRY: exactly one / forbidden
+FOCUSED_TESTS: SECOND contract + C1-A classification/observation + S10 binding + S08 precision partition + selected task/config guards; all before model execution
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1a_95c09a1_o134_a1
+SUBMIT_COMMAND_SHA256_NO_TRAILING_NEWLINE: 55930167bc82846cf4f472624203ef337cb164a3610a70a580707b4e595fbf59
+CONCURRENCY_PREFLIGHT: require no other owner job before submission
+STOP: any source/tree/file/config/data/panel/resource/runtime/test/identity/integrity/artifact failure or timeout; return to owner
 C1-B: not executable; current A1/A2 first under a future exact gate, MIT-reference repair only after materially-worse evidence
 ```
 
-O-134 authorizes focused local/GH200 tests, linear authorization/implementation/
-freeze/evidence commits, one detached recursively read-only execution snapshot and
-the single exact job above. The implementation commit must preserve the production
-GN default and expose only the explicit BN1d counterfactual. Before submission,
-this section must bind source/tree, file/config hashes, snapshot, fresh output,
-literal command and stop conditions. Any semantic/resource change or first job
-failure returns to the owner; it is not a remediation-loop authorization.
+Exact command:
+
+```bash
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=8 --mem=64G --gpus=nvidia_gh200_120gb:1 --time=00:30:00 --no-requeue --job-name=s10-c1a-95c09a1 --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1a_95c09a1_o134 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1a_95c09a1_o134_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1a_95c09a1_o134_%j.err --export=ALL,S10_C1A_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1a_95c09a1_o134,S10_C1A_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1a_95c09a1_o134_a1,S10_C1A_EXPECTED_SOURCE_SHA=95c09a149029d63e243e5e418385f39d2d1aed66,S10_C1A_EXPECTED_TREE=10b8da87eff3b5aed171a4d325061a2baf9dee0e,S10_C1A_EXPECTED_RUNNER_SHA256=e178080b7be31c981e0366ba9894caba5e268f2be58efc547aec9befab65e039,S10_C1A_EXPECTED_ENTRY_SHA256=6247b732e1054480a082416f635dce04b56182f09c720538cd34beca3a92f6c4,S10_C1A_EXPECTED_SECOND_SHA256=9238d33e3cc28ffc1693585c691ee9967444b19da532a9cdc56a7210ec8c153d,S10_C1A_EXPECTED_OBSERVATION_SHA256=13b27eaf94fc07c7752db7a1090c0bcf307e5e804ee18f74b2bfd9be15602189,S10_C1A_EXPECTED_CONFIG_SHA256=5043b09195b3c05a7d94e8d88b3e3cd1bffdb6eba49ed93776fd966b28642698 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1a_95c09a1_o134/fl_v3/scripts/run_s10_c1a_gradient_causality.sh
+```
+
+Any semantic/resource change or first job failure returns to the owner; O-134 is
+not a remediation-loop authorization and does not permit a retry.
