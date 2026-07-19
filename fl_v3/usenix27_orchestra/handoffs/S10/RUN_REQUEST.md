@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-140 C1-B1 implementation/execution active; exact tuple pending implementation commit
+REQUEST_STATE: O-140 C1-B1 exact immutable tuple frozen; sole submission executable
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing + O-140 C1-B1
 EXECUTION_AUTHORITY: one exact O-140 C1-B1 submission after immutable tuple freeze; no retry
-SOURCE_SHA: pending O-140 implementation commit
+SOURCE_SHA: 239cd6260c42b53e63d5e229493bbf47c4a41915
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-140 C1-B1 scope and 0.7-1.0 expected GH200-hour request approved 2026-07-19
-EXECUTABLE_NOW: after exact source/snapshot/command/output tuple is frozen below
+EXECUTABLE_NOW: exact §35 tuple only; one submission/no retry
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1798,7 +1798,7 @@ clears GN as a full-run recipe: capability/evaluator evidence is absent.
 ```text
 REQUEST_ID: S10-C1B1-CUR-A1-GN-BN1D-DLOW-v1
 OWNER_DECISION: O-140
-STATE: approved; exact implementation source/snapshot/command tuple pending freeze
+STATE: exact immutable tuple frozen; sole submission executable
 CELLS: C1-B1-CUR-A1-GN-DLOW -> C1-B1-CUR-A1-BN1D-DLOW, serial
 GRAPH/INIT: current A1 fusion; shared exact seed-0 trainable W0; ImageNet1K V1 camera
 NORMALIZATION: group_norm versus batch_norm_1d only
@@ -1826,6 +1826,25 @@ not a hidden winner gate. Execution PASS requires both complete matched
 training/evaluation cells; scientific weakness is retained and returned to the
 owner rather than tuned or relabeled.
 
-The exact source/tree, detached recursively read-only snapshot, runner/entry/
-config/resolved identities, fresh output and sole `sbatch` command must be
-recorded here before submission.
+### Exact immutable tuple
+
+```text
+SOURCE_SHA: 239cd6260c42b53e63d5e229493bbf47c4a41915
+SOURCE_TREE: 3affb50159884382556b5174c4d2ffc343cc365c
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b1_239cd62_o140
+SNAPSHOT_MODE: standalone clone; detached HEAD; clean; recursively read-only; zero group/other-writable paths
+RUNNER_SHA256: ed19dbb9db7f1e162afa6dd69ed51eac45beb5e97a9a7bde2cec276dca130dde
+ENTRY_SHA256: 9c9d0f325a0491ecfe2b3b58cf8a1253be2013878ec687ea37afe60cb9fdae1e
+CONFIG_SHA256: b5b60a8b21b8f578b16f582044bc29d297a3e9abae49ec83d297907c1c1f7896
+RESOLVED_GN_SHA256: eec07861f0fb0403a4eae5795e88d00b31507b1ecbb6ddb54d122bdaba9bdc82
+RESOLVED_BN1D_SHA256: d11d632b9e65c6ad053d2c2413bba9aa9ddbfe6580280e080e58be4900346bf6
+SPLIT_MANIFEST_SHA256: 7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8
+SWIN_WEIGHTS_SHA256: 704ceda373461b0a224fcdddd75cd2a5e9f8064512ed47adbddef7f343fd147b
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b1_239cd62_o140_a1
+STDOUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b1_239cd62_o140_%j.out
+STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b1_239cd62_o140_%j.err
+```
+
+```bash
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G --gpus=nvidia_gh200_120gb:1 --time=01:00:00 --no-requeue --job-name=s10-c1b1-239cd62 --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b1_239cd62_o140 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b1_239cd62_o140_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b1_239cd62_o140_%j.err --export=ALL,S10_C1B1_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b1_239cd62_o140,S10_C1B1_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b1_239cd62_o140_a1,S10_C1B1_EXPECTED_SOURCE_SHA=239cd6260c42b53e63d5e229493bbf47c4a41915,S10_C1B1_EXPECTED_TREE=3affb50159884382556b5174c4d2ffc343cc365c,S10_C1B1_EXPECTED_RUNNER_SHA256=ed19dbb9db7f1e162afa6dd69ed51eac45beb5e97a9a7bde2cec276dca130dde,S10_C1B1_EXPECTED_ENTRY_SHA256=9c9d0f325a0491ecfe2b3b58cf8a1253be2013878ec687ea37afe60cb9fdae1e,S10_C1B1_EXPECTED_CONFIG_SHA256=b5b60a8b21b8f578b16f582044bc29d297a3e9abae49ec83d297907c1c1f7896,S10_C1B1_EXPECTED_GN_RESOLVED_SHA256=eec07861f0fb0403a4eae5795e88d00b31507b1ecbb6ddb54d122bdaba9bdc82,S10_C1B1_EXPECTED_BN_RESOLVED_SHA256=d11d632b9e65c6ad053d2c2413bba9aa9ddbfe6580280e080e58be4900346bf6 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b1_239cd62_o140/fl_v3/scripts/run_s10_c1b1_capability.sh
+```

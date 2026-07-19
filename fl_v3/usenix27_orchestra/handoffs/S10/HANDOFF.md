@@ -1000,3 +1000,8 @@ uncertainty. No numerical superiority or non-inferiority margin was approved,
 so the code must emit `OWNER_DECISION_REQUIRED` and cannot promote BN1d or GN.
 One one-hour GH200 submission is authorized with no retry; after evidence
 sealing S00 stops before A2, MIT repair, D_audit/official val or later stops.
+
+The exact implementation source/tree is
+`239cd6260c42b53e63d5e229493bbf47c4a41915` /
+`3affb50159884382556b5174c4d2ffc343cc365c`; the sole immutable execution tuple
+is frozen in `RUN_REQUEST.md` §35.
