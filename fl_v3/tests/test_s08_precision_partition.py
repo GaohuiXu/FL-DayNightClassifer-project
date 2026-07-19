@@ -83,6 +83,7 @@ def test_s10_batch_norm_reaches_production_detector_constructor(tmp_path):
     raw["schema_version"] = "s10.v1"
     raw["model"]["camera_activation_checkpoint"] = False
     raw["model"]["second_normalization"] = "batch_norm_1d"
+    raw["training"]["grad_scaler_init_scale"] = 32
     config = _det_config_from_run(resolve_config(raw).to_run_config())
     assert config.second_normalization == "batch_norm_1d"
 

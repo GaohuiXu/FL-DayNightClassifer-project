@@ -159,6 +159,14 @@ to `s10.v1` without adding its required scale-32 field. No experiment model,
 H256 batch, optimizer or scientific cell executed. This is a test-fixture/layout
 failure, not GN/BN1d training evidence. No retry or autonomous remediation is
 authorized; C1-B0 returns to the owner.
+Owner decision O-138 authorizes only the exact test-neutral correction diagnosed
+from Job `502958`: move the three operator-profile hash assertions back into their
+original S09-v2 test and add required `grad_scaler_init_scale=32` to the migrated
+`s10.v1` test fixture. It authorizes local/static validation, one linear
+remediation commit, one new detached read-only snapshot and one strictly derived
+C1-B0 replacement with unchanged production source, runner, config, data, cells,
+seed, W0, H256 horizon, gates and O-137 resources. The replacement has one
+submission, no retry and no C1-B1 or later-stop authority.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

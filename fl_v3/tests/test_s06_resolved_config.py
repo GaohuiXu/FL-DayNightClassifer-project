@@ -188,6 +188,10 @@ def test_s09_v2_checkpoint_and_operator_profile_are_explicit_and_hash_bound(tmp_
     changed["model"]["camera_activation_checkpoint"] = True
     assert resolve_config(changed).sha256 != resolved.sha256
 
+    changed = copy.deepcopy(raw)
+    changed["execution"]["operator_profile"]["active_attempted_windows"] = 1
+    assert resolve_config(changed).sha256 != resolved.sha256
+
 
 def test_s10_second_normalization_is_explicit_hash_bound_and_roundtrips(tmp_path):
     gn = resolve_config(s10_second_config(tmp_path, "group_norm"))
@@ -215,9 +219,6 @@ def test_s10_second_normalization_rejects_missing_alias_or_wrong_route(
     mutation(raw)
     with pytest.raises(ConfigError, match=message):
         resolve_config(raw)
-    changed = copy.deepcopy(raw)
-    changed["execution"]["operator_profile"]["active_attempted_windows"] = 1
-    assert resolve_config(changed).sha256 != resolved.sha256
 
 
 @pytest.mark.parametrize(

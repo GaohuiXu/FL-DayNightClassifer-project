@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-137 exact C1-B0 tuple consumed by Job 502958 / pre-model test-fixture FAIL
+REQUEST_STATE: O-138 exact test-only remediation and strictly derived C1-B0 replacement active
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
-PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing + O-137 C1-B0
-EXECUTION_AUTHORITY: none; O-137 consumed; no correction/retry/C1-B1
+PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing + O-137 C1-B0 + O-138 exact replacement
+EXECUTION_AUTHORITY: O-138 one strictly derived replacement; no retry/C1-B1
 SOURCE_SHA: 96ae63d69ca9e5c95f528dd8c4e5bbcf934ac0c4
 BRANCH: codex/s10-cl-model-recipe
-OWNER_APPROVAL: O-137 C1-B0 plan and compute approved 2026-07-19
-EXECUTABLE_NOW: none; owner decision required
+OWNER_APPROVAL: O-138 exact remediation and replacement approved 2026-07-19
+EXECUTABLE_NOW: remediate, freeze exact tuple, submit once
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1639,3 +1639,28 @@ localizes a causal normalization-path contribution because BN1d reduces both
 the fixed-upstream SECOND Jacobian gradients and normal-loss gradients beyond
 repeat variation. It neither proves BN1d convergence/capability nor selects it
 for production; those require a separately approved training/evaluation gate.
+
+## 33. O-138 strictly derived C1-B0 test-only replacement — approved / tuple pending
+
+```text
+REQUEST_ID: S10-C1B0-FUSION-NORM-HEALTH-H256-v1-fix1
+OWNER_DECISION: O-138
+STATE: approved; remediation validation and immutable tuple pending
+CAUSE: Job 502958 pre-model test-only fixture/layout failure
+ALLOWED_DIFF: move three operator-profile hash assertions to their original S09-v2 test; add grad_scaler_init_scale=32 to one migrated s10.v1 fixture
+PRODUCTION_SOURCE/RUNNER/CONFIG: unchanged from O-137
+DATA/CELLS/SEED/W0/PRECISION/RECIPE/HORIZON/DIAGNOSTICS/GATES: unchanged from O-137
+RESOURCE: 1 node / 1 x GH200 / 16 CPUs / 96 GiB / 00:30:00 / no-requeue
+EXPECTED/CAP: 0.20-0.30 / 0.5 elapsed GH200-hour
+SUBMISSIONS: exactly one fresh replacement; no retry, requeue, array, DDP or spare GPU
+CUMULATIVE_BEFORE: 3.372500 GH200-hours
+CUMULATIVE_HARD_MAX_AFTER: 3.872500 GH200-hours
+FORBIDDEN: any production/scientific/resource change, C1-B1, later C/D/E/F, reviewer chain, merge, push, upload
+```
+
+The replacement may be frozen only after the diff is shown to contain exactly
+the two test corrections plus canonical authority records and after local/static
+config identity checks pass. It uses one new detached clean recursively
+read-only snapshot, fresh output/log paths and exact hashes. Any failure consumes
+O-138 and returns directly to the owner; no automatic remediation or replacement
+is authorized.

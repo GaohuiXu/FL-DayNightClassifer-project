@@ -73,6 +73,10 @@
 > Job `502958` consumed O-137 and stopped pre-model after 100 passed/6 failed
 > tests. No experimental cell ran. The exact test-only diagnosis is recorded in
 > S10 `RUN_REQUEST.md` §32; no correction or replacement is currently executable.
+> O-138 now authorizes only that exact test-neutral correction and one strictly
+> derived replacement with unchanged C1-B0 production/scientific/resource tuple.
+> Freeze a new detached snapshot and fresh output, submit once with no retry, and
+> stop before C1-B1 or any later stop.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
