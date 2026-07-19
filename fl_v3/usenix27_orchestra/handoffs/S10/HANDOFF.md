@@ -618,6 +618,11 @@ remain byte-identical. After local/static validation, freeze one new detached
 read-only snapshot and fresh output and submit exactly once. There is no retry,
 scope derivation, C1-B1, later-stop or reviewer-chain authority.
 
+The correction is committed at exact source
+`0f51e11c9f879f5bcb9ab2632bcee31969e5c0ac`; its production runner, entry and
+config hashes are unchanged from O-137. The new detached recursively read-only
+snapshot and fresh replacement command are frozen in `RUN_REQUEST.md` §33.
+
 ## 7. STOP-D/E/F boundaries
 
 - **D:** choose the production recipe only after C closes. Sampling/CBGS and
