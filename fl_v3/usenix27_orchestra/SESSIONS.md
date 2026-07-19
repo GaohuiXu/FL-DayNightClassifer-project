@@ -106,6 +106,9 @@
 > 769 clean updates and B4 D_select evaluation. It measures the joint operating
 > point and throughput/memory, not pure batch-size causality. One 30-minute
 > GH200 submission/no retry is allowed after immutable tuple freeze.
+> Job `505266` consumed that submission in `00:02:15`: 121 tests passed, then
+> the entry used nonexistent `ResolvedConfig.schema_version`. No model, B8 batch,
+> update or evaluator ran. O-141 is consumed and provides no scientific result.
 >
 > `Sxx` is an evidence namespace, not automatically a worker, task, branch, or
 > worktree. Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Active launch

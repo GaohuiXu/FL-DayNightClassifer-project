@@ -103,6 +103,9 @@
 > updates with early fail-fast boundaries, evaluate D_select at B4 and compare
 > only descriptively/with paired-log uncertainty to sealed B4 evidence. One
 > 30-minute GH200 job/no retry; no GN/B16/profiler/recipe/later-stop expansion.
+> Job `505266` passed 121 tests but then failed pre-model because the entry read
+> a nonexistent ResolvedConfig attribute. No B8 update/evaluator ran. O-141 is
+> consumed; no replacement is executable without a new owner decision.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

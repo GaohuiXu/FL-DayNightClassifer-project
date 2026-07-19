@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-141 BN1d-B8 exact immutable tuple frozen / sole submission executable
+REQUEST_STATE: O-141 consumed by Job 505266 / pre-model assertion FAIL / no retry
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-133 C1 plan + O-141 BN1d-B8 operational candidate
-EXECUTION_AUTHORITY: one exact O-141 submission after immutable tuple freeze; no retry
+EXECUTION_AUTHORITY: none; O-141 consumed; owner decision required
 SOURCE_SHA: e4a9ff4d44014b0ba0e2e6ffabc375b5be6f6c17
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-141 exact B8/scale8/769-update/30-minute/0.5-GH200-hour envelope approved 2026-07-19
-EXECUTABLE_NOW: exact §36 tuple only; one submission/no retry
+EXECUTABLE_NOW: none
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1893,12 +1893,12 @@ ARTIFACT_CHECKS: inner 14/14 and runner 23/23 OK; recursively read-only
 O-140 is consumed and supplies no correction, replay, paired-log postprocess
 allocation or later-stop continuation.
 
-## 36. O-141 BN1d physical-B8 operational candidate — approved / tuple frozen
+## 36. O-141 BN1d physical-B8 operational candidate — consumed / pre-model FAIL
 
 ```text
 REQUEST_ID: S10-C1B1-BN1D-B8-v1
 OWNER_DECISION: O-141
-STATE: exact immutable tuple frozen; sole submission executable
+STATE: Job 505266 consumed the sole tuple; pre-model assertion FAIL; no retry
 CELL: C1-B1-BN1D-B8-DLOW only
 GRAPH/INIT: current A1 fusion / BN1d only in SECOND / ImageNet camera / exact seed-0 trainable W0 87be0d...829d1
 TRAIN_ROLE: exact frozen D_low / 6,155 samples / shuffle seed 0 / drop_last=true
@@ -1946,3 +1946,29 @@ STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/log
 ```bash
 sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G --gpus=nvidia_gh200_120gb:1 --time=00:30:00 --no-requeue --job-name=s10-c1b8-e4a9ff4 --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b8_e4a9ff4_o141 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b8_e4a9ff4_o141_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b8_e4a9ff4_o141_%j.err --export=ALL,S10_C1B8_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b8_e4a9ff4_o141,S10_C1B8_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b8_e4a9ff4_o141_a1,S10_C1B8_EXPECTED_SOURCE_SHA=e4a9ff4d44014b0ba0e2e6ffabc375b5be6f6c17,S10_C1B8_EXPECTED_TREE=1d9ea6ef1098e480f25cc2cf041a5ac683698f9b,S10_C1B8_EXPECTED_RUNNER_SHA256=0e1a15e5e34ce54fabd94e02136fe9ed593468742b667b31d8e1407400c7f26c,S10_C1B8_EXPECTED_ENTRY_SHA256=704f73bc012cb24ca7a95570a14e93e203b01cebd8dfd2ae356a0016cfa1a0df,S10_C1B8_EXPECTED_CONFIG_SHA256=265480319a60053ad67a0e4f7b7b722fca0630708293f1e2231d4981d7826202,S10_C1B8_EXPECTED_RESOLVED_SHA256=2b9a3e850beedd133df269bb10571c2d2a58ea9bf05afb8e0cbebeab6ff16f71 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b8_e4a9ff4_o141/fl_v3/scripts/run_s10_c1b1_bn_b8.sh
 ```
+
+### Consumed outcome — pre-model implementation assertion FAIL
+
+```text
+JOB: 505266
+STATE/EXIT: FAILED / 1:0
+ELAPSED/ALLOCATED: 00:02:15 / 0.037500 GH200-hour
+NODE/RESTARTS: n172 / 0
+FOCUSED_TESTS: 121 passed / 3 skipped / 6 warnings / 70.95s
+ENTRY_FAILURE: AttributeError: 'ResolvedConfig' object has no attribute 'schema_version'
+CORRECT_ACCESS: config.data["schema_version"]
+MODEL/DATA/UPDATES/EVALUATOR: none / none / 0 / none
+FINAL/TEST/C1B8_EXIT: 1 / 0 / 1
+CUMULATIVE_AFTER: 4.308333 + 0.037500 = 4.345833 GH200-hours
+ACTIVE_ABC_REMAINDER: 22.654167 GH200-hours under 27-hour aggregate; not execution authority
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b8_e4a9ff4_o141_a1
+FAILURE_SUMMARY_SHA256: a38cfb69be45099fec8a1a13862cb222402ac7f5ff4a820757de60225a15b875
+INNER_ARTIFACT_MANIFEST_SHA256: 40a032bc53348d6e443ca2f64a33b0a8435e30f2c1b5f799d4d6952e41b19841
+RUNNER_ARTIFACT_MANIFEST_SHA256: 56f057c95cc345c0279ad2b97c223bbada1fc69434c359f87bc530b08dfb4274
+ARTIFACT_CHECKS: runner 10/10 OK; recursively read-only
+```
+
+The failure is not BN-B8 numerical or capability evidence. The focused test
+suite did not invoke the new `_assert_config` function, and the login-node
+dependency gap prevented the attempted direct entry import from reaching it.
+O-141 is consumed and authorizes no patch execution or replacement submission.

@@ -1,4 +1,30 @@
-# S10 results — STOP-A/B closed; C1-B1 `FAIL/INCOMPLETE`
+# S10 results — STOP-A/B closed; O-141 pre-model `FAIL`
+
+## STOP-C1-BN1d-B8 — O-141 consumed / no experimental cell ran
+
+```text
+SOURCE/TREE: e4a9ff4d44014b0ba0e2e6ffabc375b5be6f6c17 / 1d9ea6ef1098e480f25cc2cf041a5ac683698f9b
+JOB: 505266 / FAILED 1:0 / 00:02:15 / 0.037500 GH200-hour
+TESTS: 121 passed / 3 skipped / 6 warnings in 70.95s
+FAILURE: AttributeError on nonexistent ResolvedConfig.schema_version
+MODEL/D_LOW/B8_UPDATE/D_SELECT: not built / not loaded / 0 / not run
+VERDICT: implementation assertion FAIL; no BN-B8 evidence; O-141 consumed
+```
+
+The canonical schema is stored at `config.data["schema_version"]`; the new
+entry incorrectly used an object attribute. Existing tests covered the raw
+config and frozen constants but did not call `_assert_config`, so all focused
+tests passed before the entry failed. This result says nothing about B8 memory,
+early overflow, throughput, loss, NDS or mAP. The recursively read-only output
+is `/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b8_e4a9ff4_o141_a1`.
+
+```text
+FAILURE_SUMMARY_SHA256: a38cfb69be45099fec8a1a13862cb222402ac7f5ff4a820757de60225a15b875
+INNER_MANIFEST_SHA256: 40a032bc53348d6e443ca2f64a33b0a8435e30f2c1b5f799d4d6952e41b19841
+RUNNER_MANIFEST_SHA256: 56f057c95cc345c0279ad2b97c223bbada1fc69434c359f87bc530b08dfb4274
+RUNNER_MANIFEST_CHECK: 10/10 OK
+CUMULATIVE_ABC: 4.345833 GH200-hours
+```
 
 ## STOP-C1-B1 — O-140 consumed / exact matched-update gate FAIL
 

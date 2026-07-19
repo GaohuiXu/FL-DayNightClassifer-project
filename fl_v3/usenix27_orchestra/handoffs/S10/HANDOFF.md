@@ -8,11 +8,11 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement; O-137 C1-B0 fusion health; O-138 exact test-only replacement; O-139 canonical-fixture replacement; O-140 C1-B1 capability; O-141 BN1d-B8 operational candidate
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-141 focused implementation/commit + one exact BN1d-B8 no-retry job after tuple freeze
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-141 only; no reviewer chain
+CURRENT_AUTHORITY: O-141 consumed by failed Job 505266; evidence sealing only; owner decision required
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: no executable compute/retry/reviewer chain
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
-STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A `LOCALIZED_NORM`; C1-B0 PASS; C1-B1 `FAIL/INCOMPLETE`
+STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A `LOCALIZED_NORM`; C1-B0 PASS; C1-B1 `FAIL/INCOMPLETE`; O-141 BN1d-B8 pre-model FAIL/no evidence
 C0_IMPLEMENTATION_SHA: 89958be504d6abaef66810695402d2a09619794b
 C0_JOB: 492525 / FAILED 1:0 / 00:47:32 / 0.792222 GH200-hours
 C0_REMEDIATION_REVIEW: 09c39458a0b32ce1d4a3ae603094d76ae160ac42 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
@@ -1044,3 +1044,12 @@ and peak memory. O-141 permits one 30-minute/no-retry GH200 submission capped at
 Implementation source/tree `e4a9ff4d44014b0ba0e2e6ffabc375b5be6f6c17` /
 `1d9ea6ef1098e480f25cc2cf041a5ac683698f9b` and the detached recursively
 read-only snapshot/exact command are frozen in `RUN_REQUEST.md` §36.
+
+Job `505266` consumed the tuple and ended `FAILED 1:0` in `00:02:15`, using
+`0.037500` GH200-hour. All 121 focused tests passed with three skips. The entry
+then failed before runtime dependency, data or model construction because its
+new config assertion read nonexistent `ResolvedConfig.schema_version`; the
+canonical access is `config.data["schema_version"]`, already used by C1-B1.
+The new unit test checked constants/raw config but did not execute this assertion.
+No B8 capacity, gradient, update, throughput or evaluator evidence exists.
+O-141 is consumed and supplies no replacement.

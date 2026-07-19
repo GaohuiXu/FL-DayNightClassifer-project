@@ -233,6 +233,13 @@ read-only snapshot/exact tuple, and one no-retry one-GH200/16-CPU/96-GiB/
 `00:30:00` submission capped at `0.5` GH200-hour, followed by evidence sealing
 and stop. GN, B16, extra seeds, profiler, recipe search, A2/MIT repair, later
 stops, reviewer chain, merge, push and upload remain unauthorized.
+O-141 Job `505266` consumed the sole submission and failed pre-model in
+`00:02:15` (`0.037500` GH200-hour). All 121 focused tests passed with three
+skips, but the new entry assertion accessed nonexistent
+`ResolvedConfig.schema_version` instead of the canonical
+`ResolvedConfig.data["schema_version"]`. No model, D_low batch, optimizer update,
+capacity observation or evaluator ran. The immutable failure output and 10-file
+runner manifest verify. O-141 is consumed; no replacement is executable.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime
