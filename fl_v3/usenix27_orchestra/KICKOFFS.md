@@ -106,6 +106,9 @@
 > Job `505266` passed 121 tests but then failed pre-model because the entry read
 > a nonexistent ResolvedConfig attribute. No B8 update/evaluator ran. O-141 is
 > consumed; no replacement is executable without a new owner decision.
+> O-142 supplies that decision for the exact schema-access correction and direct
+> resolved-config regression only. Freeze one new snapshot/tuple and submit one
+> unchanged 30-minute replacement; no retry or scope expansion.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

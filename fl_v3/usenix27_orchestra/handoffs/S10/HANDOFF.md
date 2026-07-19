@@ -6,10 +6,10 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement; O-137 C1-B0 fusion health; O-138 exact test-only replacement; O-139 canonical-fixture replacement; O-140 C1-B1 capability; O-141 BN1d-B8 operational candidate
+OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement; O-137 C1-B0 fusion health; O-138 exact test-only replacement; O-139 canonical-fixture replacement; O-140 C1-B1 capability; O-141 BN1d-B8 operational candidate; O-142 exact schema remediation/replacement
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-141 consumed by failed Job 505266; evidence sealing only; owner decision required
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: no executable compute/retry/reviewer chain
+CURRENT_AUTHORITY: O-142 exact remediation/commit + one unchanged replacement after tuple freeze
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-142 only; no reviewer chain
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
 STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A `LOCALIZED_NORM`; C1-B0 PASS; C1-B1 `FAIL/INCOMPLETE`; O-141 BN1d-B8 pre-model FAIL/no evidence
@@ -1053,3 +1053,12 @@ canonical access is `config.data["schema_version"]`, already used by C1-B1.
 The new unit test checked constants/raw config but did not execute this assertion.
 No B8 capacity, gradient, update, throughput or evaluator evidence exists.
 O-141 is consumed and supplies no replacement.
+
+## 20. O-142 exact remediation and replacement
+
+O-142 changes only the invalid schema access to
+`config.data["schema_version"]` and adds a test that resolves the exact B8 config
+and directly calls `_assert_config`. The replacement must otherwise reuse every
+O-141 model/data/W0/token/precision/recipe/gate/evaluator/resource field, from a
+new detached read-only snapshot into a fresh output. Exactly one 30-minute
+submission is allowed with no retry, followed by evidence sealing and stop.

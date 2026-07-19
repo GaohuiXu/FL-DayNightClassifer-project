@@ -75,7 +75,7 @@ def _parse_args():
 
 
 def _assert_config(config) -> None:
-    if config.schema_version != "s10.v1":
+    if str(config.data["schema_version"]) != "s10.v1":
         raise RuntimeError("BN-B8 requires the s10.v1 schema")
     model = config.data["model"]
     expected_model = {

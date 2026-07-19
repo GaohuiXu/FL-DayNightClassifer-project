@@ -109,6 +109,9 @@
 > Job `505266` consumed that submission in `00:02:15`: 121 tests passed, then
 > the entry used nonexistent `ResolvedConfig.schema_version`. No model, B8 batch,
 > update or evaluator ran. O-141 is consumed and provides no scientific result.
+> O-142 authorizes the one-line canonical schema access, a direct assertion
+> regression and one otherwise unchanged fresh-output O-141 replacement. One
+> 30-minute GH200 submission/no retry, then evidence sealing and stop.
 >
 > `Sxx` is an evidence namespace, not automatically a worker, task, branch, or
 > worktree. Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Active launch

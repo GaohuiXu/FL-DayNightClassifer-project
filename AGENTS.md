@@ -240,6 +240,13 @@ skips, but the new entry assertion accessed nonexistent
 `ResolvedConfig.data["schema_version"]`. No model, D_low batch, optimizer update,
 capacity observation or evaluator ran. The immutable failure output and 10-file
 runner manifest verify. O-141 is consumed; no replacement is executable.
+Owner decision O-142 authorizes the strictly derived correction and one
+replacement: use `config.data["schema_version"]`, add a regression that resolves
+the exact B8 config and calls `_assert_config`, then freeze a new detached
+read-only snapshot/fresh output. All O-141 graph/data/W0/token/B8/scale8/769-
+update/evaluator/gate/resource semantics remain unchanged. One no-retry
+one-GH200/16-CPU/96-GiB/`00:30:00` replacement capped at `0.5` GH200-hour is
+authorized, followed by evidence sealing and stop.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

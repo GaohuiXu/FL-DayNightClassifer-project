@@ -32,6 +32,9 @@ def test_bn_b8_envelope_is_exact_and_fail_fast():
 
 
 def test_bn_b8_config_changes_only_declared_operational_fields():
+    from fl_v3.config import resolve_config
+
+    module = _module()
     root = Path(__file__).resolve().parents[1]
     old = json.loads((root / "configs" / "s10_c1b1_cur_a1_gn.json").read_text())
     new = json.loads((root / "configs" / "s10_c1b1_bn_b8.json").read_text())
@@ -43,6 +46,12 @@ def test_bn_b8_config_changes_only_declared_operational_fields():
         "grad_scaler_init_scale": 8,
     })
     assert old == new
+    resolved = resolve_config(new)
+    module._assert_config(resolved)
+    assert resolved.data["schema_version"] == "s10.v1"
+    assert resolved.sha256 == (
+        "2b9a3e850beedd133df269bb10571c2d2a58ea9bf05afb8e0cbebeab6ff16f71"
+    )
 
 
 def test_bn_b8_reuses_exact_b4_token_order_and_trainable_w0():
@@ -58,4 +67,3 @@ def test_bn_b8_reuses_exact_b4_token_order_and_trainable_w0():
     )
     assert 6155 // module.PHYSICAL_BATCH == module.HORIZON
     assert 6155 % module.PHYSICAL_BATCH == 3
-

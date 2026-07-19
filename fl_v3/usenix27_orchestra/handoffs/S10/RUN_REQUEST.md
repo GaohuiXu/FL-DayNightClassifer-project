@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-141 consumed by Job 505266 / pre-model assertion FAIL / no retry
+REQUEST_STATE: O-142 exact remediation/replacement approved / tuple pending
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
-PLAN_AUTHORITY: O-122 scientific envelope + O-133 C1 plan + O-141 BN1d-B8 operational candidate
-EXECUTION_AUTHORITY: none; O-141 consumed; owner decision required
-SOURCE_SHA: e4a9ff4d44014b0ba0e2e6ffabc375b5be6f6c17
+PLAN_AUTHORITY: O-122 scientific envelope + O-141 BN1d-B8 candidate + O-142 exact replacement
+EXECUTION_AUTHORITY: one exact O-142 replacement after immutable tuple freeze; no retry
+SOURCE_SHA: pending O-142 remediation commit
 BRANCH: codex/s10-cl-model-recipe
-OWNER_APPROVAL: O-141 exact B8/scale8/769-update/30-minute/0.5-GH200-hour envelope approved 2026-07-19
-EXECUTABLE_NOW: none
+OWNER_APPROVAL: O-142 exact schema-access fix and unchanged replacement approved 2026-07-19
+EXECUTABLE_NOW: after exact source/snapshot/hash/command tuple is frozen below
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1972,3 +1972,20 @@ The failure is not BN-B8 numerical or capability evidence. The focused test
 suite did not invoke the new `_assert_config` function, and the login-node
 dependency gap prevented the attempted direct entry import from reaching it.
 O-141 is consumed and authorizes no patch execution or replacement submission.
+
+## 37. O-142 exact schema remediation and unchanged replacement — approved / tuple pending
+
+```text
+REQUEST_ID: S10-C1B1-BN1D-B8-v1-R1
+OWNER_DECISION: O-142
+STATE: remediation and immutable tuple pending
+ONLY_CODE_CHANGE: config.schema_version -> config.data["schema_version"]
+ONLY_TEST_CHANGE: resolve exact s10_c1b1_bn_b8.json and directly call _assert_config
+SCIENTIFIC/RESOURCE_SCOPE: byte-for-byte O-141 runner/config semantics outside the exact correction; same §36 envelope
+RESOURCES: one GH200 / 16 CPUs / 96 GiB / 00:30:00 / hard cap 0.5 GH200-hour
+SUBMISSIONS: exactly one replacement / no retry / no requeue
+OUTPUT: fresh immutable O-142 path pending remediation SHA
+CUMULATIVE_BEFORE: 4.345833 GH200-hours
+CUMULATIVE_HARD_MAX_AFTER: 4.845833 GH200-hours
+FORBIDDEN: any model/data/recipe/gate/evaluator/resource change; GN/B16/new seed/profiler/later stop/reviewer/merge/push/upload
+```
