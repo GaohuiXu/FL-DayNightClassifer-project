@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-136 sole strictly derived C1-A replacement exact tuple frozen for one submission
+REQUEST_STATE: O-136 sole strictly derived C1-A replacement consumed by Job 502572 / execution PASS / LOCALIZED_NORM
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing/amendment + O-136 replacement
-EXECUTION_AUTHORITY: O-136 one C1-A replacement only; no retry or C1-B
+EXECUTION_AUTHORITY: none; O-136 consumed; no retry or C1-B
 SOURCE_SHA: d713bfe3b5e5c587f58ce70721b2b6eea0b050ec
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-136 exact remediation commit and one C1-A replacement approved 2026-07-19
-EXECUTABLE_NOW: exact §31 C1-A replacement once; C1-B and STOP-D/E/F remain owner-gated
+EXECUTABLE_NOW: none; C1-B and STOP-D/E/F remain owner-gated
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1460,11 +1460,11 @@ Login-node verification is limited to `bash -n`, Python syntax compilation and
 `git diff --check` because the x86 login environment has no project PyTorch or
 pytest. Dependency-backed execution remains pending a future exact authorization.
 
-## 31. O-136 strictly derived C1-A replacement — exact tuple frozen for sole submission
+## 31. O-136 strictly derived C1-A replacement — consumed / execution PASS
 
 ```text
 REQUEST_ID: S10-C1A-GRAD-CAUSAL-O136-v2
-STATE: OWNER APPROVED / EXACT TUPLE FROZEN / UNSUBMITTED
+STATE: CONSUMED BY JOB 502572 / COMPLETED 0:0 / INTEGRITY PASS / LOCALIZED_NORM
 REMEDIATION_SOURCE: d713bfe3b5e5c587f58ce70721b2b6eea0b050ec
 SOURCE_TREE: 5a0d8aa2c1dc9517d735200b0dbae47843ec8c74
 DERIVATION: only the O-135 BN1d state-mapping assertion and direct regression test differ from O-134
@@ -1504,3 +1504,37 @@ sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cp
 
 No field may change the §29 scientific tuple. This literal command may be
 submitted once only after snapshot/output/concurrency preflight succeeds.
+
+### 31.1 Job 502572 consumption record
+
+```text
+JOB_ID: 502572
+STATE/EXIT/ELAPSED: COMPLETED / 0:0 / 00:03:09
+ACTUAL_ALLOCATION: 189 / 3600 = 0.052500 GH200-hours
+POSTJOB_CUMULATIVE_S10_ABC/C1: 3.282778 + 0.052500 = 3.335278 GH200-hours
+FOCUSED_TESTS: 37 passed / 0 failed / 0.93 s
+SOURCE/RUNTIME/DATA/PANEL/CONFIG: all identity gates passed
+CANDIDATE_MAPPING: 42 reported running mean/variance keys; 21 synthesized zero batch counters; exact shared convolution/affine W0
+RUNS: 128/128; 32 per candidate/pathway cell; physical B4; all SECOND gradients finite
+OPTIMIZER/UPDATE/EVALUATOR: absent / zero / absent
+PARAMETER_STATE: exact candidate parity before runs; both candidates unchanged after runs
+STATUS/VERDICT: PASS / LOCALIZED_NORM
+WALL_SECONDS_MODEL_MATRIX: 83.751673
+PEAK_ALLOCATED/RESERVED_BYTES: 6235769344 / 8657043456
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1a_fix_d713bfe_o136_a1
+SUMMARY_SHA256: f00a8b0740b591b694f1f0295432b056cd2f630b3d0ed129450afe05a87762fa
+CANDIDATE_IDENTITY_SHA256: 59b241d02b374e73034fd195efbd2fe7add313613af5c5b5315dbb38a065a441
+EXECUTION_IDENTITY_SHA256: 72c9ffb4e69b20725a89a23a980dde00e46860d2871ea1928de9e7d35f22eaf4
+RUNS_SHA256: 33a748e283e9d17f08e7faf3d686463d5935b3ac3193a2afb3cf51138cf5213f
+INNER_ARTIFACT_MANIFEST_SHA256: f38df3e9e43ef591650a0ae602336a94f98c2cf8a94f6ed4ada88aa34893291a
+RUNNER_ARTIFACT_MANIFEST_SHA256: b14dcd340fe6cf8f69251f235c90ef2c692cbf282478b757ea0fde574fb44bb2
+FINAL/TEST/C1A_EXIT: 0 / 0 / 0
+ARTIFACT_CHECKS: runner 15/15 OK; output recursively read-only; zero group/other-writable paths
+RETRY/C1-B: none authorized
+```
+
+The verdict is bounded to the exact random W0 and frozen STOP-B panel. It
+localizes a causal normalization-path contribution because BN1d reduces both
+the fixed-upstream SECOND Jacobian gradients and normal-loss gradients beyond
+repeat variation. It neither proves BN1d convergence/capability nor selects it
+for production; those require a separately approved training/evaluation gate.

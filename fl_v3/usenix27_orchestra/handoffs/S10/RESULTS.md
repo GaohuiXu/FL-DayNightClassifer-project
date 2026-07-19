@@ -1,4 +1,51 @@
-# S10 results — STOP-A/B closed; C0-v2 PASS; C1-A replacement authorized
+# S10 results — STOP-A/B closed; C0-v2 PASS; C1-A `LOCALIZED_NORM`
+
+## STOP-C1-A — O-136 replacement execution PASS / `LOCALIZED_NORM`
+
+```text
+AUTHORITY: O-136
+JOB: 502572 / COMPLETED 0:0 / 00:03:09 / 0.052500 GH200-hours
+EXECUTION_SOURCE: d713bfe3b5e5c587f58ce70721b2b6eea0b050ec
+SOURCE_TREE: 5a0d8aa2c1dc9517d735200b0dbae47843ec8c74
+TESTS: 37 passed / 0 failed
+RUNS: 128/128 finite / physical B4 / no optimizer, update or evaluator
+STATUS/C1A_VERDICT: PASS / LOCALIZED_NORM
+```
+
+The corrected BN1d mapping gate passed: all 42 running mean/variance keys were
+reported missing, all 21 compatibility-synthesized batch counters existed and
+were zero, and both candidates had the same convolution/affine parameter hash
+`a1a98033...`. Both parameter states remained exact after all runs. Each of the
+four candidate/pathway cells contains 32 runs (16 batches x two repeats), and all
+artifacts/checksums are complete and recursively read-only.
+
+The causal evidence is strong within the declared W0/panel. BN1d/GN median
+ratios are `0.001862`/`0.000164`/`0.000186` for fixed-VJP boundary amplification,
+stem max-abs and stem RMS, and `0.003669`/`0.001578`/`0.001657` for the same
+normal-loss metrics. Every batch passes the paired support gate and the effects
+exceed p95 repeat variation. Occupancy and head/loss alternative gates do not
+qualify. Because the same upstream SECOND-output VJP still produces the reduction,
+the result localizes a normalization-path Jacobian mechanism rather than merely
+different head/loss targets.
+
+This is not a BN1d promotion or capability result. Fresh BN1d has higher median
+no-update loss (`1025.19`) than GN (`538.98`) at this random W0, and C1-A performs
+no training or evaluation. It establishes that tiny-group GN materially causes
+the observed current-W0 large-gradient amplification; it does not establish that
+it is the sole mechanism or that replacing it improves convergence/mAP/NDS.
+
+Evidence:
+
+```text
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1a_fix_d713bfe_o136_a1
+SUMMARY_SHA256: f00a8b0740b591b694f1f0295432b056cd2f630b3d0ed129450afe05a87762fa
+CANDIDATE_IDENTITY_SHA256: 59b241d02b374e73034fd195efbd2fe7add313613af5c5b5315dbb38a065a441
+EXECUTION_IDENTITY_SHA256: 72c9ffb4e69b20725a89a23a980dde00e46860d2871ea1928de9e7d35f22eaf4
+RUNS_SHA256: 33a748e283e9d17f08e7faf3d686463d5935b3ac3193a2afb3cf51138cf5213f
+INNER_ARTIFACT_MANIFEST_SHA256: f38df3e9e43ef591650a0ae602336a94f98c2cf8a94f6ed4ada88aa34893291a
+RUNNER_ARTIFACT_MANIFEST_SHA256: b14dcd340fe6cf8f69251f235c90ef2c692cbf282478b757ea0fde574fb44bb2
+ARTIFACT_CHECKS: runner 15/15 OK; output read-only; zero writable paths
+```
 
 ## STOP-C1-A — O-134 consumed without a gradient verdict
 
@@ -31,7 +78,7 @@ Accordingly, this result says nothing about GroupNorm, BN1d, gradient causality,
 model health or convergence. The minimal technical correction is to accept only
 the 42 reported running mean/variance keys while separately asserting that all
 21 BN1d `num_batches_tracked` buffers exist and are zero. O-134 grants no retry,
-so that correction has not been implemented or submitted.
+so that correction could not be implemented or submitted under O-134 itself.
 
 O-135 later authorized the assertion correction only. Remediation `d713bfe`
 implements the exact 42-key reported-missing rule, separately verifies all
@@ -39,9 +86,8 @@ implements the exact 42-key reported-missing rule, separately verifies all
 direct PyTorch compatibility regression. It changes no candidate math or failed
 raw artifact. O-136 accepts that exact commit and authorizes one strictly derived
 replacement under the unchanged O-134 scientific tuple and resource ceiling.
-This section retains Job `502456` as immutable negative execution evidence; the
-replacement must use a fresh output and will be recorded separately after it
-reaches a terminal state. The scientific result remains absent meanwhile.
+This section retains Job `502456` as immutable negative execution evidence. The
+fresh-output O-136 replacement is recorded above and does not rewrite it.
 
 Artifact evidence:
 

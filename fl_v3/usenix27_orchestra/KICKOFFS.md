@@ -61,8 +61,10 @@
 > O-135 authorized only the exact BN1d mapping-assertion correction plus direct
 > regression test; remediation `d713bfe` is committed. O-136 now authorizes one
 > strictly derived C1-A replacement under the unchanged O-134 panel, cells,
-> gates and resources. A new exact detached snapshot/output/command is mandatory;
-> there is no retry or automatic C1-B continuation.
+> gates and resources. Exact Job `502572` completed `0:0` in `00:03:09`, passed
+> 37 tests, all identities, 128/128 finite runs and artifacts, and returned
+> bounded `LOCALIZED_NORM`. O-136 is consumed; there is no retry or automatic
+> C1-B continuation.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

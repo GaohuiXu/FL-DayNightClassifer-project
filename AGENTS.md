@@ -127,8 +127,16 @@ source `d713bfe3b5e5c587f58ce70721b2b6eea0b050ec`; the failed evidence remains
 immutable. Owner instruction O-136 authorizes that exact commit and one strictly
 derived C1-A replacement with unchanged data, panel, candidates, FP32 pathways,
 two-repeat 128-run scope, gates and one-GH200/8-CPU/64-GiB/`00:30:00` resource
-ceiling. S00 must freeze a new detached read-only snapshot, exact hashes, fresh
-output and literal command before the sole submission. No retry, scope change,
+ceiling. Exact Job `502572` consumed that authority and completed `0:0` in
+`00:03:09` (`0.052500` GH200-hour). It passed 37 focused tests, all identities,
+128/128 finite no-update runs, exact candidate parameter parity/immutability and
+the artifact gate, returning bounded verdict `LOCALIZED_NORM`. On every one of
+the 16 B4 batches, direct-reference BN1d reduced both fixed-VJP and normal-loss
+stem gradients far beyond two-repeat runtime variation; occupancy correlations
+did not qualify and head/loss amplification did not meet its correlation gate.
+This causally localizes the current W0/panel large-gradient mechanism to the tiny-
+group GN path within C1-A, but it does not promote BN1d, prove convergence or
+select an architecture/recipe. O-136 is consumed. No retry, scope change,
 automatic C1-B continuation or later-stop execution is authorized.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra

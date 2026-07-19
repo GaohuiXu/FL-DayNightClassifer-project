@@ -8,11 +8,11 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-136 exact d713bfe remediation commit plus one strictly derived C1-A replacement; C1-B and later stops pending owner decision
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-136 permits canonical records, one exact detached snapshot/tuple, sole C1-A replacement submission, monitoring and evidence sealing; no retry/reviewer chain
+CURRENT_AUTHORITY: O-136 consumed by Job 502572; no executable compute; C1-B and later stops pending owner decision
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: C1-A evidence sealing only; no retry/reviewer chain/C1-B execution
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
-STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A Job 502456 pre-execution FAIL/no verdict; C1-B current-A1/A2-first order accepted but implementation/compute pending
+STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A replacement Job 502572 PASS/LOCALIZED_NORM; C1-B current-A1/A2-first order accepted but implementation/compute pending
 C0_IMPLEMENTATION_SHA: 89958be504d6abaef66810695402d2a09619794b
 C0_JOB: 492525 / FAILED 1:0 / 00:47:32 / 0.792222 GH200-hours
 C0_REMEDIATION_REVIEW: 09c39458a0b32ce1d4a3ae603094d76ae160ac42 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
@@ -525,6 +525,30 @@ unchanged. Before the sole submission S00 must freeze a new detached read-only
 snapshot, hashes, fresh output and literal command in `RUN_REQUEST.md`. Any
 failure or drift returns to the owner. O-136 grants no retry, C1-B continuation,
 later-stop execution, merge, push or upload.
+
+Exact replacement Job `502572` consumed O-136 and completed `0:0` in `00:03:09`
+(`0.052500` GH200-hour). It passed 37 focused tests, source/tree/runtime/split/
+panel/config identities, both candidate state gates, all 128 finite runs, exact
+pre/post parameter-state immutability and all 15 runner artifact checks. Physical
+B4 counts are 32 runs in each candidate/pathway cell; no optimizer, update or
+evaluator was constructed.
+
+The predeclared result is `PASS / LOCALIZED_NORM`. Across every one of 16 B4
+batches, BN1d/GN median ratios were `0.001862` for fixed-VJP boundary
+amplification and `0.003669` for normal-loss boundary amplification; fixed-VJP
+stem max-abs/RMS ratios were `0.000164`/`0.000186`, and normal-loss ratios were
+`0.001578`/`0.001657`. All paired support fractions are `1.0`, and all median
+effects exceed the p95 two-repeat variation gate. Occupancy correlations range
+from `-0.4824` to `-0.0382`, below the predeclared occupancy gate. The current-GN
+loss stem max-abs median is `307037.94`, but loss-upstream/stem Spearman is
+`0.6471`, below the `0.7` head/loss gate. Thus the fixed-upstream control locates
+a causal normalization-path contribution at this exact random W0/panel; it does
+not prove GN is the only mechanism.
+
+This does **not** promote BN1d. The no-update normal-loss median is higher for
+fresh-state BN1d (`1025.19`) than GN (`538.98`), and C1-A contains no training,
+convergence or evaluator evidence. C1-B or a BN1d training candidate therefore
+requires a separate owner-approved protocol; no automatic continuation exists.
 
 ## 7. STOP-D/E/F boundaries
 
