@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-138 exact test-only remediation and strictly derived C1-B0 replacement active
+REQUEST_STATE: O-138 exact C1-B0 replacement consumed by Job 503075 / second pre-model fixture FAIL
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing + O-137 C1-B0 + O-138 exact replacement
-EXECUTION_AUTHORITY: O-138 one strictly derived replacement; no retry/C1-B1
+EXECUTION_AUTHORITY: none; O-138 consumed; no correction/retry/C1-B1
 SOURCE_SHA: 0f51e11c9f879f5bcb9ab2632bcee31969e5c0ac
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-138 exact remediation and replacement approved 2026-07-19
-EXECUTABLE_NOW: remediate, freeze exact tuple, submit once
+EXECUTABLE_NOW: none; owner decision required
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1640,12 +1640,12 @@ the fixed-upstream SECOND Jacobian gradients and normal-loss gradients beyond
 repeat variation. It neither proves BN1d convergence/capability nor selects it
 for production; those require a separately approved training/evaluation gate.
 
-## 33. O-138 strictly derived C1-B0 test-only replacement — approved / tuple pending
+## 33. O-138 strictly derived C1-B0 test-only replacement — consumed / pre-model FAIL
 
 ```text
 REQUEST_ID: S10-C1B0-FUSION-NORM-HEALTH-H256-v1-fix1
 OWNER_DECISION: O-138
-STATE: approved; exact immutable tuple frozen; executable once
+STATE: consumed once by Job 503075 / pre-model focused-test failure / no retry
 CAUSE: Job 502958 pre-model test-only fixture/layout failure
 ALLOWED_DIFF: move three operator-profile hash assertions to their original S09-v2 test; add grad_scaler_init_scale=32 to one migrated s10.v1 fixture
 PRODUCTION_SOURCE/RUNNER/CONFIG: unchanged from O-137
@@ -1687,3 +1687,29 @@ STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/log
 ```bash
 sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G --gpus=nvidia_gh200_120gb:1 --time=00:30:00 --no-requeue --job-name=s10-c1b0-fix-0f51e11 --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b0_fix_0f51e11_o138 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b0_fix_0f51e11_o138_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b0_fix_0f51e11_o138_%j.err --export=ALL,S10_C1B0_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b0_fix_0f51e11_o138,S10_C1B0_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b0_fix_0f51e11_o138_a1,S10_C1B0_EXPECTED_SOURCE_SHA=0f51e11c9f879f5bcb9ab2632bcee31969e5c0ac,S10_C1B0_EXPECTED_TREE=90e551b98c0c429e757345c244426433ebe84b62,S10_C1B0_EXPECTED_RUNNER_SHA256=6c8a284e4d6c760b07b3b1566a686d2a65a920b39cd298249433652bc49762ce,S10_C1B0_EXPECTED_ENTRY_SHA256=2007fb436bc11015d6578e112af666275f9b67614ea337ba7e19720b3fc8dd94,S10_C1B0_EXPECTED_CONFIG_SHA256=dfb9e05e43444fed632d08d8206383dbedd575ab5c5d3fa4db2d684668dada70 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b0_fix_0f51e11_o138/fl_v3/scripts/run_s10_c1b0_fusion_health.sh
 ```
+
+### Consumed replacement outcome
+
+```text
+JOB: 503075
+STATE/EXIT: FAILED / 1:0
+ELAPSED/ALLOCATED: 00:02:11 / 0.036389 GH200-hour
+NODE/RESTARTS: n120 / 0
+FOCUSED_TESTS: 105 passed / 1 failed / 6 warnings / 72.95s
+TEST_EXIT/FINAL_EXIT: 1 / 1
+MODEL/H256/OPTIMIZER/CELLS: not constructed / not read / not constructed / none
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b0_fix_0f51e11_o138_a1
+FOCUSED_STDOUT_SHA256: dbe3170d178cab2dbaa6792e1408832085780925e7f630f745ce880c69d7d0d6
+FOCUSED_STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+RUNNER_MANIFEST_SHA256: 67499dd0aa9ed750fc81db2010451c8c83587f33f11fe2a87b096e68e51f6d72
+RUNNER_MANIFEST_CHECK: 4/4 OK
+CUMULATIVE_AFTER: 3.372500 + 0.036389 = 3.408889 GH200-hours
+```
+
+The sole failure is the same fixture's second incomplete `s10.v1` migration:
+`execution.operator_profile` is absent. Job `502958` stopped first on the missing
+`training.grad_scaler_init_scale`, so config resolution never reached and exposed
+this additional required field. A technically sufficient next correction would
+add the explicit operator-profile value appropriate to this fixture, but O-138
+authorizes no edit or replacement. This result remains test-infrastructure
+failure evidence only and says nothing about GN/BN1d fusion training health.

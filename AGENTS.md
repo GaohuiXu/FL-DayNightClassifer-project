@@ -167,6 +167,12 @@ remediation commit, one new detached read-only snapshot and one strictly derived
 C1-B0 replacement with unchanged production source, runner, config, data, cells,
 seed, W0, H256 horizon, gates and O-137 resources. The replacement has one
 submission, no retry and no C1-B1 or later-stop authority.
+O-138 replacement Job `503075` consumed that authority and failed pre-model after
+`00:02:11` (`0.036389` GH200-hour): 105 focused tests passed and one failed.
+The migrated `s10.v1` fixture also lacked required
+`execution.operator_profile`; the earlier missing scale field had masked this
+second schema omission. No model, H256 data, optimizer or cell executed. O-138
+is consumed; no further correction, retry or C1-B1 execution is authorized.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

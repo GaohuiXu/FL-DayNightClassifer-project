@@ -8,11 +8,11 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement; O-137 C1-B0 fusion health; O-138 exact test-only replacement
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-138 exact test-neutral remediation + one strictly derived C1-B0 replacement; no retry
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: exact remediation/tuple/replacement only; no C1-B1/reviewer chain
+CURRENT_AUTHORITY: O-138 consumed by pre-model Job 503075; no executable compute; owner decision required
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: evidence sealing only; no correction/retry/C1-B1/reviewer chain
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
-STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A replacement Job 502572 PASS/LOCALIZED_NORM; O-137 C1-B0 pre-model fixture FAIL/no cells; O-138 exact replacement active
+STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A replacement Job 502572 PASS/LOCALIZED_NORM; O-137/O-138 C1-B0 pre-model fixture FAIL/no cells; owner decision pending
 C0_IMPLEMENTATION_SHA: 89958be504d6abaef66810695402d2a09619794b
 C0_JOB: 492525 / FAILED 1:0 / 00:47:32 / 0.792222 GH200-hours
 C0_REMEDIATION_REVIEW: 09c39458a0b32ce1d4a3ae603094d76ae160ac42 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
@@ -622,6 +622,14 @@ The correction is committed at exact source
 `0f51e11c9f879f5bcb9ab2632bcee31969e5c0ac`; its production runner, entry and
 config hashes are unchanged from O-137. The new detached recursively read-only
 snapshot and fresh replacement command are frozen in `RUN_REQUEST.md` §33.
+
+Job `503075` consumed that tuple and failed `1:0` after `00:02:11`
+(`0.036389` GH200-hour), with 105 focused tests passed and one failed. The same
+migrated test fixture also lacked required `execution.operator_profile`; the
+first run's missing scale field caused config validation to stop before revealing
+that second omission. The runner again stopped before telemetry, model/H256
+construction or either training cell. O-138 is consumed and grants no correction,
+retry or C1-B1 continuation.
 
 ## 7. STOP-D/E/F boundaries
 

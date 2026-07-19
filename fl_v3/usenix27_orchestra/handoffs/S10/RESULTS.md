@@ -1,4 +1,32 @@
-# S10 results — STOP-A/B closed; C0-v2 PASS; C1-A `LOCALIZED_NORM`
+# S10 results — STOP-A/B closed; C0-v2 PASS; C1-A `LOCALIZED_NORM`; C1-B0 pre-model FAIL
+
+## STOP-C1-B0 — O-138 replacement consumed / second pre-model fixture FAIL
+
+```text
+AUTHORITY: O-138
+SOURCE/TREE: 0f51e11c9f879f5bcb9ab2632bcee31969e5c0ac / 90e551b98c0c429e757345c244426433ebe84b62
+JOB: 503075 / FAILED 1:0 / 00:02:11 / zero restarts
+ALLOCATION: 1 GH200 / 16 CPUs / 96 GiB / 0.036389 GH200-hour
+FOCUSED_TESTS: 105 passed / 1 failed / 6 warnings in 72.95s
+MODEL/H256/UPDATES/CELLS: absent / absent / zero / none
+SCIENTIFIC_RESULT: absent
+```
+
+The exact O-138 remediation fixed all six failures observed in Job `502958`, but
+the focused suite then exposed another missing field in the same migrated
+fixture: `execution.operator_profile`. The earlier missing
+`training.grad_scaler_init_scale` was validated first and masked this second
+schema omission. The runner stopped before telemetry, data/model construction,
+optimizer or either GN/BN1d H256 cell. Thus C1-B0 still has no training-health,
+gradient, trajectory, memory or timing result.
+
+Immutable output:
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b0_fix_0f51e11_o138_a1`.
+Its 4/4 runner manifest verifies; focused stdout SHA-256 is
+`dbe3170d178cab2dbaa6792e1408832085780925e7f630f745ce880c69d7d0d6`
+and manifest SHA-256 is
+`67499dd0aa9ed750fc81db2010451c8c83587f33f11fe2a87b096e68e51f6d72`.
+O-138 is consumed and grants no correction, retry or C1-B1 continuation.
 
 ## STOP-C1-B0 — O-137 consumed / pre-model test-fixture FAIL
 
