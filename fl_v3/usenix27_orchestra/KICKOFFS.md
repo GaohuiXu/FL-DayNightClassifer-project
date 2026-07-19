@@ -55,6 +55,9 @@
 > A1/A2 before any MIT-reference repair, and authorizes exactly one bounded C1-A
 > complete-panel/two-repeat GN-versus-BN1d loss+fixed-VJP job. It does not
 > authorize C1-B implementation/compute, later C, STOP-D/E/F or S11+.
+> C1-A Job `502456` passed 36 tests but failed before candidate execution at an
+> over-strict BN1d state-mapping assertion; it consumed `0.050833` GH200-hour and
+> produced no gradient verdict. O-134 is consumed and no retry is executable.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

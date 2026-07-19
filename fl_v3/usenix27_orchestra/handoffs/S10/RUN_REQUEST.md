@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-132 C0-v2 consumed / O-134 C1-A exact tuple frozen and executable once
+REQUEST_STATE: O-132 C0-v2 consumed / O-134 C1-A consumed by Job 502456 pre-execution failure
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing/amendment
-EXECUTION_AUTHORITY: O-134 one exact C1-A job after immutable implementation/source/command freeze
+EXECUTION_AUTHORITY: none; O-134 single C1-A submission consumed
 SOURCE_SHA: 2262b4063a3e419b17f4b911a9e11a7ff50ea784
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-134 C1-A implementation and compute approved 2026-07-19
-EXECUTABLE_NOW: exact §29 C1-A tuple once; C1-B and STOP-D/E/F remain owner-gated
+EXECUTABLE_NOW: none; C1-A replacement, C1-B and STOP-D/E/F remain owner-gated
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1365,11 +1365,11 @@ O-134 below supersedes this no-executable state for C1-A only. The exact MIT
 anchor remains pending before any C1-B reference-guided repair. Unused O-124
 aggregate budget is not execution authority.
 
-## 29. O-134 C1-A exact immutable tuple — executable once
+## 29. O-134 C1-A exact immutable tuple — consumed / pre-execution FAIL
 
 ```text
 REQUEST_ID: S10-C1A-GRAD-CAUSAL-O134-v1
-STATE: OWNER APPROVED / FROZEN / EXECUTABLE EXACTLY ONCE
+STATE: CONSUMED BY JOB 502456 / FAILED BEFORE CANDIDATE EXECUTION / NO VERDICT / NO RETRY
 SOURCE_SHA: 95c09a149029d63e243e5e418385f39d2d1aed66
 SOURCE_TREE: 10b8da87eff3b5aed171a4d325061a2baf9dee0e
 BRANCH_AT_FREEZE: codex/s10-cl-model-recipe
@@ -1414,3 +1414,33 @@ sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cp
 
 Any semantic/resource change or first job failure returns to the owner; O-134 is
 not a remediation-loop authorization and does not permit a retry.
+
+### 29.1 Job 502456 consumption record
+
+```text
+JOB_ID: 502456
+STATE/EXIT/ELAPSED: FAILED / 1:0 / 00:03:03
+ACTUAL_ALLOCATION: 183 / 3600 = 0.050833 GH200-hours
+POSTJOB_CUMULATIVE_S10_ABC/C1: 3.231945 + 0.050833 = 3.282778 GH200-hours
+FOCUSED_TESTS: 36 passed / 0 failed / 1.56 s
+SOURCE/RUNTIME/DATA/PANEL: identity gates passed
+CANDIDATE_FORWARD_BACKWARD_RUNS: 0 / 128
+OPTIMIZER/UPDATE/EVALUATOR: absent / zero / absent
+FAILURE: BN1d mapping assertion expected running_mean, running_var and num_batches_tracked in missing_keys; PyTorch backward-compatibly synthesized num_batches_tracked and reported only the first two
+MODEL_TO_GPU/LOADER/GRADIENTS: not reached / not reached / absent
+C1A_VERDICT: absent
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1a_95c09a1_o134_a1
+FAILURE_SUMMARY_SHA256: 45b3569df55392d4ee5f74f054eb1c83113158fb46e3185c0afe074e169eb2d5
+EXECUTION_IDENTITY_SHA256: 34fc62d89d083075b2e7503d03e96ef915999e581cbf23beb6d066e4d35e11a0
+INNER_ARTIFACT_MANIFEST_SHA256: 14f6e80e2c516c69d5667e260df1d8d6cea52b4a9eb28ffd4cc59df9e0fa40d4
+RUNNER_ARTIFACT_MANIFEST_SHA256: 7724a1c91e41291dfaad480057c1d033e1505d52d753d07a15ded7844d4a83c6
+FINAL/TEST/C1A_EXIT: 1 / 0 / 1
+ARTIFACT_CHECKS: inner 2/2 OK; runner 13/13 OK; output recursively read-only
+RETRY/REPLACEMENT: none authorized
+```
+
+This failure has no scientific interpretation. A possible replacement must fix
+only the mapping assertion, explicitly validate that every BN1d
+`num_batches_tracked` buffer exists and equals zero after load, add a regression
+test for PyTorch's missing-key behavior, freeze a new source/snapshot/output and
+obtain new owner compute authority.

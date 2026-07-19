@@ -112,7 +112,13 @@ gate. O-134 authorizes C1-A implementation, linear commits and exactly one froze
 L-S075 FP32 no-update/no-evaluator diagnostic on the complete accepted 16xB4
 STOP-B panel: current GN versus direct BN1d, normal loss plus coordinate-fixed
 SECOND-output VJP, two repeats, 128 runs total, one GH200/8 CPU/64 GiB/`00:30:00`,
-at most `0.5` GH200-hour, no retry. C1-B implementation/compute remains pending.
+at most `0.5` GH200-hour, no retry. Exact Job `502456` passed 36 focused tests
+but failed before either candidate forward/backward because its fail-closed
+mapping check incorrectly expected PyTorch to report BN1d
+`num_batches_tracked` as a missing key; PyTorch backward-compatibly synthesizes
+that buffer and reported only `running_mean/running_var`. The job consumed
+`0.050833` GH200-hour and produced no gradient verdict. O-134 is consumed; no
+retry is executable. C1-B implementation/compute remains pending.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

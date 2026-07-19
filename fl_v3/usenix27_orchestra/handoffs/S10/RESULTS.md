@@ -1,4 +1,53 @@
-# S10 results — STOP-A/B closed; STOP-C0-v2 execution gate PASS
+# S10 results — STOP-A/B closed; C0-v2 PASS; C1-A pre-execution FAIL
+
+## STOP-C1-A — O-134 consumed without a gradient verdict
+
+```text
+AUTHORITY: O-134
+STATE: FAILED before candidate execution; sole allocation consumed; no retry
+JOB: 502456 / FAILED 1:0 / 00:03:03 / 0.050833 GH200-hours
+EXECUTION_SOURCE: 95c09a149029d63e243e5e418385f39d2d1aed66
+SOURCE_TREE: 10b8da87eff3b5aed171a4d325061a2baf9dee0e
+REQUESTED_RUNS/ACTUAL_RUNS: 128 / 0
+C1A_VERDICT: absent
+```
+
+The job passed all `36` focused tests in `1.56 s` and verified its detached
+read-only source, runtime dependencies, accepted `D_low` split and complete
+STOP-B panel. It then failed while constructing the BN1d candidate, before
+moving either candidate to GPU, iterating the loader, or executing a forward/
+backward. No optimizer or evaluator was constructed.
+
+The counterfactual intentionally loads the current GN backbone's convolution and
+affine tensors into a BN1d backbone with `strict=False`. The runner correctly
+expected BN running state to be new, but its assertion expected all
+`running_mean`, `running_var` and `num_batches_tracked` keys in
+`incompatible.missing_keys`. PyTorch's BatchNorm compatibility loader initializes
+`num_batches_tracked` when absent and therefore reported only the 42 running
+mean/variance keys. The over-strict 63-key assertion raised before the candidate
+identity could be written.
+
+Accordingly, this result says nothing about GroupNorm, BN1d, gradient causality,
+model health or convergence. The minimal technical correction is to accept only
+the 42 reported running mean/variance keys while separately asserting that all
+21 BN1d `num_batches_tracked` buffers exist and are zero. O-134 grants no retry,
+so that correction has not been implemented or submitted.
+
+Artifact evidence:
+
+```text
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1a_95c09a1_o134_a1
+FAILURE_SUMMARY_SHA256: 45b3569df55392d4ee5f74f054eb1c83113158fb46e3185c0afe074e169eb2d5
+EXECUTION_IDENTITY_SHA256: 34fc62d89d083075b2e7503d03e96ef915999e581cbf23beb6d066e4d35e11a0
+INNER_ARTIFACT_MANIFEST_SHA256: 14f6e80e2c516c69d5667e260df1d8d6cea52b4a9eb28ffd4cc59df9e0fa40d4
+RUNNER_ARTIFACT_MANIFEST_SHA256: 7724a1c91e41291dfaad480057c1d033e1505d52d753d07a15ded7844d4a83c6
+FINAL/TEST/C1A_EXIT: 1 / 0 / 1
+CHECKS: inner 2/2 OK; runner 13/13 OK; output read-only
+```
+
+The allocation was `183 / 3600 = 0.050833` GH200-hours. Cumulative S10
+STOP-A/B/C/C1 allocation is now `3.282778` GH200-hours. Unused time is not retry
+authority.
 
 ## STOP-C0-v2 clean replay
 

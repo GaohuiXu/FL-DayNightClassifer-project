@@ -8,11 +8,11 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-134 C1-A implementation/commit/one exact no-retry job only; C1-B and later stops pending
+CURRENT_AUTHORITY: none; O-134 C1-A allocation consumed by pre-execution failure; C1-B and later stops pending owner decision
 ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: historical O-124/O-131/O-132 authority consumed through C0-v2; current compute none
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
-STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A activated by O-134; C1-B current-A1/A2-first order accepted but implementation/compute pending
+STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A Job 502456 pre-execution FAIL/no verdict; C1-B current-A1/A2-first order accepted but implementation/compute pending
 C0_IMPLEMENTATION_SHA: 89958be504d6abaef66810695402d2a09619794b
 C0_JOB: 492525 / FAILED 1:0 / 00:47:32 / 0.792222 GH200-hours
 C0_REMEDIATION_REVIEW: 09c39458a0b32ce1d4a3ae603094d76ae160ac42 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
@@ -492,6 +492,20 @@ The sole allocation is one GH200, 8 CPUs, 64 GiB and `00:30:00`, capped at `0.5`
 elapsed GH200-hour. One immutable source/snapshot/output and one submission are
 authorized; no retry or automatic C1-B continuation exists. Exact hashes and
 command are frozen after the implementation commit in `RUN_REQUEST.md`.
+
+Job `502456` consumed that sole tuple and failed `1:0` after `00:03:03`
+(`0.050833` GH200-hour). All 36 focused tests, source/tree/runtime/data/panel
+identities and artifact checks passed. Failure occurred while constructing the
+BN1d candidate, before model-to-GPU, loader iteration or any candidate
+forward/backward: `load_state_dict(strict=False)` reported the expected 42
+`running_mean/running_var` keys but did not report 21 `num_batches_tracked`
+keys, because PyTorch's BatchNorm backward-compatibility loader synthesizes
+those buffers. The runner incorrectly required all 63 keys in `missing_keys`.
+
+No `runs.jsonl`, candidate identity, gradient metric or C1-A verdict exists.
+This is a runner assertion defect, not evidence for or against GN, BN1d, large-
+gradient causality or model health. O-134 is consumed and explicitly grants no
+retry; any correction/replacement requires a new owner decision.
 
 ## 7. STOP-D/E/F boundaries
 
