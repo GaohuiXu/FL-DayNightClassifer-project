@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-138 exact C1-B0 replacement consumed by Job 503075 / second pre-model fixture FAIL
+REQUEST_STATE: O-139 canonical-fixture remediation and strictly derived C1-B0 replacement active
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
-PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing + O-137 C1-B0 + O-138 exact replacement
-EXECUTION_AUTHORITY: none; O-138 consumed; no correction/retry/C1-B1
+PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing + O-137 C1-B0 + O-138/O-139 replacements
+EXECUTION_AUTHORITY: O-139 one strictly derived replacement; no retry/C1-B1
 SOURCE_SHA: 0f51e11c9f879f5bcb9ab2632bcee31969e5c0ac
 BRANCH: codex/s10-cl-model-recipe
-OWNER_APPROVAL: O-138 exact remediation and replacement approved 2026-07-19
-EXECUTABLE_NOW: none; owner decision required
+OWNER_APPROVAL: O-139 canonical-fixture remediation and replacement approved 2026-07-19
+EXECUTABLE_NOW: remediate, freeze exact tuple, submit once
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1713,3 +1713,28 @@ this additional required field. A technically sufficient next correction would
 add the explicit operator-profile value appropriate to this fixture, but O-138
 authorizes no edit or replacement. This result remains test-infrastructure
 failure evidence only and says nothing about GN/BN1d fusion training health.
+
+## 34. O-139 canonical-fixture C1-B0 replacement — approved / tuple pending
+
+```text
+REQUEST_ID: S10-C1B0-FUSION-NORM-HEALTH-H256-v1-fix2
+OWNER_DECISION: O-139
+STATE: approved; canonical-fixture validation and immutable tuple pending
+CAUSE: Jobs 502958/503075 used one partial manual s09.v1-to-s10.v1 test promotion
+ALLOWED_DIFF: replace that manual promotion with s10_second_config(..., batch_norm_1d) and assert complete resolved propagation
+PRODUCTION_SOURCE/RUNNER/CONFIG: unchanged from O-137
+DATA/CELLS/SEED/W0/PRECISION/RECIPE/HORIZON/DIAGNOSTICS/GATES: unchanged from O-137
+RESOURCE: 1 node / 1 x GH200 / 16 CPUs / 96 GiB / 00:30:00 / no-requeue
+EXPECTED/CAP: 0.20-0.30 / 0.5 elapsed GH200-hour
+SUBMISSIONS: exactly one fresh replacement; no retry, requeue, array, DDP or spare GPU
+CUMULATIVE_BEFORE: 3.408889 GH200-hours
+CUMULATIVE_HARD_MAX_AFTER: 3.908889 GH200-hours
+FORBIDDEN: any production/scientific/resource change, C1-B1, later C/D/E/F, reviewer chain, merge, push, upload
+```
+
+The pre-freeze audit must directly construct and resolve the canonical test
+fixture outside pytest, verify both real production GN/BN1d resolved identities,
+prove no manual S10 schema promotion remains in the propagation test, and show
+zero production/runner/config diff from O-137. The one integrated job runs all
+106 focused tests first and enters H256 execution only after 106/106 pass. Any
+failure consumes O-139 and returns directly to the owner.

@@ -81,6 +81,10 @@
 > tests. The migrated `s10.v1` fixture still lacked `execution.operator_profile`,
 > previously masked by the missing scale field. No experiment cell ran; no
 > correction, retry or C1-B1 is currently executable.
+> O-139 now authorizes replacing that manual schema promotion with the complete
+> canonical S10 fixture, then freezing and submitting one strictly derived
+> replacement under unchanged production/scientific/resources. One submission,
+> no retry; stop before C1-B1 or later work.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

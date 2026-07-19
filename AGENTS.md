@@ -173,6 +173,13 @@ The migrated `s10.v1` fixture also lacked required
 `execution.operator_profile`; the earlier missing scale field had masked this
 second schema omission. No model, H256 data, optimizer or cell executed. O-138
 is consumed; no further correction, retry or C1-B1 execution is authorized.
+Owner decision O-139 authorizes replacing the partial S09-to-S10 test mutation
+with the already validated canonical `s10_second_config` fixture, explicit schema/
+normalization/scale/operator-profile propagation assertions, local/static audit,
+one linear commit, one detached read-only snapshot and one strictly derived
+C1-B0 replacement. Production source, runner, config, data, cells, W0/seed,
+horizon, gates and O-137 resources remain unchanged. One submission, no retry;
+no C1-B1 or later-stop authority.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

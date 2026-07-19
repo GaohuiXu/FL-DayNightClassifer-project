@@ -6,13 +6,13 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement; O-137 C1-B0 fusion health; O-138 exact test-only replacement
+OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement; O-137 C1-B0 fusion health; O-138 exact test-only replacement; O-139 canonical-fixture replacement
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-138 consumed by pre-model Job 503075; no executable compute; owner decision required
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: evidence sealing only; no correction/retry/C1-B1/reviewer chain
+CURRENT_AUTHORITY: O-139 canonical-fixture remediation + one strictly derived C1-B0 replacement; no retry
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: exact remediation/tuple/replacement only; no C1-B1/reviewer chain
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
-STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A replacement Job 502572 PASS/LOCALIZED_NORM; O-137/O-138 C1-B0 pre-model fixture FAIL/no cells; owner decision pending
+STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A replacement Job 502572 PASS/LOCALIZED_NORM; O-137/O-138 C1-B0 pre-model fixture FAIL/no cells; O-139 exact replacement active
 C0_IMPLEMENTATION_SHA: 89958be504d6abaef66810695402d2a09619794b
 C0_JOB: 492525 / FAILED 1:0 / 00:47:32 / 0.792222 GH200-hours
 C0_REMEDIATION_REVIEW: 09c39458a0b32ce1d4a3ae603094d76ae160ac42 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
@@ -630,6 +630,17 @@ first run's missing scale field caused config validation to stop before revealin
 that second omission. The runner again stopped before telemetry, model/H256
 construction or either training cell. O-138 is consumed and grants no correction,
 retry or C1-B1 continuation.
+
+### 6.10 O-139 canonical-fixture replacement
+
+O-139 removes the failure-prone manual `s09.v1` to `s10.v1` promotion from the
+production-propagation test. The test instead consumes the complete canonical
+`s10_second_config(..., "batch_norm_1d")` fixture already exercised by the S10
+config suite and asserts resolved schema, normalization, scale and operator-
+profile propagation before calling the detector constructor. No production or
+experiment file changes. After local/static schema audit, freeze one new detached
+read-only snapshot and fresh output and submit exactly once under the unchanged
+O-137 resource/scientific tuple. No retry, C1-B1 or later-stop continuation.
 
 ## 7. STOP-D/E/F boundaries
 

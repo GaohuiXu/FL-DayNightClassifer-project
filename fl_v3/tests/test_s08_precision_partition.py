@@ -7,7 +7,7 @@ import pytest
 from fl_v3.config import ConfigError, resolve_config, validate_precision_partition
 from fl_v3.source_identity import build_source_state
 from fl_v3.training.tasks import _det_config_from_run
-from test_s06_resolved_config import H, valid_config
+from test_s06_resolved_config import H, s10_second_config, valid_config
 
 
 @pytest.mark.parametrize(
@@ -79,12 +79,13 @@ def test_partition_changes_resolved_identity_and_production_constructor(tmp_path
 
 
 def test_s10_batch_norm_reaches_production_detector_constructor(tmp_path):
-    raw = _second_config(tmp_path, partition="fp32")
-    raw["schema_version"] = "s10.v1"
-    raw["model"]["camera_activation_checkpoint"] = False
-    raw["model"]["second_normalization"] = "batch_norm_1d"
-    raw["training"]["grad_scaler_init_scale"] = 32
-    config = _det_config_from_run(resolve_config(raw).to_run_config())
+    resolved = resolve_config(s10_second_config(tmp_path, "batch_norm_1d"))
+    run = resolved.to_run_config()
+    assert run["resolved-schema-version"] == "s10.v1"
+    assert run["det-second-normalization"] == "batch_norm_1d"
+    assert run["grad-scaler-init-scale"] == 32.0
+    assert "readiness-operator-profile" in run
+    config = _det_config_from_run(run)
     assert config.second_normalization == "batch_norm_1d"
 
 
