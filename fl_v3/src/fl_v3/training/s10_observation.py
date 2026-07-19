@@ -935,6 +935,176 @@ def zero_model_gradients(model: nn.Module) -> None:
         parameter.grad = None
 
 
+def _linear_percentile(values: Sequence[float], fraction: float) -> float:
+    ordered = sorted(float(value) for value in values)
+    _require(bool(ordered), "percentile requires at least one value")
+    _require(0.0 <= fraction <= 1.0, "percentile fraction must lie in [0,1]")
+    position = fraction * (len(ordered) - 1)
+    lower = int(math.floor(position))
+    upper = int(math.ceil(position))
+    if lower == upper:
+        return ordered[lower]
+    weight = position - lower
+    return ordered[lower] * (1.0 - weight) + ordered[upper] * weight
+
+
+def paired_c1a_reduction(
+    group_norm_pairs: Sequence[Sequence[float]],
+    batch_norm_pairs: Sequence[Sequence[float]],
+) -> dict[str, Any]:
+    """Qualify a paired BN1d/GN reduction against two-run runtime variation.
+
+    Every outer item is one frozen B4 batch and every inner item is exactly two
+    repeated measurements.  Geometric centres make positive gradient ratios
+    symmetric in log space; the effect must clear both an absolute two-fold gate
+    and the observed p95 within-method log variation.
+    """
+    _require(
+        len(group_norm_pairs) == len(batch_norm_pairs) and len(group_norm_pairs) > 0,
+        "C1-A paired candidates require the same non-empty batch count",
+    )
+    floor = 1e-30
+    ratios: list[float] = []
+    within_log_variation: list[float] = []
+    for gn_values, bn_values in zip(group_norm_pairs, batch_norm_pairs, strict=True):
+        _require(
+            len(gn_values) == len(bn_values) == 2,
+            "C1-A runtime qualification requires exactly two repeats",
+        )
+        gn = [max(floor, float(value)) for value in gn_values]
+        bn = [max(floor, float(value)) for value in bn_values]
+        _require(
+            all(math.isfinite(value) and value >= 0.0 for value in (*gn, *bn)),
+            "C1-A gradient metrics must be finite and nonnegative",
+        )
+        gn_center = math.sqrt(gn[0] * gn[1])
+        bn_center = math.sqrt(bn[0] * bn[1])
+        ratios.append(bn_center / gn_center)
+        within_log_variation.extend((abs(math.log(gn[0] / gn[1])), abs(math.log(bn[0] / bn[1]))))
+
+    median_ratio = _linear_percentile(ratios, 0.5)
+    favourable_fraction = sum(value <= 0.8 for value in ratios) / len(ratios)
+    median_effect_log = _linear_percentile([-math.log(value) for value in ratios], 0.5)
+    within_p95 = _linear_percentile(within_log_variation, 0.95)
+    stable_material_reduction = bool(
+        median_ratio <= 0.5
+        and favourable_fraction >= 0.75
+        and median_effect_log > within_p95
+    )
+    return {
+        "batch_count": len(ratios),
+        "repeats_per_candidate_batch": 2,
+        "candidate_over_current_ratio": {
+            "min": min(ratios),
+            "median": median_ratio,
+            "p95": _linear_percentile(ratios, 0.95),
+            "max": max(ratios),
+        },
+        "fraction_candidate_le_0p8_current": favourable_fraction,
+        "median_reduction_log": median_effect_log,
+        "within_method_abs_log_variation_p95": within_p95,
+        "absolute_gate_candidate_over_current_le": 0.5,
+        "paired_support_gate_fraction_le_0p8": 0.75,
+        "stable_material_reduction": stable_material_reduction,
+    }
+
+
+def spearman_rank_correlation(left: Sequence[float], right: Sequence[float]) -> float:
+    """Small dependency-free Spearman coefficient with average tie ranks."""
+    _require(len(left) == len(right) and len(left) >= 3, "Spearman inputs must have equal length >= 3")
+
+    def ranks(values: Sequence[float]) -> list[float]:
+        indexed = sorted(enumerate(float(value) for value in values), key=lambda item: item[1])
+        result = [0.0] * len(indexed)
+        start = 0
+        while start < len(indexed):
+            stop = start + 1
+            while stop < len(indexed) and indexed[stop][1] == indexed[start][1]:
+                stop += 1
+            average = (start + 1 + stop) / 2.0
+            for position in range(start, stop):
+                result[indexed[position][0]] = average
+            start = stop
+        return result
+
+    x, y = ranks(left), ranks(right)
+    x_mean = sum(x) / len(x)
+    y_mean = sum(y) / len(y)
+    numerator = sum((a - x_mean) * (b - y_mean) for a, b in zip(x, y, strict=True))
+    x_sq = sum((a - x_mean) ** 2 for a in x)
+    y_sq = sum((b - y_mean) ** 2 for b in y)
+    denominator = math.sqrt(x_sq * y_sq)
+    return 0.0 if denominator == 0.0 else numerator / denominator
+
+
+def classify_c1a_gradient_causality(
+    *,
+    loss_effects: Mapping[str, Mapping[str, Any]],
+    vjp_effects: Mapping[str, Mapping[str, Any]],
+    occupancy_correlations: Mapping[str, float],
+    loss_upstream_stem_correlation: float,
+    current_loss_stem_max_abs_median: float,
+) -> dict[str, Any]:
+    """Apply the frozen conservative C1-A mechanism precedence.
+
+    A normalization label needs a stable BN1d reduction in two fixed-VJP
+    Jacobian metrics and at least one normal-loss metric.  Downstream head/loss
+    localization requires a large current stem gradient, no VJP normalization
+    support, a strong upstream/stem association, and at least two loss-only BN
+    effects.  Occupancy is last and requires the same strong negative association
+    in at least three candidate/path combinations.  Everything else is honestly
+    inconclusive.
+    """
+    loss_support = sorted(
+        name for name, report in loss_effects.items()
+        if bool(report.get("stable_material_reduction", False))
+    )
+    vjp_support = sorted(
+        name for name, report in vjp_effects.items()
+        if bool(report.get("stable_material_reduction", False))
+    )
+    occupancy_support = sorted(
+        name for name, value in occupancy_correlations.items()
+        if math.isfinite(float(value)) and float(value) <= -0.7
+    )
+
+    if len(vjp_support) >= 2 and len(loss_support) >= 1:
+        label = "LOCALIZED_NORM"
+        basis = "BN1d causally reduces the fixed-upstream SECOND Jacobian and normal-loss gradients beyond runtime variation"
+    elif (
+        not vjp_support
+        and len(loss_support) >= 2
+        and float(current_loss_stem_max_abs_median) >= 1e5
+        and float(loss_upstream_stem_correlation) >= 0.7
+    ):
+        label = "LOCALIZED_HEAD_LOSS"
+        basis = "large stem gradients track downstream loss upstream-scale while the fixed-upstream encoder Jacobian does not support normalization"
+    elif not vjp_support and len(occupancy_support) >= 3:
+        label = "LOCALIZED_SPARSE_OCCUPANCY"
+        basis = "normalized gradient amplification is strongly and consistently inverse-associated with active sparse occupancy"
+    else:
+        label = "INCONCLUSIVE"
+        basis = "no predeclared mechanism gate clears runtime variation and multi-metric support"
+
+    return {
+        "label": label,
+        "basis": basis,
+        "loss_normalization_support_metrics": loss_support,
+        "fixed_vjp_normalization_support_metrics": vjp_support,
+        "occupancy_support_cells": occupancy_support,
+        "loss_upstream_stem_spearman": float(loss_upstream_stem_correlation),
+        "current_loss_stem_max_abs_median": float(current_loss_stem_max_abs_median),
+        "thresholds": {
+            "normalization_vjp_metric_count": 2,
+            "normalization_loss_metric_count": 1,
+            "head_loss_current_stem_max_abs": 1e5,
+            "head_loss_upstream_stem_spearman": 0.7,
+            "occupancy_spearman_max": -0.7,
+            "occupancy_support_cell_count": 3,
+        },
+    }
+
+
 __all__ = [
     "LIDAR_BACKWARD_CHAIN",
     "MAIN_BOUNDARIES",
@@ -945,13 +1115,16 @@ __all__ = [
     "capture_parameter_gradient_tensors",
     "capture_tensor_tree_tensors",
     "classify_stop_b_randomness",
+    "classify_c1a_gradient_causality",
     "compare_parameter_gradient_tensors",
     "compare_tensor_tree_tensors",
     "loss_term_snapshot",
     "module_state_sha256",
+    "paired_c1a_reduction",
     "parameter_gradients_sha256",
     "parameter_gradient_snapshot",
     "recompose_from_sample_terms",
+    "spearman_rank_correlation",
     "strict_json_value",
     "tensor_tree_sha256",
     "term_sources",

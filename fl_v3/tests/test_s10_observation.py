@@ -12,11 +12,14 @@ from fl_v3.training.s10_observation import (
     StopBObservationRecorder,
     attribute_term_gradients,
     capture_tensor_tree_tensors,
+    classify_c1a_gradient_causality,
     classify_stop_b_randomness,
     compare_parameter_gradient_tensors,
     compare_tensor_tree_tensors,
     loss_term_snapshot,
+    paired_c1a_reduction,
     recompose_from_sample_terms,
+    spearman_rank_correlation,
 )
 
 
@@ -227,3 +230,48 @@ def test_randomness_classification_requires_two_metric_dominance():
         "output",
         "gradient",
     ]
+
+
+def test_c1a_paired_reduction_must_clear_runtime_variation():
+    group_norm = [[100.0, 110.0], [80.0, 88.0], [120.0, 126.0], [90.0, 99.0]]
+    batch_norm = [[20.0, 21.0], [16.0, 17.0], [24.0, 25.0], [18.0, 19.0]]
+    accepted = paired_c1a_reduction(group_norm, batch_norm)
+    assert accepted["stable_material_reduction"]
+    assert accepted["candidate_over_current_ratio"]["median"] < 0.5
+
+    noisy = paired_c1a_reduction(
+        [[100.0, 20.0], [80.0, 16.0], [120.0, 24.0], [90.0, 18.0]],
+        batch_norm,
+    )
+    assert not noisy["stable_material_reduction"]
+
+
+def test_c1a_classification_prioritizes_fixed_vjp_normalization_evidence():
+    supported = {"stable_material_reduction": True}
+    unsupported = {"stable_material_reduction": False}
+    report = classify_c1a_gradient_causality(
+        loss_effects={
+            "stem_parameter_max_abs": supported,
+            "stem_parameter_rms": unsupported,
+            "boundary_amplification": unsupported,
+        },
+        vjp_effects={
+            "stem_parameter_max_abs": supported,
+            "stem_parameter_rms": supported,
+            "boundary_amplification": unsupported,
+        },
+        occupancy_correlations={
+            "group_norm.loss": -0.9,
+            "batch_norm_1d.loss": -0.9,
+            "group_norm.fixed_vjp": -0.9,
+            "batch_norm_1d.fixed_vjp": -0.9,
+        },
+        loss_upstream_stem_correlation=0.95,
+        current_loss_stem_max_abs_median=2e6,
+    )
+    assert report["label"] == "LOCALIZED_NORM"
+
+
+def test_c1a_spearman_handles_monotone_values_and_ties():
+    assert spearman_rank_correlation([1, 2, 3, 4], [4, 3, 2, 1]) == pytest.approx(-1.0)
+    assert spearman_rank_correlation([1, 1, 2, 3], [2, 2, 3, 4]) == pytest.approx(1.0)

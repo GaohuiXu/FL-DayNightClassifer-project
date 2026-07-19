@@ -8,6 +8,7 @@ import pytest
 from fl_v3.models.fusion.second_sparse_backbone import (
     SECONDShapeContract,
     SECONDSparseBackbone,
+    _sparse_feature_norm,
     validate_reference_stage_channels,
 )
 from fl_v3.models.fusion.sparse_voxel_encoder import SparseVoxelEncoder
@@ -59,3 +60,25 @@ def test_official_reference_stage_channel_mapping_is_fail_closed():
     )
     with pytest.raises(ValueError, match="stage channels"):
         validate_reference_stage_channels(((16, 32), (64, 128)))
+
+
+def test_sparse_feature_normalization_options_are_explicit_and_reference_bound():
+    current = _sparse_feature_norm(
+        16, normalization="group_norm", observation_label="second.test.norm"
+    )
+    reference = _sparse_feature_norm(
+        16, normalization="batch_norm_1d", observation_label="second.test.norm"
+    )
+
+    assert current.num_groups == 8
+    assert current.num_channels == 16
+    assert reference.num_features == 16
+    assert reference.eps == pytest.approx(1e-3)
+    assert reference.momentum == pytest.approx(0.01)
+    assert reference.affine
+    assert reference.track_running_stats
+
+    with pytest.raises(ValueError, match="sparse normalization"):
+        _sparse_feature_norm(
+            16, normalization="layer_norm", observation_label="second.test.norm"
+        )

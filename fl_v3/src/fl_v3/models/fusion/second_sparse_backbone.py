@@ -179,6 +179,33 @@ def _gn(
     return _ObservedGroupNorm(groups, channels, observation_label=observation_label)
 
 
+SECOND_SPARSE_NORMALIZATIONS = frozenset({"group_norm", "batch_norm_1d"})
+
+
+def _sparse_feature_norm(
+    channels: int,
+    *,
+    normalization: str,
+    observation_label: str,
+) -> nn.Module:
+    """Build the explicit sparse-feature normalization used after SECOND convs.
+
+    ``batch_norm_1d`` is the direct MIT BEVFusion SparseEncoder convention:
+    active sparse rows are treated as the batch dimension and channels as
+    features, with ``eps=1e-3`` and ``momentum=0.01``.  The production default
+    remains the existing sample-local tiny-group GroupNorm.
+    """
+    normalization = str(normalization)
+    if normalization == "group_norm":
+        return _gn(channels, observation_label=observation_label)
+    if normalization == "batch_norm_1d":
+        return nn.BatchNorm1d(channels, eps=1e-3, momentum=0.01)
+    raise ValueError(
+        f"SECOND sparse normalization must be one of "
+        f"{sorted(SECOND_SPARSE_NORMALIZATIONS)}, got {normalization!r}"
+    )
+
+
 def _replace_feature(x, features: torch.Tensor):
     """spconv-2 feature replacement, isolated for residual blocks."""
     return x.replace_feature(features)
@@ -187,19 +214,34 @@ def _replace_feature(x, features: torch.Tensor):
 class _SparseResidualBlock(nn.Module):
     """Two SubMConv3d layers with sample-local per-voxel GroupNorm."""
 
-    def __init__(self, channels: int, indice_key: str, observation_label: str):
+    def __init__(
+        self,
+        channels: int,
+        indice_key: str,
+        observation_label: str,
+        *,
+        normalization: str,
+    ):
         super().__init__()
         import spconv.pytorch as spconv
 
         self.conv1 = spconv.SubMConv3d(
             channels, channels, 3, padding=1, bias=False, indice_key=indice_key
         )
-        self.norm1 = _gn(channels, observation_label=f"{observation_label}.norm1")
+        self.norm1 = _sparse_feature_norm(
+            channels,
+            normalization=normalization,
+            observation_label=f"{observation_label}.norm1",
+        )
         self.act1 = nn.ReLU(inplace=True)
         self.conv2 = spconv.SubMConv3d(
             channels, channels, 3, padding=1, bias=False, indice_key=indice_key
         )
-        self.norm2 = _gn(channels, observation_label=f"{observation_label}.norm2")
+        self.norm2 = _sparse_feature_norm(
+            channels,
+            normalization=normalization,
+            observation_label=f"{observation_label}.norm2",
+        )
         self.act2 = nn.ReLU(inplace=True)
 
     def forward(self, x):
@@ -214,11 +256,23 @@ class _SparseResidualBlock(nn.Module):
 class SECONDSparseBackbone(nn.Module):
     """Reference-shaped sparse SECOND encoder; never densifies internally."""
 
-    def __init__(self, in_channels: int, contract: SECONDShapeContract):
+    def __init__(
+        self,
+        in_channels: int,
+        contract: SECONDShapeContract,
+        *,
+        normalization: str = "group_norm",
+    ):
         super().__init__()
         import spconv.pytorch as spconv
 
         self.contract = contract
+        self.normalization = str(normalization)
+        if self.normalization not in SECOND_SPARSE_NORMALIZATIONS:
+            raise ValueError(
+                f"SECOND sparse normalization must be one of "
+                f"{sorted(SECOND_SPARSE_NORMALIZATIONS)}, got {self.normalization!r}"
+            )
         self.last_shapes_zyx: tuple[tuple[int, int, int], ...] | None = None
         self._s10_observer = None
 
@@ -247,7 +301,11 @@ class SECONDSparseBackbone(nn.Module):
             )
             return spconv.SparseSequential(
                 conv,
-                _gn(cout, observation_label=f"{observation_label}.norm"),
+                _sparse_feature_norm(
+                    cout,
+                    normalization=self.normalization,
+                    observation_label=f"{observation_label}.norm",
+                ),
                 nn.ReLU(inplace=True),
             )
 
@@ -260,32 +318,56 @@ class SECONDSparseBackbone(nn.Module):
         # with ``input.features``; _SparseResidualBlock consumes/returns the complete
         # SparseConvTensor to preserve indices and residual semantics.
         self.stage1 = nn.ModuleList((
-            _SparseResidualBlock(16, "second_s1", "second.stage1.block0"),
-            _SparseResidualBlock(16, "second_s1", "second.stage1.block1"),
+            _SparseResidualBlock(
+                16, "second_s1", "second.stage1.block0",
+                normalization=self.normalization,
+            ),
+            _SparseResidualBlock(
+                16, "second_s1", "second.stage1.block1",
+                normalization=self.normalization,
+            ),
         ))
         self.down1 = sparse_norm_act(
             16, 32, stride=(2, 2, 2), padding=(1, 1, 1), indice_key="second_down1",
             observation_label="second.down1",
         )
         self.stage2 = nn.ModuleList((
-            _SparseResidualBlock(32, "second_s2", "second.stage2.block0"),
-            _SparseResidualBlock(32, "second_s2", "second.stage2.block1"),
+            _SparseResidualBlock(
+                32, "second_s2", "second.stage2.block0",
+                normalization=self.normalization,
+            ),
+            _SparseResidualBlock(
+                32, "second_s2", "second.stage2.block1",
+                normalization=self.normalization,
+            ),
         ))
         self.down2 = sparse_norm_act(
             32, 64, stride=(2, 2, 2), padding=(1, 1, 1), indice_key="second_down2",
             observation_label="second.down2",
         )
         self.stage3 = nn.ModuleList((
-            _SparseResidualBlock(64, "second_s3", "second.stage3.block0"),
-            _SparseResidualBlock(64, "second_s3", "second.stage3.block1"),
+            _SparseResidualBlock(
+                64, "second_s3", "second.stage3.block0",
+                normalization=self.normalization,
+            ),
+            _SparseResidualBlock(
+                64, "second_s3", "second.stage3.block1",
+                normalization=self.normalization,
+            ),
         ))
         self.down3 = sparse_norm_act(
             64, 128, stride=(2, 2, 2), padding=(0, 1, 1), indice_key="second_down3",
             observation_label="second.down3",
         )
         self.stage4 = nn.ModuleList((
-            _SparseResidualBlock(128, "second_s4", "second.stage4.block0"),
-            _SparseResidualBlock(128, "second_s4", "second.stage4.block1"),
+            _SparseResidualBlock(
+                128, "second_s4", "second.stage4.block0",
+                normalization=self.normalization,
+            ),
+            _SparseResidualBlock(
+                128, "second_s4", "second.stage4.block1",
+                normalization=self.normalization,
+            ),
         ))
         self.conv_out = sparse_norm_act(
             128,
