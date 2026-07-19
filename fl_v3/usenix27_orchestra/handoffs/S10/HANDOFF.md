@@ -1040,3 +1040,7 @@ while explicitly refusing isolated batch-size causality or automatic selection.
 It also records training wall time, attempted-sample throughput, GPU telemetry
 and peak memory. O-141 permits one 30-minute/no-retry GH200 submission capped at
 0.5 GH200-hour after immutable tuple freeze, then evidence sealing and stop.
+
+Implementation source/tree `e4a9ff4d44014b0ba0e2e6ffabc375b5be6f6c17` /
+`1d9ea6ef1098e480f25cc2cf041a5ac683698f9b` and the detached recursively
+read-only snapshot/exact command are frozen in `RUN_REQUEST.md` §36.
