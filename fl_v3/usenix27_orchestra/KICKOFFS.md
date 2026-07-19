@@ -70,6 +70,9 @@
 > current-A1 fusion GN/BN1d cells at physical B4 with common scale 32 and 256
 > real updates. One no-retry GH200/16-CPU/96-GiB/30-minute job is authorized.
 > Stop before evaluator, full `D_low`, C1-B1/A2/MIT repair or reviewer launch.
+> Job `502958` consumed O-137 and stopped pre-model after 100 passed/6 failed
+> tests. No experimental cell ran. The exact test-only diagnosis is recorded in
+> S10 `RUN_REQUEST.md` §32; no correction or replacement is currently executable.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

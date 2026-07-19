@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-137 exact C1-B0 immutable tuple frozen / executable exactly once
+REQUEST_STATE: O-137 exact C1-B0 tuple consumed by Job 502958 / pre-model test-fixture FAIL
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing + O-137 C1-B0
-EXECUTION_AUTHORITY: O-137 one exact C1-B0 job after tuple freeze; no retry
+EXECUTION_AUTHORITY: none; O-137 consumed; no correction/retry/C1-B1
 SOURCE_SHA: 96ae63d69ca9e5c95f528dd8c4e5bbcf934ac0c4
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-137 C1-B0 plan and compute approved 2026-07-19
-EXECUTABLE_NOW: exact §32 tuple only; C1-B1 and STOP-D/E/F remain owner-gated
+EXECUTABLE_NOW: none; owner decision required
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1538,7 +1538,7 @@ RETRY/C1-B: none authorized
 ```text
 REQUEST_ID: S10-C1B0-FUSION-NORM-HEALTH-H256-v1
 OWNER_DECISION: O-137
-STATE: exact immutable tuple frozen; executable exactly once under O-137
+STATE: consumed once by Job 502958 / pre-model focused-test failure / no retry
 CELLS_SERIAL: F-A1-GN-H256; F-A1-BN1D-H256
 GRAPH: current F-A1 fusion graph; only SECOND normalization differs
 INITIALIZATION: ImageNet1K V1 camera + exact shared seed-0 random LiDAR/fuser/head trainable W0
@@ -1602,6 +1602,37 @@ STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/log
 ```bash
 sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G --gpus=nvidia_gh200_120gb:1 --time=00:30:00 --no-requeue --job-name=s10-c1b0-96ae63d --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b0_96ae63d_o137 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b0_96ae63d_o137_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b0_96ae63d_o137_%j.err --export=ALL,S10_C1B0_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b0_96ae63d_o137,S10_C1B0_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b0_96ae63d_o137_a1,S10_C1B0_EXPECTED_SOURCE_SHA=96ae63d69ca9e5c95f528dd8c4e5bbcf934ac0c4,S10_C1B0_EXPECTED_TREE=0346754de0000eff5c7b521c5ddf6790afc2a28e,S10_C1B0_EXPECTED_RUNNER_SHA256=6c8a284e4d6c760b07b3b1566a686d2a65a920b39cd298249433652bc49762ce,S10_C1B0_EXPECTED_ENTRY_SHA256=2007fb436bc11015d6578e112af666275f9b67614ea337ba7e19720b3fc8dd94,S10_C1B0_EXPECTED_CONFIG_SHA256=dfb9e05e43444fed632d08d8206383dbedd575ab5c5d3fa4db2d684668dada70 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b0_96ae63d_o137/fl_v3/scripts/run_s10_c1b0_fusion_health.sh
 ```
+
+### Consumed outcome and exact diagnosis
+
+```text
+JOB: 502958
+STATE/EXIT: FAILED / 1:0
+ELAPSED/ALLOCATED: 00:02:14 / 0.037222 GH200-hour
+NODE/RESTARTS: n124 / 0
+FOCUSED_TESTS: 100 passed / 6 failed / 6 warnings / 69.51s
+TEST_EXIT/FINAL_EXIT: 1 / 1
+MODEL/H256/OPTIMIZER/CELLS: not constructed / not read / not constructed / none
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b0_96ae63d_o137_a1
+FOCUSED_STDOUT_SHA256: f67c5d403c522d5cac66086bb079792b99ed5760cb1c77a22c1983e37b7e79b0
+FOCUSED_STDERR_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+RUNNER_MANIFEST_SHA256: 689ab20f19d61c3fd9ffc979480ec9d387f9c55449359065013a1008563082ac
+RUNNER_MANIFEST_CHECK: 4/4 OK
+CUMULATIVE_AFTER: 3.335278 + 0.037222 = 3.372500 GH200-hours
+```
+
+Five failures are the same test-layout defect: three lines belonging to the end
+of the preceding S09-v2 operator-profile hash test were left inside the new
+parameterized S10 rejection test after its expected `pytest.raises` block. The
+expected exception succeeds, then an unintended second resolve reuses the still-
+invalid config. The sixth failure is an incomplete test fixture: it switches to
+`s10.v1` and BN1d but omits required `training.grad_scaler_init_scale=32`.
+
+The exact neutral correction would move those three lines back before the next
+test definition and add the one missing fixture field. No production source,
+config, runner, data, candidate, seed, horizon, gate or resource change is
+indicated. That diagnosis is recorded only; O-137 authorizes no edit, commit,
+snapshot or replacement execution after this failure.
 
 The verdict is bounded to the exact random W0 and frozen STOP-B panel. It
 localizes a causal normalization-path contribution because BN1d reduces both

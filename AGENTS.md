@@ -151,6 +151,14 @@ checkpoint selection. One GH200/16 CPU/96 GiB/`00:30:00` job is authorized,
 hard-capped at `0.5` GH200-hour, with no retry. C1-B0 is observation-only: it
 cannot promote BN1d or start C1-B1/full `D_low`, A2, MIT repair, STOP-D/E/F,
 reviewer chain, merge, push or upload.
+O-137's sole Job `502958` is consumed and failed pre-model after `00:02:14`
+(`0.037222` GH200-hour): 100 focused tests passed and 6 failed. Five failures
+come from three pre-existing operator-profile hash-check lines being mechanically
+left inside the new parameterized rejection test; the sixth C1-B0 fixture changed
+to `s10.v1` without adding its required scale-32 field. No experiment model,
+H256 batch, optimizer or scientific cell executed. This is a test-fixture/layout
+failure, not GN/BN1d training evidence. No retry or autonomous remediation is
+authorized; C1-B0 returns to the owner.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

@@ -1,5 +1,38 @@
 # S10 results — STOP-A/B closed; C0-v2 PASS; C1-A `LOCALIZED_NORM`
 
+## STOP-C1-B0 — O-137 consumed / pre-model test-fixture FAIL
+
+```text
+AUTHORITY: O-137
+SOURCE/TREE: 96ae63d69ca9e5c95f528dd8c4e5bbcf934ac0c4 / 0346754de0000eff5c7b521c5ddf6790afc2a28e
+JOB: 502958 / FAILED 1:0 / 00:02:14 / zero restarts
+ALLOCATION: 1 GH200 / 16 CPUs / 96 GiB / 0.037222 GH200-hour
+FOCUSED_TESTS: 100 passed / 6 failed / 6 warnings in 69.51s
+MODEL/H256/UPDATES/CELLS: absent / absent / zero / none
+SCIENTIFIC_RESULT: absent
+```
+
+The job stopped in focused pytest before telemetry and experiment execution.
+Five failures share one mechanical test-layout cause: an operator-profile hash
+mutation from the preceding S09-v2 test was accidentally left after the new
+parameterized S10 rejection test's expected exception, producing an unintended
+second resolve of each deliberately invalid config. The sixth fixture selected
+`s10.v1` but did not add required `grad_scaler_init_scale=32`.
+
+The other 100 tests passed, including exact GN/BN1d trainable-parameter equality,
+the 63 BN running buffers, strict GN/BN1d cross-load rejection and sparse runtime.
+This supports the narrow diagnosis but is not a completed implementation gate:
+neither production fusion cell was built or trained. There is no normalization,
+gradient-health, loss-trajectory, convergence, memory or timing conclusion.
+
+Immutable output:
+`/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b0_96ae63d_o137_a1`.
+Its 4/4 runner checksum manifest verifies; stdout SHA-256 is
+`f67c5d403c522d5cac66086bb079792b99ed5760cb1c77a22c1983e37b7e79b0`
+and manifest SHA-256 is
+`689ab20f19d61c3fd9ffc979480ec9d387f9c55449359065013a1008563082ac`.
+O-137 is consumed and grants no correction or replacement.
+
 ## STOP-C1-A — O-136 replacement execution PASS / `LOCALIZED_NORM`
 
 ```text

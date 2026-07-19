@@ -8,11 +8,11 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement; O-137 C1-B0 fusion health
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-137 exact implementation 96ae63d / snapshot / RUN_REQUEST §32 tuple active for one no-retry job
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: C1-B0 only; one snapshot/job; no C1-B1/reviewer chain
+CURRENT_AUTHORITY: O-137 consumed by pre-model Job 502958; no executable compute; owner decision required
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: evidence sealing only; no correction/retry/C1-B1/reviewer chain
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
-STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A replacement Job 502572 PASS/LOCALIZED_NORM; O-137 C1-B0 current-A1 GN/BN1d H256 active; C1-B1/A2/MIT pending
+STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A replacement Job 502572 PASS/LOCALIZED_NORM; O-137 C1-B0 pre-model fixture FAIL/no cells; owner decision pending
 C0_IMPLEMENTATION_SHA: 89958be504d6abaef66810695402d2a09619794b
 C0_JOB: 492525 / FAILED 1:0 / 00:47:32 / 0.792222 GH200-hours
 C0_REMEDIATION_REVIEW: 09c39458a0b32ce1d4a3ae603094d76ae160ac42 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
@@ -584,6 +584,28 @@ The sole resource envelope is one GH200, 16 CPUs, 96 GiB and `00:30:00`, expecte
 `0.20-0.30` and capped at `0.5` GH200-hour. No evaluator, D_select, D_audit,
 official val, checkpoint selection, full `D_low`, C1-B1, A2 donor, MIT repair,
 TransFusion, DepthLSS, recipe search, reviewer chain or later stop is included.
+
+Job `502958` consumed the sole O-137 submission and failed `1:0` after
+`00:02:14` (`0.037222` GH200-hour), with zero restarts. Focused pytest completed
+100 passed and 6 failed in `69.51s`; the runner exited before telemetry, runtime
+identity, model construction, H256 loader iteration, optimizer construction or
+either scientific cell.
+
+The diagnosis is exact and test-only. In
+`test_s06_resolved_config.py`, the three-line operator-profile hash mutation that
+belongs at the end of `test_s09_v2_checkpoint_and_operator_profile_are_explicit_and_hash_bound`
+was mechanically left after the new parameterized rejection test's expected
+exception; all five parameter cases therefore correctly raised once and then
+failed on an unintended second resolve. In `test_s08_precision_partition.py`,
+the new production propagation fixture changed its schema to `s10.v1` but omitted
+the newly required `training.grad_scaler_init_scale=32`. No traceback implicates
+production config resolution, model propagation or checkpoint state semantics.
+Indeed the same job passed the GN/BN1d exact-parameter, 63-running-buffer, strict
+cross-load and sparse-runtime tests.
+
+This is not GN/BN1d health or training evidence and cannot be used for C1-B0
+selection. O-137 has no retry/remediation loop, so the source remains unchanged
+pending an owner decision.
 
 ## 7. STOP-D/E/F boundaries
 
