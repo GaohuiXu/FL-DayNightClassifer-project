@@ -1,4 +1,64 @@
-# S10 results — STOP-A/B closed; C0-v2 PASS; C1-A `LOCALIZED_NORM`; C1-B0 execution PASS
+# S10 results — STOP-A/B closed; C1-B1 `FAIL/INCOMPLETE`
+
+## STOP-C1-B1 — O-140 consumed / exact matched-update gate FAIL
+
+```text
+AUTHORITY: O-140
+SOURCE/TREE: 239cd6260c42b53e63d5e229493bbf47c4a41915 / 3affb50159884382556b5174c4d2ffc343cc365c
+JOB: 504921 / FAILED 1:0 / 00:47:01 / zero restarts
+ALLOCATION: 1 GH200 / 16 CPUs / 96 GiB / 0.783611 GH200-hour
+FOCUSED_TESTS: 117 passed / 3 skipped / 6 warnings in 69.75s
+GN: 1538/1538 updates / D_select complete
+BN1D: 1537/1538 updates / one first-window overflow / D_select complete
+VERDICT: FAIL/INCOMPLETE; paired-log evidence absent; no normalization selection
+```
+
+Both candidates used exact shared seed-0 trainable W0 and consumed the same
+ordered 6,152 attempted D_low tokens with the same three-token drop-last
+remainder. GN accepted all 1,538 updates at scale 32. BN1d's first actual
+shuffled B4 produced nine positive-infinite head parameter-gradient elements;
+GradScaler correctly skipped that update and reduced scale from 32 to 16. Every
+later BN1d window was finite and accepted, leaving 1,537 updates and 6,148
+accepted-exposure samples. Thus the failed gate is real matched-exposure failure,
+not a split, evaluator, test or broad training-collapse defect.
+
+Both terminal checkpoints and exact 4,626-sample D_select point estimates exist:
+
+| candidate | internal NDS | internal mAP | final chunk loss | late train samples/s |
+|---|---:|---:|---:|---:|
+| GN | `0.1444748` | `0.0615531` | `17.7841` | `8.92-8.98` |
+| BN1d | `0.1367052` | `0.0531248` | `18.4402` | `11.94-12.50` |
+| BN1d − GN | `-0.0077696` | `-0.0084283` | `+0.6561` | descriptive faster |
+
+BN1d is lower in barrier, bicycle, bus, car, pedestrian and traffic-cone AP,
+higher in motorcycle and truck, and tied at zero for construction vehicle and
+trailer. Its sampled LiDAR-stem gradients remain 146-2647x lower than GN after
+matching windows, while accepted stem update/weight ratios remain of comparable
+order. The one-epoch point result therefore gives no evidence that suppressing
+the large GN gradients improves capability; GN's huge gradients again coexist
+with stable accepted updates and the better point estimate.
+
+This is still not a valid production-normalization selection. BN1d has one fewer
+accepted B4 update, single-seed point estimates cannot provide the missing
+paired-log uncertainty, and the fail-closed runner correctly stopped before
+`paired_log_evidence.json` and aggregate `summary.json`. C1-B1 is therefore
+`FAIL/INCOMPLETE`, not “GN wins” and not “BN1d is broken.” A scale-16 completion
+or replay would be a new owner decision, not an automatic fix.
+
+Evidence:
+
+```text
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b1_239cd62_o140_a1
+EXECUTION_IDENTITY_SHA256: 81cf61c51eeb050d2712d1cc544cbec6ba3df61eeae20202e5ce60386f0f663f
+GN_CELL_SHA256: 81e31258dd783f47e8775a1b1327dbac66b0cf9b005fcf6e5f4249c98d61ea85
+BN1D_CELL_SHA256: 5abc990577ec99eb04f2b9fc063ecba648d342891ce3e50159b4adff62537517
+GN_METRICS_SHA256: 718833187ed1b30e06bc84b9ae9785270b6c71022409ec1beee451c06883b384
+BN1D_METRICS_SHA256: cd8881ce8841a950dcbb043a0b45df751b763580fcaead81dc074fd400c70296
+FAILURE_SUMMARY_SHA256: d755996487ae54c36da6bb566b661e178d186017883e7cda32ac12c11d401dfd
+INNER/OUTER_MANIFESTS: d6f6f17fb12e37aaec891f98328d1ed8cdb14badca596b3c28de4cd81072137a / bdf7d94f30b1bca4912495d7b03f298d23c05c0316a7e17d03e031b80783777c
+ARTIFACT_CHECKS: 14/14 and 23/23 OK; recursively read-only
+CUMULATIVE_ABC: 4.308333 GH200-hours
+```
 
 ## STOP-C1-B0 — O-139 replacement execution PASS
 

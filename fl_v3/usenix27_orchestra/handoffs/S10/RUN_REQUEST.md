@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-140 C1-B1 exact immutable tuple frozen; sole submission executable
+REQUEST_STATE: O-140 consumed by Job 504921 / C1-B1 FAIL-INCOMPLETE / no retry
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing + O-140 C1-B1
-EXECUTION_AUTHORITY: one exact O-140 C1-B1 submission after immutable tuple freeze; no retry
+EXECUTION_AUTHORITY: none; O-140 consumed; owner decision required
 SOURCE_SHA: 239cd6260c42b53e63d5e229493bbf47c4a41915
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-140 C1-B1 scope and 0.7-1.0 expected GH200-hour request approved 2026-07-19
-EXECUTABLE_NOW: exact §35 tuple only; one submission/no retry
+EXECUTABLE_NOW: none
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1793,12 +1793,12 @@ no overflow or invalid update. BN1d starts at higher loss and remains higher on
 its descriptive throughput is about 1.41x higher. This neither promotes BN1d nor
 clears GN as a full-run recipe: capability/evaluator evidence is absent.
 
-## 35. O-140 C1-B1 current-A1 matched capability — approved / tuple pending
+## 35. O-140 C1-B1 current-A1 matched capability — consumed / FAIL-INCOMPLETE
 
 ```text
 REQUEST_ID: S10-C1B1-CUR-A1-GN-BN1D-DLOW-v1
 OWNER_DECISION: O-140
-STATE: exact immutable tuple frozen; sole submission executable
+STATE: Job 504921 consumed the sole tuple; FAIL-INCOMPLETE; no execution authority
 CELLS: C1-B1-CUR-A1-GN-DLOW -> C1-B1-CUR-A1-BN1D-DLOW, serial
 GRAPH/INIT: current A1 fusion; shared exact seed-0 trainable W0; ImageNet1K V1 camera
 NORMALIZATION: group_norm versus batch_norm_1d only
@@ -1848,3 +1848,47 @@ STDERR: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/log
 ```bash
 sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G --gpus=nvidia_gh200_120gb:1 --time=01:00:00 --no-requeue --job-name=s10-c1b1-239cd62 --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b1_239cd62_o140 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b1_239cd62_o140_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1b1_239cd62_o140_%j.err --export=ALL,S10_C1B1_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b1_239cd62_o140,S10_C1B1_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b1_239cd62_o140_a1,S10_C1B1_EXPECTED_SOURCE_SHA=239cd6260c42b53e63d5e229493bbf47c4a41915,S10_C1B1_EXPECTED_TREE=3affb50159884382556b5174c4d2ffc343cc365c,S10_C1B1_EXPECTED_RUNNER_SHA256=ed19dbb9db7f1e162afa6dd69ed51eac45beb5e97a9a7bde2cec276dca130dde,S10_C1B1_EXPECTED_ENTRY_SHA256=9c9d0f325a0491ecfe2b3b58cf8a1253be2013878ec687ea37afe60cb9fdae1e,S10_C1B1_EXPECTED_CONFIG_SHA256=b5b60a8b21b8f578b16f582044bc29d297a3e9abae49ec83d297907c1c1f7896,S10_C1B1_EXPECTED_GN_RESOLVED_SHA256=eec07861f0fb0403a4eae5795e88d00b31507b1ecbb6ddb54d122bdaba9bdc82,S10_C1B1_EXPECTED_BN_RESOLVED_SHA256=d11d632b9e65c6ad053d2c2413bba9aa9ddbfe6580280e080e58be4900346bf6 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1b1_239cd62_o140/fl_v3/scripts/run_s10_c1b1_capability.sh
 ```
+
+### Consumed outcome — C1-B1 FAIL/INCOMPLETE
+
+```text
+JOB: 504921
+STATE/EXIT: FAILED / 1:0
+ELAPSED/ALLOCATED: 00:47:01 / 0.783611 GH200-hour
+NODE/RESTARTS: n144 / 0
+FOCUSED_TESTS: 117 passed / 3 skipped / 6 warnings / 69.75s
+GN_UPDATES/BN1D_UPDATES: 1538/1537
+GN_OVERFLOW/BN1D_OVERFLOW: 0/1 (BN first actual B4; nine +Inf head parameter-gradient elements)
+BN_SCALER: 32 -> 16 on first window; 1,537 subsequent accepted windows
+ATTEMPTED_TOKENS/REMAINDER: exact matched 6,152 / exact matched 3
+GN_NDS/mAP: 0.1444747929 / 0.0615530756
+BN1D_NDS/mAP: 0.1367052180 / 0.0531247739
+BN1D_MINUS_GN: -0.0077695749 NDS / -0.0084283017 mAP
+PAIRED_LOG_EVIDENCE/SUMMARY: absent / absent; fail-closed stop before construction
+FINAL/TEST/C1B1_EXIT: 1 / 0 / 1
+CUMULATIVE_AFTER: 3.524722 + 0.783611 = 4.308333 GH200-hours
+ACTIVE_ABC_REMAINDER: 22.691667 GH200-hours under 27-hour aggregate; not execution authority
+```
+
+The failure is the exact predeclared matched-update gate, not split/evaluator or
+model-construction failure. Both terminal checkpoints and full D_select metric
+artifacts exist, but the BN1d checkpoint saw one fewer accepted B4 update. The
+raw point estimates broadly favor GN (BN1d improves motorcycle/truck AP, ties
+two zero-AP classes and is lower on the other six), while BN1d remains faster
+and its sampled LiDAR-stem gradients are 146-2647x lower. Without matched
+accepted exposure and the planned paired-log uncertainty, this does not promote
+GN, reject BN1d, or complete C1-B1.
+
+```text
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1b1_239cd62_o140_a1
+EXECUTION_IDENTITY_SHA256: 81cf61c51eeb050d2712d1cc544cbec6ba3df61eeae20202e5ce60386f0f663f
+GN_CELL_SHA256: 81e31258dd783f47e8775a1b1327dbac66b0cf9b005fcf6e5f4249c98d61ea85
+BN1D_CELL_SHA256: 5abc990577ec99eb04f2b9fc063ecba648d342891ce3e50159b4adff62537517
+FAILURE_SUMMARY_SHA256: d755996487ae54c36da6bb566b661e178d186017883e7cda32ac12c11d401dfd
+INNER_ARTIFACT_MANIFEST_SHA256: d6f6f17fb12e37aaec891f98328d1ed8cdb14badca596b3c28de4cd81072137a
+RUNNER_ARTIFACT_MANIFEST_SHA256: bdf7d94f30b1bca4912495d7b03f298d23c05c0316a7e17d03e031b80783777c
+ARTIFACT_CHECKS: inner 14/14 and runner 23/23 OK; recursively read-only
+```
+
+O-140 is consumed and supplies no correction, replay, paired-log postprocess
+allocation or later-stop continuation.

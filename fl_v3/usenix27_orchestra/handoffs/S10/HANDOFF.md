@@ -8,11 +8,11 @@ BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
 OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement; O-137 C1-B0 fusion health; O-138 exact test-only replacement; O-139 canonical-fixture replacement; O-140 C1-B1 capability
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-140 exact one-job C1-B1 implementation/commit/Slurm/evidence authority active
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: C1-B1 only; one submission/no retry; no reviewer chain
+CURRENT_AUTHORITY: O-140 consumed by failed Job 504921; evidence sealing only; owner decision required
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: no executable compute/retry/reviewer chain
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
-STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A `LOCALIZED_NORM`; C1-B0 PASS; O-140 C1-B1 active
+STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A `LOCALIZED_NORM`; C1-B0 PASS; C1-B1 `FAIL/INCOMPLETE`
 C0_IMPLEMENTATION_SHA: 89958be504d6abaef66810695402d2a09619794b
 C0_JOB: 492525 / FAILED 1:0 / 00:47:32 / 0.792222 GH200-hours
 C0_REMEDIATION_REVIEW: 09c39458a0b32ce1d4a3ae603094d76ae160ac42 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
@@ -985,7 +985,7 @@ true unscaled LiDAR-gradient mechanism remains unresolved. No further STOP-B
 compute, model change or recipe change was authorized at that closure boundary;
 O-131 subsequently activates only C0.
 
-## 18. O-140 C1-B1 active contract
+## 18. O-140 C1-B1 consumed outcome
 
 O-140 activates one matched current-A1 GN/BN1d capability comparison and no
 other C lineage. Each candidate shares exact trainable W0 and actual shuffled
@@ -1005,3 +1005,20 @@ The exact implementation source/tree is
 `239cd6260c42b53e63d5e229493bbf47c4a41915` /
 `3affb50159884382556b5174c4d2ffc343cc365c`; the sole immutable execution tuple
 is frozen in `RUN_REQUEST.md` §35.
+
+Job `504921` consumed the tuple and ended `FAILED 1:0` in `00:47:01`. Focused
+tests were 117 passed/three skipped. Exact shared W0, resolved configs, attempted
+training-token order, three-token remainder, terminal checkpoints and both
+4,626-sample D_select evaluations are intact. GN passed all 1,538 updates. BN1d
+overflowed nine positive-infinite head parameter-gradient elements on the first
+actual shuffled B4 at scale 32, skipped that update, backed off to scale 16 and
+accepted all remaining 1,537 windows. This is a real predeclared gate failure,
+not an evaluator or split defect.
+
+GN internal NDS/mAP is `0.1444748/0.0615531`; BN1d is
+`0.1367052/0.0531248`, for BN-minus-GN point deltas
+`-0.0077696/-0.0084283`. BN1d remained faster and suppressed sampled
+LiDAR-stem gradient L2 by 146-2647x, yet it did not improve this bounded point
+estimate. Because accepted exposure differs by one B4 and the fail-closed runner
+stopped before paired-log uncertainty, neither normalization is selected. C1-B1
+is `FAIL/INCOMPLETE`; O-140 grants no replay, correction or continuation.

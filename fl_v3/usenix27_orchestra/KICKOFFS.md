@@ -94,6 +94,10 @@
 > 32 and the unchanged baseline recipe. Save terminal checkpoints only; report
 > paired eight-log uncertainty and never synthesize an unapproved winner margin.
 > One submission/no retry; stop before A2, MIT repair, later stops or reviewer.
+> Job `504921` consumed that submission. GN completed 1,538 updates; BN1d had one
+> first-window head-gradient overflow at scale 32 and completed 1,537 updates.
+> Both D_select point estimates exist, but the matched gate stopped before paired
+> uncertainty. C1-B1 is `FAIL/INCOMPLETE`; no retry or current compute authority.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

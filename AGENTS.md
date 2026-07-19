@@ -205,6 +205,22 @@ one serial one-GH200/16-CPU/96-GiB/`01:00:00` job capped at `1.0` GH200-hour,
 and evidence sealing. It permits exactly one submission with no retry/requeue,
 then stops before A2, MIT repair, D_audit/official val, later stops, reviewer
 chain, merge, push or upload.
+O-140 Job `504921` consumed that sole submission and ended `FAILED 1:0` in
+`00:47:01` (`0.783611` GH200-hour). All 117 focused tests passed with three
+skips. GN completed 1,538/1,538 updates and BN1d completed 1,537/1,538: BN1d's
+first actual shuffled B4 produced nine positive-infinite head parameter-gradient
+elements at scale 32, so GradScaler skipped that update and backed off to 16;
+the remaining 1,537 windows were finite and accepted. Both complete token
+traversals, terminal checkpoints and exact D_select evaluations exist, with
+shared W0 and identical attempted token order/remainder. GN internal NDS/mAP is
+`0.144475/0.061553`; BN1d is `0.136705/0.053125`, a point delta of
+`-0.007770/-0.008428`. The exact matched-update gate therefore correctly fails,
+and paired-log uncertainty was not run. These point estimates do not select GN
+or reject BN1d because accepted exposure differs by one B4 and the planned
+uncertainty artifact is absent. The job remains useful negative/incomplete
+evidence: BN1d still suppresses LiDAR-stem gradients by 146-2647x at sampled
+windows without improving this bounded capability point estimate. O-140 is
+consumed; no retry, correction, A2/MIT repair or later-stop compute is authorized.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime
