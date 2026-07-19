@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-136 sole strictly derived C1-A replacement authorized; exact tuple pending freeze
+REQUEST_STATE: O-136 sole strictly derived C1-A replacement exact tuple frozen for one submission
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
 PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing/amendment + O-136 replacement
 EXECUTION_AUTHORITY: O-136 one C1-A replacement only; no retry or C1-B
 SOURCE_SHA: d713bfe3b5e5c587f58ce70721b2b6eea0b050ec
 BRANCH: codex/s10-cl-model-recipe
 OWNER_APPROVAL: O-136 exact remediation commit and one C1-A replacement approved 2026-07-19
-EXECUTABLE_NOW: after exact §31 tuple freeze, one C1-A replacement; C1-B and STOP-D/E/F remain owner-gated
+EXECUTABLE_NOW: exact §31 C1-A replacement once; C1-B and STOP-D/E/F remain owner-gated
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1460,23 +1460,47 @@ Login-node verification is limited to `bash -n`, Python syntax compilation and
 `git diff --check` because the x86 login environment has no project PyTorch or
 pytest. Dependency-backed execution remains pending a future exact authorization.
 
-## 31. O-136 strictly derived C1-A replacement — approved / tuple pending freeze
+## 31. O-136 strictly derived C1-A replacement — exact tuple frozen for sole submission
 
 ```text
 REQUEST_ID: S10-C1A-GRAD-CAUSAL-O136-v2
-STATE: OWNER APPROVED / EXACT SNAPSHOT-HASH-COMMAND TUPLE MUST BE RECORDED BEFORE SOLE SUBMISSION
+STATE: OWNER APPROVED / EXACT TUPLE FROZEN / UNSUBMITTED
 REMEDIATION_SOURCE: d713bfe3b5e5c587f58ce70721b2b6eea0b050ec
+SOURCE_TREE: 5a0d8aa2c1dc9517d735200b0dbae47843ec8c74
 DERIVATION: only the O-135 BN1d state-mapping assertion and direct regression test differ from O-134
+SNAPSHOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1a_fix_d713bfe_o136
+SNAPSHOT_MODE: detached HEAD; clean; recursively read-only; zero group/other-writable paths
+RUNNER_SHA256: e178080b7be31c981e0366ba9894caba5e268f2be58efc547aec9befab65e039
+ENTRY_SHA256: 8ca38de0bdd8511143de55204f0f0c18fafc72bc0362afa5571a16262f9e8885
+SECOND_SHA256: 9238d33e3cc28ffc1693585c691ee9967444b19da532a9cdc56a7210ec8c153d
+OBSERVATION_HELPER_SHA256: 81d25064dbb9b5883b5f37d2a7d0124ef6809afb3f14e9d7233891cb76dfacbf
+OBSERVATION_TEST_SHA256: d1a42bcf8403d926ce2f75d7814568978274025d578da999c9abcd78bc484f62
+CONFIG: fl_v3/configs/s10_b_rand_l_fp32.json
+CONFIG_FILE_SHA256: 5043b09195b3c05a7d94e8d88b3e3cd1bffdb6eba49ed93776fd966b28642698
+CONFIG_RESOLVED_SHA256: bacf186c8cd7e965f332dec00691a666147cd0a62231581517bf3d0f246bff34
+EXPECTED_CURRENT_GN_W0: a1a98033131d5496308f0a2694032a1473d582d3435cabd9db285f60b357ef0a
+SPLIT_MANIFEST: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_feasible_ad93c89333b0_o127_a1/split/split_manifest.json
+SPLIT_MANIFEST_SHA256: 7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8
+PANEL_MANIFEST: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_b_diag_8fd832dc7d46_o128_a1/panel_manifest.json
+PANEL_FILE_SHA256: c2826effeba2e074ef8f76ab582bbb5dc796f41b9555348d56e252a2d70138a6
+PANEL_CONTENT_SHA256: 8e4f2d992d7a27d771c6fdf00098afc14b9621bc50ea1e52319b84d406f9ad55
 DATA/PANEL/CANDIDATES/W0/PRECISION/PATHWAYS/REPEATS/RUNS: unchanged from §29
 METRICS/THRESHOLDS/EXIT: unchanged from §29
 OPTIMIZER/UPDATE/EVALUATOR: absent / zero / absent
 RESOURCE: one GH200; one node/task; 8 CPU; 64 GiB; 00:30:00; max 0.5 GH200-hour
 SUBMISSIONS/REQUEUE/RETRY/REROLL: exactly one / forbidden / forbidden / forbidden
-OUTPUT: fresh O-136 path; must not reuse or rewrite Job-502456 evidence
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1a_fix_d713bfe_o136_a1
+SUBMIT_COMMAND_SHA256_NO_TRAILING_NEWLINE: dc4ad389de43cf0e9f3eb7346fa10c546b70897eb65b885e42eaaf7aad08faa4
+CONCURRENCY_PREFLIGHT: require no other owner job before submission
 STOP: any source/tree/file/config/data/panel/resource/runtime/test/identity/integrity/artifact failure or timeout; return directly to owner
 C1-B/LATER-STOPS/REVIEWER/MERGE/PUSH/UPLOAD: not authorized
 ```
 
-The exact detached read-only snapshot, file/config identities, fresh output and
-literal `sbatch` command are intentionally filled only after this authorization
-record is committed. No field may change the §29 scientific tuple.
+Exact command:
+
+```bash
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=8 --mem=64G --gpus=nvidia_gh200_120gb:1 --time=00:30:00 --no-requeue --job-name=s10-c1a-fix-d713bfe --chdir=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1a_fix_d713bfe_o136 --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1a_fix_d713bfe_o136_%j.out --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/logs/s10_c1a_fix_d713bfe_o136_%j.err --export=ALL,S10_C1A_SNAPSHOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1a_fix_d713bfe_o136,S10_C1A_OUTPUT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_c1a_fix_d713bfe_o136_a1,S10_C1A_EXPECTED_SOURCE_SHA=d713bfe3b5e5c587f58ce70721b2b6eea0b050ec,S10_C1A_EXPECTED_TREE=5a0d8aa2c1dc9517d735200b0dbae47843ec8c74,S10_C1A_EXPECTED_RUNNER_SHA256=e178080b7be31c981e0366ba9894caba5e268f2be58efc547aec9befab65e039,S10_C1A_EXPECTED_ENTRY_SHA256=8ca38de0bdd8511143de55204f0f0c18fafc72bc0362afa5571a16262f9e8885,S10_C1A_EXPECTED_SECOND_SHA256=9238d33e3cc28ffc1693585c691ee9967444b19da532a9cdc56a7210ec8c153d,S10_C1A_EXPECTED_OBSERVATION_SHA256=81d25064dbb9b5883b5f37d2a7d0124ef6809afb3f14e9d7233891cb76dfacbf,S10_C1A_EXPECTED_CONFIG_SHA256=5043b09195b3c05a7d94e8d88b3e3cd1bffdb6eba49ed93776fd966b28642698 /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/execution_snapshots/s10_c1a_fix_d713bfe_o136/fl_v3/scripts/run_s10_c1a_gradient_causality.sh
+```
+
+No field may change the §29 scientific tuple. This literal command may be
+submitted once only after snapshot/output/concurrency preflight succeeds.
