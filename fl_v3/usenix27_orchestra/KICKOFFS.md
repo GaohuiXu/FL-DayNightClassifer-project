@@ -98,6 +98,11 @@
 > first-window head-gradient overflow at scale 32 and completed 1,537 updates.
 > Both D_select point estimates exist, but the matched gate stopped before paired
 > uncertainty. C1-B1 is `FAIL/INCOMPLETE`; no retry or current compute authority.
+> O-141 now activates exactly one BN1d physical-B8 operational candidate. Reuse
+> exact W0 and ordered 6,152-token D_low exposure, require 769 clean scale8
+> updates with early fail-fast boundaries, evaluate D_select at B4 and compare
+> only descriptively/with paired-log uncertainty to sealed B4 evidence. One
+> 30-minute GH200 job/no retry; no GN/B16/profiler/recipe/later-stop expansion.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

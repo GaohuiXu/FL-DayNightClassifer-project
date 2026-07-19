@@ -6,10 +6,10 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement; O-137 C1-B0 fusion health; O-138 exact test-only replacement; O-139 canonical-fixture replacement; O-140 C1-B1 capability
+OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement; O-137 C1-B0 fusion health; O-138 exact test-only replacement; O-139 canonical-fixture replacement; O-140 C1-B1 capability; O-141 BN1d-B8 operational candidate
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-140 consumed by failed Job 504921; evidence sealing only; owner decision required
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: no executable compute/retry/reviewer chain
+CURRENT_AUTHORITY: O-141 focused implementation/commit + one exact BN1d-B8 no-retry job after tuple freeze
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: O-141 only; no reviewer chain
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
 STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A `LOCALIZED_NORM`; C1-B0 PASS; C1-B1 `FAIL/INCOMPLETE`
@@ -1022,3 +1022,21 @@ LiDAR-stem gradient L2 by 146-2647x, yet it did not improve this bounded point
 estimate. Because accepted exposure differs by one B4 and the fail-closed runner
 stopped before paired-log uncertainty, neither normalization is selected. C1-B1
 is `FAIL/INCOMPLETE`; O-140 grants no replay, correction or continuation.
+
+## 19. O-141 BN1d-B8 operational candidate
+
+O-141 deliberately does not mechanically complete BN1d at B4. It activates one
+joint BN1d physical-B8/scale8 operating-point test while preserving exact seed-0
+trainable W0 and the same ordered 6,152 D_low samples/three-token remainder as
+Job 504921. One complete epoch has 769 accepted updates. The unchanged recipe is
+FP16 plus SECOND FP32, AdamW `1e-4/0.01`, constant scheduler and no clip, EMA,
+augmentation, CBGS or GT-paste. D_select decoding remains physical B4.
+
+The runner checks numerical state after attempted windows 1/4/16/64 and then
+256/512/769; any overflow, nonfinite, discarded sample or missing optimizer
+update fails immediately. It pins and reuses the sealed GN-B4 and incomplete
+BN1d-B4 D_select artifacts for descriptive and paired eight-log comparisons,
+while explicitly refusing isolated batch-size causality or automatic selection.
+It also records training wall time, attempted-sample throughput, GPU telemetry
+and peak memory. O-141 permits one 30-minute/no-retry GH200 submission capped at
+0.5 GH200-hour after immutable tuple freeze, then evidence sealing and stop.

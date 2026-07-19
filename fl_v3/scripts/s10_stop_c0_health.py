@@ -314,6 +314,17 @@ def _assert_expected_epoch_consumption(
     raise RuntimeError("D_low one-epoch cell did not consume the exact drop-last loader")
 
 
+def _numerical_gate_failed(state: dict[str, int]) -> bool:
+    """Return whether an accumulation-one window sequence lost a clean update."""
+    return (
+        int(state["optimizer_step"]) != int(state["attempted_windows"])
+        or int(state["invalid_windows"]) != 0
+        or int(state["nonfinite_windows"]) != 0
+        or int(state["overflow_windows"]) != 0
+        or int(state["discarded_windows"]) != 0
+    )
+
+
 def _cell_health(
     spec: dict[str, Any],
     chunks: list[dict[str, Any]],
@@ -421,6 +432,16 @@ def _run_cell(
     config = _resolved_for_cell(base_config, spec)
     verify_physical_data_identities(config)
     run_config = config.to_run_config()
+    physical_batch = int(config.data["training"]["micro_batch_size"])
+    declared_physical_batch = int(spec.get("physical_microbatch", physical_batch))
+    if physical_batch != declared_physical_batch:
+        raise RuntimeError(
+            f"cell physical microbatch drifted: {physical_batch} != "
+            f"{declared_physical_batch}"
+        )
+    eval_physical_batch = int(spec.get("eval_physical_microbatch", physical_batch))
+    if eval_physical_batch <= 0:
+        raise RuntimeError("cell evaluation microbatch must be positive")
     expected_sources = _source_identities(config)
     low = load_frozen_split_role(
         split_manifest,
@@ -450,8 +471,12 @@ def _run_cell(
     loader = task.manifest_train_subset_loader(
         run_config, low.sample_tokens, shuffle=True, drop_last=True,
     )
-    if len(loader) != 1538:
-        raise RuntimeError(f"D_low B4 drop-last loader length drifted: {len(loader)}")
+    expected_epoch_windows = len(low.sample_tokens) // physical_batch
+    if len(loader) != expected_epoch_windows:
+        raise RuntimeError(
+            f"D_low B{physical_batch} drop-last loader length drifted: "
+            f"{len(loader)} != {expected_epoch_windows}"
+        )
     device = torch.device("cuda")
     model = task.build_model(run_config)
     initial_parameter_sha256 = _parameter_state_sha256(model)
@@ -487,6 +512,8 @@ def _run_cell(
             "split_manifest_sha256": EXPECTED_SPLIT_SHA256,
             "D_low_sample_tokens_sha256": low.sample_tokens_sha256,
             "drop_last": True,
+            "physical_microbatch": physical_batch,
+            "eval_physical_microbatch": eval_physical_batch,
             "declared_attempted_windows": int(spec["attempted_windows"]),
             "D_low_epoch_windows": len(loader),
         },
@@ -537,7 +564,7 @@ def _run_cell(
                         runtime_state=state,
                         model_mode=config.model_mode,
                         exposure_multiplier=1,
-                        expected_global_microbatch_samples=4,
+                        expected_global_microbatch_samples=physical_batch,
                         precision_diagnostics=diagnostics,
                         attempted_window_callback=(
                             active_profiler.step if active_profiler is not None else None
@@ -559,6 +586,18 @@ def _run_cell(
             "state_after": after,
             "metrics": metrics,
         })
+        if bool(spec.get("fail_fast_numerical", False)) and _numerical_gate_failed(after):
+            _write_json(cell_dir / "early_numerical_failure.json", {
+                "schema": "fl_v3.s10.early_numerical_failure.v1",
+                "cell": spec["id"],
+                "boundary": int(boundary),
+                "state": after,
+                "metrics": metrics,
+            })
+            raise RuntimeError(
+                f"{spec['id']} failed the fail-fast numerical gate at "
+                f"attempted window {boundary}"
+            )
         start = int(boundary)
     _assert_expected_epoch_consumption(
         epoch_iterator,
@@ -574,11 +613,11 @@ def _run_cell(
         low.sample_tokens,
         observed_sample_tokens,
         attempted_windows=int(spec["attempted_windows"]),
-        batch_size=4,
+        batch_size=physical_batch,
         full_epoch=full_epoch,
     )
 
-    state.epoch = 1 if spec["attempted_windows"] == 1538 else 0
+    state.epoch = 1 if full_epoch else 0
     terminal = state.checkpoint_dict()
     diagnostic_path = cell_dir / "sampled_windows.jsonl"
     diagnostic_path.write_text(diagnostics.json_lines(), encoding="utf-8")
@@ -607,12 +646,16 @@ def _run_cell(
             checkpoint_identity=config.sha256,
         )
         checkpoint_sha256 = _sha256_file(checkpoint_path)
+        eval_loader_run_config = dict(run_config)
+        eval_loader_run_config["batch-size"] = eval_physical_batch
         eval_loader = task.manifest_train_subset_loader(
-            run_config, select.sample_tokens, shuffle=False, drop_last=False,
+            eval_loader_run_config, select.sample_tokens, shuffle=False, drop_last=False,
         )
         timing: dict[str, Any] = {}
         eval_started = time.perf_counter()
-        decodes = decode_eval_set(model, eval_loader, device, run_config, timing)
+        decodes = decode_eval_set(
+            model, eval_loader, device, eval_loader_run_config, timing,
+        )
         decoded_tokens = [item.sample_token for item in decodes]
         if decoded_tokens != list(select.sample_tokens):
             raise RuntimeError("D_select decode token vector drifted")
@@ -621,6 +664,7 @@ def _run_cell(
 
         eval_run_config = dict(run_config)
         eval_run_config.update({
+            "evaluation-batch-size": eval_physical_batch,
             "checkpoint-sha256": checkpoint_sha256,
             "checkpoint-weights": "raw",
             "runtime-dependencies-sha256": _canonical_sha256(runtime_dependencies),

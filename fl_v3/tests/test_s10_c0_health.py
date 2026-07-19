@@ -58,6 +58,29 @@ def test_c0_full_epoch_requires_exact_exhaustion_and_rejects_overshoot():
         )
 
 
+def test_c0_fail_fast_numeric_gate_requires_one_clean_update_per_window():
+    module = _c0_module()
+    clean = {
+        "attempted_windows": 4,
+        "optimizer_step": 4,
+        "invalid_windows": 0,
+        "nonfinite_windows": 0,
+        "overflow_windows": 0,
+        "discarded_windows": 0,
+    }
+    assert module._numerical_gate_failed(clean) is False
+    for field in (
+        "invalid_windows", "nonfinite_windows", "overflow_windows",
+        "discarded_windows",
+    ):
+        failed = dict(clean)
+        failed[field] = 1
+        assert module._numerical_gate_failed(failed) is True
+    missing_update = dict(clean)
+    missing_update["optimizer_step"] = 3
+    assert module._numerical_gate_failed(missing_update) is True
+
+
 def test_c0_training_token_evidence_uses_observed_batches_and_exact_remainder():
     module = _c0_module()
     observed = []

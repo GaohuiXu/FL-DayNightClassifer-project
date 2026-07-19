@@ -221,6 +221,18 @@ uncertainty artifact is absent. The job remains useful negative/incomplete
 evidence: BN1d still suppresses LiDAR-stem gradients by 146-2647x at sampled
 windows without improving this bounded capability point estimate. O-140 is
 consumed; no retry, correction, A2/MIT repair or later-stop compute is authorized.
+Owner decision O-141 replaces the proposed mechanical BN1d-B4 completion with
+one BN1d physical-B8 operational candidate. It preserves the exact seed-0
+trainable W0 and the same ordered 6,152 `D_low` samples/three-token remainder,
+but uses 769 B8 optimizer updates, GradScaler initial scale 8, and fail-fast
+numerical boundaries at 1/4/16/64 before continuing to 256/512/769. The exact
+`D_select` evaluator remains at physical B4. This is a joint BN1d+B8+scale8
+candidate, not an isolated batch-size causal claim or normalization selection.
+O-141 authorizes focused implementation/tests, linear commits, one detached
+read-only snapshot/exact tuple, and one no-retry one-GH200/16-CPU/96-GiB/
+`00:30:00` submission capped at `0.5` GH200-hour, followed by evidence sealing
+and stop. GN, B16, extra seeds, profiler, recipe search, A2/MIT repair, later
+stops, reviewer chain, merge, push and upload remain unauthorized.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

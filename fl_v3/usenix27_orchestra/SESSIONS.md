@@ -101,6 +101,11 @@
 > 1,537 accepted updates. Both D_select point estimates exist and favor GN, but
 > the exposure mismatch stopped paired-log uncertainty. C1-B1 is
 > `FAIL/INCOMPLETE`; no normalization selection or current compute authority.
+> O-141 authorizes one replacement decision experiment rather than a mechanical
+> B4 completion: BN1d physical B8, scale8, the same 6,152 ordered D_low tokens,
+> 769 clean updates and B4 D_select evaluation. It measures the joint operating
+> point and throughput/memory, not pure batch-size causality. One 30-minute
+> GH200 submission/no retry is allowed after immutable tuple freeze.
 >
 > `Sxx` is an evidence namespace, not automatically a worker, task, branch, or
 > worktree. Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Active launch

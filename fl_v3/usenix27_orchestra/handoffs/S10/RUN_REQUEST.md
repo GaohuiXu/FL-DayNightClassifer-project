@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-140 consumed by Job 504921 / C1-B1 FAIL-INCOMPLETE / no retry
+REQUEST_STATE: O-141 BN1d-B8 approved / implementation and exact tuple pending
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
-PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing + O-140 C1-B1
-EXECUTION_AUTHORITY: none; O-140 consumed; owner decision required
-SOURCE_SHA: 239cd6260c42b53e63d5e229493bbf47c4a41915
+PLAN_AUTHORITY: O-122 scientific envelope + O-133 C1 plan + O-141 BN1d-B8 operational candidate
+EXECUTION_AUTHORITY: one exact O-141 submission after immutable tuple freeze; no retry
+SOURCE_SHA: pending O-141 implementation commit
 BRANCH: codex/s10-cl-model-recipe
-OWNER_APPROVAL: O-140 C1-B1 scope and 0.7-1.0 expected GH200-hour request approved 2026-07-19
-EXECUTABLE_NOW: none
+OWNER_APPROVAL: O-141 exact B8/scale8/769-update/30-minute/0.5-GH200-hour envelope approved 2026-07-19
+EXECUTABLE_NOW: after exact source/snapshot/hash/command tuple is frozen below
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1892,3 +1892,31 @@ ARTIFACT_CHECKS: inner 14/14 and runner 23/23 OK; recursively read-only
 
 O-140 is consumed and supplies no correction, replay, paired-log postprocess
 allocation or later-stop continuation.
+
+## 36. O-141 BN1d physical-B8 operational candidate — approved / tuple pending
+
+```text
+REQUEST_ID: S10-C1B1-BN1D-B8-v1
+OWNER_DECISION: O-141
+STATE: implementation and immutable tuple pending
+CELL: C1-B1-BN1D-B8-DLOW only
+GRAPH/INIT: current A1 fusion / BN1d only in SECOND / ImageNet camera / exact seed-0 trainable W0 87be0d...829d1
+TRAIN_ROLE: exact frozen D_low / 6,155 samples / shuffle seed 0 / drop_last=true
+TRAIN: physical B8 / accumulation1 / effective B8 / one epoch / 769 attempted=accepted updates
+TOKEN_BINDING: same ordered 6,152 consumed tokens and same three-token remainder as sealed Job 504921 B4 cells
+PRECISION: global FP16 + SECOND FP32 island / GradScaler initial and final scale 8
+EARLY_NUMERIC_GATE: boundaries 1/4/16/64; then 256/512/769; fail on any overflow/nonfinite/invalid/discard/missing update
+RECIPE: AdamW lr=1e-4 wd=.01 / constant scheduler / no clip, EMA, augmentation, CBGS or GT-paste
+CHECKPOINT: terminal raw only
+EVAL: exact frozen D_select / 4,626 samples / eight logs / physical eval B4
+COMPARATORS: sealed GN-B4 complete + sealed BN1d-B4 incomplete artifacts from Job 504921
+REPORT: NDS/mAP/per-class, paired delete-one-log uncertainty, loss trajectory, wall throughput, GPU telemetry, peak memory
+CLAIM: joint BN1d+B8+scale8 operational candidate only; not isolated batch-size causality or automatic architecture selection
+RESOURCES: one GH200 / 16 CPUs / 96 GiB / 00:30:00 / hard cap 0.5 GH200-hour
+EXPECTED: 0.30-0.40 GH200-hour
+SUBMISSIONS: exactly one / no retry / no requeue
+OUTPUT: fresh immutable O-141 path, pending implementation SHA
+CUMULATIVE_BEFORE: 4.308333 GH200-hours
+CUMULATIVE_HARD_MAX_AFTER: 4.808333 GH200-hours
+FORBIDDEN: GN rerun, B16, extra seed, profiler, recipe search, D_audit, official val, A2/MIT repair, later C/D/E/F, reviewer chain, merge, push, upload
+```

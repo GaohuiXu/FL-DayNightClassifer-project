@@ -250,6 +250,8 @@ def _paired_log_evidence(
     *, nusc, result_paths: Mapping[str, Path], sample_tokens: tuple[str, ...],
     log_tokens: tuple[str, ...], manifest_identity: Mapping[str, Any],
     accepted_reports: Mapping[str, Mapping[str, Any]],
+    candidate_cells: tuple[str, str] | None = None,
+    delta_direction: str = "BN1d_minus_GN",
 ) -> dict[str, Any]:
     cfg, _ = bound_detection_config()
     grouped = _tokens_by_log(nusc, sample_tokens, log_tokens)
@@ -281,32 +283,41 @@ def _paired_log_evidence(
             rows[omitted] = _metric_projection(metrics)
         leave_one_out[cell] = rows
 
-    gn_cell, bn_cell = (cell for cell, _ in CANDIDATES)
+    baseline_cell, candidate_cell = (
+        candidate_cells
+        if candidate_cells is not None
+        else tuple(cell for cell, _ in CANDIDATES)
+    )
     metric_names = ("NDS", "mAP")
     paired = {}
     for metric in metric_names:
-        full_delta = full[bn_cell][metric] - full[gn_cell][metric]
+        full_delta = full[candidate_cell][metric] - full[baseline_cell][metric]
         deltas = [
-            leave_one_out[bn_cell][log][metric] - leave_one_out[gn_cell][log][metric]
+            leave_one_out[candidate_cell][log][metric]
+            - leave_one_out[baseline_cell][log][metric]
             for log in log_tokens
         ]
         paired[metric] = jackknife_interval(full_delta, deltas)
-    classes = sorted(full[gn_cell]["per_class_mAP"])
+    classes = sorted(full[baseline_cell]["per_class_mAP"])
     per_class = {}
     for class_name in classes:
         full_delta = (
-            full[bn_cell]["per_class_mAP"][class_name]
-            - full[gn_cell]["per_class_mAP"][class_name]
+            full[candidate_cell]["per_class_mAP"][class_name]
+            - full[baseline_cell]["per_class_mAP"][class_name]
         )
         deltas = [
-            leave_one_out[bn_cell][log]["per_class_mAP"][class_name]
-            - leave_one_out[gn_cell][log]["per_class_mAP"][class_name]
+            leave_one_out[candidate_cell][log]["per_class_mAP"][class_name]
+            - leave_one_out[baseline_cell][log]["per_class_mAP"][class_name]
             for log in log_tokens
         ]
         per_class[class_name] = jackknife_interval(full_delta, deltas)
     return {
         "schema": "fl_v3.s10.c1b1_paired_log.v1",
-        "delta_direction": "BN1d_minus_GN",
+        "delta_direction": str(delta_direction),
+        "candidate_cells": {
+            "baseline": baseline_cell,
+            "candidate": candidate_cell,
+        },
         "cluster_unit": "frozen D_select log_token",
         "log_tokens": list(log_tokens),
         "samples_per_log": {key: len(value) for key, value in grouped.items()},
