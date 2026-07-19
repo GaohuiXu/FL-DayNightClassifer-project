@@ -189,6 +189,22 @@ AdamW stem updates remained comparable; GN's large gradients caused no bounded
 H256 update failure. BN1d loss remained higher on 251/256 matched windows but was
 about 1.41x faster. This is short single-seed/internal evidence with no evaluator
 or architecture selection. O-139 is consumed; C1-B1 remains owner-gated.
+Owner decision O-140 activates exactly one current-A1 C1-B1 capability job.
+GN and BN1d share the exact seed-0 trainable W0, train serially for one complete
+physical-B4 `D_low` epoch (1,538 attempted and accepted updates with identical
+actual token order and three-token remainder), save terminal raw checkpoints
+only, and evaluate the frozen 4,626-sample/eight-log `D_select`. The graph,
+ImageNet camera initialization, FP16+SECOND-FP32 precision partition, scale 32,
+AdamW `1e-4/0.01`, constant scheduler and no-augmentation/no-EMA/no-CBGS/no-GT-
+paste/no-clip recipe are unchanged from C1-B0. Internal NDS is primary; mAP,
+per-class AP, numerical health and paired delete-one-log jackknife uncertainty
+are guardrails. No numerical superiority/non-inferiority margin is approved, so
+the runner cannot select or promote either normalization. O-140 authorizes
+focused implementation/tests, linear commits, one detached read-only snapshot,
+one serial one-GH200/16-CPU/96-GiB/`01:00:00` job capped at `1.0` GH200-hour,
+and evidence sealing. It permits exactly one submission with no retry/requeue,
+then stops before A2, MIT repair, D_audit/official val, later stops, reviewer
+chain, merge, push or upload.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

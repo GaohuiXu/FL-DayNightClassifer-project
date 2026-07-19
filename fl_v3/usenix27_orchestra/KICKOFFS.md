@@ -89,6 +89,11 @@
 > Zero overflow/invalid/discard occurred. BN1d strongly reduced LiDAR gradients,
 > but its matched loss remained higher and no evaluator ran. Stop before C1-B1;
 > no current compute authority exists.
+> O-140 now activates exactly one C1-B1 GN/BN1d full-`D_low`/`D_select` job.
+> Preserve shared W0, actual training-token order/remainder, physical B4, scale
+> 32 and the unchanged baseline recipe. Save terminal checkpoints only; report
+> paired eight-log uncertainty and never synthesize an unapproved winner margin.
+> One submission/no retry; stop before A2, MIT repair, later stops or reviewer.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

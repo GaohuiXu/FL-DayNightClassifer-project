@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-139 C1-B0 replacement consumed by successful Job 504508
+REQUEST_STATE: O-140 C1-B1 implementation/execution active; exact tuple pending implementation commit
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
-PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing + O-137 C1-B0 + O-138/O-139 replacements
-EXECUTION_AUTHORITY: none; O-139 consumed; no retry/C1-B1
-SOURCE_SHA: 5de019bf36b1dd5ca077a5a10eaa5e0e5f376ca2
+PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing + O-140 C1-B1
+EXECUTION_AUTHORITY: one exact O-140 C1-B1 submission after immutable tuple freeze; no retry
+SOURCE_SHA: pending O-140 implementation commit
 BRANCH: codex/s10-cl-model-recipe
-OWNER_APPROVAL: O-139 canonical-fixture remediation and replacement approved 2026-07-19
-EXECUTABLE_NOW: none; C1-B1 owner decision required
+OWNER_APPROVAL: O-140 C1-B1 scope and 0.7-1.0 expected GH200-hour request approved 2026-07-19
+EXECUTABLE_NOW: after exact source/snapshot/command/output tuple is frozen below
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1792,3 +1792,40 @@ no overflow or invalid update. BN1d starts at higher loss and remains higher on
 251/256 matched windows, including last-16 mean `22.893` versus `21.751`, while
 its descriptive throughput is about 1.41x higher. This neither promotes BN1d nor
 clears GN as a full-run recipe: capability/evaluator evidence is absent.
+
+## 35. O-140 C1-B1 current-A1 matched capability — approved / tuple pending
+
+```text
+REQUEST_ID: S10-C1B1-CUR-A1-GN-BN1D-DLOW-v1
+OWNER_DECISION: O-140
+STATE: approved; exact implementation source/snapshot/command tuple pending freeze
+CELLS: C1-B1-CUR-A1-GN-DLOW -> C1-B1-CUR-A1-BN1D-DLOW, serial
+GRAPH/INIT: current A1 fusion; shared exact seed-0 trainable W0; ImageNet1K V1 camera
+NORMALIZATION: group_norm versus batch_norm_1d only
+TRAIN: exact frozen D_low / one epoch / physical B4 / drop_last=true / 1,538 attempted and accepted updates
+EVAL: terminal raw checkpoints only; exact D_select / 4,626 samples / eight frozen logs
+PRECISION: global FP16 plus SECOND FP32 island / GradScaler initial scale 32
+RECIPE: AdamW lr=1e-4 wd=.01 / constant scheduler / no clip, EMA, augmentation, CBGS or GT paste
+PRIMARY: internal D_select NDS
+GUARDRAILS: mAP, per-class AP, zero invalid/nonfinite/overflow/discard, exact W0/token/remainder, paired leave-one-log-out jackknife
+SCIENTIFIC_SELECTION: OWNER_DECISION_REQUIRED; no numeric promotion/non-inferiority margin is approved
+RESOURCE: 1 node / 1 x GH200 / 16 CPUs / 96 GiB / 01:00:00 / no-requeue
+EXPECTED/CAP: 0.7-1.0 / 1.0 elapsed GH200-hour
+SUBMISSIONS: exactly one; no retry, requeue, DDP, array or spare GPU
+CUMULATIVE_BEFORE: 3.524722 GH200-hours
+CUMULATIVE_HARD_MAX_AFTER: 4.524722 GH200-hours
+FORBIDDEN: intermediate checkpoint selection, extra seed, D_audit, official val, A2, MIT repair, TransFusion, DepthLSS, recipe search, later C/D/E/F, reviewer chain, merge, push, upload
+```
+
+The runner reuses the accepted C0-v2 `D_select` decode/submission/evaluator path
+and verifies repeated full-evaluator parity before constructing paired-log
+evidence. Leave-one-log-out calculations remove one frozen D_select log at a
+time from each already filtered GN/BN1d prediction/ground-truth set and use the
+same official devkit metric math. The 95% interval is descriptive uncertainty,
+not a hidden winner gate. Execution PASS requires both complete matched
+training/evaluation cells; scientific weakness is retained and returned to the
+owner rather than tuned or relabeled.
+
+The exact source/tree, detached recursively read-only snapshot, runner/entry/
+config/resolved identities, fresh output and sole `sbatch` command must be
+recorded here before submission.

@@ -137,6 +137,15 @@
 > by 217-1904x while actual AdamW stem updates stayed comparable; GN showed no
 > bounded H256 update failure. BN1d loss was higher on 251/256 matched windows but
 > ran about 1.41x faster. No evaluator or selection; C1-B1 remains owner-gated.
+> O-140 activates exactly one C1-B1 matched current-A1 capability job. GN and
+> BN1d each train one complete physical-B4 `D_low` epoch from the exact shared
+> seed-0 trainable W0, save only the terminal checkpoint, and evaluate the same
+> frozen eight-log `D_select`. Recipe, precision and initialization remain the
+> accepted C1-B0 tuple. The runner reports NDS/mAP/per-class deltas and paired
+> leave-one-log-out jackknife uncertainty, but no unapproved numeric margin or
+> automatic winner. One serial no-retry GH200 job is capped at `01:00:00` and
+> `1.0` GH200-hour. Stop after evidence sealing before A2, MIT repair or later
+> stops.
 >
 > Canonical companions: [`SESSIONS.md`](SESSIONS.md) and
 > [`KICKOFFS.md`](KICKOFFS.md). Closed execution detail is compacted in the
@@ -170,7 +179,7 @@ accepted clean engineering anchor 2a58405
                   ├── S09 performance/readiness
                   │      100 steps, then conditional 1000 steps; no mAP claim
                   │
-                  ├── S10 A-F CL health/recipe/speed/full claim     [A/B CLOSED; C0-v2 EXECUTION PASS]
+                  ├── S10 A-F CL health/recipe/speed/full claim     [A/B CLOSED; C1-B1 ACTIVE]
                   └── S11 and later                                  [pending]
 ```
 
@@ -555,6 +564,7 @@ Closed ranges below are provenance.
 | O-137 | Activate only C1-B0 as a matched current-A1 fusion-training health observation. Authorize a production-resolved SECOND normalization/checkpoint seam with GN default and explicit BN1d, local tests and linear commits; freeze one label-blind 1024-token `D_low` H256 vector; run serial `F-A1-GN-H256` and `F-A1-BN1D-H256` from exact shared seed-0 trainable W0 with ImageNet1K V1 camera, physical B4, global FP16 plus SECOND FP32 island, common no-update-qualified GradScaler scale 32, AdamW `lr=1e-4/wd=.01`, constant scheduler and no augmentation/EMA/CBGS/GT-paste/clip. Each cell must complete 256 real updates and record all-window loss/scaler/memory/basic timing plus true-unscaled gradients and realized updates at 1/4/16/64/128/256 and BN running state. Authorize one detached read-only snapshot, exact tuple, one GH200/16 CPUs/96 GiB/`00:30:00`, at most `0.5` GH200-hour, one submission and evidence sealing. Any identity, qualification, finite-gradient, matched-token/update or artifact failure stops with no retry. Scientific weakness is retained as evidence, not tuned. No evaluator/checkpoint selection, full `D_low`, C1-B1/A2/MIT repair, later stop, reviewer chain, merge, push or upload. Exact implementation `96ae63d`, detached snapshot and §32 tuple were frozen. Job `502958` failed pre-model after 100 passed/6 failed tests because of misplaced test lines and one incomplete `s10.v1` fixture; no model, H256 data or update ran. | consumed / pre-model test-fixture FAIL / owner decision required |
 | O-138 | Approve only the exact Job-502958 test-neutral remediation: return the three operator-profile hash assertions to the preceding S09-v2 test and add required `grad_scaler_init_scale=32` to the migrated `s10.v1` fixture. Authorize local/static validation, a linear commit, one new detached read-only snapshot and exact tuple, then one strictly derived C1-B0 replacement with unchanged production source/runner/config, data, candidates, seed/W0, precision/recipe, H256 horizon, diagnostics, gates and one-GH200/16-CPU/96-GiB/`00:30:00`/`0.5`-GH200-hour resource ceiling. Fresh output, one submission, no retry. No C1-B1, later C/D/E/F, reviewer chain, merge, push or upload. Exact remediation `0f51e11` and §33 tuple were frozen. Job `503075` failed pre-model after 105 passed/1 failed tests because the migrated `s10.v1` fixture also lacked required `execution.operator_profile`; the first missing scale field had masked this second omission. No model, H256 data or update ran. | consumed / second pre-model fixture FAIL / owner decision required |
 | O-139 | Replace the failing test's partial manual promotion from `s09.v1` to `s10.v1` with the already validated complete `s10_second_config(..., "batch_norm_1d")` fixture and assert resolved schema, normalization, scale and operator-profile propagation before the production detector constructor. Authorize local/static schema audit, one linear commit, one detached read-only snapshot/exact tuple and one strictly derived C1-B0 replacement with unchanged production source/runner/config, data, cells, W0/seed, precision/recipe, H256 horizon, diagnostics, gates and one-GH200/16-CPU/96-GiB/`00:30:00`/`0.5`-GH200-hour ceiling. Fresh output, one submission/no retry. No C1-B1, later C/D/E/F, reviewer chain, merge, push or upload. Exact remediation `5de019b` and §34 tuple were frozen. Job `504508` completed `0:0` in `00:06:57`; 106 tests and both 256-update cells passed all hard gates. BN1d strongly reduced LiDAR gradients but had higher matched H256 loss; no evaluator or selection exists. | consumed / C1-B0 execution PASS / C1-B1 owner-gated |
+| O-140 | Activate exactly one C1-B1 current-A1 matched capability job: GN and BN1d share exact seed-0 trainable W0 and actual shuffled `D_low` token order/remainder, each completes 1,538 physical-B4 updates with scale 32 under the unchanged C1-B0 graph/init/precision/AdamW/constant/no-augmentation/no-EMA/no-CBGS/no-GT-paste/no-clip recipe, saves only its terminal checkpoint and evaluates exact frozen `D_select` (4,626 samples/eight logs). NDS is primary; mAP, per-class AP, numerical health and paired leave-one-log-out jackknife uncertainty are guardrails. Because no numeric superiority/non-inferiority margin is approved, execution may PASS but scientific selection must remain `OWNER_DECISION_REQUIRED`; no automatic normalization promotion. Authorize implementation, focused tests, linear commits, one detached read-only snapshot/exact tuple, one serial one-GH200/16-CPU/96-GiB/`01:00:00` submission capped at `1.0` GH200-hour, evidence sealing and then stop. No retry/requeue, intermediate checkpoint selection, new seed, D_audit/official val, A2/MIT repair, later stop, reviewer chain, merge, push or upload. | active C1-B1 implementation/execution |
 
 ## 10. Closed and consumed history
 

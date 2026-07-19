@@ -110,6 +110,20 @@ def _canonical_sha256(value: object) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def _parameter_state_sha256(model: torch.nn.Module) -> str:
+    """Hash trainable initialization without normalization running buffers."""
+    digest = hashlib.sha256()
+    for name, value in sorted(model.named_parameters()):
+        tensor = value.detach().contiguous().cpu()
+        digest.update(name.encode("utf-8") + b"\0")
+        digest.update(str(tensor.dtype).encode("ascii") + b"\0")
+        digest.update(
+            json.dumps(list(tensor.shape), separators=(",", ":")).encode("ascii") + b"\0"
+        )
+        digest.update(tensor.numpy().tobytes(order="C"))
+    return digest.hexdigest()
+
+
 def _write_json(path: Path, value: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -140,6 +154,8 @@ def _source_identities(config) -> dict[str, Any]:
 def _resolved_for_cell(base: dict[str, Any], spec: dict[str, Any]):
     raw = copy.deepcopy(base)
     raw["training"]["max_optimizer_steps"] = int(spec["attempted_windows"])
+    if "normalization" in spec:
+        raw["model"]["second_normalization"] = str(spec["normalization"])
     if spec["mode"] == "lidar_only":
         raw["model"].update({
             "mode": "lidar_only",
@@ -437,11 +453,22 @@ def _run_cell(
     if len(loader) != 1538:
         raise RuntimeError(f"D_low B4 drop-last loader length drifted: {len(loader)}")
     device = torch.device("cuda")
-    model = task.build_model(run_config).to(device)
+    model = task.build_model(run_config)
+    initial_parameter_sha256 = _parameter_state_sha256(model)
+    expected_parameter_sha256 = spec.get("expected_initial_parameter_sha256")
+    if (
+        expected_parameter_sha256 is not None
+        and initial_parameter_sha256 != str(expected_parameter_sha256)
+    ):
+        raise RuntimeError("cell trainable W0 parameter identity drifted")
+    model = model.to(device)
     criterion = task.build_criterion(run_config)
     optimizer = _build_optimizer(model, config)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda _step: 1.0)
-    scaler = make_grad_scaler(device, config.precision, init_scale=512.0)
+    grad_scaler_init_scale = float(spec.get("grad_scaler_init_scale", 512.0))
+    scaler = make_grad_scaler(
+        device, config.precision, init_scale=grad_scaler_init_scale,
+    )
     state = TrainingState()
     diagnostics = PrecisionWindowDiagnostics(
         PrecisionDiagnosticsIdentity(
@@ -630,11 +657,12 @@ def _run_cell(
         spec, chunks, diagnostics.records, terminal, evaluation,
     )
     report = {
-        "schema": SCHEMA,
+        "schema": str(spec.get("report_schema", SCHEMA)),
         "cell": spec,
         "source_sha": source_sha,
         "resolved_config_sha256": config.sha256,
         "runtime_dependencies_sha256": _canonical_sha256(runtime_dependencies),
+        "initial_parameter_sha256": initial_parameter_sha256,
         "roles": {"D_low": low.identity(), "D_select": select.identity()},
         "recipe": {
             "optimizer": "AdamW",
@@ -648,7 +676,7 @@ def _run_cell(
             "physical_microbatch": 4,
             "accumulation": 1,
             "precision": "global_fp16_SECOND_fp32_island",
-            "grad_scaler_init_scale": 512.0,
+            "grad_scaler_init_scale": grad_scaler_init_scale,
         },
         "training_token_evidence": training_tokens,
         "chunks": chunks,
@@ -669,13 +697,13 @@ def _run_cell(
         "D_select_evaluation": evaluation,
         "D_select_evaluation_timing": evaluation_timing,
         "health": health,
-        "interpretation_limits": [
+        "interpretation_limits": list(spec.get("interpretation_limits", [
             "single-seed limited-rung internal evidence; not the S10 full claim",
             "fixed engineering baseline recipe; not production-recipe acceptance",
             "D_select is train-only proxy evidence; official val remains sealed",
             "operator profiling covers one early A1 window only and is not STOP-E",
             "large-gradient causality is not established by gradient magnitude alone",
-        ],
+        ])),
     }
     _write_json(cell_dir / "cell_summary.json", report)
     _close_loader(loader)

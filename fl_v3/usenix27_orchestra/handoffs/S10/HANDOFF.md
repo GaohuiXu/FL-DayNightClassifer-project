@@ -6,13 +6,13 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement; O-137 C1-B0 fusion health; O-138 exact test-only replacement; O-139 canonical-fixture replacement
+OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement; O-137 C1-B0 fusion health; O-138 exact test-only replacement; O-139 canonical-fixture replacement; O-140 C1-B1 capability
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-139 consumed by successful Job 504508; no executable compute; C1-B1 owner-gated
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: evidence sealing only; no C1-B1/reviewer chain
+CURRENT_AUTHORITY: O-140 exact one-job C1-B1 implementation/commit/Slurm/evidence authority active
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: C1-B1 only; one submission/no retry; no reviewer chain
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
-STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A Job 502572 PASS/LOCALIZED_NORM; C1-B0 Job 504508 execution PASS; C1-B1 owner-gated
+STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A `LOCALIZED_NORM`; C1-B0 PASS; O-140 C1-B1 active
 C0_IMPLEMENTATION_SHA: 89958be504d6abaef66810695402d2a09619794b
 C0_JOB: 492525 / FAILED 1:0 / 00:47:32 / 0.792222 GH200-hours
 C0_REMEDIATION_REVIEW: 09c39458a0b32ce1d4a3ae603094d76ae160ac42 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
@@ -984,3 +984,19 @@ stochastic graph and LiDAR sparse-route same-seed runtime variation. The large
 true unscaled LiDAR-gradient mechanism remains unresolved. No further STOP-B
 compute, model change or recipe change was authorized at that closure boundary;
 O-131 subsequently activates only C0.
+
+## 18. O-140 C1-B1 active contract
+
+O-140 activates one matched current-A1 GN/BN1d capability comparison and no
+other C lineage. Each candidate shares exact trainable W0 and actual shuffled
+`D_low` B4 exposure/remainder, completes 1,538 accepted updates with scale 32,
+saves only the terminal checkpoint, and runs the accepted internal evaluator on
+the exact 4,626-sample/eight-log `D_select`. The only factor changed is SECOND
+normalization.
+
+Execution health is fail-closed. Capability reporting uses internal NDS as the
+primary metric, with mAP/per-class AP and paired delete-one-log jackknife
+uncertainty. No numerical superiority or non-inferiority margin was approved,
+so the code must emit `OWNER_DECISION_REQUIRED` and cannot promote BN1d or GN.
+One one-hour GH200 submission is authorized with no retry; after evidence
+sealing S00 stops before A2, MIT repair, D_audit/official val or later stops.
