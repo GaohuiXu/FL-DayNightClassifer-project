@@ -1,195 +1,32 @@
 # USENIX Security '27 Orchestra — clean CL to federated multimodal security
 
-> **Active status (2026-07-18).** S07 clean engineering, S08 precision
-> qualification, and S09 full-pipeline engineering performance/readiness are
-> closed. S08 policy/closing commit is
-> `28f79802c0868afa6290d74ae6aeb9d23c7d088f`; S09 accepted review seal is
-> `ced5992ea113bd21d7d545af505debf405b556b3`; S09 closing commit is
-> `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`.
+> **Active status (2026-07-19).** S07-S09 are closed. S10 is active on
+> `codex/s10-cl-model-recipe` from audited base
+> `a080d49c1c22de20ccb5b1353d4922c7df14a729`.
 >
-> Under O-121, `v3-ad-perception` was advanced by `--ff-only` to `351b7a0`.
-> It and `codex/s08-s09-cl-readiness` have the same tip/tree; deletion of the
-> delivery branch remains a separate owner decision. Fresh persistent S00
-> completed the startup audit at exact clean base
-> `a080d49c1c22de20ccb5b1353d4922c7df14a729` and is active on
-> `codex/s10-cl-model-recipe`.
+> O-143 replaces S10's active six-stop execution order and per-job
+> immutable/no-retry/multi-document/reviewer workflow. The current science order
+> is **camera and LiDAR independent recipe/capability → staged fusion →
+> capability gate → GH200 profiler/optimization**. Current-A2 and the old
+> C→D→E→F route are paused.
 >
-> O-122 accepts S10's six-stop A-F envelope, exact STOP-A split/evaluator gate,
-> and primary full claim **absolute clean capability + fusion contribution**.
-> O-124 authorizes bounded STOP-A/B/C completion. O-125's sole 15-minute final
-> STOP-A remediation tuple was consumed by Job `467862`: focused tests and the
-> 28,130-sample metadata traversal passed, but the exact MILP remained incomplete
-> at Slurm `TIMEOUT`. O-126 corrects the over-specified optimizer into a one-shot
-> feasibility constructor while retaining every ownership, support, leakage and
-> evaluator gate, and authorized A1-A4 plus one CPU-only aarch64 A-GATE
-> (`0 GPU`, 4 CPU, 32 GiB, 15 minutes, no retry/reroll). The exact no-`--gpus`
-> Job `468295` was immediately transformed by Arrhenius `job_submit/lua` into a
-> four-GPU request; S00 protection-cancelled it after 8 seconds before execution
-> identity, tests, data or split work. O-126's one submission is consumed.
-> O-127 approved exactly one replacement that reserved one GH200 while forcing
-> the process to expose zero CUDA devices. Job `468404` consumed it and completed
-> `0:0` in `00:07:59`: 13 focused tests passed, the first/only feasibility
-> candidate and independent ownership checker passed, and both exact evaluator-
-> parity fixtures passed. Initial A4 returned documentation-only P2/P3 findings;
-> targeted re-review of remediation SHA `b0478a298a0a3b5e538bedcca63e2541d71c2146`
-> closed both and returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. STOP-A
-> is CLOSED PASS for the constrained split/evaluator engineering contract.
-> O-128's first B-DIAG Job `477892` failed before scientific observations because
-> the cold disabled/enabled parity gate was neither calibrated nor durably
-> decomposed. O-129 authorizes the §20 correction, one replacement B-DIAG capped
-> at `0.5` GH200-hour, and zero or one trigger-bound B-REFINE capped at `0.25`
-> GH200-hour. Exact replacement Job `478250` passed 41 tests and all identities,
-> then failed the first FP32 disabled/disabled parity as predeclared
-> `baseline_instability`: output, loss and finite gradients changed while RNG and
-> W0 state hashes remained exact. It stopped before FP16 or scientific cells;
-> B-REFINE is not triggered. Independent review returned
-> `PASS_WITH_RESIDUAL_RISK` with no open P0-P3 and seals only this bounded
-> negative result; owner rebaseline is required before further diagnosis or
-> STOP-C. O-130 now authorizes exactly one B-RAND amendment to decompose intended
-> Swin stochasticity from same-seed runtime variation across C-STR8, L-S075 and
-> F-U on the frozen first P_core B4. It is capped at `00:15:00`/`0.25`
-> GH200-hour, makes no update/evaluation, and cannot automatically restore
-> localization or start STOP-C. Exact implementation `0bf9c0c` and the sole
-> detached snapshot/command tuple were frozen in S10 `RUN_REQUEST.md` §24.
-> Job `479667` consumed it, completed `0:0` in `00:07:08`, passed 43 tests and
-> the 33-run integrity gate, and returned `MIXED_INCONCLUSIVE`: both
-> camera RNG-dependent variation and same-seed LiDAR runtime variation qualify.
-> Targeted re-review of remediation `02ba3b4` returned
-> `PASS_WITH_RESIDUAL_RISK` with no open P0-P3. STOP-B is CLOSED /
-> `INCONCLUSIVE`; no further STOP-B compute is executable. O-131's sole
-> integrated C0 Job `492525` then ended `FAILED 1:0` in `00:47:32`. F-A1 and
-> L-A0 completed their full physical-B4 `D_low` exposure-count epochs and exact
-> `D_select` evaluations, but
-> the 64-window scratch cell has no accepted summary because an incorrect
-> full-epoch iterator assertion rejected the short horizon. Both full-cell raw
-> `HARD_FAIL` labels are independently invalidated as gate false positives:
-> SECOND-075 resolves `to_bev` to parameter-free `nn.Identity`. The retained
-> evidence has falling loss, zero post-first-64 invalid windows, no correlated
-> gradient-harm signal, and a positive single-seed/internal F-minus-L delta;
-> none selects production policy or makes the full fusion claim. STOP-C0 is
-> `FAIL/INCOMPLETE` and its no-retry allocation is consumed. Targeted re-review
-> of remediation `09c3945` returned `PASS_WITH_RESIDUAL_RISK` with no open
-> P0-P3 for evidence integrity only; the three raw v1 dropped-token identities
-> are invalid, while their count and matched F/L construction remain valid.
-> O-132's sole full C0-v2 clean replay Job `496312` consumed `0.754167`
-> GH200-hours and completed `0:0` in `00:45:15` from source `2262b40`. It passed
-> 80 focused tests with 3 skips, all three v2 cell summaries, actual-token matched
-> F/L order/remainder, aggregate `PASS` and the 28/28 artifact manifest. The
-> bounded trajectories are numerically healthy with no established correlated
-> large-gradient harm; the internal one-seed F-minus-L delta is positive but is
-> not a recipe, architecture, official-val or full fusion claim. O-132 is
-> consumed; no retry or intermediate reviewer chain is authorized.
-> O-133 accepts the C1-A causal GN-versus-BN1d plan, common conservative
-> GradScaler qualification, and C1-B current-A1/current-A2/MIT-A2 three-lineage
-> funnel with at most two STOP-C survivors. It is planning/docs authority only.
-> The exact coherent MIT anchor composition remains owner-pending; no code or
-> compute may be inferred from O-133. O-134 relaxes the conditional component
-> restriction, orders current A1/A2 before any MIT-reference repair, and activates
-> exactly one bounded C1-A GN/BN1d causal job. C1-B implementation/compute remains
-> pending. Job `502456` passed 36 tests but failed before candidate execution at
-> an over-strict BN1d missing-buffer assertion; it consumed `0.050833` GH200-hour
-> and produced no gradient verdict. O-134 is consumed with no retry. Later STOP-C
-> execution and STOP-D/E/F execution, merge,
-> push, upload, publication, Protocol-A/B execution, attack, defense, and S11+
-> remain unauthorized.
-> O-135 authorized only the diagnosed BN1d state-mapping assertion correction
-> and its regression test; the exact neutral remediation is committed at
-> `d713bfe`. O-136 accepts that commit and authorizes one strictly derived C1-A
-> replacement with the unchanged 16xB4 panel, candidates, FP32 loss/VJP cells,
-> two repeats, 128 runs, gates and one-GH200/8-CPU/64-GiB/`00:30:00` ceiling.
-> Job `502572` consumed it and completed `0:0` in `00:03:09`: 37 focused tests,
-> all identities, 128/128 finite runs, unchanged exact candidate parameters and
-> all artifact checks passed. The bounded verdict is `LOCALIZED_NORM`: BN1d
-> reduced both fixed-VJP and normal-loss stem gradients on all 16 B4 batches far
-> beyond repeat variation, while occupancy and head/loss alternatives did not
-> meet their gates. This localizes the current W0/panel mechanism; it does not
-> promote BN1d or select architecture/recipe. O-136 is consumed, with no retry
-> or automatic C1-B continuation.
-> O-137 activates only the C1-B0 current-A1 matched fusion-health rung: explicit
-> production GN/BN1d config+checkpoint identity, shared seed-0 trainable W0,
-> frozen 1024-token `D_low` H256 panel, physical B4, global FP16 plus SECOND FP32
-> island, common no-update-qualified scale 32, and 256 real AdamW updates per
-> candidate. It authorizes one no-retry GH200/16-CPU/96-GiB/`00:30:00` job capped
-> at `0.5` GH200-hour. No evaluator, selection, full `D_low`, C1-B1/A2/MIT repair,
-> later stop, reviewer chain, merge, push or upload is authorized.
-> Exact Job `502958` consumed O-137 and failed pre-model in `00:02:14`: 100 tests
-> passed and 6 failed due only to misplaced test lines and one fixture missing
-> the new required scale field. No model/H256/update/scientific cell executed;
-> O-137 is consumed and C1-B0 returns to the owner with no retry.
-> O-138 authorizes only that exact test-neutral correction and one strictly
-> derived C1-B0 replacement: unchanged production source/runner/config, data,
-> candidates, seed/W0, H256 horizon, gates and O-137 resource ceiling; one new
-> detached read-only snapshot and fresh output; one submission and no retry.
-> C1-B1 and later work remain unauthorized.
-> Replacement Job `503075` consumed O-138 and again stopped pre-model after
-> 105 passed/1 failed focused tests: the migrated `s10.v1` fixture also omitted
-> required `execution.operator_profile`, masked previously by the first missing
-> scale field. No model/H256/update cell executed. O-138 is consumed; C1-B0
-> returns to the owner.
-> O-139 replaces that partial schema mutation with the already validated complete
-> `s10_second_config` fixture, asserts all S10 propagation fields, and authorizes
-> one strictly derived replacement under unchanged production/scientific/resource
-> scope. One new immutable snapshot/fresh output, one submission, no retry; stop
-> before C1-B1 and later work.
-> Job `504508` consumed O-139 and completed `0:0` in `00:06:57`: 106 tests passed;
-> both matched cells completed 256/256 updates with zero overflow/invalid/discard,
-> constant scale 32 and falling loss. BN1d reduced sampled LiDAR-stem gradient L2
-> by 217-1904x while actual AdamW stem updates stayed comparable; GN showed no
-> bounded H256 update failure. BN1d loss was higher on 251/256 matched windows but
-> ran about 1.41x faster. No evaluator or selection; C1-B1 remains owner-gated.
-> O-140 activates exactly one C1-B1 matched current-A1 capability job. GN and
-> BN1d each train one complete physical-B4 `D_low` epoch from the exact shared
-> seed-0 trainable W0, save only the terminal checkpoint, and evaluate the same
-> frozen eight-log `D_select`. Recipe, precision and initialization remain the
-> accepted C1-B0 tuple. The runner reports NDS/mAP/per-class deltas and paired
-> leave-one-log-out jackknife uncertainty, but no unapproved numeric margin or
-> automatic winner. One serial no-retry GH200 job is capped at `01:00:00` and
-> `1.0` GH200-hour. Stop after evidence sealing before A2, MIT repair or later
-> stops.
-> Job `504921` consumed O-140 and ended `FAILED 1:0` in `00:47:01`. All 117
-> focused tests passed (three skips), GN completed 1,538/1,538 updates, and BN1d
-> completed 1,537/1,538. BN1d's first actual shuffled B4 overflowed nine head
-> parameter-gradient elements at scale 32; GradScaler skipped that update, backed
-> off to 16, and all remaining windows were finite/accepted. Both terminal
-> checkpoints and D_select metrics exist on identical attempted tokens. GN
-> NDS/mAP is `0.144475/0.061553`; BN1d is `0.136705/0.053125`. Because accepted
-> exposure differs by one B4 and the hard failure prevented paired-log evidence,
-> this is `FAIL/INCOMPLETE`, not a normalization selection. O-140 is consumed;
-> no replay or later continuation is executable.
-> O-141 replaces the proposed BN1d-B4 mechanical completion with one practical
-> BN1d physical-B8 candidate. It reuses exact W0 and the same ordered 6,152
-> D_low tokens/three-token remainder, makes 769 B8 updates at initial scale 8,
-> fail-fast checks 1/4/16/64, and evaluates D_select at B4. The result may assess
-> the joint BN1d+B8 operating point, throughput, memory and proxy capability;
-> it cannot isolate batch-size causality or auto-select an architecture. One
-> 30-minute/no-retry GH200 submission is authorized after exact tuple freeze.
-> Job `505266` consumed O-141 and failed pre-model in `00:02:15`. All 121
-> focused tests passed (three skips), then the entry accessed nonexistent
-> `ResolvedConfig.schema_version` rather than `config.data["schema_version"]`.
-> No B8 batch, update, capacity check or evaluator ran. This is an implementation
-> assertion/test-coverage failure, not BN-B8 evidence. O-141 is consumed.
-> O-142 authorizes only the exact canonical schema-access correction plus a
-> direct resolved-config assertion regression, followed by one fresh-snapshot/
-> fresh-output replacement under unchanged O-141 science, gates and 30-minute
-> resource ceiling. Job `505316` consumed it: 121 tests and the full 769-update
-> B8/D_select scientific body completed, but the job timed out at `00:30:07`
-> during tail paired-log computation. B8 was overflow-free and faster, yet its
-> NDS/mAP point estimate `0.078409/0.013024` was substantially below both sealed
-> B4 references. Paired uncertainty, final summary and runner manifest are
-> absent, and the raw recipe display mislabels B8 as B4 despite authoritative
-> config/token evidence. O-142 is `FAIL/INCOMPLETE`; no retry is executable.
+> Prior evidence is retained, not erased: STOP-A's split/evaluator is reusable;
+> STOP-B is `INCONCLUSIVE`; C1-A localized the observed large LiDAR-stem
+> gradient to the current tiny-group GN path; C1-B bounded runs did not establish
+> production capability or superiority over Alvis. Exact historical jobs and raw
+> limits remain in `handoffs/S10/RESULTS.md` and the historical portion of
+> `RUN_REQUEST.md`.
 >
-> Canonical companions: [`SESSIONS.md`](SESSIONS.md) and
-> [`KICKOFFS.md`](KICKOFFS.md). Closed execution detail is compacted in the
-> S08/S09 handoff packages; the complete pre-compaction ledger is recoverable at
-> Git object `351b7a0`.
+> O-143 authorizes this plan/contract record only. No C/L implementation,
+> training, Slurm submission, staged fusion, profiler, merge, push, upload,
+> publication or S11+ execution is currently authorized.
 
 ## 1. Current objective and sequencing
 
 The immediate scientific objective is a strong, trustworthy centralized
 camera-LiDAR nuScenes detector. Clean modality capacity, numerical stability,
-training throughput, data ownership, and official evaluation must be established
-before a federated security claim is meaningful.
+data ownership, aligned evaluation and useful absolute capability must precede a
+federated security claim.
 
 The intended paper question remains:
 
@@ -202,27 +39,28 @@ The intended paper question remains:
 The active order is evidence-gated:
 
 ```text
-accepted clean engineering anchor 2a58405
+accepted S08/S09 engineering foundation
                   │
-                  ├── S08 pre-implementation model/recipe audit
-                  │      owner architecture/fixture decisions
-                  │      └── precision qualification; no capability claim
-                  │
-                  ├── S09 performance/readiness
-                  │      100 steps, then conditional 1000 steps; no mAP claim
-                  │
-                  ├── S10 A-F CL health/recipe/speed/full claim     [A/B CLOSED; C1-B1 FAIL/INCOMPLETE]
-                  └── S11 and later                                  [pending]
+                  ├── S10-CAM: camera branch recipe + capability
+                  ├── S10-LIDAR: LiDAR branch recipe + capability
+                  │      └── freeze qualified branch checkpoints
+                  ├── S10-FUSION: staged fusion + aligned capability controls
+                  │      └── absolute clean capability + fusion contribution gate
+                  └── S10-PERF: final accepted graph/recipe profiling + optimization
+                         └── only after capability passes
 ```
 
-No deadline or milestone name creates execution authority. O-122 freezes the S10
-ordering and scientific boundaries recorded in
-[`handoffs/S10/HANDOFF.md`](handoffs/S10/HANDOFF.md); O-124-O-127 supply only
-their recorded bounded execution authority. Job `467862` consumed O-125 and
-returned to the owner; O-126 is the explicit post-timeout scientific/resource
-amendment, and O-127 plus A4 review closed STOP-A without model compute. S11 and
-later remain undefined and pending rather than inheriting any
-historical graph.
+MIT BEVFusion's published branch pretraining, staged fusion and recipe choices are
+strong reference anchors. S10 should verify local compatibility and capability,
+not rerun published ablations without a concrete local conflict. The historical
+Alvis detector is the practical capability comparator, subject to aligned dataset,
+class, metric and evaluation semantics.
+
+No deadline or milestone name creates execution authority. O-143 is the active
+S10 sequencing and collaboration decision; O-122 through O-142 remain historical
+evidence and consumed authorities. The next owner discussion must define the
+camera/LiDAR qualification phase: candidate cap, initialization, training recipe,
+capability gate and aggregate compute. S11+ remains undefined and pending.
 
 ## 2. Accepted clean-foundation evidence
 
@@ -430,37 +268,27 @@ old S12 proposal and milestone assignment are not current authority.
 
 ## 6. Persistent S00 collaboration model
 
-Owner decision O-094 replaces the one-fresh-worker-per-session default.
+Persistent S00 owns the active linear implementation context and canonical
+orchestration documents. `Sxx` denotes evidence, not a requirement for a new
+task, worktree, worker or reviewer.
 
-1. **One persistent implementation context.** S00 may directly plan, implement,
-   validate, document, and integrate one or more tightly connected milestones in
-   one long-lived task/worktree. `Sxx` denotes an evidence milestone and handoff
-   namespace, not necessarily a separate Codex task or worktree.
-2. **Linear Git ownership.** The active track normally advances linearly from one
-   reviewed commit. Separate implementation worktrees are used only for genuine
-   parallel isolation, conflicting ownership, risky experiments, or explicit
-   owner direction.
-3. **Subagents are bounded.** Planning/research subagents may be used before
-   implementation. They do not create parallel production branches. O-096 records
-   the owner's maximum-reasoning override for the current persistent S00 and its
-   pre-S08 planning/research or independent-review subagents; it does not authorize
-   implementation or compute.
-4. **Independent review remains mandatory.** After an immutable implementation or
-   execution-evidence SHA exists, a reviewer subagent reads that exact diff and
-   artifacts, reports findings first, and does not fix code. A separate review
-   worktree is required for high-risk split/metric/scientific changes, conflicting
-   concurrent state, exact runtime reproduction, or owner request.
-5. **Remediation stays linear.** S00 fixes accepted findings in a new commit; the
-   reviewer rechecks the new diff. A review-only artifact may be sealed linearly;
-   no reviewer merge history is required.
-6. **Durable records are phase-sized.** Use one compact `HANDOFF.md`, exact
-   `RUN_REQUEST.md` before material compute, `RESULTS.md` for executed jobs, and
-   `REVIEW.md` for independent review. Preserve failures and hashes, but do not
-   generate micro-handoffs or audit wrappers for every conversational step.
+For S10, O-143 establishes phase-level collaboration:
 
-The owner still reviews the plan/envelope before S00 begins a newly scoped
-milestone or submits exact compute. Persistent context simplifies coordination; it
-does not broaden scientific, Git, compute, upload, or publication authority.
+1. agree once on phase objective, candidate cap, data/metric/seed policy,
+   aggregate GPU-hours, submission cap and escalation conditions;
+2. implement and preflight with direct entry/config/checkpoint/one-batch checks;
+3. autonomously repair output-neutral test/runner/checkpoint/logging defects and
+   resubmit inside the approved scientific/resource envelope;
+4. return to the owner for any scientific boundary/resource change or when the
+   bounded engineering loop repeatedly fails;
+5. keep one compact active handoff and one run ledger, with raw outputs and
+   minimum scientific provenance;
+6. review only data/metric changes, branch recipe freezes and the final
+   staged-fusion/full capability result.
+
+Do not create micro-handoffs, per-job snapshot trees, recursive manifests,
+documentation commits for every incident, or reviewer chains for ordinary runner
+bugs.
 
 ## 7. Compute, data, and execution boundaries
 
@@ -470,12 +298,13 @@ does not broaden scientific, Git, compute, upload, or publication authority.
   for the milestone. It never covers full cache/trainval coverage, 100/1000-step
   gates, model qualification/training steps, profiles, metrics, matrices, seeds,
   arrays, DDP, or publication.
-- Every material job requires an exact immutable commit/snapshot, command, data
-  scope and identities, resources, output, stop conditions, and explicit current
-  owner/S00 audit in `RUN_REQUEST.md`.
-- By default, a changed commit, config, split, command, cell, seed, resource
-  request, or output invalidates approval. No automatic resubmission or spare-GPU
-  expansion.
+- Outside an explicitly approved S10 phase, material compute retains its
+  milestone's exact authorization rules; no spare-GPU expansion is inferred.
+- Under O-143, a future S10 phase approval binds the objective, candidate/data/
+  metric/seed boundaries, aggregate resources, submission cap and stop
+  conditions. Within that envelope, derived commands/configs and output-neutral
+  engineering resubmissions do not require per-job owner approval. Scientific or
+  aggregate-resource changes do.
 - O-107 lets the initial owner approval for an exact O-009 smoke opt into a bounded
   mechanical remediation loop. It may contain at most two diagnosed replacement
   submissions (three jobs total) under the same objective/selectors, bounded data,
@@ -497,43 +326,36 @@ does not broaden scientific, Git, compute, upload, or publication authority.
 
 ### Locked current decisions
 
-- Protocol B is primary security; Protocol A is the clean optimization/control
-  setting.
-- The S02-S06 C/L/F/head/runtime foundations and official clean evaluation path
-  remain the current engineering foundation. This does not freeze reference
-  equivalence or prevent an owner-approved architecture amendment after the S08
-  pre-implementation audit.
-- Legacy T5/T6/T7, old defense code, e231 history, `collab/**`, and old cycle_04
-  contracts cannot be recovered as implementation or scientific authority.
-- S08 precision is frozen under O-110; S09 labelled base-uniform engineering
-  performance/readiness is closed PASS under O-120 and fast-forward integrated
-  under O-121. O-122 accepts S10's six-stop A-F envelope, exact STOP-A
-  split/evaluator gate, and primary full claim; it does not authorize execution.
-  Every S11+ boundary remains pending a future results-driven rebaseline.
-- Persistent S00 is the default implementer; independent reviewer subagent or,
-  when required, a separate review worktree supplies the quality gate.
+- Protocol B remains the primary security setting; Protocol A remains the clean
+  optimization/control setting.
+- S01-S09 data, evaluation, precision and engineering evidence remains accepted
+  within its recorded limits.
+- STOP-A's train-only split/evaluator artifacts remain the active reusable S10
+  data/evaluation substrate.
+- O-143 is the active S10 sequencing/collaboration decision. It replaces the old
+  active six-stop order and S10 per-job process, but not prior raw results.
+- Persistent S00 is the default implementer. S11+ remains pending.
 
 ### Still unresolved
 
-| Decision | Latest freeze point |
+| Decision | Next freeze point |
 |---|---|
-| Which, if any, sparse-normalization/head/view-transform amendment is promoted | observation-first STOP-B evidence followed by the bounded strong-contrast STOP-C gate; tiny-group GN remains a hypothesis, not a diagnosis |
-| Production optimizer groups/LR/scheduler/clip/EMA/augmentation/sampling recipe | select and freeze only in STOP-D after STOP-C architecture/init closure |
-| Cause of unusually large true SECOND gradients | Job `479667` operationally separates camera RNG-dependent variation from LiDAR sparse-route same-seed runtime variation, but large-gradient causality remains `INCONCLUSIVE`; no kernel/module/GN mechanism or model change is accepted |
-| Single-GPU batch/accumulation/workers and whether DDP is needed | STOP-D/E decision; B=2/B=4 remain capacity evidence until qualified, and DDP is not authorized |
-| STOP-A/B/C implementation, commit, isolated review topology, Slurm tuple and cumulative budget | STOP-A closed; STOP-B closed `INCONCLUSIVE`; O-132 C0-v2 Job `496312` passed; O-139 C1-B0 passed its bounded observation gate; O-140 C1-B1 is `FAIL/INCOMPLETE` after one BN1d overflow broke matched accepted exposure. O-140 is consumed and later C remains owner-gated |
-| STOP-D/E/F exact cells, resources and execution | separately owner-gated after upstream evidence; STOP-F owns the single-seed primary full run and sealed official-val decision |
-| Absolute clean capability, fusion contribution, mAP/NDS, per-class and speed claims | only after the corresponding frozen STOP-F/E evidence; internal evaluator outputs are explicitly proxy-only |
-| S11 and later milestone roles | pending; do not inherit the historical S11-S15 outline without a new owner decision |
-| `D_base`/`D_tail`, client unit, update scope, and clean Protocol-A/B cells | pending after the future clean-model freeze and a new owner decision |
-| New threat model, attack, and defense | pending; no attack or defense work is authorized |
+| Camera graph, initialization and production recipe | Phase-I camera qualification plan/result; compare against MIT/reference and aligned Alvis evidence where compatible |
+| LiDAR graph, normalization, initialization and production recipe | Phase-I LiDAR qualification plan/result; C1-A `LOCALIZED_NORM` is diagnostic input, not a BN1d promotion |
+| Training horizon, seeds, capability thresholds and aggregate Phase-I compute | next owner-approved phase envelope |
+| Qualified C/L checkpoints and staged-fusion freeze/unfreeze policy | after branch recipe freezes |
+| Absolute clean capability and fusion contribution | aligned staged-fusion capability gate; not inferred from D_low/D_select proxy runs |
+| Final physical batch/accumulation and GH200 optimization | only after capability passes and the graph/recipe is frozen |
+| Fair historical Alvis comparison | checkpoint/provenance plus aligned dataset, classes, metric and evaluator audit |
+| S11+, Protocol A/B execution, attack and defense | pending future owner decision |
 
 ## 9. Active owner-decision registry
 
 O identifiers are never renumbered or reused. Binding decisions are cumulative;
 earlier rows preserve the exact authority/state when issued and never reauthorize
-consumed compute. O-122 supersedes only the stale S10-planning state left by
-O-121; it does not reinterpret closed S08/S09 evidence or authorize S10 execution.
+consumed compute. O-143 supersedes O-122's active S10 order and O-124's active
+per-job process, but does not reinterpret closed S08/S09 or prior S10 evidence and
+does not authorize S10 execution.
 Closed ranges below are provenance.
 
 | ID | Binding decision | Authority |
@@ -599,6 +421,8 @@ Closed ranges below are provenance.
 | O-140 | Activate exactly one C1-B1 current-A1 matched capability job: GN and BN1d share exact seed-0 trainable W0 and actual shuffled `D_low` token order/remainder, each completes 1,538 physical-B4 updates with scale 32 under the unchanged C1-B0 graph/init/precision/AdamW/constant/no-augmentation/no-EMA/no-CBGS/no-GT-paste/no-clip recipe, saves only its terminal checkpoint and evaluates exact frozen `D_select` (4,626 samples/eight logs). NDS is primary; mAP, per-class AP, numerical health and paired leave-one-log-out jackknife uncertainty are guardrails. Because no numeric superiority/non-inferiority margin is approved, execution may PASS but scientific selection must remain `OWNER_DECISION_REQUIRED`; no automatic normalization promotion. Authorize implementation, focused tests, linear commits, one detached read-only snapshot/exact tuple, one serial one-GH200/16-CPU/96-GiB/`01:00:00` submission capped at `1.0` GH200-hour, evidence sealing and then stop. No retry/requeue, intermediate checkpoint selection, new seed, D_audit/official val, A2/MIT repair, later stop, reviewer chain, merge, push or upload. Job `504921` consumed it in `00:47:01`: GN passed 1,538 updates; BN1d had one first-window scale-32 head-gradient overflow and only 1,537 accepted updates. Both D_select point estimates exist and favor GN, but paired-log uncertainty is absent and matched exposure failed. | consumed / C1-B1 FAIL-INCOMPLETE / owner decision required |
 | O-141 | Replace a mechanical BN1d-B4 completion with one operational BN1d physical-B8 candidate. Preserve the exact seed-0 trainable W0, frozen shuffled D_low order and the same first 6,152 consumed samples/three-token remainder; run 769 accepted B8 updates with initial GradScaler scale 8, fail-fast numerical boundaries 1/4/16/64 then 256/512/769, unchanged FP16+SECOND-FP32/AdamW `1e-4/0.01`/constant/no-augmentation/no-EMA/no-CBGS/no-GT-paste/no-clip recipe, terminal checkpoint only, and exact D_select evaluation at physical B4. Compare descriptively and with paired eight-log uncertainty against sealed GN-B4 and incomplete BN1d-B4 outputs; report throughput/memory. Interpret as a joint BN1d+B8+scale8 operating point, not isolated batch causality or automatic architecture selection. Authorize focused implementation/tests, linear commits, one detached read-only snapshot/exact tuple, one serial one-GH200/16-CPU/96-GiB/`00:30:00` job capped at `0.5` GH200-hour, evidence sealing, then stop. No retry/requeue, GN/B16/new seed/profiler/recipe search/D_audit/official val/A2/MIT repair/later stops/reviewer chain/merge/push/upload. Exact implementation `e4a9ff4`, detached read-only snapshot and §36 tuple were frozen. Job `505266` passed 121 tests then failed pre-model on a wrong ResolvedConfig attribute; no B8 evidence exists. | consumed / pre-model implementation assertion FAIL / owner decision required |
 | O-142 | Correct only Job-505266's schema access from nonexistent `config.schema_version` to canonical `config.data["schema_version"]`; add a regression that resolves the exact BN-B8 config and directly invokes `_assert_config`. Authorize static validation, one linear remediation commit, one new detached read-only snapshot/exact tuple and one fresh-output replacement with unchanged O-141 model, data, W0, tokens/remainder, physical B8, scale8, 769-update fail-fast gates, B4 D_select evaluator, comparisons, one-GH200/16-CPU/96-GiB/`00:30:00`/`0.5`-GH200-hour ceiling. One submission/no retry; no other code/science/resource expansion, reviewer chain, merge, push or upload. Exact remediation `864f704` and tuple `d98eaec` were consumed by Job `505316`. All 769 B8 updates and D_select point metrics completed, but tail paired-log computation exceeded the wall limit (`TIMEOUT`, `00:30:07`); paired artifacts, aggregate summary and runner manifest are absent. Raw `recipe.physical_microbatch` also carries a legacy B4 display error despite resolved/token B8 identities. | consumed / FAIL-INCOMPLETE / owner decision required |
+
+| O-143 | Replace the active S10 six-stop execution order with: camera and LiDAR independent recipe/capability qualification; staged fusion from qualified checkpoints; aligned absolute-capability and fusion-contribution gate; GH200 profiling/optimization only after capability passes. Pause current-A2 and the old C→D→E→F path. For S10, replace per-job immutable/no-retry/multi-document/reviewer mechanics with one owner-approved phase envelope, autonomous output-neutral engineering remediation within its aggregate compute/submission cap, one compact active handoff and one job ledger. Preserve raw outputs and minimum run provenance. Return to the owner for any model/data/recipe-space/metric/seed/candidate/resource change or repeated engineering failure. Review data/metric changes, branch recipe freezes and final fusion/full results only. | active S10 science/collaboration rebaseline; documentation only; no compute authority |
 
 ## 10. Closed and consumed history
 

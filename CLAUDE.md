@@ -23,47 +23,39 @@ T5/T6/T7 or old defense code/routes from them or from Git history.
 
 ## Current status
 
-S07 clean engineering, S08 precision qualification, and S09 full-pipeline
-engineering performance/readiness are closed. The accepted S08 close and
-fast-forward integration commit is
-`28f79802c0868afa6290d74ae6aeb9d23c7d088f`. S08 supports global FP16 for camera/
-dense-pillar, global FP16 with SECOND/spconv kept in an explicit FP32 island for
-sparse LiDAR/fusion, and uniform FP32 as reference/fallback. It rejects full
-sparse FP16 as the unified fusion-capable route within its bounded evidence.
-O-120 accepts S09 review seal `ced5992ea113bd21d7d545af505debf405b556b3`
-as a bounded engineering PASS. O-121 fast-forwarded `v3-ad-perception` to
-`351b7a0b8419c01d0d32ba224babbc6bdc4213ba`; the former delivery branch remains
-at the identical tip pending a separate cleanup decision.
+S07-S09 are closed. S10 is active on `codex/s10-cl-model-recipe` from audited
+base `a080d49c1c22de20ccb5b1353d4922c7df14a729`. Accepted S10 evidence through
+O-142 remains under `fl_v3/usenix27_orchestra/handoffs/S10/`: STOP-A's
+train-only split/evaluator is reusable; STOP-B is `INCONCLUSIVE`; C1-A
+localized the observed large LiDAR-stem gradient to the current tiny-group GN
+path; bounded fusion proxy runs did not establish production capability or an
+advantage over the historical Alvis model.
 
-Fresh persistent S00 completed the S10 startup audit at exact clean base
-`a080d49c1c22de20ccb5b1353d4922c7df14a729` on
-`codex/s10-cl-model-recipe`. O-122 accepts the six-stop A-F S10 envelope, exact
-STOP-A split/evaluator gate, and primary full claim “absolute clean capability +
-fusion contribution”. O-124 now authorizes bounded STOP-A/B/C implementation, linear commits, exact
-derived serial Slurm execution and stop-level review within 27 cumulative
-one-GH200 hours. O-123 rejects the
-B=1-based v0 request and requires physical B=4 as the minimum ABC scientific
-training microbatch; B=1 is diagnostic-only and B=8/16 remain later STOP-D/E
-candidates. STOP-D/E/F execution and every S11+ boundary remain pending.
+O-143 replaces S10's active six-stop execution order. The new order is:
 
-The accepted S08 precision policy is selected as stated above. The true unscaled
-LiDAR gradients remain unusually large; S08 localized the practical FP16 failure
-to sparse SECOND weight-gradient dynamic range but did not prove its architectural
-cause. Closed S09 observed engineering impact without changing normalization or
-recipe.
-Direct sparse BF16 remains unsupported.
+1. qualify camera and LiDAR branches independently and freeze a defensible recipe
+   for each;
+2. staged fusion from qualified branch checkpoints, then aligned capability and
+   fusion-contribution evaluation;
+3. GH200 profiling/optimization only after capability passes.
+
+Current-A2 and the old C→D→E→F path are paused. No compute is currently
+authorized. S11+ remains pending.
 
 ## Collaboration
 
-Persistent S00 is the default planner and implementer for tightly connected
-milestones. `Sxx` is an evidence namespace, not a mandatory fresh task/worktree.
-Use bounded planning/research subagents before implementation when useful; do not
-create parallel production chains by default. Independent review starts from an
-immutable SHA and uses a reviewer subagent or, for high-risk/conflicted/runtime
-reproduction work, a separate review worktree. Reviewers do not fix code.
+Persistent S00 is the default planner and implementer. For S10, O-143 replaces
+per-job immutable/no-retry/multi-document/reviewer mechanics with phase-level
+control. The owner approves a phase objective, candidates, data/metrics/seeds,
+aggregate GPU-hours, submission cap and stop conditions once; inside that
+approved envelope S00 may repair output-neutral runner/test/checkpoint/logging
+defects and resubmit without repeated questions.
 
-Only S00 edits the three canonical Orchestra files. New handoffs, run requests,
-results, and reviews go under `fl_v3/usenix27_orchestra/handoffs/Sxx/`.
+S10 keeps one compact active `HANDOFF.md` and one `RUN_REQUEST.md` job ledger.
+Existing `RESULTS.md` and `REVIEW.md` are historical archives. Canonical docs
+change only at phase start, material scientific amendment or phase close.
+Independent review is reserved for data/metric changes, branch recipe freezes,
+and the final staged-fusion/full result.
 
 ## Runtime and data
 
@@ -81,11 +73,12 @@ defense, or paper claims.
 
 ## Permissions
 
-Planning or implementation is not permission to submit compute, commit, merge,
-push, upload, or publish. Every material job uses an exact `RUN_REQUEST.md` bound
-to immutable source/config/data/cells/resources/command/output/stop conditions.
-There is no automatic retry or spare-GPU expansion. O-107's only exception is an
-explicitly opted-in, owner-approved bounded mechanical remediation loop: each
-derived job is frozen and recorded before submission, and any model/data/
-precision/recipe/scientific or resource change returns to the owner. Follow the
-complete compute, Git, data, precision, and scientific guardrails in `AGENTS.md`.
+Planning or implementation is not compute authority. For S10, a future explicit
+phase approval may authorize autonomous derived submissions and output-neutral
+engineering remediation within its aggregate resource/submission cap. Changes to
+model math, data ownership, recipe candidate space, evaluator/metric, seeds,
+scientific claims or aggregate resources return to the owner. Preserve raw
+outputs and minimum run provenance: Git SHA, resolved-config hash, split, seed,
+command, resources, output, checkpoint and metric hashes. Commit, merge, push,
+upload and publication remain separately owner-gated. Follow `AGENTS.md` for
+the complete rules.
