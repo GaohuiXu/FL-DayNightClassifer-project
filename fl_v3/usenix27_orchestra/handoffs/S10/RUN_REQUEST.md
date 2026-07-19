@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-132 exact C0-v2 clean replay consumed / Job 496312 COMPLETED 0:0 / v2 execution gate PASS
+REQUEST_STATE: O-132 C0-v2 consumed / O-134 C1-A authorized pending exact implementation freeze
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
-PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum
-EXECUTION_AUTHORITY: O-132 one full C0-v2 replacement consumed by Job 496312; no executable replay or later-stop compute remains
+PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing/amendment
+EXECUTION_AUTHORITY: O-134 one exact C1-A job after immutable implementation/source/command freeze
 SOURCE_SHA: 2262b4063a3e419b17f4b911a9e11a7ff50ea784
 BRANCH: codex/s10-cl-model-recipe
-OWNER_APPROVAL: O-132 full C0-v2 clean replay approved 2026-07-18
-EXECUTABLE_NOW: none; later C and STOP-D/E/F remain owner-gated
+OWNER_APPROVAL: O-134 C1-A implementation and compute approved 2026-07-19
+EXECUTABLE_NOW: pending exact C1-A implementation commit/tuple freeze; C1-B and STOP-D/E/F remain owner-gated
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1343,3 +1343,50 @@ INDEPENDENT_REPLAY_REVIEW: not authorized or performed; owner explicitly rejecte
 The successful execution gate completes the bounded C0-v2 replay. It does not
 authorize a second replay, later STOP-C strong contrasts, recipe or architecture
 selection, STOP-D/E/F, merge, push, upload, publication, attack or defense.
+
+## 28. O-133 C1-A/C1-B — plan accepted / not executable
+
+```text
+DECISION: O-133
+STATE: SCIENTIFIC PLAN ACCEPTED / DOCS ONLY / NOT EXECUTABLE
+C1-A: current GN versus direct-reference BN1d on frozen STOP-B L-S075 B4 panel; FP32; normal loss backward plus frozen SECOND-output VJP; no optimizer/evaluator
+C1-A_EXIT: LOCALIZED_NORM / LOCALIZED_HEAD_LOSS / LOCALIZED_SPARSE_OCCUPANCY / INCONCLUSIVE
+BN1D_STATUS: diagnostic only unless a future exact causal and matched-training gate promotes it; promotion consumes one existing counterfactual slot
+SCALER_POLICY: common frozen no-update B4 qualification selects one conservative power-of-two init scale for all admitted C1 FP16 training graphs
+C1-B_LINEAGES: C1-CUR-A1; C1-CUR-A2; C1-MIT-A2
+C1_FUNNEL: fresh G20 per new graph/init; matched D_low one epoch; at most three D_mid lineages for three epochs; D_select internal evaluation; at most two STOP-C survivors
+C1_LIMITS: physical B4; seed 0; matched actual tokens/exposure; no recipe sweep, extra seed, D_audit, official val or full run
+MIT_ANCHOR: exact graph/init/component package pending owner explanation and decision; no implementation may be inferred
+IMPLEMENTATION/COMMIT/COMPUTE/REVIEW: not authorized by O-133
+EXECUTABLE_TUPLE: none
+```
+
+O-134 below supersedes this no-executable state for C1-A only. The exact MIT
+anchor remains pending before any C1-B reference-guided repair. Unused O-124
+aggregate budget is not execution authority.
+
+## 29. O-134 C1-A authorization — implementation freeze pending
+
+```text
+REQUEST_ID: S10-C1A-GRAD-CAUSAL-O134-v1
+STATE: OWNER APPROVED / IMPLEMENTATION AND EXACT HASH FREEZE IN PROGRESS
+DATA: accepted STOP-A D_low plus complete accepted STOP-B panel; P_core48 + P_term16 as 16 disjoint physical-B4 batches / 64 samples
+GRAPH: L-S075 only; current tiny-group GN versus direct-reference BN1d(eps=1e-3,momentum=0.01); identical convolution and affine W0
+PRECISION: uniform FP32
+PATHWAYS: normal detection-loss backward; coordinate/channel-derived fixed SECOND-output VJP
+REPEATS/RUNS: two per candidate/path/batch; 2 x 2 x 16 x 2 = 128
+RUNTIME_VARIATION_GATE: paired geometric centres; BN/GN median <=0.5; >=75% batches <=0.8; median log effect exceeds p95 within-method two-repeat log variation
+EXIT: LOCALIZED_NORM / LOCALIZED_HEAD_LOSS / LOCALIZED_SPARSE_OCCUPANCY / INCONCLUSIVE
+OPTIMIZER/UPDATE/EVALUATOR: absent / zero / absent
+RESOURCE: one GH200; one node/task; 8 CPU; 64 GiB; 00:30:00; max 0.5 GH200-hour
+SUBMISSIONS/RETRY: exactly one / forbidden
+C1-B: not executable; current A1/A2 first under a future exact gate, MIT-reference repair only after materially-worse evidence
+```
+
+O-134 authorizes focused local/GH200 tests, linear authorization/implementation/
+freeze/evidence commits, one detached recursively read-only execution snapshot and
+the single exact job above. The implementation commit must preserve the production
+GN default and expose only the explicit BN1d counterfactual. Before submission,
+this section must bind source/tree, file/config hashes, snapshot, fresh output,
+literal command and stop conditions. Any semantic/resource change or first job
+failure returns to the owner; it is not a remediation-loop authorization.

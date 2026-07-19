@@ -47,7 +47,14 @@
 > It found numerically healthy bounded trajectories and no established correlated
 > large-gradient harm, but did not locate the gradient cause or select graph/
 > recipe. O-132 is consumed; no replay or intermediate reviewer chain remains.
-> Later C strong contrasts, STOP-D/E/F and S11+ remain unapproved.
+> O-133 accepts C1-A/C1-B planning: causal GN-versus-BN1d plus frozen VJP,
+> common conservative GradScaler qualification, and current-A1/current-A2/
+> MIT-A2 through the bounded D_low/D_mid funnel with at most two survivors. The
+> exact coherent MIT anchor remains owner-pending. O-133 authorizes docs/planning
+> only. O-134 relaxes the conditional component restriction, orders C1-B current
+> A1/A2 before any MIT-reference repair, and authorizes exactly one bounded C1-A
+> complete-panel/two-repeat GN-versus-BN1d loss+fixed-VJP job. It does not
+> authorize C1-B implementation/compute, later C, STOP-D/E/F or S11+.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).
@@ -483,8 +490,9 @@ authorized.
   `02ba3b4` returned `PASS_WITH_RESIDUAL_RISK` with no open P0-P3 and closed
   STOP-B `INCONCLUSIVE`. O-131's failed/incomplete C0 remains immutable negative
   evidence. O-132's sole replacement Job `496312` passed the bounded C0-v2
-  execution gate and consumed the replay authority; later STOP-C cells remain
-  separately owner-gated and no material job is currently executable.
+  execution gate and consumed the replay authority. O-133 accepts the C1-A/C1-B
+  scientific plan but not implementation or compute; the exact MIT anchor package
+  remains owner-pending. No material job is currently executable.
 - **O-123 batch correction:** the B=1-based v0 request is rejected. Revised ABC
   scientific rungs use physical B=4 at minimum and bind a fixed-batch tail policy;
   B=1 may appear only in a tiny paired diagnostic check. B=8/16 belong to a later

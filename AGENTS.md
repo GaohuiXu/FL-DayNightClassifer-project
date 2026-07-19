@@ -99,6 +99,20 @@ The one-seed internal F-minus-L delta is positive (`+0.029576` mAP / `+0.033423`
 NDS) but does not select a recipe/architecture or establish the full claim.
 Large-gradient causality remains unknown. O-132 is consumed; no replay, automatic
 later-C continuation or intermediate reviewer chain is authorized.
+Owner decision O-133 accepted C1-A/C1-B planning: a frozen-panel FP32
+GN-versus-direct-BN1d causal comparison with normal loss and frozen SECOND-output
+VJP; one common conservative no-update-qualified GradScaler init scale for C1
+scientific training; and current-A1/current-staged-A2/coherent-MIT-A2 through the
+bounded `D_low -> D_mid` funnel with at most two STOP-C survivors. The exact
+coherent MIT anchor graph/init/component package remains owner-pending. O-134
+relaxes the prior conditional restriction on BN1d/TransFusion/LiDAR-conditioned
+DepthLSS but orders C1-B to run the current graph's A1/A2 first; MIT-reference
+repair opens only if that matched result is materially worse under a future exact
+gate. O-134 authorizes C1-A implementation, linear commits and exactly one frozen
+L-S075 FP32 no-update/no-evaluator diagnostic on the complete accepted 16xB4
+STOP-B panel: current GN versus direct BN1d, normal loss plus coordinate-fixed
+SECOND-output VJP, two repeats, 128 runs total, one GH200/8 CPU/64 GiB/`00:30:00`,
+at most `0.5` GH200-hour, no retry. C1-B implementation/compute remains pending.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

@@ -6,13 +6,13 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay
+OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: none; O-132 replay consumed; later C and STOP-D/E/F require owner approval
+CURRENT_AUTHORITY: O-134 C1-A implementation/commit/one exact no-retry job only; C1-B and later stops pending
 ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: historical O-124/O-131/O-132 authority consumed through C0-v2; current compute none
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
-STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; later cells not activated
+STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A activated by O-134; C1-B current-A1/A2-first order accepted but implementation/compute pending
 C0_IMPLEMENTATION_SHA: 89958be504d6abaef66810695402d2a09619794b
 C0_JOB: 492525 / FAILED 1:0 / 00:47:32 / 0.792222 GH200-hours
 C0_REMEDIATION_REVIEW: 09c39458a0b32ce1d4a3ae603094d76ae160ac42 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
@@ -389,9 +389,109 @@ and limits iterator exhaustion to full-epoch cells. These changes affect
 diagnostic artifact semantics but not model/loss/gradient/update math; they have
 not been executed on GH200.
 
-This unexecuted remediation confers no replacement compute authority. Full
-metrics, hashes, performance observations and interpretation limits are in
-`RESULTS.md`; the exact consumed tuple is in `RUN_REQUEST.md` §26.
+O-132 subsequently executed the remediated v2 path once. Job `496312` completed
+`0:0`, passed all three cell/token/health/aggregate/checksum gates and consumed
+`0.754167` GH200-hours. C0-v2 therefore closes its bounded execution/health gate;
+it does not select a graph or recipe, identify the gradient cause, or authorize
+later C. Full metrics, hashes, performance observations and interpretation limits
+are in `RESULTS.md`; the exact consumed tuples are in `RUN_REQUEST.md` §§26–27.
+
+### 6.6 O-133 approved C1-A/C1-B planning contract
+
+O-133 approves the following **scientific plan and documentation only**. It does
+not authorize implementation, commits, checkpoint acquisition, Slurm submission,
+or STOP-D/E/F. Exact source ownership, tests, immutable cells, resources and
+compute remain a future owner gate.
+
+#### C1-A — gradient-mechanism causal gate
+
+C1-A reuses the frozen STOP-B token panel; it does not select a new panel or grow
+an observer/profiler framework. The primary route is L-S075 in uniform FP32 so
+camera stochastic depth and GradScaler overflow do not confound the mechanism
+comparison. Exact W0, B4 tokens, targets and loss semantics are shared.
+
+| candidate | sole graph difference | status |
+|---|---|---|
+| `C1-GRAD-GN` | current sparse tiny-group GroupNorm | approved plan |
+| `C1-GRAD-BN1D` | direct-reference sparse `BN1d(eps=1e-3, momentum=0.01)` with shape-compatible affine initialization | approved diagnostic plan; not automatically a production candidate |
+
+Each candidate performs both the normal detection-loss backward and a frozen
+FP32 upstream-gradient VJP injected at the SECOND output. The latter removes
+head/loss/target amplification from the encoder-Jacobian measurement. Record only
+the bounded facts needed to distinguish target/loss terms, sparse occupancy,
+normalization input variance/inverse-std, norm placement and SECOND output/stage/
+stem boundary and parameter gradients. Runtime variation is summarized as a
+distribution; byte identity is not an acceptance gate.
+
+The exit is one of `LOCALIZED_NORM`, `LOCALIZED_HEAD_LOSS`,
+`LOCALIZED_SPARSE_OCCUPANCY`, or `INCONCLUSIVE`. A large gradient alone does not
+promote BN1d. BN1d consumes one counterfactual slot only if a future exact gate
+shows a stable causal reduction and matched-exposure training/metric behavior is
+not degraded. TransFusion and LiDAR-conditioned DepthLSS do not automatically
+open from C1-A.
+
+#### C1 common GradScaler/exposure policy
+
+Before any C1 scientific FP16 training cell, use the same frozen no-update B4
+qualification to select a conservative power-of-two init scale that is finite for
+every admitted graph. Bind it in resolved config/checkpoint provenance. This
+prevents candidate-dependent loss of initial scientific batches; it does not hide
+true unscaled gradients, which remain recorded. If no common qualified scale
+exists, stop and return to the owner rather than silently using different exposure
+or FP32 for one candidate.
+
+#### C1-B — strong graph/initialization contrast
+
+The three approved primary lineages are:
+
+| lineage | meaning |
+|---|---|
+| `C1-CUR-A1` | current graph; ImageNet1K V1 camera; random LiDAR/fuser/head; joint fusion training |
+| `C1-CUR-A2` | same current graph and camera prior; separately trained graph-compatible L-S075 donor; then joint fusion training |
+| `C1-MIT-A2` | coherent MIT-reference-derived package; declared camera prior plus graph-compatible LiDAR donor; exact package composition pending owner decision |
+
+Every new graph/init family first passes one fresh B4 G20 correctness gate. The
+scientific funnel then uses matched `D_low` one-epoch cells and `D_select`, followed
+by at most three `D_mid` fusion lineages for three epochs unless a mandatory anchor
+hits a predeclared hard failure. C0 is retained as health evidence, but its four
+initial skipped updates are not silently used as the matched C1 ranking baseline.
+Promotion uses internal NDS as primary, mAP/per-class/numerical health as
+guardrails and paired-log uncertainty. At most two graph/init families exit
+STOP-C. A triggered counterfactual replaces a lineage/slot; it never expands the
+cap. No recipe Cartesian product, extra seed, `D_audit`, official val or full run
+belongs to C1.
+
+“Coherent MIT anchor” currently names a required strong package-level contrast,
+not an existing checkpoint or an exact reproduction claim. Its precise graph,
+initialization files, direct/adapted/local component labels and required source
+changes remain **owner pending**. No contributor may infer a wholesale MIT rewrite,
+an adapted shared-head package, or automatic BN1d/TransFusion/DepthLSS inclusion
+until that decision is recorded.
+
+### 6.7 O-134 C1-A activation and C1-B order amendment
+
+The owner relaxes the earlier conditional restriction on BN1d, TransFusion and
+LiDAR-conditioned DepthLSS. This does not create an ablation sweep or admit all
+three automatically. C1-B must first execute the current graph's matched A1/A2;
+only if a future exact gate finds the current setting/structure materially worse
+may a bounded MIT-reference-guided repair be frozen. The meaning and threshold of
+“materially worse” must be recorded before C1-B compute. O-134 does not authorize
+C1-B implementation, checkpoint acquisition or compute.
+
+O-134 activates C1-A only. It reuses the complete accepted STOP-B L-S075 panel:
+16 disjoint B4 batches/64 samples, uniform FP32, seed-bound W0, no optimizer,
+update or evaluator. Current GN and direct-reference `BN1d(eps=1e-3,
+momentum=0.01)` share exact convolution and affine parameters. Each candidate
+runs both normal detection-loss backward and a sparse-coordinate/channel-derived
+fixed SECOND-output VJP twice per B4, for exactly 128 runs. Paired candidate
+effects must exceed both a two-fold reduction gate and observed two-repeat runtime
+variation; conservative multi-metric precedence yields `LOCALIZED_NORM`,
+`LOCALIZED_HEAD_LOSS`, `LOCALIZED_SPARSE_OCCUPANCY`, or `INCONCLUSIVE`.
+
+The sole allocation is one GH200, 8 CPUs, 64 GiB and `00:30:00`, capped at `0.5`
+elapsed GH200-hour. One immutable source/snapshot/output and one submission are
+authorized; no retry or automatic C1-B continuation exists. Exact hashes and
+command are frozen after the implementation commit in `RUN_REQUEST.md`.
 
 ## 7. STOP-D/E/F boundaries
 
