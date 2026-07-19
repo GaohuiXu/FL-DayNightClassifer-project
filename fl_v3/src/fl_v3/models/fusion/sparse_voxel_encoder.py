@@ -93,6 +93,7 @@ class SparseVoxelEncoder(nn.Module):
         max_voxels_eval: int = 160000,
         max_points_per_voxel: int = 10,
         sparse_conv_fp16: bool = False,
+        second_normalization: str = "group_norm",
     ):
         super().__init__()
         if cfg is None:
@@ -129,13 +130,18 @@ class SparseVoxelEncoder(nn.Module):
         if min(self.max_voxels_train, self.max_voxels_eval, self.max_pts) <= 0:
             raise ValueError("voxel and point caps must be positive")
         self.sparse_conv_fp16 = bool(sparse_conv_fp16)
+        self.second_normalization = str(second_normalization)
 
         self.contract = SECONDShapeContract(
             input_zyx=(self.nz, self.ny, self.nx),
             voxel_xyz=(self.vx, self.vy, self.vz),
             range_xyzxyz=tuple(float(v) for v in cfg.point_cloud_range),
         )
-        self.backbone = SECONDSparseBackbone(self.n_pt_feat, self.contract)
+        self.backbone = SECONDSparseBackbone(
+            self.n_pt_feat,
+            self.contract,
+            normalization=self.second_normalization,
+        )
         collapsed = self.contract.collapsed_channels
         self.to_bev = (
             nn.Identity()

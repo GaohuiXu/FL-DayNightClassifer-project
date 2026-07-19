@@ -376,6 +376,7 @@ def _det_config_from_run(run_config: dict):
             "det-camera-arch", "det-camera-pretrained", "det-lidar-arch",
             "det-fusion-arch", "det-head-arch", "precision",
             "det-sparse-conv-precision", "det-camera-activation-checkpoint",
+            "det-second-normalization",
         }
         missing = sorted(required_arch - set(run_config))
         if missing:
@@ -454,6 +455,17 @@ def _det_config_from_run(run_config: dict):
         except ConfigError as exc:
             raise ValueError(f"invalid resolved precision partition: {exc}") from exc
         sparse_conv_fp16 = sparse_partition == "fp16"
+        second_normalization = str(run_config["det-second-normalization"])
+        if lidar_arch == "second_075":
+            if second_normalization not in {"group_norm", "batch_norm_1d"}:
+                raise ValueError(
+                    "SECOND production normalization must be 'group_norm' or "
+                    "'batch_norm_1d'"
+                )
+        elif second_normalization != "not_applicable":
+            raise ValueError(
+                "non-SECOND production normalization must be 'not_applicable'"
+            )
         return DetectorConfig(
             model_mode=mode,
             required_spconv_version=("2.3.8" if lidar_arch == "second_075" else None),
@@ -476,6 +488,9 @@ def _det_config_from_run(run_config: dict):
             lidar_z_voxel=(0.2 if lidar_arch == "second_075" else None),
             lidar_sparse_z_size=(41 if lidar_arch == "second_075" else None),
             sparse_conv_fp16=sparse_conv_fp16,
+            second_normalization=(
+                second_normalization if lidar_arch == "second_075" else "group_norm"
+            ),
             lidar_input_bev=lidar_input_bev,
             max_voxels_train=120000,
             max_voxels_eval=160000,

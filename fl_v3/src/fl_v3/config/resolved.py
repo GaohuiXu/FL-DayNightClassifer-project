@@ -1,4 +1,4 @@
-"""Canonical, fail-closed S09 production configuration.
+"""Canonical, fail-closed S09/S10 production configuration.
 
 No scientific field is inferred from the environment.  Callers resolve this
 schema before constructing data, a model, or an optimizer and pass the resulting
@@ -30,6 +30,7 @@ _CAMERAS = frozenset({"swin_t_stride8", "none"})
 _LIDARS = frozenset({"second_075", "pillar_020", "none"})
 _FUSIONS = frozenset({"conv_fuser_256", "none"})
 _HEADS = frozenset({"centerhead_multitask"})
+_SECOND_NORMALIZATIONS = frozenset({"group_norm", "batch_norm_1d", "not_applicable"})
 _EXECUTION_MODES = frozenset({"train_eval", "readiness"})
 
 _ROOT = frozenset({
@@ -40,11 +41,13 @@ _MODEL_V1 = frozenset({
     "mode", "camera_arch", "camera_pretrained", "lidar_arch", "fusion_arch", "head_arch",
 })
 _MODEL_V2 = _MODEL_V1 | frozenset({"camera_activation_checkpoint"})
+_MODEL_V3 = _MODEL_V2 | frozenset({"second_normalization"})
 _OPT = frozenset({"name", "learning_rate", "weight_decay"})
 _TRAIN = frozenset({
     "max_optimizer_steps", "micro_batch_size", "world_size", "accumulation_steps",
     "effective_global_batch", "seed", "max_epochs", "num_workers", "ema_decay", "sampling",
 })
+_TRAIN_S10 = _TRAIN | frozenset({"grad_scaler_init_scale"})
 _DATA = frozenset({
     "dataroot", "version", "train_split", "val_split", "n_sweeps", "caches", "zip_manifest",
 })
@@ -213,6 +216,11 @@ class ResolvedConfig:
             if schema_version == "s09.v1"
             else _thaw(self.data["execution"]["operator_profile"])
         )
+        second_normalization = (
+            str(m["second_normalization"])
+            if schema_version == "s10.v1"
+            else ("group_norm" if m["lidar_arch"] == "second_075" else "not_applicable")
+        )
         out = {
             "s06-production-runtime": True,
             "resolved-config-sha256": self.sha256,
@@ -222,6 +230,7 @@ class ResolvedConfig:
             "det-camera-pretrained": m["camera_pretrained"],
             "det-camera-activation-checkpoint": camera_activation_checkpoint,
             "det-lidar-arch": m["lidar_arch"],
+            "det-second-normalization": second_normalization,
             "det-fusion-arch": m["fusion_arch"],
             "det-head-arch": m["head_arch"],
             "precision": self.data["precision"],
@@ -247,6 +256,10 @@ class ResolvedConfig:
             "effective-global-batch": t["effective_global_batch"],
             "max-optimizer-steps": t["max_optimizer_steps"],
             "max-epochs": t["max_epochs"],
+            "grad-scaler-init-scale": (
+                float(t["grad_scaler_init_scale"])
+                if schema_version == "s10.v1" else 512.0
+            ),
             "num-workers": t["num_workers"],
             "det-ema-decay": t["ema_decay"],
             "det-cbgs": t["sampling"] == "cbgs",
@@ -327,17 +340,21 @@ def validate_precision_partition(
 
 
 def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
-    """Validate and canonicalize one complete S09 config; never consult env vars."""
+    """Validate and canonicalize one complete production config; never consult env vars."""
     root = _mapping(dict(raw), "config")
     _keys(root, _ROOT, "config")
     schema_version = root["schema_version"]
-    if schema_version not in {"s09.v1", "s09.v2"}:
+    if schema_version not in {"s09.v1", "s09.v2", "s10.v1"}:
         raise ConfigError(
-            "schema_version must be exactly 's09.v1' or 's09.v2'; "
+            "schema_version must be exactly 's09.v1', 's09.v2', or 's10.v1'; "
             "legacy/partial configs are refused"
         )
 
-    model_keys = _MODEL_V1 if schema_version == "s09.v1" else _MODEL_V2
+    model_keys = {
+        "s09.v1": _MODEL_V1,
+        "s09.v2": _MODEL_V2,
+        "s10.v1": _MODEL_V3,
+    }[schema_version]
     model = _mapping(root["model"], "model"); _keys(model, model_keys, "model")
     mode = _enum(model["mode"], _MODES, "model.mode")
     camera = _enum(model["camera_arch"], _CAMERAS, "model.camera_arch")
@@ -347,7 +364,7 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
             raise ConfigError("model.camera_pretrained must be null when camera_arch='none'")
     elif not isinstance(camera_pretrained, bool):
         raise ConfigError("model.camera_pretrained must explicitly be true or false")
-    if schema_version == "s09.v2":
+    if schema_version != "s09.v1":
         camera_checkpoint = model["camera_activation_checkpoint"]
         if not isinstance(camera_checkpoint, bool):
             raise ConfigError("model.camera_activation_checkpoint must be boolean")
@@ -356,6 +373,21 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
                 "model.camera_activation_checkpoint must be false when camera_arch='none'"
             )
     lidar = _enum(model["lidar_arch"], _LIDARS, "model.lidar_arch")
+    if schema_version == "s10.v1":
+        second_normalization = _enum(
+            model["second_normalization"],
+            _SECOND_NORMALIZATIONS,
+            "model.second_normalization",
+        )
+        if lidar == "second_075" and second_normalization == "not_applicable":
+            raise ConfigError(
+                "model.second_normalization must be explicit for lidar_arch='second_075'"
+            )
+        if lidar != "second_075" and second_normalization != "not_applicable":
+            raise ConfigError(
+                "model.second_normalization must be 'not_applicable' when "
+                "lidar_arch is not 'second_075'"
+            )
     fusion = _enum(model["fusion_arch"], _FUSIONS, "model.fusion_arch")
     _enum(model["head_arch"], _HEADS, "model.head_arch")
     required = {
@@ -373,7 +405,8 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
     _number(opt["learning_rate"], "optimizer.learning_rate", positive=True)
     _number(opt["weight_decay"], "optimizer.weight_decay")
 
-    train = _mapping(root["training"], "training"); _keys(train, _TRAIN, "training")
+    train = _mapping(root["training"], "training")
+    _keys(train, _TRAIN_S10 if schema_version == "s10.v1" else _TRAIN, "training")
     sampling = _enum(train["sampling"], _SAMPLING, "training.sampling")
     if sampling == "cbgs" and mode != "fusion":
         raise ConfigError("training.sampling='cbgs' is frozen only for the F-CBGS fusion candidate")
@@ -386,6 +419,14 @@ def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
         if not 0.0 < decay < 1.0:
             raise ConfigError("training.ema_decay must be null or strictly between 0 and 1")
     _integer(train["seed"], "training.seed", minimum=0)
+    if schema_version == "s10.v1":
+        scaler_init = _number(
+            train["grad_scaler_init_scale"],
+            "training.grad_scaler_init_scale",
+            positive=True,
+        )
+        if not scaler_init.is_integer() or int(scaler_init) & (int(scaler_init) - 1):
+            raise ConfigError("training.grad_scaler_init_scale must be a positive power of two")
     expected_batch = train["micro_batch_size"] * train["world_size"] * train["accumulation_steps"]
     if train["effective_global_batch"] != expected_batch:
         raise ConfigError(

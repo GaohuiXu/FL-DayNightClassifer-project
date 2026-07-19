@@ -6,13 +6,13 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement
+OWNER_DECISION: O-122 scientific envelope; O-124 ABC completion; O-125 legacy optimizer consumed; O-126 corrected STOP-A; O-127 one-GPU/CUDA-hidden replacement; O-128 STOP-B; O-129 parity remediation; O-130 B-RAND; O-131 C0; O-132 full C0-v2 clean replay; O-133 C1-A/C1-B planning; O-134 C1-A execution; O-135 assertion remediation; O-136 sole C1-A replacement; O-137 C1-B0 fusion health
 PLAN_STATE: six-stop A-F scientific envelope accepted
-CURRENT_AUTHORITY: O-136 consumed by Job 502572; no executable compute; C1-B and later stops pending owner decision
-ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: C1-A evidence sealing only; no retry/reviewer chain/C1-B execution
+CURRENT_AUTHORITY: O-137 active for one exact no-retry C1-B0 implementation/job/evidence sequence
+ABC_IMPLEMENTATION/COMMIT/SLURM/REVIEW_WORKTREE: C1-B0 only; one snapshot/job; no C1-B1/reviewer chain
 STOP_A: CLOSED PASS_WITH_RESIDUAL_RISK / reviewed remediation b0478a2 / no open P0-P3
 STOP_B: CLOSED INCONCLUSIVE / Job 479667 integrity PASS / review 02ba3b4 PASS_WITH_RESIDUAL_RISK / no open P0-P3
-STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A replacement Job 502572 PASS/LOCALIZED_NORM; C1-B current-A1/A2-first order accepted but implementation/compute pending
+STOP_C: v1 C0 retained as FAIL/INCOMPLETE negative evidence; v2 clean replay execution gate PASS; C1-A replacement Job 502572 PASS/LOCALIZED_NORM; O-137 C1-B0 current-A1 GN/BN1d H256 active; C1-B1/A2/MIT pending
 C0_IMPLEMENTATION_SHA: 89958be504d6abaef66810695402d2a09619794b
 C0_JOB: 492525 / FAILED 1:0 / 00:47:32 / 0.792222 GH200-hours
 C0_REMEDIATION_REVIEW: 09c39458a0b32ce1d4a3ae603094d76ae160ac42 / PASS_WITH_RESIDUAL_RISK / no open P0-P3
@@ -549,6 +549,41 @@ This does **not** promote BN1d. The no-update normal-loss median is higher for
 fresh-state BN1d (`1025.19`) than GN (`538.98`), and C1-A contains no training,
 convergence or evaluator evidence. C1-B or a BN1d training candidate therefore
 requires a separate owner-approved protocol; no automatic continuation exists.
+
+### 6.8 O-137 C1-B0 matched fusion-health gate
+
+O-137 activates only the observation rung needed before a longer C1-B decision.
+It adds one fail-closed production seam: `s10.v1` explicitly records SECOND
+`group_norm` or `batch_norm_1d`, propagates it through detector construction and
+therefore binds it into the resolved-config/checkpoint identity. Historical
+`s09.v1/v2` configs continue to resolve SECOND to GN; the production default is
+unchanged. BN1d adds its 21 sites' 63 running-state buffers, so strict state load
+and config hash distinguish the candidate checkpoints.
+
+The exact H256 sample vector is selected without labels by sorting accepted
+`D_low` tokens on `SHA256("s10-c1b0-h256-v1\\0" || token)` and taking the first
+1024. Its ordered hash is
+`62a096c0990e6d1d0932868a882b2418e731d1a816f481e741996e49c8e975f7`.
+Both serial cells consume that exact vector as 256 ordered physical-B4 batches:
+`F-A1-GN-H256` and `F-A1-BN1D-H256`. They share exact seed-0 trainable W0,
+ImageNet1K V1 camera initialization, random LiDAR/fuser/head initialization,
+global FP16 plus SECOND FP32 island, AdamW `lr=1e-4/wd=.01`, constant scheduler,
+and no augmentation/EMA/CBGS/GT-paste/clip. Scale 32 is first qualified on the
+same B4 without an optimizer update; that model is discarded and W0 reconstructed.
+
+Each candidate must then complete 256 real optimizer updates. Record all-window
+loss/scaler/outcome/tokens/basic wall time, peak memory, BN running summaries, and
+true-unscaled gradients plus realized update/weight at windows
+`1,4,16,64,128,256`. Missing required camera/LiDAR/fusion/head gradients,
+nonfinite values, skipped updates, config/W0/token/state/artifact drift or an
+incomplete horizon is a hard stop. There is deliberately no numerical winner
+threshold: falling, flat, worse or noisy training is retained as descriptive
+single-seed H256 evidence and does not trigger tuning or retry.
+
+The sole resource envelope is one GH200, 16 CPUs, 96 GiB and `00:30:00`, expected
+`0.20-0.30` and capped at `0.5` GH200-hour. No evaluator, D_select, D_audit,
+official val, checkpoint selection, full `D_low`, C1-B1, A2 donor, MIT repair,
+TransFusion, DepthLSS, recipe search, reviewer chain or later stop is included.
 
 ## 7. STOP-D/E/F boundaries
 

@@ -65,6 +65,11 @@
 > 37 tests, all identities, 128/128 finite runs and artifacts, and returned
 > bounded `LOCALIZED_NORM`. O-136 is consumed; there is no retry or automatic
 > C1-B continuation.
+> O-137 activates only C1-B0: implement the production-resolved GN/BN1d seam,
+> freeze one label-blind 1024-token `D_low` H256 order, and run matched seed-0
+> current-A1 fusion GN/BN1d cells at physical B4 with common scale 32 and 256
+> real updates. One no-retry GH200/16-CPU/96-GiB/30-minute job is authorized.
+> Stop before evaluator, full `D_low`, C1-B1/A2/MIT repair or reviewer launch.
 >
 > Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Milestone contracts:
 > [`SESSIONS.md`](SESSIONS.md).

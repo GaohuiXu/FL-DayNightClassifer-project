@@ -890,7 +890,11 @@ def main() -> None:
     # Constant scheduler is still serialized and advances exactly once per
     # successful update; later schedule enums belong in an approved schema bump.
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda _step: 1.0)
-    scaler = make_grad_scaler(device, config.precision)
+    scaler = make_grad_scaler(
+        device,
+        config.precision,
+        init_scale=float(run_config.get("grad-scaler-init-scale", 512.0)),
+    )
     ema = _build_ema(model, train_spec["ema_decay"])
     state = TrainingState()
     if readiness:

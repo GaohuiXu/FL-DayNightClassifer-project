@@ -69,6 +69,11 @@
 > in `00:03:09`, passed 37 tests, all identities, 128/128 finite runs and artifact
 > gates, and returned bounded `LOCALIZED_NORM`. O-136 is consumed and grants no
 > retry or C1-B.
+> O-137 now activates only C1-B0: two matched current-A1 fusion H256 cells (GN
+> and BN1d), explicit production normalization/checkpoint identity, shared W0,
+> frozen 1024-token `D_low` order, B4, FP16+SECOND-FP32, common scale 32 and 256
+> real updates each. One no-retry 1-GH200/16-CPU/96-GiB/30-minute job is active;
+> C1-B1/full `D_low`, A2/MIT repair, evaluator and later stops remain pending.
 >
 > `Sxx` is an evidence namespace, not automatically a worker, task, branch, or
 > worktree. Canonical decisions: [`ORCHESTRA.md`](ORCHESTRA.md). Active launch
@@ -98,7 +103,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | STOP-A closed; STOP-B closed `INCONCLUSIVE`; C0-v2 PASS; C1-A replacement Job `502572` PASS/`LOCALIZED_NORM`; C1-B pending owner activation |
+| S10 | Centralized-model numerical/architectural health, production recipe selection, final-architecture GH200 optimization, and bounded full clean/fusion claim | closed S08+S09 | STOP-A closed; STOP-B closed `INCONCLUSIVE`; C0-v2 PASS; C1-A replacement Job `502572` PASS/`LOCALIZED_NORM`; O-137 C1-B0 active; C1-B1+ pending |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract

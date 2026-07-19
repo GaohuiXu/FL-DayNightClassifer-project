@@ -138,6 +138,19 @@ This causally localizes the current W0/panel large-gradient mechanism to the tin
 group GN path within C1-A, but it does not promote BN1d, prove convergence or
 select an architecture/recipe. O-136 is consumed. No retry, scope change,
 automatic C1-B continuation or later-stop execution is authorized.
+Owner decision O-137 activates only C1-B0, the current-A1 matched fusion-health
+observation rung. It authorizes a production-resolved SECOND normalization and
+checkpoint identity seam whose default remains GN, plus two serial seed-0
+physical-B4 cells (`F-A1-GN-H256`, `F-A1-BN1D-H256`) over one frozen 1024-token
+`D_low` vector. Both use exact shared trainable W0, ImageNet1K V1 camera,
+global FP16 with the SECOND FP32 island, AdamW `1e-4/0.01`, constant schedule,
+no augmentation/EMA/CBGS/GT-paste/clip, common no-update-qualified GradScaler
+scale 32, and 256 real updates. It records loss, true-unscaled sampled gradients,
+realized updates, BN state, memory and basic timing without evaluator or
+checkpoint selection. One GH200/16 CPU/96 GiB/`00:30:00` job is authorized,
+hard-capped at `0.5` GH200-hour, with no retry. C1-B0 is observation-only: it
+cannot promote BN1d or start C1-B1/full `D_low`, A2, MIT repair, STOP-D/E/F,
+reviewer chain, merge, push or upload.
 S11 and later milestones remain pending. Historical conclusions under
 `fl_v3/collab/model_capability/` remain evidence, but the active Orchestra
 documents supersede them where the architecture audit or current data/runtime

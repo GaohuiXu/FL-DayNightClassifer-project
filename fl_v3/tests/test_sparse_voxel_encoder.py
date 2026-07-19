@@ -57,7 +57,10 @@ def _points(device: torch.device) -> torch.Tensor:
     )
 
 
-def _encoder(SparseVoxelEncoder, *, fp16: bool = False, train_cap: int = 128, eval_cap: int = 192):
+def _encoder(
+    SparseVoxelEncoder, *, fp16: bool = False, train_cap: int = 128,
+    eval_cap: int = 192, normalization: str = "group_norm",
+):
     return SparseVoxelEncoder(
         out_channels=16,
         cfg=_cfg(),
@@ -66,7 +69,36 @@ def _encoder(SparseVoxelEncoder, *, fp16: bool = False, train_cap: int = 128, ev
         max_voxels_eval=eval_cap,
         max_points_per_voxel=3,
         sparse_conv_fp16=fp16,
+        second_normalization=normalization,
     ).cuda()
+
+
+def test_second_normalization_checkpoint_state_is_fail_closed():
+    SparseVoxelEncoder = _sparse_encoder_or_skip()
+    torch.manual_seed(0)
+    group_norm = _encoder(SparseVoxelEncoder, normalization="group_norm")
+    torch.manual_seed(0)
+    batch_norm = _encoder(SparseVoxelEncoder, normalization="batch_norm_1d")
+
+    assert group_norm.second_normalization == "group_norm"
+    assert batch_norm.second_normalization == "batch_norm_1d"
+    group_params = dict(group_norm.named_parameters())
+    batch_params = dict(batch_norm.named_parameters())
+    assert group_params.keys() == batch_params.keys()
+    assert all(torch.equal(group_params[name], batch_params[name]) for name in group_params)
+
+    group_keys = set(group_norm.state_dict())
+    batch_keys = set(batch_norm.state_dict())
+    running = {
+        key for key in batch_keys - group_keys
+        if key.rsplit(".", 1)[-1] in {"running_mean", "running_var", "num_batches_tracked"}
+    }
+    assert len(running) == 63
+    assert batch_keys - group_keys == running
+    with pytest.raises(RuntimeError, match="Missing key|Unexpected key"):
+        group_norm.load_state_dict(batch_norm.state_dict(), strict=True)
+    with pytest.raises(RuntimeError, match="Missing key|Unexpected key"):
+        batch_norm.load_state_dict(group_norm.state_dict(), strict=True)
 
 
 def test_sparse_second_shape_stats_backward_and_reduced_occupancy():

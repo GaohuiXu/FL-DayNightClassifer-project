@@ -76,6 +76,7 @@ class DetectorConfig:
     # keeps voxelization/VFE/SECOND/to_bev in the FP32 island; ``True`` enables
     # the reviewed sparse-FP16 path (voxelization/VFE themselves remain FP32).
     sparse_conv_fp16: bool = False
+    second_normalization: str = "group_norm"
     lidar_input_bev: BEVConfig | None = None
     max_voxels_train: int = 120000
     max_voxels_eval: int = 160000
@@ -150,6 +151,7 @@ class BEVFusionDetector(nn.Module):
                 max_points_per_voxel=c.max_points_per_pillar,
                 z_voxel=c.lidar_z_voxel, sparse_z_size=c.lidar_sparse_z_size,
                 sparse_conv_fp16=c.sparse_conv_fp16,
+                second_normalization=c.second_normalization,
             )
         elif use_lidar:
             self.lidar_encoder = PointPillarsEncoder(

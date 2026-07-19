@@ -5,14 +5,14 @@
 ```text
 SESSION_ID: S00-S10-STARTUP
 REQUEST_ID: S10-ABC-COMPLETION-v1-B4-estimate
-REQUEST_STATE: O-136 sole strictly derived C1-A replacement consumed by Job 502572 / execution PASS / LOCALIZED_NORM
+REQUEST_STATE: O-137 C1-B0 implementation active / exact immutable tuple pending implementation commit
 SUPERSEDES: S10-ABC-COMPLETION-v0-estimate — REJECTED by O-123
-PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing/amendment + O-136 replacement
-EXECUTION_AUTHORITY: none; O-136 consumed; no retry or C1-B
-SOURCE_SHA: d713bfe3b5e5c587f58ce70721b2b6eea0b050ec
+PLAN_AUTHORITY: O-122 scientific envelope + O-123 B4 minimum + O-133 C1 plan + O-134 sequencing + O-137 C1-B0
+EXECUTION_AUTHORITY: O-137 one exact C1-B0 job after tuple freeze; no retry
+SOURCE_SHA: pending C1-B0 implementation commit
 BRANCH: codex/s10-cl-model-recipe
-OWNER_APPROVAL: O-136 exact remediation commit and one C1-A replacement approved 2026-07-19
-EXECUTABLE_NOW: none; C1-B and STOP-D/E/F remain owner-gated
+OWNER_APPROVAL: O-137 C1-B0 plan and compute approved 2026-07-19
+EXECUTABLE_NOW: after exact tuple freeze only; C1-B1 and STOP-D/E/F remain owner-gated
 ```
 
 The v0 B=1-based estimate (`20–24` expected / `34` hard ceiling) is explicitly
@@ -1532,6 +1532,53 @@ FINAL/TEST/C1A_EXIT: 0 / 0 / 0
 ARTIFACT_CHECKS: runner 15/15 OK; output recursively read-only; zero group/other-writable paths
 RETRY/C1-B: none authorized
 ```
+
+## 32. O-137 C1-B0 matched GN/BN1d fusion health — approved / tuple freeze pending
+
+```text
+REQUEST_ID: S10-C1B0-FUSION-NORM-HEALTH-H256-v1
+OWNER_DECISION: O-137
+STATE: implementation/local validation in progress; do not submit until exact source/snapshot/hashes/command below are frozen
+CELLS_SERIAL: F-A1-GN-H256; F-A1-BN1D-H256
+GRAPH: current F-A1 fusion graph; only SECOND normalization differs
+INITIALIZATION: ImageNet1K V1 camera + exact shared seed-0 random LiDAR/fuser/head trainable W0
+DATA_ROLE: accepted STOP-A D_low only
+TOKEN_SELECTION: lowest SHA256("s10-c1b0-h256-v1\\0" || token), label-blind
+TOKENS/BATCHES: 1024 unique samples / 256 ordered physical-B4 batches
+ORDERED_TOKEN_SHA256: 62a096c0990e6d1d0932868a882b2418e731d1a816f481e741996e49c8e975f7
+SEED: 0
+PRECISION: global FP16 + explicit SECOND FP32 island
+COMMON_SCALE: GradScaler init 32; no-update first-B4 qualification for both candidates; discard and reconstruct W0
+OPTIMIZER: AdamW lr=1e-4 weight_decay=0.01
+SCHEDULER: constant LambdaLR(1.0), per accepted update
+ABSENT: augmentation / EMA / CBGS / GT-paste / gradient clipping
+HORIZON: exactly 256 real optimizer updates per cell; any skipped/invalid/discarded window is hard failure
+DIAGNOSTICS: true-unscaled parameter and explicit SECOND/head-boundary gradients + realized updates at 1/4/16/64/128/256; BN running state; all-window loss/scaler/tokens/outcome/basic timing; peak memory
+HARD_GATE: exact source/config/W0/token identity; common-scale qualification; complete matched 256 updates each; finite loss/gradients; required camera/LiDAR/fusion/head gradients; counters/state/artifacts
+SCIENTIFIC_GATE: descriptive only; no old GN numeric threshold and no automatic winner
+EVALUATOR/CHECKPOINT_SELECTION/PROFILER: absent / absent / absent
+RESOURCE: 1 node / 1 x GH200 / 16 CPUs / 96 GiB / 00:30:00 / no-requeue
+EXPECTED/CAP: 0.20-0.30 / 0.5 elapsed GH200-hour
+SUBMISSIONS: exactly one; no retry, requeue, array, DDP or spare GPU
+OUTPUT: fresh path frozen with exact tuple; recursively read-only at completion or failure
+CUMULATIVE_BEFORE: 3.335278 GH200-hours
+CUMULATIVE_HARD_MAX_AFTER: 3.835278 GH200-hours
+FORBIDDEN: full D_low, D_select/D_audit/official val, checkpoint selection, C1-B1/A2/MIT repair, TransFusion, DepthLSS, recipe search, reviewer chain, STOP-D/E/F, merge, push, upload
+```
+
+The implementation must add the normalization choice through resolved production
+config and detector construction while keeping historical S09 configs on GN. The
+resolved config hash plus strict model state must make GN/BN1d checkpoint
+interchange fail closed. Focused tests cover schema rejection/roundtrip,
+production propagation, 63 BN running buffers and strict cross-load failure,
+precision diagnostics/checkpoint compatibility, the fixed H256 selector and the
+existing sparse runtime contract.
+
+O-137 is a one-job authority with no remediation loop. A pre-model test or
+identity failure, qualification failure, runtime correctness failure, timeout or
+artifact failure consumes the submission and returns directly to the owner. A
+finite but scientifically weak trajectory is a completed negative observation;
+it is not permission to tune, rerun or continue to C1-B1.
 
 The verdict is bounded to the exact random W0 and frozen STOP-B panel. It
 localizes a causal normalization-path contribution because BN1d reduces both

@@ -66,6 +66,7 @@ def test_config_hash_is_order_stable_and_roundtrips(tmp_path):
     assert run["resolved-schema-version"] == "s09.v1"
     assert run["det-camera-activation-checkpoint"] is True
     assert run["det-lidar-arch"] == "none"
+    assert run["det-second-normalization"] == "not_applicable"
     assert run["det-fusion-arch"] == "none"
     assert run["det-head-arch"] == "centerhead_multitask"
     assert run["det-sparse-conv-precision"] == "not_applicable"
@@ -132,6 +133,34 @@ def readiness_v2_config(tmp_path):
     return raw
 
 
+def s10_second_config(tmp_path, normalization="group_norm"):
+    raw = readiness_v2_config(tmp_path)
+    raw["schema_version"] = "s10.v1"
+    raw["model"].update(
+        mode="lidar_only",
+        camera_arch="none",
+        camera_pretrained=None,
+        camera_activation_checkpoint=False,
+        lidar_arch="second_075",
+        fusion_arch="none",
+        second_normalization=normalization,
+    )
+    raw["precision"] = "fp16"
+    raw["training"]["grad_scaler_init_scale"] = 32
+    raw["sparse_conv_precision"] = "fp32"
+    raw["dependencies"].update(
+        spconv="2.3.8",
+        spconv_build_sha256=H,
+        spconv_source_sha="2" * 40,
+        spconv_source_state=build_source_state([]),
+        cumm="0.7.13",
+        cumm_build_sha256=H,
+        cumm_source_sha="3" * 40,
+        cumm_source_state=build_source_state([]),
+    )
+    return raw
+
+
 def test_readiness_execution_contract_is_hash_bound_and_roundtrips(tmp_path):
     raw = readiness_config(tmp_path)
     resolved = resolve_config(raw)
@@ -158,6 +187,34 @@ def test_s09_v2_checkpoint_and_operator_profile_are_explicit_and_hash_bound(tmp_
     changed = copy.deepcopy(raw)
     changed["model"]["camera_activation_checkpoint"] = True
     assert resolve_config(changed).sha256 != resolved.sha256
+
+
+def test_s10_second_normalization_is_explicit_hash_bound_and_roundtrips(tmp_path):
+    gn = resolve_config(s10_second_config(tmp_path, "group_norm"))
+    bn = resolve_config(s10_second_config(tmp_path, "batch_norm_1d"))
+    assert gn.sha256 != bn.sha256
+    assert gn.to_run_config()["det-second-normalization"] == "group_norm"
+    assert bn.to_run_config()["det-second-normalization"] == "batch_norm_1d"
+    assert bn.to_run_config()["grad-scaler-init-scale"] == 32.0
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda c: c["model"].pop("second_normalization"), "model keys invalid"),
+        (lambda c: c["model"].update(second_normalization="bn"), "expected one of"),
+        (lambda c: c["model"].update(lidar_arch="pillar_020"), "not_applicable"),
+        (lambda c: c["training"].pop("grad_scaler_init_scale"), "training keys invalid"),
+        (lambda c: c["training"].update(grad_scaler_init_scale=48), "power of two"),
+    ],
+)
+def test_s10_second_normalization_rejects_missing_alias_or_wrong_route(
+    tmp_path, mutation, message,
+):
+    raw = s10_second_config(tmp_path)
+    mutation(raw)
+    with pytest.raises(ConfigError, match=message):
+        resolve_config(raw)
     changed = copy.deepcopy(raw)
     changed["execution"]["operator_profile"]["active_attempted_windows"] = 1
     assert resolve_config(changed).sha256 != resolved.sha256

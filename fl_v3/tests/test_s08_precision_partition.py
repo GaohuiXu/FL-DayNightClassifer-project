@@ -75,6 +75,16 @@ def test_partition_changes_resolved_identity_and_production_constructor(tmp_path
     assert island.as_dict()["sparse_conv_precision"] == "fp32"
     assert _det_config_from_run(full.to_run_config()).sparse_conv_fp16 is True
     assert _det_config_from_run(island.to_run_config()).sparse_conv_fp16 is False
+    assert _det_config_from_run(island.to_run_config()).second_normalization == "group_norm"
+
+
+def test_s10_batch_norm_reaches_production_detector_constructor(tmp_path):
+    raw = _second_config(tmp_path, partition="fp32")
+    raw["schema_version"] = "s10.v1"
+    raw["model"]["camera_activation_checkpoint"] = False
+    raw["model"]["second_normalization"] = "batch_norm_1d"
+    config = _det_config_from_run(resolve_config(raw).to_run_config())
+    assert config.second_normalization == "batch_norm_1d"
 
 
 def test_strict_production_rejects_missing_partition_and_legacy_boolean(tmp_path):
@@ -94,7 +104,7 @@ def test_strict_production_rejects_missing_partition_and_legacy_boolean(tmp_path
 def test_legacy_schema_and_missing_partition_are_refused(tmp_path):
     raw = valid_config(tmp_path)
     raw["schema_version"] = "s06.v1"
-    with pytest.raises(ConfigError, match="exactly 's09.v1' or 's09.v2'"):
+    with pytest.raises(ConfigError, match="exactly 's09.v1', 's09.v2', or 's10.v1'"):
         resolve_config(raw)
     raw = valid_config(tmp_path)
     raw.pop("sparse_conv_precision")
