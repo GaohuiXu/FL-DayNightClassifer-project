@@ -405,6 +405,7 @@ the exact durable source SHA and command are known.
 | Original Job B / `522135` LiDAR O-148 smoke | `8e55f5d135dbc83f2e937c4942117d9e1901f323` / tree `1faebff1f495fad5cf798f7781a8371a250d432c`; exact Job-B record below | `FAILED 1:0` in focused test fixture before GTDB | `00:01:07` = `0.018611` GH200-hour; 30 passed/1 failed/3 skipped; test compared 3-D IoU with BEV oracle while random heights differed |
 | Job B2 / `522153` LiDAR O-148 smoke | `cf53a29815a3bea6a65dbce9b6e74012f1b3e798` / tree `cac7e7d84681b654bb75e2ccbe3fe27ad93daf5b`; exact Job-B2 record below | `FAILED 1:0` after exact GTDB seal, before first calibration batch | `00:06:09` = `0.102500` GH200-hour; 31 passed/3 skipped; canonical JSON mapping-order parser defect |
 | Job B3 / `522189` LiDAR O-148 smoke | `445239e965f9876c122f0b99135b0b9e8576018f` / tree `762aa2473ecad067c617195bf3892a5f04981325`; exact Job-B3 record below | `FAILED 1:0` in evaluator-schema decode after calibration | `00:04:18` = `0.071667` GH200-hour; 32 passed/3 skipped; indiscriminate FP32 helper cast discrete query indices |
+| Job B4 / `522203` LiDAR O-148 smoke | `7dfc5aa173766d0f9b6a907db421f2d77882f137` / tree `7becda2242f411c8792b3de180e89c32df6b781c`; exact Job-B4 record below | `COMPLETED 0:0`; calibration passed, post-terminal path remediation required | `00:02:46` = `0.046111` GH200-hour; result paths retained vanished `.control` prefix |
 
 Before O-148 execution, Envelope-A Slurm usage is `3 / unlimited` submissions and
 `0.059444 / 1.10` charged GH200-hours. Jobs `521859`, `521901`, and `521959` are
@@ -790,6 +791,55 @@ RUNNER_ARTIFACT_SHA256: 0de55536fc3f657d0f5bbb6418ac6acb3dcaf67b8b5eb74b58afe50b
 SLURM_STDERR_SHA256: b6f5095dceaeb557642eb6804a85d224711218f10da6475b2ae8e0e67f43eeba
 SLURM_STDOUT_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e464b934ca495991b7852b855
 USAGE_AFTER: 10 / unlimited submissions; 0.424445 / 1.10 GH200-hours
+```
+
+### Job B4 exact LiDAR pre-submission record under O-148
+
+```text
+SLURM_JOB_ID: 522203
+DERIVES_FROM: Job B3 522189 / one diagnosed discrete-dtype precision-plumbing defect
+SOURCE_SHA: 7dfc5aa173766d0f9b6a907db421f2d77882f137
+SOURCE_TREE: 7becda2242f411c8792b3de180e89c32df6b781c
+SOURCE_BRANCH: codex/s10-phase1-branch-qualification
+CONFIG_FILE_SHA256: 380bd6623af37241ee867b0bbe2e368abc22ec33292cb676d8189aa533dab1e1
+RESOLVED_CONFIG_SHA256: b9b29dbabba7899ecc703fdd3566e54cca5606dfcd1a783db96c7b9efb57eddf
+RUNNER_SHA256: af2a73e1de4b23aa05ff50914dc4bc4fe25cf397d05a495ec7eb56f4a93f4ddd
+ENTRY_SHA256: 0df14419dbec7dba68db83cd36a43bc3db86fd86a7b906ba460b360cdf97cd71
+GTDB_ENTRY_SHA256: bc1136eb4ff5edc59090000d6f960632de1a8fac589f409477ef60ea54055de0
+DATA/SEED/CONFIG/GATES: identical to original Job B
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd/job_b4_lidar_7dfc5aa17376_b4
+GTDB: reuse sealed exact Job-B2 database; manifest SHA256
+      22e3e23c2dff19280476ee622ea062592b6b9a1712902e7e83cb4b242fafa2b5
+RESOURCES: unchanged 1 GH200, 16 CPU, 96 GiB, <=00:30:00, no requeue
+HASH_BINDING: mechanically recomputed with 40/64-character assertions
+USAGE_BEFORE: 10 / unlimited submissions; 0.424445 / 1.10 GH200-hours
+```
+
+### Job B4 `522203` terminal calibration and provenance-path incident
+
+```text
+TERMINAL: COMPLETED 0:0 / elapsed 00:02:46 / 0.046111 GH200-hour / node n451
+PASSED: 32 focused tests/3 skips; sealed GTDB reuse; fixed D_fit B4 data; 16 warm-up
+        plus 64 timed microbatches; FP16 with accepted sparse FP32 island; 10 finite
+        unscaled-gradient windows; unchanged parameters; zero optimizer/scheduler updates;
+        evaluator decode/serialization; BN/no-GN check; exact checkpoint reload
+CALIBRATION: 97.420113 ms median GPU step; 40.063358 samples/s; 5,346,498,048
+             peak allocated bytes; unscaled gradient norm median 4,334.28125
+SCHEMA: 29 BatchNorm1d, 15 BatchNorm2d, zero GroupNorm; sparse collapse FP32;
+        decoded 200 boxes with the frozen evaluator schema
+QUALIFIED_IDENTITIES: config 06e78e456793fe269c978b0e663da39e4ec3216523c54f996665bc1a6a952015;
+                      zero-update recovery checkpoint
+                      acf5e37f98c1e987acaad160731242637d20ecea42f076df9a922103dd099d3c
+POST_TERMINAL_DEFECT: result.json recorded materialized config, qualified config and
+                      checkpoint paths under the temporary `<output>.control/evidence`
+                      root; atomic publish renamed that root, so all three strings became
+                      stale although the files and hashes are correct in final evidence
+CLASSIFICATION: output-neutral artifact/provenance publication defect
+REMEDIATION: pass the immutable published output root explicitly, derive and validate
+             all three final artifact paths before emission, and make runners gate them
+RESULT_SHA256: 0d85faec3c31830ea09739ff19e590b165382d39d5e5e4b64da17eb70c44fbf5
+RUNNER_ARTIFACT_SHA256: cabc2c5954c0b8404526df42997405d37b4caef49ec3f17fa55152943f982f84
+USAGE_AFTER: 11 / unlimited submissions; 0.470556 / 1.10 GH200-hours
 ```
 
 ### Job A exact pre-submission record

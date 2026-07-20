@@ -148,3 +148,28 @@ def test_phase1_calibrator_writes_exact_canonical_config_identity(tmp_path):
     output = tmp_path / "resolved.json"
     assert calibrator._write_config_once(output, resolved) == resolved.sha256
     assert output.read_bytes() == resolved.canonical_bytes
+
+
+def test_phase1_calibrator_records_post_rename_artifact_paths(tmp_path):
+    calibrator_path = ROOT / "scripts" / "s10_phase1_calibrate.py"
+    spec = importlib.util.spec_from_file_location(
+        "s10_phase1_calibrate_path_test_module", calibrator_path
+    )
+    assert spec is not None and spec.loader is not None
+    calibrator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(calibrator)
+
+    published = tmp_path / "job_b"
+    working = Path(f"{published}.control") / "evidence"
+    artifact = working / "resolved_config.qualified.json"
+    assert calibrator._published_artifact_path(
+        artifact,
+        working_output_dir=working,
+        published_output_root=published,
+    ) == str(published / "evidence" / artifact.name)
+    with pytest.raises(RuntimeError, match="layout drift"):
+        calibrator._published_artifact_path(
+            artifact,
+            working_output_dir=tmp_path / "wrong",
+            published_output_root=published,
+        )

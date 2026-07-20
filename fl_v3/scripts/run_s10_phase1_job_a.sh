@@ -159,13 +159,16 @@ python "${ENTRY_REL}" \
   --branch camera \
   --config "${CONFIG_REL}" \
   --output-dir "${WORK}/evidence" \
+  --published-output-root "${S10_P1_OUTPUT}" \
   --source-sha "${S10_P1_EXPECTED_SOURCE_SHA}" \
   --build-dir "${S10_P1_BUILD_DIR}" \
   --initialization-result "${WORK}/camera_checkpoint_acceptance.json" \
   > "${WORK}/calibration.stdout" 2> "${WORK}/calibration.stderr"
 
 RESULT="${WORK}/evidence/result.json"
-jq -e --arg source "${S10_P1_EXPECTED_SOURCE_SHA}" --arg resolved "${S10_P1_EXPECTED_RESOLVED_SHA256}" '
+jq -e --arg source "${S10_P1_EXPECTED_SOURCE_SHA}" \
+  --arg resolved "${S10_P1_EXPECTED_RESOLVED_SHA256}" \
+  --arg published "${S10_P1_OUTPUT}/evidence" '
   .schema == "s10.phase1.envelope-a-calibration.v1" and
   .status == "PASS" and .branch == "camera" and
   .source.git_sha == $source and .source_config.sha256 == $resolved and
@@ -174,6 +177,9 @@ jq -e --arg source "${S10_P1_EXPECTED_SOURCE_SHA}" --arg resolved "${S10_P1_EXPE
   .scope.D_select_executed == false and
   .scope.D_audit_executed == false and
   .scope.official_validation_executed == false and
+  .materialized_config.path == ($published + "/resolved_config.materialized.json") and
+  .qualified_config.path == ($published + "/resolved_config.qualified.json") and
+  .checkpoint_preflight.path == ($published + "/engineering_recovery_preflight.pt") and
   .branch_evidence.promotion_gates.promotion_passed == true and
   .branch_evidence.end_to_end.fallback.optimizer_updates == 0 and
   .branch_evidence.end_to_end.optimized.optimizer_updates == 0

@@ -119,6 +119,22 @@ def _write_config_once(path: Path, config) -> str:
     return config.sha256
 
 
+def _published_artifact_path(
+    path: Path,
+    *,
+    working_output_dir: Path,
+    published_output_root: Path,
+) -> str:
+    """Map a control-tree artifact to its immutable post-rename location."""
+    working = working_output_dir.resolve()
+    published = published_output_root.resolve()
+    expected_working = Path(f"{published}.control") / "evidence"
+    artifact = path.resolve()
+    _require(working == expected_working, "working/published output layout drift")
+    _require(artifact.parent == working, "published artifact is outside the evidence root")
+    return str(published / "evidence" / artifact.name)
+
+
 def _distribution(values: Sequence[float]) -> dict[str, float | int | None]:
     if not values:
         return {"count": 0, "median": None, "p95": None, "minimum": None, "maximum": None}
@@ -1176,6 +1192,7 @@ def main() -> int:
     parser.add_argument("--branch", choices=("camera", "lidar"), required=True)
     parser.add_argument("--config", required=True)
     parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--published-output-root", required=True)
     parser.add_argument("--source-sha", required=True)
     parser.add_argument("--build-dir")
     parser.add_argument("--initialization-result")
@@ -1184,6 +1201,12 @@ def main() -> int:
 
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=False)
+    published_output_root = Path(args.published_output_root).resolve()
+    _published_artifact_path(
+        output_dir / "layout.preflight",
+        working_output_dir=output_dir,
+        published_output_root=published_output_root,
+    )
     source = _source_identity(args.source_sha)
     source_config = load_resolved_config(args.config)
     raw_source = source_config.as_dict()
@@ -1240,6 +1263,11 @@ def main() -> int:
         checkpoint = _checkpoint_preflight(
             qualified, args.branch, device, output_dir, build_dir=build_dir
         )
+        checkpoint["path"] = _published_artifact_path(
+            Path(checkpoint["path"]),
+            working_output_dir=output_dir,
+            published_output_root=published_output_root,
+        )
 
     result = {
         "schema": SCHEMA,
@@ -1250,11 +1278,25 @@ def main() -> int:
             "path": str(Path(args.config).resolve()),
             "sha256": source_config.sha256,
         },
-        "materialized_config": {"path": str(config_path), "sha256": config.sha256},
+        "materialized_config": {
+            "path": _published_artifact_path(
+                config_path,
+                working_output_dir=output_dir,
+                published_output_root=published_output_root,
+            ),
+            "sha256": config.sha256,
+        },
         "qualified_config": (
             None
             if qualified is None
-            else {"path": str(qualified_path), "sha256": qualified.sha256}
+            else {
+                "path": _published_artifact_path(
+                    qualified_path,
+                    working_output_dir=output_dir,
+                    published_output_root=published_output_root,
+                ),
+                "sha256": qualified.sha256,
+            }
         ),
         "runtime": runtime,
         "data": data_record,
