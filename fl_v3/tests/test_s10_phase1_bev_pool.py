@@ -6,6 +6,7 @@ import pytest
 import torch
 
 from fl_v3.models.ops.bev_pool import bev_pool
+from fl_v3.models.ops.bev_pool.bev_pool import _ranks, _sorted_inputs
 
 
 def _build_directory(tmp_path) -> str:
@@ -42,6 +43,32 @@ def test_bev_pool_fallback_resets_fp32_accumulation_at_each_cell():
     assert output[0, 0, 0, 0, 1] == 2.0
     output.sum().backward()
     assert torch.equal(values.grad, torch.ones_like(values))
+
+
+def test_optimized_composite_sort_is_exactly_the_stable_reference_order():
+    values = torch.arange(18, dtype=torch.float32).view(9, 2)
+    geometry = torch.tensor(
+        [
+            [2, 0, 0, 0],
+            [0, 1, 0, 0],
+            [2, 0, 0, 0],
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [2, 0, 0, 0],
+            [1, 0, 0, 0],
+            [0, 0, 0, 0],
+            [1, 0, 0, 0],
+        ],
+        dtype=torch.int32,
+    )
+    ranks = _ranks(geometry, 1, 1, 2, 3)
+    reference = _sorted_inputs(
+        values, geometry, ranks, optimized=False, rank_cardinality=6
+    )
+    optimized = _sorted_inputs(
+        values, geometry, ranks, optimized=True, rank_cardinality=6
+    )
+    assert all(torch.equal(left, right) for left, right in zip(reference, optimized))
 
 
 def test_bev_pool_empty_singleton_and_input_contract():

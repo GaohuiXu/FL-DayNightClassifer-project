@@ -393,11 +393,13 @@ the exact durable source SHA and command are known.
 | WP4 implementation | `4c13ad736319c022d7fb6466a48a77c90ae79dde` / tree `af1a582488191b0e49799ebc02b9489990ce0edf` | implemented; execution stopped before qualification | exact zero-update calibrator, checkpoint/evaluator preflight, production-input pooling parity/timing, fail-closed Job A/B runners |
 | WP4 checkpoint-I/O remediation | `67c1b55b59aa81a49b1ed8f4aabd07e6592e88aa` / tree `2c8812f57c3e59fce25ad1d6f3dd63044b39c714` | locally sealed; GH200 verification remains unexecuted because Job D stopped before pytest | scalar/N-D raw-byte hashing plus 0-D BatchNorm-buffer regression; no model/data/config change |
 | O-148 preflight observability remediation | `125e915a0f16f8abfbfa14d73558ee518cf3170c` / tree `34840210a9d426c51973a29af4be91f06c5fe9f6` | locally sealed; Camera Job E pending | names every fail-closed source/hash/module/environment/resource stage; no model/data/config/gate change |
+| O-148 canonical-config remediation | `ea3cadec02cdd91f5caf5553631e916be008985f` / tree `811376a0c0eda575b7be3f87422024a6071ee02f` | locally sealed; Camera Job G pending | exact canonical bytes/physical SHA invariant plus production-path regression; no model/data/config/gate change |
 | Job A / `521859` | `4c13ad736319c022d7fb6466a48a77c90ae79dde`; config `f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d` | `FAILED 1:0` in focused test; engineering incident, no model/data execution | `00:01:42` = `0.028333` GH200-hour; 27 passed / 1 pooling parity failure |
 | Job C / `521901` Camera derived replacement | remediation `564fb9d97c44a463ac055dc40d25b79acdc77858` / tree `a1b9f7e809708b72a927afa4ef9c3f4bae82e137` | `FAILED 1:0` in checkpoint hash; engineering incident, no checkpoint promotion/model/data execution | `00:01:48` = `0.030000` GH200-hour; pooling focused tests 29/29 passed |
 | Job D / `521959` Camera O-147 replacement | `c45e020ed16496e2acaa5f8d34b135da21fb1230` / tree `3887d82545207ec67b861bf48ff49042f52cebdb`; config `f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d` | `FAILED 1:0` before runner control/output creation; exact pre-control predicate unlocalized | `00:00:04` = `0.001111` GH200-hour; no pytest/checkpoint/data/model/build/calibration execution; Job B blocked |
 | Job E / `522037` Camera O-148 smoke | `125e915a0f16f8abfbfa14d73558ee518cf3170c` / tree `34840210a9d426c51973a29af4be91f06c5fe9f6`; config `f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d` | `FAILED 2:0` in explicit hash preflight; command-construction incident | `00:00:05` = `0.001389` GH200-hour; expected checkpoint-entry hash was truncated to 62 characters; no output/model/data execution |
 | Job F / `522042` Camera O-148 smoke | same exact Job E source/config with mechanically derived 64-character file hashes | `FAILED 1:0` after checkpoint acceptance in resolved-config evidence write | `00:01:58` = `0.032778` GH200-hour; 30 tests passed; checkpoint accepted once; canonical bytes were incorrectly written with an extra newline before physical-hash comparison |
+| Job G / `522094` Camera O-148 smoke | `ea3cadec02cdd91f5caf5553631e916be008985f` / tree `811376a0c0eda575b7be3f87422024a6071ee02f`; exact Job-G record below | `FAILED 2:0` at frozen pool-promotion gate after complete calibration | `00:04:02` = `0.067222` GH200-hour; standalone/FP32/e2e/memory passed; FP16 integrated gradient comparison and 1.25x operator-speed gate failed |
 
 Before O-148 execution, Envelope-A Slurm usage is `3 / unlimited` submissions and
 `0.059444 / 1.10` charged GH200-hours. Jobs `521859`, `521901`, and `521959` are
@@ -553,6 +555,59 @@ NOT_EXECUTED: model construction, CUDA build, pooling parity/timing, end-to-end
 OUTPUT: immutable job_f_camera_125e915a0f16_f1
 OUTPUT_MANIFEST_SHA256: 0d05d82a5e5879bf9323538801b6e076b684573477644ddeb1b5de00392b2139
 USAGE_AFTER: 5 / unlimited submissions; 0.093611 / 1.10 GH200-hours
+```
+
+### Job G exact Camera pre-submission record under O-148
+
+```text
+SOURCE_SHA: ea3cadec02cdd91f5caf5553631e916be008985f
+SOURCE_TREE: 811376a0c0eda575b7be3f87422024a6071ee02f
+SOURCE_BRANCH: codex/s10-phase1-branch-qualification
+CONFIG_FILE_SHA256: 7101578fdfa38ba364c41ebc9ccd986797fe3261492b1bb149d0f962ec134e55
+RESOLVED_CONFIG_SHA256: f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d
+RUNNER_SHA256: fd12524489c42530758afafc4fb69009c3591d5f81ffec65f9ebf777df378c3c
+ENTRY_SHA256: 36214d881a263e40545c40b679004d7cec90dac1683df19622a67f79c76a7f2d
+CHECKPOINT_ENTRY_SHA256: 7bf4d9a24687c6c6c5ac72128f53e35cc99d1f7420bc3611a5c76576833cc402
+DATA/SEED/GATES: unchanged exact Camera values
+CHECKPOINT_LIFECYCLE: revalidate/reuse the accepted final checkpoint and mapping report;
+                      no download or second acquisition
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd/job_g_camera_ea3cadec02cd_g1
+CUDA_BUILD: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/torch_extensions/s10_bev_pool_ea3cadec02cd_g1
+RESOURCES: unchanged 1 GH200, 16 CPU, 96 GiB, <=00:30:00, no requeue
+HASH_BINDING: mechanically recomputed with 40/64-character assertions
+USAGE_BEFORE: 5 / unlimited submissions; 0.093611 / 1.10 GH200-hours
+```
+
+### Job G `522094` complete Camera diagnostic and bounded remediation
+
+```text
+TERMINAL: FAILED 2:0 / elapsed 00:04:02 / 0.067222 GH200-hour / node n185
+PASSED: 31/31 focused tests; checkpoint revalidation; canonical materialized-config
+        identity; standalone FP32/FP16 forward and exact feature-gradient parity;
+        integrated FP32 output/upstream-gradient parity; identical e2e initialization;
+        e2e median ratio 1.000378 <= 1.02; peak allocated ratio 0.999990 <= 1.05;
+        zero optimizer/scheduler updates and unchanged parameters
+FAILED_INTEGRATED_FP16: outputs exact, but 245/435 upstream parameter gradients exceeded
+        rtol=2e-3/atol=2e-4; worst absolute 2.75. The serial harness ran accepted
+        relaxed FP16 cuDNN/SDPA backward kernels twice without a same-backend repeat
+        control, so unrelated nondeterministic upstream backward noise was attributed
+        to the pooling backend despite exact standalone pool feature gradients.
+FAILED_OPERATOR_GATE: fallback median 10.205792 ms; optimized median 9.791536 ms;
+        ratio 0.959410 versus frozen maximum 0.80. Both dispatches paid the same stable
+        int64 rank sort; the CUDA reduction saved only the remaining reduction/canvas cost.
+CLASSIFICATION: complete diagnostic evidence, not capability evidence. Tolerances and
+                0.80/1.02/1.05 gates remain unchanged.
+REMEDIATION_PARITY: use strict deterministic backend-isolation only for serial parity
+        capture while retaining FP16 autocast/scaler/FP32 pooling, add a fallback-repeat
+        control under the same frozen tolerances, then restore relaxed accepted FP16
+        policy for production timing.
+REMEDIATION_PERFORMANCE: optimized dispatch uses a unique int64 composite
+        `(rank, source_row)` key with the fast sorter; this is exactly equivalent to
+        stable rank ordering and is regression-checked against the fallback order.
+        Fallback implementation and all gates remain unchanged.
+RESULT_SHA256: e070545de3daf9d56254be8067707d5ad8c52868cabdd0a97b207e65c6ac80b5
+OUTPUT_MANIFEST_SHA256: 56cba8b7e292d5aa872a3f9fb93d03476168d9f77ed3b2ba17993e0a37378610
+USAGE_AFTER: 6 / unlimited submissions; 0.160833 / 1.10 GH200-hours
 ```
 
 ### Job A exact pre-submission record

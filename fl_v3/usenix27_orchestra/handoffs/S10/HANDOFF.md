@@ -282,10 +282,17 @@ the mapping report has SHA-256
 `c87469b84b4b865aa478cc1959c400468f8aca393e53cf8dbb92a71c3a63f70f`,
 and quarantine is absent after atomic promotion. Job F then exposed an evidence-
 serialization defect: canonical config bytes were written with an extra newline and
-could never match the canonical identity. The local repair writes the exact canonical
-bytes and adds a production-path regression; Camera timing remains pending.
+could never match the canonical identity. Job G `522094` verified that repair, all 31
+focused tests, checkpoint reuse, standalone FP32/FP16 parity, integrated FP32 parity,
+and the end-to-end/memory gates. It then produced the first complete negative pooling
+diagnostic: relaxed-policy FP16 serial upstream gradients lacked a same-backend
+nondeterminism control, and optimized operator median was 0.959410x fallback rather
+than the required <=0.80x. The current output-neutral repair makes only parity capture
+deterministic, adds a fallback-repeat control, and replaces the optimized path's stable
+rank sort with an exactly equivalent unique composite `(rank, source_row)` key for the
+fast sorter. Tolerances and all performance gates remain unchanged.
 
-Current Envelope-A usage is 5/unlimited submissions and 0.093611/1.10 GH200-hours.
+Current Envelope-A usage is 6/unlimited submissions and 0.160833/1.10 GH200-hours.
 GTDB materialization and LiDAR Job B have not yet run. No capability metric,
 D_select, D_audit, official validation, scientific checkpoint or candidate selection
 occurred. O-148 now authorizes only the continuous WP4 engineering completion loop.

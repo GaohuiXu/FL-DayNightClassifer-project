@@ -557,6 +557,16 @@ def _camera_parity_capture(
     build_dir: str,
 ) -> dict[str, Any]:
     enforce_determinism(strict=(precision == "fp32"), precision=precision)
+    if precision == "fp16":
+        # The production FP16 policy intentionally enables fast nondeterministic
+        # cuDNN kernels.  A serial backend-parity comparison must hold unrelated
+        # convolution/SDPA backward noise fixed or it attributes that noise to
+        # BEV pooling.  Autocast, scaler, FP32 pool accumulation/output, inputs,
+        # losses, and frozen tolerances stay unchanged; production timing below
+        # restores the accepted relaxed FP16 policy.
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        torch.use_deterministic_algorithms(True, warn_only=True)
     model = _build_model(config, "camera", device, backend=backend, build_dir=build_dir)
     criterion = model.build_criterion().to(device)
     criterion.record_terms = False
@@ -638,6 +648,14 @@ def _camera_integrated_parity(
             precision=precision,
             build_dir=build_dir,
         )
+        fallback_repeat = _camera_parity_capture(
+            config,
+            device,
+            batch_cpu,
+            backend="fallback",
+            precision=precision,
+            build_dir=build_dir,
+        )
         _require(
             fallback["initial_parameter_sha256"] == optimized["initial_parameter_sha256"],
             f"{precision} parity initial model identity differs",
@@ -652,15 +670,39 @@ def _camera_integrated_parity(
         gradients = _compare_tensor_maps(
             fallback["gradients"], optimized["gradients"], rtol=tolerances[0], atol=tolerances[1]
         )
+        repeat_outputs = _compare_tensor_maps(
+            fallback["outputs"],
+            fallback_repeat["outputs"],
+            rtol=tolerances[0],
+            atol=tolerances[1],
+        )
+        repeat_gradients = _compare_tensor_maps(
+            fallback["gradients"],
+            fallback_repeat["gradients"],
+            rtol=tolerances[0],
+            atol=tolerances[1],
+        )
+        repeat_passed = bool(repeat_outputs["passed"] and repeat_gradients["passed"])
         results[precision] = {
-            "passed": bool(outputs["passed"] and gradients["passed"]),
+            "passed": bool(outputs["passed"] and gradients["passed"] and repeat_passed),
             "initial_parameter_sha256": fallback["initial_parameter_sha256"],
             "identical_parameter_coverage": True,
             "parameter_count": len(fallback["parameter_coverage"]),
             "outputs": outputs,
             "upstream_parameter_gradients": gradients,
+            "fallback_repeat_control": {
+                "passed": repeat_passed,
+                "outputs": repeat_outputs,
+                "upstream_parameter_gradients": repeat_gradients,
+            },
+            "comparison_policy": {
+                "precision": precision,
+                "autocast_unchanged": True,
+                "strict_deterministic_backend_isolation": True,
+                "production_relaxed_policy_restored_for_timing": True,
+            },
         }
-        del fallback, optimized
+        del fallback, optimized, fallback_repeat
         gc.collect()
     results["passed"] = all(results[name]["passed"] for name in ("fp32", "fp16"))
     return results
@@ -721,7 +763,7 @@ def _camera_standalone_pool_gates(device: torch.device, build_dir: str) -> dict[
             "finite": finite,
             "output_dtype": str(optimized.dtype),
             "output_shape": list(optimized.shape),
-            "max_absolute_error": float((optimized - fallback).abs().max()),
+            "max_absolute_error": float((optimized - fallback).detach().abs().max()),
         }
         del fallback_values, optimized_values, geometry, fallback, optimized, output_gradient
 

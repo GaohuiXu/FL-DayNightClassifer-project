@@ -130,9 +130,27 @@ def _sorted_inputs(
     values: torch.Tensor,
     geometry: torch.Tensor,
     ranks: torch.Tensor,
+    *,
+    optimized: bool,
+    rank_cardinality: int,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    # Stable rank sort preserves canonical frustum row order inside each cell.
-    order = torch.argsort(ranks, stable=True)
+    if optimized and ranks.numel():
+        # Preserve the canonical frustum-row order exactly while allowing the
+        # CUDA sorter to use its faster unique-key path.  The composite key is
+        # equivalent to a stable rank sort: rank is primary and source row is
+        # the tie-breaker.  Guard the signed-int64 key width from dimensions,
+        # without a device synchronization on ranks.max().
+        source_bits = max(1, (int(ranks.numel()) - 1).bit_length())
+        if (int(rank_cardinality) - 1).bit_length() + source_bits > 62:
+            raise OverflowError("BEV pooling composite sort key exceeds int64")
+        source_rows = torch.arange(
+            ranks.numel(), device=ranks.device, dtype=torch.int64
+        )
+        composite = torch.bitwise_or(ranks << source_bits, source_rows)
+        order = torch.argsort(composite)
+    else:
+        # The diagnostic oracle states its stable ordering directly.
+        order = torch.argsort(ranks, stable=True)
     return (
         values.index_select(0, order).contiguous(),
         geometry.index_select(0, order).contiguous(),
@@ -254,7 +272,11 @@ def bev_pool(
         raise ValueError(f"unknown BEV pooling backend {backend!r}")
     ranks = _ranks(geometry, batch_size, depth, height, width)
     sorted_values, sorted_geometry, sorted_ranks = _sorted_inputs(
-        values, geometry, ranks
+        values,
+        geometry,
+        ranks,
+        optimized=backend == "optimized",
+        rank_cardinality=batch_size * depth * height * width,
     )
     if backend == "fallback":
         return _fallback(
