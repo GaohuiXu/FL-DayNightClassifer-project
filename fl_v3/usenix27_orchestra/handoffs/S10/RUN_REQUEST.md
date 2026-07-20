@@ -403,6 +403,7 @@ the exact durable source SHA and command are known.
 | Job G / `522094` Camera O-148 smoke | `ea3cadec02cdd91f5caf5553631e916be008985f` / tree `811376a0c0eda575b7be3f87422024a6071ee02f`; exact Job-G record below | `FAILED 2:0` at frozen pool-promotion gate after complete calibration | `00:04:02` = `0.067222` GH200-hour; standalone/FP32/e2e/memory passed; FP16 integrated gradient comparison and 1.25x operator-speed gate failed |
 | Job H / `522113` Camera O-148 smoke | `8e55f5d135dbc83f2e937c4942117d9e1901f323` / tree `1faebff1f495fad5cf798f7781a8371a250d432c`; exact Job-H record below | complete negative qualification: `FAIL_POOL_PROMOTION_GATE` only | `00:04:15` = `0.070833` GH200-hour; all correctness/e2e/memory gates passed; optimized operator ratio 0.976174 > frozen 0.80; kernel not promoted |
 | Original Job B / `522135` LiDAR O-148 smoke | `8e55f5d135dbc83f2e937c4942117d9e1901f323` / tree `1faebff1f495fad5cf798f7781a8371a250d432c`; exact Job-B record below | `FAILED 1:0` in focused test fixture before GTDB | `00:01:07` = `0.018611` GH200-hour; 30 passed/1 failed/3 skipped; test compared 3-D IoU with BEV oracle while random heights differed |
+| Job B2 / `522153` LiDAR O-148 smoke | `cf53a29815a3bea6a65dbce9b6e74012f1b3e798` / tree `cac7e7d84681b654bb75e2ccbe3fe27ad93daf5b`; exact Job-B2 record below | `FAILED 1:0` after exact GTDB seal, before first calibration batch | `00:06:09` = `0.102500` GH200-hour; 31 passed/3 skipped; canonical JSON mapping-order parser defect |
 
 Before O-148 execution, Envelope-A Slurm usage is `3 / unlimited` submissions and
 `0.059444 / 1.10` charged GH200-hours. Jobs `521859`, `521901`, and `521959` are
@@ -696,6 +697,51 @@ NOT_EXECUTED: GTDB materialization, model construction/calibration, evaluator sc
 GTDB: absent; no partial artifact
 OUTPUT_MANIFEST_SHA256: 24b4e15b5e2c9cdb1e287d8159e5c0caf2cf408f0fc7f347b95877e7859b878e
 USAGE_AFTER: 8 / unlimited submissions; 0.250278 / 1.10 GH200-hours
+```
+
+### Job B2 exact LiDAR pre-submission record under O-148
+
+```text
+SOURCE_SHA: cf53a29815a3bea6a65dbce9b6e74012f1b3e798
+SOURCE_TREE: cac7e7d84681b654bb75e2ccbe3fe27ad93daf5b
+SOURCE_BRANCH: codex/s10-phase1-branch-qualification
+CONFIG_FILE_SHA256: 380bd6623af37241ee867b0bbe2e368abc22ec33292cb676d8189aa533dab1e1
+RESOLVED_CONFIG_SHA256: b9b29dbabba7899ecc703fdd3566e54cca5606dfcd1a783db96c7b9efb57eddf
+RUNNER_SHA256: af2a73e1de4b23aa05ff50914dc4bc4fe25cf397d05a495ec7eb56f4a93f4ddd
+ENTRY_SHA256: 0df14419dbec7dba68db83cd36a43bc3db86fd86a7b906ba460b360cdf97cd71
+GTDB_ENTRY_SHA256: bc1136eb4ff5edc59090000d6f960632de1a8fac589f409477ef60ea54055de0
+DATA/SEED/CONFIG/GATES: identical to original Job B
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd/job_b2_lidar_cf53a29815a3_b2
+GTDB: exact original Job-B path; absent before submission
+RESOURCES: unchanged 1 GH200, 16 CPU, 96 GiB, <=00:30:00, no requeue
+HASH_BINDING: mechanically recomputed with 40/64-character assertions
+USAGE_BEFORE: 8 / unlimited submissions; 0.250278 / 1.10 GH200-hours
+```
+
+### Job B2 `522153` terminal GTDB/config-order incident
+
+```text
+TERMINAL: FAILED 1:0 / elapsed 00:06:09 / 0.102500 GH200-hour / node n210
+PASSED: explicit preflight; 31 focused tests; 3 dependency/condition skips
+GTDB: exact keyframe-only D_fit database fully materialized and sealed before failure;
+      321,613 objects across all ten frozen classes; manifest SHA256
+      22e3e23c2dff19280476ee622ea062592b6b9a1712902e7e83cb4b242fafa2b5;
+      source cache SHA256 310e1bba8f65912450e864b634a47b4ca2ea4feb20ed26018e087c93299eed0a
+FAILURE_STAGE: first DataLoader batch, before model calibration/timing/result emission
+FAILURE: canonical resolved-config JSON sorts mapping keys, while
+         ReferenceGTDatabaseSampler incorrectly required the insertion order of the
+         sample_groups mapping to equal the separate frozen class-order sequence
+CLASSIFICATION: configuration parsing/order defect; JSON object order is not scientific
+                state and the sampler already iterates the explicit class_names sequence
+REMEDIATION: validate exact sample-group key-set equality, then reconstruct the mapping
+             in the frozen class order; retain every count, class, seed, sampling loop,
+             GTDB object, model operation and acceptance gate unchanged
+NOT_EXECUTED: model forward/backward calibration, timing/memory, evaluator schema,
+              capability metrics, D_select, D_audit, official validation
+RUNNER_ARTIFACT_SHA256: d4b965f962f2c0c484b2217fc9b32a4130dc89b5fa4921ae12298c5599d21738
+SLURM_STDERR_SHA256: b6f5095dceaeb557642eb6804a85d224711218f10da6475b2ae8e0e67f43eeba
+SLURM_STDOUT_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e464b934ca495991b7852b855
+USAGE_AFTER: 9 / unlimited submissions; 0.352778 / 1.10 GH200-hours
 ```
 
 ### Job A exact pre-submission record

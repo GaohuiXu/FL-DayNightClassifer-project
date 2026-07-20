@@ -178,10 +178,24 @@ class ReferenceGTDatabaseSampler:
         rate: float = 1.0,
     ) -> None:
         self.class_names = tuple(str(name) for name in class_names)
-        if tuple(sample_groups) != self.class_names:
-            raise ValueError("reference GT sample-group order must equal the frozen class order")
+        if len(set(self.class_names)) != len(self.class_names):
+            raise ValueError("reference GT class order contains duplicate names")
+        normalized_groups = {
+            str(name): int(count) for name, count in sample_groups.items()
+        }
+        expected_names = set(self.class_names)
+        observed_names = set(normalized_groups)
+        if observed_names != expected_names:
+            missing = sorted(expected_names - observed_names)
+            extra = sorted(observed_names - expected_names)
+            raise ValueError(
+                "reference GT sample-group classes differ from the frozen classes: "
+                f"missing={missing}, extra={extra}"
+            )
         self.class_to_label = {name: index for index, name in enumerate(self.class_names)}
-        self.sample_groups = {name: int(sample_groups[name]) for name in self.class_names}
+        # JSON object ordering is not scientific state. Reconstruct the mapping in
+        # the explicit frozen class order used by the sampling loop.
+        self.sample_groups = {name: normalized_groups[name] for name in self.class_names}
         self.rate = float(rate)
         removed = {int(value) for value in removed_difficulty}
         self.database: dict[str, list[dict]] = {}

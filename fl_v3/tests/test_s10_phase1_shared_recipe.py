@@ -15,6 +15,7 @@ from fl_v3.data.nuscenes.augment import (
     sample_transform,
 )
 from fl_v3.data.nuscenes.gt_database import load_phase1_gt_database
+from fl_v3.data.nuscenes.gt_paste import ReferenceGTDatabaseSampler
 from fl_v3.data.nuscenes.phase1 import phase1_augmentation_parameters
 from fl_v3.phase1_sampling import build_official_cbgs_indices
 from fl_v3.training.phase1 import Phase1CyclicScheduler, build_phase1_optimizer
@@ -176,6 +177,37 @@ def test_phase1_gtdb_loader_binds_manifest_and_every_pickle(tmp_path: Path):
             expected_contract=contract,
             expected_source=source,
             expected_semantics=semantics,
+        )
+
+
+def test_reference_gtdb_sampler_uses_frozen_class_order_not_json_key_order():
+    names = ("truck", "car")
+    database = {
+        name: [{
+            "name": name,
+            "points": np.zeros((5, 5), dtype=np.float32),
+            "box3d_lidar": np.zeros(9, dtype=np.float32),
+            "num_points_in_gt": 5,
+            "difficulty": 0,
+        }]
+        for name in names
+    }
+    sampler = ReferenceGTDatabaseSampler(
+        database,
+        class_names=names,
+        # Canonical JSON sorts these keys independently of ``class_names``.
+        sample_groups={"car": 2, "truck": 3},
+        min_points=1,
+    )
+    assert tuple(sampler.sample_groups) == names
+    assert sampler.sample_groups == {"truck": 3, "car": 2}
+
+    with pytest.raises(ValueError, match=r"missing=\['truck'\].*extra=\['bus'\]"):
+        ReferenceGTDatabaseSampler(
+            database,
+            class_names=names,
+            sample_groups={"car": 2, "bus": 1},
+            min_points=1,
         )
 
 
