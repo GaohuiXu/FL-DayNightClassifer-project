@@ -63,7 +63,11 @@ def tensor_state_sha256(state: Mapping[str, torch.Tensor]) -> str:
         encoded = _canonical_bytes(header)
         digest.update(len(encoded).to_bytes(8, "little"))
         digest.update(encoded)
-        digest.update(tensor.view(torch.uint8).numpy().tobytes(order="C"))
+        # ``state_dict`` contains scalar integer buffers such as BatchNorm's
+        # ``num_batches_tracked``.  PyTorch 2.11 refuses a 0-D cross-element-size
+        # ``view(torch.uint8)``; NumPy's raw contiguous byte export covers both
+        # scalar and non-scalar tensors with the same bytes and no value cast.
+        digest.update(tensor.numpy().tobytes(order="C"))
     return digest.hexdigest()
 
 

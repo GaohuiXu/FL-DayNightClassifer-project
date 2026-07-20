@@ -135,7 +135,7 @@ def _tensor_sha256(value: torch.Tensor) -> str:
     digest.update(
         _canonical_bytes({"dtype": str(tensor.dtype), "shape": list(tensor.shape)})
     )
-    digest.update(tensor.view(torch.uint8).numpy().tobytes(order="C"))
+    digest.update(tensor.numpy().tobytes(order="C"))
     return digest.hexdigest()
 
 
@@ -150,7 +150,7 @@ def _nested_digest(value: Any) -> str:
             )
             digest.update(len(header).to_bytes(8, "little"))
             digest.update(header)
-            digest.update(tensor.view(torch.uint8).numpy().tobytes(order="C"))
+            digest.update(tensor.numpy().tobytes(order="C"))
         elif isinstance(item, Mapping):
             digest.update(b"mapping\0")
             for key in sorted(item):

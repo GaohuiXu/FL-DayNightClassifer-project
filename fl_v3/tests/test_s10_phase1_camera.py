@@ -15,7 +15,7 @@ from fl_v3.models.phase1_camera import (
     Phase1GeneralizedLSSFPN,
     Phase1LSSTransform,
 )
-from fl_v3.models.phase1_swin import original_swin_destination_key
+from fl_v3.models.phase1_swin import original_swin_destination_key, tensor_state_sha256
 
 
 def test_reference_image_augmentation_uses_exact_numpy_draw_order():
@@ -55,6 +55,16 @@ def test_original_swin_key_mapping_is_complete_by_family():
     assert {
         key: original_swin_destination_key(key) for key in cases
     } == cases
+
+
+def test_swin_tensor_state_identity_covers_zero_dimensional_integer_buffers():
+    scalar = torch.tensor(0, dtype=torch.long)
+    first = tensor_state_sha256({"bn.num_batches_tracked": scalar})
+    second = tensor_state_sha256(
+        {"bn.num_batches_tracked": torch.tensor(1, dtype=torch.long)}
+    )
+    assert len(first) == 64
+    assert first != second
 
 
 def test_reference_camera_fpn_concat_shapes_and_stride8_selection():
