@@ -21,7 +21,7 @@ from __future__ import annotations
 import hashlib
 import os
 from io import BytesIO
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 
 import numpy as np
 import torch
@@ -164,6 +164,8 @@ class NuScenesMultimodalDataset(Dataset):
         dataroot: str,
         sample_tokens: Optional[List[str]] = None,
         n_sweeps: int = 1,
+        cache_capacity_sweeps: int | None = None,
+        target_class_names: Sequence[str] | None = None,
         augment: Optional[dict] = None,
         gtpaste: Optional[dict] = None,
         zip_manifest: Optional[str] = None,
@@ -188,17 +190,30 @@ class NuScenesMultimodalDataset(Dataset):
         """
         self.dataroot = dataroot
         self.n_sweeps = int(n_sweeps)
+        self.cache_capacity_sweeps = (
+            self.n_sweeps
+            if cache_capacity_sweeps is None
+            else int(cache_capacity_sweeps)
+        )
+        self.target_class_names = (
+            None if target_class_names is None else tuple(str(name) for name in target_class_names)
+        )
         self.augment = augment
         self.gtpaste = gtpaste
+        self.epoch = 0
         self.model_mode = normalize_model_mode(model_mode)
         if self.model_mode == "camera_only" and self.gtpaste is not None:
             raise ValueError(
                 "camera_only is incompatible with LiDAR GT-paste; refuse before dataset iteration"
             )
-        if self.model_mode == "camera_only" and self.augment is not None:
+        if (
+            self.model_mode == "camera_only"
+            and self.augment is not None
+            and not bool(self.augment.get("allow_camera_only", False))
+        ):
             raise ValueError(
-                "camera_only is incompatible with the LiDAR-scene BEV augmentation; "
-                "refuse before dataset iteration"
+                "camera_only is incompatible with the legacy LiDAR-scene BEV augmentation; "
+                "the Phase-I recipe must opt into its calibration-only camera path explicitly"
             )
         if (
             self.model_mode == "lidar_only"
@@ -221,26 +236,43 @@ class NuScenesMultimodalDataset(Dataset):
         self._infos = [by_token[t] for t in order]
         if self.n_sweeps < 1:
             raise ValueError(f"n_sweeps must be >= 1, got {self.n_sweeps}")
+        if self.cache_capacity_sweeps < self.n_sweeps:
+            raise ValueError(
+                "consumed point sweep depth exceeds cache capacity: "
+                f"consumed={self.n_sweeps}, capacity={self.cache_capacity_sweeps}"
+            )
+        if self.target_class_names is not None:
+            if not self.target_class_names or len(self.target_class_names) != len(
+                set(self.target_class_names)
+            ):
+                raise ValueError("target_class_names must be non-empty and unique")
         for index, info in enumerate(self._infos):
             declared = info.get("_cache_n_sweeps")
-            if declared != self.n_sweeps:
+            if declared != self.cache_capacity_sweeps:
                 raise ValueError(
                     f"info record {index} ({info.get('sample_token', '<unknown>')}) "
-                    f"declares _cache_n_sweeps={declared!r}, requested {self.n_sweeps}"
+                    f"declares _cache_n_sweeps={declared!r}, requested cache capacity "
+                    f"{self.cache_capacity_sweeps}"
                 )
             has_sweeps = "lidar_sweeps" in info
-            if self.n_sweeps == 1 and has_sweeps:
+            if self.cache_capacity_sweeps == 1 and has_sweeps:
                 raise ValueError(f"single-sweep info record {index} contains lidar_sweeps")
-            if self.n_sweeps > 1 and not has_sweeps:
+            if self.cache_capacity_sweeps > 1 and not has_sweeps:
                 raise ValueError(f"multi-sweep info record {index} has no lidar_sweeps")
-            if has_sweeps and len(info["lidar_sweeps"]) > self.n_sweeps - 1:
+            if has_sweeps and len(info["lidar_sweeps"]) > self.cache_capacity_sweeps - 1:
                 raise ValueError(
                     f"info record {index} has {len(info['lidar_sweeps'])} previous sweeps, "
-                    f"exceeding requested n_sweeps={self.n_sweeps}"
+                    f"exceeding requested cache capacity={self.cache_capacity_sweeps}"
                 )
 
     def __len__(self) -> int:
         return len(self._infos)
+
+    def set_epoch(self, epoch: int) -> None:
+        value = int(epoch)
+        if value < 0:
+            raise ValueError("dataset epoch must be non-negative")
+        self.epoch = value
 
     @property
     def sample_tokens(self) -> List[str]:
@@ -262,6 +294,18 @@ class NuScenesMultimodalDataset(Dataset):
                 pts = _load_lidar(info["lidar_rel_path"], blob_store=self.blob_store)
 
         M = int(info["gt_boxes"].shape[0])
+        names = list(info["gt_names"])
+        if self.target_class_names is None:
+            labels = info["gt_labels"].astype(np.int64)
+        else:
+            target_ids = {name: index for index, name in enumerate(self.target_class_names)}
+            unknown = sorted(set(names) - set(target_ids))
+            if unknown:
+                raise RuntimeError(
+                    "cache GT names are outside the declared target taxonomy: "
+                    f"{unknown}"
+                )
+            labels = np.asarray([target_ids[name] for name in names], dtype=np.int64)
         sample = {
             # identity + Q2 substrate
             "sample_token": info["sample_token"],
@@ -281,8 +325,8 @@ class NuScenesMultimodalDataset(Dataset):
             # GT (canonical LIDAR_TOP frame), ann_token-sorted
             "gt_boxes": torch.from_numpy(info["gt_boxes"].astype(np.float32)),       # [M,7]
             "gt_velocity": torch.from_numpy(info["gt_velocity"].astype(np.float32)), # [M,2]
-            "gt_labels": torch.from_numpy(info["gt_labels"].astype(np.int64)),       # [M]
-            "gt_names": list(info["gt_names"]),                                       # [M] str
+            "gt_labels": torch.from_numpy(labels),                                  # [M]
+            "gt_names": names,                                                      # [M] str
             "gt_num_lidar_pts": torch.from_numpy(info["gt_num_lidar_pts"].astype(np.int64)),  # [M]
             "gt_visibility": torch.from_numpy(info["gt_visibility"].astype(np.int64)),        # [M]
             "gt_in_range": torch.from_numpy(info["gt_in_range"].astype(bool)),                # [M]
@@ -299,7 +343,9 @@ class NuScenesMultimodalDataset(Dataset):
         # transforms pasted points/boxes/velocity CONSISTENTLY with the host scene. Default None ⇒ byte-identical.
         if self.gtpaste is not None:
             from fl_v3.data.nuscenes.gt_paste import paste_sample
+            sample["_phase1_epoch"] = self.epoch
             sample = paste_sample(sample, self.gtpaste, self.n_sweeps)
+            sample.pop("_phase1_epoch", None)
         # TRAIN-ONLY BEV/3D augmentation (seeded via seeded_worker_init's per-worker numpy seed).
         if self.augment is not None:
             from fl_v3.data.nuscenes.augment import augment_sample
@@ -338,6 +384,7 @@ def make_loader(
     sampler=None,
     drop_last: bool = False,
     multiprocessing_context=None,
+    persistent_workers: bool | None = None,
 ) -> DataLoader:
     """DataLoader with the seeded worker init (determinism harness).
 
@@ -362,7 +409,8 @@ def make_loader(
     # — byte-identical in BOTH determinism levels (the shuffle generator g is unaffected).
     extra = {}
     if int(num_workers) > 0:
-        extra.update(persistent_workers=True, prefetch_factor=4)
+        keep_workers = True if persistent_workers is None else bool(persistent_workers)
+        extra.update(persistent_workers=keep_workers, prefetch_factor=4)
         if multiprocessing_context is not None:
             extra["multiprocessing_context"] = multiprocessing_context
     return DataLoader(

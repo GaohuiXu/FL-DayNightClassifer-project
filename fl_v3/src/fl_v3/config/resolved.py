@@ -221,11 +221,24 @@ class ResolvedConfig:
                 "zip_manifest_file_sha256": d["zip_manifest"]["file_sha256"],
                 "split_manifest_sha256": d["split_manifest"]["sha256"],
                 "D_fit_sample_tokens_sha256": d["roles"]["fit"]["sample_tokens_sha256"],
+                "taxonomy_reference_object_classes": list(
+                    self.data["taxonomy"]["reference_object_classes"]
+                ),
+                "taxonomy_devkit_to_reference_label": list(
+                    self.data["taxonomy"]["devkit_to_reference_label"]
+                ),
+                "cbgs_artifact_sha256": self.data["sampling"]["artifact"]["sha256"],
+                "cbgs_eligibility_sha256": self.data["sampling"]["eligibility"][
+                    "ordered_D_fit_annotation_validity_sha256"
+                ],
                 "cbgs_expanded_indices_sha256": self.data["sampling"][
                     "expanded_indices_sha256"
                 ],
                 "cbgs_twenty_epoch_order_sha256": self.data["sampling"][
                     "twenty_epoch_order_sha256"
+                ],
+                "gt_database_manifest_sha256": self.data["gt_paste"][
+                    "manifest_sha256"
                 ],
             }
         out = {

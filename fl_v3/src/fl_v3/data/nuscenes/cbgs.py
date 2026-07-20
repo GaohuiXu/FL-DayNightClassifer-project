@@ -22,13 +22,22 @@ the identical list (same seed). Lives in ``data/`` (NOT ``models/fusion/**``) â‡
 """
 from __future__ import annotations
 
-import math
 import hashlib
+import math
 import struct
 from typing import Dict, List, Sequence, Tuple
 
 import numpy as np
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Sampler
+
+from fl_v3.phase1_sampling import (
+    OFFICIAL_CBGS_SCHEMA,
+    build_official_cbgs_indices,
+    canonical_json_sha256,
+    load_official_cbgs_artifact,
+    official_cbgs_artifact,
+    official_cbgs_identities,
+)
 
 
 def dataset_inrange_classes(ds) -> List[np.ndarray]:
@@ -151,3 +160,95 @@ class CBGSWrapper(Dataset):
 
     def __getitem__(self, j: int):
         return self.base[int(self.indices[j])]
+
+
+class OfficialCBGSWrapper(Dataset):
+    """Read-only Phase-I view over the sealed official-CBGS expansion."""
+
+    def __init__(self, base: Dataset, artifact: dict):
+        if artifact.get("schema") != OFFICIAL_CBGS_SCHEMA:
+            raise ValueError("OfficialCBGSWrapper requires a validated official artifact")
+        indices = np.asarray(artifact["expanded_indices"], dtype=np.int64)
+        if indices.size and (int(indices.min()) < 0 or int(indices.max()) >= len(base)):
+            raise ValueError("official CBGS expansion leaves the role-restricted dataset")
+        if len(base) != int(artifact["source_sample_count"]):
+            raise ValueError("official CBGS source sample count differs from the base dataset")
+        base_tokens = getattr(base, "sample_tokens", None)
+        if base_tokens is None:
+            raise ValueError("official CBGS base dataset must expose ordered sample_tokens")
+        if canonical_json_sha256(list(base_tokens)) != artifact["source_sample_order_sha256"]:
+            raise ValueError("official CBGS source sample-token order drift")
+        self.base = base
+        self.indices = np.ascontiguousarray(indices)
+        self.artifact = artifact
+
+    def __len__(self) -> int:
+        return int(self.indices.size)
+
+    def __getitem__(self, index: int):
+        return self.base[int(self.indices[int(index)])]
+
+    def set_epoch(self, epoch: int) -> None:
+        setter = getattr(self.base, "set_epoch", None)
+        if setter is None:
+            raise ValueError("official CBGS base dataset is not epoch-addressable")
+        setter(int(epoch))
+
+
+class Phase1EpochPermutationSampler(Sampler[int]):
+    """Exact seed+epoch permutation with effective-B32 remainder removal."""
+
+    def __init__(
+        self,
+        dataset: Dataset,
+        *,
+        seed: int,
+        consumed_samples: int,
+        expected_twenty_epoch_order_sha256: str | None = None,
+        expected_twenty_epoch_remainder_sha256: str | None = None,
+        epochs: int = 20,
+    ) -> None:
+        self.dataset = dataset
+        self.seed = int(seed)
+        self.consumed_samples = int(consumed_samples)
+        self.epochs = int(epochs)
+        self.epoch = 0
+        if self.consumed_samples < 1 or self.consumed_samples > len(dataset):
+            raise ValueError("Phase-I consumed sample count is outside the expanded dataset")
+        if self.epochs < 1:
+            raise ValueError("Phase-I sampler epochs must be positive")
+        if expected_twenty_epoch_order_sha256 is not None:
+            orders, remainders = self._all_epoch_positions()
+            if canonical_json_sha256(orders) != expected_twenty_epoch_order_sha256:
+                raise ValueError("Phase-I twenty-epoch sampler-order identity drift")
+            if (
+                expected_twenty_epoch_remainder_sha256 is None
+                or canonical_json_sha256(remainders)
+                != expected_twenty_epoch_remainder_sha256
+            ):
+                raise ValueError("Phase-I twenty-epoch sampler-remainder identity drift")
+
+    def _positions(self, epoch: int) -> np.ndarray:
+        return np.random.RandomState(self.seed + int(epoch)).permutation(len(self.dataset))
+
+    def _all_epoch_positions(self) -> tuple[list[list[int]], list[list[int]]]:
+        orders: list[list[int]] = []
+        remainders: list[list[int]] = []
+        for epoch in range(self.epochs):
+            positions = self._positions(epoch)
+            orders.append(positions[: self.consumed_samples].tolist())
+            remainders.append(positions[self.consumed_samples :].tolist())
+        return orders, remainders
+
+    def set_epoch(self, epoch: int) -> None:
+        value = int(epoch)
+        if value < 0 or value >= self.epochs:
+            raise ValueError(f"Phase-I sampler epoch is outside [0,{self.epochs}): {value}")
+        self.epoch = value
+
+    def __iter__(self):
+        positions = self._positions(self.epoch)
+        return iter(positions[: self.consumed_samples].tolist())
+
+    def __len__(self) -> int:
+        return self.consumed_samples

@@ -127,7 +127,11 @@ def _validate_tree_structure(name: str, current: Any, incoming: Any) -> None:
         raise RuntimeError(f"checkpoint {name} value type mismatch")
 
 
-def _validate_optimizer_state(optimizer: torch.optim.Optimizer, incoming: Any) -> None:
+def _validate_optimizer_state(
+    optimizer: torch.optim.Optimizer,
+    incoming: Any,
+    config: ResolvedConfig,
+) -> None:
     """Preflight parameter-group topology and per-parameter state tensors."""
     current = optimizer.state_dict()
     if not isinstance(incoming, dict) or set(incoming) != {"state", "param_groups"}:
@@ -148,7 +152,7 @@ def _validate_optimizer_state(optimizer: torch.optim.Optimizer, incoming: Any) -
             raise RuntimeError(f"checkpoint optimizer group {index} parameter count mismatch")
         if len(live_group["params"]) != len(value_ids):
             raise RuntimeError(f"runtime optimizer group {index} parameter topology mismatch")
-        for option in set(expected_group) - {"params", "lr"}:
+        for option in set(expected_group) - {"params", "lr", "betas"}:
             if value_group[option] != expected_group[option]:
                 raise RuntimeError(
                     f"checkpoint optimizer group {index} option {option!r} identity mismatch"
@@ -156,6 +160,26 @@ def _validate_optimizer_state(optimizer: torch.optim.Optimizer, incoming: Any) -
         _validate_tree_structure(
             f"optimizer.param_groups[{index}].lr", expected_group["lr"], value_group["lr"]
         )
+        if "betas" in expected_group:
+            incoming_betas = value_group.get("betas")
+            if (
+                type(incoming_betas) is not type(expected_group["betas"])
+                or len(incoming_betas) != 2
+                or float(incoming_betas[1]) != float(expected_group["betas"][1])
+            ):
+                raise RuntimeError(
+                    f"checkpoint optimizer group {index} beta structure/beta2 mismatch"
+                )
+            if config.is_phase1:
+                beta1 = float(incoming_betas[0])
+                if not 0.0 <= beta1 <= 1.0:
+                    raise RuntimeError(
+                        f"checkpoint optimizer group {index} scheduled beta1 is invalid"
+                    )
+            elif incoming_betas != expected_group["betas"]:
+                raise RuntimeError(
+                    f"checkpoint optimizer group {index} betas identity mismatch"
+                )
         for serialized_id, parameter in zip(value_ids, live_group["params"]):
             if isinstance(serialized_id, bool) or not isinstance(serialized_id, int):
                 raise RuntimeError("checkpoint optimizer parameter IDs must be integers")
@@ -192,8 +216,15 @@ def _validate_optimizer_state(optimizer: torch.optim.Optimizer, incoming: Any) -
 
 
 def _validate_optimizer_identity(
-    optimizer: torch.optim.Optimizer, config: ResolvedConfig
+    optimizer: torch.optim.Optimizer,
+    config: ResolvedConfig,
+    model: torch.nn.Module | None = None,
 ) -> None:
+    if config.is_phase1:
+        from fl_v3.training.phase1 import validate_phase1_optimizer_identity
+
+        validate_phase1_optimizer_identity(optimizer, model, config)
+        return
     spec = config.data["optimizer"]
     expected_type = {
         "adam": torch.optim.Adam,
@@ -300,9 +331,14 @@ def save_checkpoint(
     config: ResolvedConfig,
     checkpoint_identity: str,
 ) -> None:
-    _validate_optimizer_identity(optimizer, config)
+    _validate_optimizer_identity(optimizer, config, model)
+    checkpoint_schema = (
+        config.data["checkpointing"]["schema"]
+        if config.is_phase1
+        else CHECKPOINT_SCHEMA
+    )
     payload = {
-        "schema": CHECKPOINT_SCHEMA,
+        "schema": checkpoint_schema,
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
         "scheduler": None if scheduler is None else scheduler.state_dict(),
@@ -351,7 +387,12 @@ def load_checkpoint(
                 f"legacy/partial checkpoint refused: missing={sorted(_FIELDS-got)}, "
                 f"unknown={sorted(got-_FIELDS)}"
             )
-        if raw["schema"] != CHECKPOINT_SCHEMA:
+        expected_schema = (
+            config.data["checkpointing"]["schema"]
+            if config.is_phase1
+            else CHECKPOINT_SCHEMA
+        )
+        if raw["schema"] != expected_schema:
             raise RuntimeError(f"unsupported checkpoint schema {raw['schema']!r}")
         expected = {
             "resolved_config_sha256": config.sha256,
@@ -363,7 +404,7 @@ def load_checkpoint(
         drift = [key for key, value in expected.items() if raw[key] != value]
         if drift:
             raise RuntimeError(f"checkpoint/config/data identity drift: {drift}")
-        _validate_optimizer_identity(optimizer, config)
+        _validate_optimizer_identity(optimizer, config, model)
         for name, component in (("scheduler", scheduler), ("grad_scaler", grad_scaler), ("ema", ema)):
             if (component is None) != (raw[name] is None):
                 raise RuntimeError(f"checkpoint {name} presence mismatch")
@@ -376,7 +417,7 @@ def load_checkpoint(
         state = TrainingState.from_checkpoint(raw["training_state"])
         _validate_rng(raw["rng"])
         _validate_model_state(model, raw["model"])
-        _validate_optimizer_state(optimizer, raw["optimizer"])
+        _validate_optimizer_state(optimizer, raw["optimizer"], config)
         _validate_component_state("scheduler", scheduler, raw["scheduler"])
         _validate_component_state("grad_scaler", grad_scaler, raw["grad_scaler"])
         _validate_component_state("ema", ema, raw["ema"])

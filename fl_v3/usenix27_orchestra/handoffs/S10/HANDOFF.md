@@ -187,17 +187,33 @@ WP0-WP4 continuously. The request-scoped roots are
 `s10_phase1_envelope_a_data_e321aed749fd` and
 `s10_phase1_envelope_a_eng_e321aed749fd` under the accepted Arrhenius output root.
 
-WP0 has resolved both complete recipes through schema `s10.phase1.v1`, including
-all scientific leaves and exact D_fit data identities. The pre-materialization
-Camera/LiDAR resolved hashes are respectively
-`972e051e315ee0a6b6d523d9540f3430498bb25a1734edb86f27544b57d3ba0c` and
-`7262266e0b8d9f69be474f293730ac521c8a16f3add724acce1eec6461fa309b`.
-Static official-CBGS
-construction yields `N_cbgs=78,470`; the frozen full-effective-B32 remainder rule
-consumes 78,464 samples and drops six per epoch, for 2,452 optimizer updates per
-epoch and 49,040 updates over 20 epochs. Before its material commit, focused local
-schema/config tests pass 13/13. Exact resolved-config hashes and final WP0 state
-will be pinned at that commit boundary.
+WP0 is committed at `714f7a1067f375861c80e3020ab302a928983f12`. WP1's
+mechanical comparison against the pinned MIT `use_valid_flag=True` path found that
+the first static count had incorrectly used the local in-range mask. The corrected
+official eligibility is `(num_lidar_pts + num_radar_pts) > 0`, derived from the
+physically bound `sample_annotation.json`. This supersedes—not supplements—the
+unexecuted `N_cbgs=78,470` draft.
+
+The exact D_fit official-CBGS artifact has SHA-256
+`64cc0d1d6cd82fae2787d397e610178cedd00887d98938b154fce9f8e8e115ef`:
+`N_cbgs=87,930`, 87,904 consumed and 26 dropped presentations per epoch,
+2,747 optimizer updates per epoch, and 54,940 over 20 overflow-free accepted
+updates. The pre-materialization Camera/LiDAR resolved-config hashes are now
+`f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d`
+and `b9b29dbabba7899ecc703fdd3566e54cca5606dfcd1a783db96c7b9efb57eddf`.
+This is about 12.0% more attempted B32 exposure than the superseded draft; it is
+not yet a GPU-hour estimate.
+
+WP1 implements the immutable D_fit/ten-sweep-cache/keyframe-consumption binding,
+official CBGS artifact plus epoch-order/remainder identities, reference-order
+taxonomy mapping, all-class D_fit-only GTDB with per-file manifest validation,
+velocity-preserving role-bound GT-paste for epochs 1-15, reference augmentation
+filters/shuffle, B4 x accumulation-8 AdamW/cyclic schedule, and Phase-I checkpoint
+identity/resume support. Reference `RandomFlip3D` uses both horizontal and vertical
+branches; an earlier local vertical-disabled expansion was corrected before WP1
+freeze. Login-node validation covers syntax, canonical config resolution, exact
+physical data identities, and deterministic CBGS derivation. Torch/CUDA focused
+tests remain bound to WP4's already-approved GH200 jobs; no capability run occurred.
 
 The checkpoint is the MIT Camera YAML's ImageNet
 `swin_tiny_patch4_window7_224.pth`, not `swint-nuimages-pretrained.pth`; acquisition

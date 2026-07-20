@@ -41,11 +41,11 @@ def test_phase1_recipes_expand_to_complete_hash_bound_reference_graphs():
 def test_phase1_cbgs_and_effective_exposure_are_explicit_and_aligned():
     for path in (CAMERA, LIDAR):
         config = load_resolved_config(path).as_dict()
-        assert config["sampling"]["expanded_length"] == 78470
-        assert config["training"]["consumed_samples_per_epoch"] == 78464
-        assert config["training"]["dropped_samples_per_epoch"] == 6
-        assert config["training"]["optimizer_updates_per_epoch"] == 2452
-        assert config["training"]["max_optimizer_updates"] == 20 * 2452
+        assert config["sampling"]["expanded_length"] == 87930
+        assert config["training"]["consumed_samples_per_epoch"] == 87904
+        assert config["training"]["dropped_samples_per_epoch"] == 26
+        assert config["training"]["optimizer_updates_per_epoch"] == 2747
+        assert config["training"]["max_optimizer_updates"] == 20 * 2747
         assert (
             config["training"]["optimizer_updates_per_epoch"]
             * config["training"]["effective_global_batch"]
@@ -128,5 +128,5 @@ def test_phase1_data_identity_bridge_separates_cache_capacity_and_consumption():
     assert identities["train_point_sweeps"] == 1
     assert identities["eval_point_sweeps"] == 10
     assert identities["cbgs_expanded_indices_sha256"] == (
-        "cf31d1245724b87475843051982d9a2e28db928b3f576fbf777cf358d9ce1c47"
+        "7f209a57e686645ae3cd3ab1e93d4ca7fc8e46b494eac35fbc2d69d27d102389"
     )
