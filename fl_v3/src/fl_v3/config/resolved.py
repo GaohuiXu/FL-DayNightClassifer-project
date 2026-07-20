@@ -272,6 +272,11 @@ class ResolvedConfig:
                     phase1_scientific_leaf_paths(data)
                 ),
                 "model-mode": self.model_mode,
+                "det-lidar-arch": (
+                    "second_075"
+                    if data["contract"]["branch"] == "lidar"
+                    else "none"
+                ),
                 "precision": self.precision,
                 "det-sparse-conv-precision": self.sparse_conv_precision,
                 "dependency-torch": deps["torch"],

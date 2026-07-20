@@ -214,13 +214,18 @@ class Phase1LSSTransform(nn.Module):
             )[..., :3]
         return geometry
 
-    def _pool(
+    def prepare_pool_inputs(
         self,
         lifted: torch.Tensor,
         geometry: torch.Tensor,
-        *,
-        backend: str,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, torch.Tensor, tuple[int, int, int, int]]:
+        """Return the exact production operator inputs and output dimensions.
+
+        The public diagnostic boundary deliberately shares this implementation
+        with :meth:`_pool`: WP4 operator timing must measure the real B4
+        frustum/geometry workload, not a synthetic proxy with different rank or
+        collision structure.
+        """
         batch, cameras, depth, height, width, channels = lifted.shape
         expected = (
             batch,
@@ -251,31 +256,25 @@ class Phase1LSSTransform(nn.Module):
         coordinates = torch.cat((integer, batch_index.unsqueeze(-1)), dim=-1)
         values = lifted.reshape(-1, channels)[valid.reshape(-1)].to(torch.float32).contiguous()
         coordinates = coordinates.reshape(-1, 4)[valid.reshape(-1)].to(torch.int32).contiguous()
-        pooled = bev_pool(
-            values,
-            coordinates,
+        dimensions = (
             batch,
             int(self.nx[2]),
             int(self.nx[1]),  # H is metric y
             int(self.nx[0]),  # W is metric x
-            backend=backend,
-            build_directory=self.pool_build_directory,
         )
-        # Reference collapses height bins by channel concatenation.  The frozen
-        # z-bound has one bin, but retain the general operation and assertion.
-        collapsed = torch.cat(pooled.unbind(dim=2), dim=1)
-        if collapsed.shape[1] != self.out_channels * int(self.nx[2]):
-            raise RuntimeError("unexpected LSS height-bin collapse")
-        return collapsed
+        return values, coordinates, dimensions
 
-    def forward(
+    def operator_inputs(
         self,
         features: torch.Tensor,
         lidar2img: torch.Tensor,
-        *,
-        pool_backend: str | None = None,
-        return_intermediates: bool = False,
-    ) -> torch.Tensor | dict[str, torch.Tensor]:
+    ) -> tuple[
+        torch.Tensor,
+        torch.Tensor,
+        tuple[int, int, int, int],
+        dict[str, torch.Tensor],
+    ]:
+        """Prepare the production pool inputs without executing the pool/decoder."""
         if features.ndim != 5:
             raise ValueError("LSS features must have shape [B,N,C,H,W]")
         batch, cameras, channels, height, width = features.shape
@@ -287,11 +286,9 @@ class Phase1LSSTransform(nn.Module):
             raise ValueError(f"unexpected LSS feature shape {tuple(features.shape)}")
         if lidar2img.shape != (batch, cameras, 4, 4):
             raise ValueError("LSS calibration batch/camera dimensions differ")
-        backend = self.pool_backend if pool_backend is None else pool_backend
-        if backend not in {"optimized", "fallback"}:
-            raise ValueError("pool_backend must be optimized or fallback")
-
-        projected = self.depthnet(features.reshape(batch * cameras, channels, height, width))
+        projected = self.depthnet(
+            features.reshape(batch * cameras, channels, height, width)
+        )
         depth_probability = projected[:, : self.depth_bins].softmax(dim=1)
         context = projected[:, self.depth_bins :]
         lifted = depth_probability.unsqueeze(1) * context.unsqueeze(2)
@@ -304,16 +301,69 @@ class Phase1LSSTransform(nn.Module):
             width,
         ).permute(0, 1, 3, 4, 5, 2)
         geometry = self._geometry(lidar2img)
-        pooled = self._pool(lifted, geometry, backend=backend)
+        values, coordinates, dimensions = self.prepare_pool_inputs(lifted, geometry)
+        return values, coordinates, dimensions, {
+            "depth_probability": depth_probability,
+            "context": context,
+            "geometry": geometry,
+        }
+
+    def _pool(
+        self,
+        lifted: torch.Tensor,
+        geometry: torch.Tensor,
+        *,
+        backend: str,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, tuple[int, int, int, int]]:
+        values, coordinates, dimensions = self.prepare_pool_inputs(lifted, geometry)
+        pooled = bev_pool(
+            values,
+            coordinates,
+            *dimensions,
+            backend=backend,
+            build_directory=self.pool_build_directory,
+        )
+        # Reference collapses height bins by channel concatenation.  The frozen
+        # z-bound has one bin, but retain the general operation and assertion.
+        collapsed = torch.cat(pooled.unbind(dim=2), dim=1)
+        if collapsed.shape[1] != self.out_channels * int(self.nx[2]):
+            raise RuntimeError("unexpected LSS height-bin collapse")
+        return collapsed, values, coordinates, dimensions
+
+    def forward(
+        self,
+        features: torch.Tensor,
+        lidar2img: torch.Tensor,
+        *,
+        pool_backend: str | None = None,
+        return_intermediates: bool = False,
+    ) -> torch.Tensor | dict[str, torch.Tensor]:
+        backend = self.pool_backend if pool_backend is None else pool_backend
+        if backend not in {"optimized", "fallback"}:
+            raise ValueError("pool_backend must be optimized or fallback")
+        pool_values, pool_geometry, pool_dimensions, diagnostics = self.operator_inputs(
+            features, lidar2img
+        )
+        pooled_5d = bev_pool(
+            pool_values,
+            pool_geometry,
+            *pool_dimensions,
+            backend=backend,
+            build_directory=self.pool_build_directory,
+        )
+        pooled = torch.cat(pooled_5d.unbind(dim=2), dim=1)
+        if pooled.shape[1] != self.out_channels * int(self.nx[2]):
+            raise RuntimeError("unexpected LSS height-bin collapse")
         bev = self.downsample(pooled)
         if not return_intermediates:
             return bev
         return {
             "bev": bev,
             "pooled_fp32": pooled,
-            "depth_probability": depth_probability,
-            "context": context,
-            "geometry": geometry,
+            **diagnostics,
+            "pool_values_fp32": pool_values,
+            "pool_geometry_int32": pool_geometry,
+            "pool_dimensions": pool_dimensions,
         }
 
 
@@ -492,6 +542,9 @@ class Phase1CameraDetector(nn.Module):
             "pool_output_fp32": view["pooled_fp32"],
             "depth_probability": view["depth_probability"],
             "camera_context": view["context"],
+            "pool_values_fp32": view["pool_values_fp32"],
+            "pool_geometry_int32": view["pool_geometry_int32"],
+            "pool_dimensions": view["pool_dimensions"],
         }
 
     @staticmethod

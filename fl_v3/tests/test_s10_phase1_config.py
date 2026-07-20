@@ -58,12 +58,14 @@ def test_phase1_run_bridge_carries_full_resolved_recipe_and_leaf_inventory():
     run = resolved.to_run_config()
     assert run["resolved-config-sha256"] == resolved.sha256
     assert run["s10-phase1-runtime"] is True
+    assert run["det-lidar-arch"] == "none"
     assert run["phase1"]["model"]["architecture"].startswith("mit_bevfusion")
     leaves = set(run["phase1-scientific-leaf-paths"])
     assert "model.backbone.depths[2]" in leaves
     assert "optimizer.parameter_group_rules[0].decay_mult" in leaves
     assert "sampling.expanded_indices_sha256" in leaves
     assert "data.roles.audit.sealed" in leaves
+    assert load_resolved_config(LIDAR).to_run_config()["det-lidar-arch"] == "second_075"
 
 
 @pytest.mark.parametrize(

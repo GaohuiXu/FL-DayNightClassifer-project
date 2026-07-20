@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import os
+
 import pytest
 import torch
 
 from fl_v3.models.ops.bev_pool import bev_pool
+
+
+def _build_directory(tmp_path) -> str:
+    """Keep Envelope-A compilation inside its approved /nobackup root."""
+    return os.environ.get("FL_V3_BEV_POOL_BUILD_DIR", str(tmp_path))
 
 
 def test_bev_pool_fallback_non_square_geometry_collision_and_exact_gradient():
@@ -85,7 +92,7 @@ def test_bev_pool_optimized_forward_backward_and_autocast_policy(tmp_path):
             7,
             11,
             backend="optimized",
-            build_directory=str(tmp_path),
+            build_directory=_build_directory(tmp_path),
         )
     assert fallback.dtype == optimized.dtype == torch.float32
     torch.testing.assert_close(optimized, fallback, rtol=1e-5, atol=1e-6)
@@ -118,7 +125,7 @@ def test_bev_pool_optimized_obeys_nondefault_current_stream(tmp_path):
             2,
             3,
             backend="optimized",
-            build_directory=str(tmp_path),
+            build_directory=_build_directory(tmp_path),
         )
         expected = bev_pool(values, geometry, 1, 1, 2, 3, backend="fallback")
         assert torch.equal(observed, expected)

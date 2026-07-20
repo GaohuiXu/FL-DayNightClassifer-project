@@ -13,6 +13,7 @@ from fl_v3.models.fusion.centerhead_decode import (
 from fl_v3.models.phase1_camera import (
     Phase1CameraDetector,
     Phase1GeneralizedLSSFPN,
+    Phase1LSSTransform,
 )
 from fl_v3.models.phase1_swin import original_swin_destination_key
 
@@ -123,3 +124,24 @@ def test_phase1_reference_decode_restores_second_task_wide_topk():
     adapted = select_task_candidates(outputs)[0]
     assert [item["scores"].numel() for item in reference] == [500] * 6
     assert [item["scores"].numel() for item in adapted] == [500, 1000, 1000, 500, 1000, 1000]
+
+
+def test_phase1_pool_diagnostic_inputs_are_the_production_inputs():
+    transform = Phase1LSSTransform(pool_backend="fallback").eval()
+    lifted = torch.zeros((1, 1, 118, 32, 88, 80), dtype=torch.float32)
+    geometry = torch.zeros((1, 1, 118, 32, 88, 3), dtype=torch.float32)
+    geometry[..., 0] = -51.0
+    geometry[..., 1] = -51.0
+    geometry[..., 2] = 0.0
+    lifted[..., 0] = 1.0
+    values, coordinates, dimensions = transform.prepare_pool_inputs(lifted, geometry)
+    observed, observed_values, observed_coordinates, observed_dimensions = transform._pool(
+        lifted, geometry, backend="fallback"
+    )
+    assert values.dtype == torch.float32 and values.is_contiguous()
+    assert coordinates.dtype == torch.int32 and coordinates.is_contiguous()
+    assert dimensions == (1, 1, 256, 256)
+    assert torch.equal(values, observed_values)
+    assert torch.equal(coordinates, observed_coordinates)
+    assert dimensions == observed_dimensions
+    assert observed.shape == (1, 80, 256, 256)
