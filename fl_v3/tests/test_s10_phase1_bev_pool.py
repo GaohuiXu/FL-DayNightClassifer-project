@@ -30,6 +30,20 @@ def test_bev_pool_fallback_non_square_geometry_collision_and_exact_gradient():
     assert torch.equal(values.grad, torch.ones_like(values))
 
 
+def test_bev_pool_fallback_resets_fp32_accumulation_at_each_cell():
+    # A global prefix-cumsum/difference loses both ones after the preceding 1e8;
+    # the pinned CUDA kernel starts every cell at zero and therefore returns 2.
+    values = torch.tensor([[1.0e8], [1.0], [1.0]], requires_grad=True)
+    geometry = torch.tensor(
+        [[0, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0]], dtype=torch.int32
+    )
+    output = bev_pool(values, geometry, 1, 1, 1, 2, backend="fallback")
+    assert output[0, 0, 0, 0, 0] == 1.0e8
+    assert output[0, 0, 0, 0, 1] == 2.0
+    output.sum().backward()
+    assert torch.equal(values.grad, torch.ones_like(values))
+
+
 def test_bev_pool_empty_singleton_and_input_contract():
     empty_values = torch.empty((0, 3), dtype=torch.float32, requires_grad=True)
     empty_geometry = torch.empty((0, 4), dtype=torch.int32)

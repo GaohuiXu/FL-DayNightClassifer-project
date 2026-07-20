@@ -1,8 +1,10 @@
 """Fail-closed BEV pooling dispatcher for S10 Phase I.
 
-The fallback uses a stable sorted cumsum/difference segment sum.  The optimized
-backend is an independently integrated CUDA extension derived from the pinned MIT
-BEVFusion operator under Apache-2.0; see ``NOTICE`` in this directory.
+The fallback uses PyTorch's sorted, length-delimited segment reduction.  Its
+per-cell sequential FP32 accumulation order matches the pinned MIT CUDA kernel
+without depending on the in-tree extension.  The optimized backend is an
+independently integrated CUDA extension derived from that operation under
+Apache-2.0; see ``NOTICE`` in this directory.
 """
 from __future__ import annotations
 
@@ -124,30 +126,6 @@ def _ranks(
     )
 
 
-class _SortedSegmentSum(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, values: torch.Tensor, ranks: torch.Tensor):
-        if values.shape[0] == 0:
-            ctx.save_for_backward(ranks.new_zeros((0,), dtype=torch.int64))
-            return values
-        cumulative = values.cumsum(dim=0)
-        end = torch.ones(values.shape[0], device=values.device, dtype=torch.bool)
-        end[:-1] = ranks[1:] != ranks[:-1]
-        sums = cumulative[end]
-        sums = torch.cat((sums[:1], sums[1:] - sums[:-1]), dim=0)
-        segment = torch.cumsum(end, dim=0)
-        segment[end] -= 1
-        ctx.save_for_backward(segment)
-        return sums
-
-    @staticmethod
-    def backward(ctx, gradient: torch.Tensor):
-        (segment,) = ctx.saved_tensors
-        if segment.numel() == 0:
-            return gradient.new_zeros((0, gradient.shape[1])), None
-        return gradient[segment], None
-
-
 def _sorted_inputs(
     values: torch.Tensor,
     geometry: torch.Tensor,
@@ -176,9 +154,24 @@ def _fallback(
         return values.sum() * 0.0 + values.new_zeros(
             (batch_size, channels, depth, height, width)
         )
-    sums = _SortedSegmentSum.apply(values, ranks)
     starts = torch.ones(ranks.shape[0], device=ranks.device, dtype=torch.bool)
     starts[1:] = ranks[1:] != ranks[:-1]
+    start_indices = torch.where(starts)[0]
+    ends = torch.cat(
+        (start_indices[1:], start_indices.new_tensor([values.shape[0]])), dim=0
+    )
+    lengths = (ends - start_indices).contiguous()
+    # PyTorch's CUDA SegmentReduce kernel assigns one thread to each
+    # (segment, channel) and adds rows from start to end in order, exactly like
+    # the pinned MIT kernel.  Unlike a global cumsum/difference shortcut, a
+    # preceding cell's large partial sum cannot perturb another cell.
+    sums = torch.segment_reduce(
+        values,
+        "sum",
+        lengths=lengths,
+        axis=0,
+        unsafe=False,
+    )
     unique_geometry = geometry[starts].to(torch.int64)
     # Assignment only: collision reduction already occurred above.
     flat_indices = (

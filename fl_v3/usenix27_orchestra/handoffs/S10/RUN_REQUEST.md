@@ -347,6 +347,63 @@ the exact durable source SHA and command are known.
 | WP1 | `933ca6feb142bcedc2ab842b25d6a1caf242c749` | complete | exact CBGS artifact `64cc0d1d...e115ef`; no GPU submission |
 | Swin acquisition 1/1 | source URL in Section 6.2; 114,342,173 bytes; SHA-256 `9f71c168d837d1b99dd1dc29e14990a7a9e8bdc5f673d46b04fe36fe15590ad3` | quarantined / not accepted | HTTPS 200; final host `release-assets.githubusercontent.com`; no GPU-hour charge; final path absent |
 | WP2 implementation | `5a001c96f00fffd0816492f181197e2d310a5ae1` | implemented; WP4 qualification pending | login syntax/static checks only; no capability inference |
-| WP3 implementation | material commit containing this row | implemented; WP4 qualification pending | exact collapsed sparse boundary + SECOND/SECONDFPN/TransFusion; login syntax/static checks only |
+| WP3 implementation | `22138371d28e75d5218b0b888c225953fd429f0c` | complete; WP4 qualification pending | exact collapsed sparse boundary + SECOND/SECONDFPN/TransFusion; login syntax/static checks only |
+| WP4 implementation | `4c13ad736319c022d7fb6466a48a77c90ae79dde` / tree `af1a582488191b0e49799ebc02b9489990ce0edf` | complete; execution pending | exact zero-update calibrator, checkpoint/evaluator preflight, production-input pooling parity/timing, fail-closed Job A/B runners |
+| Job A / `521859` | `4c13ad736319c022d7fb6466a48a77c90ae79dde`; config `f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d` | `FAILED 1:0` in focused test; engineering incident, no model/data execution | `00:01:42` = `0.028333` GH200-hour; 27 passed / 1 pooling parity failure |
 
-Envelope-A Slurm usage remains `0 / 3` submissions and `0.0 / 1.0` charged GH200-hours.
+Envelope-A Slurm usage is `1 / 3` submissions and `0.028333 / 1.0` charged
+GH200-hours. Job `521859` is consumed and is not retried identically.
+
+### Job A exact pre-submission record
+
+```text
+SOURCE_SHA: 4c13ad736319c022d7fb6466a48a77c90ae79dde
+SOURCE_TREE: af1a582488191b0e49799ebc02b9489990ce0edf
+SOURCE_BRANCH: codex/s10-phase1-branch-qualification
+SOURCE_CONFIG: fl_v3/configs/s10_phase1_camera.json
+SOURCE_CONFIG_FILE_SHA256: 7101578fdfa38ba364c41ebc9ccd986797fe3261492b1bb149d0f962ec134e55
+RESOLVED_CONFIG_SHA256: f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d
+RUNNER_SHA256: 48f962a274baf4a8205465cee6a21a596783e489e9abdf33743e1e9280c6d8a4
+ENTRY_SHA256: c56d1e9b8c79586aa1651d5d8b65706a29d71ec5a3700577374af9c95e415da8
+CHECKPOINT_ENTRY_SHA256: 7bf4d9a24687c6c6c5ac72128f53e35cc99d1f7420bc3611a5c76576833cc402
+DATA: exact D_fit / official CBGS epoch-0 order / first four physical-B4 batches
+SEED: 0
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd/job_a_4c13ad736319_a1
+CUDA_BUILD: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/torch_extensions/s10_bev_pool_4c13ad736319
+RESOURCES: account naiss2025-22-1113-gpu; partition gpu; 1 node; 1 task;
+           1 nvidia_gh200_120gb; 16 CPU; 96 GiB; 00:30:00; no requeue
+COMMAND: sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu
+         --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G
+         --gpus-per-node=nvidia_gh200_120gb:1 --time=00:30:00 --no-requeue
+         --job-name=s10-p1-a --output=<engineering-root>/slurm/job_a_%j.out
+         --error=<engineering-root>/slurm/job_a_%j.err
+         --export=<exact variables above> fl_v3/scripts/run_s10_phase1_job_a.sh
+STOP: focused-test/checkpoint/content/build/parity/promotion failure; timeout; source/config/
+      data/resource drift; no automatic Job C until one engineering cause is diagnosed
+INTERPRETATION: implementation conformance, numerical parity and engineering timing only
+```
+
+### Job A `521859` incident and derived-replacement classification
+
+```text
+TERMINAL: FAILED 1:0 / elapsed 00:01:42 / 0.028333 GH200-hour
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/
+        s10_phase1_envelope_a_eng_e321aed749fd/job_a_4c13ad736319_a1
+TEST: test_bev_pool_optimized_forward_backward_and_autocast_policy
+OBSERVED: 27 passed, 1 failed; 272/7854 mismatches; max absolute 2.7298927e-05;
+          frozen rtol=1e-5 / atol=1e-6; no checkpoint promotion, D_fit read,
+          model construction, calibration, capability metric or scientific checkpoint
+DIAGNOSIS: optimized kernel matches pinned MIT per-cell sequential FP32 summation;
+           the independent fallback incorrectly used one global prefix cumsum and
+           cross-cell subtraction, so a preceding cell's rounded partial sum perturbed
+           later cells. The mismatch is an oracle implementation defect, not evidence
+           against the production kernel and not permission to relax tolerance.
+REMEDIATION_CLASS: pre-conformance reference/fallback implementation repair allowed by
+                   Section 6.1; replace only the fallback reduction with PyTorch's
+                   length-delimited per-cell segment reduction, which uses the same
+                   start-to-end FP32 order and retains an extension-independent backward.
+SCIENCE_EFFECT: optimized candidate math/data/precision/config/seed/gates unchanged;
+                only the diagnostic oracle is corrected to the frozen reference order
+DERIVED_JOB_C: eligible after a durable remediation SHA and fresh output/build roots;
+               same command family, data, seed, resources, tolerances and stop gates
+```
