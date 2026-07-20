@@ -24,8 +24,9 @@
 > governs future explicitly approved engineering-validation loops; it creates no
 > standing compute authority. O-150 accepts the parity-qualified PyTorch sorted
 > `segment_reduce` backend for Camera production, keeps CUDA unpromoted, and removes
-> `1.25x` as a capability prerequisite. Envelope-B preparation is active; its exact
-> aggregate resource ceiling and recipe-freeze review remain before submission.
+> `1.25x` as a capability prerequisite. The exact Envelope-B request is frozen at
+> `49.0` charged GH200-hours, concurrency one and serial LiDAR then Camera; owner
+> activation and the independent recipe-freeze review remain before submission.
 
 ## 1. Rules for starting or extending work
 
@@ -456,9 +457,10 @@ OWNER_APPROVAL: pending
 ```
 
 Envelope A is closed, and its unused budget cannot be reused. O-150 resolves the
-Camera backend requirement and starts Envelope-B preparation. The exact resource
-ceiling and branch recipe-freeze review still precede the first scientific
-submission; neither is inferred from Envelope A's unused budget.
+Camera backend requirement and starts Envelope-B preparation. The exact `49.0`-hour
+request is now frozen; owner activation and the branch recipe-freeze review still
+precede the first scientific submission. Its budget is not inferred from Envelope
+A's unused time.
 
 After approval, individual job rows in `handoffs/S10/RUN_REQUEST.md` record Git
 SHA, resolved-config hash, split, seed, command, resources, output, terminal state,

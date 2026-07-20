@@ -5,10 +5,10 @@
 ```text
 SESSION: persistent S00 / S10
 ACTIVE_DECISION: O-150 under O-143/O-144/O-145/O-149
-REQUEST_STATE: ENVELOPE A CONSUMED / ENVELOPE B DRAFTING
-EXECUTION_AUTHORITY: preparation only; exact Envelope-B resource ceiling not bound
+REQUEST_STATE: ENVELOPE A CONSUMED / ENVELOPE B FROZEN, OWNER APPROVAL PENDING
+EXECUTION_AUTHORITY: none until the owner approves Section 7's containing commit
 ACTIVE_PHASE: Phase I C/L independent recipe and capability — fallback accepted;
-              resource tuple and branch recipe-freeze review pending
+              exact request prepared; branch recipe-freeze review precedes compute
 PLAN: PHASE_I_PLAN.md / P1-G0 closed
 BRANCH: codex/s10-phase1-branch-qualification
 ```
@@ -152,7 +152,7 @@ command-file hashes and stdout hashes are optional rather than default.
 ## 5. Phase I O-144/O-145 plan record
 
 ```text
-PLAN_STATE: OWNER_FROZEN / O-144 plus O-145 optimized-pooling amendment
+PLAN_STATE: OWNER_FROZEN / O-144 plus O-145 and O-150 amendments
 PLAN_PATH: handoffs/S10/PHASE_I_PLAN.md
 P1_G0: CLOSED
 CANDIDATES_AND_MAX_COUNT: exact Camera ImageNet primary + exact LiDAR scratch primary; max 2
@@ -164,8 +164,8 @@ WORKFLOW: 5 WPs + 3 owner gates + 2 approval envelopes
 CAMERA_POOLING: O-150 PyTorch sorted segment-reduce production backend; CUDA option
                 retained unpromoted; WP2/WP4 parity/policy evidence retained
 EXECUTION_AUTHORITY: Envelope A consumed under O-146/O-147/O-148;
-                     Envelope-B preparation active, scientific submission pending
-                     exact resource ceiling and recipe-freeze review
+                     exact 49.0-hour Envelope-B request frozen; owner activation
+                     and recipe-freeze review pending
 ```
 
 The complete graph, optimizer/scheduler, augmentation, role-bound GT-paste,
@@ -376,21 +376,159 @@ The single approval sentence is:
 批准激活 commit <REQUEST_COMMIT> 中的 S10 Phase I Envelope A，并按其中边界连续执行 WP0-WP4。
 ```
 
-## 7. Envelope B — preparation active under O-150
+## 7. Envelope B — exact scientific branch-qualification request
 
-Envelope B is not yet a complete request. It will bind the approved candidates,
-seed 0, exact data/evaluator identities, `N_cbgs`, accepted precision, 20-epoch
-B32 exposure, terminal-only selection, measured aggregate GPU-hours, wall-time
-segmentation, submission policy/concurrency, output root and owner-escalation conditions.
-LiDAR runs before Camera by default; `D_audit` resources may be reserved but the
-data remain sealed until `P1-G2` explicitly opens them.
+This is the complete O-150 Envelope-B object. Its containing commit is the
+activation baseline named by the owner's approval; implementation baseline
+`a1d7d4fc9508875cc7559858b51b9c1fe441f69b` contains the exact runner/config
+code. No job may be submitted until the owner approves both the resource envelope
+and the one independent review-only subagent. The review must close before the
+first scientific submission.
 
 ```text
-REQUEST_STATE: DRAFTING / NOT YET EXECUTABLE
+PHASE: S10 Phase I / Envelope B independent Camera and LiDAR qualification
+REQUEST_STATE: FROZEN / OWNER APPROVAL PENDING / NOT EXECUTABLE
+ACTIVATION_BASELINE: the commit containing this Section 7, named verbatim by owner
+IMPLEMENTATION_BASE_SHA: a1d7d4fc9508875cc7559858b51b9c1fe441f69b
+IMPLEMENTATION_BASE_TREE: a13f0fd8823575ceebf8d26d265e2c3c88af8919
+BRANCH: codex/s10-phase1-branch-qualification
+OBJECTIVE: train the two frozen unimodal primaries to their exact terminal exposure,
+           evaluate each terminal raw checkpoint once on D_select, and return both
+           results to P1-G2 without post-hoc tuning or a capability threshold
+CANDIDATES_AND_MAX_COUNT: exactly 2 scientific candidates — phase1_lidar_primary
+                          then phase1_camera_primary; no replacement candidate
+SEED_POLICY: seed 0 only; no alternate or confirmatory seed in Envelope B
 CAMERA_PRODUCTION_BACKEND: pytorch_sorted_segment_reduce
-CAMERA_OPTIONAL_BACKEND: optimized_cuda_unpromoted
-BLOCKED_ON: exact aggregate GH200-hour ceiling and branch recipe-freeze review
+CAMERA_OPTIONAL_BACKEND: optimized_cuda_unpromoted / forbidden in Envelope-B runs
+DATA: accepted STOP-A train-parent split; D_fit train, D_select terminal assessment;
+      D_audit owner-sealed; official validation forbidden
+SPLIT_SHA256: 7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8
+D_FIT: 34 logs / 494 scenes / 19,877 base samples
+CBGS: official frozen artifact / expanded 87,930 / consumed 87,904 per epoch /
+      drop 26 after deterministic epoch permutation
+TRAINING_EXPOSURE: 20 epochs / 1,758,080 attempted sample presentations /
+                   54,940 attempted effective-B32 windows per candidate
+BATCH: one GH200 / physical B4 / accumulation 8 / effective B32 / workers 8
+PRECISION: global FP16 autocast; Camera pool/loss FP32; LiDAR accepted sparse FP32 island;
+           GradScaler initial scale 8; TF32 off
+CHECKPOINT: one atomic epoch-boundary recovery retained; raw epoch-20 terminal only
+            is selectable; exact RNG/optimizer/scheduler/scaler/config identity resumes
+EVALUATOR: fl_v3 train-subset adapter over official nuScenes detection metric math;
+           detection config SHA-256
+           217f96cca4e80f790c4674ef72257a6863ee9a85b0ce185bc56488afc32c7a0b
+D_SELECT: one completed execution per terminal candidate; no re-decode for selection
+D_AUDIT: resource reserve only; remains inaccessible until explicit P1-G2 OPEN D_audit
+OFFICIAL_VALIDATION: forbidden
+CHECKPOINT_SELECTION: epoch-20 terminal raw weights only; no best-epoch selection
+AGGREGATE_GPU_HOURS: 49.0 charged GH200-hours across review-following execution,
+                     engineering incidents, recovery/resume and any later P1-G2-opened
+                     D_audit execution; unused Envelope-A time is not transferred
+MAX_CONCURRENCY: 1
+SUBMISSION_POLICY: no numeric engineering-submission cap; exactly two scientific
+                   candidates; serial LiDAR then Camera; no duplicate scientific rerun
+PER_JOB_RESOURCE: 1 node / 1 GH200 / 16 CPUs / 96 GiB
+PLANNED_WALL: LiDAR 14:00:00; Camera 35:00:00; actual aggregate charge must remain <=49.0
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_2a26c63b6102
+ENGINEERING_REMEDIATION: O-149 output-neutral config/schema/API/test/runner/checkpoint/
+                         provenance/logging repairs and serial resume are autonomous
+SCIENTIFIC_CONTINUATION: a weak LiDAR score does not cancel Camera unless it implicates
+                         a shared data/evaluator/precision/configuration boundary
+REVIEW_GATE: one independent review-only subagent; no edits and no GPU; inspect the
+             activation baseline plus frozen artifacts; compute opens only with no
+             open P0-P2, while any P3 is recorded as residual risk
+OWNER_ESCALATION: any model math/shape, normalization, initialization, data/order/GTDB,
+                  augmentation, target/loss/decode, optimizer/scheduler/precision, seed,
+                  exposure/checkpoint-selection, evaluator/metric, candidate, output or
+                  aggregate-resource change; ambiguous defect; same blocker after repair;
+                  shared-boundary failure; or 49.0-hour exhaustion
+ALLOWED_INTERPRETATION: single-seed internal C/L branch capability and engineering health
+FORBIDDEN_INTERPRETATION: official-val/generalization, CUDA promotion, fusion, FL,
+                          attack/defense, publication claim, or best-recipe optimality
+OWNER_APPROVAL: pending
 EXECUTABLE_NOW: no
+```
+
+### 7.1 Immutable candidates and executable identities
+
+| Branch | Resolved config SHA-256 | Config file SHA-256 | Initialization/materialization |
+|---|---|---|---|
+| Camera | `e95e65a63a32c494296b38baf98fd913ff1ec6a168b78aabac48a8dc8f0ffe1d` | `567cb1b71535b4866193273960e531ae4b45318e56e81101e99ad186ac23ce60` | ImageNet Swin-T physical `9f71c168d837d1b99dd1dc29e14990a7a9e8bdc5f673d46b04fe36fe15590ad3`, mapping `c87469b84b4b865aa478cc1959c400468f8aca393e53cf8dbb92a71c3a63f70f`, initialized state `814eaf5adb58ecc5b5cfe253c63002bc6cad9390c01752b890298571fed01632`; fallback only |
+| LiDAR | `0efe4d6d5138e3d99ae80254a6ecf884300dd18985ab45a00425228fc3ef082e` | `c7e1fa26e1714a31c5998296cb95cbab5e8732d4bf2f06da81fd6d631c574bfc` | scratch seed 0; accepted role-bound GTDB manifest `22e3e23c2dff19280476ee622ea062592b6b9a1712902e7e83cb4b242fafa2b5`; keyframe train |
+
+The direct dual-branch entry is `fl_v3/scripts/s10_phase1_capability.py`
+(`0f7a1a958d3b404a1c308c8dd6251cdb81bd07a0d26c6d4db98c3bb81a3ac6e5`)
+through `fl_v3/scripts/run_s10_phase1_envelope_b.sh`
+(`0461a96904c5258a07b79348f0de8c55e5bf38d0686fcb2f758f66b8aff2cbec`).
+It performs direct config/runtime/data identity checks, one output-neutral D_fit B4
+forward/backward/decode and zero-boundary checkpoint round-trip, then reconstructs
+the production state before training. Recovery is epoch-boundary only. A derived
+output-neutral source may resume the same config/checkpoint and is recorded per
+attempt; a scientific source change is prohibited.
+
+### 7.2 Evidence-based resource calculation
+
+Both candidates consume `20 * 87,904 = 1,758,080` actual presentations. Job H's
+accepted fallback end-to-end calibration measured `16.3513808747 samples/s`; Job
+B5 measured `41.9043778095 samples/s`. This gives `29.866319` Camera hours and
+`11.654046` LiDAR hours. Existing 4,626-sample D_select runs took approximately
+`0.140-0.192` hours each. A conservative combined `0.80` hours covers both
+D_select evaluations, checkpoint/preflight overhead and a still-sealed proportional
+D_audit reserve. Therefore:
+
+```text
+training subtotal = 29.866319 + 11.654046 = 41.520365 h
+with eval/checkpoint/audit reserve          = 42.320365 h
+15% contingency                            = 48.668420 h
+requested aggregate ceiling (rounded up)   = 49.000000 GH200-hours
+```
+
+The calibration reused prefetched batches, so it is not a sustained-loader proof;
+the 15% contingency covers that residual. S09's eight-worker run observed only
+`0.076%` data wait, supporting—but not proving—that compute remains dominant.
+The ceiling is actual charged time, not a promise to consume all 49 hours.
+
+### 7.3 Serial command family after approval and review
+
+`<ACTIVATION_SHA>` is replaced only with the exact commit named in owner approval
+or an O-149-recorded output-neutral derived source. First create the `slurm/` log
+directory beneath the frozen output root, then submit LiDAR:
+
+```bash
+sbatch --parsable --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 \
+  --mem=96G --gpus=1 --time=14:00:00 --job-name=s10-p1b-lidar \
+  --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_2a26c63b6102/slurm/lidar-%j.out \
+  --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_2a26c63b6102/slurm/lidar-%j.err \
+  fl_v3/scripts/run_s10_phase1_envelope_b.sh --branch lidar \
+  --config fl_v3/configs/s10_phase1_lidar.json \
+  --output-dir /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_2a26c63b6102/phase1_lidar_primary \
+  --source-sha <ACTIVATION_SHA>
+```
+
+After LiDAR reaches a terminal result—or an independent weak result not implicating
+a shared boundary—submit Camera with the same fixed resource shape and:
+
+```bash
+sbatch --parsable --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 \
+  --mem=96G --gpus=1 --time=35:00:00 --job-name=s10-p1b-camera \
+  --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_2a26c63b6102/slurm/camera-%j.out \
+  --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_2a26c63b6102/slurm/camera-%j.err \
+  fl_v3/scripts/run_s10_phase1_envelope_b.sh --branch camera \
+  --config fl_v3/configs/s10_phase1_camera.json \
+  --output-dir /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_2a26c63b6102/phase1_camera_primary \
+  --source-sha <ACTIVATION_SHA>
+```
+
+An exact recovery uses the same branch/config/output and adds `--resume`; its wall
+request is limited to the remaining aggregate budget. No retry changes candidate,
+seed, data, model, recipe, precision, terminal-selection or evaluator semantics.
+
+The single combined approval sentence is:
+
+```text
+批准激活 commit <ACTIVATION_SHA> 中的 S10 Phase I Envelope B：授权一次独立
+recipe-freeze review-only subagent；review 无 open P0-P2 后，按 Section 7 的两个
+固定候选、seed 0、数据/评估/训练/checkpoint 边界、49.0 GH200-hour 总 ceiling、
+最大并发 1 和 O-149 remediation 规则，串行执行 LiDAR 再 Camera；D_audit 仍封存。
 ```
 
 ## 8. Envelope-A compact execution ledger

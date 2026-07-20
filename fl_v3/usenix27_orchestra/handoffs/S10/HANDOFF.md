@@ -1,4 +1,4 @@
-# S10 HANDOFF — O-150 resolves Camera backend; Envelope B preparation active
+# S10 HANDOFF — exact Envelope B frozen; owner activation pending
 
 ## 1. Current state and authority
 
@@ -9,9 +9,9 @@ BRANCH: codex/s10-phase1-branch-qualification
 ACTIVE_DECISION: O-150 under O-143/O-144/O-145/O-149
 SCIENCE_ORDER: C/L independent recipe+capability -> staged fusion -> capability gate -> profiler
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: Envelope-A authority consumed; Envelope-B resource tuple not yet bound
-EXECUTION_STATE: ENVELOPE-B PREPARATION; fallback production backend accepted;
-                 branch recipe-freeze review and exact resource ceiling remain
+CURRENT_AUTHORITY: Envelope-A consumed; exact Envelope-B request frozen, not approved
+EXECUTION_STATE: ENVELOPE-B AWAITS ONE COMBINED OWNER APPROVAL; then independent
+                 recipe-freeze review before serial LiDAR -> Camera submission
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -38,9 +38,19 @@ contract. None of these decisions activates Envelope B or capability evaluation.
 O-150 accepts Job H's numerically qualified PyTorch sorted `segment_reduce` path as
 the Camera production backend and retains the CUDA kernel as an unpromoted optional
 optimization. The historical `1.25x` CUDA promotion failure remains evidence but no
-longer blocks Camera capability. The owner instructed S00 to start Envelope-B
-preparation; no approximately 50-GH200-hour submission may be inferred until the
-exact aggregate ceiling is explicitly bound.
+longer blocks Camera capability. The owner's instruction to start Envelope-B
+preparation produced the exact Section-7 request in `RUN_REQUEST.md`: two fixed
+seed-0 candidates, serial execution, maximum concurrency one, and a measured
+`49.0` charged-GH200-hour aggregate ceiling. It is not compute authority until the
+owner names and approves the containing commit.
+
+Envelope-B implementation baselines `6eaafa07942a3079cb9725cf2c83a9e2e4c6c6ed`
+and `a1d7d4fc9508875cc7559858b51b9c1fe441f69b` add schema-v2 production configs,
+the fallback-only Camera dispatch, a clean ordered D_select loader, LiDAR's frozen
+decode threshold bridge, and one direct dual-branch runner with epoch-atomic recovery.
+Local `py_compile`/`compileall`, `bash -n`, `shellcheck`, canonical config resolution
+and hash checks pass. No GH200 import/forward test or scientific job has run at these
+commits; the independent recipe-freeze review is still required.
 
 Current-A2 and the old C→D→E→F route are paused. The primary S10 claim remains
 **absolute clean capability + fusion contribution**, but it must now be earned
@@ -195,9 +205,10 @@ freeze and the final staged-fusion/full capability result. Ordinary runner bugs
 do not launch reviewers. Commit at material implementation, phase-plan freeze and
 phase-result closure, not after every incident.
 
-The old C0/C1 diagnostic harness is frozen historical tooling. New capability
-work should use the production `centralized_train.py`, standard checkpointing
-and evaluator paths, extended only by the smallest required branch-mode seams.
+The old C0/C1 diagnostic harness is frozen historical tooling. Envelope B uses one
+direct two-branch entry over the exact Phase-I config/data/model/optimizer plus the
+standard checkpoint and evaluator modules. It does not extend the generic FL/S09
+`centralized_train.py` harness or add another reusable orchestration layer.
 
 ## 7. Envelope-A execution record
 
@@ -330,8 +341,11 @@ Final Envelope-A usage is 12/unlimited serial submissions and
 `0.516389/1.10` GH200-hours. No optimizer update, capability metric, D_select,
 D_audit, official validation, scientific checkpoint or candidate selection
 occurred. O-150 resolves the Camera backend disposition without revising the
-historical CUDA-performance result. Recipe review and the exact Envelope-B resource
-tuple remain before scientific submission.
+historical CUDA-performance result. The exact Envelope-B tuple is now frozen at
+`49.0` charged GH200-hours: measured training estimate `41.520365h`, conservative
+evaluator/checkpoint/sealed-audit reserve `0.80h`, and 15% contingency gives
+`48.668420h`, rounded up. Owner activation and the independent recipe-freeze review
+remain before scientific submission.
 
 WP3 implements the reference-led standalone LiDAR graph without changing the
 historical Fusion detector. The existing reference-shaped sparse SECOND is reused only

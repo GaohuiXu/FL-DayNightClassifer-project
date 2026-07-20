@@ -12,7 +12,8 @@ SCOPE: Phase I camera/LiDAR clean branch qualification
 AUTHORITY: freezes the Phase I scientific choices, work-package order, gates,
            approval structure, and execution boundaries recorded below
 IMPLEMENTATION: WP0-WP4 completed under consumed O-146/O-147/O-148
-COMPUTE: Envelope A is terminal; Envelope-B exact resource tuple remains to be bound
+COMPUTE: Envelope A is terminal; exact 49.0-hour Envelope-B request is frozen,
+         owner activation and independent recipe-freeze review pending
 CHECKPOINT_ACQUISITION: completed once under consumed Envelope A
 COMMIT: material Envelope-A implementation/result/contract closure commits authorized
 MERGE/PUSH/UPLOAD/PUBLICATION: not authorized by this document
@@ -609,10 +610,12 @@ commit authority must be explicit in Envelope A.
 1. **`P1-G0 PLAN_FREEZE` — closed by O-144.** The scientific recipe, five work
    packages, three gates, two-envelope model, and amendment boundaries in this
    document are binding. This closure does not activate Envelope A.
-2. **`P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` — preparation active under O-150.** The
-   Camera backend disposition is resolved in favor of the qualified PyTorch fallback.
-   The branch recipe-freeze review and an exact measured Envelope-B resource tuple
-   remain required before the first 20-epoch submission.
+2. **`P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` — exact request frozen; owner approval
+   pending.** The Camera backend disposition is resolved in favor of the qualified
+   PyTorch fallback. `RUN_REQUEST.md` Section 7 now binds the two resolved configs,
+   `49.0` charged-GH200-hour aggregate ceiling, serial wall segmentation, output,
+   remediation and stop rules. One owner-authorized independent recipe-freeze review
+   must close with no open P0-P2 before the first 20-epoch submission.
 3. **`P1-G2 SELECT_AND_AUDIT` — pending.** The owner receives both terminal
    `D_select` results and chooses, per branch, accept/freeze, honest negative, or an
    explicit cause-directed amendment. `D_audit` opens only when the owner says
@@ -665,26 +668,33 @@ GTDB and shared recipe first. A scientifically weak LiDAR result does not cancel
 independent Camera primary unless the failure implicates a shared data, evaluator,
 precision, or configuration boundary. Maximum concurrency is one.
 
-Envelope-B GPU-hours are calculated only from the materialized `N_cbgs`, exact-graph
-production calibration, evaluator timing, checkpoint/resume overhead, and a declared
-15% aggregate contingency:
+Envelope-B GPU-hours are calculated only from the materialized consumed CBGS
+exposure, exact-graph production calibration, evaluator timing, checkpoint/resume
+overhead, and a declared 15% aggregate contingency:
 
 ```text
-H_B = 1.15 * (
-    20 * N_cbgs / throughput_C
-  + 20 * N_cbgs / throughput_L
-  + T_D_select_C + T_D_select_L
-  + T_D_audit_C  + T_D_audit_L
-  + T_checkpoint_resume
-) / 3600
+N_consumed = 87,904 samples/epoch
+H_B = 1.15 * (20*N_consumed/throughput_C
+            + 20*N_consumed/throughput_L
+            + 0.80 hours evaluator/checkpoint/sealed-audit reserve)
 ```
 
-The exact aggregate GPU-hour ceiling, planned wall-time segmentation, submission
-policy/concurrency, output root, and resolved config hashes remain pending. O-150
-resolves Camera disposition; the resource request must now be calculated from the
-fallback production graph and current evidence. D_audit resources may be reserved in Envelope B,
-but reservation does not unseal the data. No estimate derived solely from the old C1
-graph is acceptable.
+The materialized estimate uses `1,758,080` consumed presentations per candidate,
+Job H fallback throughput `16.3513808747 samples/s`, Job B5 LiDAR throughput
+`41.9043778095 samples/s`, a conservative combined `0.80` hours for D_select,
+checkpoint/preflight and still-sealed D_audit reserve, then the frozen 15%
+contingency. The result is `48.668420` hours, rounded up to an exact aggregate
+ceiling of `49.0` charged GH200-hours. Planned single-GH200 wall segments are
+`14:00:00` LiDAR and `35:00:00` Camera; maximum concurrency is one and no numeric
+engineering-submission cap is set under O-149. The exact configs, hashes, output
+root, commands and escalation rules are in `RUN_REQUEST.md` Section 7.
+
+D_audit time is only reserved: the data remain sealed until explicit `P1-G2 OPEN
+D_audit`, and that later opening still requires an exact config/provenance amendment.
+The calibration reused prefetched batches rather than proving sustained loader
+throughput; the 15% contingency covers this residual, supported by S09's observed
+`0.076%` eight-worker data wait. The ceiling is actual charge, not planned
+consumption. No estimate is derived solely from the old C1 graph.
 
 ### 10.5 In-envelope remediation and mandatory escalation
 
@@ -737,25 +747,12 @@ envelope, and O-149 creates no standing compute authority.
 
 ### 11.2 Pending measurements or activation records, not open recipe choices
 
-- Envelope-A activation: exact scoped implementation/files, official ImageNet
-  checkpoint URL/license/destination, data/engineering output roots, commit and
-  remediation authority;
-- optimized/fallback BEV-pooling FP32/FP16 forward/backward parity tolerances and
-  exact operator/end-to-end timing protocol, frozen before the first GPU parity run;
-- downloaded ImageNet checkpoint SHA-256 and exact loaded/missing/unexpected tensor
-  mapping report;
-- materialized official-CBGS length, expanded-index/order/remainder hashes, updates per
-  epoch, and total exposure;
-- materialized D_fit-only GTDB identity, source-token proof, per-class counts, and
-  exact stop-epoch behavior;
-- no-update loss-scaler qualification values and recovery-checkpoint cadence, frozen
-  before Envelope B without changing the accepted precision or terminal-selection rule;
-- mmdet-free TransFusionHead/decoder implementation and tensor-parity acceptance tests;
-- Alvis checkpoint/provenance/evaluator alignment audit;
-- joint C/L recipe-freeze review at one durable implementation SHA;
-- Envelope-B aggregate GH200-hour ceiling, wall-time segmentation, maximum
-  submissions, exact commands/config hashes, and output root derived from Envelope-A
-  measurements;
+- owner activation of the exact Envelope-B object in `RUN_REQUEST.md` Section 7;
+- one independent C/L recipe-freeze review at the activation baseline, with no open
+  P0-P2 before compute;
+- the two terminal training/checkpoint/D_select results and actual charged time;
+- the P1-G2 owner disposition for each branch and any explicit `OPEN D_audit` action;
+- the later Alvis checkpoint/provenance/evaluator alignment audit for Phase II;
 - later Protocol-B BN buffer/affine aggregation policy and the final `D_base/D_tail`
   construction.
 

@@ -115,9 +115,11 @@ Owner decision O-150 accepts the parity-qualified PyTorch sorted `segment_reduce
 path as the Phase-I Camera production backend and keeps the CUDA kernel available
 only as an explicit, unpromoted optimization. Job H's failed 1.25x promotion gate
 remains historical performance evidence but no longer gates Camera capability.
-Envelope-B preparation is active; its scientific submission still requires a
-reviewed branch-recipe freeze and an explicitly approved aggregate GH200-hour
-ceiling.
+The exact Envelope-B request is frozen in `RUN_REQUEST.md` Section 7 at a `49.0`
+charged-GH200-hour aggregate ceiling, maximum concurrency one, serial LiDAR then
+Camera, and two fixed seed-0 candidates. It is not executable until the owner
+approves the containing commit and authorizes one independent recipe-freeze review;
+that review must close with no open P0-P2 before the first submission.
 
 For this stage, `fl_v3/collab/` is read-only legacy evidence. Agents may inspect and
 cite it, but must not add or update plans, handoffs, reviews, results, or status

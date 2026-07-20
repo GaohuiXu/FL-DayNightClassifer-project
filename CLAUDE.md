@@ -49,9 +49,10 @@ PyTorch sorted `segment_reduce` fallback as the Camera production backend, keeps
 CUDA unpromoted, and removes 1.25x as a capability prerequisite. LiDAR engineering
 qualification passed with exact keyframe GTDB, BN/no-GN TransFusion, the sparse
 FP32 island, a qualified config and a zero-update recovery checkpoint. No capability
-metric or optimizer update ran. Envelope-B preparation is active; recipe-freeze
-review and an explicit aggregate GH200-hour ceiling remain before submission. S11+
-remains pending.
+metric or optimizer update ran. The exact Envelope-B request is frozen at `49.0`
+charged GH200-hours, maximum concurrency one and serial LiDAR then Camera; owner
+activation plus an independent no-open-P0-P2 recipe-freeze review remain before
+submission. S11+ remains pending.
 
 ## Collaboration
 

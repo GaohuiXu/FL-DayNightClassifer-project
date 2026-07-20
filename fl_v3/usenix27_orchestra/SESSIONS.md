@@ -28,9 +28,10 @@
 > aggregate-budget-limited, without a default numeric submission cap. It retains
 > all scientific/resource owner gates and grants no standing compute. O-150 accepts
 > the parity-qualified PyTorch sorted `segment_reduce` backend for Camera production,
-> keeps CUDA unpromoted, and removes `1.25x` as a capability prerequisite. Envelope-B
-> preparation is active; scientific submission awaits the exact aggregate ceiling
-> and recipe-freeze review. S11+ remains pending.
+> keeps CUDA unpromoted, and removes `1.25x` as a capability prerequisite. The exact
+> Envelope-B request is frozen at `49.0` charged GH200-hours, concurrency one and
+> serial LiDAR then Camera; owner activation and an independent no-open-P0-P2
+> recipe-freeze review remain before submission. S11+ remains pending.
 
 ## 1. Active graph and status
 
@@ -57,7 +58,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | O-150 accepts Camera fallback; LiDAR engineering PASS; Envelope-B resource tuple/review pending; capability execution not yet submitted |
+| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | O-150 accepts Camera fallback; exact 49.0-hour Envelope-B request frozen; owner activation/review pending; no capability job submitted |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract
@@ -360,8 +361,8 @@ with the BN/no-GN TransFusion graph, exact keyframe-only GTDB and sparse FP32
 island, and emitted qualified config SHA-256
 `06e78e456793fe269c978b0e663da39e4ec3216523c54f996665bc1a6a952015`.
 These are engineering results, not capability. O-150 resolves Camera disposition;
-the branch recipe-freeze review and exact Envelope-B aggregate resource tuple remain
-before scientific submission.
+the exact `49.0`-hour Envelope-B tuple is now frozen, while owner activation and the
+branch recipe-freeze review remain before scientific submission.
 
 ### Phase II — staged fusion and capability
 
@@ -383,8 +384,8 @@ a scientifically failed model.
 O-146/O-147/O-148 consumed Envelope A for WP0-WP4, official ImageNet acquisition,
 D_fit CBGS/GTDB materialization, optimized-BEV-pooling build/parity/timing,
 material commits and bounded engineering calibration. Unused aggregate budget is
-not continuing authority. Envelope-B preparation is active and is pending its exact
-resource ceiling and branch recipe-freeze review.
+not continuing authority. The exact `49.0` charged-GH200-hour Envelope-B request is
+frozen; owner activation and the independent branch recipe-freeze review remain.
 
 ## 7. S11 and later
 
