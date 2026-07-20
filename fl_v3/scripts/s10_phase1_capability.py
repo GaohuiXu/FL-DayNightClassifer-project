@@ -553,14 +553,15 @@ def _validate_run_identity(
     *,
     branch: str,
     config,
-    source: Mapping[str, str],
     runtime_dependency_sha256: str,
 ) -> None:
+    # A phase-approved, output-neutral runner/checkpoint/logging repair may resume
+    # from a later durable source. The immutable scientific config and runtime
+    # identities remain exact; every invocation records its own source in attempts/.
     expected = {
         "schema": SCHEMA,
         "branch": branch,
         "candidate_id": config.as_dict()["contract"]["candidate_id"],
-        "source": dict(source),
         "resolved_config_sha256": config.sha256,
         "runtime_dependencies_sha256": runtime_dependency_sha256,
         "seed": int(config.as_dict()["training"]["seed"]),
@@ -618,7 +619,6 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             _read_json(identity_path),
             branch=branch,
             config=config,
-            source=source,
             runtime_dependency_sha256=runtime_dependency_sha,
         )
     else:
@@ -637,7 +637,13 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     if not attempt_start.exists():
         _atomic_write_once(
             attempt_start,
-            {**attempt, "started_unix_seconds": time.time(), "resume": bool(args.resume)},
+            {
+                **attempt,
+                "source": source,
+                "resolved_config_sha256": config.sha256,
+                "started_unix_seconds": time.time(),
+                "resume": bool(args.resume),
+            },
         )
 
     result_path = output_dir / "result.json"
@@ -762,7 +768,8 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "status": status,
         "branch": branch,
         "candidate_id": raw["contract"]["candidate_id"],
-        "source": source,
+        "initial_source": _read_json(identity_path)["source"],
+        "terminal_source": source,
         "resolved_config_sha256": config.sha256,
         "seed": int(raw["training"]["seed"]),
         "camera_pool_backend": "pytorch_sorted_segment_reduce" if branch == "camera" else None,
@@ -802,7 +809,13 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     if not attempt_end.exists():
         _atomic_write_once(
             attempt_end,
-            {**attempt, "ended_unix_seconds": time.time(), "status": status},
+            {
+                **attempt,
+                "source": source,
+                "resolved_config_sha256": config.sha256,
+                "ended_unix_seconds": time.time(),
+                "status": status,
+            },
         )
     return result
 
