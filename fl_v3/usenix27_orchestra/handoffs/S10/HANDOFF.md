@@ -10,8 +10,8 @@ FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a514
 ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the Phase-I control
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: Section-8 IP-E1; WP0 runtime close then continuous IP-WP1 -> IP-WP2
-EXECUTION_STATE: serial GH200 authorized under 2.0h base + conditional 1.0h code-bug reserve
+CURRENT_AUTHORITY: Section-8 IP-E1; WP0 runtime closed; owner parity disposition required
+EXECUTION_STATE: submissions paused after LiDAR same-process/fresh-process parity evidence
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -58,6 +58,17 @@ cells have a `2.0` charged-GH200-hour aggregate ceiling; a separately accounted
 for a `3.0` hour hard aggregate ceiling. Code bugs have no submission-count stop
 and are repaired continuously without blind identical retry. Ambiguous diagnosis,
 scientific-boundary pressure, or hard-ceiling exhaustion still returns to the owner.
+
+Job `525192` closes WP0 runtime and supplies one valid LiDAR sustained measurement:
+`40.4214` presentations/s over 256/256 accepted windows, only `1.5169 ms/window`
+mean loader wait, and `6.8215%` peak reserved-memory fraction. Checkpoint boundary,
+64 continuation microbatches, RNG and training state were exact, but both a same-
+process replay and a fresh-process replay failed the frozen per-tensor FP16 allclose
+after eight windows at globally small relative L2 error. This proves the symptom is
+runtime-kernel nondeterminism, not checkpoint corruption or input drift. Because a
+change from elementwise allclose to a same-process-calibrated global error gate is
+an acceptance-rule decision rather than a code repair, further submission awaits
+explicit owner disposition; no tolerance has been relaxed.
 
 ### 1.2 Candidate classes and immutable scientific boundary
 
