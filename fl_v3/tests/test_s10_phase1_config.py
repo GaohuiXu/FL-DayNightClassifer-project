@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import importlib.util
 import json
 from pathlib import Path
 
@@ -132,3 +133,18 @@ def test_phase1_data_identity_bridge_separates_cache_capacity_and_consumption():
     assert identities["cbgs_expanded_indices_sha256"] == (
         "7f209a57e686645ae3cd3ab1e93d4ca7fc8e46b494eac35fbc2d69d27d102389"
     )
+
+
+def test_phase1_calibrator_writes_exact_canonical_config_identity(tmp_path):
+    calibrator_path = ROOT / "scripts" / "s10_phase1_calibrate.py"
+    spec = importlib.util.spec_from_file_location(
+        "s10_phase1_calibrate_test_module", calibrator_path
+    )
+    assert spec is not None and spec.loader is not None
+    calibrator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(calibrator)
+
+    resolved = load_resolved_config(CAMERA)
+    output = tmp_path / "resolved.json"
+    assert calibrator._write_config_once(output, resolved) == resolved.sha256
+    assert output.read_bytes() == resolved.canonical_bytes

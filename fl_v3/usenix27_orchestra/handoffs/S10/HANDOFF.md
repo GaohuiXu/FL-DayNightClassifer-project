@@ -246,11 +246,11 @@ operation. ImageAug3D parameters are sampled in DataLoader workers using the exa
 NumPy reference draw order before the scene-3D draws, so epoch-boundary recovery also
 replays Camera augmentation.
 
-The single approved ImageNet Swin acquisition completed into the read-only quarantine
+Before O-148, the single approved ImageNet Swin acquisition had completed into the read-only quarantine
 path (114,342,173 bytes), redirected through the allowlisted
 `release-assets.githubusercontent.com` host, with physical SHA-256
 `9f71c168d837d1b99dd1dc29e14990a7a9e8bdc5f673d46b04fe36fe15590ad3`.
-The final checkpoint path remains absent and the bytes remain unusable: schema,
+At that boundary the final checkpoint path remained absent and the bytes were unusable: schema,
 per-tensor mapping, loaded/missing/unexpected keys, initialized-state identity and
 atomic promotion did not complete before the execution stop.
 
@@ -274,11 +274,19 @@ login-node syntax/static validation because another Camera submission is not aut
 O-147 later authorized Job D, but that job stopped before reaching pytest or checkpoint
 verification, so the remediation remains unverified on GH200.
 
-Before O-148 execution, Envelope-A usage is 3/unlimited submissions and
-0.059444/1.10 GH200-hours.
-The one downloaded Swin object remains read-only in quarantine with the recorded
-physical SHA; the final checkpoint and mapping report are absent, and no second download
-occurred. GTDB materialization and LiDAR Job B did not run. No capability metric,
+Under O-148, Job E `522037` exposed a manually truncated expected SHA in the sbatch
+binding; Job F `522042` then passed 30/30 focused tests and completed exact Swin
+acceptance. The final read-only checkpoint now has physical SHA-256
+`9f71c168d837d1b99dd1dc29e14990a7a9e8bdc5f673d46b04fe36fe15590ad3`,
+the mapping report has SHA-256
+`c87469b84b4b865aa478cc1959c400468f8aca393e53cf8dbb92a71c3a63f70f`,
+and quarantine is absent after atomic promotion. Job F then exposed an evidence-
+serialization defect: canonical config bytes were written with an extra newline and
+could never match the canonical identity. The local repair writes the exact canonical
+bytes and adds a production-path regression; Camera timing remains pending.
+
+Current Envelope-A usage is 5/unlimited submissions and 0.093611/1.10 GH200-hours.
+GTDB materialization and LiDAR Job B have not yet run. No capability metric,
 D_select, D_audit, official validation, scientific checkpoint or candidate selection
 occurred. O-148 now authorizes only the continuous WP4 engineering completion loop.
 

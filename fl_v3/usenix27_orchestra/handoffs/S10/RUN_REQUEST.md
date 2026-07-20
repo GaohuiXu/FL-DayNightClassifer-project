@@ -392,9 +392,12 @@ the exact durable source SHA and command are known.
 | WP3 implementation | `22138371d28e75d5218b0b888c225953fd429f0c` | complete; WP4 qualification pending | exact collapsed sparse boundary + SECOND/SECONDFPN/TransFusion; login syntax/static checks only |
 | WP4 implementation | `4c13ad736319c022d7fb6466a48a77c90ae79dde` / tree `af1a582488191b0e49799ebc02b9489990ce0edf` | implemented; execution stopped before qualification | exact zero-update calibrator, checkpoint/evaluator preflight, production-input pooling parity/timing, fail-closed Job A/B runners |
 | WP4 checkpoint-I/O remediation | `67c1b55b59aa81a49b1ed8f4aabd07e6592e88aa` / tree `2c8812f57c3e59fce25ad1d6f3dd63044b39c714` | locally sealed; GH200 verification remains unexecuted because Job D stopped before pytest | scalar/N-D raw-byte hashing plus 0-D BatchNorm-buffer regression; no model/data/config change |
+| O-148 preflight observability remediation | `125e915a0f16f8abfbfa14d73558ee518cf3170c` / tree `34840210a9d426c51973a29af4be91f06c5fe9f6` | locally sealed; Camera Job E pending | names every fail-closed source/hash/module/environment/resource stage; no model/data/config/gate change |
 | Job A / `521859` | `4c13ad736319c022d7fb6466a48a77c90ae79dde`; config `f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d` | `FAILED 1:0` in focused test; engineering incident, no model/data execution | `00:01:42` = `0.028333` GH200-hour; 27 passed / 1 pooling parity failure |
 | Job C / `521901` Camera derived replacement | remediation `564fb9d97c44a463ac055dc40d25b79acdc77858` / tree `a1b9f7e809708b72a927afa4ef9c3f4bae82e137` | `FAILED 1:0` in checkpoint hash; engineering incident, no checkpoint promotion/model/data execution | `00:01:48` = `0.030000` GH200-hour; pooling focused tests 29/29 passed |
 | Job D / `521959` Camera O-147 replacement | `c45e020ed16496e2acaa5f8d34b135da21fb1230` / tree `3887d82545207ec67b861bf48ff49042f52cebdb`; config `f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d` | `FAILED 1:0` before runner control/output creation; exact pre-control predicate unlocalized | `00:00:04` = `0.001111` GH200-hour; no pytest/checkpoint/data/model/build/calibration execution; Job B blocked |
+| Job E / `522037` Camera O-148 smoke | `125e915a0f16f8abfbfa14d73558ee518cf3170c` / tree `34840210a9d426c51973a29af4be91f06c5fe9f6`; config `f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d` | `FAILED 2:0` in explicit hash preflight; command-construction incident | `00:00:05` = `0.001389` GH200-hour; expected checkpoint-entry hash was truncated to 62 characters; no output/model/data execution |
+| Job F / `522042` Camera O-148 smoke | same exact Job E source/config with mechanically derived 64-character file hashes | `FAILED 1:0` after checkpoint acceptance in resolved-config evidence write | `00:01:58` = `0.032778` GH200-hour; 30 tests passed; checkpoint accepted once; canonical bytes were incorrectly written with an extra newline before physical-hash comparison |
 
 Before O-148 execution, Envelope-A Slurm usage is `3 / unlimited` submissions and
 `0.059444 / 1.10` charged GH200-hours. Jobs `521859`, `521901`, and `521959` are
@@ -470,6 +473,86 @@ SUBMISSION_USAGE_AFTER: 3 / 5
 GPU_HOURS_AFTER: 0.059444 / 1.10 charged GH200-hours
 PHASE_STATE_AT_TERMINAL: STOPPED_OWNER_GATE under O-147's then-active rule;
                          superseded prospectively by O-148 engineering completion
+```
+
+### Job E exact Camera pre-submission record under O-148
+
+```text
+SOURCE_SHA: 125e915a0f16f8abfbfa14d73558ee518cf3170c
+SOURCE_TREE: 34840210a9d426c51973a29af4be91f06c5fe9f6
+SOURCE_BRANCH: codex/s10-phase1-branch-qualification
+CONFIG: fl_v3/configs/s10_phase1_camera.json
+CONFIG_FILE_SHA256: 7101578fdfa38ba364c41ebc9ccd986797fe3261492b1bb149d0f962ec134e55
+RESOLVED_CONFIG_SHA256: f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d
+RUNNER_SHA256: fd12524489c42530758afafc4fb69009c3591d5f81ffec65f9ebf777df378c3c
+ENTRY_SHA256: 97947786cf08eca5f8baf1ab47be70030a767dc4be3079b971b95b16fde20b53
+CHECKPOINT_ENTRY_SHA256: 7bf4d9a24687c6c5ac72128f53e35cc99d1f7420bc3611a5c76576833cc402
+DATA/SEED/GATES: unchanged exact Camera values; D_fit first four official-CBGS B4;
+                 seed 0; frozen correctness tolerances and 0.80/1.02/1.05 gates
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd/job_e_camera_125e915a0f16_e1
+CUDA_BUILD: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/torch_extensions/s10_bev_pool_125e915a0f16_e1
+RESOURCES: 1 GH200, 16 CPU, 96 GiB, <=00:30:00, no requeue
+COMMAND: stable O-148 Camera invocation of run_s10_phase1_job_a.sh with the exact
+         bindings above; account naiss2025-22-1113-gpu; partition gpu
+USAGE_BEFORE: 3 / unlimited submissions; 0.059444 / 1.10 GH200-hours
+```
+
+### Job E `522037` terminal incident and Job F mechanical correction
+
+```text
+TERMINAL: FAILED 2:0 / elapsed 00:00:05 / 0.001389 GH200-hour / node n33
+FAILURE: submitted S10_P1_EXPECTED_CHECKPOINT_ENTRY_SHA256 was a manually
+         transcribed 62-character value missing `6c`; physical file SHA-256 is the
+         mechanically recomputed 64-character
+         7bf4d9a24687c6c6c5ac72128f53e35cc99d1f7420bc3611a5c76576833cc402
+CLASSIFICATION: command/provenance binding defect; runner correctly failed closed;
+                no executable source, model, data, config, tolerance, or gate change
+OUTPUT/CONTROL/BUILD: absent
+SLURM_STDOUT_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+SLURM_STDERR_SHA256: 6430e5a6c9a080495266eb6f4bd78922f12d905610bb58aef15059d5a00a6f0f
+REMEDIATION: derive every expected SHA directly from the physical file in the
+             pre-submission shell; assert 64-character lengths before sbatch
+USAGE_AFTER: 4 / unlimited submissions; 0.060833 / 1.10 GH200-hours
+```
+
+### Job F exact Camera pre-submission record under O-148
+
+```text
+SOURCE/CONFIG/DATA/SEED/GATES: identical to Job E
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd/job_f_camera_125e915a0f16_f1
+CUDA_BUILD: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/torch_extensions/s10_bev_pool_125e915a0f16_f1
+HASH_BINDING: all expected source/file identities mechanically recomputed from HEAD;
+              every Git/SHA-256 identity asserted to 40/64 characters before submission
+RESOURCES: unchanged 1 GH200, 16 CPU, 96 GiB, <=00:30:00, no requeue
+USAGE_BEFORE: 4 / unlimited submissions; 0.060833 / 1.10 GH200-hours
+```
+
+### Job F `522042` terminal incident and canonical-config remediation
+
+```text
+TERMINAL: FAILED 1:0 / elapsed 00:01:58 / 0.032778 GH200-hour / node n415
+PASSED: explicit preflight; 30/30 focused tests; one-time Swin checkpoint schema,
+        tensor mapping, initialized-state identity and atomic promotion
+CHECKPOINT: final physical SHA-256
+            9f71c168d837d1b99dd1dc29e14990a7a9e8bdc5f673d46b04fe36fe15590ad3;
+            mapping report SHA-256
+            c87469b84b4b865aa478cc1959c400468f8aca393e53cf8dbb92a71c3a63f70f;
+            initialization-state SHA-256
+            814eaf5adb58ecc5b5cfe253c63002bc6cad9390c01752b890298571fed01632;
+            quarantine absent after atomic promotion; future jobs revalidate/reuse
+FAILURE: _write_config_once wrote config.canonical_bytes plus a newline, then compared
+         the physical file hash against ResolvedConfig.sha256, which is defined over
+         canonical_bytes without that newline; the invariant could never pass
+CLASSIFICATION: evidence-serialization implementation defect; no model/data/config/
+                seed/tolerance/performance-gate change and no optimizer update
+REMEDIATION: write the exact canonical byte stream and add a regression that imports
+             the production calibrator, writes a resolved config, and requires both
+             byte equality and physical SHA equality
+NOT_EXECUTED: model construction, CUDA build, pooling parity/timing, end-to-end
+              calibration, evaluator schema, capability metrics, D_select/D_audit/val
+OUTPUT: immutable job_f_camera_125e915a0f16_f1
+OUTPUT_MANIFEST_SHA256: 0d05d82a5e5879bf9323538801b6e076b684573477644ddeb1b5de00392b2139
+USAGE_AFTER: 5 / unlimited submissions; 0.093611 / 1.10 GH200-hours
 ```
 
 ### Job A exact pre-submission record

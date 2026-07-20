@@ -107,7 +107,10 @@ def _write_config_once(path: Path, config) -> str:
         raise FileExistsError(f"refusing to overwrite resolved config {path}")
     temporary = path.with_name(path.name + ".partial")
     with temporary.open("xb") as stream:
-        stream.write(config.canonical_bytes + b"\n")
+        # ResolvedConfig.sha256 is defined over these exact canonical bytes.
+        # Do not append a presentation newline and then compare a different
+        # physical byte stream with the canonical identity.
+        stream.write(config.canonical_bytes)
         stream.flush()
         os.fsync(stream.fileno())
     temporary.chmod(0o400)
