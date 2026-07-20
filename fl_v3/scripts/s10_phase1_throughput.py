@@ -73,6 +73,70 @@ def _canonical_sha256(value: Any) -> str:
     return hashlib.sha256(_canonical_bytes(value)).hexdigest()
 
 
+def _batch_sha256(value: Any) -> str:
+    """Hash one CPU loader batch without changing its tensors or container order."""
+    digest = hashlib.sha256()
+
+    def part(payload: bytes) -> None:
+        digest.update(len(payload).to_bytes(8, "big"))
+        digest.update(payload)
+
+    def visit(item: Any, path: str) -> None:
+        part(path.encode("utf-8"))
+        part(type(item).__name__.encode("utf-8"))
+        if torch.is_tensor(item):
+            tensor = item.detach().resolve_conj().resolve_neg().cpu().contiguous()
+            part(str(tensor.dtype).encode("ascii"))
+            part(_canonical_bytes([int(size) for size in tensor.shape]))
+            try:
+                payload = tensor.numpy().tobytes(order="C")
+            except TypeError:  # numpy has no native bfloat16 representation.
+                payload = tensor.reshape(-1).view(torch.uint8).numpy().tobytes(order="C")
+            part(payload)
+            return
+        if isinstance(item, np.ndarray):
+            array = np.ascontiguousarray(item)
+            part(str(array.dtype).encode("ascii"))
+            part(_canonical_bytes([int(size) for size in array.shape]))
+            part(array.tobytes(order="C"))
+            return
+        if isinstance(item, Mapping):
+            keys = sorted(item, key=lambda key: (type(key).__name__, repr(key)))
+            part(_canonical_bytes([f"{type(key).__name__}:{key!r}" for key in keys]))
+            for key in keys:
+                visit(item[key], f"{path}.{type(key).__name__}:{key!r}")
+            return
+        if isinstance(item, (list, tuple)):
+            part(str(len(item)).encode("ascii"))
+            for index, child in enumerate(item):
+                visit(child, f"{path}[{index}]")
+            return
+        if item is None or isinstance(item, (str, bool, int, float)):
+            part(repr(item).encode("utf-8"))
+            return
+        raise TypeError(f"unsupported loader-batch leaf {type(item)!r} at {path}")
+
+    visit(value, "root")
+    return digest.hexdigest()
+
+
+class _BatchDigestLoader:
+    """Observational loader proxy used only by checkpoint-continuation diagnostics."""
+
+    def __init__(self, loader, records: list[str]) -> None:
+        self.loader = loader
+        self.records = records
+        self.batch_size = getattr(loader, "batch_size", None)
+
+    def __len__(self) -> int:
+        return len(self.loader)
+
+    def __iter__(self):
+        for batch in self.loader:
+            self.records.append(_batch_sha256(batch))
+            yield batch
+
+
 def _atomic_write_once(path: Path, value: Any) -> str:
     path = path.resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -464,8 +528,14 @@ def _run_segment(
     readiness: bool,
     warmup: int = 0,
     trace_controller: _TraceController | None = None,
+    batch_digests: list[str] | None = None,
 ) -> dict[str, Any]:
     raw = config.as_dict()
+    loader = (
+        bundle.loader
+        if batch_digests is None
+        else _BatchDigestLoader(bundle.loader, batch_digests)
+    )
     with ExitStack() as ranges:
         if trace_controller is not None:
             ranges.enter_context(model.operator_profile_ranges())
@@ -473,7 +543,7 @@ def _run_segment(
                 ranges.enter_context(criterion.operator_profile_ranges())
         return train_one_epoch(
             model,
-            bundle.loader,
+            loader,
             criterion,
             optimizer,
             device,
@@ -610,6 +680,7 @@ def _checkpoint_resume_worker(request_path: Path) -> dict[str, Any]:
             "resume-worker continuation target drift",
         )
         bundle.set_epoch(state.epoch)
+        resumed_batch_sha256: list[str] = []
         _run_segment(
             model=model,
             criterion=criterion,
@@ -622,6 +693,13 @@ def _checkpoint_resume_worker(request_path: Path) -> dict[str, Any]:
             device=device,
             target_optimizer_step=target,
             readiness=False,
+            batch_digests=resumed_batch_sha256,
+        )
+        _require(
+            len(resumed_batch_sha256)
+            == int(request["continuation_windows"])
+            * int(config.as_dict()["training"]["accumulation_steps"]),
+            "resume-worker input-digest count drift",
         )
         resumed = {
             "model": _state_capture(model.state_dict()),
@@ -642,10 +720,12 @@ def _checkpoint_resume_worker(request_path: Path) -> dict[str, Any]:
         }
         state_equal = reference["control"]["training_state"] == resumed["training_state"]
         rng_equal = reference["control"]["rng_sha256"] == resumed["rng_sha256"]
+        input_equal = reference["control_batch_sha256"] == resumed_batch_sha256
         gate = (
             all(item["gate_pass"] for item in continuation.values())
             and state_equal
             and rng_equal
+            and input_equal
         )
         result = {
             "schema": "s10.phase1p.resume-worker-result.v1",
@@ -655,12 +735,17 @@ def _checkpoint_resume_worker(request_path: Path) -> dict[str, Any]:
             "checkpoint_load_seconds": load_seconds,
             "restored_boundary": restored,
             "continuation": continuation,
+            "input_stream": {
+                "microbatches": len(resumed_batch_sha256),
+                "reference_sha256": reference["control_batch_sha256"],
+                "resumed_sha256": resumed_batch_sha256,
+                "exact_equal": input_equal,
+            },
             "training_state_equal": state_equal,
             "rng_state_equal": rng_equal,
             "gate_pass": gate,
         }
         _atomic_write_once(result_path, result)
-        _require(gate, "fresh-process checkpoint continuation parity failed")
         return result
     finally:
         bundle.close()
@@ -729,6 +814,7 @@ def _checkpoint_and_continuation(
     control_state = state
     control_target = control_state.optimizer_step + int(continuation_windows)
     bundle.set_epoch(control_state.epoch)
+    control_batch_sha256: list[str] = []
     _run_segment(
         model=model,
         criterion=criterion,
@@ -741,6 +827,14 @@ def _checkpoint_and_continuation(
         device=device,
         target_optimizer_step=control_target,
         readiness=False,
+        batch_digests=control_batch_sha256,
+    )
+    expected_continuation_microbatches = int(continuation_windows) * int(
+        config.as_dict()["training"]["accumulation_steps"]
+    )
+    _require(
+        len(control_batch_sha256) == expected_continuation_microbatches,
+        "uninterrupted-control input-digest count drift",
     )
     control = {
         "model": _state_capture(model.state_dict()),
@@ -750,6 +844,85 @@ def _checkpoint_and_continuation(
         "training_state": control_state.checkpoint_dict(),
         "rng_sha256": _rng_sha256(),
     }
+
+    # Replay once in the same process from the exact serialized boundary. This
+    # separates input-stream or kernel nondeterminism from fresh-process loading.
+    replay_started = time.perf_counter()
+    replay_state, replay_identity = load_checkpoint(
+        str(checkpoint),
+        model=model,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        grad_scaler=scaler,
+        ema=None,
+        config=config,
+        map_location="cpu",
+    )
+    _sync(device)
+    _require(replay_identity == config.sha256, "same-process replay identity drift")
+    _require(
+        replay_state.checkpoint_dict() == boundary_state,
+        "same-process replay training state drift",
+    )
+    _require(
+        tensor_state_sha256(model.state_dict()) == boundary_model_sha,
+        "same-process replay changed the boundary model",
+    )
+    bundle.set_epoch(replay_state.epoch)
+    replay_batch_sha256: list[str] = []
+    _run_segment(
+        model=model,
+        criterion=criterion,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        scaler=scaler,
+        bundle=bundle,
+        state=replay_state,
+        config=config,
+        device=device,
+        target_optimizer_step=control_target,
+        readiness=False,
+        batch_digests=replay_batch_sha256,
+    )
+    _require(
+        len(replay_batch_sha256) == expected_continuation_microbatches,
+        "same-process replay input-digest count drift",
+    )
+    replay = {
+        "model": _state_capture(model.state_dict()),
+        "optimizer": _state_capture(optimizer.state_dict()),
+        "scheduler": _state_capture(scheduler.state_dict()),
+        "scaler": _state_capture(scaler.state_dict()),
+        "training_state": replay_state.checkpoint_dict(),
+        "rng_sha256": _rng_sha256(),
+    }
+    replay_continuation = {
+        name: _compare_state_captures(
+            control[name], replay[name], rtol=float(rtol), atol=float(atol)
+        )
+        for name in ("model", "optimizer", "scheduler", "scaler")
+    }
+    replay_input_equal = control_batch_sha256 == replay_batch_sha256
+    replay_state_equal = control["training_state"] == replay["training_state"]
+    replay_rng_equal = control["rng_sha256"] == replay["rng_sha256"]
+    same_process = {
+        "continuation": replay_continuation,
+        "input_stream": {
+            "microbatches": len(replay_batch_sha256),
+            "control_sha256": control_batch_sha256,
+            "replay_sha256": replay_batch_sha256,
+            "exact_equal": replay_input_equal,
+        },
+        "training_state_equal": replay_state_equal,
+        "rng_state_equal": replay_rng_equal,
+        "gate_pass": (
+            all(item["gate_pass"] for item in replay_continuation.values())
+            and replay_input_equal
+            and replay_state_equal
+            and replay_rng_equal
+        ),
+    }
+    replay_seconds = time.perf_counter() - replay_started
 
     reference_path = output_dir / "checkpoint_continuation_reference.pt"
     started = time.perf_counter()
@@ -762,13 +935,14 @@ def _checkpoint_and_continuation(
             "boundary_training_state": boundary_state,
             "boundary": boundary,
             "control_target_optimizer_step": control_target,
+            "control_batch_sha256": control_batch_sha256,
             "control": control,
         },
     )
     reference_write_seconds = time.perf_counter() - started
 
     bundle.close()
-    del model, criterion, optimizer, scheduler, scaler, bundle, boundary, control
+    del model, criterion, optimizer, scheduler, scaler, bundle, boundary, control, replay
     gc.collect()
     torch.cuda.empty_cache()
 
@@ -812,7 +986,10 @@ def _checkpoint_and_continuation(
         f"fresh-process checkpoint worker failed with {process.returncode}; see {worker_stderr}",
     )
     worker = _read_json(worker_result_path)
-    _require(worker.get("gate_pass") is True, "fresh-process checkpoint gate did not pass")
+    _require(
+        isinstance(worker.get("gate_pass"), bool),
+        "fresh-process checkpoint worker omitted its gate verdict",
+    )
 
     return {
         "schema": "s10.phase1p.checkpoint-profile.v1",
@@ -830,6 +1007,7 @@ def _checkpoint_and_continuation(
             "fresh_process_model_stack_build": worker["model_stack_build_seconds"],
             "fresh_process_D_fit_loader_build": worker["D_fit_loader_build_seconds"],
             "continuation_reference_write_profiler_overhead": reference_write_seconds,
+            "same_process_replay_profiler_overhead": replay_seconds,
             "fresh_process_worker_total_profiler_overhead": worker_seconds,
         },
         "fresh_process": {
@@ -849,8 +1027,10 @@ def _checkpoint_and_continuation(
             },
         },
         "restored_boundary": worker["restored_boundary"],
+        "same_process_replay": same_process,
         "continuation_windows": int(continuation_windows),
         "continuation": worker["continuation"],
+        "input_stream": worker["input_stream"],
         "training_state_equal": worker["training_state_equal"],
         "rng_state_equal": worker["rng_state_equal"],
         "gate_pass": worker["gate_pass"],
@@ -1015,6 +1195,33 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     trace_record = (
         None if trace_controller is None else trace_controller.publish(output_dir)
     )
+    measurement_record = {
+        "schema": "s10.phase1p.measurement.v1",
+        "mode": args.mode,
+        "branch": args.branch,
+        "candidate_id": profile.data["candidate_id"],
+        "source": source,
+        "resolved_config_sha256": config.sha256,
+        "profile_config_sha256": profile.sha256,
+        "startup_seconds": {
+            "model_loss_optimizer_scheduler_scaler": model_seconds,
+            "D_fit_loader": loader_seconds,
+            "before_training_total": training_started - startup_started,
+        },
+        "training_wall_seconds_including_warmup": training_seconds,
+        "measurement": metrics,
+        "sampler_prefix": prefix,
+        "system_sampling": system_record,
+        "torch_trace": trace_record,
+        "memory_safe_under_85_percent_reserved": memory_safe,
+        "D_select_executed": False,
+        "D_audit_executed": False,
+        "official_validation_executed": False,
+        "capability_metrics": False,
+    }
+    measurement_sha = _atomic_write_once(
+        output_dir / "measurement.json", measurement_record
+    )
     checkpoint_record = None
     if args.mode == "sustained":
         tolerances = profile.data["parity"][str(raw["precision"]["global_autocast"])]
@@ -1046,7 +1253,16 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     else:
         bundle.close()
 
-    status = "COMPLETE_SUSTAINED" if args.mode == "sustained" else "COMPLETE_TRACE"
+    checkpoint_gate = (
+        True if checkpoint_record is None else bool(checkpoint_record["gate_pass"])
+    )
+    status = (
+        "FAILED_CHECKPOINT_PARITY"
+        if not checkpoint_gate
+        else "COMPLETE_SUSTAINED"
+        if args.mode == "sustained"
+        else "COMPLETE_TRACE"
+    )
     result = {
         "schema": SCHEMA,
         "status": status,
@@ -1064,6 +1280,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         },
         "training_wall_seconds_including_warmup": training_seconds,
         "measurement": metrics,
+        "measurement_artifact_sha256": measurement_sha,
         "sampler_prefix": prefix,
         "system_sampling": system_record,
         "torch_trace": trace_record,
@@ -1080,6 +1297,17 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         ],
     }
     result_sha = _atomic_write_once(output_dir / "result.json", result)
+    if not checkpoint_gate:
+        _atomic_write_once(
+            output_dir / "failed.json",
+            {
+                "schema": "s10.phase1p.failed.v1",
+                "status": status,
+                "result_sha256": result_sha,
+                "failed_unix_seconds": time.time(),
+            },
+        )
+        raise RuntimeError("fresh-process checkpoint continuation parity failed")
     complete = {
         "schema": "s10.phase1p.complete.v1",
         "status": status,

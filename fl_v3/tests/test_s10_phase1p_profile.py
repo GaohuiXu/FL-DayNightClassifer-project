@@ -128,6 +128,24 @@ def test_profiler_state_comparison_is_exact_for_discrete_and_tolerant_for_float(
     assert discrete["discrete_exact_failures"]
 
 
+def test_checkpoint_diagnostic_batch_hash_is_value_sensitive_and_observational():
+    runner = _runner_module()
+    batch = {
+        "sample_token": ["a", "b"],
+        "lidar_points": [torch.arange(12, dtype=torch.float32).reshape(3, 4)],
+        "gt_labels": [torch.tensor([1, 3], dtype=torch.int64)],
+        "meta": (True, 4, 0.25, None),
+    }
+    before = copy.deepcopy(batch)
+    reference = runner._batch_sha256(batch)
+    assert runner._batch_sha256(copy.deepcopy(batch)) == reference
+    assert batch.keys() == before.keys()
+    assert torch.equal(batch["lidar_points"][0], before["lidar_points"][0])
+    changed = copy.deepcopy(batch)
+    changed["lidar_points"][0][0, 0] += 1.0
+    assert runner._batch_sha256(changed) != reference
+
+
 def test_profiler_entry_has_no_evaluation_constructor_or_metric_path():
     source = (ROOT / "scripts" / "s10_phase1_throughput.py").read_text(
         encoding="utf-8"
@@ -141,3 +159,5 @@ def test_profiler_entry_has_no_evaluation_constructor_or_metric_path():
         assert forbidden not in source
     assert '"D_select_executed": False' in source
     assert '"capability_metrics": False' in source
+    assert '"measurement.json"' in source
+    assert '"same_process_replay"' in source

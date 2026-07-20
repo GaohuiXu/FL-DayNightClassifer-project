@@ -715,13 +715,17 @@ reserve. Raw Slurm logs and any created attempt directory are immutable.
 | Attempt | Source / profile / output | Terminal state and diagnosis | Charged GH200-hours |
 |---|---|---|---:|
 | Job `525163`, LiDAR sustained reference r1 | source `07d7db10db3f2c5cf92b774b1ba0511157fa16e8`; approved source `85c6719e4b880b198d850e16b1418c230fa5c656`; profile file `f51c7a62...f48e0`, canonical `7b9aede3...ed949`; intended attempt `lidar/sustained_07d7db10db3f_r1_reference`; Slurm logs under the approved root | `FAILED_PRE_MODEL` in `00:00:05`; Slurm executed its copied batch script from `/var/lib/slurm`, so the wrapper derived a nonexistent spool-relative repository path and failed at config `realpath`; no config, runtime, data, model or update executed. Unambiguous runner-path bug; replacement must bind `source_root` to `SLURM_SUBMIT_DIR`, use a fresh attempt path and a new linear source. | reserve `0.001389`; base `0.000000` |
+| Job `525168`, LiDAR sustained reference r1 path-fix replacement | source `b2ee9900cdc4968180bf90e39c10e62db94cac1b`; same approved source/profile; attempt `lidar/sustained_b2ee9900cdc4_r1_pathfix`; immutable raw artifacts retained | `FAILED_CHECKPOINT_PARITY` in `00:08:58` after the complete 16+256-window main interval. The real 100,014,315-byte checkpoint loaded with exact boundary model/optimizer/scheduler/scaler, training state and RNG. After eight continuation windows, scheduler/scaler/state/RNG remained equal but model and optimizer failed unchanged FP16 allclose: global relative L2 `1.34867e-4` and `6.42201e-5`, with 119/102 per-tensor failures. The runner did not persist the already-complete main measurement before the late gate, so no throughput verdict is recoverable. Diagnosis remains open between input-stream drift, permitted sparse-kernel nondeterminism and a comparison-protocol defect; tolerances are unchanged. | base `0.149444`; reserve `0.000000` |
 
-Current accounting after Job `525163`: base cells `0.000000 / 2.0`, code-bug
-reserve `0.001389 / 1.0`, hard aggregate `0.001389 / 3.0` charged GH200-hours.
-The derived wrapper hash after the diagnosed repair is
-`4f532d1e2db4658523e9e83196e83785b13295fe7312e69524007ec507dc564d`;
-its exact source SHA and replacement Job ID are appended after the linear repair
-commit and serial submission.
+Current accounting after Job `525168`: base cells `0.149444 / 2.0`, code-bug
+reserve `0.001389 / 1.0`, hard aggregate `0.150833 / 3.0` charged GH200-hours.
+The worktree-path repair is sealed at source `b2ee9900cdc4968180bf90e39c10e62db94cac1b`
+with wrapper hash `4f532d1e...c564d`. The next derived diagnostic persists the
+main measurement before checkpoint work, hashes all 64 continuation microbatches,
+and adds a same-process replay before the fresh-process replay. These additions are
+diagnostic-only; they do not alter the data, model, loss, precision, update or frozen
+parity tolerances. Its runner hash is
+`b8014624e3dbf44c3e11d704a0d0694646a01ad3f270e6c729082d6edb4f130d`.
 
 ## 9. Envelope-A compact execution ledger
 
