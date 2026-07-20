@@ -1,15 +1,16 @@
-# S10 HANDOFF — O-144 Phase I plan freeze under O-143
+# S10 HANDOFF — O-145 pooling amendment and Envelope-A draft under O-143/O-144
 
 ## 1. Current state and authority
 
 ```text
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
-BRANCH: codex/s10-cl-model-recipe
-ACTIVE_DECISION: O-144 under O-143
+BRANCH: codex/s10-phase1-branch-qualification
+ACTIVE_DECISION: O-145 under O-143/O-144
 SCIENCE_ORDER: C/L independent recipe+capability -> staged fusion -> capability gate -> profiler
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: documentation only; Envelope A not activated; no implementation or compute
+CURRENT_AUTHORITY: O-145 documentation amendment and Envelope-A drafting only;
+                   Envelope A not activated; no implementation/acquisition/compute
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -23,7 +24,11 @@ collaboration plan: physical B4 plus accumulation 8/effective B32; one ImageNet
 Camera primary and one scratch LiDAR primary; exact reference-led recipes;
 role-bound D_fit-only GT-paste; seed 0; 20 epochs; terminal-only selection; two
 total candidates; and five WPs, three owner gates and two approval envelopes.
-O-144 authorizes documentation only. It does not activate Envelope A or B.
+O-145 amends WP2/WP4 to require an independent in-tree optimized CUDA BEV-pooling
+port or functionally equivalent kernel, a labelled reference fallback, FP32/FP16
+forward/backward and policy parity, and GH200 operator plus aligned end-to-end
+timing. It authorizes the amendment commit and exact Envelope-A drafting only.
+O-144/O-145 do not activate Envelope A or B.
 
 Current-A2 and the old C→D→E→F route are paused. The primary S10 claim remains
 **absolute clean capability + fusion contribution**, but it must now be earned
@@ -174,19 +179,24 @@ and evaluator paths, extended only by the smallest required branch-mode seams.
 
 ## 7. Next owner discussion and current stop
 
-`P1-G0 PLAN_FREEZE` is closed. The next request is exact activation of Envelope A,
-covering the five WPs, allowed source/docs/tests, focused local validation,
-material linear commits, official ImageNet checkpoint acquisition, D_fit CBGS/
-GTDB materialization, and at most one aggregate GH200-hour of production-path
-engineering calibration with maximum concurrency one and at most three
-submissions.
+`P1-G0 PLAN_FREEZE` is closed and O-145 is incorporated. The next request is exact
+activation of Envelope A, covering the five WPs, allowed source/docs/tests,
+focused local validation, material linear commits, reference-YAML ImageNet Swin-T
+checkpoint acquisition, D_fit CBGS/GTDB materialization, optimized/fallback
+BEV-pooling parity and timing, and at most one aggregate GH200-hour of
+production-path engineering calibration with maximum concurrency one and at most
+three submissions.
 
-That activation must bind checkpoint/data/engineering output roots, allowed
-commit and remediation authority, and stop/escalation conditions. After Envelope
-A yields exact `N_cbgs`, GTDB identities, resolved config hashes, graph timing and
-one joint recipe review, `P1-G1` will present the measured Envelope-B scientific
-GPU-hour/submission request.
+The checkpoint is the MIT Camera YAML's ImageNet
+`swin_tiny_patch4_window7_224.pth`, not `swint-nuimages-pretrained.pth`; no file has
+been downloaded under O-145. Activation must bind checkpoint/data/engineering
+output roots, allowed commit/remediation authority, pooling parity tolerances, and
+stop/escalation conditions. After Envelope A yields exact `N_cbgs`, GTDB
+identities, resolved config hashes, graph timing and one joint recipe review,
+`P1-G1` will present the measured Envelope-B scientific GPU-hour/submission
+request.
 
-No Phase-I implementation, checkpoint acquisition, GTDB materialization, commit,
+No Phase-I implementation, checkpoint acquisition, GTDB materialization, further
+material commit,
 Slurm submission, staged fusion, profiler, merge, push, upload, publication or
 S11+ work is currently authorized.

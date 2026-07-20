@@ -1,7 +1,8 @@
 # USENIX Security '27 Orchestra — clean CL to federated multimodal security
 
 > **Active status (2026-07-20).** S07-S09 are closed. S10 is active on
-> `codex/s10-cl-model-recipe` from audited base
+> `codex/s10-phase1-branch-qualification`, advanced linearly from
+> `codex/s10-cl-model-recipe`, from audited base
 > `a080d49c1c22de20ccb5b1353d4922c7df14a729`.
 >
 > O-143 replaces S10's active six-stop execution order and per-job
@@ -15,6 +16,10 @@
 > effective B32; one ImageNet Camera primary and one scratch LiDAR primary;
 > role-bound D_fit GT-paste; seed 0; 20 epochs; terminal-only selection; two
 > total candidates; and five WPs, three owner gates and two approval envelopes.
+> O-145 amends WP2/WP4 with an independent optimized CUDA BEV-pooling port or
+> equivalent kernel, labelled fallback, FP32/FP16 forward/backward and policy
+> parity, plus GH200 operator and aligned B4 end-to-end timing. The Camera
+> checkpoint named by the reference YAML is ImageNet Swin-T, not NuImages.
 >
 > Prior evidence is retained, not erased: STOP-A's split/evaluator is reusable;
 > STOP-B is `INCONCLUSIVE`; C1-A localized the observed large LiDAR-stem
@@ -23,7 +28,8 @@
 > limits remain in `handoffs/S10/RESULTS.md` and the historical portion of
 > `RUN_REQUEST.md`.
 >
-> O-144 authorizes this plan-freeze documentation only. Envelope A is not
+> O-144/O-145 authorize plan documentation and exact Envelope-A drafting only.
+> Envelope A is not
 > activated. No C/L implementation, checkpoint acquisition, GTDB
 > materialization, commit, training, Slurm submission, staged fusion, profiler,
 > merge, push, upload, publication or S11+ execution is currently authorized.
@@ -432,6 +438,7 @@ Closed ranges below are provenance.
 
 | O-143 | Replace the active S10 six-stop execution order with: camera and LiDAR independent recipe/capability qualification; staged fusion from qualified checkpoints; aligned absolute-capability and fusion-contribution gate; GH200 profiling/optimization only after capability passes. Pause current-A2 and the old C→D→E→F path. For S10, replace per-job immutable/no-retry/multi-document/reviewer mechanics with one owner-approved phase envelope, autonomous output-neutral engineering remediation within its aggregate compute/submission cap, one compact active handoff and one job ledger. Preserve raw outputs and minimum run provenance. Return to the owner for any model/data/recipe-space/metric/seed/candidate/resource change or repeated engineering failure. Review data/metric changes, branch recipe freezes and final fusion/full results only. | active S10 science/collaboration rebaseline; documentation only; no compute authority |
 | O-144 | Freeze `handoffs/S10/PHASE_I_PLAN.md` as the binding Phase I C/L plan. Select physical B4 plus accumulation 8/effective B32; exact standalone Camera with ImageNet-1K Swin-T, reference six-task CenterHead and Camera recipe; scratch keyframe-train LiDAR with reference BN, SECOND `[5,5]`/SECONDFPN/TransFusionHead and LiDAR recipe; exact role-bound D_fit CBGS/GT-paste; seed 0; 20 epochs; epoch-20 terminal-only selection; one terminal D_select evaluation and owner-unsealed one-time D_audit; exactly two initial candidates; and the five-WP/three-gate/two-envelope execution model. Require all later work to follow that plan unless explicitly amended. This decision closes P1-G0 plan freeze only and does not activate Envelope A or B; it authorizes no implementation, checkpoint acquisition, GTDB materialization, commit, GPU/Slurm execution, merge, push or upload. | active Phase I plan freeze / next: Envelope-A activation request / no execution authority |
+| O-145 | Amend O-144 WP2/WP4 to require an independent in-tree port of the pinned MIT optimized CUDA BEV-pooling operation, or a functionally equivalent kernel, with no mmdet3d/mmcv runtime dependency; retain a labelled reference fallback; require geometry/shape, FP32/FP16 forward/backward and accepted-precision-policy parity before production use; and measure GH200 operator plus aligned physical-B4 end-to-end timing in WP4. Clarify that the initial Camera checkpoint URL is the reference YAML's ImageNet `swin_tiny_patch4_window7_224.pth`, not `swint-nuimages-pretrained.pth`. Authorize the plan-amendment commit and exact Envelope-A drafting only. Do not activate implementation, checkpoint acquisition, GTDB materialization, GPU execution, merge, push or upload. | active Phase-I amendment / Envelope A exact draft pending owner approval / no execution authority |
 
 ## 10. Closed and consumed history
 

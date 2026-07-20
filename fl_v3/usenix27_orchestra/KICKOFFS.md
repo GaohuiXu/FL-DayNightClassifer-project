@@ -1,7 +1,8 @@
 # USENIX Security '27 Orchestra — active envelopes
 
 > **Launch state (2026-07-20).** S08/S09 are closed. S10 is active on
-> `codex/s10-cl-model-recipe` and has been rebaselined by O-143.
+> `codex/s10-phase1-branch-qualification`, advanced linearly from
+> `codex/s10-cl-model-recipe`, and has been rebaselined by O-143.
 >
 > Active order: **C/L independent recipe and capability → staged fusion →
 > aligned capability/fusion gate → profiler/optimization only after pass**.
@@ -14,8 +15,11 @@
 > authority.
 >
 > O-144 closes `P1-G0 PLAN_FREEZE`; all Phase-I work must follow
-> `handoffs/S10/PHASE_I_PLAN.md`. Envelope A is not activated, so this kickoff
-> still records no implementation, checkpoint, GTDB, commit or compute authority.
+> `handoffs/S10/PHASE_I_PLAN.md`. O-145 adds the optimized CUDA BEV-pooling
+> implementation/parity/timing contract to WP2/WP4 and permits exact Envelope-A
+> drafting only. Envelope A is not activated, so this kickoff
+> still records no implementation, checkpoint, GTDB, implementation commit or
+> compute authority beyond the O-145 documentation amendment itself.
 
 ## 1. Rules for starting or extending work
 
@@ -386,7 +390,7 @@ recipe claim, multi-seed, Protocol A/B, attack, defense, DDP, full-data payload
 scan, branch selection, normalization experiment, or publication/upload is
 authorized.
 
-## 6. S10 O-143/O-144 launch state
+## 6. S10 O-143/O-144/O-145 launch state
 
 - **Science order:** qualify camera and LiDAR independently; freeze reviewed
   branch recipes/checkpoints; staged fusion; aligned absolute-capability and
@@ -405,6 +409,10 @@ authorized.
 - **O-144 Phase-I freeze:** `handoffs/S10/PHASE_I_PLAN.md` binds the exact two
   primaries, B4 x accumulation 8/effective B32, role-bound D_fit recipe, seed 0,
   20 epochs, terminal-only selection and five-WP/three-gate/two-envelope workflow.
+- **O-145 amendment:** WP2 independently ports the pinned optimized CUDA
+  BEV-pooling operation or an equivalent kernel without mmdet3d/mmcv runtime;
+  WP4 gates fallback parity, FP32/FP16 policy, operator timing and aligned B4
+  end-to-end timing. The primary checkpoint is ImageNet Swin-T, not NuImages.
 - **Current authority:** documentation only. Envelope A is not activated; no
   implementation, checkpoint acquisition, GTDB materialization, commit or compute
   is executable.
@@ -430,11 +438,12 @@ OWNER_APPROVAL: pending
 
 The next request is Envelope A, not the 20-epoch science envelope. It must bind
 WP0-WP4 source/docs/tests, material linear commits, exact official ImageNet
-checkpoint acquisition, D_fit CBGS/GTDB materialization and the engineering
-calibration design (`<=1.0` aggregate GH200-hour, at most three submissions,
-maximum concurrency one, at most 30 minutes/submission). It forbids capability
-metrics and D_select/D_audit. Envelope B is requested only at `P1-G1` after
-Envelope-A identities, timing and the joint recipe review exist.
+checkpoint acquisition, D_fit CBGS/GTDB materialization, the optimized-pooling
+build/parity/operator and end-to-end timing gates, and the engineering calibration
+design (`<=1.0` aggregate GH200-hour, at most three submissions, maximum
+concurrency one, at most 30 minutes/submission). It forbids capability metrics and
+D_select/D_audit. Envelope B is requested only at `P1-G1` after Envelope-A
+identities, timing and the joint recipe review exist.
 
 After approval, individual job rows in `handoffs/S10/RUN_REQUEST.md` record Git
 SHA, resolved-config hash, split, seed, command, resources, output, terminal state,

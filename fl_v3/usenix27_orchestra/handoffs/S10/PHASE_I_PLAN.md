@@ -5,14 +5,15 @@
 ```text
 STATUS: OWNER-FROZEN SCIENTIFIC AND COLLABORATION PLAN
 DATE: 2026-07-20
-OWNER_DECISION: O-144
+OWNER_DECISION: O-144 plus O-145 optimized-BEV-pooling amendment
 SCOPE: Phase I camera/LiDAR clean branch qualification
 AUTHORITY: freezes the Phase I scientific choices, work-package order, gates,
            approval structure, and execution boundaries recorded below
-IMPLEMENTATION: not authorized by O-144
+IMPLEMENTATION: not authorized by O-144 or O-145
 COMPUTE: not authorized
 CHECKPOINT_ACQUISITION: not authorized by this document
-COMMIT/MERGE/PUSH/UPLOAD/PUBLICATION: not authorized by this document
+COMMIT: O-145 authorizes only the documentation amendment commit that records O-145
+MERGE/PUSH/UPLOAD/PUBLICATION: not authorized by this document
 AMENDMENT: any departure from a frozen scientific field or gate requires an
            explicit owner amendment before implementation or execution
 ```
@@ -21,9 +22,17 @@ O-144 promotes this document from a temporary discussion draft to the binding Ph
 plan. Future implementation and execution must follow it. It complements, and does not
 supersede, `HANDOFF.md`, `RUN_REQUEST.md`, `AGENTS.md`, or later owner decisions.
 Plan freeze is not execution authority: Envelope A must still be activated before any
-implementation, checkpoint download, commit, D_fit GT-database materialization, or
-engineering GPU calibration; Envelope B must later be approved before scientific
-training or evaluation.
+implementation, checkpoint download, material implementation commit, D_fit
+GT-database materialization, or engineering GPU calibration; Envelope B must later
+be approved before scientific training or evaluation. O-145's documentation-only
+amendment commit is the sole current commit exception.
+
+O-145 amends the frozen implementation plan without changing either scientific
+candidate: WP2 must provide an independent in-tree port of the pinned MIT optimized
+CUDA BEV-pooling operation, or a functionally equivalent kernel, and WP4 must qualify
+its numerical and performance behavior. O-145 authorizes this documentation amendment
+and drafting the exact Envelope-A request only. It does not activate Envelope A,
+authorize checkpoint acquisition, or authorize implementation or GPU execution.
 
 ## 1. Technical summary
 
@@ -34,6 +43,10 @@ current shared-GN hybrid:
 - **Camera:** use the exact standalone MIT Camera graph family: Swin-T,
   GeneralizedLSSFPN, pure-camera LSS, the camera-specific GeneralizedResNet/LSSFPN
   decoder, and the reference six-task CenterHead.
+- **Camera BEV pooling:** replace the current production PyTorch scatter/cumsum
+  implementation with an independent mmdet3d/mmcv-free port of the pinned MIT CUDA
+  pooling operation, or a functionally equivalent kernel. Retain a correctness
+  fallback and require forward/backward plus precision-policy parity before use.
 - **LiDAR:** use the MIT `voxelnet_0p075` graph family with keyframe-only training,
   reference BatchNorm, SECOND/SECONDFPN, and TransFusionHead.
 - **Fusion:** no Phase I training. Phase II will use the reference staging direction:
@@ -85,11 +98,16 @@ For each branch:
 
 ### 2.3 Exclusions
 
-Phase I does not include Fusion training, an optimization/profiler campaign, official
-validation publication claims, Protocol-A/B execution, federated adaptation,
+Phase I does not include Fusion training, a general optimization/profiler campaign,
+official validation publication claims, Protocol-A/B execution, federated adaptation,
 attack/defense experiments, or an automatic NuImages repair cell. No current C0/C1
 diagnostic graph is an automatic second candidate. The initial scientific candidate
 cap is exactly two: one Camera primary and one LiDAR primary.
+
+The O-145 CUDA BEV-pooling port, parity qualification, and bounded operator/end-to-end
+timing are the sole Phase-I custom-kernel performance exception. They are part of
+implementing the selected Camera graph, not a third candidate or a general profiler
+campaign.
 
 ## 3. Frozen graph direction
 
@@ -99,10 +117,30 @@ cap is exactly two: one Camera primary and one LiDAR primary.
 six camera images
   -> Swin-T (native LayerNorm)
   -> reference GeneralizedLSSFPN (BatchNorm)
-  -> pure-camera LSS
+  -> pure-camera LSS with optimized CUDA BEV pooling
   -> camera-specific GeneralizedResNet + LSSFPN decoder (BatchNorm)
   -> reference six-task CenterHead (BatchNorm)
 ```
+
+The production backend must be an independent in-tree port of the optimized pooling
+operation at pinned MIT commit `326653dc06e0938edf1aae7d01efcd158ba83de5`, or a
+functionally equivalent CUDA kernel. It must not add mmdet3d or mmcv as a runtime
+dependency. A clearly labelled reference/fallback backend remains available for
+correctness tests and emergency diagnosis, but it is not another scientific candidate
+and may not silently replace a failed production kernel in Envelope B.
+
+Before the optimized backend can become the Camera production default, WP2/WP4 must:
+
+1. prove exact geometry/rank/cell-membership and output-shape agreement with the
+   reference/fallback path, including empty inputs, singletons, collisions, and B4;
+2. compare forward values and backward gradients against the fallback under both FP32
+   reference and accepted FP16 production policies, report maximum absolute/relative
+   error, and freeze the tolerances before the first GPU parity run;
+3. prove that autocast boundaries, FP32 accumulation where required, output dtype,
+   finite-state checks, and the accepted S08 precision policy are unchanged;
+4. fail closed on build, dispatch, dtype, architecture, or parity failure; and
+5. retain the pinned Apache-2.0 source attribution/NOTICE obligations if source is
+   ported, and record the extension source/build/runtime identity.
 
 The standalone Camera graph is intentionally not forced to be tensor-compatible with
 the complete future Fusion detector. Its complete detector checkpoint establishes a
@@ -233,7 +271,9 @@ direction.
 - checkpoint selection/evaluation: only the epoch-20 terminal checkpoint is eligible;
   recovery checkpoints are non-selectable, and CPU metric aggregation is separated
   from GPU inference when practical;
-- no Phase I compile/fused-optimizer/TF32/sparse-FP16 campaign;
+- no Phase I `torch.compile`/graph-compiler, fused-optimizer, TF32, or sparse-FP16
+  campaign; the O-145 in-tree BEV-pooling extension is the sole custom-kernel/build
+  exception;
 - record natural timing and memory counters from the chosen graph, then defer a
   dedicated profiler/optimization campaign to Phase III.
 
@@ -433,9 +473,14 @@ keyframe GTDB under an explicitly activated Envelope A.
 ## 8. Camera initialization and NuImages checkpoint
 
 The Camera primary uses the pinned public ImageNet-1K Swin-T checkpoint declared by the
-reference Camera YAML. Downloading it is still an external-action permission and is
-not authorized by O-144; Envelope A must bind its exact URL, license, permitted
-`/nobackup` destination, physical SHA-256, and tensor-load report before acquisition.
+reference Camera YAML:
+`https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_tiny_patch4_window7_224.pth`.
+It is not the NuImages checkpoint. Downloading it is still an external action and is
+not authorized by O-144/O-145. Envelope A must bind its exact URL, license, permitted
+`/nobackup` quarantine/final destinations and redirect policy before acquisition. If
+the pinned upstream does not publish a trusted digest, the activated acquisition must
+hash the quarantined bytes and freeze the physical SHA-256 before rename, tensor
+mapping, or model use; a redirect/content mismatch fails closed.
 
 The official `swint-nuimages-pretrained.pth` remains directly downloadable from the
 pinned MIT repository's `tools/download_pretrained.sh`. It is a Swin backbone
@@ -520,21 +565,27 @@ create a per-WP worktree, harness, handoff, review chain, or approval cycle.
    deterministic epoch order/remainder identity, checkpoint/resume, and the direct
    production `--preflight-only` path.
 3. **WP2 — exact standalone Camera.** Implement the Section-3.1 graph, ImageNet tensor
-   mapping, reference CenterHead recipe, Camera augmentation, and the tested
-   output-neutral omission of unused point payloads when parity permits.
+   mapping, reference CenterHead recipe, Camera augmentation, the independent in-tree
+   optimized CUDA BEV-pooling backend plus reference fallback and forward/backward
+   parity tests, and the tested output-neutral omission of unused point payloads when
+   parity permits.
 4. **WP3 — reference-led LiDAR.** Implement the Section-3.2 graph, BN, reference
    SECOND/SECONDFPN, mmdet-free TransFusionHead/target/loss/decode path, and
    keyframe-train/ten-sweep-eval separation.
 5. **WP4 — production integration, qualification, and review preparation.** Run
-   focused local/static tests, production-path engineering calibration, checkpoint
-   resume and evaluator preflight; inventory the historical Alvis checkpoint/config/
-   class/evaluator provenance without performing the Phase-II aligned comparison;
-   then freeze one durable C/L implementation SHA for one combined recipe review.
+   focused local/static tests; qualify optimized/fallback pooling forward values,
+   backward gradients, and FP16/FP32 policy; measure both pooling-operator and aligned
+   B4 end-to-end Camera timing; run production-path C/L engineering calibration,
+   checkpoint resume, and evaluator preflight; inventory the historical Alvis
+   checkpoint/config/class/evaluator provenance without performing the Phase-II aligned
+   comparison; then freeze one durable C/L implementation SHA for one combined recipe
+   review.
 
 Material commits are grouped at plan freeze, shared recipe infrastructure, Camera,
 LiDAR, and final production-integration/review boundaries. Ordinary fixture or runner
 fixes are folded into the next material commit. O-144 itself does not grant commit
-authority; that authority must be explicit in Envelope A.
+authority, and O-145 grants only its documentation amendment commit; implementation
+commit authority must be explicit in Envelope A.
 
 ### 10.2 Three owner gates
 
@@ -555,8 +606,9 @@ authority; that authority must be explicit in Envelope A.
 Envelope A is designed to authorize all five WPs in one bounded implementation
 period: scoped source/docs/tests, focused local validation, material linear commits,
 the exact official ImageNet-1K Swin-T acquisition, exact D_fit CBGS/GTDB
-materialization, and production-path C/L engineering calibration. It authorizes no
-capability metric, `D_select`, `D_audit`, scientific checkpoint, or 20-epoch run.
+materialization, the in-tree CUDA BEV-pooling build/parity/timing work, and
+production-path C/L engineering calibration. It authorizes no capability metric,
+`D_select`, `D_audit`, scientific checkpoint, or 20-epoch run.
 
 The adopted engineering-calibration design is:
 
@@ -565,6 +617,9 @@ The adopted engineering-calibration design is:
 - at most three submissions, each at most 30 minutes;
 - C and L each run 16 warm-up plus 64 timed physical-B4 microbatches through the
   production entry/config/data/model/optimizer path;
+- Camera additionally compares the optimized and reference/fallback pooling backends
+  from identical initialization and input order, recording CUDA-event operator timing
+  and aligned end-to-end timing without capability metrics;
 - report loader wait, GPU step time, samples/s, peak memory, initialization and
   accepted-window state; do not launch a broad profiler.
 
@@ -625,7 +680,7 @@ repair in either initial envelope.
 
 ## 11. Frozen fields and remaining activation inputs
 
-### 11.1 Owner-frozen by O-144
+### 11.1 Owner-frozen by O-144 plus O-145
 
 - reference BatchNorm throughout the selected convolutional graph; Swin LayerNorm
   retained; no GN candidate;
@@ -633,6 +688,9 @@ repair in either initial envelope.
 - physical B4, accumulation 8, effective optimizer B32, scheduler per optimizer update,
   activation checkpointing off, and redundant telemetry synchronization off;
 - exact standalone reference Camera graph;
+- independent in-tree optimized CUDA BEV pooling/equivalent kernel for the Camera
+  production backend, with a labelled fallback and WP2/WP4 forward, backward,
+  FP16/FP32-policy, operator-timing, and end-to-end-timing gates;
 - Camera ImageNet-1K Swin-T primary initialization;
 - Camera CenterHead; LiDAR/Fusion TransFusionHead;
 - reference L/F SECOND+SECONDFPN decoder rather than the current shallow shared neck;
@@ -653,6 +711,8 @@ repair in either initial envelope.
 - Envelope-A activation: exact scoped implementation/files, official ImageNet
   checkpoint URL/license/destination, data/engineering output roots, commit and
   remediation authority;
+- optimized/fallback BEV-pooling FP32/FP16 forward/backward parity tolerances and
+  exact operator/end-to-end timing protocol, frozen before the first GPU parity run;
 - downloaded ImageNet checkpoint SHA-256 and exact loaded/missing/unexpected tensor
   mapping report;
 - materialized official-CBGS length, expanded-index/order/remainder hashes, updates per
@@ -696,7 +756,12 @@ Pinned MIT BEVFusion reference, commit
 - [SECOND/SECONDFPN configuration](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/configs/nuscenes/det/transfusion/secfpn/default.yaml)
 - [TransFusionHead configuration](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/configs/nuscenes/det/transfusion/default.yaml)
 - [Official CBGSDataset implementation](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/mmdet3d/datasets/dataset_wrappers.py)
+- [Optimized BEV-pooling Python/autograd wrapper](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/mmdet3d/ops/bev_pool/bev_pool.py)
+- [Optimized BEV-pooling CUDA source](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/mmdet3d/ops/bev_pool/src/bev_pool_cuda.cu)
+- [Pinned BEVFusion Apache-2.0 license](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/LICENSE)
 - [Official pretrained-checkpoint download script](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/tools/download_pretrained.sh)
+- [Reference-YAML ImageNet Swin-T checkpoint](https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_tiny_patch4_window7_224.pth)
+- [Swin Transformer MIT license](https://raw.githubusercontent.com/microsoft/Swin-Transformer/main/LICENSE)
 - [Official nuImages dataset description](https://www.nuscenes.org/nuimages)
 - [Torchpack recursive configuration merge](https://torchpack.readthedocs.io/en/latest/_modules/torchpack/utils/config.html)
 - [MMCV 1.4 cyclic LR defaults](https://raw.githubusercontent.com/open-mmlab/mmcv/v1.4.0/mmcv/runner/hooks/lr_updater.py)

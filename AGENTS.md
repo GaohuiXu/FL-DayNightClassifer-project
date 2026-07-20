@@ -40,7 +40,8 @@ engineering performance/readiness are closed. S08's accepted precision policy is
 integrated at `28f79802c0868afa6290d74ae6aeb9d23c7d088f`; S09's accepted
 closing commit is `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`.
 
-S10 is active on `codex/s10-cl-model-recipe`, created from audited clean base
+S10 is active on `codex/s10-phase1-branch-qualification`, advanced linearly from
+`codex/s10-cl-model-recipe` and created from audited clean base
 `a080d49c1c22de20ccb5b1353d4922c7df14a729`. Terminal evidence through O-142
 is preserved in `fl_v3/usenix27_orchestra/handoffs/S10/`; the compact state is:
 
@@ -81,6 +82,16 @@ five-WP/three-gate/two-envelope workflow. O-144 authorizes documentation only:
 Envelope A is not activated, and no implementation, checkpoint acquisition,
 GTDB materialization, commit, GPU/Slurm execution, merge, push or upload is
 authorized until the corresponding exact envelope is owner-approved.
+
+Owner decision O-145 amends WP2/WP4 to require an independent in-tree port of the
+pinned MIT optimized CUDA BEV-pooling operation, or a functionally equivalent
+kernel, plus a labelled correctness fallback; FP32/FP16 forward and backward
+parity; accepted-precision-policy checks; and GH200 operator plus aligned B4
+end-to-end timing. It authorizes the O-145 documentation commit and exact
+Envelope-A drafting only. The referenced Camera checkpoint is the MIT Camera
+YAML's ImageNet `swin_tiny_patch4_window7_224.pth`, not the optional NuImages
+checkpoint. No download, implementation, GTDB materialization or compute is
+authorized until Envelope A is explicitly owner-approved.
 
 For this stage, `fl_v3/collab/` is read-only legacy evidence. Agents may inspect and
 cite it, but must not add or update plans, handoffs, reviews, results, or status

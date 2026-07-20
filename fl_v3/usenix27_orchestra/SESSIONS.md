@@ -1,6 +1,7 @@
 # USENIX Security '27 Orchestra — milestone contracts
 
 > **Current handoff (2026-07-20).** S07-S09 are closed. S10 is active on
+> `codex/s10-phase1-branch-qualification`, advanced linearly from
 > `codex/s10-cl-model-recipe`. O-143 replaces the old active S10 six-stop order:
 > qualify camera and LiDAR independently, perform staged fusion from qualified
 > branch checkpoints, establish aligned capability/fusion contribution, and only
@@ -14,7 +15,9 @@
 >
 > O-144 closes `P1-G0 PLAN_FREEZE`; the binding choices and five-WP/
 > three-gate/two-envelope workflow are in
-> `handoffs/S10/PHASE_I_PLAN.md`. Envelope A is not activated.
+> `handoffs/S10/PHASE_I_PLAN.md`. O-145 adds the optimized CUDA BEV-pooling
+> implementation/parity/timing contract to WP2/WP4 and authorizes exact
+> Envelope-A drafting only. Envelope A is not activated.
 >
 > S10 now uses phase-level owner approval, one compact status file and one job
 > ledger. There is no current compute authority; S11+ remains pending.
@@ -44,7 +47,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | O-144 Phase-I plan frozen under O-143; STOP-A reusable; Envelope A pending; no implementation/compute authority |
+| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | O-145 pooling amendment under O-143/O-144; STOP-A reusable; Envelope A exact draft pending approval; no implementation/compute authority |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract
@@ -53,7 +56,7 @@
 set of evidence records. `Sxx` is an evidence namespace, not a worker/reviewer
 lifecycle.
 
-**S10 workflow under O-143/O-144.**
+**S10 workflow under O-143/O-144/O-145.**
 
 1. `PHASE_I_PLAN.md` freezes the Phase-I objective, two candidates, graph/recipe,
    data/metric/seed/exposure policy and the five-WP/three-gate/two-envelope model.
@@ -72,8 +75,9 @@ lifecycle.
    staged-fusion/full capability result. A reviewer reads a durable SHA/evidence
    and does not fix code.
 
-**Authority boundary.** O-144 freezes the plan but does not activate Envelope A or
-B. No implementation, checkpoint acquisition, GTDB materialization, commit,
+**Authority boundary.** O-144 freezes the plan and O-145 amends WP2/WP4 and permits
+the amendment commit plus exact Envelope-A drafting, but neither activates Envelope A
+or B. No implementation, checkpoint acquisition, GTDB materialization, further commit,
 compute, merge, push, upload or publication is authorized. Future envelope
 authority must state its exact scope, aggregate resource and submission limits.
 S11+ remains pending.
@@ -319,6 +323,12 @@ augmentation bundles; D_fit-only role-bound CBGS/GT-paste; seed 0; 20 epochs;
 epoch-20 terminal-only selection; one D_select evaluation and owner-unsealed
 one-time D_audit; and no automatic repair candidate.
 
+O-145 makes the independent optimized CUDA BEV-pooling/equivalent-kernel backend
+part of WP2 and binds its fallback parity, FP32/FP16 policy checks, and GH200
+operator/end-to-end timing to WP4. This does not add a scientific candidate. The
+Camera initialization URL is the reference YAML's ImageNet Swin-T asset, not the
+optional NuImages asset.
+
 The phase must use meaningful trainval-scale exposure and aligned internal
 evaluation. Step smokes establish only that a run executes. The phase exits only
 with a qualified camera checkpoint and LiDAR checkpoint, or an honest negative
@@ -341,10 +351,11 @@ coverage, synchronization, throughput, utilization, memory and operator-level
 cost before optimization. Preserve numerical/metric behavior and do not optimize
 a scientifically failed model.
 
-No phase implementation or compute is authorized by O-144. The next owner action
+No phase implementation or compute is authorized by O-144/O-145. The next owner action
 is exact activation of Envelope A for WP0-WP4, official ImageNet acquisition,
-D_fit CBGS/GTDB materialization, material commits and bounded engineering
-calibration. Envelope B remains pending measured `P1-G1` approval.
+D_fit CBGS/GTDB materialization, optimized-BEV-pooling build/parity/timing,
+material commits and bounded engineering calibration. Envelope B remains pending
+measured `P1-G1` approval.
 
 ## 7. S11 and later
 
