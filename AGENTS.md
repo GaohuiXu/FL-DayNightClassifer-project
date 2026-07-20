@@ -42,7 +42,7 @@ closing commit is `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`.
 
 S10 is active on `codex/s10-phase1-branch-qualification`, advanced linearly from
 `codex/s10-cl-model-recipe` and created from audited clean base
-`a080d49c1c22de20ccb5b1353d4922c7df14a729`. Terminal evidence through O-142
+`a080d49c1c22de20ccb5b1353d4922c7df14a729`. Terminal evidence through O-149
 is preserved in `fl_v3/usenix27_orchestra/handoffs/S10/`; the compact state is:
 
 - STOP-A's train-only split/evaluator gate is closed and reusable.
@@ -55,6 +55,13 @@ is preserved in `fl_v3/usenix27_orchestra/handoffs/S10/`; the compact state is:
   and the B8 candidate was faster but materially worse on the same internal
   evaluator. None of these results establishes production capability or a
   comparison with the historical Alvis detector.
+- Phase-I Envelope A WP0-WP4 is terminal. Camera correctness/parity, checkpoint,
+  end-to-end and memory gates passed, but the optimized BEV-pooling operator was
+  only about 2.4% faster than the exact PyTorch fallback and failed the frozen
+  1.25x promotion gate; Camera is therefore an honest negative and not qualified.
+  LiDAR WP4 passed with the reference BN/no-GN TransFusion graph, exact keyframe
+  GTDB, FP16 plus sparse FP32 island, and directly consumable qualified config and
+  zero-update recovery checkpoint. No capability metric or training update ran.
 
 Owner decision O-143 supersedes the active S10 six-stop execution order and the
 S10-specific per-job immutable/no-retry/multi-document/reviewer workflow. It does
@@ -73,25 +80,34 @@ should test local implementation compatibility and capability, not spend compute
 re-proving published conclusions without a concrete conflict. S11 and later
 milestones remain pending.
 
-Owner decision O-144 closes `P1-G0 PLAN_FREEZE` and makes
+Owner decision O-144 closed `P1-G0 PLAN_FREEZE` and makes
 `fl_v3/usenix27_orchestra/handoffs/S10/PHASE_I_PLAN.md` binding for all Phase-I
 work. It freezes physical B4 plus accumulation 8/effective B32, one ImageNet
 Camera primary and one scratch LiDAR primary, role-bound D_fit CBGS/GT-paste,
 seed 0, 20 epochs, terminal-only selection, two total candidates, and the
-five-WP/three-gate/two-envelope workflow. O-144 authorizes documentation only:
-Envelope A is not activated, and no implementation, checkpoint acquisition,
-GTDB materialization, commit, GPU/Slurm execution, merge, push or upload is
-authorized until the corresponding exact envelope is owner-approved.
+five-WP/three-gate/two-envelope workflow. At issuance, O-144 authorized
+documentation only and did not activate implementation, checkpoint acquisition,
+GTDB materialization, commit, GPU/Slurm execution, merge, push or upload.
 
-Owner decision O-145 amends WP2/WP4 to require an independent in-tree port of the
+Owner decision O-145 amended WP2/WP4 to require an independent in-tree port of the
 pinned MIT optimized CUDA BEV-pooling operation, or a functionally equivalent
 kernel, plus a labelled correctness fallback; FP32/FP16 forward and backward
 parity; accepted-precision-policy checks; and GH200 operator plus aligned B4
-end-to-end timing. It authorizes the O-145 documentation commit and exact
-Envelope-A drafting only. The referenced Camera checkpoint is the MIT Camera
+end-to-end timing. At issuance, it authorized the O-145 documentation commit and
+exact Envelope-A drafting only. The referenced Camera checkpoint is the MIT Camera
 YAML's ImageNet `swin_tiny_patch4_window7_224.pth`, not the optional NuImages
 checkpoint. No download, implementation, GTDB materialization or compute is
-authorized until Envelope A is explicitly owner-approved.
+authorized by that decision alone. O-146 activated Envelope A; O-147 amended its
+initial limits; O-148 replaced the mechanical submission stop with serial,
+budget-limited completion authority at an unchanged `1.10` GH200-hour ceiling.
+Envelope A consumed `0.516389` GH200-hours and is now closed at its mixed
+Camera-negative/LiDAR-PASS result. Unused budget is not authority for another
+cell, capability run, or Envelope B.
+
+Owner decision O-149 establishes the completion-oriented engineering-validation
+contract below. It removes a default numeric submission cap only inside an
+explicitly approved validation envelope; it does not weaken scientific owner
+gates or create standing compute authority.
 
 For this stage, `fl_v3/collab/` is read-only legacy evidence. Agents may inspect and
 cite it, but must not add or update plans, handoffs, reviews, results, or status
@@ -119,8 +135,8 @@ Planning or implementing an experiment is not permission to execute it. Without 
 explicit owner instruction scoped to the exact action, agents must not:
 
 - submit `sbatch`/`srun` jobs, including engineering smoke jobs, except through an
-  explicitly owner-approved bounded remediation loop or S10 phase envelope
-  described below;
+  explicitly owner-approved bounded remediation loop, completion-oriented
+  validation envelope, or S10 phase envelope described below;
 - launch a trainval full run, experimental matrix, multi-seed campaign, long
   profiling job, FL campaign, attack/defense run, or automatic resubmission;
 - expand an approved cell into additional seeds, ablations, reruns, or spare-GPU
@@ -136,8 +152,9 @@ local/static/unit checks. By default, an execution approval is bound to the exac
 commit, resolved config, data/split manifest, cells, seeds, command,
 GPU/count/time budget, and output location stated in the request. Changing any of
 these invalidates the approval and requires new permission. Exceptions are an
-explicit O-107 derivation rule or an owner-approved S10 phase envelope under
-O-143. Never infer full-run or upload authorization from approval of an
+explicit O-107 derivation rule, an O-149 completion-oriented validation envelope,
+or an owner-approved S10 phase envelope under O-143. Never infer full-run or
+upload authorization from approval of an
 architecture, plan, session, or code change.
 
 Every material-compute session records its request and approval state in
@@ -171,23 +188,53 @@ blocker recurs; or when the approved submission/GPU-hour cap is reached. Scienti
 and otherwise material jobs retain exact per-job owner approval. O-107 applies
 prospectively and does not reinterpret historical job approvals.
 
-### S10 phase-level execution exception (O-143)
+### Completion-oriented engineering validation (O-149)
+
+An owner may approve a validation/smoke envelope by binding its objective and
+exit gate, frozen scientific semantics, data scope, command family, per-job
+resources and wall limit, aggregate GPU-hour ceiling, concurrency, fresh-output
+rule, and escalation conditions. Unless the owner explicitly adds a numeric cap,
+submission count is then **not** a stop condition: aggregate GPU-hours and maximum
+concurrency are the resource controls. This is never implied by O-009 alone.
+
+Inside such an envelope, S00 diagnoses each failure, makes the smallest
+single-correct-answer repair anchored to the already frozen semantics, validates
+it, records the derived source/command/output, and immediately resubmits serially.
+Eligible repairs include tests/fixtures, runner and API compatibility, missing or
+incorrect config/schema parsing, discrete dtype/index plumbing, checkpoint I/O,
+artifact publication/provenance, and logging. Blind identical retries and
+spare-GPU expansion remain forbidden. Different diagnosed engineering defects do
+not trigger an owner round trip merely because several occur in sequence.
+
+The loop ends when the validation objective is met, the aggregate GPU-hour ceiling
+would be exceeded, the same blocker recurs after its attempted repair, diagnosis is
+ambiguous, or a proposed change crosses a scientific boundary. S00 returns to the
+owner before changing candidates, model/reference math, data contents or ownership,
+training recipe/exposure, precision policy, optimizer/scheduler/EMA, evaluator or
+metric semantics, seeds, acceptance gates, scientific interpretation, aggregate
+resources, or publication scope. Capability training, experimental cells,
+multi-seed evidence and other scientific runs remain separately approved material
+compute even when their preflight uses this engineering contract.
+
+### S10 phase-level execution exception (O-143/O-149)
 
 For S10 only, O-143 replaces the preceding per-job immutable/no-retry workflow
 once the owner approves a **phase** compute envelope. A phase approval must bind
 the scientific objective, candidate cap, data ownership/splits, evaluator and
-metric semantics, seed policy, aggregate GPU-hour ceiling, maximum submission
-count, and stop/escalation conditions. It is not compute authority until those
-fields and the resource ceiling are explicitly approved.
+metric semantics, seed policy, aggregate GPU-hour ceiling, submission policy and
+concurrency, and stop/escalation conditions. A numeric submission cap binds only
+when the owner explicitly sets one. It is not compute authority until those fields
+and the resource ceiling are explicitly approved.
 
-Inside an approved S10 phase, S00 may derive commands and resolved configs, fix
-output-neutral engineering defects in tests, fixtures, runners, checkpoint I/O or
-logging, and resubmit autonomously while staying inside the approved candidates,
-science, total resources and submission cap. It returns to the owner before any
+Inside an approved S10 phase, S00 may derive commands and resolved configs, apply
+the unambiguous frozen-semantics engineering repairs listed under O-149, and
+resubmit autonomously while staying inside the approved candidates, science,
+aggregate resources and submission policy. It returns to the owner before any
 change to model math, data ownership/content, recipe search space, evaluator or
 metric semantics, seed policy, candidate count, scientific interpretation, or
-aggregate resources. Repeated engineering failure also stops the phase rather
-than opening an unbounded debug loop.
+aggregate resources. A new engineering symptom is diagnosed and repaired rather
+than treated as a mechanical STOP; recurrence of the same blocker, ambiguity,
+science-boundary pressure, or ceiling exhaustion stops the loop.
 
 S10 provenance is phase-sized: record the Git SHA, resolved-config hash, split,
 seed, command, resources, output path, and checkpoint/metric hashes for each

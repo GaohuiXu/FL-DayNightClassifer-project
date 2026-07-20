@@ -28,12 +28,22 @@
 > limits remain in `handoffs/S10/RESULTS.md` and the historical portion of
 > `RUN_REQUEST.md`.
 >
-> O-146 activates the exact Envelope A at
-> `e321aed749fd859c809199d52c30b2771dbef8b3`. S00 may execute WP0-WP4
-> continuously, including the bounded checkpoint/data actions, material commits,
-> and at most three serial engineering submissions / one aggregate GH200-hour.
-> Capability training/evaluation, Envelope B, staged fusion, merge, push, upload,
-> publication and S11+ remain unauthorized.
+> O-146 activated the exact Envelope A at
+> `e321aed749fd859c809199d52c30b2771dbef8b3`; O-147 amended its initial limits;
+> O-148 then removed the numeric submission stop while retaining serial execution
+> and the `1.10` GH200-hour ceiling. WP0-WP4 is now terminal after 12 submissions
+> and `0.516389` GH200-hours. Camera correctness, checkpoint, parity, end-to-end
+> and memory checks passed, but its optimized pooling ratio `0.976174` failed the
+> frozen `<=0.80` promotion gate, so Camera is not qualified. LiDAR passed and
+> emitted a directly consumable qualified config and zero-update recovery
+> checkpoint. No capability metric or optimizer update ran.
+>
+> O-149 adopts a completion-oriented engineering-validation contract: after an
+> owner approves a bounded validation objective and aggregate compute ceiling,
+> diagnosed frozen-semantics bugs are repaired and rerun serially without a
+> default numeric submission cap. Scientific cells and all material science/
+> resource changes remain owner-gated. Envelope B, staged fusion, merge, push,
+> upload, publication and S11+ remain unauthorized.
 
 ## 1. Current objective and sequencing
 
@@ -55,8 +65,8 @@ The active order is evidence-gated:
 ```text
 accepted S08/S09 engineering foundation
                   │
-                  ├── S10-CAM: camera branch recipe + capability
-                  ├── S10-LIDAR: LiDAR branch recipe + capability
+                  ├── S10-CAM: WP4 negative; backend promotion owner-gated
+                  ├── S10-LIDAR: WP4 engineering qualified; capability pending
                   │      └── freeze qualified branch checkpoints
                   ├── S10-FUSION: staged fusion + aligned capability controls
                   │      └── absolute clean capability + fusion contribution gate
@@ -73,10 +83,10 @@ class, metric and evaluation semantics.
 No deadline or milestone name creates execution authority. O-143 remains the
 active S10 sequencing and collaboration rebaseline; O-144 freezes the Phase I
 plan; O-122 through O-142 remain historical evidence and consumed authorities.
-Envelope A is active for the five WPs, official ImageNet checkpoint, D_fit
-CBGS/GTDB materialization, material commits and bounded engineering calibration.
-The next owner gate is the measured `P1-G1` Envelope-B request after WP4. S11+
-remains undefined and pending.
+Envelope A is closed at its mixed Camera-negative/LiDAR-PASS engineering result.
+The next owner gate is Camera disposition and branch-recipe-freeze review; the
+ordinary measured `P1-G1` Envelope-B request is blocked until the Camera production
+backend requirement is explicitly resolved. S11+ remains undefined and pending.
 
 ## 2. Accepted clean-foundation evidence
 
@@ -288,18 +298,22 @@ Persistent S00 owns the active linear implementation context and canonical
 orchestration documents. `Sxx` denotes evidence, not a requirement for a new
 task, worktree, worker or reviewer.
 
-For S10, O-143 establishes phase-level collaboration:
+For S10, O-143/O-149 establish phase-level collaboration:
 
 1. agree once on phase objective, candidate cap, data/metric/seed policy,
-   aggregate GPU-hours, submission cap and escalation conditions;
+   aggregate GPU-hours, submission policy/concurrency and escalation conditions;
 2. implement and preflight with direct entry/config/checkpoint/one-batch checks;
-3. autonomously repair output-neutral test/runner/checkpoint/logging defects and
-   resubmit inside the approved scientific/resource envelope;
-4. return to the owner for any scientific boundary/resource change or when the
-   bounded engineering loop repeatedly fails;
-5. keep one compact active handoff and one run ledger, with raw outputs and
+3. diagnose and autonomously repair single-correct-answer conformance defects in
+   tests/fixtures, config/schema parsing, dtype/API plumbing, runners, checkpoint
+   I/O, artifact publication/provenance or logging, then resubmit serially inside
+   the approved scientific/resource envelope;
+4. use aggregate GPU-hours and concurrency as the default engineering controls;
+   a numeric submission cap binds only when the owner explicitly sets one;
+5. return to the owner for any scientific boundary/resource change, ambiguous
+   diagnosis, recurrence of the same blocker after repair, or ceiling exhaustion;
+6. keep one compact active handoff and one run ledger, with raw outputs and
    minimum scientific provenance;
-6. review only data/metric changes, branch recipe freezes and the final
+7. review only data/metric changes, branch recipe freezes and the final
    staged-fusion/full capability result.
 
 Do not create micro-handoffs, per-job snapshot trees, recursive manifests,
@@ -316,11 +330,18 @@ bugs.
   arrays, DDP, or publication.
 - Outside an explicitly approved S10 phase, material compute retains its
   milestone's exact authorization rules; no spare-GPU expansion is inferred.
-- Under O-143, a future S10 phase approval binds the objective, candidate/data/
-  metric/seed boundaries, aggregate resources, submission cap and stop
-  conditions. Within that envelope, derived commands/configs and output-neutral
-  engineering resubmissions do not require per-job owner approval. Scientific or
-  aggregate-resource changes do.
+- Under O-143/O-149, a future S10 phase approval binds the objective,
+  candidate/data/metric/seed boundaries, aggregate resources, submission policy,
+  concurrency and stop conditions. Within a completion-oriented validation
+  envelope, diagnosed frozen-semantics engineering repairs and serial
+  resubmissions do not require per-job owner approval. There is no default numeric
+  submission cap unless the owner declares one. Scientific or aggregate-resource
+  changes do require owner approval.
+- O-149 does not turn O-009 into automatic compute authority and does not cover
+  capability training, scientific metrics/cells, profiles, matrices or seeds.
+  Blind identical retries and spare-GPU expansion remain forbidden. The loop
+  stops at objective completion, ceiling exhaustion, ambiguous diagnosis, a
+  recurring same blocker, or any scientific-boundary change.
 - O-107 lets the initial owner approval for an exact O-009 smoke opt into a bounded
   mechanical remediation loop. It may contain at most two diagnosed replacement
   submissions (three jobs total) under the same objective/selectors, bounded data,
@@ -439,9 +460,12 @@ Closed ranges below are provenance.
 | O-142 | Correct only Job-505266's schema access from nonexistent `config.schema_version` to canonical `config.data["schema_version"]`; add a regression that resolves the exact BN-B8 config and directly invokes `_assert_config`. Authorize static validation, one linear remediation commit, one new detached read-only snapshot/exact tuple and one fresh-output replacement with unchanged O-141 model, data, W0, tokens/remainder, physical B8, scale8, 769-update fail-fast gates, B4 D_select evaluator, comparisons, one-GH200/16-CPU/96-GiB/`00:30:00`/`0.5`-GH200-hour ceiling. One submission/no retry; no other code/science/resource expansion, reviewer chain, merge, push or upload. Exact remediation `864f704` and tuple `d98eaec` were consumed by Job `505316`. All 769 B8 updates and D_select point metrics completed, but tail paired-log computation exceeded the wall limit (`TIMEOUT`, `00:30:07`); paired artifacts, aggregate summary and runner manifest are absent. Raw `recipe.physical_microbatch` also carries a legacy B4 display error despite resolved/token B8 identities. | consumed / FAIL-INCOMPLETE / owner decision required |
 
 | O-143 | Replace the active S10 six-stop execution order with: camera and LiDAR independent recipe/capability qualification; staged fusion from qualified checkpoints; aligned absolute-capability and fusion-contribution gate; GH200 profiling/optimization only after capability passes. Pause current-A2 and the old C→D→E→F path. For S10, replace per-job immutable/no-retry/multi-document/reviewer mechanics with one owner-approved phase envelope, autonomous output-neutral engineering remediation within its aggregate compute/submission cap, one compact active handoff and one job ledger. Preserve raw outputs and minimum run provenance. Return to the owner for any model/data/recipe-space/metric/seed/candidate/resource change or repeated engineering failure. Review data/metric changes, branch recipe freezes and final fusion/full results only. | active S10 science/collaboration rebaseline; documentation only; no compute authority |
-| O-144 | Freeze `handoffs/S10/PHASE_I_PLAN.md` as the binding Phase I C/L plan. Select physical B4 plus accumulation 8/effective B32; exact standalone Camera with ImageNet-1K Swin-T, reference six-task CenterHead and Camera recipe; scratch keyframe-train LiDAR with reference BN, SECOND `[5,5]`/SECONDFPN/TransFusionHead and LiDAR recipe; exact role-bound D_fit CBGS/GT-paste; seed 0; 20 epochs; epoch-20 terminal-only selection; one terminal D_select evaluation and owner-unsealed one-time D_audit; exactly two initial candidates; and the five-WP/three-gate/two-envelope execution model. Require all later work to follow that plan unless explicitly amended. This decision closes P1-G0 plan freeze only and does not activate Envelope A or B; it authorizes no implementation, checkpoint acquisition, GTDB materialization, commit, GPU/Slurm execution, merge, push or upload. | active Phase I plan freeze / next: Envelope-A activation request / no execution authority |
+| O-144 | Freeze `handoffs/S10/PHASE_I_PLAN.md` as the binding Phase I C/L plan. Select physical B4 plus accumulation 8/effective B32; exact standalone Camera with ImageNet-1K Swin-T, reference six-task CenterHead and Camera recipe; scratch keyframe-train LiDAR with reference BN, SECOND `[5,5]`/SECONDFPN/TransFusionHead and LiDAR recipe; exact role-bound D_fit CBGS/GT-paste; seed 0; 20 epochs; epoch-20 terminal-only selection; one terminal D_select evaluation and owner-unsealed one-time D_audit; exactly two initial candidates; and the five-WP/three-gate/two-envelope execution model. Require all later work to follow that plan unless explicitly amended. This decision closes P1-G0 plan freeze only and does not activate Envelope A or B; it authorizes no implementation, checkpoint acquisition, GTDB materialization, commit, GPU/Slurm execution, merge, push or upload. | active Phase-I science freeze; Envelope A terminal; Camera disposition owner-gated |
 | O-145 | Amend O-144 WP2/WP4 to require an independent in-tree port of the pinned MIT optimized CUDA BEV-pooling operation, or a functionally equivalent kernel, with no mmdet3d/mmcv runtime dependency; retain a labelled reference fallback; require geometry/shape, FP32/FP16 forward/backward and accepted-precision-policy parity before production use; and measure GH200 operator plus aligned physical-B4 end-to-end timing in WP4. Clarify that the initial Camera checkpoint URL is the reference YAML's ImageNet `swin_tiny_patch4_window7_224.pth`, not `swint-nuimages-pretrained.pth`. Authorize the plan-amendment commit and exact Envelope-A drafting only. Do not activate implementation, checkpoint acquisition, GTDB materialization, GPU execution, merge, push or upload. | active Phase-I amendment / Envelope A exact draft pending owner approval / no execution authority |
-| O-146 | Activate the exact S10 Phase-I Envelope A recorded at commit `e321aed749fd859c809199d52c30b2771dbef8b3` and authorize S00 to execute WP0-WP4 continuously inside its candidate, data, checkpoint, correctness, remediation, output, three-submission and one-GH200-hour boundaries. This does not activate Envelope B, capability metrics/evaluation, merge, push, upload or publication. | active Envelope-A implementation/engineering authority |
+| O-146 | Activate the exact S10 Phase-I Envelope A recorded at commit `e321aed749fd859c809199d52c30b2771dbef8b3` and authorize S00 to execute WP0-WP4 continuously inside its candidate, data, checkpoint, correctness, remediation, output, three-submission and one-GH200-hour boundaries. This does not activate Envelope B, capability metrics/evaluation, merge, push, upload or publication. | consumed; amended by O-147/O-148 and closed at the O-148 terminal outcome |
+| O-147 | Amend Envelope A at commit `c45e020ed16496e2acaa5f8d34b135da21fb1230`: raise the total submission cap from three to five and aggregate ceiling from `1.0` to `1.10` GH200-hours; allow only one fresh-output Camera replacement followed serially by original Job B, with all data/seed/config/tolerances/gates/per-job resources and prohibitions unchanged. Any failure stops. | consumed amendment; superseded prospectively by O-148 after Job D failed pre-control |
+| O-148 | For the remaining WP4 engineering validation, remove the numeric submission limit while retaining maximum concurrency one and the unchanged `1.10` GH200-hour ceiling. Require S00 to diagnose, minimally repair and immediately resubmit each clearly engineering/config/schema/test/runner/dtype/checkpoint/artifact defect until Camera and LiDAR Job A/B reach honest terminal outcomes; do not change candidate science, data, seed, config semantics, tolerances, performance gates or aggregate resources. Envelope A closed after 12 submissions and `0.516389` GH200-hours: Camera negative at the frozen pooling-promotion gate; LiDAR PASS. | consumed Envelope-A completion authority / mixed terminal outcome |
+| O-149 | Replace mechanical per-error approval for owner-approved engineering validation with a completion-oriented, aggregate-budget contract. The approval binds objective/exit gate, frozen science, data/command family, per-job resources/wall limit, aggregate GPU-hour ceiling, concurrency, fresh outputs and escalation boundaries. Submission count has no default numeric cap unless explicitly set. S00 diagnoses, records and repairs unambiguous frozen-semantics defects—including config/schema parsing, dtype/API, fixtures/runners, checkpoint/artifact/provenance/logging—and resubmits serially. Blind identical retries remain forbidden. Stop and return for ceiling exhaustion, recurring same blocker, ambiguous diagnosis, or any candidate/model/data/recipe/precision/evaluator/metric/seed/gate/scientific/resource change. Scientific/capability runs retain separate approval. | active collaboration/engineering-validation contract; no standing compute authority |
 
 ## 10. Closed and consumed history
 

@@ -16,29 +16,34 @@
 >
 > O-144 closes `P1-G0 PLAN_FREEZE`; all Phase-I work must follow
 > `handoffs/S10/PHASE_I_PLAN.md`. O-145 adds the optimized CUDA BEV-pooling
-> implementation/parity/timing contract to WP2/WP4. O-146 activates the exact
-> Envelope A at `e321aed749fd859c809199d52c30b2771dbef8b3`; this kickoff now
-> authorizes continuous WP0-WP4 execution only within that request's bounded
-> checkpoint, data, commit, submission and aggregate-resource limits.
+> implementation/parity/timing contract to WP2/WP4. O-146 activated the exact
+> Envelope A at `e321aed749fd859c809199d52c30b2771dbef8b3`; O-147 amended it and
+> O-148 replaced its submission stop with serial completion inside the unchanged
+> `1.10` GH200-hour ceiling. WP0-WP4 is terminal: Camera is negative at the frozen
+> pooling-promotion gate and LiDAR engineering qualification passed. O-149 now
+> governs future explicitly approved engineering-validation loops; it creates no
+> standing compute authority.
 
 ## 1. Rules for starting or extending work
 
 1. The binding plan is not execution authority. Before work in an S10 envelope,
    the owner approves its allowed implementation/external/data actions, objective,
    candidate/data/metric/seed boundaries where applicable, aggregate GPU-hours,
-   maximum submissions, outputs and escalation conditions.
+   submission policy/concurrency, outputs and escalation conditions.
 2. S00 remains in the persistent worktree and linear branch. Do not create
    per-stop implementation tasks, micro-handoffs, snapshot trees or reviewer
    chains.
 3. Preflight with direct entry/config/checkpoint/one-batch checks. Do not run the
    entire historical test suite inside a scientific GPU job.
-4. Inside an approved phase, S00 may fix output-neutral test, fixture, runner,
-   checkpoint I/O or logging defects and resubmit within the same science,
-   aggregate resources and submission cap.
+4. Inside an approved engineering-validation envelope, S00 diagnoses and fixes
+   unambiguous frozen-semantics defects in tests/fixtures, config/schema parsing,
+   dtype/API plumbing, runners, checkpoint I/O, artifact publication/provenance or
+   logging, then resubmits serially within the same science and aggregate ceiling.
+   Submission count has no default numeric cap unless the owner explicitly sets one.
 5. Return to the owner before changing model math, data ownership/content, recipe
    candidate space, evaluator/metric, seeds, candidate count, scientific
-   interpretation or aggregate resources, and if repeated engineering failure
-   exhausts the phase cap.
+   interpretation or aggregate resources, and at ceiling exhaustion, ambiguous
+   diagnosis or recurrence of the same blocker after repair.
 6. Keep active state in S10 `HANDOFF.md` and job provenance in
    `RUN_REQUEST.md`. Preserve raw outputs and minimum provenance; do not
    duplicate every incident into canonical, results and review documents.
@@ -390,7 +395,7 @@ recipe claim, multi-seed, Protocol A/B, attack, defense, DDP, full-data payload
 scan, branch selection, normalization experiment, or publication/upload is
 authorized.
 
-## 6. S10 O-143/O-144/O-145/O-146 launch state
+## 6. S10 O-143 through O-149 launch state
 
 - **Science order:** qualify camera and LiDAR independently; freeze reviewed
   branch recipes/checkpoints; staged fusion; aligned absolute-capability and
@@ -413,11 +418,18 @@ authorized.
   BEV-pooling operation or an equivalent kernel without mmdet3d/mmcv runtime;
   WP4 gates fallback parity, FP32/FP16 policy, operator timing and aligned B4
   end-to-end timing. The primary checkpoint is ImageNet Swin-T, not NuImages.
-- **O-146 authority:** the exact Envelope A at
-  `e321aed749fd859c809199d52c30b2771dbef8b3` is active for continuous WP0-WP4,
-  including its bounded checkpoint/data actions, material commits and at most
-  three serial submissions / one aggregate GH200-hour. Envelope B and capability
-  evaluation remain unauthorized.
+- **Envelope-A terminal:** O-146/O-147/O-148 are consumed. Across 12 serial
+  submissions and `0.516389/1.10` GH200-hours, Camera completed correctness,
+  checkpoint, parity, end-to-end and memory checks but failed the frozen
+  optimized-pooling promotion gate (`0.976174 > 0.80`); LiDAR passed and emitted
+  its qualified config/recovery checkpoint. No capability metric or update ran.
+- **O-149 process:** a future owner-approved engineering-validation envelope is
+  completion-oriented under its aggregate GPU-hour ceiling and concurrency, with
+  no default numeric submission cap. It permits only diagnosed frozen-semantics
+  repairs and serial reruns; science/resource changes remain owner-gated.
+- **Next launch gate:** resolve Camera production-backend disposition and the
+  branch recipe-freeze review. Envelope B and capability evaluation remain
+  unauthorized.
 
 ## 7. S10 envelope activation skeleton
 
@@ -431,23 +443,23 @@ DATA_SPLITS_AND_EVALUATOR:
 SEED_POLICY:
 TRAINING_EXPOSURE_AND_SELECTION_RULE:
 AGGREGATE_GPU_HOURS:
-MAX_SUBMISSIONS_AND_CONCURRENCY:
+SUBMISSION_POLICY_AND_CONCURRENCY:
 STOP_AND_OWNER_ESCALATION_CONDITIONS:
 MINIMUM_RUN_PROVENANCE:
 OUTPUT_ROOT:
 OWNER_APPROVAL: pending
 ```
 
-The next request is Envelope A, not the 20-epoch science envelope. It must bind
-WP0-WP4 source/docs/tests, material linear commits, exact official ImageNet
-checkpoint acquisition, D_fit CBGS/GTDB materialization, the optimized-pooling
-build/parity/operator and end-to-end timing gates, and the engineering calibration
-design (`<=1.0` aggregate GH200-hour, at most three submissions, maximum
-concurrency one, at most 30 minutes/submission). It forbids capability metrics and
-D_select/D_audit. Envelope B is requested only at `P1-G1` after Envelope-A
-identities, timing and the joint recipe review exist.
+No new envelope is executable. Envelope A is closed, and its unused budget cannot
+be reused. The next request follows only after the owner resolves whether the
+Camera backend requirement remains, is scientifically amended, or yields a
+terminal Phase-I negative, and after the required recipe-freeze review scope is
+set. Envelope B cannot be requested mechanically from the mixed WP4 result.
 
 After approval, individual job rows in `handoffs/S10/RUN_REQUEST.md` record Git
 SHA, resolved-config hash, split, seed, command, resources, output, terminal state,
 checkpoint hash and metric hash. Derived engineering fixes/resubmissions are
-allowed only inside the approved science and aggregate caps.
+allowed only inside the approved science and aggregate caps. Under O-149 they do
+not have a default numeric submission limit, but must remain serial (unless the
+owner explicitly changes concurrency), diagnosed, fresh-output, and within the
+approved aggregate ceiling.

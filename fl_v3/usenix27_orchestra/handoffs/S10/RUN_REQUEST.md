@@ -4,11 +4,11 @@
 
 ```text
 SESSION: persistent S00 / S10
-ACTIVE_DECISION: O-148 engineering-smoke completion authority under O-143/O-144/O-145/O-146
-REQUEST_STATE: APPROVED / ACTIVE
-EXECUTION_AUTHORITY: O-148 at b86089904a732edaaea77a446267a764f2da7073
-ACTIVE_PHASE: Phase I C/L independent recipe and capability — Envelope A WP0-WP4
-              implementation complete; continuous engineering qualification active
+ACTIVE_DECISION: O-149 collaboration contract under O-143/O-144/O-145
+REQUEST_STATE: ENVELOPE A CONSUMED / NO ACTIVE COMPUTE REQUEST
+EXECUTION_AUTHORITY: none; O-146/O-147/O-148 consumed
+ACTIVE_PHASE: Phase I C/L independent recipe and capability — Camera disposition
+              and branch recipe-freeze review owner-gated
 PLAN: PHASE_I_PLAN.md / P1-G0 closed
 BRANCH: codex/s10-phase1-branch-qualification
 ```
@@ -38,17 +38,19 @@ assertions, before pytest, checkpoint acceptance, D_fit access, model constructi
 CUDA build or calibration. Per the owner's any-failure stop rule, original Job B
 was not submitted and no remaining numerical slot may be used.
 
-O-148 supersedes O-147's submission-count and per-engineering-failure stop mechanics
-for the remaining WP4 smoke/qualification work. Engineering submissions are unlimited
-in count, serial at concurrency one, and bounded by the unchanged aggregate ceiling of
-1.10 charged GH200-hours. S00 diagnoses an engineering failure, makes the smallest
-output-/science-neutral repair, records provenance, and immediately resubmits without
-another owner approval until Camera Job A and LiDAR Job B pass. Checkpoint I/O, tests,
-fixtures, runner preflight, logging, build plumbing, and other non-scientific defects
-are inside this remediation loop. Model math, data ownership/content, candidate/config/
-seed, precision policy, evaluator/metric semantics, correctness tolerances, performance
-gates, or any capability/scientific run remain outside it and require owner escalation.
-The collaboration contract will be formally consolidated after both WP4 jobs complete.
+O-148 superseded O-147's submission-count and per-engineering-failure stop mechanics
+for the remaining WP4 smoke/qualification work. It retained concurrency one and the
+unchanged `1.10` charged-GH200-hour aggregate ceiling. That authority is consumed:
+12 submissions used `0.516389` GH200-hours. Camera reached an honest negative at the
+unchanged pooling-promotion gate; LiDAR reached PASS. The unused budget is not
+continuing authority.
+
+O-149 consolidates the resulting collaboration contract for future explicitly
+approved engineering-validation envelopes: aggregate GPU-hours and concurrency are
+the default resource controls, with no numeric submission cap unless explicitly set;
+unambiguous frozen-semantics defects are diagnosed, recorded, repaired and rerun
+serially. It grants no compute by itself and preserves every material scientific/
+resource owner gate. The canonical form is in `AGENTS.md` and the Orchestra docs.
 
 O-145 added the independent optimized CUDA BEV-pooling/equivalent-kernel requirement
 to WP2 and its forward/backward, FP16/FP32-policy, operator-timing, and end-to-end
@@ -100,7 +102,7 @@ DATA_SPLITS_AND_EVALUATOR:
 SEED_POLICY:
 TRAINING_EXPOSURE_AND_CHECKPOINT_SELECTION:
 AGGREGATE_GPU_HOURS:
-MAX_SUBMISSIONS:
+SUBMISSION_POLICY:
 MAX_CONCURRENCY:
 OUTPUT_ROOT:
 ENGINEERING_REMEDIATION_ALLOWED:
@@ -110,10 +112,12 @@ FORBIDDEN_INTERPRETATION:
 OWNER_APPROVAL:
 ```
 
-Within an approved phase, S00 may derive commands/resolved configs and repair
-output-neutral test, fixture, runner, checkpoint-I/O or logging failures, provided
-the candidate/science/data/metric/seed/resource boundaries and submission cap do
-not change.
+Within an approved engineering-validation phase, S00 may derive commands/resolved
+configs and repair unambiguous frozen-semantics test/fixture, config/schema,
+dtype/API, runner, checkpoint-I/O, artifact/provenance or logging failures. Under
+O-149 the loop is bounded by the approved aggregate GPU-hours and concurrency; a
+numeric submission cap applies only when explicitly recorded. Scientific and
+resource boundaries do not change.
 
 ## 4. Per-job ledger schema
 
@@ -151,24 +155,24 @@ CHECKPOINT_SELECTION: epoch-20 terminal only
 WORKFLOW: 5 WPs + 3 owner gates + 2 approval envelopes
 CAMERA_POOLING: optimized in-tree CUDA/equivalent production backend plus labelled
                 fallback and WP2/WP4 parity/policy/performance gates
-EXECUTION_AUTHORITY: Envelope A engineering completion active under O-148;
-                     Envelope B remains unauthorized
+EXECUTION_AUTHORITY: Envelope A consumed under O-146/O-147/O-148;
+                     Envelope B remains unauthorized and Camera-blocked
 ```
 
 The complete graph, optimizer/scheduler, augmentation, role-bound GT-paste,
 evaluation, remediation and amendment rules are normative in
 `PHASE_I_PLAN.md`. This record does not duplicate them.
 
-## 6. Envelope A — approved engineering completion under O-148
+## 6. Envelope A — consumed engineering completion under O-148
 
-This section is the complete approval object. The owner's approval binds the Git commit
-containing this section; deterministic `<REQUEST_SHA12>` and `<IMPLEMENTATION_SHA12>`
-path substitutions do not require another approval. After approval, S00 records that
-same approval and executes WP0 through WP4 continuously without per-WP owner stops.
+This section preserves the complete consumed approval object. The owner's approval
+bound the Git commit containing this section; deterministic `<REQUEST_SHA12>` and
+`<IMPLEMENTATION_SHA12>` path substitutions did not require another approval. O-148
+later amended only the remediation/submission mechanics recorded above.
 
 ```text
 PHASE: S10 Phase I / Envelope A implementation and engineering calibration
-REQUEST_STATE: APPROVED / ACTIVE under O-148
+REQUEST_STATE: CONSUMED / CLOSED under O-148
 PLAN_SHA: 260750a76548208f62c384b0e0547744b619244c
 REQUEST_COMMIT: e321aed749fd859c809199d52c30b2771dbef8b3
 BRANCH: codex/s10-phase1-branch-qualification
@@ -201,7 +205,7 @@ OWNER_AMENDMENT: 2026-07-20 — "批准以 commit
                  禁止项不变，不再允许任何派生重提，任一失败即停。"
 OWNER_AMENDMENT_O148: 2026-07-20 — "现在，submissions不设置限制，GH200 hour还是
                       1.10，诊断并完成Job A/B WP4的任务。"
-EXECUTABLE_BEFORE_OWNER_APPROVAL: no; now executable only inside this approved envelope
+EXECUTABLE_NOW: no; authority ended at terminal WP4 outcomes
 ```
 
 ### 6.1 Implementation, commit, and remediation authority
@@ -339,23 +343,23 @@ JOB_A: Camera extension build, correctness gates, operator timing, optimized/fal
        end-to-end calibration
 JOB_B: D_fit keyframe GTDB materialization and identity checks, then LiDAR 16-warm-up /
        64-timed-B4 production calibration
-JOB_C: not planned; at most one fresh-output derived replacement for one diagnosed
-       in-scope engineering failure, only if aggregate time remains
+DERIVED_REPLACEMENTS: under O-148, fresh-output serial replacements for diagnosed
+                      in-scope engineering defects while aggregate time remains
 JOB_D: O-147-authorized fresh-output Camera replacement from exact commit c45e020...;
        no replacement if it fails
 ```
 
-Under O-148, Camera is repaired and resubmitted serially until PASS, then Job B is
-repaired and resubmitted serially until PASS. Engineering defects do not stop for
-per-job approval. Exhausting 1.10 aggregate GH200-hours, uncertain engineering versus
-scientific classification, checkpoint/license/content failure that cannot be repaired
-without changing the frozen science, correctness/performance-gate failure requiring
-changed math or tolerances, or any scientific scope drift still stops at the owner boundary.
+Under O-148, each branch was repaired and resubmitted serially until an honest
+terminal WP4 outcome. Engineering defects did not stop for per-job approval. The
+loop stopped at a passed validation or a frozen scientific/performance gate rather
+than changing math or tolerances. O-149 retains that completion-oriented pattern
+for future explicitly approved validation envelopes.
 
-Envelope A exits after WP0-WP4 implementation, focused validation, exact checkpoint/
-CBGS/GTDB identities, both calibrations, and one combined recipe-freeze review at one
-durable SHA. It reports the measured Envelope-B resource tuple but runs no capability
-metric, D_select, D_audit, official validation, 20-epoch training, or selectable model.
+Envelope A closed after WP0-WP4 implementation, focused validation, exact checkpoint/
+CBGS/GTDB identities and both honest calibrations. Camera failed the frozen backend
+promotion gate, so combined recipe freeze and a normal measured Envelope-B request
+did not follow automatically. No capability metric, D_select, D_audit, official
+validation, 20-epoch training or selectable model ran.
 
 The single approval sentence is:
 
@@ -363,38 +367,38 @@ The single approval sentence is:
 批准激活 commit <REQUEST_COMMIT> 中的 S10 Phase I Envelope A，并按其中边界连续执行 WP0-WP4。
 ```
 
-## 7. Envelope B — pending P1-G1
+## 7. Envelope B — blocked before P1-G1
 
-Envelope B is not yet a complete request. It will bind the two frozen candidates,
+Envelope B is not yet a complete request. If unblocked, it will bind the approved candidates,
 seed 0, exact data/evaluator identities, `N_cbgs`, accepted precision, 20-epoch
 B32 exposure, terminal-only selection, measured aggregate GPU-hours, wall-time
-segmentation, submission cap, output root and owner-escalation conditions.
+segmentation, submission policy/concurrency, output root and owner-escalation conditions.
 LiDAR runs before Camera by default; `D_audit` resources may be reserved but the
 data remain sealed until `P1-G2` explicitly opens them.
 
 ```text
 REQUEST_STATE: NOT YET REQUESTABLE
-BLOCKED_ON: Envelope-A implementation/calibration/identities and joint recipe review
+BLOCKED_ON: Camera production-backend disposition and branch recipe-freeze review
 EXECUTABLE_NOW: no
 ```
 
 ## 8. Envelope-A compact execution ledger
 
-This is the sole active ledger for Envelope A. Submission rows are appended only when
+This is the sole terminal ledger for Envelope A. Submission rows were appended only when
 the exact durable source SHA and command are known.
 
 | Item | Durable source / identity | State | Resources / interpretation |
 |---|---|---|---|
 | WP0 | `714f7a1067f375861c80e3020ab302a928983f12` | complete | local/static only; no compute |
 | WP1 | `933ca6feb142bcedc2ab842b25d6a1caf242c749` | complete | exact CBGS artifact `64cc0d1d...e115ef`; no GPU submission |
-| Swin acquisition 1/1 | source URL in Section 6.2; 114,342,173 bytes; SHA-256 `9f71c168d837d1b99dd1dc29e14990a7a9e8bdc5f673d46b04fe36fe15590ad3` | quarantined / not accepted | HTTPS 200; final host `release-assets.githubusercontent.com`; no GPU-hour charge; final path absent |
-| WP2 implementation | `5a001c96f00fffd0816492f181197e2d310a5ae1` | implemented; WP4 qualification pending | login syntax/static checks only; no capability inference |
-| WP3 implementation | `22138371d28e75d5218b0b888c225953fd429f0c` | complete; WP4 qualification pending | exact collapsed sparse boundary + SECOND/SECONDFPN/TransFusion; login syntax/static checks only |
-| WP4 implementation | `4c13ad736319c022d7fb6466a48a77c90ae79dde` / tree `af1a582488191b0e49799ebc02b9489990ce0edf` | implemented; execution stopped before qualification | exact zero-update calibrator, checkpoint/evaluator preflight, production-input pooling parity/timing, fail-closed Job A/B runners |
-| WP4 checkpoint-I/O remediation | `67c1b55b59aa81a49b1ed8f4aabd07e6592e88aa` / tree `2c8812f57c3e59fce25ad1d6f3dd63044b39c714` | locally sealed; GH200 verification remains unexecuted because Job D stopped before pytest | scalar/N-D raw-byte hashing plus 0-D BatchNorm-buffer regression; no model/data/config change |
-| O-148 preflight observability remediation | `125e915a0f16f8abfbfa14d73558ee518cf3170c` / tree `34840210a9d426c51973a29af4be91f06c5fe9f6` | locally sealed; Camera Job E pending | names every fail-closed source/hash/module/environment/resource stage; no model/data/config/gate change |
-| O-148 canonical-config remediation | `ea3cadec02cdd91f5caf5553631e916be008985f` / tree `811376a0c0eda575b7be3f87422024a6071ee02f` | locally sealed; Camera Job G pending | exact canonical bytes/physical SHA invariant plus production-path regression; no model/data/config/gate change |
-| O-148 parity/sort remediation | `8e55f5d135dbc83f2e937c4942117d9e1901f323` / tree `1faebff1f495fad5cf798f7781a8371a250d432c` | locally sealed; Camera Job H pending | same-backend repeat control, deterministic parity isolation, exact composite-key fast sort; frozen tolerances/gates unchanged |
+| Swin acquisition 1/1 | source URL in Section 6.2; 114,342,173 bytes; SHA-256 `9f71c168d837d1b99dd1dc29e14990a7a9e8bdc5f673d46b04fe36fe15590ad3` | accepted/read-only; quarantine absent | mapping report `c87469b8...f70f`; initialization-state identity sealed; no second download |
+| WP2 Camera | implementation `5a001c96f00fffd0816492f181197e2d310a5ae1`; terminal source `8e55f5d135dbc83f2e937c4942117d9e1901f323` | terminal negative; pool backend not promoted | all correctness/e2e/memory gates passed; operator ratio `0.976174 > 0.80`; no capability inference |
+| WP3 LiDAR | implementation `22138371d28e75d5218b0b888c225953fd429f0c`; terminal source `ae79a608f395fc9de841084ec4269451d826f587` | final engineering PASS | exact GTDB + collapsed sparse boundary + SECOND/SECONDFPN/TransFusion; qualified config `06e78e45...2015` |
+| WP4 | initial `4c13ad736319c022d7fb6466a48a77c90ae79dde`; final `ae79a608f395fc9de841084ec4269451d826f587` | closed mixed outcome | Camera negative / LiDAR PASS; zero capability metrics and zero optimizer updates |
+| WP4 checkpoint-I/O remediation | `67c1b55b59aa81a49b1ed8f4aabd07e6592e88aa` / tree `2c8812f57c3e59fce25ad1d6f3dd63044b39c714` | verified by Job F and later runs | scalar/N-D raw-byte hashing plus 0-D BatchNorm-buffer regression; no model/data/config change |
+| O-148 preflight observability remediation | `125e915a0f16f8abfbfa14d73558ee518cf3170c` / tree `34840210a9d426c51973a29af4be91f06c5fe9f6` | verified beginning with Job E | names every fail-closed source/hash/module/environment/resource stage; no model/data/config/gate change |
+| O-148 canonical-config remediation | `ea3cadec02cdd91f5caf5553631e916be008985f` / tree `811376a0c0eda575b7be3f87422024a6071ee02f` | verified by Job G and later runs | exact canonical bytes/physical SHA invariant plus production-path regression; no model/data/config/gate change |
+| O-148 parity/sort remediation | `8e55f5d135dbc83f2e937c4942117d9e1901f323` / tree `1faebff1f495fad5cf798f7781a8371a250d432c` | verified by Job H; performance gate honestly failed | same-backend repeat control, deterministic parity isolation, exact composite-key fast sort; frozen tolerances/gates unchanged |
 | Job A / `521859` | `4c13ad736319c022d7fb6466a48a77c90ae79dde`; config `f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d` | `FAILED 1:0` in focused test; engineering incident, no model/data execution | `00:01:42` = `0.028333` GH200-hour; 27 passed / 1 pooling parity failure |
 | Job C / `521901` Camera derived replacement | remediation `564fb9d97c44a463ac055dc40d25b79acdc77858` / tree `a1b9f7e809708b72a927afa4ef9c3f4bae82e137` | `FAILED 1:0` in checkpoint hash; engineering incident, no checkpoint promotion/model/data execution | `00:01:48` = `0.030000` GH200-hour; pooling focused tests 29/29 passed |
 | Job D / `521959` Camera O-147 replacement | `c45e020ed16496e2acaa5f8d34b135da21fb1230` / tree `3887d82545207ec67b861bf48ff49042f52cebdb`; config `f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d` | `FAILED 1:0` before runner control/output creation; exact pre-control predicate unlocalized | `00:00:04` = `0.001111` GH200-hour; no pytest/checkpoint/data/model/build/calibration execution; Job B blocked |
@@ -406,10 +410,11 @@ the exact durable source SHA and command are known.
 | Job B2 / `522153` LiDAR O-148 smoke | `cf53a29815a3bea6a65dbce9b6e74012f1b3e798` / tree `cac7e7d84681b654bb75e2ccbe3fe27ad93daf5b`; exact Job-B2 record below | `FAILED 1:0` after exact GTDB seal, before first calibration batch | `00:06:09` = `0.102500` GH200-hour; 31 passed/3 skipped; canonical JSON mapping-order parser defect |
 | Job B3 / `522189` LiDAR O-148 smoke | `445239e965f9876c122f0b99135b0b9e8576018f` / tree `762aa2473ecad067c617195bf3892a5f04981325`; exact Job-B3 record below | `FAILED 1:0` in evaluator-schema decode after calibration | `00:04:18` = `0.071667` GH200-hour; 32 passed/3 skipped; indiscriminate FP32 helper cast discrete query indices |
 | Job B4 / `522203` LiDAR O-148 smoke | `7dfc5aa173766d0f9b6a907db421f2d77882f137` / tree `7becda2242f411c8792b3de180e89c32df6b781c`; exact Job-B4 record below | `COMPLETED 0:0`; calibration passed, post-terminal path remediation required | `00:02:46` = `0.046111` GH200-hour; result paths retained vanished `.control` prefix |
+| Job B5 / `522222` LiDAR O-148 smoke | `ae79a608f395fc9de841084ec4269451d826f587` / tree `2ed623162e79208c2fad8fd830f852d1a57793b3`; exact Job-B5 record below | `COMPLETED 0:0`; final LiDAR WP4 PASS | `00:02:45` = `0.045833` GH200-hour; all gates and published artifact paths passed |
 
-Before O-148 execution, Envelope-A Slurm usage is `3 / unlimited` submissions and
-`0.059444 / 1.10` charged GH200-hours. Jobs `521859`, `521901`, and `521959` are
-consumed. Camera remediation/resubmission and then original Job B are active.
+Before O-148 execution, Envelope-A Slurm usage was `3 / unlimited` submissions and
+`0.059444 / 1.10` charged GH200-hours. Final usage is `12 / unlimited` submissions
+and `0.516389 / 1.10` GH200-hours. All jobs are terminal and the authority is consumed.
 
 ### O-147 exact amendment and Job D / Job B pre-submission record
 
@@ -656,6 +661,14 @@ DISPOSITION: optimized kernel not promoted; fallback remains diagnostic-only; Ca
              qualified config/checkpoint is not emitted; this blocks Envelope B Camera
              capability until the owner explicitly amends the frozen production-backend
              requirement. Independent LiDAR WP4 may still be completed.
+KNOWN_PROVENANCE_LIMIT: the later B4 audit found that this immutable result's sole
+             materialized_config.path retains the pre-rename `.control` prefix. The
+             actual final file exists at `<Job-H output>/evidence/resolved_config.materialized.json`
+             with the recorded SHA256
+             46e99574cd4c480b2cb6ffac07fa96c2e24d3c5e1deb9f5c75ae5eb6e0c230c9.
+             Job H emitted no qualified config/checkpoint. `ae79a60` fixed final-path
+             emission prospectively; rerunning the already terminal negative Camera
+             gate would add no scientific information.
 RESULT_SHA256: 47eacd4fb2211687703178fc4eadb027657dbdce6f79d9b3223b5e43415e7e41
 OUTPUT_MANIFEST_SHA256: 87c6049f09de492a8998e4b9cdc94b2c126da81c56eca8c1956686c8e92eb19f
 USAGE_AFTER: 7 / unlimited submissions; 0.231667 / 1.10 GH200-hours
@@ -840,6 +853,58 @@ REMEDIATION: pass the immutable published output root explicitly, derive and val
 RESULT_SHA256: 0d85faec3c31830ea09739ff19e590b165382d39d5e5e4b64da17eb70c44fbf5
 RUNNER_ARTIFACT_SHA256: cabc2c5954c0b8404526df42997405d37b4caef49ec3f17fa55152943f982f84
 USAGE_AFTER: 11 / unlimited submissions; 0.470556 / 1.10 GH200-hours
+```
+
+### Job B5 exact LiDAR pre-submission record under O-148
+
+```text
+SLURM_JOB_ID: 522222
+DERIVES_FROM: Job B4 522203 / one diagnosed post-rename provenance-path defect
+SOURCE_SHA: ae79a608f395fc9de841084ec4269451d826f587
+SOURCE_TREE: 2ed623162e79208c2fad8fd830f852d1a57793b3
+SOURCE_BRANCH: codex/s10-phase1-branch-qualification
+CONFIG_FILE_SHA256: 380bd6623af37241ee867b0bbe2e368abc22ec33292cb676d8189aa533dab1e1
+RESOLVED_CONFIG_SHA256: b9b29dbabba7899ecc703fdd3566e54cca5606dfcd1a783db96c7b9efb57eddf
+RUNNER_SHA256: 3bc214c3e709ce7a1c964a0653be5b8da032dac2733f613897112743d01eae5e
+ENTRY_SHA256: a879b853be8fc98cad9095363914701d02d125a10e908e2f754ea92f3234719f
+GTDB_ENTRY_SHA256: bc1136eb4ff5edc59090000d6f960632de1a8fac589f409477ef60ea54055de0
+DATA/SEED/CONFIG/GATES: identical to original Job B
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd/job_b5_lidar_ae79a608f395_b5
+GTDB: reuse sealed exact Job-B2 database; manifest SHA256
+      22e3e23c2dff19280476ee622ea062592b6b9a1712902e7e83cb4b242fafa2b5
+RESOURCES: unchanged 1 GH200, 16 CPU, 96 GiB, <=00:30:00, no requeue
+HASH_BINDING: mechanically recomputed with 40/64-character assertions
+USAGE_BEFORE: 11 / unlimited submissions; 0.470556 / 1.10 GH200-hours
+```
+
+### Job B5 `522222` final LiDAR WP4 result
+
+```text
+TERMINAL: COMPLETED 0:0 / elapsed 00:02:45 / 0.045833 GH200-hour / node n451
+STATUS: PASS; final directly consumable LiDAR Envelope-A calibration evidence
+PASSED: 33 focused tests/3 skips; exact sealed GTDB reuse; fixed D_fit B4 data;
+        16 warm-up plus 64 timed microbatches; 10 finite unscaled-gradient windows;
+        unchanged parameters and zero optimizer/scheduler updates; evaluator decode/
+        serialization; BN/no-GN and sparse-FP32-island checks; exact checkpoint reload;
+        three final published artifact paths exist and result contains no `.control`
+CALIBRATION: median/p95 GPU step 93.118401/106.594336 ms; 41.904378 samples/s;
+             peak allocated/reserved 5,346,498,048/6,360,662,016 bytes;
+             unscaled gradient norm median/p95 4,333.033203/4,336.105469
+SCHEMA: 29 BatchNorm1d, 15 BatchNorm2d, zero GroupNorm; sparse collapse FP32
+        `[4,256,180,180]`; decoded/serialized 200 boxes
+DATA: exact keyframe-only D_fit training/GTDB; GTDB manifest SHA256
+      22e3e23c2dff19280476ee622ea062592b6b9a1712902e7e83cb4b242fafa2b5;
+      321,613 objects across all ten frozen classes
+QUALIFIED_CONFIG_SHA256: 06e78e456793fe269c978b0e663da39e4ec3216523c54f996665bc1a6a952015
+ZERO_UPDATE_CHECKPOINT_SHA256: 8166d2016a560d7b572ec7d196a886f0780eb317f6a8a32f8a86f80160e92611
+MODEL_STATE_SHA256: cfefa8e50e8f868bfdeddbb16dd57138ad83c5727f90a3d1be5d9461dfc3f96e
+RESULT_SHA256: 5cd76d723c6cd68ef76b3bcd4d2ff1950f880524e622d14ecef4883105c608e0
+RUNNER_ARTIFACT_SHA256: 2a0929a1bedb9a974196eb27f68f3e8697c6dfcb3550b1d6f0f7d346504d17ad
+INTERPRETATION: implementation conformance/numerical health/resource estimate only;
+                no capability, convergence, mAP/NDS or candidate-selection claim
+SCOPE_NOT_EXECUTED: optimizer update, D_select, D_audit, official validation,
+                    capability metrics, staged fusion, scientific checkpoint
+USAGE_AFTER: 12 / unlimited submissions; 0.516389 / 1.10 GH200-hours
 ```
 
 ### Job A exact pre-submission record

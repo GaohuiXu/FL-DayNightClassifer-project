@@ -3,16 +3,17 @@
 ## 0. Status, purpose, and authority
 
 ```text
-STATUS: OWNER-FROZEN SCIENTIFIC AND COLLABORATION PLAN
+STATUS: OWNER-FROZEN SCIENTIFIC PLAN / ENVELOPE A TERMINAL
 DATE: 2026-07-20
-OWNER_DECISION: O-144 plus O-145 optimized-BEV-pooling amendment
+OWNER_DECISION: O-144 plus O-145 optimized-BEV-pooling amendment;
+                O-149 collaboration-process amendment
 SCOPE: Phase I camera/LiDAR clean branch qualification
 AUTHORITY: freezes the Phase I scientific choices, work-package order, gates,
            approval structure, and execution boundaries recorded below
-IMPLEMENTATION: not authorized by O-144 or O-145
-COMPUTE: not authorized
-CHECKPOINT_ACQUISITION: not authorized by this document
-COMMIT: O-145 authorizes only the documentation amendment commit that records O-145
+IMPLEMENTATION: WP0-WP4 completed under consumed O-146/O-147/O-148
+COMPUTE: no active authority; Envelope A is terminal
+CHECKPOINT_ACQUISITION: completed once under consumed Envelope A
+COMMIT: material Envelope-A implementation/result/contract closure commits authorized
 MERGE/PUSH/UPLOAD/PUBLICATION: not authorized by this document
 AMENDMENT: any departure from a frozen scientific field or gate requires an
            explicit owner amendment before implementation or execution
@@ -21,11 +22,11 @@ AMENDMENT: any departure from a frozen scientific field or gate requires an
 O-144 promotes this document from a temporary discussion draft to the binding Phase I
 plan. Future implementation and execution must follow it. It complements, and does not
 supersede, `HANDOFF.md`, `RUN_REQUEST.md`, `AGENTS.md`, or later owner decisions.
-Plan freeze is not execution authority: Envelope A must still be activated before any
-implementation, checkpoint download, material implementation commit, D_fit
-GT-database materialization, or engineering GPU calibration; Envelope B must later
-be approved before scientific training or evaluation. O-145's documentation-only
-amendment commit is the sole current commit exception.
+Plan freeze was not execution authority: O-146 later activated Envelope A, O-147
+amended it, and O-148 completed it. Envelope B must still be separately approved
+before scientific training or evaluation. O-145's documentation-only amendment
+commit was the sole exception at plan freeze; later owner decisions are recorded in
+`RUN_REQUEST.md` and the canonical Orchestra docs.
 
 O-145 amends the frozen implementation plan without changing either scientific
 candidate: WP2 must provide an independent in-tree port of the pinned MIT optimized
@@ -33,6 +34,12 @@ CUDA BEV-pooling operation, or a functionally equivalent kernel, and WP4 must qu
 its numerical and performance behavior. O-145 authorizes this documentation amendment
 and drafting the exact Envelope-A request only. It does not activate Envelope A,
 authorize checkpoint acquisition, or authorize implementation or GPU execution.
+
+O-146/O-147/O-148 later activated, amended and completed Envelope A without
+changing the frozen science. Its terminal outcome is Camera negative at the
+optimized-pooling promotion gate and LiDAR engineering PASS. O-149 amends only
+the collaboration/remediation mechanics for future explicitly approved
+engineering-validation envelopes; it creates no compute authority.
 
 ## 1. Technical summary
 
@@ -467,17 +474,18 @@ exact frozen `D_fit` sample tokens, record the split/cache/ZIP/GTDB identities a
 per-class counts, and fail if any `D_select`, `D_audit`, official-val, or unknown source
 token is present. A whole-train GT database may not be filtered implicitly at paste
 time unless its exact per-object source provenance makes the D_fit-only projection
-independently verifiable. If that proof is unavailable, construct a fresh D_fit-only
-keyframe GTDB under an explicitly activated Envelope A.
+independently verifiable. Envelope A constructed the fresh D_fit-only keyframe GTDB;
+its terminal manifest identity is recorded in `HANDOFF.md` and `RUN_REQUEST.md`.
 
 ## 8. Camera initialization and NuImages checkpoint
 
 The Camera primary uses the pinned public ImageNet-1K Swin-T checkpoint declared by the
 reference Camera YAML:
 `https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_tiny_patch4_window7_224.pth`.
-It is not the NuImages checkpoint. Downloading it is still an external action and is
-not authorized by O-144/O-145. Envelope A must bind its exact URL, license, permitted
-`/nobackup` quarantine/final destinations and redirect policy before acquisition. If
+It is not the NuImages checkpoint. O-144/O-145 alone did not authorize its download;
+consumed Envelope A bound its URL/license/destinations/redirect policy and completed
+one accepted acquisition with physical SHA-256
+`9f71c168d837d1b99dd1dc29e14990a7a9e8bdc5f673d46b04fe36fe15590ad3`. If
 the pinned upstream does not publish a trusted digest, the activated acquisition must
 hash the quarantined bytes and freeze the physical SHA-256 before rename, tensor
 mapping, or model use; a redirect/content mismatch fails closed.
@@ -542,9 +550,11 @@ The owner has accepted the following five design changes for the Phase I workflo
 3. structure the eventual phase approval so bounded in-envelope implementation and
    linear source commits can be authorized together, while each executed source still
    has an immutable Git SHA;
-4. classify a change as scientific whenever it may alter tensors, sample content/order,
-   accepted updates, evaluator/metric, seed, candidate count, or resources; permit
-   autonomous remediation only when output-neutrality is clear;
+4. keep all candidate/model/data/recipe/precision/evaluator/metric/seed/gate/resource
+   choices owner-gated; under O-149 permit autonomous engineering remediation when
+   one frozen-semantics correction is unambiguous, including config/schema parsing,
+   discrete dtype/API, tests/fixtures, runners, checkpoint/artifact/provenance and
+   logging defects;
 5. allow one combined C/L recipe-freeze review at one durable SHA rather than two
    duplicated review chains.
 
@@ -592,10 +602,11 @@ commit authority must be explicit in Envelope A.
 1. **`P1-G0 PLAN_FREEZE` — closed by O-144.** The scientific recipe, five work
    packages, three gates, two-envelope model, and amendment boundaries in this
    document are binding. This closure does not activate Envelope A.
-2. **`P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` — pending.** After Envelope-A
-   implementation, calibration, exact CBGS/GTDB identities, and joint review are
-   complete, the owner approves or rejects the measured Envelope-B resource tuple.
-   No 20-epoch training starts before this gate.
+2. **`P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` — blocked before request.** Envelope A
+   returned a Camera backend-promotion negative and a LiDAR engineering PASS. The
+   owner must first resolve Camera disposition and the branch recipe-freeze review;
+   only then may a measured Envelope-B resource tuple be drafted. No 20-epoch
+   training starts before this gate.
 3. **`P1-G2 SELECT_AND_AUDIT` — pending.** The owner receives both terminal
    `D_select` results and chooses, per branch, accept/freeze, honest negative, or an
    explicit cause-directed amendment. `D_audit` opens only when the owner says
@@ -603,14 +614,14 @@ commit authority must be explicit in Envelope A.
 
 ### 10.3 Envelope A — implementation and engineering calibration
 
-Envelope A is designed to authorize all five WPs in one bounded implementation
+Envelope A was designed to authorize all five WPs in one bounded implementation
 period: scoped source/docs/tests, focused local validation, material linear commits,
 the exact official ImageNet-1K Swin-T acquisition, exact D_fit CBGS/GTDB
 materialization, the in-tree CUDA BEV-pooling build/parity/timing work, and
 production-path C/L engineering calibration. It authorizes no capability metric,
 `D_select`, `D_audit`, scientific checkpoint, or 20-epoch run.
 
-The adopted engineering-calibration design is:
+The initially adopted engineering-calibration design was:
 
 - one GH200, maximum concurrency 1;
 - aggregate ceiling at most `1.0` GH200-hour;
@@ -623,16 +634,21 @@ The adopted engineering-calibration design is:
 - report loader wait, GPU step time, samples/s, peak memory, initialization and
   accepted-window state; do not launch a broad profiler.
 
-Envelope A remains **NOT ACTIVATED** until a later owner message explicitly grants its
-implementation, acquisition, materialization, commit, remediation, and exact output
-authority. Its activation record must bind the allowed file/scope boundary, official
-checkpoint destination, data-artifact output roots, engineering output root, resource
-ceiling, submission cap, and escalation conditions.
+O-146 activated that initial design; O-147 raised the submission/resource caps;
+O-148 then removed the numeric submission stop while retaining concurrency one and
+the `1.10` GH200-hour aggregate ceiling. Envelope A is **CONSUMED/CLOSED** after
+12 serial submissions and `0.516389` GH200-hours. Camera passed correctness/parity/
+end-to-end/memory checks but failed the unchanged `<=0.80` optimized-pooling ratio
+gate at `0.976174`; LiDAR engineering qualification passed. No capability metric,
+optimizer update, D_select, D_audit, official validation or selectable scientific
+checkpoint ran. Unused budget is not continuing authority.
 
 ### 10.4 Envelope B — scientific branch qualification
 
-Envelope B contains exactly two primary candidates: one frozen Camera and one frozen
-LiDAR. Each uses seed 0, 20 exact-CBGS epochs over D_fit, physical B4,
+The frozen Envelope-B design contains exactly two primary candidates: one Camera and
+one LiDAR, but it is not executable while Camera lacks a qualified production backend.
+Any change to that requirement or candidate is an explicit scientific amendment.
+If unblocked, each uses seed 0, 20 exact-CBGS epochs over D_fit, physical B4,
 accumulation 8/effective B32, accepted S08 precision, terminal-only checkpoint
 selection, one `D_select` evaluation, and conditionally one owner-unsealed `D_audit`
 evaluation. No NuImages, GN, alternate LR, alternate seed, or automatic scientific
@@ -657,26 +673,32 @@ H_B = 1.15 * (
 ) / 3600
 ```
 
-The exact aggregate GPU-hour ceiling, planned wall-time segmentation, maximum
-submissions, output root, and resolved config hashes remain pending until Envelope A
-produces measurements. D_audit resources may be reserved in Envelope B, but reservation
-does not unseal the data. No estimate derived solely from the old C1 graph is acceptable.
+The exact aggregate GPU-hour ceiling, planned wall-time segmentation, submission
+policy/concurrency, output root, and resolved config hashes remain pending. After
+Camera disposition is approved, the resource request must be recalculated from the
+eligible graph and current evidence. D_audit resources may be reserved in Envelope B,
+but reservation does not unseal the data. No estimate derived solely from the old C1
+graph is acceptable.
 
 ### 10.5 In-envelope remediation and mandatory escalation
 
-Once an envelope is activated, S00 may autonomously fix only clearly output-neutral
-defects in tests, fixtures, config field access, runner/Slurm plumbing, checkpoint I/O,
-resume plumbing, or logging, and may resubmit within the same aggregate resource and
-submission caps. Every scientific run still binds a durable Git SHA and resolved-config
-hash; raw outputs remain immutable.
+Under O-149, once an engineering-validation envelope is explicitly activated, S00
+may autonomously diagnose and fix unambiguous single-correct-answer defects anchored
+to frozen semantics: tests/fixtures, config/schema parsing, discrete dtype/API,
+runner/Slurm plumbing, checkpoint/resume I/O, artifact publication/provenance and
+logging. It records each derived source/command/fresh output and resubmits serially
+inside the same aggregate GPU-hour ceiling and concurrency. Submission count has no
+default numeric cap unless the owner explicitly sets one. Every scientific run still
+binds a durable Git SHA and resolved-config hash; raw outputs remain immutable.
 
 Return to the owner before changing model math or tensor shapes, normalization,
 initialization source/mapping, data role/content/order or GTDB membership, augmentation,
 loss/target/decode, optimizer/scheduler/EMA/precision, seed, exposure, selectable
 checkpoint, evaluator/metric, candidate count, interpretation, resources, or output
-scope. Also stop on uncertain classification, the same root blocker recurring, or an
-exhausted submission/resource cap. There is no automatic cause-directed scientific
-repair in either initial envelope.
+scope. Also stop on uncertain classification, the same root blocker recurring after
+repair, or an exhausted aggregate resource ceiling. Blind identical retries remain
+forbidden. There is no automatic cause-directed scientific repair in either initial
+envelope, and O-149 creates no standing compute authority.
 
 ## 11. Frozen fields and remaining activation inputs
 

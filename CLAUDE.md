@@ -15,6 +15,7 @@ The active coordination entry point is:
 - [`fl_v3/usenix27_orchestra/ORCHESTRA.md`](fl_v3/usenix27_orchestra/ORCHESTRA.md)
 - [`fl_v3/usenix27_orchestra/SESSIONS.md`](fl_v3/usenix27_orchestra/SESSIONS.md)
 - [`fl_v3/usenix27_orchestra/KICKOFFS.md`](fl_v3/usenix27_orchestra/KICKOFFS.md)
+- [`fl_v3/usenix27_orchestra/handoffs/S10/PHASE_I_PLAN.md`](fl_v3/usenix27_orchestra/handoffs/S10/PHASE_I_PLAN.md)
 
 `fl_v3/collab/**`, `fl_v3/docs/cycle_04/**`, and the old Cycle-04 attack/defense
 roadmap are read-only historical evidence. They are not current implementation,
@@ -23,9 +24,10 @@ T5/T6/T7 or old defense code/routes from them or from Git history.
 
 ## Current status
 
-S07-S09 are closed. S10 is active on `codex/s10-cl-model-recipe` from audited
-base `a080d49c1c22de20ccb5b1353d4922c7df14a729`. Accepted S10 evidence through
-O-142 remains under `fl_v3/usenix27_orchestra/handoffs/S10/`: STOP-A's
+S07-S09 are closed. S10 is active on `codex/s10-phase1-branch-qualification`,
+advanced linearly from `codex/s10-cl-model-recipe` and audited base
+`a080d49c1c22de20ccb5b1353d4922c7df14a729`. Accepted S10 evidence through
+O-149 remains under `fl_v3/usenix27_orchestra/handoffs/S10/`: STOP-A's
 train-only split/evaluator is reusable; STOP-B is `INCONCLUSIVE`; C1-A
 localized the observed large LiDAR-stem gradient to the current tiny-group GN
 path; bounded fusion proxy runs did not establish production capability or an
@@ -39,17 +41,34 @@ O-143 replaces S10's active six-stop execution order. The new order is:
    fusion-contribution evaluation;
 3. GH200 profiling/optimization only after capability passes.
 
-Current-A2 and the old C→D→E→F path are paused. No compute is currently
-authorized. S11+ remains pending.
+Current-A2 and the old C→D→E→F path are paused. Phase-I Envelope A WP0-WP4 is
+terminal after 12 serial submissions and `0.516389` GH200-hours. Camera passed
+checkpoint/correctness/parity/end-to-end/memory checks but failed the frozen
+optimized-pooling promotion gate (`0.976174 > 0.80`) and is not qualified. LiDAR
+engineering qualification passed with exact keyframe GTDB, BN/no-GN TransFusion,
+the sparse FP32 island, a qualified config and a zero-update recovery checkpoint.
+No capability metric or optimizer update ran. Camera disposition and branch
+recipe-freeze review are owner-gated; no compute is currently authorized. S11+
+remains pending.
 
 ## Collaboration
 
 Persistent S00 is the default planner and implementer. For S10, O-143 replaces
 per-job immutable/no-retry/multi-document/reviewer mechanics with phase-level
-control. The owner approves a phase objective, candidates, data/metrics/seeds,
-aggregate GPU-hours, submission cap and stop conditions once; inside that
-approved envelope S00 may repair output-neutral runner/test/checkpoint/logging
-defects and resubmit without repeated questions.
+control. O-149 makes explicitly approved engineering-validation envelopes
+completion-oriented: the owner binds the objective/exit gate, frozen science,
+data/command family, per-job resources, aggregate GPU-hour ceiling, concurrency,
+fresh outputs and escalation conditions once. Submission count has no default
+numeric cap unless the owner explicitly sets one. S00 diagnoses and repairs
+unambiguous frozen-semantics defects in tests/fixtures, config/schema parsing,
+dtype/API plumbing, runners, checkpoint I/O, artifact publication/provenance or
+logging and resubmits serially without repeated questions.
+
+Blind identical retries and spare-GPU expansion remain forbidden. Return to the
+owner at ceiling exhaustion, ambiguous diagnosis, recurrence of the same blocker,
+or before changing candidate/model/data/recipe/precision/evaluator/metric/seed/
+gate/scientific/resource semantics. O-149 grants no standing compute and does not
+cover capability/scientific runs.
 
 S10 keeps one compact active `HANDOFF.md` and one `RUN_REQUEST.md` job ledger.
 Existing `RESULTS.md` and `REVIEW.md` are historical archives. Canonical docs
@@ -74,10 +93,11 @@ defense, or paper claims.
 ## Permissions
 
 Planning or implementation is not compute authority. For S10, a future explicit
-phase approval may authorize autonomous derived submissions and output-neutral
-engineering remediation within its aggregate resource/submission cap. Changes to
-model math, data ownership, recipe candidate space, evaluator/metric, seeds,
-scientific claims or aggregate resources return to the owner. Preserve raw
+phase approval may authorize completion-oriented derived engineering submissions
+within its aggregate GPU-hour ceiling and concurrency; a numeric submission cap
+binds only when explicitly set. Changes to model math, data ownership, recipe
+candidate space, precision, evaluator/metric, seeds, acceptance gates, scientific
+claims or aggregate resources return to the owner. Preserve raw
 outputs and minimum run provenance: Git SHA, resolved-config hash, split, seed,
 command, resources, output, checkpoint and metric hashes. Commit, merge, push,
 upload and publication remain separately owner-gated. Follow `AGENTS.md` for

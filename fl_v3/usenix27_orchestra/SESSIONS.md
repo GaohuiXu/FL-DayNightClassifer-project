@@ -16,12 +16,18 @@
 > O-144 closes `P1-G0 PLAN_FREEZE`; the binding choices and five-WP/
 > three-gate/two-envelope workflow are in
 > `handoffs/S10/PHASE_I_PLAN.md`. O-145 adds the optimized CUDA BEV-pooling
-> implementation/parity/timing contract to WP2/WP4. O-146 activates the exact
-> Envelope A at `e321aed749fd859c809199d52c30b2771dbef8b3`; WP0-WP4 are in
-> continuous execution inside its bounded engineering authority.
+> implementation/parity/timing contract to WP2/WP4. O-146 activated the exact
+> Envelope A at `e321aed749fd859c809199d52c30b2771dbef8b3`; O-147 amended it
+> and O-148 replaced its numeric submission stop with serial execution under the
+> unchanged `1.10` GH200-hour ceiling. WP0-WP4 is terminal after 12 submissions
+> and `0.516389` GH200-hours: Camera is an honest negative at the frozen pooling
+> promotion gate; LiDAR engineering qualification passed. No capability metric or
+> optimizer update ran.
 >
-> S10 now uses phase-level owner approval, one compact status file and one job
-> ledger. Capability execution remains unauthorized; S11+ remains pending.
+> O-149 makes explicitly approved engineering validation completion-oriented and
+> aggregate-budget-limited, without a default numeric submission cap. It retains
+> all scientific/resource owner gates and grants no standing compute. Capability
+> execution remains unauthorized; S11+ remains pending.
 
 ## 1. Active graph and status
 
@@ -34,8 +40,8 @@
   ├─ S09 full-pipeline performance/readiness      [closed PASS under O-120]
   │      └─ independent review of exact profiling/evidence SHA
   │
-  ├─ S10 C/L qualification → staged fusion        [Envelope A WP0-WP4 active]
-  │      └─ capability gate → GH200 optimization  [pending]
+  ├─ S10 C/L qualification → staged fusion        [A: Camera negative / LiDAR PASS]
+  │      └─ capability gate → GH200 optimization  [Camera disposition pending]
   └─ S11 and later                                 [roles pending owner decision]
 ```
 
@@ -48,7 +54,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | O-146 activates exact Envelope A at `e321aed`; WP0-WP4 bounded implementation/engineering active; capability execution unauthorized |
+| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | Envelope A WP0-WP4 terminal: Camera negative at frozen pool gate, LiDAR engineering PASS; Camera disposition/review owner-gated; capability execution unauthorized |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract
@@ -57,31 +63,35 @@
 set of evidence records. `Sxx` is an evidence namespace, not a worker/reviewer
 lifecycle.
 
-**S10 workflow under O-143/O-144/O-145.**
+**S10 workflow under O-143/O-144/O-145/O-149.**
 
 1. `PHASE_I_PLAN.md` freezes the Phase-I objective, two candidates, graph/recipe,
    data/metric/seed/exposure policy and the five-WP/three-gate/two-envelope model.
-   Each envelope separately binds aggregate resources, submission cap, outputs and
-   stop conditions before it becomes executable.
+   Each envelope separately binds aggregate resources, submission policy and
+   concurrency, outputs and stop conditions before it becomes executable.
 2. S00 implements and uses direct entry/config/checkpoint/one-batch preflight.
-3. Inside an approved phase, S00 may fix output-neutral test, runner, checkpoint
-   I/O or logging defects and resubmit within the same scientific/resource cap.
-4. S00 returns to the owner before changing model math, data ownership, recipe
+3. Inside an approved engineering-validation envelope, S00 diagnoses and fixes
+   unambiguous frozen-semantics defects in tests/fixtures, config/schema parsing,
+   dtype/API plumbing, runners, checkpoint I/O, artifact publication/provenance or
+   logging, then resubmits serially within the same scientific/resource cap.
+4. Aggregate GPU-hours and concurrency are the default controls; a numeric
+   submission cap applies only when the owner explicitly sets one.
+5. S00 returns to the owner before changing model math, data ownership, recipe
    search space, evaluator/metric, seeds, candidate count, interpretation or
-   aggregate resources, and when repeated engineering failure exhausts the cap.
-5. Record current state in one `HANDOFF.md` and runs in one `RUN_REQUEST.md`
+   aggregate resources, and at ceiling exhaustion, ambiguous diagnosis or
+   recurrence of the same blocker after repair.
+6. Record current state in one `HANDOFF.md` and runs in one `RUN_REQUEST.md`
    ledger. Preserve raw outputs and minimum provenance; do not duplicate every
    incident into canonical docs, results and review files.
-6. Review only data/metric changes, each branch recipe freeze, and the final
+7. Review only data/metric changes, each branch recipe freeze, and the final
    staged-fusion/full capability result. A reviewer reads a durable SHA/evidence
    and does not fix code.
 
-**Authority boundary.** O-144 freezes the plan, O-145 amends WP2/WP4, and O-146
-activates only the exact Envelope A at `e321aed749fd859c809199d52c30b2771dbef8b3`.
-It covers WP0-WP4, bounded checkpoint/data actions, material commits and no more
-than three serial engineering submissions / one aggregate GH200-hour. Envelope B,
-capability evaluation, merge, push, upload and publication remain unauthorized.
-S11+ remains pending.
+**Authority boundary.** O-144 freezes the plan, O-145 amends WP2/WP4, and
+O-146/O-147/O-148 are consumed Envelope-A authorities. O-149 changes the process
+for a future explicitly approved engineering-validation envelope; it does not
+authorize that envelope. Envelope B, capability evaluation, merge, push, upload
+and publication remain unauthorized. S11+ remains pending.
 
 ## 3. Closed foundation summary
 
@@ -335,6 +345,17 @@ evaluation. Step smokes establish only that a run executes. The phase exits only
 with a qualified camera checkpoint and LiDAR checkpoint, or an honest negative
 result. One combined branch recipe freeze review is allowed at one durable SHA.
 
+Envelope A closed with the allowed honest-negative path. All Camera numerical,
+parity, end-to-end and memory checks passed, but optimized BEV pooling achieved
+only about 2.4% operator speedup (`0.976174` ratio) and failed the frozen
+`<=0.80` promotion gate, so no Camera qualified config was emitted. LiDAR passed
+with the BN/no-GN TransFusion graph, exact keyframe-only GTDB and sparse FP32
+island, and emitted qualified config SHA-256
+`06e78e456793fe269c978b0e663da39e4ec3216523c54f996665bc1a6a952015`.
+These are engineering results, not capability. Camera disposition and the branch
+recipe-freeze review are the next owner gate; Envelope B is not automatically
+requestable from this mixed result.
+
 ### Phase II — staged fusion and capability
 
 Initialize fusion from the qualified C/L checkpoints; train the fusion-specific
@@ -352,10 +373,11 @@ coverage, synchronization, throughput, utilization, memory and operator-level
 cost before optimization. Preserve numerical/metric behavior and do not optimize
 a scientifically failed model.
 
-O-146 activates Envelope A for WP0-WP4, official ImageNet acquisition, D_fit
-CBGS/GTDB materialization, optimized-BEV-pooling build/parity/timing, material
-commits and bounded engineering calibration. Envelope B remains pending measured
-`P1-G1` approval.
+O-146/O-147/O-148 consumed Envelope A for WP0-WP4, official ImageNet acquisition,
+D_fit CBGS/GTDB materialization, optimized-BEV-pooling build/parity/timing,
+material commits and bounded engineering calibration. Unused aggregate budget is
+not continuing authority. Envelope B remains pending and blocked on the Camera
+disposition/recipe-freeze owner gate.
 
 ## 7. S11 and later
 
