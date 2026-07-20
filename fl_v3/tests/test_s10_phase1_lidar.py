@@ -22,6 +22,7 @@ from fl_v3.models.phase1_transfusion import (
     focal_loss_cost,
     pairwise_iou3d,
 )
+from fl_v3.training.loop import _float_tensors
 
 
 def _mini_geometry() -> TransFusionGeometry:
@@ -186,6 +187,13 @@ def test_phase1_transfusion_forward_loss_backward_small_exact_geometry():
         torch.full((10,), -2.19),
     )
     assert not any(isinstance(module, nn.GroupNorm) for module in head.modules())
+
+    fp32_output = _float_tensors(output)
+    assert fp32_output["heatmap"].dtype == torch.float32
+    assert fp32_output["query_labels"].dtype == torch.int64
+    assert fp32_output["query_indices"].dtype == torch.int64
+    decoded = head.decode(fp32_output)
+    assert len(decoded) == 2
 
     batch = {
         "gt_boxes": [

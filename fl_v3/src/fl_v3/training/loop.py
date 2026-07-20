@@ -278,9 +278,14 @@ def _move_to_device(obj: Any, device: torch.device) -> Any:
 
 
 def _float_tensors(obj: Any) -> Any:
-    """Recursively upcast tensors to fp32 for numerically sensitive losses/decode."""
+    """Recursively upcast floating tensors for sensitive losses/decode.
+
+    Integral and boolean tensors carry indices, labels, masks, or other discrete
+    state; converting those values to floating point breaks operations such as
+    indexing and ``one_hot`` and is never part of the precision policy.
+    """
     if torch.is_tensor(obj):
-        return obj.float()
+        return obj.float() if obj.is_floating_point() else obj
     if isinstance(obj, dict):
         return {k: _float_tensors(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):

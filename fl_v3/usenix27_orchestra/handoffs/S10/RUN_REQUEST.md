@@ -404,6 +404,7 @@ the exact durable source SHA and command are known.
 | Job H / `522113` Camera O-148 smoke | `8e55f5d135dbc83f2e937c4942117d9e1901f323` / tree `1faebff1f495fad5cf798f7781a8371a250d432c`; exact Job-H record below | complete negative qualification: `FAIL_POOL_PROMOTION_GATE` only | `00:04:15` = `0.070833` GH200-hour; all correctness/e2e/memory gates passed; optimized operator ratio 0.976174 > frozen 0.80; kernel not promoted |
 | Original Job B / `522135` LiDAR O-148 smoke | `8e55f5d135dbc83f2e937c4942117d9e1901f323` / tree `1faebff1f495fad5cf798f7781a8371a250d432c`; exact Job-B record below | `FAILED 1:0` in focused test fixture before GTDB | `00:01:07` = `0.018611` GH200-hour; 30 passed/1 failed/3 skipped; test compared 3-D IoU with BEV oracle while random heights differed |
 | Job B2 / `522153` LiDAR O-148 smoke | `cf53a29815a3bea6a65dbce9b6e74012f1b3e798` / tree `cac7e7d84681b654bb75e2ccbe3fe27ad93daf5b`; exact Job-B2 record below | `FAILED 1:0` after exact GTDB seal, before first calibration batch | `00:06:09` = `0.102500` GH200-hour; 31 passed/3 skipped; canonical JSON mapping-order parser defect |
+| Job B3 / `522189` LiDAR O-148 smoke | `445239e965f9876c122f0b99135b0b9e8576018f` / tree `762aa2473ecad067c617195bf3892a5f04981325`; exact Job-B3 record below | `FAILED 1:0` in evaluator-schema decode after calibration | `00:04:18` = `0.071667` GH200-hour; 32 passed/3 skipped; indiscriminate FP32 helper cast discrete query indices |
 
 Before O-148 execution, Envelope-A Slurm usage is `3 / unlimited` submissions and
 `0.059444 / 1.10` charged GH200-hours. Jobs `521859`, `521901`, and `521959` are
@@ -742,6 +743,53 @@ RUNNER_ARTIFACT_SHA256: d4b965f962f2c0c484b2217fc9b32a4130dc89b5fa4921ae12298c55
 SLURM_STDERR_SHA256: b6f5095dceaeb557642eb6804a85d224711218f10da6475b2ae8e0e67f43eeba
 SLURM_STDOUT_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e464b934ca495991b7852b855
 USAGE_AFTER: 9 / unlimited submissions; 0.352778 / 1.10 GH200-hours
+```
+
+### Job B3 exact LiDAR pre-submission record under O-148
+
+```text
+SLURM_JOB_ID: 522189
+DERIVES_FROM: Job B2 522153 / one diagnosed mapping-order parser defect
+SOURCE_SHA: 445239e965f9876c122f0b99135b0b9e8576018f
+SOURCE_TREE: 762aa2473ecad067c617195bf3892a5f04981325
+SOURCE_BRANCH: codex/s10-phase1-branch-qualification
+CONFIG_FILE_SHA256: 380bd6623af37241ee867b0bbe2e368abc22ec33292cb676d8189aa533dab1e1
+RESOLVED_CONFIG_SHA256: b9b29dbabba7899ecc703fdd3566e54cca5606dfcd1a783db96c7b9efb57eddf
+RUNNER_SHA256: af2a73e1de4b23aa05ff50914dc4bc4fe25cf397d05a495ec7eb56f4a93f4ddd
+ENTRY_SHA256: 0df14419dbec7dba68db83cd36a43bc3db86fd86a7b906ba460b360cdf97cd71
+GTDB_ENTRY_SHA256: bc1136eb4ff5edc59090000d6f960632de1a8fac589f409477ef60ea54055de0
+DATA/SEED/CONFIG/GATES: identical to original Job B
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd/job_b3_lidar_445239e965f9_b3
+GTDB: reuse sealed exact Job-B2 database; manifest SHA256
+      22e3e23c2dff19280476ee622ea062592b6b9a1712902e7e83cb4b242fafa2b5
+RESOURCES: unchanged 1 GH200, 16 CPU, 96 GiB, <=00:30:00, no requeue
+HASH_BINDING: mechanically recomputed with 40/64-character assertions
+USAGE_BEFORE: 9 / unlimited submissions; 0.352778 / 1.10 GH200-hours
+```
+
+### Job B3 `522189` terminal discrete-dtype incident
+
+```text
+TERMINAL: FAILED 1:0 / elapsed 00:04:18 / 0.071667 GH200-hour / node n451
+PASSED: explicit preflight; 32 focused tests; 3 dependency/condition skips; sealed GTDB
+        reuse; fixed D_fit batch materialization; LiDAR no-update calibration forward/
+        backward path
+FAILURE_STAGE: evaluator-schema preflight decode, before result/qualification emission
+FAILURE: the shared _float_tensors precision helper converted every tensor to FP32,
+         including TransFusion query_labels/query_indices; PyTorch one_hot correctly
+         requires integral class indices
+CLASSIFICATION: precision-plumbing dtype defect; discrete indices, labels and masks are
+                outside the floating-point precision policy
+REMEDIATION: upcast floating tensors only; preserve integral/boolean tensor dtypes;
+             add an exact TransFusion output/decode regression
+SCIENCE_EFFECT: no data, model math, floating precision, seed, recipe, evaluator schema,
+                metric, tolerance, performance gate or resource change
+NOT_EXECUTED: evaluator serialization completion, qualified-config/checkpoint emission,
+              capability metrics, D_select, D_audit, official validation
+RUNNER_ARTIFACT_SHA256: 0de55536fc3f657d0f5bbb6418ac6acb3dcaf67b8b5eb74b58afe50b7745eec4
+SLURM_STDERR_SHA256: b6f5095dceaeb557642eb6804a85d224711218f10da6475b2ae8e0e67f43eeba
+SLURM_STDOUT_SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e464b934ca495991b7852b855
+USAGE_AFTER: 10 / unlimited submissions; 0.424445 / 1.10 GH200-hours
 ```
 
 ### Job A exact pre-submission record
