@@ -4,11 +4,12 @@
 
 ```text
 SESSION: persistent S00 / S10
-ACTIVE_DECISION: O-146 Envelope-A activation under O-143/O-144/O-145
-REQUEST_STATE: APPROVED / ACTIVE
-EXECUTION_AUTHORITY: exact Envelope A at request commit e321aed749fd859c809199d52c30b2771dbef8b3
+ACTIVE_DECISION: O-147 bounded Envelope-A execution amendment under O-143/O-144/O-145/O-146
+REQUEST_STATE: APPROVED / CONSUMED — STOPPED_OWNER_GATE
+EXECUTION_AUTHORITY: O-146 exact Envelope A plus O-147 amendment at
+                     c45e020ed16496e2acaa5f8d34b135da21fb1230
 ACTIVE_PHASE: Phase I C/L independent recipe and capability — Envelope A WP0-WP4
-              implementation and bounded engineering calibration active
+              implementation complete; engineering qualification incomplete
 PLAN: PHASE_I_PLAN.md / P1-G0 closed
 BRANCH: codex/s10-phase1-branch-qualification
 ```
@@ -19,6 +20,24 @@ continuously within Section 6, including the bounded checkpoint acquisition,
 data materialization, material commits and at most three serial engineering
 submissions / one aggregate GH200-hour. Envelope B still requires the later
 measured `P1-G1` approval.
+
+O-147 records the owner's 2026-07-20 amendment at implementation/evidence commit
+`c45e020ed16496e2acaa5f8d34b135da21fb1230`: the total submission cap is five
+and the aggregate ceiling is 1.10 charged GH200-hours. It authorizes exactly one
+fresh-output Camera replacement followed, only after Camera PASS, by the original
+Job B. Both retain the original data, seed, configs, tolerances, performance gates,
+per-job resources and prohibitions. No further derived submission is permitted;
+either failure stops immediately. The fifth numerical slot is not standalone
+execution authority.
+
+O-147 execution stopped on its first allowed job, Camera Job D `521959`, which
+returned `FAILED 1:0` after four seconds before creating the runner control/output
+directory. Both Slurm streams are empty. Therefore the exact failing fail-closed
+predicate cannot be localized retrospectively; the evidence bounds it to the
+runner's pre-control checks, silent module/environment bootstrap, or Slurm-resource
+assertions, before pytest, checkpoint acceptance, D_fit access, model construction,
+CUDA build or calibration. Per the owner's any-failure stop rule, original Job B
+was not submitted and no remaining numerical slot may be used.
 
 O-145 added the independent optimized CUDA BEV-pooling/equivalent-kernel requirement
 to WP2 and its forward/backward, FP16/FP32-policy, operator-timing, and end-to-end
@@ -121,14 +140,14 @@ CHECKPOINT_SELECTION: epoch-20 terminal only
 WORKFLOW: 5 WPs + 3 owner gates + 2 approval envelopes
 CAMERA_POOLING: optimized in-tree CUDA/equivalent production backend plus labelled
                 fallback and WP2/WP4 parity/policy/performance gates
-EXECUTION_AUTHORITY: Envelope A active under O-146; Envelope B remains unauthorized
+EXECUTION_AUTHORITY: Envelope A consumed under O-146/O-147; Envelope B remains unauthorized
 ```
 
 The complete graph, optimizer/scheduler, augmentation, role-bound GT-paste,
 evaluation, remediation and amendment rules are normative in
 `PHASE_I_PLAN.md`. This record does not duplicate them.
 
-## 6. Envelope A — approved and active under O-146
+## 6. Envelope A — approved record, consumed under O-146/O-147
 
 This section is the complete approval object. The owner's approval binds the Git commit
 containing this section; deterministic `<REQUEST_SHA12>` and `<IMPLEMENTATION_SHA12>`
@@ -137,7 +156,7 @@ same approval and executes WP0 through WP4 continuously without per-WP owner sto
 
 ```text
 PHASE: S10 Phase I / Envelope A implementation and engineering calibration
-REQUEST_STATE: APPROVED / ACTIVE
+REQUEST_STATE: APPROVED / CONSUMED — stopped on O-147 Job D failure
 PLAN_SHA: 260750a76548208f62c384b0e0547744b619244c
 REQUEST_COMMIT: e321aed749fd859c809199d52c30b2771dbef8b3
 BRANCH: codex/s10-phase1-branch-qualification
@@ -162,6 +181,12 @@ ALLOWED_INTERPRETATION: implementation conformance, numerical parity, resource e
 FORBIDDEN_INTERPRETATION: branch capability, convergence, mAP/NDS, candidate selection
 OWNER_APPROVAL: 2026-07-20 — "批准激活 commit e321aed749fd859c809199d52c30b2771dbef8b3
                 中的 S10 Phase I Envelope A，并按其中边界连续执行 WP0-WP4。"
+OWNER_AMENDMENT: 2026-07-20 — "批准以 commit
+                 c45e020ed16496e2acaa5f8d34b135da21fb1230 修订 S10 Phase I
+                 Envelope A：总 submission cap 从 3 增至 5、总 GH200-hour ceiling
+                 从 1.0 增至 1.10；仅允许串行执行一个 fresh-output Camera replacement
+                 与原 Job B，保持原数据、seed、config、容差、性能门、单作业资源和
+                 禁止项不变，不再允许任何派生重提，任一失败即停。"
 EXECUTABLE_BEFORE_OWNER_APPROVAL: no; now executable only inside this approved envelope
 ```
 
@@ -294,21 +319,23 @@ for diagnosis and blocks Envelope B; it does not create another Camera candidate
 ACCOUNT/PARTITION: naiss2025-22-1113-gpu / gpu
 PER_SUBMISSION: 1 node, 1 task, 1 GH200, 16 CPU, 96 GiB, <=00:30:00, no requeue
 MAX_CONCURRENCY: 1
-MAX_SUBMISSIONS: 3 total
-AGGREGATE_GPU_HOURS: <=1.0 charged GH200-hour across all submissions
+MAX_SUBMISSIONS: 5 total under O-147; only the two specifically authorized jobs below
+                 may consume new slots, so unused numerical capacity is not authority
+AGGREGATE_GPU_HOURS: <=1.10 charged GH200-hours across all submissions
 JOB_A: Camera extension build, correctness gates, operator timing, optimized/fallback
        end-to-end calibration
 JOB_B: D_fit keyframe GTDB materialization and identity checks, then LiDAR 16-warm-up /
        64-timed-B4 production calibration
 JOB_C: not planned; at most one fresh-output derived replacement for one diagnosed
        in-scope engineering failure, only if aggregate time remains
+JOB_D: O-147-authorized fresh-output Camera replacement from exact commit c45e020...;
+       no replacement if it fails
 ```
 
-There is no identical retry. A completed, validated GTDB from a timed-out Job B may be
-reused by Job C; a partial/unsealed one may not. The same blocker recurring, exhausted
-time/submissions, uncertain classification, checkpoint/license/content failure,
-correctness/performance-gate failure requiring changed math or tolerances, or any scope
-change stops at the owner boundary.
+Under O-147, Job D runs first and Job B runs only after Job D passes. There is no
+further derived submission or retry. Any failure, exhausted aggregate time, uncertain
+classification, checkpoint/license/content failure, correctness/performance-gate
+failure, or scope drift stops at the owner boundary.
 
 Envelope A exits after WP0-WP4 implementation, focused validation, exact checkpoint/
 CBGS/GTDB identities, both calibrations, and one combined recipe-freeze review at one
@@ -349,14 +376,86 @@ the exact durable source SHA and command are known.
 | WP2 implementation | `5a001c96f00fffd0816492f181197e2d310a5ae1` | implemented; WP4 qualification pending | login syntax/static checks only; no capability inference |
 | WP3 implementation | `22138371d28e75d5218b0b888c225953fd429f0c` | complete; WP4 qualification pending | exact collapsed sparse boundary + SECOND/SECONDFPN/TransFusion; login syntax/static checks only |
 | WP4 implementation | `4c13ad736319c022d7fb6466a48a77c90ae79dde` / tree `af1a582488191b0e49799ebc02b9489990ce0edf` | implemented; execution stopped before qualification | exact zero-update calibrator, checkpoint/evaluator preflight, production-input pooling parity/timing, fail-closed Job A/B runners |
-| WP4 checkpoint-I/O remediation | `67c1b55b59aa81a49b1ed8f4aabd07e6592e88aa` / tree `2c8812f57c3e59fce25ad1d6f3dd63044b39c714` | locally sealed; GH200 verification not authorized | scalar/N-D raw-byte hashing plus 0-D BatchNorm-buffer regression; no model/data/config change |
+| WP4 checkpoint-I/O remediation | `67c1b55b59aa81a49b1ed8f4aabd07e6592e88aa` / tree `2c8812f57c3e59fce25ad1d6f3dd63044b39c714` | locally sealed; GH200 verification remains unexecuted because Job D stopped before pytest | scalar/N-D raw-byte hashing plus 0-D BatchNorm-buffer regression; no model/data/config change |
 | Job A / `521859` | `4c13ad736319c022d7fb6466a48a77c90ae79dde`; config `f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d` | `FAILED 1:0` in focused test; engineering incident, no model/data execution | `00:01:42` = `0.028333` GH200-hour; 27 passed / 1 pooling parity failure |
 | Job C / `521901` Camera derived replacement | remediation `564fb9d97c44a463ac055dc40d25b79acdc77858` / tree `a1b9f7e809708b72a927afa4ef9c3f4bae82e137` | `FAILED 1:0` in checkpoint hash; engineering incident, no checkpoint promotion/model/data execution | `00:01:48` = `0.030000` GH200-hour; pooling focused tests 29/29 passed |
+| Job D / `521959` Camera O-147 replacement | `c45e020ed16496e2acaa5f8d34b135da21fb1230` / tree `3887d82545207ec67b861bf48ff49042f52cebdb`; config `f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d` | `FAILED 1:0` before runner control/output creation; exact pre-control predicate unlocalized | `00:00:04` = `0.001111` GH200-hour; no pytest/checkpoint/data/model/build/calibration execution; Job B blocked |
 
-Envelope-A Slurm usage is `2 / 3` submissions and `0.058333 / 1.0` charged
-GH200-hours. Job `521859` and sole derived replacement Job `521901` are consumed.
-The remaining numerical submission capacity is not authority to retry Camera or
-reinterpret Job B as a replacement; execution is stopped at the owner boundary.
+Terminal Envelope-A Slurm usage is `3 / 5` submissions and `0.059444 / 1.10`
+charged GH200-hours. Jobs `521859`, `521901`, and `521959` are consumed. Job D
+did not pass, so O-147's serial condition prohibits original Job B; the two unused
+numerical slots are not execution authority.
+
+### O-147 exact amendment and Job D / Job B pre-submission record
+
+```text
+AUTHORITY_BASE_SHA: c45e020ed16496e2acaa5f8d34b135da21fb1230
+AUTHORITY_BASE_TREE: 3887d82545207ec67b861bf48ff49042f52cebdb
+SOURCE_BRANCH: codex/s10-phase1-branch-qualification
+SERIAL_ORDER: Job D Camera replacement PASS -> original Job B; any failure stops
+SUBMISSION_USAGE_BEFORE: 2 / 5
+GPU_HOURS_BEFORE: 0.058333 / 1.10 charged GH200-hours
+JOB_D_SOURCE_SHA: c45e020ed16496e2acaa5f8d34b135da21fb1230
+JOB_D_SOURCE_TREE: 3887d82545207ec67b861bf48ff49042f52cebdb
+JOB_D_CONFIG: fl_v3/configs/s10_phase1_camera.json
+JOB_D_CONFIG_FILE_SHA256: 7101578fdfa38ba364c41ebc9ccd986797fe3261492b1bb149d0f962ec134e55
+JOB_D_RESOLVED_CONFIG_SHA256: f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d
+JOB_D_RUNNER_SHA256: 48f962a274baf4a8205465cee6a21a596783e489e9abdf33743e1e9280c6d8a4
+JOB_D_ENTRY_SHA256: 97947786cf08eca5f8baf1ab47be70030a767dc4be3079b971b95b16fde20b53
+JOB_D_CHECKPOINT_ENTRY_SHA256: 7bf4d9a24687c6c6c5ac72128f53e35cc99d1f7420bc3611a5c76576833cc402
+JOB_D_DATA/SEED/GATES: exact original Job A values; D_fit first four official-CBGS B4;
+                       seed 0; frozen correctness tolerances and 0.80/1.02/1.05 gates
+JOB_D_OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd/job_d_camera_c45e020ed164_d1
+JOB_D_CUDA_BUILD: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/torch_extensions/s10_bev_pool_c45e020ed164_d1
+JOB_D_COMMAND: sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu
+               --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G
+               --gpus-per-node=nvidia_gh200_120gb:1 --time=00:30:00 --no-requeue
+               --job-name=s10-p1-d --output=<engineering-root>/slurm/job_d_%j.out
+               --error=<engineering-root>/slurm/job_d_%j.err
+               --export=ALL,<exact Job-D variables above>
+               fl_v3/scripts/run_s10_phase1_job_a.sh
+JOB_B_SOURCE_SHA/TREE: same exact c45e020... / 3887d825...
+JOB_B_CONFIG: fl_v3/configs/s10_phase1_lidar.json
+JOB_B_CONFIG_FILE_SHA256: 380bd6623af37241ee867b0bbe2e368abc22ec33292cb676d8189aa533dab1e1
+JOB_B_RESOLVED_CONFIG_SHA256: b9b29dbabba7899ecc703fdd3566e54cca5606dfcd1a783db96c7b9efb57eddf
+JOB_B_RUNNER_SHA256: c69d0b53b4e20d2c078028ff31fab693dbfde103d54909bfb07b88b7a2871958
+JOB_B_ENTRY_SHA256: 97947786cf08eca5f8baf1ab47be70030a767dc4be3079b971b95b16fde20b53
+JOB_B_GTDB_ENTRY_SHA256: bc1136eb4ff5edc59090000d6f960632de1a8fac589f409477ef60ea54055de0
+JOB_B_DATA/SEED: exact D_fit; keyframe-only training/GTDB; seed 0
+JOB_B_OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd/job_b_lidar_c45e020ed164_b1
+JOB_B_COMMAND: sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu
+               --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G
+               --gpus-per-node=nvidia_gh200_120gb:1 --time=00:30:00 --no-requeue
+               --job-name=s10-p1-b --output=<engineering-root>/slurm/job_b_%j.out
+               --error=<engineering-root>/slurm/job_b_%j.err
+               --export=ALL,<exact Job-B variables above>
+               fl_v3/scripts/run_s10_phase1_job_b.sh
+PER_JOB_RESOURCES: original frozen values — 1 GH200, 16 CPU, 96 GiB,
+                   <=00:30:00, no requeue
+NO_MORE_DERIVED_SUBMISSIONS: true
+```
+
+### Job D `521959` terminal incident and O-147 stop
+
+```text
+TERMINAL: FAILED 1:0 / elapsed 00:00:04 / 0.001111 GH200-hour
+NODE: n424
+OUTPUT/CONTROL/BUILD: all absent; runner never reached control-directory creation
+SLURM_STDOUT: empty, SHA-256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+SLURM_STDERR: empty, SHA-256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+SLURM_STREAM_MODE: 0444 after terminal evidence sealing
+BOUND: failure occurred in pre-control source/path/hash/cleanliness checks, silent
+       module/environment bootstrap, or Slurm resource assertions
+NOT_EXECUTED: pytest, checkpoint mapping/promotion, D_fit read, model construction,
+              CUDA build, pooling parity/timing, end-to-end calibration, evaluator
+              schema, capability metrics, D_select, D_audit, official validation
+CLASSIFICATION: pre-run engineering incident; exact predicate is unlocalized because
+                the fail-closed runner emitted no trace before creating its control root
+GTDB: absent; original Job B was not submitted
+SUBMISSION_USAGE_AFTER: 3 / 5
+GPU_HOURS_AFTER: 0.059444 / 1.10 charged GH200-hours
+PHASE_STATE: STOPPED_OWNER_GATE under O-147's any-failure rule; no retry or Job B
+```
 
 ### Job A exact pre-submission record
 
@@ -404,14 +503,14 @@ ARTIFACT_LIFECYCLE: quarantine remains present/read-only with original physical 
                     remains one; no second download occurred
 NOT_EXECUTED: D_fit read, model calibration, operator/e2e timing, checkpoint preflight,
               evaluator schema, capability metrics, D_select, D_audit, official val
-CLASSIFICATION: output-neutral checkpoint identity/hash implementation defect, distinct
-                from Job 521859's corrected oracle defect; safe local repair is allowed,
-                but Job C is consumed and another Camera submission is not authorized
+CLASSIFICATION_AT_TERMINAL: output-neutral checkpoint identity/hash implementation defect,
+                distinct from Job 521859's corrected oracle defect; Job C was consumed
+                and another Camera submission was not then authorized
 LOCAL_REMEDIATION: `67c1b55b59aa81a49b1ed8f4aabd07e6592e88aa`; export contiguous
                    tensor bytes through NumPy for both 0-D and N-D tensors and add
                    an exact scalar-buffer identity regression test
-PHASE_STATE: STOPPED_OWNER_GATE; Job B not submitted; owner must explicitly authorize
-             a revised submission/envelope before any further Slurm execution
+PHASE_STATE_AT_TERMINAL: STOPPED_OWNER_GATE; O-147 later supplied one bounded Camera
+                         replacement followed conditionally by Job B
 ```
 
 ### Job A `521859` incident and derived-replacement classification

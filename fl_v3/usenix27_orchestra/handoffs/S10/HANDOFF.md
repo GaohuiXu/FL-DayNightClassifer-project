@@ -1,4 +1,4 @@
-# S10 HANDOFF — Phase-I Envelope A stopped at owner gate
+# S10 HANDOFF — Phase-I Envelope A stopped under O-147
 
 ## 1. Current state and authority
 
@@ -6,13 +6,13 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-phase1-branch-qualification
-ACTIVE_DECISION: O-146 under O-143/O-144/O-145
+ACTIVE_DECISION: O-147 under O-143/O-144/O-145/O-146
 SCIENCE_ORDER: C/L independent recipe+capability -> staged fusion -> capability gate -> profiler
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: exact Envelope A at e321aed749fd859c809199d52c30b2771dbef8b3;
-                   implementation authority remains, but further Slurm execution is stopped
-EXECUTION_STATE: STOPPED_OWNER_GATE after Job A 521859 and sole derived Job C 521901;
-                 Job B was not submitted and no Camera retry is authorized
+CURRENT_AUTHORITY: exact Envelope A plus O-147 amendment at
+                   c45e020ed16496e2acaa5f8d34b135da21fb1230
+EXECUTION_STATE: STOPPED_OWNER_GATE; O-147 Camera Job D 521959 failed before runner
+                 control/output creation; serial condition blocked Job B; no retry
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -32,7 +32,10 @@ forward/backward and policy parity, and GH200 operator plus aligned end-to-end
 timing. O-146 activates the exact Section-6 Envelope A recorded in
 `RUN_REQUEST.md`: WP0-WP4 may proceed continuously, with at most three serial
 one-GH200 submissions and at most one aggregate GH200-hour. It does not activate
-Envelope B or capability evaluation.
+Envelope B or capability evaluation. O-147 increases the total caps to five
+submissions and 1.10 charged GH200-hours, but authorizes only one fresh-output
+Camera replacement followed serially by original Job B. The fifth numerical slot
+does not authorize another job, and any failure stops execution.
 
 Current-A2 and the old C→D→E→F route are paused. The primary S10 claim remains
 **absolute clean capability + fusion contribution**, but it must now be earned
@@ -181,12 +184,20 @@ The old C0/C1 diagnostic harness is frozen historical tooling. New capability
 work should use the production `centralized_train.py`, standard checkpointing
 and evaluator paths, extended only by the smallest required branch-mode seams.
 
-## 7. Active Envelope-A execution
+## 7. Envelope-A execution record
 
-`P1-G0 PLAN_FREEZE` is closed, O-145 is incorporated, and O-146 activated Envelope A
+`P1-G0 PLAN_FREEZE` is closed, O-145 is incorporated, O-146 activated Envelope A,
+and O-147 reopened only two precisely bounded remaining engineering jobs
 at request commit `e321aed749fd859c809199d52c30b2771dbef8b3`. WP0-WP3 and the
-WP4 implementation are committed, but WP4 execution is stopped at the owner boundary
-after the sole derived Camera replacement also hit a pre-model engineering failure.
+WP4 implementation are committed. O-147 Camera Job D `521959`, sourced from
+`c45e020ed16496e2acaa5f8d34b135da21fb1230`, returned `FAILED 1:0` after four
+seconds before creating its control/output directory. Its stdout and stderr are
+both empty. The failure is therefore bounded to pre-control source/path/hash/
+cleanliness checks, silent module/environment bootstrap, or Slurm-resource assertions,
+but the exact predicate cannot be localized retrospectively. It occurred before
+pytest, checkpoint acceptance, data/model execution, CUDA build, or calibration.
+O-147 required any failure to stop, so original Job B was not submitted and there
+is no retry authority.
 The request-scoped roots are
 `s10_phase1_envelope_a_data_e321aed749fd` and
 `s10_phase1_envelope_a_eng_e321aed749fd` under the accepted Arrhenius output root.
@@ -256,13 +267,16 @@ schema check. Output-neutral remediation
 `67c1b55b59aa81a49b1ed8f4aabd07e6592e88aa` uses raw contiguous NumPy bytes for
 both scalar and N-D tensors and adds an exact scalar-buffer identity test; it has only
 login-node syntax/static validation because another Camera submission is not authorized.
+O-147 later authorized Job D, but that job stopped before reaching pytest or checkpoint
+verification, so the remediation remains unverified on GH200.
 
-Total Envelope-A execution so far is 2/3 submissions and 0.058333/1.0 GH200-hours.
+Terminal Envelope-A usage is 3/5 submissions and 0.059444/1.10 GH200-hours; the
+two unused numerical slots do not authorize work.
 The one downloaded Swin object remains read-only in quarantine with the recorded
 physical SHA; the final checkpoint and mapping report are absent, and no second download
 occurred. GTDB materialization and LiDAR Job B did not run. No capability metric,
 D_select, D_audit, official validation, scientific checkpoint or candidate selection
-occurred. A revised explicit owner authorization is required before further Slurm work.
+occurred. Further Slurm work requires a new explicit owner decision.
 
 The checkpoint is the MIT Camera YAML's ImageNet
 `swin_tiny_patch4_window7_224.pth`, not `swint-nuimages-pretrained.pth`; acquisition
