@@ -1,4 +1,4 @@
-# S10 HANDOFF — Phase-I Envelope A stopped under O-147
+# S10 HANDOFF — Phase-I Envelope A engineering completion active under O-148
 
 ## 1. Current state and authority
 
@@ -6,13 +6,13 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-phase1-branch-qualification
-ACTIVE_DECISION: O-147 under O-143/O-144/O-145/O-146
+ACTIVE_DECISION: O-148 under O-143/O-144/O-145/O-146
 SCIENCE_ORDER: C/L independent recipe+capability -> staged fusion -> capability gate -> profiler
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: exact Envelope A plus O-147 amendment at
-                   c45e020ed16496e2acaa5f8d34b135da21fb1230
-EXECUTION_STATE: STOPPED_OWNER_GATE; O-147 Camera Job D 521959 failed before runner
-                 control/output creation; serial condition blocked Job B; no retry
+CURRENT_AUTHORITY: O-148 engineering-smoke completion authority at
+                   b86089904a732edaaea77a446267a764f2da7073
+EXECUTION_STATE: ACTIVE; unlimited serial engineering submissions inside the unchanged
+                 1.10 GH200-hour ceiling until WP4 Camera Job A and LiDAR Job B pass
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -197,7 +197,11 @@ cleanliness checks, silent module/environment bootstrap, or Slurm-resource asser
 but the exact predicate cannot be localized retrospectively. It occurred before
 pytest, checkpoint acceptance, data/model execution, CUDA build, or calibration.
 O-147 required any failure to stop, so original Job B was not submitted and there
-is no retry authority.
+was no retry authority at that point. O-148 now supersedes that mechanical stop:
+S00 must diagnose, repair, and resubmit output-/science-neutral smoke failures without
+per-job approval, serially within the unchanged 1.10 GH200-hour ceiling, until Camera
+and LiDAR WP4 pass. Scientific boundaries and gates remain frozen. The collaboration
+contract will be consolidated after WP4 completion.
 The request-scoped roots are
 `s10_phase1_envelope_a_data_e321aed749fd` and
 `s10_phase1_envelope_a_eng_e321aed749fd` under the accepted Arrhenius output root.
@@ -270,13 +274,13 @@ login-node syntax/static validation because another Camera submission is not aut
 O-147 later authorized Job D, but that job stopped before reaching pytest or checkpoint
 verification, so the remediation remains unverified on GH200.
 
-Terminal Envelope-A usage is 3/5 submissions and 0.059444/1.10 GH200-hours; the
-two unused numerical slots do not authorize work.
+Before O-148 execution, Envelope-A usage is 3/unlimited submissions and
+0.059444/1.10 GH200-hours.
 The one downloaded Swin object remains read-only in quarantine with the recorded
 physical SHA; the final checkpoint and mapping report are absent, and no second download
 occurred. GTDB materialization and LiDAR Job B did not run. No capability metric,
 D_select, D_audit, official validation, scientific checkpoint or candidate selection
-occurred. Further Slurm work requires a new explicit owner decision.
+occurred. O-148 now authorizes only the continuous WP4 engineering completion loop.
 
 The checkpoint is the MIT Camera YAML's ImageNet
 `swin_tiny_patch4_window7_224.pth`, not `swint-nuimages-pretrained.pth`; acquisition

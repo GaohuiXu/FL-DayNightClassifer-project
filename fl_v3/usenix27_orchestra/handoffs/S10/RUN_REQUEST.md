@@ -4,12 +4,11 @@
 
 ```text
 SESSION: persistent S00 / S10
-ACTIVE_DECISION: O-147 bounded Envelope-A execution amendment under O-143/O-144/O-145/O-146
-REQUEST_STATE: APPROVED / CONSUMED — STOPPED_OWNER_GATE
-EXECUTION_AUTHORITY: O-146 exact Envelope A plus O-147 amendment at
-                     c45e020ed16496e2acaa5f8d34b135da21fb1230
+ACTIVE_DECISION: O-148 engineering-smoke completion authority under O-143/O-144/O-145/O-146
+REQUEST_STATE: APPROVED / ACTIVE
+EXECUTION_AUTHORITY: O-148 at b86089904a732edaaea77a446267a764f2da7073
 ACTIVE_PHASE: Phase I C/L independent recipe and capability — Envelope A WP0-WP4
-              implementation complete; engineering qualification incomplete
+              implementation complete; continuous engineering qualification active
 PLAN: PHASE_I_PLAN.md / P1-G0 closed
 BRANCH: codex/s10-phase1-branch-qualification
 ```
@@ -38,6 +37,18 @@ runner's pre-control checks, silent module/environment bootstrap, or Slurm-resou
 assertions, before pytest, checkpoint acceptance, D_fit access, model construction,
 CUDA build or calibration. Per the owner's any-failure stop rule, original Job B
 was not submitted and no remaining numerical slot may be used.
+
+O-148 supersedes O-147's submission-count and per-engineering-failure stop mechanics
+for the remaining WP4 smoke/qualification work. Engineering submissions are unlimited
+in count, serial at concurrency one, and bounded by the unchanged aggregate ceiling of
+1.10 charged GH200-hours. S00 diagnoses an engineering failure, makes the smallest
+output-/science-neutral repair, records provenance, and immediately resubmits without
+another owner approval until Camera Job A and LiDAR Job B pass. Checkpoint I/O, tests,
+fixtures, runner preflight, logging, build plumbing, and other non-scientific defects
+are inside this remediation loop. Model math, data ownership/content, candidate/config/
+seed, precision policy, evaluator/metric semantics, correctness tolerances, performance
+gates, or any capability/scientific run remain outside it and require owner escalation.
+The collaboration contract will be formally consolidated after both WP4 jobs complete.
 
 O-145 added the independent optimized CUDA BEV-pooling/equivalent-kernel requirement
 to WP2 and its forward/backward, FP16/FP32-policy, operator-timing, and end-to-end
@@ -140,14 +151,15 @@ CHECKPOINT_SELECTION: epoch-20 terminal only
 WORKFLOW: 5 WPs + 3 owner gates + 2 approval envelopes
 CAMERA_POOLING: optimized in-tree CUDA/equivalent production backend plus labelled
                 fallback and WP2/WP4 parity/policy/performance gates
-EXECUTION_AUTHORITY: Envelope A consumed under O-146/O-147; Envelope B remains unauthorized
+EXECUTION_AUTHORITY: Envelope A engineering completion active under O-148;
+                     Envelope B remains unauthorized
 ```
 
 The complete graph, optimizer/scheduler, augmentation, role-bound GT-paste,
 evaluation, remediation and amendment rules are normative in
 `PHASE_I_PLAN.md`. This record does not duplicate them.
 
-## 6. Envelope A — approved record, consumed under O-146/O-147
+## 6. Envelope A — approved engineering completion under O-148
 
 This section is the complete approval object. The owner's approval binds the Git commit
 containing this section; deterministic `<REQUEST_SHA12>` and `<IMPLEMENTATION_SHA12>`
@@ -156,7 +168,7 @@ same approval and executes WP0 through WP4 continuously without per-WP owner sto
 
 ```text
 PHASE: S10 Phase I / Envelope A implementation and engineering calibration
-REQUEST_STATE: APPROVED / CONSUMED — stopped on O-147 Job D failure
+REQUEST_STATE: APPROVED / ACTIVE under O-148
 PLAN_SHA: 260750a76548208f62c384b0e0547744b619244c
 REQUEST_COMMIT: e321aed749fd859c809199d52c30b2771dbef8b3
 BRANCH: codex/s10-phase1-branch-qualification
@@ -187,6 +199,8 @@ OWNER_AMENDMENT: 2026-07-20 — "批准以 commit
                  从 1.0 增至 1.10；仅允许串行执行一个 fresh-output Camera replacement
                  与原 Job B，保持原数据、seed、config、容差、性能门、单作业资源和
                  禁止项不变，不再允许任何派生重提，任一失败即停。"
+OWNER_AMENDMENT_O148: 2026-07-20 — "现在，submissions不设置限制，GH200 hour还是
+                      1.10，诊断并完成Job A/B WP4的任务。"
 EXECUTABLE_BEFORE_OWNER_APPROVAL: no; now executable only inside this approved envelope
 ```
 
@@ -319,8 +333,7 @@ for diagnosis and blocks Envelope B; it does not create another Camera candidate
 ACCOUNT/PARTITION: naiss2025-22-1113-gpu / gpu
 PER_SUBMISSION: 1 node, 1 task, 1 GH200, 16 CPU, 96 GiB, <=00:30:00, no requeue
 MAX_CONCURRENCY: 1
-MAX_SUBMISSIONS: 5 total under O-147; only the two specifically authorized jobs below
-                 may consume new slots, so unused numerical capacity is not authority
+MAX_SUBMISSIONS: unlimited for serial WP4 engineering smoke under O-148
 AGGREGATE_GPU_HOURS: <=1.10 charged GH200-hours across all submissions
 JOB_A: Camera extension build, correctness gates, operator timing, optimized/fallback
        end-to-end calibration
@@ -332,10 +345,12 @@ JOB_D: O-147-authorized fresh-output Camera replacement from exact commit c45e02
        no replacement if it fails
 ```
 
-Under O-147, Job D runs first and Job B runs only after Job D passes. There is no
-further derived submission or retry. Any failure, exhausted aggregate time, uncertain
-classification, checkpoint/license/content failure, correctness/performance-gate
-failure, or scope drift stops at the owner boundary.
+Under O-148, Camera is repaired and resubmitted serially until PASS, then Job B is
+repaired and resubmitted serially until PASS. Engineering defects do not stop for
+per-job approval. Exhausting 1.10 aggregate GH200-hours, uncertain engineering versus
+scientific classification, checkpoint/license/content failure that cannot be repaired
+without changing the frozen science, correctness/performance-gate failure requiring
+changed math or tolerances, or any scientific scope drift still stops at the owner boundary.
 
 Envelope A exits after WP0-WP4 implementation, focused validation, exact checkpoint/
 CBGS/GTDB identities, both calibrations, and one combined recipe-freeze review at one
@@ -381,10 +396,9 @@ the exact durable source SHA and command are known.
 | Job C / `521901` Camera derived replacement | remediation `564fb9d97c44a463ac055dc40d25b79acdc77858` / tree `a1b9f7e809708b72a927afa4ef9c3f4bae82e137` | `FAILED 1:0` in checkpoint hash; engineering incident, no checkpoint promotion/model/data execution | `00:01:48` = `0.030000` GH200-hour; pooling focused tests 29/29 passed |
 | Job D / `521959` Camera O-147 replacement | `c45e020ed16496e2acaa5f8d34b135da21fb1230` / tree `3887d82545207ec67b861bf48ff49042f52cebdb`; config `f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d` | `FAILED 1:0` before runner control/output creation; exact pre-control predicate unlocalized | `00:00:04` = `0.001111` GH200-hour; no pytest/checkpoint/data/model/build/calibration execution; Job B blocked |
 
-Terminal Envelope-A Slurm usage is `3 / 5` submissions and `0.059444 / 1.10`
-charged GH200-hours. Jobs `521859`, `521901`, and `521959` are consumed. Job D
-did not pass, so O-147's serial condition prohibits original Job B; the two unused
-numerical slots are not execution authority.
+Before O-148 execution, Envelope-A Slurm usage is `3 / unlimited` submissions and
+`0.059444 / 1.10` charged GH200-hours. Jobs `521859`, `521901`, and `521959` are
+consumed. Camera remediation/resubmission and then original Job B are active.
 
 ### O-147 exact amendment and Job D / Job B pre-submission record
 
@@ -454,7 +468,8 @@ CLASSIFICATION: pre-run engineering incident; exact predicate is unlocalized bec
 GTDB: absent; original Job B was not submitted
 SUBMISSION_USAGE_AFTER: 3 / 5
 GPU_HOURS_AFTER: 0.059444 / 1.10 charged GH200-hours
-PHASE_STATE: STOPPED_OWNER_GATE under O-147's any-failure rule; no retry or Job B
+PHASE_STATE_AT_TERMINAL: STOPPED_OWNER_GATE under O-147's then-active rule;
+                         superseded prospectively by O-148 engineering completion
 ```
 
 ### Job A exact pre-submission record

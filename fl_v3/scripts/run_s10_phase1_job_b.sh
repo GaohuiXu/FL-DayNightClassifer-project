@@ -22,23 +22,63 @@ GTDB_ROOT="/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/
 GTDB_MANIFEST="${GTDB_ROOT}/manifest.json"
 WORK="${S10_P1_OUTPUT}.control"
 
-test -d "${S10_P1_ROOT}"
-test ! -e "${S10_P1_OUTPUT}"
-test ! -e "${WORK}"
-test "$(git -C "${S10_P1_ROOT}" rev-parse HEAD)" = "${S10_P1_EXPECTED_SOURCE_SHA}"
-test "$(git -C "${S10_P1_ROOT}" rev-parse 'HEAD^{tree}')" = "${S10_P1_EXPECTED_TREE}"
-test "$(git -C "${S10_P1_ROOT}" branch --show-current)" = "codex/s10-phase1-branch-qualification"
-test "$(sha256sum "${S10_P1_ROOT}/${RUNNER_REL}" | cut -d' ' -f1)" = "${S10_P1_EXPECTED_RUNNER_SHA256}"
-test "$(sha256sum "${S10_P1_ROOT}/${ENTRY_REL}" | cut -d' ' -f1)" = "${S10_P1_EXPECTED_ENTRY_SHA256}"
-test "$(sha256sum "${S10_P1_ROOT}/${GTDB_ENTRY_REL}" | cut -d' ' -f1)" = "${S10_P1_EXPECTED_GTDB_ENTRY_SHA256}"
-test "$(sha256sum "${S10_P1_ROOT}/${CONFIG_REL}" | cut -d' ' -f1)" = "${S10_P1_EXPECTED_CONFIG_FILE_SHA256}"
-test -z "$(git -C "${S10_P1_ROOT}" ls-files --others --exclude-standard)"
-git -C "${S10_P1_ROOT}" diff --quiet HEAD -- fl_v3/src fl_v3/scripts fl_v3/configs fl_v3/tests pyproject.toml
+preflight_note() {
+  printf '[s10-p1-lidar preflight] %s\n' "$1" >&2
+}
 
+preflight_fail() {
+  printf '[s10-p1-lidar preflight] FAIL: %s\n' "$1" >&2
+  exit 2
+}
+
+require_equal() {
+  local label="$1" actual="$2" expected="$3"
+  if [[ "${actual}" != "${expected}" ]]; then
+    preflight_fail "${label}: actual=${actual@Q} expected=${expected@Q}"
+  fi
+}
+
+require_absent() {
+  local label="$1" path="$2"
+  [[ ! -e "${path}" ]] || preflight_fail "${label} already exists: ${path}"
+}
+
+preflight_note "validate source, hashes, and fresh roots"
+[[ -d "${S10_P1_ROOT}" ]] || preflight_fail "source root missing: ${S10_P1_ROOT}"
+require_absent "output root" "${S10_P1_OUTPUT}"
+require_absent "control root" "${WORK}"
+actual_source_sha="$(git -C "${S10_P1_ROOT}" rev-parse HEAD)" || preflight_fail "cannot resolve source HEAD"
+actual_source_tree="$(git -C "${S10_P1_ROOT}" rev-parse 'HEAD^{tree}')" || preflight_fail "cannot resolve source tree"
+actual_branch="$(git -C "${S10_P1_ROOT}" branch --show-current)" || preflight_fail "cannot resolve source branch"
+require_equal "source SHA" "${actual_source_sha}" "${S10_P1_EXPECTED_SOURCE_SHA}"
+require_equal "source tree" "${actual_source_tree}" "${S10_P1_EXPECTED_TREE}"
+require_equal "source branch" "${actual_branch}" "codex/s10-phase1-branch-qualification"
+for hash_binding in \
+  "runner|${RUNNER_REL}|${S10_P1_EXPECTED_RUNNER_SHA256}" \
+  "calibration entry|${ENTRY_REL}|${S10_P1_EXPECTED_ENTRY_SHA256}" \
+  "GTDB entry|${GTDB_ENTRY_REL}|${S10_P1_EXPECTED_GTDB_ENTRY_SHA256}" \
+  "config|${CONFIG_REL}|${S10_P1_EXPECTED_CONFIG_FILE_SHA256}"; do
+  IFS='|' read -r hash_label hash_relative hash_expected <<< "${hash_binding}"
+  hash_actual="$(sha256sum "${S10_P1_ROOT}/${hash_relative}" | cut -d' ' -f1)" \
+    || preflight_fail "cannot hash ${hash_label}"
+  require_equal "${hash_label} SHA-256" "${hash_actual}" "${hash_expected}"
+done
+untracked="$(git -C "${S10_P1_ROOT}" ls-files --others --exclude-standard)" \
+  || preflight_fail "cannot inspect untracked files"
+[[ -z "${untracked}" ]] || preflight_fail "untracked source files: ${untracked}"
+if ! git -C "${S10_P1_ROOT}" diff --quiet HEAD -- \
+  fl_v3/src fl_v3/scripts fl_v3/configs fl_v3/tests pyproject.toml; then
+  preflight_fail "tracked executable source differs from HEAD"
+fi
+
+preflight_note "source Arrhenius environment bootstrap"
 # shellcheck disable=SC1091
 source "${S10_P1_ROOT}/fl_v3/scripts/arrhenius_env.sh"
+preflight_note "load Arrhenius build modules"
 arrhenius_load_modules build
+preflight_note "load nuScenes dataset module"
 module load nuScenes-data/1.0-map-1.3-zip
+preflight_note "activate persistent environment"
 arrhenius_activate_env
 
 export PYTHONPATH="${S10_P1_ROOT}/fl_v3/src"
@@ -54,11 +94,13 @@ export TORCH_HOME="/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrheniu
 export NUSCENES_DATAROOT="${NUSCENES_DATA_DIR}"
 export NUSCENES_ZIP_MANIFEST="${ZIP_MANIFEST}"
 
-test "${NUSCENES_DATAROOT}" = "/dataset/easybuild/data/nuScenes-data/1.0-map-1.3-zip"
-test "${SLURM_JOB_PARTITION:-}" = "gpu"
-test "${SLURM_CPUS_PER_TASK:-}" = "16"
-test "${SLURM_MEM_PER_NODE:-}" = "98304"
-test "${SLURM_GPUS_ON_NODE:-0}" = "1"
+preflight_note "validate dataset and Slurm resource bindings"
+require_equal "nuScenes dataroot" "${NUSCENES_DATAROOT}" "/dataset/easybuild/data/nuScenes-data/1.0-map-1.3-zip"
+require_equal "Slurm partition" "${SLURM_JOB_PARTITION:-}" "gpu"
+require_equal "Slurm CPUs per task" "${SLURM_CPUS_PER_TASK:-}" "16"
+require_equal "Slurm memory per node" "${SLURM_MEM_PER_NODE:-}" "98304"
+require_equal "Slurm GPUs on node" "${SLURM_GPUS_ON_NODE:-0}" "1"
+preflight_note "PASS"
 mkdir -p "${WORK}"
 runner_complete=0
 
