@@ -1,0 +1,703 @@
+# S10 Phase I C/L branch qualification — binding plan
+
+## 0. Status, purpose, and authority
+
+```text
+STATUS: OWNER-FROZEN SCIENTIFIC AND COLLABORATION PLAN
+DATE: 2026-07-20
+OWNER_DECISION: O-144
+SCOPE: Phase I camera/LiDAR clean branch qualification
+AUTHORITY: freezes the Phase I scientific choices, work-package order, gates,
+           approval structure, and execution boundaries recorded below
+IMPLEMENTATION: not authorized by O-144
+COMPUTE: not authorized
+CHECKPOINT_ACQUISITION: not authorized by this document
+COMMIT/MERGE/PUSH/UPLOAD/PUBLICATION: not authorized by this document
+AMENDMENT: any departure from a frozen scientific field or gate requires an
+           explicit owner amendment before implementation or execution
+```
+
+O-144 promotes this document from a temporary discussion draft to the binding Phase I
+plan. Future implementation and execution must follow it. It complements, and does not
+supersede, `HANDOFF.md`, `RUN_REQUEST.md`, `AGENTS.md`, or later owner decisions.
+Plan freeze is not execution authority: Envelope A must still be activated before any
+implementation, checkpoint download, commit, D_fit GT-database materialization, or
+engineering GPU calibration; Envelope B must later be approved before scientific
+training or evaluation.
+
+## 1. Technical summary
+
+Phase I will qualify camera and LiDAR as independent clean perception branches before
+fusion. The primary graph choices are now reference-led rather than a search over the
+current shared-GN hybrid:
+
+- **Camera:** use the exact standalone MIT Camera graph family: Swin-T,
+  GeneralizedLSSFPN, pure-camera LSS, the camera-specific GeneralizedResNet/LSSFPN
+  decoder, and the reference six-task CenterHead.
+- **LiDAR:** use the MIT `voxelnet_0p075` graph family with keyframe-only training,
+  reference BatchNorm, SECOND/SECONDFPN, and TransFusionHead.
+- **Fusion:** no Phase I training. Phase II will use the reference staging direction:
+  the declared camera initialization plus the full qualified LiDAR checkpoint, with
+  L/F sharing the SECOND/SECONDFPN/TransFusionHead family.
+- **Normalization:** no GroupNorm candidate remains. Use each reference module's
+  BatchNorm choice; keep Swin's native LayerNorm.
+- **Sampling:** replace the local sqrt repeat-factor sampler with the exact archived
+  MIT `CBGSDataset` algorithm over role-restricted `D_fit`.
+- **Throughput and batch policy:** physical B4, accumulation 8, effective optimizer
+  batch 32, camera activation checkpointing off, redundant scalar telemetry
+  synchronization off, LiDAR keyframe-only training, and terminal-only branch
+  evaluation.
+- **Assessment:** no arbitrary numeric pass threshold will be invented before the
+  run. Checkpoint selection, metric/evaluator semantics, and the one-time use of
+  `D_audit` must nevertheless be frozen before results are inspected.
+
+The primary Camera run uses the exact standalone reference graph with the pinned
+ImageNet-1K Swin-T initialization declared by the reference YAML. The MIT README's
+published reproduction command overrides that default with a NuImages checkpoint, so
+the local primary must be labelled **exact standalone reference graph + reference-YAML
+ImageNet initialization**, not a reproduction of the published NuImages-initialized
+full recipe.
+
+## 2. Phase I objective and exclusions
+
+### 2.1 Objective
+
+Produce one reviewable Camera recipe/checkpoint and one reviewable LiDAR
+recipe/checkpoint with meaningful `D_fit` exposure and aligned internal evaluation.
+Phase I may also return an honest negative branch result. It must not silently expand
+into a hyperparameter grid after observing weak metrics.
+
+### 2.2 Required outputs
+
+For each branch:
+
+1. exact local graph and normalization specification;
+2. initialization source and tensor-loading identity;
+3. optimizer parameter groups, LR/weight decay, scheduler/warmup, clipping, and EMA
+   policy;
+4. data augmentation, GT-paste, exact CBGS index identity, and sweep policy;
+5. physical B4/effective B32 exposure, attempted sample presentations, accepted
+   updates, and terminal-checkpoint identity;
+6. one terminal `D_select` evaluation and, only after `P1-G2` owner unsealing, one
+   `D_audit` result;
+7. immutable checkpoint and metric-artifact hashes;
+8. a branch recipe freeze review, which may be one joint review at one durable SHA.
+
+### 2.3 Exclusions
+
+Phase I does not include Fusion training, an optimization/profiler campaign, official
+validation publication claims, Protocol-A/B execution, federated adaptation,
+attack/defense experiments, or an automatic NuImages repair cell. No current C0/C1
+diagnostic graph is an automatic second candidate. The initial scientific candidate
+cap is exactly two: one Camera primary and one LiDAR primary.
+
+## 3. Frozen graph direction
+
+### 3.1 Camera — exact standalone reference graph
+
+```text
+six camera images
+  -> Swin-T (native LayerNorm)
+  -> reference GeneralizedLSSFPN (BatchNorm)
+  -> pure-camera LSS
+  -> camera-specific GeneralizedResNet + LSSFPN decoder (BatchNorm)
+  -> reference six-task CenterHead (BatchNorm)
+```
+
+The standalone Camera graph is intentionally not forced to be tensor-compatible with
+the complete future Fusion detector. Its complete detector checkpoint establishes a
+Camera capability baseline; the official Fusion staging path does not require loading
+the complete Camera detector.
+
+The rejected alternative was a project-created “fusion-compatible Camera-only” graph
+using the future Fusion BEV grid/decoder/head solely to maximize checkpoint reuse. That
+would not be the published Camera baseline and would reopen architecture search.
+
+### 3.2 LiDAR — reference `voxelnet_0p075` graph
+
+```text
+keyframe LiDAR points
+  -> reference-compatible hard voxelization / mean VFE
+  -> sparse SECOND with BN1d (eps=1e-3, momentum=0.01)
+  -> dense collapse
+  -> SECOND [5,5] + SECONDFPN decoder (BatchNorm)
+  -> TransFusionHead (reference BN2d/BN1d)
+```
+
+The local mmdet-free implementation may adapt framework plumbing and the accepted
+sparse FP32 precision island, but it must preserve the selected graph, tensor shapes,
+normalization semantics, target/loss semantics, and checkpoint mapping. The current
+custom shallow `SecondFPNNeck` and shared GN CenterHead are not the Phase I LiDAR
+candidate.
+
+### 3.3 Head semantics
+
+The Camera CenterHead partitions the official ten nuScenes classes into six detection
+tasks:
+
+1. car;
+2. truck + construction vehicle;
+3. bus + trailer;
+4. barrier;
+5. motorcycle + bicycle;
+6. pedestrian + traffic cone.
+
+This remains a ten-class detector; “multi-task” here means six class-grouped detection
+heads, not six unrelated perception tasks.
+
+TransFusionHead is different. It forms a ten-class dense heatmap, selects a bounded
+set of object queries, refines them with a Transformer decoder over the BEV feature,
+and trains query predictions through Hungarian assignment. It is not the old simple
+global ten-class convolutional head.
+
+The accepted mapping is therefore:
+
+| Branch | Decoder | Detection head |
+|---|---|---|
+| Camera | GeneralizedResNet + LSSFPN | six-task CenterHead |
+| LiDAR | SECOND `[5,5]` + SECONDFPN | TransFusionHead |
+| Fusion, Phase II | SECOND `[5,5]` + SECONDFPN | TransFusionHead |
+
+### 3.4 Frozen branch recipe bundles
+
+Both primary branches train for 20 official-CBGS epochs with physical B4,
+accumulation 8, effective optimizer batch 32, seed 0, terminal-only checkpoint
+selection, no EMA, and the accepted S08 precision policy. Camera uses global FP16
+autocast; LiDAR uses global FP16 with the explicit FP32 island covering voxelization,
+VFE, sparse SECOND, dense collapse, and to-BEV. Any loss-scaler initial values are
+qualified without updates during Envelope A and frozen in the resolved Envelope-B
+config; this does not permit a precision-regime search.
+
+The Camera primary is:
+
+- exact standalone graph from Section 3.1;
+- pinned public ImageNet-1K Swin-T initialization, with URL, license, local permitted
+  path, file SHA-256, state-dict mapping, loaded/missing/unexpected tensor report, and
+  initialization-state hash bound before training;
+- AdamW `lr=2e-4`, `weight_decay=0.01`;
+- Camera backbone `lr_mult=0.1`; no weight decay for absolute-position and
+  relative-position-bias parameters;
+- gradient clipping with L2 `max_norm=35`;
+- one cyclic LR cycle with `target_ratio=5.0`, `step_ratio_up=0.4`, and the exact
+  low-ratio interpretation inherited from MMCV 1.4;
+- linear warm-up for 500 optimizer updates at `warmup_ratio=1/3`;
+- cyclic momentum with the pinned MMCV 1.4 defaults;
+- reference Camera augmentation from Section 7.1 and no GT-paste.
+
+The LiDAR primary is:
+
+- exact reference-led graph from Section 3.2, initialized from scratch;
+- AdamW `lr=1e-4`, `weight_decay=0.01`, with complete/disjoint parameter groups;
+- gradient clipping with L2 `max_norm=35`;
+- one cyclic LR cycle with the pinned MMCV 1.4 defaults: target ratios
+  `(10, 1e-4)` and `step_ratio_up=0.4`;
+- cyclic momentum target ratios `(0.85 / 0.95, 1)` and `step_ratio_up=0.4`;
+- no LR warm-up;
+- reference LiDAR augmentation and role-bound GT-paste from Section 7.2;
+- keyframe-only training and keyframe-plus-nine-sweep evaluation.
+
+All values above are explicit fields in the local ResolvedConfig. No current-library
+default may stand in for a pinned reference value.
+
+## 4. Normalization, throughput, and the future FL boundary
+
+### 4.1 Phase I normalization decision
+
+The Phase I candidate set contains no GroupNorm alternative:
+
+- Swin keeps its architectural LayerNorm;
+- Camera FPN/decoder/CenterHead use reference BatchNorm;
+- sparse SECOND uses reference BN1d;
+- LiDAR/Fusion decoder, fuser, and TransFusionHead use their reference BatchNorm
+  forms.
+
+C1-B is bounded evidence that replacing only the sparse SECOND normalization increased
+the current Fusion B4 proxy from `8.4914` to `12.1663` samples/s, about 43% higher
+throughput. It did not prove a final capability advantage, but no additional GN
+capability cell is requested because the owner has selected the coherent reference BN
+direction.
+
+### 4.2 Accepted throughput settings
+
+- physical batch size: B4;
+- gradient accumulation: 8 microbatches;
+- effective optimizer batch: 32 samples;
+- divide/average the accumulated loss so one optimizer update represents the mean
+  gradient over the eight B4 microbatches;
+- optimizer, cyclic LR/momentum, warm-up, and accepted-update accounting advance per
+  optimizer update, not per microbatch;
+- camera activation checkpointing: off;
+- ordinary per-loss scalar telemetry synchronization: off unless an explicitly
+  approved diagnostic requires it;
+- DataLoader baseline: eight workers; no new loader campaign;
+- checkpoint selection/evaluation: only the epoch-20 terminal checkpoint is eligible;
+  recovery checkpoints are non-selectable, and CPU metric aggregation is separated
+  from GPU inference when practical;
+- no Phase I compile/fused-optimizer/TF32/sparse-FP16 campaign;
+- record natural timing and memory counters from the chosen graph, then defer a
+  dedicated profiler/optimization campaign to Phase III.
+
+MIT's published invocation uses eight distributed training processes/GPUs with B4 per
+GPU, giving effective batch 32. Single-GPU B4 without accumulation would materially
+change the reference optimizer-update count and cyclic schedule. Physical B4 plus
+accumulation 8 preserves
+the reference effective-batch target while keeping each BatchNorm observation at B4.
+Exact epoch remainder/drop semantics and sampler order must be resolved, tested, and
+hashed before Envelope B; they may not be chosen after metrics are observed.
+
+Reference graph changes may raise or lower end-to-end cost. In particular, the deeper
+reference decoder and TransFusion query path are capability choices rather than claimed
+speedups. Their natural timing must replace the old C1-B proxy before a GPU-hour ceiling
+is proposed.
+
+### 4.3 Does BatchNorm invalidate future FL?
+
+No, but BatchNorm requires an explicit federated state policy. The main risks under
+non-IID clients are noisy small-local-batch statistics, client-specific running means
+and variances, and an ill-defined server model if those buffers are naively averaged.
+These risks do not justify retaining GroupNorm in Phase I.
+
+For Protocol B, clients may use a different **training recipe** from centralized base
+training while retaining the same aggregatable model graph and tensor schema. Permitted
+differences may include optimizer, LR/schedule, local epochs, batch/accumulation,
+precision, augmentation, and the trainable-parameter mask. All benign/attack/defense
+controls must still use matched client policies.
+
+Clients may not silently replace BN modules with GN, replace the head, or otherwise
+change shared tensor parameterization while claiming ordinary FedAvg compatibility.
+A preliminary low-risk Protocol-B policy to discuss later is:
+
+- distribute the BN-based `W_base` graph unchanged;
+- keep BN running statistics frozen during local tail adaptation;
+- either aggregate the trainable affine `gamma/beta` parameters or freeze them as an
+  explicitly matched policy;
+- consider client-local BN/FedBN or clean recalibration only if later evidence shows
+  that frozen centralized statistics are inadequate.
+
+This downstream BN policy is not a Phase I experiment and is not frozen by this plan.
+
+### 4.4 Phase I capability checkpoint is not automatically Protocol-B `W_base`
+
+Phase I may train on `D_fit`, which can contain scenes later assigned to Protocol-B
+`D_tail`. Such a checkpoint is useful for architecture/recipe qualification but is not
+a valid Protocol-B initializer if it has seen future client data.
+
+After the architecture and recipe are frozen, Protocol B must retrain the selected
+model on common, broadly distributed `D_base` only to produce `W_base`. Clients then
+receive `W_base` and federatively fine-tune on disjoint long-tail `D_tail`. Thus the CL
+and client recipes need not be identical, while data ownership and model-state
+compatibility remain strict.
+
+## 5. LiDAR sweep policy
+
+The accepted reference policy is asymmetric:
+
+| Use | MIT term | Local contract | Meaning |
+|---|---|---|---|
+| train | `sweeps_num=0` | `n_sweeps=1` | keyframe only |
+| validation/evaluation | `sweeps_num=9` | `n_sweeps=10` | keyframe + nine previous sweeps |
+
+Keyframe-only training is expected to reduce point reads, transforms, voxelization,
+active sparse sites, and input-dependent memory. It does not imply a proportional
+reduction in total wall time because fixed-grid dense modules and optimizer state remain.
+No percentage improvement is claimed before natural timing of the selected graph.
+
+Implementation must bind separate train/evaluation cache identities. The frozen
+scene/log ownership does not change: the keyframe-only train inputs are a subset of the
+already owned scene/log data.
+
+## 6. Data roles and evaluation protocol
+
+The accepted train-only ownership split is:
+
+| Role | Logs | Scenes | Unique keyframes/samples | Purpose |
+|---|---:|---:|---:|---|
+| `D_fit` | 34 | 494 | 19,877 | train model parameters |
+| `D_select` | 8 | 115 | 4,626 | development/checkpoint selection |
+| `D_audit` | 8 | 91 | 3,627 | one-time internal held-out audit |
+
+`D_fit` is 68% of the 50 official train logs and 70.66% of the 28,130 official
+train samples. Dataset membership and training exposure are different quantities.
+
+```text
+D_fit --20 exact-CBGS epochs--> epoch-20 terminal checkpoint
+                                      |
+                                      v
+                         one D_select evaluation
+                                      |
+                                      v
+                     P1-G2 owner branch assessment
+                         | accept + OPEN D_audit
+                         v
+                         one D_audit evaluation
+                                      |
+                                      v
+                            Phase-I close evidence
+```
+
+### 6.1 `D_select`
+
+`D_select` is the development assessment set. Each branch evaluates it exactly once at
+the fixed epoch-20 terminal checkpoint. It cannot choose among epochs because no
+intermediate or recovery checkpoint is eligible. It may inform the owner's `P1-G2`
+decision to accept the branch, retain an honest negative result, or authorize a later
+cause-directed amendment. Because it influences that decision, its score remains
+development evidence and is not an untouched generalization estimate.
+
+### 6.2 `D_audit`
+
+`D_audit` is the internal sealed audit set. It must not be used for optimizer tuning,
+epoch selection, candidate construction, or repeated trial-and-error. It is opened once
+only after the branch graph, recipe, and epoch-20 checkpoint have been frozen and the
+owner explicitly issues `OPEN D_audit` at `P1-G2`.
+
+No numeric pass threshold is required. The audit result is reported to the owner for a
+Phase-II decision. If the model or recipe is changed because of that result, the old
+`D_audit` result remains valid evidence but the set has become development evidence for
+the revised design; it cannot still be described as untouched audit evidence.
+
+Official nuScenes validation remains outside both roles and is preserved for a later
+approved capability claim.
+
+## 7. Exact official CBGS and training exposure
+
+CBGS is class-balanced resampling, not a geometric augmentation. The Phase I sampler
+must implement the archived MIT algorithm rather than the current local sqrt-RFS:
+
+1. over the already role-restricted `D_fit`, collect the indices of samples containing
+   each of the ten classes;
+2. compute inverse class-mass sampling ratios targeting equal class mass;
+3. draw the reference number of indices from each class pool and concatenate them;
+4. bind the source sample-token order, seed/RNG behavior, expanded index list, class
+   counts, duplicate counts, and SHA-256 identity;
+5. construct the list once with the frozen seed, matching the reference wrapper's
+   epoch-invariant index membership; epoch shuffling remains a separate sampler concern.
+
+A sample containing several classes can appear in several class pools, so
+`N_cbgs = len(expanded_indices)` is generally not `19,877`. `D_fit` ownership remains
+19,877 unique samples; CBGS changes how often those samples are presented.
+
+Training exposure must therefore be recorded as:
+
+```text
+unique D_fit samples = 19,877
+sample presentations = 20 * N_cbgs, subject only to the frozen epoch-remainder rule
+B4 microbatches per optimizer update = 8
+effective optimizer batch = 32
+attempted optimizer windows = function(sample presentations, B32 and remainder rule)
+accepted optimizer updates = attempted windows minus invalid/overflow windows
+```
+
+The exact `N_cbgs`, expansion ratio, effective updates per epoch, and total reference
+exposure can be computed statically before GPU execution. These values are required for
+the final resource estimate even though no predeclared numeric capability threshold is
+required.
+
+### 7.1 Camera augmentation
+
+The Camera primary freezes the reference standalone augmentation bundle:
+
+- six-view image output size `256 x 704`;
+- train resize range `[0.38, 0.55]`, image rotation `[-5.4, 5.4]` degrees, and random
+  horizontal image flip; evaluation resize is fixed at `0.48` with no rotation/flip;
+- 3D scale `[0.95, 1.05]`, yaw rotation `[-0.3925, 0.3925]` radians, and zero
+  translation;
+- reference image normalization;
+- GT-paste disabled.
+
+The pure-camera LSSTransform does not consume LiDAR point contents. Envelope A may
+remove Camera-only point payload/GTDepth construction only after the production-path
+parity test proves identical sample geometry, loss, prediction, and consumed fields.
+That is an output-neutral I/O optimization, not permission to change calibration or
+augmentation matrices.
+
+### 7.2 LiDAR augmentation and role-bound GT-paste
+
+The LiDAR primary freezes the reference augmentation bundle:
+
+- 3D scale `[0.9, 1.1]`, yaw rotation `[-pi/4, pi/4]`, translation limit `0.5`,
+  `RandomFlip3D`, range/name filters, and point shuffle;
+- GT-paste enabled for the first 15 training epochs and disabled thereafter;
+- reference ten-class sample groups and minimum-point/collision semantics;
+- keyframe-only source points for both ordinary training samples and GT-database
+  object crops.
+
+GT-paste must be role-bound. The database must be built or materialized only from the
+exact frozen `D_fit` sample tokens, record the split/cache/ZIP/GTDB identities and
+per-class counts, and fail if any `D_select`, `D_audit`, official-val, or unknown source
+token is present. A whole-train GT database may not be filtered implicitly at paste
+time unless its exact per-object source provenance makes the D_fit-only projection
+independently verifiable. If that proof is unavailable, construct a fresh D_fit-only
+keyframe GTDB under an explicitly activated Envelope A.
+
+## 8. Camera initialization and NuImages checkpoint
+
+The Camera primary uses the pinned public ImageNet-1K Swin-T checkpoint declared by the
+reference Camera YAML. Downloading it is still an external-action permission and is
+not authorized by O-144; Envelope A must bind its exact URL, license, permitted
+`/nobackup` destination, physical SHA-256, and tensor-load report before acquisition.
+
+The official `swint-nuimages-pretrained.pth` remains directly downloadable from the
+pinned MIT repository's `tools/download_pretrained.sh`. It is a Swin backbone
+initialization, not a complete Camera detector or a ready Protocol-B `W_base`. It is
+outside the initial Phase I candidate cap. Therefore:
+
+- downloading or executing a NuImages-initialized candidate is not automatic;
+- weak ImageNet-primary metrics do not automatically trigger its download or run;
+- adding it requires an explicit owner amendment to candidate count, interpretation,
+  resources, and checkpoint authority;
+- its use requires a bound URL, local permitted storage path, file SHA-256, license
+  record, state-dict inspection, and strict mmdet-Swin to local-Swin tensor mapping;
+- the ImageNet primary is exact in graph and reference-YAML initialization but is not
+  the NuImages-initialized published full-recipe reproduction;
+- any later NuImages comparison must use the same data, evaluator, exposure, and
+  checkpoint-selection semantics as its matched primary.
+
+NuImages is a standalone 2D-annotated dataset drawn from a broader autonomous-driving
+image pool covering nearly 500 logs, compared with approximately 83 logs in nuScenes.
+The official public description does not itself provide a role-by-role raw-file/log
+disjointness proof against this project's `D_base`, `D_tail`, `D_select`, `D_audit`, or
+official validation. Consequently it is a declared external prior and requires an
+ownership/interpretation decision before it could initialize the primary Protocol-B
+`W_base`.
+
+The primary Camera initialization is **frozen to ImageNet-1K Swin-T**. Fully random,
+ImageNet, and NuImages must never be conflated in reporting.
+
+## 9. Assessment without an arbitrary numeric capability threshold
+
+The owner will assess C/L capability after observing the complete frozen results. To
+avoid post-hoc metric or checkpoint selection, the following rules are nevertheless
+accepted:
+
+1. freeze evaluator implementation, class map, metric definitions, and metric artifact
+   format before training;
+2. keep epoch 20 as the sole selectable checkpoint and run one terminal evaluation per
+   branch;
+3. use `D_select` only for the declared branch-assessment purpose;
+4. open `D_audit` once after recipe/checkpoint freeze;
+5. report all required branch metrics and failures without retroactive thresholding;
+6. if `D_audit` motivates a new recipe, explicitly consume its sealed status for that
+   new design;
+7. keep official validation held out until a separately approved later capability gate.
+
+Phase I completion is therefore evidence delivery plus owner assessment, not an
+automated comparison with an invented mAP/NDS threshold.
+
+## 10. Approved collaboration simplifications
+
+The owner has accepted the following five design changes for the Phase I workflow:
+
+1. add one production `--preflight-only` route that exercises the same resolved config,
+   assertions, model/optimizer/evaluator/checkpoint construction, and one-batch path as
+   training;
+2. make the `ResolvedConfig` object consumed by the trainer the single source for run
+   identity, and test that every scientific field is actually consumed and optimizer
+   parameter groups are complete/disjoint;
+3. structure the eventual phase approval so bounded in-envelope implementation and
+   linear source commits can be authorized together, while each executed source still
+   has an immutable Git SHA;
+4. classify a change as scientific whenever it may alter tensors, sample content/order,
+   accepted updates, evaluator/metric, seed, candidate count, or resources; permit
+   autonomous remediation only when output-neutrality is clear;
+5. allow one combined C/L recipe-freeze review at one durable SHA rather than two
+   duplicated review chains.
+
+These changes must be implemented without creating another permanent harness or report
+stack.
+
+### 10.1 Five binding implementation work packages
+
+Implementation stays in one persistent S00 worktree and one linear branch. Do not
+create a per-WP worktree, harness, handoff, review chain, or approval cycle.
+
+1. **WP0 — reference specification and ResolvedConfig.** Mechanically resolve the
+   pinned MIT/Torchpack/MMCV inheritance into one explicit local recipe; make the
+   trainer-consumed ResolvedConfig the run identity; assert that every scientific
+   field is consumed and every optimizer parameter appears in exactly one group.
+2. **WP1 — shared data and training recipe.** Implement exact role-bound CBGS,
+   D_fit-only GTDB/GT-paste, B4 x accumulation-8 optimizer/scheduler semantics,
+   deterministic epoch order/remainder identity, checkpoint/resume, and the direct
+   production `--preflight-only` path.
+3. **WP2 — exact standalone Camera.** Implement the Section-3.1 graph, ImageNet tensor
+   mapping, reference CenterHead recipe, Camera augmentation, and the tested
+   output-neutral omission of unused point payloads when parity permits.
+4. **WP3 — reference-led LiDAR.** Implement the Section-3.2 graph, BN, reference
+   SECOND/SECONDFPN, mmdet-free TransFusionHead/target/loss/decode path, and
+   keyframe-train/ten-sweep-eval separation.
+5. **WP4 — production integration, qualification, and review preparation.** Run
+   focused local/static tests, production-path engineering calibration, checkpoint
+   resume and evaluator preflight; inventory the historical Alvis checkpoint/config/
+   class/evaluator provenance without performing the Phase-II aligned comparison;
+   then freeze one durable C/L implementation SHA for one combined recipe review.
+
+Material commits are grouped at plan freeze, shared recipe infrastructure, Camera,
+LiDAR, and final production-integration/review boundaries. Ordinary fixture or runner
+fixes are folded into the next material commit. O-144 itself does not grant commit
+authority; that authority must be explicit in Envelope A.
+
+### 10.2 Three owner gates
+
+1. **`P1-G0 PLAN_FREEZE` — closed by O-144.** The scientific recipe, five work
+   packages, three gates, two-envelope model, and amendment boundaries in this
+   document are binding. This closure does not activate Envelope A.
+2. **`P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` — pending.** After Envelope-A
+   implementation, calibration, exact CBGS/GTDB identities, and joint review are
+   complete, the owner approves or rejects the measured Envelope-B resource tuple.
+   No 20-epoch training starts before this gate.
+3. **`P1-G2 SELECT_AND_AUDIT` — pending.** The owner receives both terminal
+   `D_select` results and chooses, per branch, accept/freeze, honest negative, or an
+   explicit cause-directed amendment. `D_audit` opens only when the owner says
+   `OPEN D_audit`; a repair keeps it sealed.
+
+### 10.3 Envelope A — implementation and engineering calibration
+
+Envelope A is designed to authorize all five WPs in one bounded implementation
+period: scoped source/docs/tests, focused local validation, material linear commits,
+the exact official ImageNet-1K Swin-T acquisition, exact D_fit CBGS/GTDB
+materialization, and production-path C/L engineering calibration. It authorizes no
+capability metric, `D_select`, `D_audit`, scientific checkpoint, or 20-epoch run.
+
+The adopted engineering-calibration design is:
+
+- one GH200, maximum concurrency 1;
+- aggregate ceiling at most `1.0` GH200-hour;
+- at most three submissions, each at most 30 minutes;
+- C and L each run 16 warm-up plus 64 timed physical-B4 microbatches through the
+  production entry/config/data/model/optimizer path;
+- report loader wait, GPU step time, samples/s, peak memory, initialization and
+  accepted-window state; do not launch a broad profiler.
+
+Envelope A remains **NOT ACTIVATED** until a later owner message explicitly grants its
+implementation, acquisition, materialization, commit, remediation, and exact output
+authority. Its activation record must bind the allowed file/scope boundary, official
+checkpoint destination, data-artifact output roots, engineering output root, resource
+ceiling, submission cap, and escalation conditions.
+
+### 10.4 Envelope B — scientific branch qualification
+
+Envelope B contains exactly two primary candidates: one frozen Camera and one frozen
+LiDAR. Each uses seed 0, 20 exact-CBGS epochs over D_fit, physical B4,
+accumulation 8/effective B32, accepted S08 precision, terminal-only checkpoint
+selection, one `D_select` evaluation, and conditionally one owner-unsealed `D_audit`
+evaluation. No NuImages, GN, alternate LR, alternate seed, or automatic scientific
+repair is inside the initial envelope.
+
+The default serial order is LiDAR then Camera because LiDAR exercises the role-bound
+GTDB and shared recipe first. A scientifically weak LiDAR result does not cancel the
+independent Camera primary unless the failure implicates a shared data, evaluator,
+precision, or configuration boundary. Maximum concurrency is one.
+
+Envelope-B GPU-hours are calculated only from the materialized `N_cbgs`, exact-graph
+production calibration, evaluator timing, checkpoint/resume overhead, and a declared
+15% aggregate contingency:
+
+```text
+H_B = 1.15 * (
+    20 * N_cbgs / throughput_C
+  + 20 * N_cbgs / throughput_L
+  + T_D_select_C + T_D_select_L
+  + T_D_audit_C  + T_D_audit_L
+  + T_checkpoint_resume
+) / 3600
+```
+
+The exact aggregate GPU-hour ceiling, planned wall-time segmentation, maximum
+submissions, output root, and resolved config hashes remain pending until Envelope A
+produces measurements. D_audit resources may be reserved in Envelope B, but reservation
+does not unseal the data. No estimate derived solely from the old C1 graph is acceptable.
+
+### 10.5 In-envelope remediation and mandatory escalation
+
+Once an envelope is activated, S00 may autonomously fix only clearly output-neutral
+defects in tests, fixtures, config field access, runner/Slurm plumbing, checkpoint I/O,
+resume plumbing, or logging, and may resubmit within the same aggregate resource and
+submission caps. Every scientific run still binds a durable Git SHA and resolved-config
+hash; raw outputs remain immutable.
+
+Return to the owner before changing model math or tensor shapes, normalization,
+initialization source/mapping, data role/content/order or GTDB membership, augmentation,
+loss/target/decode, optimizer/scheduler/EMA/precision, seed, exposure, selectable
+checkpoint, evaluator/metric, candidate count, interpretation, resources, or output
+scope. Also stop on uncertain classification, the same root blocker recurring, or an
+exhausted submission/resource cap. There is no automatic cause-directed scientific
+repair in either initial envelope.
+
+## 11. Frozen fields and remaining activation inputs
+
+### 11.1 Owner-frozen by O-144
+
+- reference BatchNorm throughout the selected convolutional graph; Swin LayerNorm
+  retained; no GN candidate;
+- LiDAR keyframe-only train and ten-sweep evaluation;
+- physical B4, accumulation 8, effective optimizer B32, scheduler per optimizer update,
+  activation checkpointing off, and redundant telemetry synchronization off;
+- exact standalone reference Camera graph;
+- Camera ImageNet-1K Swin-T primary initialization;
+- Camera CenterHead; LiDAR/Fusion TransFusionHead;
+- reference L/F SECOND+SECONDFPN decoder rather than the current shallow shared neck;
+- the exact Camera/LiDAR optimizer, LR, weight decay, cyclic schedule, warm-up,
+  clipping, augmentation, GT-paste, EMA-off, and 20-epoch bundles in Sections 3 and 7;
+- exact archived MIT CBGS algorithm;
+- role-bound D_fit-only LiDAR GTDB/GT-paste;
+- no arbitrary predeclared numeric capability threshold;
+- seed 0, two total primary candidates, epoch-20 terminal-only selection, one
+  `D_select` evaluation, and owner-unsealed one-time `D_audit` use;
+- NuImages checkpoint as a conditional external comparison/fallback, not an automatic
+  candidate or primary initializer;
+- the five collaboration simplifications, five WPs, three owner gates, and two
+  approval envelopes in Section 10.
+
+### 11.2 Pending measurements or activation records, not open recipe choices
+
+- Envelope-A activation: exact scoped implementation/files, official ImageNet
+  checkpoint URL/license/destination, data/engineering output roots, commit and
+  remediation authority;
+- downloaded ImageNet checkpoint SHA-256 and exact loaded/missing/unexpected tensor
+  mapping report;
+- materialized official-CBGS length, expanded-index/order/remainder hashes, updates per
+  epoch, and total exposure;
+- materialized D_fit-only GTDB identity, source-token proof, per-class counts, and
+  exact stop-epoch behavior;
+- no-update loss-scaler qualification values and recovery-checkpoint cadence, frozen
+  before Envelope B without changing the accepted precision or terminal-selection rule;
+- mmdet-free TransFusionHead/decoder implementation and tensor-parity acceptance tests;
+- Alvis checkpoint/provenance/evaluator alignment audit;
+- joint C/L recipe-freeze review at one durable implementation SHA;
+- Envelope-B aggregate GH200-hour ceiling, wall-time segmentation, maximum
+  submissions, exact commands/config hashes, and output root derived from Envelope-A
+  measurements;
+- later Protocol-B BN buffer/affine aggregation policy and the final `D_base/D_tail`
+  construction.
+
+## 12. Evidence and fixed external references
+
+Local evidence:
+
+- `HANDOFF.md` — active S10 status, O-143 order, and collaboration boundary;
+- `RESULTS.md` — accepted STOP-A split, C0/C1 timing, gradient, and metric evidence;
+- `../S08/MODEL_RECIPE_AUDIT.md` — current graph and fixed-reference differences;
+- `../../../src/fl_v3/models/fusion/{detector,head,bev_neck}.py` — current shared-head
+  implementation;
+- `../../../src/fl_v3/data/nuscenes/cbgs.py` — current non-reference sqrt-RFS.
+
+Pinned MIT BEVFusion reference, commit
+`326653dc06e0938edf1aae7d01efcd158ba83de5`:
+
+- [README and official training commands](https://github.com/mit-han-lab/bevfusion/blob/326653dc06e0938edf1aae7d01efcd158ba83de5/README.md)
+- [Camera configuration](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/configs/nuscenes/det/centerhead/lssfpn/camera/256x704/swint/default.yaml)
+- [Camera parent optimizer/warm-up configuration](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/configs/nuscenes/det/centerhead/lssfpn/default.yaml)
+- [Camera augmentation configuration](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/configs/nuscenes/det/centerhead/lssfpn/camera/default.yaml)
+- [LiDAR configuration](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/configs/nuscenes/det/transfusion/secfpn/lidar/voxelnet_0p075.yaml)
+- [LiDAR GT-paste stop configuration](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/configs/nuscenes/det/transfusion/secfpn/lidar/default.yaml)
+- [Fusion configuration](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/configs/nuscenes/det/transfusion/secfpn/camera%2Blidar/swint_v0p075/default.yaml)
+- [nuScenes base augmentation/CBGS configuration](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/configs/nuscenes/default.yaml)
+- [Detection train/eval sweep policy](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/configs/nuscenes/det/default.yaml)
+- [SECOND/SECONDFPN configuration](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/configs/nuscenes/det/transfusion/secfpn/default.yaml)
+- [TransFusionHead configuration](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/configs/nuscenes/det/transfusion/default.yaml)
+- [Official CBGSDataset implementation](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/mmdet3d/datasets/dataset_wrappers.py)
+- [Official pretrained-checkpoint download script](https://raw.githubusercontent.com/mit-han-lab/bevfusion/326653dc06e0938edf1aae7d01efcd158ba83de5/tools/download_pretrained.sh)
+- [Official nuImages dataset description](https://www.nuscenes.org/nuimages)
+- [Torchpack recursive configuration merge](https://torchpack.readthedocs.io/en/latest/_modules/torchpack/utils/config.html)
+- [MMCV 1.4 cyclic LR defaults](https://raw.githubusercontent.com/open-mmlab/mmcv/v1.4.0/mmcv/runner/hooks/lr_updater.py)
+- [MMCV 1.4 cyclic momentum defaults](https://raw.githubusercontent.com/open-mmlab/mmcv/v1.4.0/mmcv/runner/hooks/momentum_updater.py)

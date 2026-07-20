@@ -1,4 +1,4 @@
-# S10 HANDOFF — O-143 scientific and collaboration rebaseline
+# S10 HANDOFF — O-144 Phase I plan freeze under O-143
 
 ## 1. Current state and authority
 
@@ -6,9 +6,10 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-cl-model-recipe
-ACTIVE_DECISION: O-143
+ACTIVE_DECISION: O-144 under O-143
 SCIENCE_ORDER: C/L independent recipe+capability -> staged fusion -> capability gate -> profiler
-CURRENT_AUTHORITY: planning/documentation only; no implementation or compute
+PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
+CURRENT_AUTHORITY: documentation only; Envelope A not activated; no implementation or compute
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -16,6 +17,13 @@ O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
 evidence, change STOP-A data ownership/evaluator semantics, weaken metric or
 provenance requirements, or authorize compute.
+
+O-144 freezes `PHASE_I_PLAN.md` as the binding Phase I scientific and
+collaboration plan: physical B4 plus accumulation 8/effective B32; one ImageNet
+Camera primary and one scratch LiDAR primary; exact reference-led recipes;
+role-bound D_fit-only GT-paste; seed 0; 20 epochs; terminal-only selection; two
+total candidates; and five WPs, three owner gates and two approval envelopes.
+O-144 authorizes documentation only. It does not activate Envelope A or B.
 
 Current-A2 and the old C→D→E→F route are paused. The primary S10 claim remains
 **absolute clean capability + fusion contribution**, but it must now be earned
@@ -58,28 +66,23 @@ selection unless a future approved capability gate explicitly opens it.
 
 ### Phase I — camera and LiDAR independent recipe/capability
 
-Treat the modalities as separate training problems before fusion.
+Treat the modalities as separate training problems before fusion. The complete
+binding graph, initialization, optimizer/scheduler, augmentation, CBGS/GT-paste,
+batch/exposure, checkpoint, evaluation and workflow specification is
+`PHASE_I_PLAN.md`; summaries here do not override it.
 
-For each branch, define a small, coherent candidate set covering:
-
-- graph and normalization;
-- initialization: public ImageNet/NuImages or compatible published checkpoint
-  versus random components, with exact license/source/tensor compatibility;
-- optimizer parameter groups, LR, weight decay, schedule and warmup;
-- augmentation, sampling/CBGS/GT-paste and EMA;
-- physical batch, accumulation, exposure and checkpoint selection;
-- a meaningful training horizon and aligned evaluator gate.
-
-MIT BEVFusion's published branch pretraining, staged fusion and recipe choices are
-strong external anchors. Start from a coherent reference-derived bundle. Do not
-spend local compute re-proving published ablations unless the local implementation
-conflicts or materially underperforms. At most one cause-directed repair per
-branch should be opened by evidence; do not run a broad hyperparameter grid.
+The initial Phase I set is exactly one ImageNet-initialized standalone-reference
+Camera/CenterHead primary and one scratch reference-led
+SECOND/SECONDFPN/TransFusionHead LiDAR primary. Both use reference BN, seed 0,
+20 exact-CBGS epochs, physical B4 plus accumulation 8/effective B32, no EMA and
+epoch-20 terminal-only selection. LiDAR trains keyframe-only and evaluates with
+keyframe plus nine sweeps. NuImages, GN, alternate LR/seed and automatic repair
+are outside the two-candidate envelope.
 
 Step-level runs are only crash/numerical preflight. Capability requires meaningful
 trainval-scale exposure and evaluation. Phase I exits with one reviewed camera
 recipe/checkpoint and one reviewed LiDAR recipe/checkpoint, or an honest negative
-result.
+result. `D_audit` remains sealed until the owner explicitly opens it at `P1-G2`.
 
 ### Phase II — staged fusion and capability
 
@@ -113,7 +116,8 @@ Observation-first now means:
 2. inspect loss trajectory, update validity, gradient/update scale, checkpoint
    behavior and evaluator metrics over a meaningful horizon;
 3. localize only a failure that is both reproducible and capability-relevant;
-4. apply at most one cause-directed repair within the approved candidate cap;
+4. return a cause-directed repair proposal to the owner; it is not inside the
+   initial two-candidate envelope;
 5. judge the repair on optimizer behavior and capability, not gradient magnitude
    alone.
 
@@ -145,6 +149,9 @@ Active records are:
 - this `HANDOFF.md`: compact current status, science plan and decision boundary;
 - `RUN_REQUEST.md`: phase authority plus one concise job ledger.
 
+`PHASE_I_PLAN.md` is the frozen plan specification, not a second status or job
+narrative. Update it only through an explicit owner amendment.
+
 Minimum per-run provenance is Git SHA, resolved-config hash, split, seed, command,
 resources, output root, terminal state, checkpoint hash and metric hash. Raw
 outputs remain immutable. Do not require detached snapshot copies, recursive
@@ -167,14 +174,19 @@ and evaluator paths, extended only by the smallest required branch-mode seams.
 
 ## 7. Next owner discussion and current stop
 
-Before implementation or compute, jointly freeze Phase I:
+`P1-G0 PLAN_FREEZE` is closed. The next request is exact activation of Envelope A,
+covering the five WPs, allowed source/docs/tests, focused local validation,
+material linear commits, official ImageNet checkpoint acquisition, D_fit CBGS/
+GTDB materialization, and at most one aggregate GH200-hour of production-path
+engineering calibration with maximum concurrency one and at most three
+submissions.
 
-- exact camera and LiDAR candidate bundles and initialization sources;
-- whether qualification is sequential or shares one aggregate budget;
-- training horizon, evaluator checkpoints and capability thresholds;
-- Alvis checkpoint/provenance/evaluator-alignment audit;
-- seeds, aggregate GH200-hours, submission cap and escalation conditions.
+That activation must bind checkpoint/data/engineering output roots, allowed
+commit and remediation authority, and stop/escalation conditions. After Envelope
+A yields exact `N_cbgs`, GTDB identities, resolved config hashes, graph timing and
+one joint recipe review, `P1-G1` will present the measured Envelope-B scientific
+GPU-hour/submission request.
 
-No Phase-I implementation, checkpoint acquisition, Slurm submission, staged
-fusion, profiler, merge, push, upload, publication or S11+ work is authorized by
-O-143.
+No Phase-I implementation, checkpoint acquisition, GTDB materialization, commit,
+Slurm submission, staged fusion, profiler, merge, push, upload, publication or
+S11+ work is currently authorized.

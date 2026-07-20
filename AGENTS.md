@@ -27,6 +27,7 @@ The active collaboration entry point is:
 fl_v3/usenix27_orchestra/ORCHESTRA.md
 fl_v3/usenix27_orchestra/SESSIONS.md
 fl_v3/usenix27_orchestra/KICKOFFS.md
+fl_v3/usenix27_orchestra/handoffs/S10/PHASE_I_PLAN.md  # binding for Phase-I work
 ```
 
 This is milestone/work orchestration, not a research-cycle document. Names beginning
@@ -70,6 +71,17 @@ published staged-pretraining and recipe choices are strong external anchors; S10
 should test local implementation compatibility and capability, not spend compute
 re-proving published conclusions without a concrete conflict. S11 and later
 milestones remain pending.
+
+Owner decision O-144 closes `P1-G0 PLAN_FREEZE` and makes
+`fl_v3/usenix27_orchestra/handoffs/S10/PHASE_I_PLAN.md` binding for all Phase-I
+work. It freezes physical B4 plus accumulation 8/effective B32, one ImageNet
+Camera primary and one scratch LiDAR primary, role-bound D_fit CBGS/GT-paste,
+seed 0, 20 epochs, terminal-only selection, two total candidates, and the
+five-WP/three-gate/two-envelope workflow. O-144 authorizes documentation only:
+Envelope A is not activated, and no implementation, checkpoint acquisition,
+GTDB materialization, commit, GPU/Slurm execution, merge, push or upload is
+authorized until the corresponding exact envelope is owner-approved.
+
 For this stage, `fl_v3/collab/` is read-only legacy evidence. Agents may inspect and
 cite it, but must not add or update plans, handoffs, reviews, results, or status
 records there unless the owner explicitly requests a historical correction. All new

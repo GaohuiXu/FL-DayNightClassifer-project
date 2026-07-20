@@ -1,6 +1,6 @@
 # USENIX Security '27 Orchestra — active envelopes
 
-> **Launch state (2026-07-19).** S08/S09 are closed. S10 is active on
+> **Launch state (2026-07-20).** S08/S09 are closed. S10 is active on
 > `codex/s10-cl-model-recipe` and has been rebaselined by O-143.
 >
 > Active order: **C/L independent recipe and capability → staged fusion →
@@ -12,12 +12,17 @@
 > O-143 also replaces S10's per-job immutable/no-retry/multi-document/reviewer
 > mechanics with the phase-level workflow below. This kickoff records no compute
 > authority.
+>
+> O-144 closes `P1-G0 PLAN_FREEZE`; all Phase-I work must follow
+> `handoffs/S10/PHASE_I_PLAN.md`. Envelope A is not activated, so this kickoff
+> still records no implementation, checkpoint, GTDB, commit or compute authority.
 
 ## 1. Rules for starting or extending work
 
-1. A plan is not compute authority. Before a new S10 phase, the owner approves
-   its objective, candidate cap, data/metric/seed policy, aggregate GPU-hours,
-   maximum submissions and escalation conditions.
+1. The binding plan is not execution authority. Before work in an S10 envelope,
+   the owner approves its allowed implementation/external/data actions, objective,
+   candidate/data/metric/seed boundaries where applicable, aggregate GPU-hours,
+   maximum submissions, outputs and escalation conditions.
 2. S00 remains in the persistent worktree and linear branch. Do not create
    per-stop implementation tasks, micro-handoffs, snapshot trees or reviewer
    chains.
@@ -50,6 +55,7 @@ implement tightly connected milestones in the active linear worktree.
 Before acting, read completely:
 - repository AGENTS.md;
 - fl_v3/usenix27_orchestra/{ORCHESTRA,SESSIONS,KICKOFFS}.md;
+- fl_v3/usenix27_orchestra/handoffs/S10/PHASE_I_PLAN.md for any Phase-I work;
 - fl_v3/docs/{env,roadmap/INDEX}.md;
 - relevant current handoff/review packages and actual source/diffs/raw artifacts;
 - current git status, branch/HEAD, and worktree list.
@@ -380,7 +386,7 @@ recipe claim, multi-seed, Protocol A/B, attack, defense, DDP, full-data payload
 scan, branch selection, normalization experiment, or publication/upload is
 authorized.
 
-## 6. S10 O-143 launch state
+## 6. S10 O-143/O-144 launch state
 
 - **Science order:** qualify camera and LiDAR independently; freeze reviewed
   branch recipes/checkpoints; staged fusion; aligned absolute-capability and
@@ -396,16 +402,20 @@ authorized.
   select BN1d; C1-B bounded proxy runs do not establish capability.
 - **Paused work:** current-A2, old C→D→E→F execution, profiler-first work and the
   old diagnostic harness.
-- **Current authority:** planning/documentation only. No implementation or compute
-  is executable until the owner approves the Phase-I candidate/gate/resource
-  envelope.
+- **O-144 Phase-I freeze:** `handoffs/S10/PHASE_I_PLAN.md` binds the exact two
+  primaries, B4 x accumulation 8/effective B32, role-bound D_fit recipe, seed 0,
+  20 epochs, terminal-only selection and five-WP/three-gate/two-envelope workflow.
+- **Current authority:** documentation only. Envelope A is not activated; no
+  implementation, checkpoint acquisition, GTDB materialization, commit or compute
+  is executable.
 
-## 7. S10 phase compute-request skeleton
+## 7. S10 envelope activation skeleton
 
 ```text
-PHASE:
+PHASE_AND_ENVELOPE:
 REQUEST_STATE: DRAFT / NOT APPROVED
 OBJECTIVE_AND_EXIT_GATE:
+IMPLEMENTATION_AND_EXTERNAL_ACTIONS:
 CANDIDATES_AND_MAX_COUNT:
 DATA_SPLITS_AND_EVALUATOR:
 SEED_POLICY:
@@ -417,6 +427,14 @@ MINIMUM_RUN_PROVENANCE:
 OUTPUT_ROOT:
 OWNER_APPROVAL: pending
 ```
+
+The next request is Envelope A, not the 20-epoch science envelope. It must bind
+WP0-WP4 source/docs/tests, material linear commits, exact official ImageNet
+checkpoint acquisition, D_fit CBGS/GTDB materialization and the engineering
+calibration design (`<=1.0` aggregate GH200-hour, at most three submissions,
+maximum concurrency one, at most 30 minutes/submission). It forbids capability
+metrics and D_select/D_audit. Envelope B is requested only at `P1-G1` after
+Envelope-A identities, timing and the joint recipe review exist.
 
 After approval, individual job rows in `handoffs/S10/RUN_REQUEST.md` record Git
 SHA, resolved-config hash, split, seed, command, resources, output, terminal state,

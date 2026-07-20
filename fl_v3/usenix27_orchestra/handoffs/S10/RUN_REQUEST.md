@@ -4,15 +4,20 @@
 
 ```text
 SESSION: persistent S00 / S10
-ACTIVE_DECISION: O-143
+ACTIVE_DECISION: O-144 under O-143
 REQUEST_STATE: DRAFT / NOT APPROVED
 EXECUTION_AUTHORITY: none
-ACTIVE_PHASE: Phase I C/L independent recipe and capability — design pending
+ACTIVE_PHASE: Phase I C/L independent recipe and capability — plan frozen, envelopes inactive
+PLAN: PHASE_I_PLAN.md / P1-G0 closed
 BRANCH: codex/s10-cl-model-recipe
 ```
 
 O-143 authorizes the scientific/collaboration rebaseline only. It does not
 authorize implementation, checkpoint acquisition or Slurm execution.
+O-144 freezes the scientific/workflow plan in `PHASE_I_PLAN.md` but likewise
+authorizes no implementation, checkpoint acquisition, GTDB materialization,
+commit, or execution. Envelope A must be explicitly activated next; Envelope B
+requires the later measured `P1-G1` approval.
 
 The full pre-O-143 per-job request ledger is preserved at Git object
 `26b38612c6dd7e37bd97f8eb9e443735d36154c6:fl_v3/usenix27_orchestra/handoffs/S10/RUN_REQUEST.md`.
@@ -94,18 +99,58 @@ Append one concise row per submitted job:
 Raw outputs are immutable. Detached snapshots, recursive artifact manifests,
 command-file hashes and stdout hashes are optional rather than default.
 
-## 5. Phase I pending request
-
-No values are frozen yet. Before compute, owner and S00 must decide:
-
-- coherent camera and LiDAR candidate bundles and initialization sources;
-- training recipe, horizon and checkpoint selection;
-- aligned internal capability gates and Alvis comparator audit;
-- seed policy;
-- aggregate GH200-hour and submission ceilings;
-- engineering stop/escalation rules.
+## 5. Phase I O-144 plan-freeze record
 
 ```text
+PLAN_STATE: OWNER_FROZEN / O-144
+PLAN_PATH: handoffs/S10/PHASE_I_PLAN.md
+P1_G0: CLOSED
+CANDIDATES_AND_MAX_COUNT: exact Camera ImageNet primary + exact LiDAR scratch primary; max 2
+DATA: D_fit train; D_select terminal development assessment; D_audit owner-sealed
+SEED_POLICY: seed 0
+EXPOSURE: 20 exact-CBGS epochs; physical B4; accumulation 8; effective B32
+CHECKPOINT_SELECTION: epoch-20 terminal only
+WORKFLOW: 5 WPs + 3 owner gates + 2 approval envelopes
+EXECUTION_AUTHORITY: none
+```
+
+The complete graph, optimizer/scheduler, augmentation, role-bound GT-paste,
+evaluation, remediation and amendment rules are normative in
+`PHASE_I_PLAN.md`. This record does not duplicate them.
+
+## 6. Envelope A — draft / not activated
+
+```text
+PHASE: S10 Phase I / Envelope A implementation and engineering calibration
 REQUEST_STATE: DRAFT / NOT APPROVED
+OBJECTIVE_AND_EXIT_GATE: implement WP0-WP4; materialize exact identities; calibrate C/L;
+                         freeze one joint-review SHA; no capability result
+SCIENTIFIC_CANDIDATES: none executed
+ENGINEERING_GPU_DESIGN: one GH200; <=1.0 aggregate GH200-hour; <=3 submissions;
+                        <=30 minutes/submission; max concurrency 1
+CALIBRATION: per branch 16 warm-up + 64 timed physical-B4 microbatches
+ALLOWED_METRICS: loader/step timing, samples/s, memory, init and accepted-window health only
+D_SELECT_D_AUDIT: forbidden
+IMPLEMENTATION_COMMIT_AUTHORITY: pending owner activation
+CHECKPOINT_ACQUISITION: exact official ImageNet-1K Swin-T only; pending owner activation
+DATA_MATERIALIZATION: exact D_fit CBGS and D_fit-only GTDB only; pending owner activation
+OUTPUT_ROOTS: pending exact request
+ENGINEERING_REMEDIATION_ALLOWED: pending exact request; output-neutral only
+OWNER_APPROVAL: pending
+EXECUTABLE_NOW: no
+```
+
+## 7. Envelope B — pending P1-G1
+
+Envelope B is not yet a complete request. It will bind the two frozen candidates,
+seed 0, exact data/evaluator identities, `N_cbgs`, accepted precision, 20-epoch
+B32 exposure, terminal-only selection, measured aggregate GPU-hours, wall-time
+segmentation, submission cap, output root and owner-escalation conditions.
+LiDAR runs before Camera by default; `D_audit` resources may be reserved but the
+data remain sealed until `P1-G2` explicitly opens them.
+
+```text
+REQUEST_STATE: NOT YET REQUESTABLE
+BLOCKED_ON: Envelope-A implementation/calibration/identities and joint recipe review
 EXECUTABLE_NOW: no
 ```

@@ -1,6 +1,6 @@
 # USENIX Security '27 Orchestra — clean CL to federated multimodal security
 
-> **Active status (2026-07-19).** S07-S09 are closed. S10 is active on
+> **Active status (2026-07-20).** S07-S09 are closed. S10 is active on
 > `codex/s10-cl-model-recipe` from audited base
 > `a080d49c1c22de20ccb5b1353d4922c7df14a729`.
 >
@@ -10,6 +10,12 @@
 > capability gate → GH200 profiler/optimization**. Current-A2 and the old
 > C→D→E→F route are paused.
 >
+> O-144 closes `P1-G0 PLAN_FREEZE` and makes
+> `handoffs/S10/PHASE_I_PLAN.md` binding: physical B4 plus accumulation 8/
+> effective B32; one ImageNet Camera primary and one scratch LiDAR primary;
+> role-bound D_fit GT-paste; seed 0; 20 epochs; terminal-only selection; two
+> total candidates; and five WPs, three owner gates and two approval envelopes.
+>
 > Prior evidence is retained, not erased: STOP-A's split/evaluator is reusable;
 > STOP-B is `INCONCLUSIVE`; C1-A localized the observed large LiDAR-stem
 > gradient to the current tiny-group GN path; C1-B bounded runs did not establish
@@ -17,9 +23,10 @@
 > limits remain in `handoffs/S10/RESULTS.md` and the historical portion of
 > `RUN_REQUEST.md`.
 >
-> O-143 authorizes this plan/contract record only. No C/L implementation,
-> training, Slurm submission, staged fusion, profiler, merge, push, upload,
-> publication or S11+ execution is currently authorized.
+> O-144 authorizes this plan-freeze documentation only. Envelope A is not
+> activated. No C/L implementation, checkpoint acquisition, GTDB
+> materialization, commit, training, Slurm submission, staged fusion, profiler,
+> merge, push, upload, publication or S11+ execution is currently authorized.
 
 ## 1. Current objective and sequencing
 
@@ -56,11 +63,12 @@ not rerun published ablations without a concrete local conflict. The historical
 Alvis detector is the practical capability comparator, subject to aligned dataset,
 class, metric and evaluation semantics.
 
-No deadline or milestone name creates execution authority. O-143 is the active
-S10 sequencing and collaboration decision; O-122 through O-142 remain historical
-evidence and consumed authorities. The next owner discussion must define the
-camera/LiDAR qualification phase: candidate cap, initialization, training recipe,
-capability gate and aggregate compute. S11+ remains undefined and pending.
+No deadline or milestone name creates execution authority. O-143 remains the
+active S10 sequencing and collaboration rebaseline; O-144 freezes the Phase I
+plan; O-122 through O-142 remain historical evidence and consumed authorities.
+The next owner discussion is exact Envelope-A activation for the five WPs,
+official ImageNet checkpoint, D_fit CBGS/GTDB materialization, material commits,
+and bounded engineering calibration. S11+ remains undefined and pending.
 
 ## 2. Accepted clean-foundation evidence
 
@@ -423,6 +431,7 @@ Closed ranges below are provenance.
 | O-142 | Correct only Job-505266's schema access from nonexistent `config.schema_version` to canonical `config.data["schema_version"]`; add a regression that resolves the exact BN-B8 config and directly invokes `_assert_config`. Authorize static validation, one linear remediation commit, one new detached read-only snapshot/exact tuple and one fresh-output replacement with unchanged O-141 model, data, W0, tokens/remainder, physical B8, scale8, 769-update fail-fast gates, B4 D_select evaluator, comparisons, one-GH200/16-CPU/96-GiB/`00:30:00`/`0.5`-GH200-hour ceiling. One submission/no retry; no other code/science/resource expansion, reviewer chain, merge, push or upload. Exact remediation `864f704` and tuple `d98eaec` were consumed by Job `505316`. All 769 B8 updates and D_select point metrics completed, but tail paired-log computation exceeded the wall limit (`TIMEOUT`, `00:30:07`); paired artifacts, aggregate summary and runner manifest are absent. Raw `recipe.physical_microbatch` also carries a legacy B4 display error despite resolved/token B8 identities. | consumed / FAIL-INCOMPLETE / owner decision required |
 
 | O-143 | Replace the active S10 six-stop execution order with: camera and LiDAR independent recipe/capability qualification; staged fusion from qualified checkpoints; aligned absolute-capability and fusion-contribution gate; GH200 profiling/optimization only after capability passes. Pause current-A2 and the old C→D→E→F path. For S10, replace per-job immutable/no-retry/multi-document/reviewer mechanics with one owner-approved phase envelope, autonomous output-neutral engineering remediation within its aggregate compute/submission cap, one compact active handoff and one job ledger. Preserve raw outputs and minimum run provenance. Return to the owner for any model/data/recipe-space/metric/seed/candidate/resource change or repeated engineering failure. Review data/metric changes, branch recipe freezes and final fusion/full results only. | active S10 science/collaboration rebaseline; documentation only; no compute authority |
+| O-144 | Freeze `handoffs/S10/PHASE_I_PLAN.md` as the binding Phase I C/L plan. Select physical B4 plus accumulation 8/effective B32; exact standalone Camera with ImageNet-1K Swin-T, reference six-task CenterHead and Camera recipe; scratch keyframe-train LiDAR with reference BN, SECOND `[5,5]`/SECONDFPN/TransFusionHead and LiDAR recipe; exact role-bound D_fit CBGS/GT-paste; seed 0; 20 epochs; epoch-20 terminal-only selection; one terminal D_select evaluation and owner-unsealed one-time D_audit; exactly two initial candidates; and the five-WP/three-gate/two-envelope execution model. Require all later work to follow that plan unless explicitly amended. This decision closes P1-G0 plan freeze only and does not activate Envelope A or B; it authorizes no implementation, checkpoint acquisition, GTDB materialization, commit, GPU/Slurm execution, merge, push or upload. | active Phase I plan freeze / next: Envelope-A activation request / no execution authority |
 
 ## 10. Closed and consumed history
 

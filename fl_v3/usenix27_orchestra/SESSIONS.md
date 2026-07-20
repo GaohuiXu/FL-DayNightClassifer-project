@@ -1,6 +1,6 @@
 # USENIX Security '27 Orchestra — milestone contracts
 
-> **Current handoff (2026-07-19).** S07-S09 are closed. S10 is active on
+> **Current handoff (2026-07-20).** S07-S09 are closed. S10 is active on
 > `codex/s10-cl-model-recipe`. O-143 replaces the old active S10 six-stop order:
 > qualify camera and LiDAR independently, perform staged fusion from qualified
 > branch checkpoints, establish aligned capability/fusion contribution, and only
@@ -11,6 +11,10 @@
 > evidence, not a recipe decision. C1-B proxy scores remain insufficient to
 > establish usability or improvement over Alvis. Current-A2 and the old C→D→E→F
 > route are paused.
+>
+> O-144 closes `P1-G0 PLAN_FREEZE`; the binding choices and five-WP/
+> three-gate/two-envelope workflow are in
+> `handoffs/S10/PHASE_I_PLAN.md`. Envelope A is not activated.
 >
 > S10 now uses phase-level owner approval, one compact status file and one job
 > ledger. There is no current compute authority; S11+ remains pending.
@@ -26,7 +30,7 @@
   ├─ S09 full-pipeline performance/readiness      [closed PASS under O-120]
   │      └─ independent review of exact profiling/evidence SHA
   │
-  ├─ S10 C/L qualification → staged fusion        [rebaseline; planning]
+  ├─ S10 C/L qualification → staged fusion        [Phase-I plan frozen; Envelope A pending]
   │      └─ capability gate → GH200 optimization  [pending]
   └─ S11 and later                                 [roles pending owner decision]
 ```
@@ -40,7 +44,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | O-143 rebaseline; STOP-A reusable; branch-qualification phase design pending; no compute authority |
+| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | O-144 Phase-I plan frozen under O-143; STOP-A reusable; Envelope A pending; no implementation/compute authority |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract
@@ -49,10 +53,12 @@
 set of evidence records. `Sxx` is an evidence namespace, not a worker/reviewer
 lifecycle.
 
-**S10 workflow under O-143.**
+**S10 workflow under O-143/O-144.**
 
-1. S00 and the owner freeze one phase objective, candidate cap, data/metrics/seeds,
-   aggregate GPU-hours, submission cap and stop conditions.
+1. `PHASE_I_PLAN.md` freezes the Phase-I objective, two candidates, graph/recipe,
+   data/metric/seed/exposure policy and the five-WP/three-gate/two-envelope model.
+   Each envelope separately binds aggregate resources, submission cap, outputs and
+   stop conditions before it becomes executable.
 2. S00 implements and uses direct entry/config/checkpoint/one-batch preflight.
 3. Inside an approved phase, S00 may fix output-neutral test, runner, checkpoint
    I/O or logging defects and resubmit within the same scientific/resource cap.
@@ -66,9 +72,10 @@ lifecycle.
    staged-fusion/full capability result. A reviewer reads a durable SHA/evidence
    and does not fix code.
 
-**Authority boundary.** O-143 records planning and collaboration rules; it does
-not itself authorize compute, commits, merge, push, upload or publication. Future
-phase compute authority must state its aggregate resource and submission limits.
+**Authority boundary.** O-144 freezes the plan but does not activate Envelope A or
+B. No implementation, checkpoint acquisition, GTDB materialization, commit,
+compute, merge, push, upload or publication is authorized. Future envelope
+authority must state its exact scope, aggregate resource and submission limits.
 S11+ remains pending.
 
 ## 3. Closed foundation summary
@@ -304,17 +311,18 @@ the S10 handoff archives, but they no longer define the active execution order.
 
 ### Phase I — independent branch qualification
 
-Treat camera and LiDAR as separate capability problems. For each branch, freeze a
-small reference-led candidate set covering graph, public/pretrained versus random
-initialization, optimizer/schedule/warmup/weight decay, augmentation, EMA,
-sampling, physical batch/accumulation and training horizon. Prefer MIT-derived
-choices as the first coherent baseline; open at most one cause-directed local
-repair when local evidence shows incompatibility or material underperformance.
+O-144 freezes the complete Phase-I specification in
+`handoffs/S10/PHASE_I_PLAN.md`. It contains exactly one ImageNet-initialized
+standalone-reference Camera primary and one scratch reference-led LiDAR primary;
+physical B4 plus accumulation 8/effective B32; reference optimizer/scheduler and
+augmentation bundles; D_fit-only role-bound CBGS/GT-paste; seed 0; 20 epochs;
+epoch-20 terminal-only selection; one D_select evaluation and owner-unsealed
+one-time D_audit; and no automatic repair candidate.
 
 The phase must use meaningful trainval-scale exposure and aligned internal
 evaluation. Step smokes establish only that a run executes. The phase exits only
 with a qualified camera checkpoint and LiDAR checkpoint, or an honest negative
-result. Branch recipe freezes require independent review.
+result. One combined branch recipe freeze review is allowed at one durable SHA.
 
 ### Phase II — staged fusion and capability
 
@@ -333,9 +341,10 @@ coverage, synchronization, throughput, utilization, memory and operator-level
 cost before optimization. Preserve numerical/metric behavior and do not optimize
 a scientifically failed model.
 
-No phase implementation or compute is authorized by O-143 alone. The next
-owner-approved envelope must define Phase-I candidates, gates, data/exposure,
-seeds, aggregate GPU-hours and submission cap.
+No phase implementation or compute is authorized by O-144. The next owner action
+is exact activation of Envelope A for WP0-WP4, official ImageNet acquisition,
+D_fit CBGS/GTDB materialization, material commits and bounded engineering
+calibration. Envelope B remains pending measured `P1-G1` approval.
 
 ## 7. S11 and later
 
