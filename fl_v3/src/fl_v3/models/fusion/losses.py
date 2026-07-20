@@ -26,7 +26,7 @@ cells (index gather — deterministic) and matches the **T1 canonical** paramete
 from __future__ import annotations
 
 import math
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from functools import lru_cache
 from typing import Any, Dict, List, Sequence
 
@@ -475,6 +475,23 @@ class MultiTaskCenterPointLoss(nn.Module):
         self.last_terms: Dict[str, float] = {}
         self._s10_capture = False
         self.last_s10_terms: Dict[str, Any] = {}
+        self._operator_profile_ranges = False
+
+    @contextmanager
+    def operator_profile_ranges(self):
+        """Enable output-neutral task-level ranges for a bounded torch trace."""
+        if self._operator_profile_ranges:
+            raise RuntimeError("CenterPoint loss profiler ranges are already active")
+        self._operator_profile_ranges = True
+        try:
+            yield self
+        finally:
+            self._operator_profile_ranges = False
+
+    def _profile_range(self, name: str):
+        if not self._operator_profile_ranges:
+            return nullcontext()
+        return torch.profiler.record_function(f"fl_v3::camera_loss::{name}")
 
     @property
     def record_terms(self) -> bool:
@@ -543,8 +560,13 @@ class MultiTaskCenterPointLoss(nn.Module):
             )
         terms = []
         aggregate = {"hm_loss": 0.0, "reg_loss": 0.0, "n_gt": 0}
-        for output, criterion, global_ids in zip(pred, self.losses, self.global_ids, strict=True):
-            value = criterion(output, self._task_batch(batch, global_ids))
+        for index, (output, criterion, global_ids) in enumerate(
+            zip(pred, self.losses, self.global_ids, strict=True)
+        ):
+            with self._profile_range(f"task_{index}_partition"):
+                task_batch = self._task_batch(batch, global_ids)
+            with self._profile_range(f"task_{index}_target_and_loss"):
+                value = criterion(output, task_batch)
             terms.append(value)
             aggregate["n_gt"] += criterion.last_terms.get("n_gt", 0)
             if self.record_terms:

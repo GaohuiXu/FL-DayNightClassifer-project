@@ -38,12 +38,10 @@ from fl_v3.eval.subset_detection_eval import (
     run_internal_manifest_eval,
     write_strict_json,
 )
-from fl_v3.models.phase1_camera import build_phase1_camera_model
-from fl_v3.models.phase1_lidar import build_phase1_lidar_model
 from fl_v3.models.phase1_swin import sha256_file, tensor_state_sha256
 from fl_v3.training.checkpoint import load_checkpoint, save_checkpoint
 from fl_v3.training.loop import _float_tensors, _move_to_device, train_one_epoch
-from fl_v3.training.phase1 import Phase1CyclicScheduler, build_phase1_optimizer
+from fl_v3.training.phase1 import build_phase1_training_stack
 from fl_v3.training.runtime_state import TrainingState
 from fl_v3.utils.runtime import (
     enforce_determinism,
@@ -172,34 +170,9 @@ def _attempt_identity() -> dict[str, Any]:
     }
 
 
-def _make_scaler(config, device: torch.device) -> torch.amp.GradScaler:
-    spec = config.as_dict()["precision"]["grad_scaler"]
-    return torch.amp.GradScaler(
-        "cuda",
-        enabled=bool(spec["enabled"] and device.type == "cuda"),
-        init_scale=float(spec["init_scale"]),
-        growth_factor=float(spec["growth_factor"]),
-        backoff_factor=float(spec["backoff_factor"]),
-        growth_interval=int(spec["growth_interval"]),
-    )
-
-
 def _build_components(config, branch: str, device: torch.device):
-    seed = int(config.as_dict()["training"]["seed"])
-    seed_everything(seed)
-    if branch == "camera":
-        # O-150: no override is intentional. Schema v2 dispatches only to the
-        # qualified PyTorch sorted segment-reduce production backend.
-        model = build_phase1_camera_model(config)
-        _require(model.view_transform.pool_backend == "fallback", "Camera backend drift")
-    else:
-        model = build_phase1_lidar_model(config)
-    model = model.to(device)
-    criterion = model.build_criterion().to(device)
-    optimizer = build_phase1_optimizer(model, config)
-    scheduler = Phase1CyclicScheduler(optimizer, config)
-    scaler = _make_scaler(config, device)
-    return model, criterion, optimizer, scheduler, scaler
+    _require(config.as_dict()["contract"]["branch"] == branch, "branch/config drift")
+    return build_phase1_training_stack(config, device)
 
 
 def _decoded_schema(decoded: list[Mapping[str, torch.Tensor]], batch_size: int) -> dict[str, Any]:

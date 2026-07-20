@@ -244,14 +244,6 @@ def test_readiness_timing_fails_closed_on_incompatible_state_or_options():
         )
 
     model, optimizer = parts()
-    with pytest.raises(RuntimeError, match="requires accumulation_steps == 1"):
-        train_one_epoch(
-            model, _loader(2), torch.nn.MSELoss(), optimizer, torch.device("cpu"),
-            accumulation_steps=2, readiness_timing=True, max_steps=2,
-            max_optimizer_steps=1,
-        )
-
-    model, optimizer = parts()
     with pytest.raises(RuntimeError, match="cannot enable the S08 precision observer"):
         train_one_epoch(
             model, _loader(2), torch.nn.MSELoss(), optimizer, torch.device("cpu"),
@@ -274,6 +266,63 @@ def test_readiness_timing_fails_closed_on_incompatible_state_or_options():
         attempted_window_callback=lambda: observed.append(True), max_optimizer_steps=1,
     )
     assert observed == [True]
+
+    model, optimizer = parts()
+    with pytest.raises(ValueError, match="requires readiness_timing=True"):
+        train_one_epoch(
+            model, _loader(2), torch.nn.MSELoss(), optimizer, torch.device("cpu"),
+            readiness_stage_timing=False, max_optimizer_steps=1,
+        )
+
+
+@pytest.mark.parametrize("stage_timing", [False, True])
+def test_readiness_timing_supports_complete_accumulation_windows(stage_timing):
+    torch.manual_seed(913)
+    initial = torch.nn.Linear(1, 1).state_dict()
+
+    def run(timing: bool):
+        model = torch.nn.Linear(1, 1)
+        model.load_state_dict(initial)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+        state = TrainingState()
+        metrics = train_one_epoch(
+            model,
+            _loader(6),
+            torch.nn.MSELoss(),
+            optimizer,
+            torch.device("cpu"),
+            precision="fp32",
+            accumulation_steps=2,
+            runtime_state=state,
+            max_steps=6,
+            max_optimizer_steps=3,
+            expected_global_microbatch_samples=1,
+            readiness_timing=timing,
+            readiness_warmup_successful_windows=1 if timing else 0,
+            readiness_stage_timing=stage_timing if timing else True,
+        )
+        return model.state_dict(), optimizer.state_dict(), state, metrics
+
+    plain = run(False)
+    timed = run(True)
+    for left, right in zip(plain[:2], timed[:2]):
+        _assert_nested_equal(left, right)
+    assert plain[2].checkpoint_dict() == timed[2].checkpoint_dict()
+    for key, value in plain[3].items():
+        _assert_nested_equal(value, timed[3][key])
+
+    report = timed[3]["readiness_timing"]
+    assert report["schema"] == "s10.accumulation-window-timing.v1"
+    assert report["accumulation_steps"] == 2
+    assert report["stage_timing"] is stage_timing
+    assert report["measured_accepted_windows"] == 2
+    assert report["measurement_counter_delta"]["attempted_microbatches"] == 4
+    assert report["measurement_counter_delta"]["attempted_samples"] == 4
+    assert [record["microbatches"] for record in report["records"]] == [2, 2, 2]
+    assert [record["global_samples"] for record in report["records"]] == [2, 2, 2]
+    assert report["throughput"]["attempted_samples_per_second"] > 0.0
+    expected_stage_records = 2 if stage_timing else 0
+    assert report["accepted_stage_ms"]["window"]["n"] == expected_stage_records
 
 
 def _profile_collate(batch):

@@ -11,6 +11,7 @@ fallback and optimized backends consume integer coordinates ``[x,y,z,b]``.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager, nullcontext
 import json
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -501,6 +502,23 @@ class Phase1CameraDetector(nn.Module):
             shared_channels=64,
             normalization="batch_norm",
         )
+        self._operator_profile_ranges = False
+
+    @contextmanager
+    def operator_profile_ranges(self):
+        """Enable output-neutral, bounded ranges for a short torch trace."""
+        if self._operator_profile_ranges:
+            raise RuntimeError("Phase-I Camera profiler ranges are already active")
+        self._operator_profile_ranges = True
+        try:
+            yield self
+        finally:
+            self._operator_profile_ranges = False
+
+    def _profile_range(self, name: str):
+        if not self._operator_profile_ranges:
+            return nullcontext()
+        return torch.profiler.record_function(f"fl_v3::camera::{name}")
 
     def forward(
         self,
@@ -512,31 +530,38 @@ class Phase1CameraDetector(nn.Module):
         for field in ("images", "lidar2img", "cam_intrinsics"):
             if field not in batch:
                 raise KeyError(f"Phase-I Camera batch is missing {field!r}")
-        preprocessed = self.preprocess(
-            batch["images"],
-            batch["lidar2img"],
-            batch["cam_intrinsics"],
-            augmentation_params=batch.get("augmentation_params"),
-        )
+        with self._profile_range("preprocess"):
+            preprocessed = self.preprocess(
+                batch["images"],
+                batch["lidar2img"],
+                batch["cam_intrinsics"],
+                augmentation_params=batch.get("augmentation_params"),
+            )
         images = preprocessed["images"]
         batch_size, cameras = images.shape[:2]
-        features = self.camera_backbone(
-            images.reshape(batch_size * cameras, *images.shape[2:])
-        )
-        camera_pyramid = self.camera_neck(features)
+        with self._profile_range("swin_backbone"):
+            features = self.camera_backbone(
+                images.reshape(batch_size * cameras, *images.shape[2:])
+            )
+        with self._profile_range("camera_neck"):
+            camera_pyramid = self.camera_neck(features)
         stride8 = camera_pyramid[0].view(
             batch_size, cameras, 256, *camera_pyramid[0].shape[-2:]
         )
-        view = self.view_transform(
-            stride8,
-            preprocessed["lidar2img"],
-            pool_backend=pool_backend,
-            return_intermediates=return_intermediates,
-        )
+        with self._profile_range("view_transform_and_pool"):
+            view = self.view_transform(
+                stride8,
+                preprocessed["lidar2img"],
+                pool_backend=pool_backend,
+                return_intermediates=return_intermediates,
+            )
         camera_bev = view["bev"] if isinstance(view, dict) else view
-        decoded_levels = self.decoder_backbone(camera_bev)
-        decoded = self.decoder_neck(decoded_levels)
-        task_outputs = self.head(decoded)
+        with self._profile_range("decoder_backbone"):
+            decoded_levels = self.decoder_backbone(camera_bev)
+        with self._profile_range("decoder_neck"):
+            decoded = self.decoder_neck(decoded_levels)
+        with self._profile_range("head"):
+            task_outputs = self.head(decoded)
         if not return_intermediates:
             return task_outputs
         assert isinstance(view, dict)

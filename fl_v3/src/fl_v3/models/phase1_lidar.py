@@ -12,6 +12,7 @@ shallow BEV neck.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager, nullcontext
 from typing import Iterable, Mapping
 
 import torch
@@ -124,6 +125,23 @@ class Phase1LidarDetector(nn.Module):
         self.decoder_backbone = Phase1SECOND()
         self.decoder_neck = Phase1SECONDFPN()
         self.head = Phase1TransFusionHead()
+        self._operator_profile_ranges = False
+
+    @contextmanager
+    def operator_profile_ranges(self):
+        """Enable output-neutral, bounded ranges for a short torch trace."""
+        if self._operator_profile_ranges:
+            raise RuntimeError("Phase-I LiDAR profiler ranges are already active")
+        self._operator_profile_ranges = True
+        try:
+            yield self
+        finally:
+            self._operator_profile_ranges = False
+
+    def _profile_range(self, name: str):
+        if not self._operator_profile_ranges:
+            return nullcontext()
+        return torch.profiler.record_function(f"fl_v3::lidar::{name}")
 
     def forward(self, batch: Mapping[str, object], *, return_intermediates: bool = False):
         if "lidar_points" not in batch:
@@ -137,7 +155,8 @@ class Phase1LidarDetector(nn.Module):
             batch_size = len(batch["gt_boxes"])
         else:
             raise KeyError("Phase-I LiDAR batch is missing batch_size/gt_boxes")
-        collapsed = self.lidar_encoder(points, batch_size)
+        with self._profile_range("voxel_vfe_sparse_collapse"):
+            collapsed = self.lidar_encoder(points, batch_size)
         if collapsed.dtype != torch.float32:
             raise RuntimeError(
                 f"Phase-I sparse FP32 island returned {collapsed.dtype}, expected torch.float32"
@@ -147,11 +166,14 @@ class Phase1LidarDetector(nn.Module):
                 f"Phase-I sparse collapse shape drift: got {tuple(collapsed.shape)}, "
                 f"expected {(batch_size, 256, 180, 180)}"
             )
-        levels = self.decoder_backbone(collapsed)
-        decoded = self.decoder_neck(levels)
+        with self._profile_range("second_backbone"):
+            levels = self.decoder_backbone(collapsed)
+        with self._profile_range("second_fpn"):
+            decoded = self.decoder_neck(levels)
         if tuple(decoded.shape) != (batch_size, 512, 180, 180):
             raise RuntimeError(f"Phase-I dense LiDAR decoder shape drift: {tuple(decoded.shape)}")
-        output = self.head(decoded)
+        with self._profile_range("transfusion_head"):
+            output = self.head(decoded)
         if not return_intermediates:
             return output
         return {

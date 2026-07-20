@@ -271,3 +271,55 @@ def phase1_training_components(
 ) -> tuple[torch.optim.AdamW, Phase1CyclicScheduler]:
     optimizer = build_phase1_optimizer(model, config)
     return optimizer, Phase1CyclicScheduler(optimizer, config)
+
+
+def build_phase1_training_stack(
+    config: ResolvedConfig,
+    device: torch.device,
+) -> tuple[
+    torch.nn.Module,
+    torch.nn.Module,
+    torch.optim.AdamW,
+    Phase1CyclicScheduler,
+    torch.amp.GradScaler,
+]:
+    """Construct the exact Phase-I model/loss/update stack from one config.
+
+    Envelope-B qualification and Phase I-P profiling share this constructor so
+    the profiler cannot drift to a synthetic optimizer, scaler, or model path.
+    Branch-specific imports remain lazy to keep the Camera path independent of
+    the sparse runtime.
+    """
+    if not config.is_phase1:
+        raise ValueError("Phase-I training stack requires a Phase-I config")
+    from fl_v3.utils.runtime import seed_everything
+
+    raw = config.as_dict()
+    branch = str(raw["contract"]["branch"])
+    seed_everything(int(raw["training"]["seed"]))
+    if branch == "camera":
+        from fl_v3.models.phase1_camera import build_phase1_camera_model
+
+        model = build_phase1_camera_model(config)
+        if model.view_transform.pool_backend != "fallback":
+            raise RuntimeError("Camera production backend drift")
+    elif branch == "lidar":
+        from fl_v3.models.phase1_lidar import build_phase1_lidar_model
+
+        model = build_phase1_lidar_model(config)
+    else:  # pragma: no cover - resolved Phase-I validation rejects this first.
+        raise ValueError(f"unknown Phase-I branch {branch!r}")
+    model = model.to(device)
+    criterion = model.build_criterion().to(device)
+    optimizer = build_phase1_optimizer(model, config)
+    scheduler = Phase1CyclicScheduler(optimizer, config)
+    scaler_spec = raw["precision"]["grad_scaler"]
+    scaler = torch.amp.GradScaler(
+        "cuda",
+        enabled=bool(scaler_spec["enabled"] and device.type == "cuda"),
+        init_scale=float(scaler_spec["init_scale"]),
+        growth_factor=float(scaler_spec["growth_factor"]),
+        backoff_factor=float(scaler_spec["backoff_factor"]),
+        growth_interval=int(scaler_spec["growth_interval"]),
+    )
+    return model, criterion, optimizer, scheduler, scaler

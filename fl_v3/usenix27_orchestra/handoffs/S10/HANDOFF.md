@@ -1,19 +1,116 @@
-# S10 HANDOFF — exact Envelope B frozen; owner activation pending
+# S10 HANDOFF — Phase I-P IP-G0 active; Envelope B remains frozen
 
 ## 1. Current state and authority
 
 ```text
-SESSION: persistent S00 / S10
-BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
-BRANCH: codex/s10-phase1-branch-qualification
-ACTIVE_DECISION: O-150 under O-143/O-144/O-145/O-149
-SCIENCE_ORDER: C/L independent recipe+capability -> staged fusion -> capability gate -> profiler
+SESSION: persistent S10 Phase I-P throughput preflight
+UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
+BRANCH: codex/s10-phase1p-throughput-preflight
+FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
+ACTIVE_DECISION: owner-approved IP-G0 under O-143/O-149; O-150 remains the Phase-I control
+SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: Envelope-A consumed; exact Envelope-B request frozen, not approved
-EXECUTION_STATE: ENVELOPE-B AWAITS ONE COMBINED OWNER APPROVAL; then independent
-                 recipe-freeze review before serial LiDAR -> Camera submission
+CURRENT_AUTHORITY: scoped Phase I-P source/docs/tests, local validation and linear commits
+EXECUTION_STATE: NO GPU/SLURM; IP-E1 owner approval pending; Envelope B NOT EXECUTABLE
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
+
+IP-G0 intentionally inserts Phase I-P before the long Camera/LiDAR qualification
+runs. It authorizes this isolated linear branch and the implementation work needed
+to make the profiler reviewable. It does not authorize any compute, scientific
+training, evaluation role, merge, push, or movement of the frozen control branch.
+The Section-7 Envelope-B request in `RUN_REQUEST.md` is preserved verbatim as a
+historical control and is not activated by Phase I-P.
+
+### 1.1 Frozen Phase I-P workflow
+
+The workflow is continuous where the decision is already engineering-only; its
+five WPs and three gates are not independent mini-projects:
+
+| WP | Inputs and work | Required output / acceptance | Continuous authority and stop |
+|---|---|---|---|
+| IP-WP0 measurement path | frozen C/L configs and production model/data/loss/AdamW/scheduler/scaler/checkpoint paths | accumulation-aware B4x8 profiler; separate low-overhead sustained and short trace modes; exact identities; every candidate default-off; local/focused checks | IP-G0 permits scoped implementation and linear commits; stop before scientific semantics or compute |
+| IP-WP1 real baseline | exact D_fit, official CBGS/GTDB, seed 0, physical B4 x accumulation 8 | two-process sustained C/L baselines, whole-model trace, system/memory evidence and real checkpoint continuation | runs only inside approved IP-E1; stop on identity drift, nonfinite/discarded windows, unresolved instability or ceiling |
+| IP-WP2 output-neutral work | WP1 bottleneck evidence plus the named plumbing shortlist | individual parity, accepted-update, checkpoint/resume and sustained-throughput evidence; safe items may be combined | may proceed continuously inside IP-E1 only for frozen strict-output-neutral candidates; ambiguous or changed failure semantics go to owner |
+| IP-WP3 capacity/runtime screening | IP-G1 owner-frozen cells | B8/B12/B16 capacity evidence and selected SDPA/compile/AdamW/checkpoint probes, all measurement-only by default | runs only inside separately approved IP-E2; no automatic recipe promotion |
+| IP-WP4 synthesis | accepted WP1-WP3 evidence | final combination validation, GH200 payback, keep/reject/owner-gated table, revised Envelope-B projection | IP-G2 decides promotion and later Envelope-B refreeze; Phase I-P itself makes no capability claim |
+
+Gate/envelope order is exact:
+
+```text
+IP-G0 (closed: plan/topology/local implementation)
+  -> IP-WP0
+  -> IP-E1 (pending: IP-WP1 -> strict IP-WP2 continuously)
+  -> IP-G1 (baseline diagnosis and exact IP-E2 shortlist)
+  -> IP-E2 (pending: IP-WP3 -> IP-WP4 continuously)
+  -> IP-G2 (promotion/recipe/checkpoint/Envelope-B disposition)
+```
+
+IP-G2 is not Envelope-B activation. Any accepted production-source or config
+change requires a new exact Envelope-B source/config/resource projection and the
+already-required independent recipe-freeze review.
+
+### 1.2 Candidate classes and immutable scientific boundary
+
+- Strict output-neutral candidates: unused training-field/augmentation transfer
+  cleanup; fixed meshgrid/cache; LiDAR host counts/offsets with exact order checks;
+  consolidated D2H while retaining SciPy Hungarian, float64 inputs, order and tie
+  behavior; one checkpoint CPU snapshot reused for save/hash. Promotion requires
+  exact where attainable plus forward, loss, gradient, accepted-update, BN/scaler/
+  scheduler and checkpoint-continuation checks.
+- Normal-path-equivalent but failure/control-flow-changing candidates: one finite-
+  loss synchronization per B32 window and asynchronous checkpoint publication.
+  These are not strict output-neutral and require explicit abnormal-path evidence
+  plus owner disposition.
+- Numerical runtime candidates: Camera/LiDAR SDPA, scoped `torch.compile`, and
+  foreach/fused AdamW. They remain measurement-only and default-off until IP-G2.
+- Recipe/operational candidates: physical B8/B16, checkpoint cadence, activation
+  checkpoint, persistent-worker/RNG changes. B8x4 and B16x2 preserve effective B32
+  but alter BatchNorm statistics; B12 cannot exactly realize effective B32. They
+  cannot be promoted without an explicit owner recipe decision.
+- Material science outside Phase I-P: normalization, precision/TF32 policy,
+  model/head/math/shape, loss/target/decode/tie semantics, data ownership/order/
+  exposure, scheduler mathematics, evaluator/metric, seed, or candidate count.
+
+All Phase I-P execution is D_fit-only. `D_select`, `D_audit`, official validation,
+mAP/NDS, capability, generalization and candidate-selection claims are forbidden.
+The frozen Phase-I recovery contract currently writes once per epoch, retains at
+most the latest two consecutive recovery checkpoints, restores RNG/sampler only at
+an optimizer-window boundary, and permits selection only from epoch 20. Phase I-P
+measures that cost; it does not silently lower the cadence or change eligibility.
+
+### 1.3 Frozen measurement and decision boundaries
+
+- Reference and final candidates use 16 accepted optimizer windows of warm-up plus
+  at least 256 accepted windows (8,192 presentations) per process and two fresh
+  process repeats. A throughput spread above 3% triggers a third repeat; continuing
+  instability blocks a speed claim.
+- A separate trace records three accepted windows with CPU/CUDA shape/memory ranges.
+  One-second `nvidia-smi` sampling records utilization, memory, clocks and power;
+  heavier Nsight work is added only when the bounded trace cannot explain a gap.
+- Report attempted and accepted presentations/s, accepted updates/s, wall latency,
+  loader wait, H2D, forward/loss/backward/update shares, allocator active/reserved/
+  inactive state, checkpoint snapshot/save/model-hash/file-hash/load cost, compile
+  startup/recompiles, and process-repeat spread. Do not infer compute saturation
+  merely from unused VRAM.
+- Memory is measured after the first accepted AdamW update has materialized state.
+  Steady-state reserved memory must stay at or below 85% of visible memory and show
+  no monotonic 256-window growth. Capacity probes use a fresh process; OOM is a
+  recorded `CAPACITY_OOM`, B8 OOM skips larger sizes, and B12 OOM skips B16.
+- Parity remains exact/hash-exact for unchanged discrete/plumbing state where
+  attainable; integrated FP32 uses `rtol=1e-4, atol=1e-6`, and accepted FP16 uses
+  `rtol=2e-3, atol=2e-4`. Tolerances are not relaxed inside an envelope.
+- Checkpoint validation occurs after AdamW state exists at an optimizer boundary:
+  real save and file/model hashes, full release, fresh stack reconstruction/load,
+  exact identity/RNG/sampler/state checks, then eight D_fit optimizer windows
+  compared with an uninterrupted control. The profiler-shortened epoch is not a
+  scientific epoch.
+- There is no arbitrary 1.25x speed gate. A measured acceleration requires the
+  candidate/baseline throughput 95% confidence lower bound above 1; small strict
+  improvements may be bundled and retested. Payback is
+  `T20 = 1,758,080 / sustained_samples_per_second + checkpoint stalls + startup`,
+  `saved_GH200h = T20_baseline - T20_candidate`, and
+  `break_even_runs = actual_candidate_profiler_GH200h / saved_GH200h`.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
@@ -42,7 +139,9 @@ longer blocks Camera capability. The owner's instruction to start Envelope-B
 preparation produced the exact Section-7 request in `RUN_REQUEST.md`: two fixed
 seed-0 candidates, serial execution, maximum concurrency one, and a measured
 `49.0` charged-GH200-hour aggregate ceiling. It is not compute authority until the
-owner names and approves the containing commit.
+owner names and approves the containing commit. IP-G0 now postpones that
+disposition through IP-G2: the old request remains a frozen comparison object and
+must not be activated directly while Phase I-P is open.
 
 Envelope-B implementation baselines `6eaafa07942a3079cb9725cf2c83a9e2e4c6c6ed`
 and `a1d7d4fc9508875cc7559858b51b9c1fe441f69b` add schema-v2 production configs,
@@ -92,6 +191,13 @@ and independent review. Official nuScenes validation remains held out from recip
 selection unless a future approved capability gate explicitly opens it.
 
 ## 4. Active scientific order
+
+### Phase I-P — throughput preflight before qualification
+
+Execute only the engineering workflow frozen in Section 1. It may measure D_fit
+training mechanics and propose safe production changes, but it cannot evaluate or
+select a detector. Phase I-P closes at IP-G2 with an accepted/rejected/owner-gated
+optimization set and, if warranted, a newly frozen Envelope-B request.
 
 ### Phase I — camera and LiDAR independent recipe/capability
 

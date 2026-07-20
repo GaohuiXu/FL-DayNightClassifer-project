@@ -1,0 +1,338 @@
+"""Fail-closed, non-scientific configuration for S10 Phase I-P profiling.
+
+The profiler specification is deliberately separate from the resolved Phase-I
+recipe.  It may select measurement mechanics and default-off engineering
+candidates, but it cannot silently create a new scientific config identity.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+import hashlib
+import json
+from pathlib import Path
+from types import MappingProxyType
+from typing import Any, Mapping
+
+from fl_v3.config import ResolvedConfig
+
+
+PHASE1_PROFILE_SCHEMA = "s10.phase1p.profile.v1"
+
+_HEX = frozenset("0123456789abcdef")
+_ROOT_KEYS = frozenset({
+    "schema",
+    "phase",
+    "envelope",
+    "candidate_id",
+    "branch_bindings",
+    "measurement",
+    "parity",
+    "candidates",
+    "boundaries",
+})
+_BRANCH_BINDING_KEYS = frozenset({
+    "config_path",
+    "config_file_sha256",
+    "resolved_config_sha256",
+})
+_MEASUREMENT_KEYS = frozenset({
+    "warmup_accepted_windows",
+    "sustained_accepted_windows",
+    "baseline_process_repeats",
+    "repeat_instability_fraction",
+    "trace_accepted_windows",
+    "checkpoint_continuation_windows",
+    "max_reserved_fraction",
+    "system_sample_interval_seconds",
+})
+_PARITY_KEYS = frozenset({"fp32", "fp16"})
+_TOLERANCE_KEYS = frozenset({"rtol", "atol"})
+_CANDIDATE_KEYS = frozenset({
+    "camera_augmentation_transfer_cleanup",
+    "training_field_whitelist",
+    "camera_static_grid_cache",
+    "camera_batched_affine_grid",
+    "camera_batched_preprocess",
+    "finite_loss_window_aggregation",
+    "lidar_host_batch_offsets",
+    "hungarian_batched_d2h",
+    "checkpoint_snapshot_reuse",
+    "checkpoint_async_write",
+    "camera_sdpa",
+    "lidar_sdpa",
+    "torch_compile",
+    "fused_adamw",
+    "activation_checkpoint",
+    "physical_batch_size",
+    "checkpoint_cadence_epochs",
+})
+_BOUNDARY_KEYS = frozenset({
+    "allowed_data_role",
+    "forbidden_roles",
+    "capability_metrics",
+    "output_root_prefix",
+})
+
+BASELINE_CANDIDATES: dict[str, Any] = {
+    "camera_augmentation_transfer_cleanup": False,
+    "training_field_whitelist": False,
+    "camera_static_grid_cache": False,
+    "camera_batched_affine_grid": False,
+    "camera_batched_preprocess": False,
+    "finite_loss_window_aggregation": False,
+    "lidar_host_batch_offsets": False,
+    "hungarian_batched_d2h": False,
+    "checkpoint_snapshot_reuse": False,
+    "checkpoint_async_write": False,
+    "camera_sdpa": False,
+    "lidar_sdpa": False,
+    "torch_compile": False,
+    "fused_adamw": False,
+    "activation_checkpoint": False,
+    "physical_batch_size": 4,
+    "checkpoint_cadence_epochs": 1,
+}
+
+
+class Phase1ProfileError(ValueError):
+    """The Phase I-P measurement contract is missing or has drifted."""
+
+
+def _keys(value: Any, expected: frozenset[str], where: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
+        raise Phase1ProfileError(f"{where} must be an object with string keys")
+    missing = sorted(expected - set(value))
+    unknown = sorted(set(value) - expected)
+    if missing or unknown:
+        raise Phase1ProfileError(
+            f"{where} keys invalid: missing={missing}, unknown={unknown}"
+        )
+    return value
+
+
+def _integer(value: Any, where: str, *, minimum: int = 0) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise Phase1ProfileError(f"{where} must be an integer >= {minimum}")
+    return value
+
+
+def _fraction(value: Any, where: str, *, lower_open: bool = False) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise Phase1ProfileError(f"{where} must be numeric")
+    number = float(value)
+    lower_ok = number > 0.0 if lower_open else number >= 0.0
+    if not lower_ok or number >= 1.0:
+        relation = "0 < value < 1" if lower_open else "0 <= value < 1"
+        raise Phase1ProfileError(f"{where} must satisfy {relation}")
+    return number
+
+
+def _positive_number(value: Any, where: str) -> float:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or float(value) <= 0.0
+    ):
+        raise Phase1ProfileError(f"{where} must be numeric and > 0")
+    return float(value)
+
+
+def _sha256(value: Any, where: str) -> str:
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in _HEX for character in value)
+    ):
+        raise Phase1ProfileError(f"{where} must be a lowercase SHA-256")
+    return value
+
+
+def _canonical_bytes(value: Mapping[str, Any]) -> bytes:
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def _freeze(value: Any) -> Any:
+    if isinstance(value, dict):
+        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
+    if isinstance(value, list):
+        return tuple(_freeze(item) for item in value)
+    return value
+
+
+@dataclass(frozen=True)
+class Phase1ProfileSpec:
+    data: Mapping[str, Any]
+    canonical_bytes: bytes
+    sha256: str
+
+    @property
+    def measurement(self) -> Mapping[str, Any]:
+        return self.data["measurement"]
+
+    @property
+    def candidates(self) -> Mapping[str, Any]:
+        return self.data["candidates"]
+
+    def as_dict(self) -> dict[str, Any]:
+        return json.loads(self.canonical_bytes.decode("utf-8"))
+
+    def assert_baseline(self) -> None:
+        actual = dict(self.candidates)
+        if actual != BASELINE_CANDIDATES:
+            drift = {
+                key: {"actual": actual.get(key), "expected": expected}
+                for key, expected in BASELINE_CANDIDATES.items()
+                if actual.get(key) != expected
+            }
+            raise Phase1ProfileError(
+                f"IP-E1 baseline requires every candidate default-off: {drift}"
+            )
+
+    def assert_branch_binding(
+        self,
+        branch: str,
+        config_path: str | Path,
+        config: ResolvedConfig,
+    ) -> None:
+        if branch not in {"camera", "lidar"}:
+            raise Phase1ProfileError(f"unknown Phase I-P branch {branch!r}")
+        binding = self.data["branch_bindings"][branch]
+        path = Path(config_path)
+        physical = hashlib.sha256(path.read_bytes()).hexdigest()
+        if physical != binding["config_file_sha256"]:
+            raise Phase1ProfileError(
+                f"{branch} source config file identity drift: {physical}"
+            )
+        if config.sha256 != binding["resolved_config_sha256"]:
+            raise Phase1ProfileError(
+                f"{branch} resolved config identity drift: {config.sha256}"
+            )
+        normalized = path.as_posix()
+        declared = str(binding["config_path"])
+        if not normalized.endswith(declared):
+            raise Phase1ProfileError(
+                f"{branch} source config path drift: {normalized!r}"
+            )
+        if config.as_dict()["contract"]["branch"] != branch:
+            raise Phase1ProfileError("profile branch and resolved config branch differ")
+
+
+def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
+    root = _keys(dict(raw), _ROOT_KEYS, "profile")
+    if root["schema"] != PHASE1_PROFILE_SCHEMA:
+        raise Phase1ProfileError(f"unsupported profile schema {root['schema']!r}")
+    if root["phase"] != "S10 Phase I-P" or root["envelope"] != "IP-E1":
+        raise Phase1ProfileError("profile phase/envelope identity drift")
+    if root["candidate_id"] != "reference_b4_accum8":
+        raise Phase1ProfileError("IP-E1 candidate identity drift")
+
+    bindings = _keys(
+        root["branch_bindings"], frozenset({"camera", "lidar"}), "branch_bindings"
+    )
+    for branch, value in bindings.items():
+        binding = _keys(value, _BRANCH_BINDING_KEYS, f"branch_bindings.{branch}")
+        expected_path = f"fl_v3/configs/s10_phase1_{branch}.json"
+        if binding["config_path"] != expected_path:
+            raise Phase1ProfileError(f"{branch} config path drift")
+        _sha256(binding["config_file_sha256"], f"{branch}.config_file_sha256")
+        _sha256(binding["resolved_config_sha256"], f"{branch}.resolved_config_sha256")
+
+    measurement = _keys(root["measurement"], _MEASUREMENT_KEYS, "measurement")
+    expected_integers = {
+        "warmup_accepted_windows": 16,
+        "sustained_accepted_windows": 256,
+        "baseline_process_repeats": 2,
+        "trace_accepted_windows": 3,
+        "checkpoint_continuation_windows": 8,
+    }
+    for key, expected in expected_integers.items():
+        if _integer(measurement[key], f"measurement.{key}", minimum=1) != expected:
+            raise Phase1ProfileError(f"measurement.{key} must remain {expected}")
+    if _fraction(
+        measurement["repeat_instability_fraction"],
+        "measurement.repeat_instability_fraction",
+        lower_open=True,
+    ) != 0.03:
+        raise Phase1ProfileError("repeat instability fraction must remain 0.03")
+    if _fraction(
+        measurement["max_reserved_fraction"],
+        "measurement.max_reserved_fraction",
+        lower_open=True,
+    ) != 0.85:
+        raise Phase1ProfileError("max reserved fraction must remain 0.85")
+    if _positive_number(
+        measurement["system_sample_interval_seconds"],
+        "measurement.system_sample_interval_seconds",
+    ) != 1.0:
+        raise Phase1ProfileError("system sample interval must remain 1 second")
+
+    parity = _keys(root["parity"], _PARITY_KEYS, "parity")
+    expected_tolerances = {
+        "fp32": {"rtol": 1e-4, "atol": 1e-6},
+        "fp16": {"rtol": 2e-3, "atol": 2e-4},
+    }
+    for precision, expected in expected_tolerances.items():
+        tolerance = _keys(
+            parity[precision], _TOLERANCE_KEYS, f"parity.{precision}"
+        )
+        if tolerance != expected:
+            raise Phase1ProfileError(f"parity.{precision} tolerance drift")
+
+    candidates = _keys(root["candidates"], _CANDIDATE_KEYS, "candidates")
+    for key in _CANDIDATE_KEYS - {"physical_batch_size", "checkpoint_cadence_epochs"}:
+        if not isinstance(candidates[key], bool):
+            raise Phase1ProfileError(f"candidates.{key} must be boolean")
+    _integer(candidates["physical_batch_size"], "candidates.physical_batch_size", minimum=1)
+    _integer(
+        candidates["checkpoint_cadence_epochs"],
+        "candidates.checkpoint_cadence_epochs",
+        minimum=1,
+    )
+
+    boundaries = _keys(root["boundaries"], _BOUNDARY_KEYS, "boundaries")
+    if boundaries["allowed_data_role"] != "D_fit":
+        raise Phase1ProfileError("Phase I-P may consume only D_fit")
+    if boundaries["forbidden_roles"] != [
+        "D_select", "D_audit", "official_validation"
+    ]:
+        raise Phase1ProfileError("Phase I-P forbidden-role boundary drift")
+    if boundaries["capability_metrics"] is not False:
+        raise Phase1ProfileError("Phase I-P capability metrics must remain disabled")
+    prefix = boundaries["output_root_prefix"]
+    expected_prefix = (
+        "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/"
+        "arrhenius_fl_v3/outputs/s10_phase1p_ip_e1_"
+    )
+    if prefix != expected_prefix:
+        raise Phase1ProfileError("Phase I-P output root prefix drift")
+
+    # Detach custom containers and reject NaN/Infinity before hashing.
+    return json.loads(json.dumps(root, allow_nan=False))
+
+
+def load_phase1_profile_spec(path: str | Path) -> Phase1ProfileSpec:
+    with Path(path).open("r", encoding="utf-8") as stream:
+        raw = json.load(stream)
+    validated = validate_phase1_profile_spec(raw)
+    encoded = _canonical_bytes(validated)
+    return Phase1ProfileSpec(
+        data=_freeze(validated),
+        canonical_bytes=encoded,
+        sha256=hashlib.sha256(encoded).hexdigest(),
+    )
+
+
+__all__ = [
+    "BASELINE_CANDIDATES",
+    "PHASE1_PROFILE_SCHEMA",
+    "Phase1ProfileError",
+    "Phase1ProfileSpec",
+    "load_phase1_profile_spec",
+    "validate_phase1_profile_spec",
+]

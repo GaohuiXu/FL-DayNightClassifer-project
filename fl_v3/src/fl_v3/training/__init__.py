@@ -27,6 +27,7 @@ __all__ = [
 from .phase1 import (
     Phase1CyclicScheduler,
     build_phase1_optimizer,
+    build_phase1_training_stack,
     phase1_training_components,
     validate_phase1_optimizer_identity,
 )
@@ -34,6 +35,7 @@ from .phase1 import (
 __all__ += [
     "Phase1CyclicScheduler",
     "build_phase1_optimizer",
+    "build_phase1_training_stack",
     "phase1_training_components",
     "validate_phase1_optimizer_identity",
 ]

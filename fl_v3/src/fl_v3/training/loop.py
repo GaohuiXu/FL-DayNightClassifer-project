@@ -68,14 +68,32 @@ def _state_counters(state: TrainingState) -> dict[str, int]:
 
 
 class _ReadinessTiming:
-    """Direct bounded stage timing; no hooks, retained tensors, or tensor math."""
+    """Direct bounded timing over complete optimizer windows.
+
+    ``stage_timing=False`` is the low-overhead sustained-throughput path: it
+    records loader wait and one synchronized wall interval without allocating
+    CUDA events around every microbatch stage.  ``stage_timing=True`` retains
+    the original detailed S09 stage timing.  Both modes are observational and
+    support gradient accumulation.
+    """
 
     _STAGES = ("h2d", "forward", "loss", "backward", "optimizer")
 
-    def __init__(self, device: torch.device, warmup_successful_windows: int) -> None:
+    def __init__(
+        self,
+        device: torch.device,
+        warmup_successful_windows: int,
+        *,
+        accumulation_steps: int,
+        stage_timing: bool,
+        profiler_ranges: bool,
+    ) -> None:
         self.device = torch.device(device)
         self.use_cuda = self.device.type == "cuda"
         self.warmup_successful_windows = int(warmup_successful_windows)
+        self.accumulation_steps = int(accumulation_steps)
+        self.stage_timing = bool(stage_timing)
+        self.profiler_ranges = bool(profiler_ranges)
         self.records: list[dict[str, Any]] = []
         self.active: dict[str, Any] | None = None
         self.measurement_started = False
@@ -84,14 +102,14 @@ class _ReadinessTiming:
         self.warmup_boundary_attempted_window: int | None = None
 
     def _mark(self) -> Any:
-        if self.use_cuda:
+        if self.stage_timing and self.use_cuda:
             event = torch.cuda.Event(enable_timing=True)
             event.record(torch.cuda.current_stream(self.device))
             return event
         return time.perf_counter()
 
     def _elapsed_ms(self, start: Any, end: Any) -> float:
-        if self.use_cuda:
+        if self.stage_timing and self.use_cuda:
             return float(start.elapsed_time(end))
         return float(end - start) * 1000.0
 
@@ -117,10 +135,19 @@ class _ReadinessTiming:
             "data_wait_ms": float(data_wait_ms),
             "measured": bool(self.measurement_started),
             "total_start": self._mark(),
-            "pairs": {},
+            "pairs": {name: [] for name in self._STAGES},
             "stage_start": None,
             "stage_name": None,
+            "range_context": None,
+            "microbatches": 0,
         }
+
+    def add_data_wait(self, data_wait_ms: float) -> None:
+        if self.active is None:
+            raise RuntimeError("readiness timing has no active accumulation window")
+        if self.active["stage_name"] is not None:
+            raise RuntimeError("cannot add loader wait inside a timed stage")
+        self.active["data_wait_ms"] += float(data_wait_ms)
 
     def begin_stage(self, name: str) -> None:
         if self.active is None or name not in self._STAGES:
@@ -128,12 +155,25 @@ class _ReadinessTiming:
         if self.active["stage_name"] is not None:
             raise RuntimeError("nested readiness timing stage")
         self.active["stage_name"] = name
-        self.active["stage_start"] = self._mark()
+        self.active["stage_start"] = self._mark() if self.stage_timing else None
+        if self.profiler_ranges:
+            context = torch.profiler.record_function(f"fl_v3::train::{name}")
+            context.__enter__()
+            self.active["range_context"] = context
 
     def end_stage(self, name: str) -> None:
         if self.active is None or self.active["stage_name"] != name:
             raise RuntimeError(f"readiness timing stage end mismatch {name!r}")
-        self.active["pairs"][name] = (self.active["stage_start"], self._mark())
+        if self.stage_timing:
+            self.active["pairs"][name].append(
+                (self.active["stage_start"], self._mark())
+            )
+        if name == "backward":
+            self.active["microbatches"] += 1
+        context = self.active["range_context"]
+        if context is not None:
+            context.__exit__(None, None, None)
+            self.active["range_context"] = None
         self.active["stage_name"] = None
         self.active["stage_start"] = None
 
@@ -143,14 +183,26 @@ class _ReadinessTiming:
         outcome: str,
         global_samples: int,
     ) -> None:
-        if self.active is None or self.active["stage_name"] is not None:
+        if (
+            self.active is None
+            or self.active["stage_name"] is not None
+            or self.active["range_context"] is not None
+        ):
             raise RuntimeError("readiness timing window ended with an active stage")
-        self.active["pairs"]["window"] = (
-            self.active.pop("total_start"),
-            self._mark(),
-        )
+        if self.stage_timing:
+            self.active["pairs"]["window"] = [(
+                self.active.pop("total_start"),
+                self._mark(),
+            )]
+        else:
+            self.active.pop("total_start")
         self.active["outcome"] = str(outcome)
         self.active["global_samples"] = int(global_samples)
+        if self.active["microbatches"] != self.accumulation_steps:
+            raise RuntimeError(
+                "readiness timing accumulation-window length drift: "
+                f"{self.active['microbatches']} != {self.accumulation_steps}"
+            )
         self.records.append(self.active)
         self.active = None
 
@@ -165,9 +217,10 @@ class _ReadinessTiming:
             pairs = pending.pop("pairs")
             pending.pop("stage_start")
             pending.pop("stage_name")
+            pending.pop("range_context")
             pending["durations_ms"] = {
-                name: self._elapsed_ms(start, end)
-                for name, (start, end) in pairs.items()
+                name: sum(self._elapsed_ms(start, end) for start, end in spans)
+                for name, spans in pairs.items()
             }
             resolved_records.append(pending)
 
@@ -175,7 +228,8 @@ class _ReadinessTiming:
         accepted = [record for record in measured if record["outcome"] == "accepted"]
         stage_distributions = {
             name: _distribution([
-                record["durations_ms"][name] for record in accepted
+                record["durations_ms"][name]
+                for record in accepted if name in record["durations_ms"]
             ])
             for name in (*self._STAGES, "window")
         }
@@ -197,6 +251,8 @@ class _ReadinessTiming:
         )
         successful_samples = 0 if counter_delta is None else counter_delta["exposure_samples"]
         successful_windows = 0 if counter_delta is None else counter_delta["successful_windows"]
+        attempted_samples = 0 if counter_delta is None else counter_delta["attempted_samples"]
+        attempted_windows = 0 if counter_delta is None else counter_delta["attempted_windows"]
         throughput = {
             "successful_windows_per_second": (
                 None
@@ -208,24 +264,54 @@ class _ReadinessTiming:
                 if not measured_wall_seconds
                 else successful_samples / measured_wall_seconds
             ),
+            "attempted_windows_per_second": (
+                None
+                if not measured_wall_seconds
+                else attempted_windows / measured_wall_seconds
+            ),
+            "attempted_samples_per_second": (
+                None
+                if not measured_wall_seconds
+                else attempted_samples / measured_wall_seconds
+            ),
         }
 
         if self.use_cuda and self.measurement_started:
             peak_allocated = int(torch.cuda.max_memory_allocated(self.device))
             peak_reserved = int(torch.cuda.max_memory_reserved(self.device))
             total_memory = int(torch.cuda.get_device_properties(self.device).total_memory)
+            memory_stats = torch.cuda.memory_stats(self.device)
+            peak_active = int(memory_stats.get("active_bytes.all.peak", 0))
+            peak_inactive_split = int(
+                memory_stats.get("inactive_split_bytes.all.peak", 0)
+            )
         else:
             peak_allocated = peak_reserved = total_memory = 0
+            peak_active = peak_inactive_split = 0
         window_p50 = stage_distributions["window"]["p50"]
         window_p95 = stage_distributions["window"]["p95"]
         return {
-            "schema": "s09.direct-window-timing.v1",
-            "clock": "cuda_event" if self.use_cuda else "host_perf_counter",
+            "schema": (
+                "s09.direct-window-timing.v1"
+                if self.accumulation_steps == 1 and self.stage_timing
+                else "s10.accumulation-window-timing.v1"
+            ),
+            "clock": (
+                "cuda_event"
+                if self.stage_timing and self.use_cuda
+                else "host_perf_counter"
+                if self.stage_timing
+                else "synchronized_wall_summary"
+            ),
             "measurement_definition": (
                 "data_wait_ms is host time blocked in next(DataLoader); durations_ms are "
                 "CUDA-event stream durations on CUDA and synchronous host durations on CPU; "
-                "window spans H2D through optimizer/scheduler/EMA"
+                "window spans all accumulated microbatches through optimizer/scheduler/EMA; "
+                "durations_ms are intentionally empty in low-overhead summary mode"
             ),
+            "accumulation_steps": self.accumulation_steps,
+            "stage_timing": self.stage_timing,
+            "profiler_ranges": self.profiler_ranges,
             "warmup_successful_windows": self.warmup_successful_windows,
             "warmup_boundary_reached": self.measurement_started,
             "warmup_boundary_attempted_window": self.warmup_boundary_attempted_window,
@@ -247,8 +333,13 @@ class _ReadinessTiming:
             "memory": {
                 "peak_allocated_bytes": peak_allocated,
                 "peak_reserved_bytes": peak_reserved,
+                "peak_active_bytes": peak_active,
+                "peak_inactive_split_bytes": peak_inactive_split,
                 "device_total_bytes": total_memory,
                 "reserved_headroom_bytes": max(0, total_memory - peak_reserved),
+                "peak_reserved_fraction": (
+                    peak_reserved / total_memory if total_memory else 0.0
+                ),
             },
             "records": resolved_records,
         }
@@ -378,14 +469,17 @@ def train_one_epoch(
     precision_diagnostics: Optional[Any] = None,
     readiness_timing: bool = False,
     readiness_warmup_successful_windows: int = 0,
+    readiness_stage_timing: bool = True,
+    readiness_profiler_ranges: bool = False,
     attempted_window_callback: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """One epoch of training with the injected criterion (tensor or dict batch).
 
     Precision is explicit: ``fp32`` runs without autocast/scaler, ``fp16`` uses CUDA
     autocast plus GradScaler(init_scale=512). Outputs are upcast to fp32 before the
-    loss/head math. The per-step ``loss.item()`` CPU↔GPU sync is avoided for the
-    mean-loss accumulator; telemetry fields expose scaler and finite-loss state.
+    loss/head math. The mean-loss accumulator avoids a value transfer, while the
+    existing fail-closed finite-loss guard still synchronizes once per microbatch;
+    telemetry fields expose scaler and finite-loss state.
 
     **Capability hooks (MCR Phase 1; all default-off ⇒ byte-identical for FL/gate callers):**
     ``grad_clip_norm>0`` clips the trainable grads (stability once the backbone is trained); ``scheduler``
@@ -406,6 +500,18 @@ def train_one_epoch(
         raise ValueError("expected_global_microbatch_samples must be non-negative")
     if not isinstance(readiness_timing, bool):
         raise TypeError("readiness_timing must be boolean")
+    if not isinstance(readiness_stage_timing, bool):
+        raise TypeError("readiness_stage_timing must be boolean")
+    if not isinstance(readiness_profiler_ranges, bool):
+        raise TypeError("readiness_profiler_ranges must be boolean")
+    if not readiness_timing and not readiness_stage_timing:
+        raise ValueError(
+            "readiness_stage_timing=False requires readiness_timing=True"
+        )
+    if not readiness_timing and readiness_profiler_ranges:
+        raise ValueError(
+            "readiness_profiler_ranges=True requires readiness_timing=True"
+        )
     if attempted_window_callback is not None and not callable(attempted_window_callback):
         raise TypeError("attempted_window_callback must be callable or None")
     if (
@@ -452,8 +558,6 @@ def train_one_epoch(
     precision = normalize_precision(precision or current_precision())
     if precision_diagnostics is not None and accumulation_steps != 1:
         raise RuntimeError("S08 precision diagnostics require accumulation_steps == 1")
-    if readiness_timing and accumulation_steps != 1:
-        raise RuntimeError("S09 readiness timing requires accumulation_steps == 1")
     if readiness_timing and precision_diagnostics is not None:
         raise RuntimeError("S09 readiness timing cannot enable the S08 precision observer")
     if (
@@ -467,7 +571,13 @@ def train_one_epoch(
         1.0 if readiness_timing and not scaler.is_enabled() else None
     )
     timing = (
-        _ReadinessTiming(device, readiness_warmup_successful_windows)
+        _ReadinessTiming(
+            device,
+            readiness_warmup_successful_windows,
+            accumulation_steps=accumulation_steps,
+            stage_timing=readiness_stage_timing,
+            profiler_ranges=readiness_profiler_ranges,
+        )
         if readiness_timing
         else None
     )
@@ -545,10 +655,13 @@ def train_one_epoch(
             if model_mode is not None:
                 batch = project_batch_for_mode(batch, model_mode)
             if timing is not None:
-                timing.begin_window(
-                    attempted_window=state.attempted_windows + 1,
-                    data_wait_ms=data_wait_ms,
-                )
+                if state.accumulation_phase == 0:
+                    timing.begin_window(
+                        attempted_window=state.attempted_windows + 1,
+                        data_wait_ms=data_wait_ms,
+                    )
+                else:
+                    timing.add_data_wait(data_wait_ms)
                 timing.begin_stage("h2d")
             inputs, targets = _unpack_batch(batch, device)
             if timing is not None:
@@ -732,6 +845,7 @@ def train_one_epoch(
                 if window_nonfinite
                 else "overflow"
             )
+            completed_window_samples = int(state.pending_samples)
             if diagnostic_step:
                 precision_diagnostics.finalize_window(
                     active_diagnostic_token,
@@ -745,7 +859,7 @@ def train_one_epoch(
             if timing is not None:
                 timing.finish_window(
                     outcome=outcome,
-                    global_samples=global_bs,
+                    global_samples=completed_window_samples,
                 )
                 if (
                     successful

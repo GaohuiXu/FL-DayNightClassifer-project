@@ -17,6 +17,7 @@ vectorized rotated-rectangle/height overlap followed by SciPy's reference
 from __future__ import annotations
 
 import math
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from typing import Mapping, Sequence
 
@@ -650,6 +651,23 @@ class Phase1TransFusionLoss(nn.Module):
             persistent=False,
         )
         self.last_terms: dict[str, torch.Tensor] = {}
+        self._operator_profile_ranges = False
+
+    @contextmanager
+    def operator_profile_ranges(self):
+        """Enable output-neutral loss/Hungarian ranges for a bounded trace."""
+        if self._operator_profile_ranges:
+            raise RuntimeError("TransFusion loss profiler ranges are already active")
+        self._operator_profile_ranges = True
+        try:
+            yield self
+        finally:
+            self._operator_profile_ranges = False
+
+    def _profile_range(self, name: str):
+        if not self._operator_profile_ranges:
+            return nullcontext()
+        return torch.profiler.record_function(f"fl_v3::lidar_loss::{name}")
 
     @staticmethod
     def _gaussian_focal(logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -735,13 +753,14 @@ class Phase1TransFusionLoss(nn.Module):
                     raise ValueError("TransFusion GT velocity schema drift")
                 velocity.copy_(source_velocity)
             gt9 = torch.cat((gt7, velocity), dim=1)
-            rows, columns, iou = _hungarian_matches(
-                decoded[batch_index],
-                gt9,
-                gt_labels,
-                output["heatmap"][batch_index].detach().float(),
-                self.geometry,
-            )
+            with self._profile_range(f"hungarian_sample_{batch_index}"):
+                rows, columns, iou = _hungarian_matches(
+                    decoded[batch_index],
+                    gt9,
+                    gt_labels,
+                    output["heatmap"][batch_index].detach().float(),
+                    self.geometry,
+                )
             if rows.numel():
                 labels[batch_index, rows] = gt_labels[columns]
                 bbox_targets[batch_index, rows] = encode_transfusion_boxes(
@@ -805,34 +824,41 @@ class Phase1TransFusionLoss(nn.Module):
             key: value.float() if torch.is_tensor(value) and value.is_floating_point() else value
             for key, value in output.items()
         }
-        targets = self.build_targets(fp32, batch)
-        heatmap_loss = self._gaussian_focal(
-            fp32["dense_heatmap"], targets["dense_heatmap"]
-        )
-        query_logits = fp32["heatmap"].permute(0, 2, 1).reshape(-1, self.num_classes)
-        classification_loss = self._sigmoid_focal(
-            query_logits,
-            targets["labels"].reshape(-1),
-            targets["label_weights"].reshape(-1),
-            targets["num_positive"],
-            self.num_classes,
-        )
-        regression = torch.cat(
-            (
-                fp32["center"],
-                fp32["height"],
-                fp32["dim"],
-                fp32["rot"],
-                fp32["vel"],
-            ),
-            dim=1,
-        ).permute(0, 2, 1)
-        regression_weight = (
-            targets["bbox_weights"] * self.code_weights.to(device=regression.device)
-        )
-        bbox_loss = (
-            (regression - targets["bbox_targets"]).abs() * regression_weight
-        ).sum() / targets["num_positive"].clamp_min(1.0) * 0.25
+        with self._profile_range("target_build"):
+            targets = self.build_targets(fp32, batch)
+        with self._profile_range("dense_heatmap_focal"):
+            heatmap_loss = self._gaussian_focal(
+                fp32["dense_heatmap"], targets["dense_heatmap"]
+            )
+        with self._profile_range("query_classification_focal"):
+            query_logits = fp32["heatmap"].permute(0, 2, 1).reshape(
+                -1, self.num_classes
+            )
+            classification_loss = self._sigmoid_focal(
+                query_logits,
+                targets["labels"].reshape(-1),
+                targets["label_weights"].reshape(-1),
+                targets["num_positive"],
+                self.num_classes,
+            )
+        with self._profile_range("bbox_regression"):
+            regression = torch.cat(
+                (
+                    fp32["center"],
+                    fp32["height"],
+                    fp32["dim"],
+                    fp32["rot"],
+                    fp32["vel"],
+                ),
+                dim=1,
+            ).permute(0, 2, 1)
+            regression_weight = (
+                targets["bbox_weights"]
+                * self.code_weights.to(device=regression.device)
+            )
+            bbox_loss = (
+                (regression - targets["bbox_targets"]).abs() * regression_weight
+            ).sum() / targets["num_positive"].clamp_min(1.0) * 0.25
         return {
             "loss_heatmap": heatmap_loss,
             "loss_cls": classification_loss,

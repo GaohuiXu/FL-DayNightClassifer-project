@@ -3,15 +3,22 @@
 ## 1. Current authority
 
 ```text
-SESSION: persistent S00 / S10
-ACTIVE_DECISION: O-150 under O-143/O-144/O-145/O-149
-REQUEST_STATE: ENVELOPE A CONSUMED / ENVELOPE B FROZEN, OWNER APPROVAL PENDING
-EXECUTION_AUTHORITY: none until the owner approves Section 7's containing commit
-ACTIVE_PHASE: Phase I C/L independent recipe and capability — fallback accepted;
-              exact request prepared; branch recipe-freeze review precedes compute
-PLAN: PHASE_I_PLAN.md / P1-G0 closed
-BRANCH: codex/s10-phase1-branch-qualification
+SESSION: persistent S10 Phase I-P throughput preflight
+ACTIVE_DECISION: IP-G0 under O-143/O-149; O-150 remains the frozen Phase-I control
+REQUEST_STATE: IP-E1 FROZEN BELOW / OWNER APPROVAL PENDING / NOT EXECUTABLE
+EXECUTION_AUTHORITY: none; IP-G0 authorizes local implementation and commits only
+ACTIVE_PHASE: Phase I-P engineering preflight before C/L qualification
+PLAN: HANDOFF.md Section 1 / IP-G0 closed
+BRANCH: codex/s10-phase1p-throughput-preflight
+UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
+FROZEN_CONTROL: codex/s10-phase1-branch-qualification at the same SHA
+ENVELOPE_B: Section 7 preserved / NOT EXECUTABLE / disposition deferred to IP-G2
 ```
+
+IP-G0 authorizes scoped Phase I-P source/docs/tests, local validation and linear
+commits. It does not authorize GPU/Slurm, any evaluation role, the Section-7
+Envelope B, merge, push or publication. Section 8 is the only prospective Phase
+I-P compute request; preparing or committing it supplies no execution authority.
 
 O-146 records the owner's exact activation of Envelope A at request commit
 `e321aed749fd859c809199d52c30b2771dbef8b3`. S00 may execute WP0 through WP4
@@ -164,8 +171,8 @@ WORKFLOW: 5 WPs + 3 owner gates + 2 approval envelopes
 CAMERA_POOLING: O-150 PyTorch sorted segment-reduce production backend; CUDA option
                 retained unpromoted; WP2/WP4 parity/policy evidence retained
 EXECUTION_AUTHORITY: Envelope A consumed under O-146/O-147/O-148;
-                     exact 49.0-hour Envelope-B request frozen; owner activation
-                     and recipe-freeze review pending
+                     Phase I-P inserted under IP-G0; IP-E1 and the old 49.0-hour
+                     Envelope-B request are both NOT EXECUTABLE
 ```
 
 The complete graph, optimizer/scheduler, augmentation, role-bound GT-paste,
@@ -378,6 +385,11 @@ The single approval sentence is:
 
 ## 7. Envelope B — exact scientific branch-qualification request
 
+IP-G0 supersedes this section's immediate activation path while Phase I-P is
+open. The object below is preserved unchanged in scientific content as the frozen
+control for cost/payback comparison; it is not executable and must be re-disposed
+at IP-G2, with new source/config/resource identities if Phase I-P promotes changes.
+
 This is the complete O-150 Envelope-B object. Its containing commit is the
 activation baseline named by the owner's approval; implementation baseline
 `a1d7d4fc9508875cc7559858b51b9c1fe441f69b` contains the exact runner/config
@@ -531,7 +543,158 @@ recipe-freeze review-only subagent；review 无 open P0-P2 后，按 Section 7 �
 最大并发 1 和 O-149 remediation 规则，串行执行 LiDAR 再 Camera；D_audit 仍封存。
 ```
 
-## 8. Envelope-A compact execution ledger
+## 8. Phase I-P IP-G0 record and exact IP-E1 request
+
+IP-G0 freezes the Phase I-P workflow, candidate classes, measurement protocol,
+topology and stop boundaries in `HANDOFF.md` Section 1. It authorizes WP0 source,
+docs, tests, local validation and linear commits from the unique base only. The
+following phase-sized request is prepared for a later, separate owner approval.
+
+```text
+PHASE: S10 Phase I-P / IP-E1 baseline and strict-output-neutral diagnosis
+REQUEST_STATE: FROZEN / OWNER APPROVAL PENDING / NOT EXECUTABLE
+ACTIVATION_BASELINE: exact containing commit named verbatim by the owner
+UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
+BRANCH: codex/s10-phase1p-throughput-preflight
+FROZEN_CONTROL: codex/s10-phase1-branch-qualification at UNIQUE_BASE_SHA; do not move
+OBJECTIVE_AND_EXIT_GATE: establish real sustained Camera/LiDAR B4xaccum8 baselines,
+  localize whole-model bottlenecks, validate checkpoint continuation with materialized
+  AdamW state, and measure only the frozen strict-output-neutral shortlist; exit with
+  a trustworthy cost ledger and an IP-G1 shortlist, not a capability result
+REFERENCE_VARIANTS: exactly Camera reference and LiDAR reference from Section 7.1
+STRICT_OUTPUT_NEUTRAL_VARIANTS_MAX: seven named implementation groups plus at most
+  one accepted per-branch combination: augmentation host/unused-return cleanup;
+  training-field whitelist; fixed Camera meshgrid cache; batched Camera affine/grid
+  construction while retaining per-image interpolation/grid_sample; LiDAR host
+  counts/offsets; consolidated target/Hungarian D2H retaining SciPy/float64/order/ties;
+  checkpoint CPU-snapshot/hash reuse
+FORBIDDEN_IP_E1_VARIANTS: finite-loss window aggregation; async checkpoint; physical
+  B8/B12/B16; checkpoint cadence change; Camera/LiDAR SDPA; torch.compile/CUDA graph;
+  foreach/fused AdamW; activation checkpoint; persistent workers; optimized CUDA BEV pool
+DEFAULTS: every candidate flag off in the reference profile and in Phase-I configs
+DATA: D_fit only; exact accepted STOP-A split and physical identities
+SPLIT_SHA256: 7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8
+D_FIT: 34 logs / 494 scenes / 19,877 base samples
+CBGS: artifact 64cc0d1d6cd82fae2787d397e610178cedd00887d98938b154fce9f8e8e115ef;
+  expanded 87,930 / consumed 87,904 / drop 26 per epoch
+LIDAR_GTDB: exact keyframe-only D_fit manifest
+  22e3e23c2dff19280476ee622ea062592b6b9a1712902e7e83cb4b242fafa2b5
+SEED_POLICY: seed 0 only
+BATCH_AND_EXPOSURE: physical B4 / accumulation 8 / effective B32; bounded profiler
+  prefixes only; no scientific epoch and no change to 20-epoch Phase-I exposure
+PRECISION_AND_UPDATE: frozen global FP16; Camera FP32 pool/loss; LiDAR sparse FP32
+  island; real loss/backward/clip/GradScaler/AdamW/cyclic scheduler and accepted updates
+MEASUREMENT: 16 accepted warm-up windows + 256 accepted measured windows; two fresh
+  process repeats per reference/final candidate; third only when spread >3%; separate
+  three-accepted-window torch CPU/CUDA trace; one-second system sampling
+MEMORY_GATE: after AdamW state materialization, peak reserved <=85% visible memory and
+  no monotonic sustained-window growth
+PARITY: exact/hash exact where attainable; FP32 rtol=1e-4 atol=1e-6; FP16
+  rtol=2e-3 atol=2e-4; discrete state, counters, BN/scaler/scheduler and identities exact
+CHECKPOINT: real save/model hash/file hash/load timing; release the original stack;
+  fresh reconstruction and exact boundary load; compare the next 8 optimizer windows
+  with uninterrupted control including state/RNG/sampler identity
+PER_JOB_RESOURCE: 1 node / 1 GH200 / 16 CPUs / 96 GiB / <=00:45:00 / no requeue
+AGGREGATE_GPU_HOURS: 2.0 charged GH200-hours
+TARGET_CONSUMPTION: <=0.8 charged GH200-hour; target is not an extra stop authority
+MAX_CONCURRENCY: 1
+SUBMISSION_POLICY: serial; no numeric engineering-submission cap; no blind identical
+  retry; reference cells precede derived strict candidates
+OUTPUT_ROOT_RULE: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/
+  arrhenius_fl_v3/outputs/s10_phase1p_ip_e1_<approved_sha12>/
+  <camera|lidar>/<sustained|trace>_<source_sha12>_r<1|2|3>_<attempt-id>
+FRESH_OUTPUT: every attempt path absent before execution; no overwrite; raw evidence immutable
+DERIVED_SOURCE_POLICY: only linear source/configs implementing the seven frozen strict
+  groups or O-149 repairs; every derived SHA/profile hash/options/output are ledgered
+  before its first submission; default Phase-I behavior remains off; no new candidate
+ENGINEERING_REMEDIATION: diagnose, make the smallest frozen-semantics runner/test/config/
+  dtype/API/checkpoint/provenance/logging repair, validate, record, and resubmit serially
+OWNER_ESCALATION: source/config/data/runtime identity drift; ambiguous diagnosis; same
+  blocker after repair; parity/tolerance failure; nonfinite loss or discarded partial
+  window; unresolved >3% baseline instability; memory leak or >85% reserved; need for a
+  non-listed candidate, scientific/operational semantics, extra resources, or ceiling
+  exhaustion
+ALLOWED_INTERPRETATION: D_fit-only throughput, bottleneck, numerical-health, memory,
+  checkpoint and projected charged-GH200-hour engineering evidence
+FORBIDDEN_INTERPRETATION: mAP/NDS, capability, generalization, model/candidate selection,
+  D_select/D_audit/official validation, fusion, FL, attack/defense, publication claim,
+  or activation of Section 7 Envelope B
+OWNER_APPROVAL: pending
+EXECUTABLE_NOW: no
+```
+
+### 8.1 WP0 implementation identities
+
+The containing activation commit carries the profiler implementation. Identities
+that do not depend on that documentation commit are:
+
+| Artifact | SHA-256 / identity |
+|---|---|
+| Camera source config | file `567cb1b71535b4866193273960e531ae4b45318e56e81101e99ad186ac23ce60`; resolved `e95e65a63a32c494296b38baf98fd913ff1ec6a168b78aabac48a8dc8f0ffe1d` |
+| LiDAR source config | file `c7e1fa26e1714a31c5998296cb95cbab5e8732d4bf2f06da81fd6d631c574bfc`; resolved `0efe4d6d5138e3d99ae80254a6ecf884300dd18985ab45a00425228fc3ef082e` |
+| IP-E1 reference profile | file `f51c7a62f93887d8cffcb125ebd1cbeb6fc3f3911ec3378fa96a82eaf01f48e0`; canonical `7b9aede3daa9b4b605ee34a64e4c672dc6136ef2e6a47ccdd60b94b26a7ed949` |
+| profiler entry | `e1ffda1b0ede860c3d4886050ad9d4dcfb054f436490da8991bdfa0fe3d5955e` |
+| exact environment wrapper | `e4fb3b5b530ed8eea4f2980e7fdb2059dbc056e2629fd70257e50476f1770caa` |
+| accumulation-aware training loop | `170b1b5614b81dae059e257c3b5de86ebeaf0362f62fccdf3f0525c50abc263c` |
+| fail-closed profile parser | `fe3468ff5828fe73b13359c64414138b9fd19dcb06feed8173b8a0c538d31685` |
+
+The reference profile binds every candidate off and the exact output prefix. The
+entry imports no evaluator and rejects non-D_fit roles. It shares production stack
+construction with `s10_phase1_capability.py`; sustained timing and short torch
+tracing are deliberately separate.
+
+### 8.2 Initial exact reference cells
+
+| Order | Branch/mode | Required repeats | Purpose |
+|---|---|---|---|
+| 1 | LiDAR sustained | 1, 2; conditional 3 if spread >3% | real B4x8 baseline, memory, checkpoint and continuation |
+| 2 | LiDAR trace | 1 | three active accepted windows after the same warm-up |
+| 3 | Camera sustained | 1, 2; conditional 3 if spread >3% | real B4x8 baseline, memory, checkpoint and continuation |
+| 4 | Camera trace | 1 | three active accepted windows after the same warm-up |
+
+Strict candidate attempts follow this reference order serially. Before each first
+candidate attempt, append its durable source SHA, profile file/canonical hashes,
+single changed option, parity result and exact output path. A candidate that fails
+parity is not timed or combined. Only an accepted per-branch combination receives
+the two-repeat final sustained protocol.
+
+### 8.3 Exact command family after owner approval
+
+For each row set `<BRANCH>`, `<MODE>`, `<CONFIG>`, `<PROFILE_CONFIG>`, `<REPEAT>`
+and `<ATTEMPT_ID>` from Section 8.2 or the pre-recorded strict-candidate entry.
+The reference uses `fl_v3/configs/s10_phase1p_ip_e1.json`. `<SOURCE_SHA>` is the
+activation SHA or a permitted recorded linear descendant; `<APPROVED_SHA>` remains
+the exact activation SHA named by the owner. Create only `<OUTPUT_ROOT>/slurm`
+before the first approved submission.
+
+```bash
+sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --cpus-per-task=16 \
+  --mem=96G --gpus-per-node=nvidia_gh200_120gb:1 --time=00:45:00 \
+  --no-requeue --job-name=s10-ip-e1-<BRANCH>-<MODE> \
+  --output=<OUTPUT_ROOT>/slurm/<BRANCH>-<MODE>-%j.out \
+  --error=<OUTPUT_ROOT>/slurm/<BRANCH>-<MODE>-%j.err \
+  fl_v3/scripts/run_s10_phase1p_ip_e1.sh \
+  --branch <BRANCH> --mode <MODE> --config <CONFIG> \
+  --profile-config <PROFILE_CONFIG> \
+  --output-dir <OUTPUT_ROOT>/<BRANCH>/<MODE>_<SOURCE_SHA12>_r<REPEAT>_<ATTEMPT_ID> \
+  --source-sha <SOURCE_SHA> --approved-source-sha <APPROVED_SHA> \
+  --repeat <REPEAT> --attempt-id <ATTEMPT_ID>
+```
+
+The exact owner activation sentence, after replacing the SHA with the containing
+commit, is:
+
+```text
+批准激活 commit <ACTIVATION_SHA> 中的 S10 Phase I-P IP-E1：按 Section 8 的
+D_fit-only reference cells、七个 strict-output-neutral implementation groups、
+测量/parity/checkpoint/停止边界、2.0 charged-GH200-hour aggregate ceiling、
+最大并发 1、每 job 45 分钟和 O-149 remediation 规则串行执行 IP-WP1 -> IP-WP2；
+measurement-only 候选保持 default-off，D_select、D_audit、official validation、
+原 Envelope B、merge 和 push 仍不授权。
+```
+
+## 9. Envelope-A compact execution ledger
 
 This is the sole terminal ledger for Envelope A. Submission rows were appended only when
 the exact durable source SHA and command are known.
