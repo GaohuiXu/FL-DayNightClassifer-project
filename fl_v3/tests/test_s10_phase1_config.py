@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 
 from fl_v3.config import ConfigError, load_resolved_config, resolve_config
-from fl_v3.config.phase1 import Phase1ConfigError, phase1_runtime_ready
+from fl_v3.config.phase1 import PHASE1_SCHEMA_V2, phase1_runtime_ready
+from fl_v3.data.nuscenes.phase1 import build_phase1_eval_data
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +37,11 @@ def test_phase1_recipes_expand_to_complete_hash_bound_reference_graphs():
     assert lidar.as_dict()["model"]["decoder"]["backbone"]["layer_nums"] == [5, 5]
     assert lidar.as_dict()["model"]["decoder"]["neck"]["output_channels"] == 512
     assert lidar.as_dict()["model"]["head"]["type"] == "TransFusionHead"
+    assert camera.schema_version == lidar.schema_version == PHASE1_SCHEMA_V2
+    camera_pool = camera.as_dict()["model"]["view_transform"]
+    assert camera_pool["pool_backend"] == "pytorch_sorted_segment_reduce"
+    assert camera_pool["pool_optional_backend"] == "optimized_cuda_unpromoted"
+    assert "pool_fallback" not in camera_pool
     assert camera.sha256 != lidar.sha256
 
 
@@ -87,42 +93,41 @@ def test_phase1_schema_rejects_missing_or_drifted_science(path, mutation, messag
         resolve_config(raw)
 
 
-def test_phase1_pending_materialization_is_resolvable_but_not_runtime_ready():
-    camera = load_resolved_config(CAMERA).as_dict()
-    lidar = load_resolved_config(LIDAR).as_dict()
-    with pytest.raises(Phase1ConfigError, match="Camera checkpoint"):
-        phase1_runtime_ready(camera)
-    with pytest.raises(Phase1ConfigError, match="GTDB"):
-        phase1_runtime_ready(lidar)
+def test_phase1_envelope_b_recipes_are_materialized_and_runtime_ready():
+    for path in (CAMERA, LIDAR):
+        config = load_resolved_config(path).as_dict()
+        assert config["contract"]["lifecycle"] == "envelope_b_ready"
+        assert config["contract"]["amendment_decision"] == "O-150"
+        assert config["execution"]["mode"] == "phase1_train_eval"
+        assert config["execution"]["allowed_evaluation_roles"] == ["D_select"]
+        assert config["evaluation"]["D_select"]["status"] == "open_once_in_envelope_b"
+        assert config["evaluation"]["D_audit"]["status"] == "owner_sealed_until_P1_G2"
+        phase1_runtime_ready(config)
 
 
 def test_phase1_accepted_materialization_requires_complete_identities():
     raw = _raw(CAMERA)
-    raw["initialization"].update(status="accepted", physical_sha256=H)
+    raw["initialization"]["mapping_report_sha256"] = None
     with pytest.raises(ConfigError, match="requires all three identities"):
         resolve_config(raw)
 
-    raw["initialization"].update(
-        mapping_report_sha256=H,
-        initialization_state_sha256=H,
-    )
-    raw["precision"]["grad_scaler"]["status"] = "accepted"
-    raw["contract"]["lifecycle"] = "envelope_a_qualified"
+    raw["initialization"]["mapping_report_sha256"] = H
     accepted = resolve_config(raw)
     phase1_runtime_ready(accepted.as_dict())
 
 
 def test_phase1_hash_changes_for_materialized_checkpoint_identity():
     raw = _raw(CAMERA)
-    pending = resolve_config(copy.deepcopy(raw))
-    raw["initialization"].update(
-        status="accepted",
-        physical_sha256=H,
-        mapping_report_sha256="b" * 64,
-        initialization_state_sha256="c" * 64,
-    )
-    accepted = resolve_config(raw)
-    assert pending.sha256 != accepted.sha256
+    accepted = resolve_config(copy.deepcopy(raw))
+    raw["initialization"]["physical_sha256"] = H
+    changed = resolve_config(raw)
+    assert accepted.sha256 != changed.sha256
+
+
+def test_phase1_eval_constructor_keeps_D_audit_sealed_before_data_access():
+    config = load_resolved_config(CAMERA)
+    with pytest.raises(ValueError, match="not open"):
+        build_phase1_eval_data(config, role="D_audit")
 
 
 def test_phase1_data_identity_bridge_separates_cache_capacity_and_consumption():

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import torch
 
+from fl_v3.config import load_resolved_config
 from fl_v3.models.fusion.preprocess import (
     sample_reference_image_augmentation_parameters,
 )
@@ -14,6 +16,7 @@ from fl_v3.models.phase1_camera import (
     Phase1CameraDetector,
     Phase1GeneralizedLSSFPN,
     Phase1LSSTransform,
+    build_phase1_camera_model,
 )
 from fl_v3.models.phase1_swin import original_swin_destination_key, tensor_state_sha256
 
@@ -85,7 +88,8 @@ def test_reference_camera_fpn_concat_shapes_and_stride8_selection():
 
 def test_phase1_camera_topology_has_bn_and_only_swin_layernorm():
     torch.manual_seed(0)
-    model = Phase1CameraDetector(pool_backend="fallback")
+    model = Phase1CameraDetector()
+    assert model.view_transform.pool_backend == "fallback"
     assert model.camera_backbone.out_indices == (1, 2, 3)
     assert model.camera_backbone.output_layer_norm is True
     assert model.camera_backbone.activation_checkpoint is False
@@ -105,6 +109,12 @@ def test_phase1_camera_topology_has_bn_and_only_swin_layernorm():
     ]
     assert convolutional_bn
     assert all(module.eps == 1e-5 and module.momentum == 0.1 for module in convolutional_bn)
+
+
+def test_envelope_b_camera_builder_refuses_unpromoted_cuda_backend():
+    config = load_resolved_config("fl_v3/configs/s10_phase1_camera.json")
+    with pytest.raises(ValueError, match="forbids implicit CUDA promotion"):
+        build_phase1_camera_model(config, pool_backend="optimized")
 
 
 def test_phase1_reference_decode_restores_second_task_wide_topk():

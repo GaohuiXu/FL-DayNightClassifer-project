@@ -1,30 +1,32 @@
 {
-  "schema_version": "s10.phase1.v1",
+  "schema_version": "s10.phase1.v2",
   "contract": {
     "candidate_id": "phase1_camera_primary",
     "branch": "camera",
     "plan_sha": "260750a76548208f62c384b0e0547744b619244c",
     "request_commit": "e321aed749fd859c809199d52c30b2771dbef8b3",
+    "amendment_decision": "O-150",
+    "amendment_commit": "2a26c63b61022e2947043a9ffd0538d537c51fb9",
     "reference_repository": "mit-han-lab/bevfusion",
     "reference_commit": "326653dc06e0938edf1aae7d01efcd158ba83de5",
     "reference_license": "Apache-2.0",
-    "lifecycle": "envelope_a_implementation",
+    "lifecycle": "envelope_b_ready",
     "scientific_candidate_count": 2,
     "seed": 0
   },
   "taxonomy": {"frozen_spec": "phase1_taxonomy_v1"},
-  "model": {"frozen_spec": "phase1_camera_model_v1"},
+  "model": {"frozen_spec": "phase1_camera_model_v2"},
   "initialization": {
     "kind": "imagenet1k_swin_t",
-    "status": "pending_acquisition",
+    "status": "accepted",
     "source_url": "https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_tiny_patch4_window7_224.pth",
     "license": "MIT",
     "quarantine_path": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/pretrained/swin_tiny_patch4_window7_224.pth.download.part",
     "final_path": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/pretrained/swin_tiny_patch4_window7_224.pth",
-    "physical_sha256": null,
+    "physical_sha256": "9f71c168d837d1b99dd1dc29e14990a7a9e8bdc5f673d46b04fe36fe15590ad3",
     "mapping_report_path": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_data_e321aed749fd/camera_initialization.json",
-    "mapping_report_sha256": null,
-    "initialization_state_sha256": null,
+    "mapping_report_sha256": "c87469b84b4b865aa478cc1959c400468f8aca393e53cf8dbb92a71c3a63f70f",
+    "initialization_state_sha256": "814eaf5adb58ecc5b5cfe253c63002bc6cad9390c01752b890298571fed01632",
     "scratch": null
   },
   "precision": {
@@ -35,7 +37,7 @@
     "loss_dtype": "fp32",
     "decode_dtype": "fp32",
     "grad_scaler": {
-      "status": "pending_no_update_qualification",
+      "status": "accepted",
       "init_scale": 8.0,
       "growth_factor": 2.0,
       "backoff_factor": 0.5,
@@ -115,7 +117,7 @@
     "train_point_sweeps": 1,
     "eval_point_sweeps": 10,
     "raw_extraction": false,
-    "camera_point_payload": "enabled"
+    "camera_point_payload": "disabled_after_parity"
   },
   "augmentation": {"frozen_spec": "phase1_camera_augmentation_v1"},
   "sampling": {
@@ -161,7 +163,7 @@
     "class_order": ["car", "truck", "bus", "trailer", "construction_vehicle", "pedestrian", "motorcycle", "bicycle", "traffic_cone", "barrier"],
     "checkpoint_weights": "raw",
     "checkpoint_selection": "epoch_20_terminal_only",
-    "D_select": {"executions": 1, "status": "sealed_until_envelope_b"},
+    "D_select": {"executions": 1, "status": "open_once_in_envelope_b"},
     "D_audit": {"executions": 1, "status": "owner_sealed_until_P1_G2"},
     "official_validation": "forbidden_in_phase1_internal_selection",
     "metrics": ["mAP", "NDS", "per_class_AP", "TP_errors"],
@@ -197,16 +199,16 @@
     "mmcv": null
   },
   "execution": {
-    "mode": "envelope_a_calibration",
+    "mode": "phase1_train_eval",
     "preflight_one_batch": true,
-    "capability_metrics": false,
-    "warmup_microbatches": 16,
-    "timed_microbatches": 64,
+    "capability_metrics": true,
+    "warmup_microbatches": 0,
+    "timed_microbatches": 0,
     "calibration_updates": 0,
-    "output_root": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd",
+    "output_root": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_2a26c63b6102",
     "data_artifact_root": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_data_e321aed749fd",
-    "pool_timing": {"fixed_batches": 4, "operator_warmup": 32, "operator_samples": 128, "end_to_end_warmup": 16, "end_to_end_samples": 64, "event_clock": "cuda_event", "promotion_operator_median_ratio_max": 0.8, "promotion_step_median_ratio_max": 1.02, "promotion_peak_allocated_ratio_max": 1.05},
+    "pool_timing": null,
     "allowed_data_role": "D_fit",
-    "allowed_evaluation_roles": []
+    "allowed_evaluation_roles": ["D_select"]
   }
 }

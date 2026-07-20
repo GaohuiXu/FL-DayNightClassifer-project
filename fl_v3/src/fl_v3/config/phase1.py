@@ -17,8 +17,11 @@ from fl_v3.source_identity import validate_source_state
 
 
 PHASE1_SCHEMA = "s10.phase1.v1"
+PHASE1_SCHEMA_V2 = "s10.phase1.v2"
+PHASE1_SCHEMAS = frozenset({PHASE1_SCHEMA, PHASE1_SCHEMA_V2})
 PHASE1_PLAN_SHA = "260750a76548208f62c384b0e0547744b619244c"
 PHASE1_REQUEST_COMMIT = "e321aed749fd859c809199d52c30b2771dbef8b3"
+PHASE1_O150_AMENDMENT_COMMIT = "2a26c63b61022e2947043a9ffd0538d537c51fb9"
 MIT_BEVFUSION_COMMIT = "326653dc06e0938edf1aae7d01efcd158ba83de5"
 
 REFERENCE_OBJECT_CLASSES = (
@@ -198,6 +201,15 @@ FROZEN_CAMERA_MODEL: dict[str, Any] = {
         },
     },
 }
+
+# Keep the v1 graph immutable for exact Envelope-A replay. O-150 changes only
+# production dispatch: the qualified PyTorch segment-reduce path becomes primary
+# while the CUDA extension remains an explicit, unpromoted option.
+FROZEN_CAMERA_MODEL_V2: dict[str, Any] = json.loads(json.dumps(FROZEN_CAMERA_MODEL))
+_camera_v2_pool = FROZEN_CAMERA_MODEL_V2["view_transform"]
+_camera_v2_pool["pool_backend"] = "pytorch_sorted_segment_reduce"
+_camera_v2_pool.pop("pool_fallback")
+_camera_v2_pool["pool_optional_backend"] = "optimized_cuda_unpromoted"
 
 
 FROZEN_LIDAR_MODEL: dict[str, Any] = {
@@ -401,14 +413,17 @@ def _same(actual: Any, expected: Any, where: str) -> None:
         )
 
 
-def _validate_contract(raw: Any) -> tuple[dict[str, Any], str]:
+def _validate_contract(raw: Any, schema_version: str) -> tuple[dict[str, Any], str]:
+    keys = {
+        "candidate_id", "branch", "plan_sha", "request_commit",
+        "reference_repository", "reference_commit", "reference_license",
+        "lifecycle", "scientific_candidate_count", "seed",
+    }
+    if schema_version == PHASE1_SCHEMA_V2:
+        keys.update({"amendment_decision", "amendment_commit"})
     contract = _keys(
         raw,
-        {
-            "candidate_id", "branch", "plan_sha", "request_commit",
-            "reference_repository", "reference_commit", "reference_license",
-            "lifecycle", "scientific_candidate_count", "seed",
-        },
+        keys,
         "contract",
     )
     branch = contract["branch"]
@@ -417,6 +432,13 @@ def _validate_contract(raw: Any) -> tuple[dict[str, Any], str]:
     _same(contract["candidate_id"], f"phase1_{branch}_primary", "contract.candidate_id")
     _same(contract["plan_sha"], PHASE1_PLAN_SHA, "contract.plan_sha")
     _same(contract["request_commit"], PHASE1_REQUEST_COMMIT, "contract.request_commit")
+    if schema_version == PHASE1_SCHEMA_V2:
+        _same(contract["amendment_decision"], "O-150", "contract.amendment_decision")
+        _same(
+            contract["amendment_commit"],
+            PHASE1_O150_AMENDMENT_COMMIT,
+            "contract.amendment_commit",
+        )
     _same(contract["reference_repository"], "mit-han-lab/bevfusion", "contract.reference_repository")
     _same(contract["reference_commit"], MIT_BEVFUSION_COMMIT, "contract.reference_commit")
     _same(contract["reference_license"], "Apache-2.0", "contract.reference_license")
@@ -786,13 +808,20 @@ def _validate_gt_paste(raw: Any, branch: str, lifecycle: str) -> None:
         raise Phase1ConfigError("qualified/Envelope-B LiDAR recipe requires accepted GTDB")
 
 
-def _validate_evaluation(raw: Any) -> None:
+def _validate_evaluation(raw: Any, schema_version: str) -> None:
     expected = {
         "evaluator": "fl_v3_subset_official_nuscenes_detection_eval",
         "class_order": list(DEVKIT_DETECTION_NAMES),
         "checkpoint_weights": "raw",
         "checkpoint_selection": "epoch_20_terminal_only",
-        "D_select": {"executions": 1, "status": "sealed_until_envelope_b"},
+        "D_select": {
+            "executions": 1,
+            "status": (
+                "open_once_in_envelope_b"
+                if schema_version == PHASE1_SCHEMA_V2
+                else "sealed_until_envelope_b"
+            ),
+        },
         "D_audit": {"executions": 1, "status": "owner_sealed_until_P1_G2"},
         "official_validation": "forbidden_in_phase1_internal_selection",
         "metrics": ["mAP", "NDS", "per_class_AP", "TP_errors"],
@@ -898,7 +927,7 @@ def _validate_execution(raw: Any, branch: str) -> None:
     _same(execution["allowed_data_role"], "D_fit", "execution.allowed_data_role")
     expected_eval_roles = [] if execution["mode"] == "envelope_a_calibration" else ["D_select"]
     _same(execution["allowed_evaluation_roles"], expected_eval_roles, "execution.allowed_evaluation_roles")
-    if branch == "camera":
+    if branch == "camera" and execution["mode"] == "envelope_a_calibration":
         _same(
             execution["pool_timing"],
             {
@@ -929,8 +958,12 @@ def validate_phase1_config(raw: Mapping[str, Any]) -> dict[str, Any]:
         },
         "config",
     )
-    _same(root["schema_version"], PHASE1_SCHEMA, "schema_version")
-    contract, branch = _validate_contract(root["contract"])
+    schema_version = str(root["schema_version"])
+    if schema_version not in PHASE1_SCHEMAS:
+        raise Phase1ConfigError(
+            f"schema_version must be one of {sorted(PHASE1_SCHEMAS)}"
+        )
+    contract, branch = _validate_contract(root["contract"], schema_version)
     taxonomy_selector = {"frozen_spec": "phase1_taxonomy_v1"}
     if root["taxonomy"] == taxonomy_selector:
         root["taxonomy"] = json.loads(json.dumps(FROZEN_TAXONOMY))
@@ -939,11 +972,21 @@ def validate_phase1_config(raw: Mapping[str, Any]) -> dict[str, Any]:
     # large graph/augmentation records.  Resolution replaces it with the complete
     # owner-frozen leaf graph *before canonicalization and hashing*; consumers never
     # see or hash a library default or an unresolved inheritance node.
-    model_selector = {"frozen_spec": f"phase1_{branch}_model_v1"}
+    model_version = (
+        "v2"
+        if schema_version == PHASE1_SCHEMA_V2 and branch == "camera"
+        else "v1"
+    )
+    model_selector = {"frozen_spec": f"phase1_{branch}_model_{model_version}"}
+    frozen_model = (
+        FROZEN_CAMERA_MODEL_V2
+        if branch == "camera" and schema_version == PHASE1_SCHEMA_V2
+        else FROZEN_CAMERA_MODEL
+        if branch == "camera"
+        else FROZEN_LIDAR_MODEL
+    )
     if root["model"] == model_selector:
-        root["model"] = json.loads(
-            json.dumps(FROZEN_CAMERA_MODEL if branch == "camera" else FROZEN_LIDAR_MODEL)
-        )
+        root["model"] = json.loads(json.dumps(frozen_model))
     augmentation_selector = {"frozen_spec": f"phase1_{branch}_augmentation_v1"}
     if root["augmentation"] == augmentation_selector:
         root["augmentation"] = json.loads(
@@ -953,7 +996,7 @@ def validate_phase1_config(raw: Mapping[str, Any]) -> dict[str, Any]:
                 else FROZEN_LIDAR_AUGMENTATION
             )
         )
-    _same(root["model"], FROZEN_CAMERA_MODEL if branch == "camera" else FROZEN_LIDAR_MODEL, "model")
+    _same(root["model"], frozen_model, "model")
     _validate_initialization(root["initialization"], branch, contract["lifecycle"])
     _validate_precision(root["precision"], branch, contract["lifecycle"])
     _validate_optimizer_scheduler(root["optimizer"], root["scheduler"], branch)
@@ -966,10 +1009,13 @@ def validate_phase1_config(raw: Mapping[str, Any]) -> dict[str, Any]:
     )
     _validate_sampling(root["sampling"])
     _validate_gt_paste(root["gt_paste"], branch, contract["lifecycle"])
-    _validate_evaluation(root["evaluation"])
+    _validate_evaluation(root["evaluation"], schema_version)
     _validate_checkpointing(root["checkpointing"])
     _validate_dependencies(root["dependencies"], branch)
     _validate_execution(root["execution"], branch)
+    if schema_version == PHASE1_SCHEMA_V2:
+        _same(contract["lifecycle"], "envelope_b_ready", "contract.lifecycle")
+        _same(root["execution"]["mode"], "phase1_train_eval", "execution.mode")
     # JSON round-trip rejects tuples/custom objects and provides a detached graph.
     return json.loads(json.dumps(root, allow_nan=False))
 

@@ -19,7 +19,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from fl_v3.config.phase1 import REFERENCE_OBJECT_CLASSES
+from fl_v3.config.phase1 import (
+    FROZEN_CAMERA_MODEL,
+    FROZEN_CAMERA_MODEL_V2,
+    PHASE1_SCHEMA_V2,
+    REFERENCE_OBJECT_CLASSES,
+)
 from fl_v3.models.fusion.bev_grid import BEVConfig
 from fl_v3.models.fusion.camera_backbone import CameraBackbone
 from fl_v3.models.fusion.centerhead_decode import (
@@ -137,7 +142,7 @@ class Phase1LSSTransform(nn.Module):
         zbound: tuple[float, float, float] = (-10.0, 10.0, 20.0),
         dbound: tuple[float, float, float] = (1.0, 60.0, 0.5),
         downsample: int = 2,
-        pool_backend: str = "optimized",
+        pool_backend: str = "fallback",
         pool_build_directory: str | None = None,
     ) -> None:
         super().__init__()
@@ -456,7 +461,7 @@ class Phase1CameraDetector(nn.Module):
     def __init__(
         self,
         *,
-        pool_backend: str = "optimized",
+        pool_backend: str = "fallback",
         pool_build_directory: str | None = None,
     ) -> None:
         super().__init__()
@@ -587,9 +592,10 @@ class Phase1CameraDetector(nn.Module):
 def build_phase1_camera_model(
     config,
     *,
-    pool_backend: str = "optimized",
+    pool_backend: str | None = None,
     pool_build_directory: str | None = None,
     require_accepted_initialization: bool = True,
+    allow_unpromoted_backend: bool = False,
 ) -> Phase1CameraDetector:
     """Construct from one validated ResolvedConfig and bind accepted weights."""
     if not getattr(config, "is_phase1", False):
@@ -598,18 +604,39 @@ def build_phase1_camera_model(
     if raw["contract"]["branch"] != "camera":
         raise ValueError("Phase-I Camera construction received the LiDAR recipe")
     model_spec = raw["model"]
+    schema_version = str(raw["schema_version"])
+    frozen_model = (
+        FROZEN_CAMERA_MODEL_V2
+        if schema_version == PHASE1_SCHEMA_V2
+        else FROZEN_CAMERA_MODEL
+    )
+    expected_pool_identity = (
+        "pytorch_sorted_segment_reduce"
+        if schema_version == PHASE1_SCHEMA_V2
+        else "optimized_cuda"
+    )
     if (
-        model_spec["architecture"] != "mit_bevfusion_camera_swint_256x704"
-        or model_spec["backbone"]["out_indices"] != [1, 2, 3]
-        or model_spec["view_transform"]["pool_backend"] != "optimized_cuda"
-        or model_spec["decoder"]["neck"]["out_channels"] != 256
-        or model_spec["head"]["type"] != "CenterHead"
-        or model_spec["head"]["tasks"]
-        != [list(task) for task in NUSCENES_CENTERHEAD_TASKS]
+        model_spec != frozen_model
+        or model_spec["view_transform"]["pool_backend"] != expected_pool_identity
     ):
         raise ValueError("resolved Phase-I Camera graph contract drift")
+    selected_backend = (
+        "fallback"
+        if pool_backend is None and schema_version == PHASE1_SCHEMA_V2
+        else "optimized"
+        if pool_backend is None
+        else str(pool_backend)
+    )
+    if (
+        schema_version == PHASE1_SCHEMA_V2
+        and selected_backend != "fallback"
+        and not allow_unpromoted_backend
+    ):
+        raise ValueError(
+            "O-150 Envelope-B production construction forbids implicit CUDA promotion"
+        )
     model = Phase1CameraDetector(
-        pool_backend=pool_backend,
+        pool_backend=selected_backend,
         pool_build_directory=pool_build_directory,
     )
     initialization = raw["initialization"]

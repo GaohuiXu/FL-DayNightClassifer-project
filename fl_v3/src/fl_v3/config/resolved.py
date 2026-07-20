@@ -15,7 +15,7 @@ from typing import Any, Mapping
 
 from fl_v3.source_identity import validate_source_state
 from fl_v3.config.phase1 import (
-    PHASE1_SCHEMA,
+    PHASE1_SCHEMAS,
     Phase1ConfigError,
     phase1_scientific_leaf_paths,
     validate_phase1_config,
@@ -179,7 +179,7 @@ class ResolvedConfig:
 
     @property
     def is_phase1(self) -> bool:
-        return self.schema_version == PHASE1_SCHEMA
+        return self.schema_version in PHASE1_SCHEMAS
 
     @property
     def model_mode(self) -> str:
@@ -266,7 +266,7 @@ class ResolvedConfig:
                 "s06-production-runtime": True,
                 "s10-phase1-runtime": True,
                 "resolved-config-sha256": self.sha256,
-                "resolved-schema-version": PHASE1_SCHEMA,
+                "resolved-schema-version": self.schema_version,
                 "phase1": data,
                 "phase1-scientific-leaf-paths": list(
                     phase1_scientific_leaf_paths(data)
@@ -278,6 +278,9 @@ class ResolvedConfig:
                     else "none"
                 ),
                 "precision": self.precision,
+                "det-score-threshold": float(
+                    data["model"]["head"]["test"]["score_threshold"]
+                ),
                 "det-sparse-conv-precision": self.sparse_conv_precision,
                 "dependency-torch": deps["torch"],
                 "dependency-torch-build-sha256": deps["torch_build_sha256"],
@@ -429,7 +432,7 @@ def validate_precision_partition(
 def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
     """Validate and canonicalize one complete production config; never consult env vars."""
     root = _mapping(dict(raw), "config")
-    if root.get("schema_version") == PHASE1_SCHEMA:
+    if root.get("schema_version") in PHASE1_SCHEMAS:
         try:
             normalized = validate_phase1_config(root)
         except Phase1ConfigError as exc:

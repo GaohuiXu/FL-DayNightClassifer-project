@@ -44,6 +44,19 @@ class Phase1DataBundle:
         self.base_dataset.close()
 
 
+@dataclass
+class Phase1EvalDataBundle:
+    """One ordered, unaugmented, manifest-bound Phase-I evaluation role."""
+
+    dataset: NuScenesMultimodalDataset
+    loader: DataLoader
+    role_identity: dict[str, Any]
+    cache_meta: dict[str, Any]
+
+    def close(self) -> None:
+        self.dataset.close()
+
+
 def phase1_augmentation_parameters(config: ResolvedConfig) -> dict[str, Any]:
     """Translate the complete resolved bundle into the canonical loader hook."""
     if not config.is_phase1:
@@ -265,4 +278,103 @@ def build_phase1_train_data(
         role_identity=role.identity(),
         cache_meta=dict(meta),
         seed=int(training["seed"]),
+    )
+
+
+def build_phase1_eval_data(
+    config: ResolvedConfig,
+    *,
+    role: str = "D_select",
+) -> Phase1EvalDataBundle:
+    """Build one clean ordered evaluation loader from a declared open role.
+
+    Phase I initially opens only ``D_select``. ``D_audit`` stays fail-closed until
+    the owner issues P1-G2, at which point its config/execution identity must be
+    amended before this constructor can consume it.
+    """
+    if not config.is_phase1:
+        raise ValueError("build_phase1_eval_data requires a Phase-I config")
+    raw = config.as_dict()
+    execution = raw["execution"]
+    if role not in execution["allowed_evaluation_roles"]:
+        raise ValueError(f"Phase-I evaluation role {role!r} is not open in the config")
+    role_key = {"D_select": "select", "D_audit": "audit"}.get(role)
+    if role_key is None:
+        raise ValueError(f"unsupported Phase-I evaluation role {role!r}")
+
+    verify_physical_data_identities(config)
+    data = raw["data"]
+    cache = data["cache"]
+    cache_path = Path(cache["path"]).resolve()
+    expected_pickle, expected_sidecar = info_cache.cache_paths(
+        str(cache_path.parent),
+        data["version"],
+        "train",
+        n_sweeps=int(data["cache_capacity_sweeps"]),
+    )
+    if (
+        Path(expected_pickle).resolve() != cache_path
+        or Path(expected_sidecar).resolve() != Path(cache["sidecar_path"]).resolve()
+    ):
+        raise ValueError("Phase-I evaluation cache paths do not match declared capacity")
+    infos, meta = info_cache.load_cache(
+        str(cache_path.parent),
+        data["version"],
+        "train",
+        n_sweeps=int(data["cache_capacity_sweeps"]),
+        expected_cache_hash=cache["logical_sha256"],
+    )
+    binding = load_frozen_split_role(
+        data["split_manifest"]["path"],
+        expected_manifest_sha256=data["split_manifest"]["sha256"],
+        role=role,
+        expected_source_identities={
+            "train_cache_logical_sha256": cache["logical_sha256"],
+            "train_cache_pickle_sha256": cache["pickle_sha256"],
+            "train_cache_sidecar_sha256": cache["sidecar_sha256"],
+            "zip_manifest_logical_sha256": data["zip_manifest"]["logical_sha256"],
+            "zip_manifest_file_sha256": data["zip_manifest"]["file_sha256"],
+        },
+    )
+    expected_role = data["roles"][role_key]
+    if (
+        len(binding.log_tokens) != int(expected_role["logs"])
+        or len(binding.scene_tokens) != int(expected_role["scenes"])
+        or len(binding.sample_tokens) != int(expected_role["samples"])
+        or binding.log_tokens_sha256 != expected_role["log_tokens_sha256"]
+        or binding.scene_tokens_sha256 != expected_role["scene_tokens_sha256"]
+        or binding.sample_tokens_sha256 != expected_role["sample_tokens_sha256"]
+    ):
+        raise ValueError(f"Phase-I {role} role identity drift")
+
+    branch = raw["contract"]["branch"]
+    dataset = NuScenesMultimodalDataset(
+        infos,
+        data["dataroot"],
+        sample_tokens=list(binding.sample_tokens),
+        n_sweeps=int(data["eval_point_sweeps"]),
+        cache_capacity_sweeps=int(data["cache_capacity_sweeps"]),
+        target_class_names=raw["taxonomy"]["reference_object_classes"],
+        augment=None,
+        gtpaste=None,
+        zip_manifest=data["zip_manifest"]["path"],
+        model_mode="camera_only" if branch == "camera" else "lidar_only",
+    )
+    training = raw["training"]
+    loader = make_loader(
+        dataset,
+        batch_size=int(training["micro_batch_size"]),
+        shuffle=False,
+        num_workers=int(training["num_workers"]),
+        seed=int(training["seed"]),
+        collate_fn=detection_collate_fn,
+        sampler=None,
+        drop_last=False,
+        persistent_workers=False,
+    )
+    return Phase1EvalDataBundle(
+        dataset=dataset,
+        loader=loader,
+        role_identity=binding.identity(),
+        cache_meta=dict(meta),
     )

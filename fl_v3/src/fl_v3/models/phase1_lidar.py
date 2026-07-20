@@ -166,7 +166,14 @@ class Phase1LidarDetector(nn.Module):
         return Phase1TransFusionLoss()
 
     @torch.no_grad()
-    def decode(self, output) -> list[dict[str, torch.Tensor]]:
+    def decode(
+        self,
+        output,
+        *,
+        score_threshold: float = 0.0,
+    ) -> list[dict[str, torch.Tensor]]:
+        if float(score_threshold) != 0.0:
+            raise ValueError("Phase-I TransFusion score threshold is frozen to 0.0")
         if isinstance(output, dict) and "predictions" in output:
             output = output["predictions"]
         return self.head.decode(output)

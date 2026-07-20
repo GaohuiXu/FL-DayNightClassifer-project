@@ -1,14 +1,16 @@
 {
-  "schema_version": "s10.phase1.v1",
+  "schema_version": "s10.phase1.v2",
   "contract": {
     "candidate_id": "phase1_lidar_primary",
     "branch": "lidar",
     "plan_sha": "260750a76548208f62c384b0e0547744b619244c",
     "request_commit": "e321aed749fd859c809199d52c30b2771dbef8b3",
+    "amendment_decision": "O-150",
+    "amendment_commit": "2a26c63b61022e2947043a9ffd0538d537c51fb9",
     "reference_repository": "mit-han-lab/bevfusion",
     "reference_commit": "326653dc06e0938edf1aae7d01efcd158ba83de5",
     "reference_license": "Apache-2.0",
-    "lifecycle": "envelope_a_implementation",
+    "lifecycle": "envelope_b_ready",
     "scientific_candidate_count": 2,
     "seed": 0
   },
@@ -45,7 +47,7 @@
     "loss_dtype": "fp32",
     "decode_dtype": "fp32",
     "grad_scaler": {
-      "status": "pending_no_update_qualification",
+      "status": "accepted",
       "init_scale": 8.0,
       "growth_factor": 2.0,
       "backoff_factor": 0.5,
@@ -148,10 +150,10 @@
     "enabled": true,
     "active_human_epochs": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
     "active_zero_based_epochs": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
-    "database_status": "pending_materialization",
+    "database_status": "accepted",
     "database_root": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_data_e321aed749fd/gtdb_keyframe_d_fit",
     "manifest_path": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_data_e321aed749fd/gtdb_keyframe_d_fit/manifest.json",
-    "manifest_sha256": null,
+    "manifest_sha256": "22e3e23c2dff19280476ee622ea062592b6b9a1712902e7e83cb4b242fafa2b5",
     "all_classes": ["car", "truck", "construction_vehicle", "bus", "trailer", "barrier", "motorcycle", "bicycle", "pedestrian", "traffic_cone"],
     "min_points": {"car": 5, "truck": 5, "construction_vehicle": 5, "bus": 5, "trailer": 5, "barrier": 5, "motorcycle": 5, "bicycle": 5, "pedestrian": 5, "traffic_cone": 5},
     "filter_by_difficulty": [-1],
@@ -168,7 +170,7 @@
     "class_order": ["car", "truck", "bus", "trailer", "construction_vehicle", "pedestrian", "motorcycle", "bicycle", "traffic_cone", "barrier"],
     "checkpoint_weights": "raw",
     "checkpoint_selection": "epoch_20_terminal_only",
-    "D_select": {"executions": 1, "status": "sealed_until_envelope_b"},
+    "D_select": {"executions": 1, "status": "open_once_in_envelope_b"},
     "D_audit": {"executions": 1, "status": "owner_sealed_until_P1_G2"},
     "official_validation": "forbidden_in_phase1_internal_selection",
     "metrics": ["mAP", "NDS", "per_class_AP", "TP_errors"],
@@ -204,16 +206,16 @@
     "mmcv": null
   },
   "execution": {
-    "mode": "envelope_a_calibration",
+    "mode": "phase1_train_eval",
     "preflight_one_batch": true,
-    "capability_metrics": false,
-    "warmup_microbatches": 16,
-    "timed_microbatches": 64,
+    "capability_metrics": true,
+    "warmup_microbatches": 0,
+    "timed_microbatches": 0,
     "calibration_updates": 0,
-    "output_root": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd",
+    "output_root": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_2a26c63b6102",
     "data_artifact_root": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_data_e321aed749fd",
     "pool_timing": null,
     "allowed_data_role": "D_fit",
-    "allowed_evaluation_roles": []
+    "allowed_evaluation_roles": ["D_select"]
   }
 }
