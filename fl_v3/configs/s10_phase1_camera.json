@@ -1,0 +1,209 @@
+{
+  "schema_version": "s10.phase1.v1",
+  "contract": {
+    "candidate_id": "phase1_camera_primary",
+    "branch": "camera",
+    "plan_sha": "260750a76548208f62c384b0e0547744b619244c",
+    "request_commit": "e321aed749fd859c809199d52c30b2771dbef8b3",
+    "reference_repository": "mit-han-lab/bevfusion",
+    "reference_commit": "326653dc06e0938edf1aae7d01efcd158ba83de5",
+    "reference_license": "Apache-2.0",
+    "lifecycle": "envelope_a_implementation",
+    "scientific_candidate_count": 2,
+    "seed": 0
+  },
+  "model": {"frozen_spec": "phase1_camera_model_v1"},
+  "initialization": {
+    "kind": "imagenet1k_swin_t",
+    "status": "pending_acquisition",
+    "source_url": "https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_tiny_patch4_window7_224.pth",
+    "license": "MIT",
+    "quarantine_path": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/pretrained/swin_tiny_patch4_window7_224.pth.download.part",
+    "final_path": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/pretrained/swin_tiny_patch4_window7_224.pth",
+    "physical_sha256": null,
+    "mapping_report_path": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_data_e321aed749fd/camera_initialization.json",
+    "mapping_report_sha256": null,
+    "initialization_state_sha256": null,
+    "scratch": null
+  },
+  "precision": {
+    "global_autocast": "fp16",
+    "sparse_island": "not_applicable",
+    "pool_input_dtype": "fp32",
+    "pool_accumulation_dtype": "fp32",
+    "loss_dtype": "fp32",
+    "decode_dtype": "fp32",
+    "grad_scaler": {
+      "status": "pending_no_update_qualification",
+      "init_scale": 8.0,
+      "growth_factor": 2.0,
+      "backoff_factor": 0.5,
+      "growth_interval": 2000,
+      "enabled": true
+    },
+    "tf32": false
+  },
+  "optimizer": {
+    "name": "AdamW",
+    "learning_rate": 0.0002,
+    "weight_decay": 0.01,
+    "betas": [0.9, 0.999],
+    "eps": 1e-8,
+    "amsgrad": false,
+    "fused": false,
+    "parameter_group_rules": [
+      {"name": "backbone_no_decay", "prefix": "camera_backbone.", "contains_any": ["absolute_pos_embed", "relative_position_bias_table"], "lr_mult": 0.1, "decay_mult": 0.0},
+      {"name": "backbone", "prefix": "camera_backbone.", "contains_any": [], "lr_mult": 0.1, "decay_mult": 1.0},
+      {"name": "other_no_decay", "prefix": "", "contains_any": ["absolute_pos_embed", "relative_position_bias_table"], "lr_mult": 1.0, "decay_mult": 0.0},
+      {"name": "default", "prefix": "", "contains_any": [], "lr_mult": 1.0, "decay_mult": 1.0}
+    ],
+    "coverage_policy": "complete_disjoint_trainable_parameters"
+  },
+  "scheduler": {
+    "interval": "accepted_optimizer_update",
+    "lr": {"policy": "cyclic", "target_ratio": [5.0, 0.00005], "cyclic_times": 1, "step_ratio_up": 0.4, "anneal_strategy": "cosine"},
+    "momentum": {"policy": "cyclic", "target_ratio": [0.8947368421052632, 1.0], "cyclic_times": 1, "step_ratio_up": 0.4, "anneal_strategy": "cosine"},
+    "warmup": {"type": "linear", "updates": 500, "ratio": 0.3333333333333333}
+  },
+  "training": {
+    "epochs": 20,
+    "micro_batch_size": 4,
+    "world_size": 1,
+    "accumulation_steps": 8,
+    "effective_global_batch": 32,
+    "loss_accumulation": "mean_over_eight_microbatches",
+    "num_workers": 8,
+    "epoch_remainder_policy": "shuffle_then_drop_incomplete_effective_b32_window",
+    "cbgs_samples_per_epoch": 78470,
+    "consumed_samples_per_epoch": 78464,
+    "dropped_samples_per_epoch": 6,
+    "optimizer_updates_per_epoch": 2452,
+    "max_optimizer_updates": 49040,
+    "gradient_clip": {"max_norm": 35.0, "norm_type": 2.0},
+    "ema": null,
+    "activation_checkpoint": false,
+    "telemetry_scalar_sync": false,
+    "seed": 0
+  },
+  "data": {
+    "dataroot": "/dataset/easybuild/data/nuScenes-data/1.0-map-1.3-zip",
+    "version": "v1.0-trainval",
+    "cache": {
+      "format": "t1.v2",
+      "path": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop1_cache_t1v2_1f276b9d2cc5/info_cache_msweep10/nuscenes_info_v1.0-trainval_train_t1.v2_nsweeps10.pkl",
+      "sidecar_path": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s09_stop1_cache_t1v2_1f276b9d2cc5/info_cache_msweep10/nuscenes_info_v1.0-trainval_train_t1.v2_nsweeps10.meta.json",
+      "logical_sha256": "310e1bba8f65912450e864b634a47b4ca2ea4feb20ed26018e087c93299eed0a",
+      "pickle_sha256": "57fce20f035a99c0c0ab96fdef418c1b0e04e28bd3e32d191a8298f99919be30",
+      "sidecar_sha256": "f4c45dd12ea0db8ec35d9235de52e51981870b91f175c376d5c34747da661b6c"
+    },
+    "zip_manifest": {
+      "path": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s01_zip_full_gate_v2_1fe651700bd0/nuscenes_trainval_zip_manifest.sqlite",
+      "logical_sha256": "023f72b4220bb0db587be00920308bf9074384740fe186d243be92f9a53119f6",
+      "file_sha256": "228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb"
+    },
+    "split_manifest": {
+      "path": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_stop_a_gate_feasible_ad93c89333b0_o127_a1/split/split_manifest.json",
+      "sha256": "7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8"
+    },
+    "roles": {
+      "fit": {"name": "D_fit", "logs": 34, "scenes": 494, "samples": 19877, "log_tokens_sha256": "7ac31d5a3f44bfc741f148fc1d7ced9a3db9be7080233f43ca992aa2ab016aa9", "scene_tokens_sha256": "3b0a225aa3a5c550101cf90637df9bfd771415c795c1d3b02991fd49bc7dd747", "sample_tokens_sha256": "640985b4022cfe5db0efdd11d02591f113f1eab3cfe6f042fd05fc773cdc46c8"},
+      "select": {"name": "D_select", "logs": 8, "scenes": 115, "samples": 4626, "log_tokens_sha256": "203e16c6761ea6a11ced6c4c2b00850bb935af8e57cfeeddec3c1e0d183cc574", "scene_tokens_sha256": "bb1a801949ab4f665edbebb6455ba0efdff944ab4f3e8ae0a4e8d756218a5b12", "sample_tokens_sha256": "72d7ca8465e3ff9dd5f0a2167b1c3837a490cf30559c2ca32afd42b98d5e45b2"},
+      "audit": {"name": "D_audit", "logs": 8, "scenes": 91, "samples": 3627, "log_tokens_sha256": "509148071d74cb8c12a158e8904c93d5cea82545e0a60c58abf13689fcc1a9c3", "scene_tokens_sha256": "ac56708c38251e42c1f6acef3b6ff6b042e1976f36babedf0be51fd599e30457", "sample_tokens_sha256": "152e5cf51f3693badb96f41bd67fc36b75b3b587b7eb2fca2ce4dd675ddf167c", "sealed": true}
+    },
+    "cache_capacity_sweeps": 10,
+    "train_point_sweeps": 1,
+    "eval_point_sweeps": 10,
+    "raw_extraction": false,
+    "camera_point_payload": "enabled"
+  },
+  "augmentation": {"frozen_spec": "phase1_camera_augmentation_v1"},
+  "sampling": {
+    "type": "official_cbgs",
+    "class_order": ["car", "truck", "construction_vehicle", "bus", "trailer", "barrier", "motorcycle", "bicycle", "pedestrian", "traffic_cone"],
+    "rng": {"api": "numpy.random.RandomState", "algorithm": "MT19937", "seed": 0, "choice_replace": true},
+    "source_sample_order_sha256": "640985b4022cfe5db0efdd11d02591f113f1eab3cfe6f042fd05fc773cdc46c8",
+    "class_pool_sizes": [19114, 12136, 4107, 4107, 4320, 5083, 3721, 3722, 14900, 7269],
+    "duplicated_class_memberships": 78479,
+    "target_class_fraction": 0.1,
+    "segment_sizes": [7847, 7847, 7847, 7847, 7847, 7847, 7847, 7847, 7847, 7847],
+    "expanded_length": 78470,
+    "expanded_indices_sha256": "cf31d1245724b87475843051982d9a2e28db928b3f576fbf777cf358d9ce1c47",
+    "expanded_tokens_sha256": "e7f5e6977d7565f12801ac38c391fc20e1fc3978fe18f8b0812aceada7fccb3e",
+    "class_segments_sha256": "6bf15ccef540a22c0a0119e63a5be2454bf7d62c0ce3451d6271f9b49c01d3c4",
+    "epoch_shuffle": {"api": "numpy.random.RandomState", "seed_formula": "seed_plus_zero_based_epoch", "permutation_domain": "expanded_position", "remainder_policy": "drop_last_6_to_effective_b32"},
+    "twenty_epoch_order_sha256": "9a9bc8fd07855917ec23dd8d26b408c7a25d0d0f2a2bb6c2f30a2d79588d05a6",
+    "twenty_epoch_remainder_sha256": "c163eaeb16386f455a625e4171f1e722ce75f36415755ab373325b91cf4431a7"
+  },
+  "gt_paste": {
+    "enabled": false,
+    "active_human_epochs": [],
+    "active_zero_based_epochs": [],
+    "database_status": "not_applicable",
+    "database_root": null,
+    "manifest_path": null,
+    "manifest_sha256": null,
+    "all_classes": ["car", "truck", "construction_vehicle", "bus", "trailer", "barrier", "motorcycle", "bicycle", "pedestrian", "traffic_cone"],
+    "min_points": {"car": 5, "truck": 5, "construction_vehicle": 5, "bus": 5, "trailer": 5, "barrier": 5, "motorcycle": 5, "bicycle": 5, "pedestrian": 5, "traffic_cone": 5},
+    "filter_by_difficulty": [-1],
+    "sample_groups": {"car": 2, "truck": 3, "construction_vehicle": 7, "bus": 4, "trailer": 6, "barrier": 2, "motorcycle": 6, "bicycle": 6, "pedestrian": 2, "traffic_cone": 2},
+    "rate": 0.0,
+    "collision_policy": "reject_any_bev_overlap",
+    "yaw_jitter_radians": 0.0,
+    "source_point_dims": ["x", "y", "z", "intensity", "ring"],
+    "source_role": "D_fit",
+    "build_truncation": null
+  },
+  "evaluation": {
+    "evaluator": "fl_v3_subset_official_nuscenes_detection_eval",
+    "class_order": ["car", "truck", "construction_vehicle", "bus", "trailer", "barrier", "motorcycle", "bicycle", "pedestrian", "traffic_cone"],
+    "checkpoint_weights": "raw",
+    "checkpoint_selection": "epoch_20_terminal_only",
+    "D_select": {"executions": 1, "status": "sealed_until_envelope_b"},
+    "D_audit": {"executions": 1, "status": "owner_sealed_until_P1_G2"},
+    "official_validation": "forbidden_in_phase1_internal_selection",
+    "metrics": ["mAP", "NDS", "per_class_AP", "TP_errors"],
+    "timing": false
+  },
+  "checkpointing": {
+    "schema": "s10.phase1.checkpoint.v1",
+    "recovery_cadence_epochs": 1,
+    "recovery_selectable": false,
+    "terminal_epoch": 20,
+    "terminal_selectable": true,
+    "retained_recovery_count": 1,
+    "resume_rng": true,
+    "resume_sampler": true,
+    "resume_accumulation_boundary": "optimizer_window_only"
+  },
+  "dependencies": {
+    "torch": "2.11.0+cu128",
+    "torch_build_sha256": "a58ba749ac7947ce123a6af8d4cdc595d2aff5dccccec5d6e10bcfe522040f10",
+    "torch_source_sha": "70d99e998b4955e0049d13a98d77ae1b14db1f45",
+    "torchvision": "0.26.0+cu128",
+    "numpy": "1.26.4",
+    "scipy": "1.13.1",
+    "spconv": null,
+    "spconv_build_sha256": null,
+    "spconv_source_sha": null,
+    "spconv_source_state": null,
+    "cumm": null,
+    "cumm_build_sha256": null,
+    "cumm_source_sha": null,
+    "cumm_source_state": null,
+    "mmdet3d": null,
+    "mmcv": null
+  },
+  "execution": {
+    "mode": "envelope_a_calibration",
+    "preflight_one_batch": true,
+    "capability_metrics": false,
+    "warmup_microbatches": 16,
+    "timed_microbatches": 64,
+    "calibration_updates": 0,
+    "output_root": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd",
+    "data_artifact_root": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_data_e321aed749fd",
+    "pool_timing": {"fixed_batches": 4, "operator_warmup": 32, "operator_samples": 128, "end_to_end_warmup": 16, "end_to_end_samples": 64, "event_clock": "cuda_event", "promotion_operator_median_ratio_max": 0.8, "promotion_step_median_ratio_max": 1.02, "promotion_peak_allocated_ratio_max": 1.05},
+    "allowed_data_role": "D_fit",
+    "allowed_evaluation_roles": []
+  }
+}

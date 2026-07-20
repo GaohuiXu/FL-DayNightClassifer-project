@@ -4,27 +4,28 @@
 
 ```text
 SESSION: persistent S00 / S10
-ACTIVE_DECISION: O-145 amendment under O-143/O-144
-REQUEST_STATE: READY_FOR_OWNER_APPROVAL / NOT APPROVED
-EXECUTION_AUTHORITY: none
-ACTIVE_PHASE: Phase I C/L independent recipe and capability — O-145 plan amended,
-              Envelope A approval object ready and not activated
+ACTIVE_DECISION: O-146 Envelope-A activation under O-143/O-144/O-145
+REQUEST_STATE: APPROVED / ACTIVE
+EXECUTION_AUTHORITY: exact Envelope A at request commit e321aed749fd859c809199d52c30b2771dbef8b3
+ACTIVE_PHASE: Phase I C/L independent recipe and capability — Envelope A WP0-WP4
+              implementation and bounded engineering calibration active
 PLAN: PHASE_I_PLAN.md / P1-G0 closed
 BRANCH: codex/s10-phase1-branch-qualification
 ```
 
-O-143 authorizes the scientific/collaboration rebaseline only. It does not
-authorize implementation, checkpoint acquisition or Slurm execution.
-O-144 freezes the scientific/workflow plan in `PHASE_I_PLAN.md` but likewise
-authorizes no implementation, checkpoint acquisition, GTDB materialization,
-commit, or execution. Envelope A must be explicitly activated next; Envelope B
-requires the later measured `P1-G1` approval.
+O-146 records the owner's exact activation of Envelope A at request commit
+`e321aed749fd859c809199d52c30b2771dbef8b3`. S00 may execute WP0 through WP4
+continuously within Section 6, including the bounded checkpoint acquisition,
+data materialization, material commits and at most three serial engineering
+submissions / one aggregate GH200-hour. Envelope B still requires the later
+measured `P1-G1` approval.
 
-O-145 adds the independent optimized CUDA BEV-pooling/equivalent-kernel requirement
+O-145 added the independent optimized CUDA BEV-pooling/equivalent-kernel requirement
 to WP2 and its forward/backward, FP16/FP32-policy, operator-timing, and end-to-end
 qualification to WP4. It also authorizes drafting this exact Envelope-A request and
-the O-145 documentation commit. It does not activate Envelope A or authorize the
-checkpoint download, implementation, data materialization, or GPU execution.
+the O-145 documentation commit. O-146 supplies the previously missing activation;
+it does not authorize capability training/evaluation, Envelope B, or any action
+outside Section 6.
 
 The full pre-O-143 per-job request ledger is preserved at Git object
 `26b38612c6dd7e37bd97f8eb9e443735d36154c6:fl_v3/usenix27_orchestra/handoffs/S10/RUN_REQUEST.md`.
@@ -120,14 +121,14 @@ CHECKPOINT_SELECTION: epoch-20 terminal only
 WORKFLOW: 5 WPs + 3 owner gates + 2 approval envelopes
 CAMERA_POOLING: optimized in-tree CUDA/equivalent production backend plus labelled
                 fallback and WP2/WP4 parity/policy/performance gates
-EXECUTION_AUTHORITY: none
+EXECUTION_AUTHORITY: Envelope A active under O-146; Envelope B remains unauthorized
 ```
 
 The complete graph, optimizer/scheduler, augmentation, role-bound GT-paste,
 evaluation, remediation and amendment rules are normative in
 `PHASE_I_PLAN.md`. This record does not duplicate them.
 
-## 6. Envelope A — ready for one owner approval / not yet activated
+## 6. Envelope A — approved and active under O-146
 
 This section is the complete approval object. The owner's approval binds the Git commit
 containing this section; deterministic `<REQUEST_SHA12>` and `<IMPLEMENTATION_SHA12>`
@@ -136,9 +137,9 @@ same approval and executes WP0 through WP4 continuously without per-WP owner sto
 
 ```text
 PHASE: S10 Phase I / Envelope A implementation and engineering calibration
-REQUEST_STATE: READY_FOR_OWNER_APPROVAL / NOT YET APPROVED
+REQUEST_STATE: APPROVED / ACTIVE
 PLAN_SHA: 260750a76548208f62c384b0e0547744b619244c
-REQUEST_COMMIT: the commit containing this section; quoted in the owner's approval
+REQUEST_COMMIT: e321aed749fd859c809199d52c30b2771dbef8b3
 BRANCH: codex/s10-phase1-branch-qualification
 OBJECTIVE: implement and review WP0-WP4; acquire the exact Camera initializer;
            materialize exact CBGS/GTDB identities; qualify optimized BEV pooling;
@@ -159,8 +160,9 @@ PERFORMANCE_GATE: >=1.25x pooling median speedup; <=2% end-to-end time regressio
                   <=5% peak-allocation regression
 ALLOWED_INTERPRETATION: implementation conformance, numerical parity, resource estimate
 FORBIDDEN_INTERPRETATION: branch capability, convergence, mAP/NDS, candidate selection
-OWNER_APPROVAL: pending the exact one-line approval at the end of Section 6
-EXECUTABLE_BEFORE_OWNER_APPROVAL: no
+OWNER_APPROVAL: 2026-07-20 — "批准激活 commit e321aed749fd859c809199d52c30b2771dbef8b3
+                中的 S10 Phase I Envelope A，并按其中边界连续执行 WP0-WP4。"
+EXECUTABLE_BEFORE_OWNER_APPROVAL: no; now executable only inside this approved envelope
 ```
 
 ### 6.1 Implementation, commit, and remediation authority
@@ -230,8 +232,8 @@ ZIP_MANIFEST: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_
 ZIP_LOGICAL_SHA256: 023f72b4220bb0db587be00920308bf9074384740fe186d243be92f9a53119f6
 ZIP_FILE_SHA256: 228e2f5bab30007acb06eb61393d1fbacc88979490668ff800f8f7f9752a47fb
 DATA_ROOT: module nuScenes-data/1.0-map-1.3-zip via NUSCENES_DATA_DIR; read-only
-DATA_ARTIFACT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_data_<REQUEST_SHA12>
-ENGINEERING_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_<REQUEST_SHA12>
+DATA_ARTIFACT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_data_e321aed749fd
+ENGINEERING_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd
 CUDA_BUILD_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/torch_extensions/s10_bev_pool_<IMPLEMENTATION_SHA12>
 OUTPUT_POLICY: roots must be absent before first write; raw outputs are immutable;
                each run subdirectory binds its executable SHA and submission index

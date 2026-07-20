@@ -28,11 +28,12 @@
 > limits remain in `handoffs/S10/RESULTS.md` and the historical portion of
 > `RUN_REQUEST.md`.
 >
-> O-144/O-145 authorize plan documentation and exact Envelope-A drafting only.
-> Envelope A is not
-> activated. No C/L implementation, checkpoint acquisition, GTDB
-> materialization, commit, training, Slurm submission, staged fusion, profiler,
-> merge, push, upload, publication or S11+ execution is currently authorized.
+> O-146 activates the exact Envelope A at
+> `e321aed749fd859c809199d52c30b2771dbef8b3`. S00 may execute WP0-WP4
+> continuously, including the bounded checkpoint/data actions, material commits,
+> and at most three serial engineering submissions / one aggregate GH200-hour.
+> Capability training/evaluation, Envelope B, staged fusion, merge, push, upload,
+> publication and S11+ remain unauthorized.
 
 ## 1. Current objective and sequencing
 
@@ -72,9 +73,10 @@ class, metric and evaluation semantics.
 No deadline or milestone name creates execution authority. O-143 remains the
 active S10 sequencing and collaboration rebaseline; O-144 freezes the Phase I
 plan; O-122 through O-142 remain historical evidence and consumed authorities.
-The next owner discussion is exact Envelope-A activation for the five WPs,
-official ImageNet checkpoint, D_fit CBGS/GTDB materialization, material commits,
-and bounded engineering calibration. S11+ remains undefined and pending.
+Envelope A is active for the five WPs, official ImageNet checkpoint, D_fit
+CBGS/GTDB materialization, material commits and bounded engineering calibration.
+The next owner gate is the measured `P1-G1` Envelope-B request after WP4. S11+
+remains undefined and pending.
 
 ## 2. Accepted clean-foundation evidence
 
@@ -439,6 +441,7 @@ Closed ranges below are provenance.
 | O-143 | Replace the active S10 six-stop execution order with: camera and LiDAR independent recipe/capability qualification; staged fusion from qualified checkpoints; aligned absolute-capability and fusion-contribution gate; GH200 profiling/optimization only after capability passes. Pause current-A2 and the old C→D→E→F path. For S10, replace per-job immutable/no-retry/multi-document/reviewer mechanics with one owner-approved phase envelope, autonomous output-neutral engineering remediation within its aggregate compute/submission cap, one compact active handoff and one job ledger. Preserve raw outputs and minimum run provenance. Return to the owner for any model/data/recipe-space/metric/seed/candidate/resource change or repeated engineering failure. Review data/metric changes, branch recipe freezes and final fusion/full results only. | active S10 science/collaboration rebaseline; documentation only; no compute authority |
 | O-144 | Freeze `handoffs/S10/PHASE_I_PLAN.md` as the binding Phase I C/L plan. Select physical B4 plus accumulation 8/effective B32; exact standalone Camera with ImageNet-1K Swin-T, reference six-task CenterHead and Camera recipe; scratch keyframe-train LiDAR with reference BN, SECOND `[5,5]`/SECONDFPN/TransFusionHead and LiDAR recipe; exact role-bound D_fit CBGS/GT-paste; seed 0; 20 epochs; epoch-20 terminal-only selection; one terminal D_select evaluation and owner-unsealed one-time D_audit; exactly two initial candidates; and the five-WP/three-gate/two-envelope execution model. Require all later work to follow that plan unless explicitly amended. This decision closes P1-G0 plan freeze only and does not activate Envelope A or B; it authorizes no implementation, checkpoint acquisition, GTDB materialization, commit, GPU/Slurm execution, merge, push or upload. | active Phase I plan freeze / next: Envelope-A activation request / no execution authority |
 | O-145 | Amend O-144 WP2/WP4 to require an independent in-tree port of the pinned MIT optimized CUDA BEV-pooling operation, or a functionally equivalent kernel, with no mmdet3d/mmcv runtime dependency; retain a labelled reference fallback; require geometry/shape, FP32/FP16 forward/backward and accepted-precision-policy parity before production use; and measure GH200 operator plus aligned physical-B4 end-to-end timing in WP4. Clarify that the initial Camera checkpoint URL is the reference YAML's ImageNet `swin_tiny_patch4_window7_224.pth`, not `swint-nuimages-pretrained.pth`. Authorize the plan-amendment commit and exact Envelope-A drafting only. Do not activate implementation, checkpoint acquisition, GTDB materialization, GPU execution, merge, push or upload. | active Phase-I amendment / Envelope A exact draft pending owner approval / no execution authority |
+| O-146 | Activate the exact S10 Phase-I Envelope A recorded at commit `e321aed749fd859c809199d52c30b2771dbef8b3` and authorize S00 to execute WP0-WP4 continuously inside its candidate, data, checkpoint, correctness, remediation, output, three-submission and one-GH200-hour boundaries. This does not activate Envelope B, capability metrics/evaluation, merge, push, upload or publication. | active Envelope-A implementation/engineering authority |
 
 ## 10. Closed and consumed history
 

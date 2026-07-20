@@ -1,4 +1,4 @@
-# S10 HANDOFF — O-145 pooling amendment and Envelope-A draft under O-143/O-144
+# S10 HANDOFF — O-146 active Phase-I Envelope A
 
 ## 1. Current state and authority
 
@@ -6,11 +6,11 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-phase1-branch-qualification
-ACTIVE_DECISION: O-145 under O-143/O-144
+ACTIVE_DECISION: O-146 under O-143/O-144/O-145
 SCIENCE_ORDER: C/L independent recipe+capability -> staged fusion -> capability gate -> profiler
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: O-145 documentation amendment and Envelope-A drafting only;
-                   Envelope A not activated; no implementation/acquisition/compute
+CURRENT_AUTHORITY: exact Envelope A at e321aed749fd859c809199d52c30b2771dbef8b3;
+                   continuous WP0-WP4 plus bounded acquisition/materialization/calibration
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -27,8 +27,10 @@ total candidates; and five WPs, three owner gates and two approval envelopes.
 O-145 amends WP2/WP4 to require an independent in-tree optimized CUDA BEV-pooling
 port or functionally equivalent kernel, a labelled reference fallback, FP32/FP16
 forward/backward and policy parity, and GH200 operator plus aligned end-to-end
-timing. It authorizes the amendment commit and exact Envelope-A drafting only.
-O-144/O-145 do not activate Envelope A or B.
+timing. O-146 activates the exact Section-6 Envelope A recorded in
+`RUN_REQUEST.md`: WP0-WP4 may proceed continuously, with at most three serial
+one-GH200 submissions and at most one aggregate GH200-hour. It does not activate
+Envelope B or capability evaluation.
 
 Current-A2 and the old C→D→E→F route are paused. The primary S10 claim remains
 **absolute clean capability + fusion contribution**, but it must now be earned
@@ -177,26 +179,32 @@ The old C0/C1 diagnostic harness is frozen historical tooling. New capability
 work should use the production `centralized_train.py`, standard checkpointing
 and evaluator paths, extended only by the smallest required branch-mode seams.
 
-## 7. Next owner discussion and current stop
+## 7. Active Envelope-A execution
 
-`P1-G0 PLAN_FREEZE` is closed and O-145 is incorporated. The next request is exact
-activation of Envelope A, covering the five WPs, allowed source/docs/tests,
-focused local validation, material linear commits, reference-YAML ImageNet Swin-T
-checkpoint acquisition, D_fit CBGS/GTDB materialization, optimized/fallback
-BEV-pooling parity and timing, and at most one aggregate GH200-hour of
-production-path engineering calibration with maximum concurrency one and at most
-three submissions.
+`P1-G0 PLAN_FREEZE` is closed, O-145 is incorporated, and O-146 activated Envelope A
+at request commit `e321aed749fd859c809199d52c30b2771dbef8b3`. S00 is executing
+WP0-WP4 continuously. The request-scoped roots are
+`s10_phase1_envelope_a_data_e321aed749fd` and
+`s10_phase1_envelope_a_eng_e321aed749fd` under the accepted Arrhenius output root.
+
+WP0 has resolved both complete recipes through schema `s10.phase1.v1`, including
+all scientific leaves and exact D_fit data identities. The pre-materialization
+Camera/LiDAR resolved hashes are respectively
+`972e051e315ee0a6b6d523d9540f3430498bb25a1734edb86f27544b57d3ba0c` and
+`7262266e0b8d9f69be474f293730ac521c8a16f3add724acce1eec6461fa309b`.
+Static official-CBGS
+construction yields `N_cbgs=78,470`; the frozen full-effective-B32 remainder rule
+consumes 78,464 samples and drops six per epoch, for 2,452 optimizer updates per
+epoch and 49,040 updates over 20 epochs. Before its material commit, focused local
+schema/config tests pass 13/13. Exact resolved-config hashes and final WP0 state
+will be pinned at that commit boundary.
 
 The checkpoint is the MIT Camera YAML's ImageNet
-`swin_tiny_patch4_window7_224.pth`, not `swint-nuimages-pretrained.pth`; no file has
-been downloaded under O-145. Activation must bind checkpoint/data/engineering
-output roots, allowed commit/remediation authority, pooling parity tolerances, and
-stop/escalation conditions. After Envelope A yields exact `N_cbgs`, GTDB
+`swin_tiny_patch4_window7_224.pth`, not `swint-nuimages-pretrained.pth`; acquisition
+and quarantine acceptance now belong to WP2. After Envelope A yields final GTDB
 identities, resolved config hashes, graph timing and one joint recipe review,
 `P1-G1` will present the measured Envelope-B scientific GPU-hour/submission
 request.
 
-No Phase-I implementation, checkpoint acquisition, GTDB materialization, further
-material commit,
-Slurm submission, staged fusion, profiler, merge, push, upload, publication or
-S11+ work is currently authorized.
+No 20-epoch capability run, D_select/D_audit/official-val evaluation, staged fusion,
+broad profiler, merge, push, upload, publication or S11+ work is authorized.

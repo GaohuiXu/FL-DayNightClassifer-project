@@ -14,6 +14,12 @@ from types import MappingProxyType
 from typing import Any, Mapping
 
 from fl_v3.source_identity import validate_source_state
+from fl_v3.config.phase1 import (
+    PHASE1_SCHEMA,
+    Phase1ConfigError,
+    phase1_scientific_leaf_paths,
+    validate_phase1_config,
+)
 
 
 class ConfigError(ValueError):
@@ -168,24 +174,60 @@ class ResolvedConfig:
     sha256: str
 
     @property
+    def schema_version(self) -> str:
+        return str(self.data["schema_version"])
+
+    @property
+    def is_phase1(self) -> bool:
+        return self.schema_version == PHASE1_SCHEMA
+
+    @property
     def model_mode(self) -> str:
+        if self.is_phase1:
+            return "camera_only" if self.data["contract"]["branch"] == "camera" else "lidar_only"
         return str(self.data["model"]["mode"])
 
     @property
     def precision(self) -> str:
+        if self.is_phase1:
+            return str(self.data["precision"]["global_autocast"])
         return str(self.data["precision"])
 
     @property
     def sparse_conv_precision(self) -> str:
+        if self.is_phase1:
+            return "not_applicable" if self.data["contract"]["branch"] == "camera" else "fp32"
         return str(self.data["sparse_conv_precision"])
 
     @property
     def execution_mode(self) -> str:
+        if self.is_phase1:
+            return str(self.data["execution"]["mode"])
         return str(self.data["execution"]["mode"])
 
     @property
     def data_identities(self) -> dict[str, Any]:
         d = self.data["data"]
+        if self.is_phase1:
+            return {
+                "cache_capacity_sweeps": d["cache_capacity_sweeps"],
+                "train_point_sweeps": d["train_point_sweeps"],
+                "eval_point_sweeps": d["eval_point_sweeps"],
+                "train_cache_format": d["cache"]["format"],
+                "train_cache_logical_sha256": d["cache"]["logical_sha256"],
+                "train_cache_pickle_sha256": d["cache"]["pickle_sha256"],
+                "train_cache_sidecar_sha256": d["cache"]["sidecar_sha256"],
+                "zip_manifest_logical_sha256": d["zip_manifest"]["logical_sha256"],
+                "zip_manifest_file_sha256": d["zip_manifest"]["file_sha256"],
+                "split_manifest_sha256": d["split_manifest"]["sha256"],
+                "D_fit_sample_tokens_sha256": d["roles"]["fit"]["sample_tokens_sha256"],
+                "cbgs_expanded_indices_sha256": self.data["sampling"][
+                    "expanded_indices_sha256"
+                ],
+                "cbgs_twenty_epoch_order_sha256": self.data["sampling"][
+                    "twenty_epoch_order_sha256"
+                ],
+            }
         out = {
             "n_sweeps": d["n_sweeps"],
             "zip_manifest_logical_sha256": d["zip_manifest"]["logical_sha256"],
@@ -204,6 +246,33 @@ class ResolvedConfig:
 
     def to_run_config(self) -> dict[str, Any]:
         """Bridge the validated S09 configuration to current task interfaces."""
+        if self.is_phase1:
+            data = self.as_dict()
+            deps = data["dependencies"]
+            return {
+                "s06-production-runtime": True,
+                "s10-phase1-runtime": True,
+                "resolved-config-sha256": self.sha256,
+                "resolved-schema-version": PHASE1_SCHEMA,
+                "phase1": data,
+                "phase1-scientific-leaf-paths": list(
+                    phase1_scientific_leaf_paths(data)
+                ),
+                "model-mode": self.model_mode,
+                "precision": self.precision,
+                "det-sparse-conv-precision": self.sparse_conv_precision,
+                "dependency-torch": deps["torch"],
+                "dependency-torch-build-sha256": deps["torch_build_sha256"],
+                "dependency-torch-source-sha": deps["torch_source_sha"],
+                "dependency-spconv": deps["spconv"],
+                "dependency-spconv-build-sha256": deps["spconv_build_sha256"],
+                "dependency-spconv-source-sha": deps["spconv_source_sha"],
+                "dependency-spconv-source-state": _thaw(deps["spconv_source_state"]),
+                "dependency-cumm": deps["cumm"],
+                "dependency-cumm-build-sha256": deps["cumm_build_sha256"],
+                "dependency-cumm-source-sha": deps["cumm_source_sha"],
+                "dependency-cumm-source-state": _thaw(deps["cumm_source_state"]),
+            }
         d, m, t, o = self.data["data"], self.data["model"], self.data["training"], self.data["optimizer"]
         schema_version = str(self.data["schema_version"])
         camera_activation_checkpoint = (
@@ -342,6 +411,15 @@ def validate_precision_partition(
 def resolve_config(raw: Mapping[str, Any]) -> ResolvedConfig:
     """Validate and canonicalize one complete production config; never consult env vars."""
     root = _mapping(dict(raw), "config")
+    if root.get("schema_version") == PHASE1_SCHEMA:
+        try:
+            normalized = validate_phase1_config(root)
+        except Phase1ConfigError as exc:
+            raise ConfigError(str(exc)) from exc
+        encoded = canonical_json(normalized)
+        return ResolvedConfig(
+            _freeze(normalized), encoded, hashlib.sha256(encoded).hexdigest()
+        )
     _keys(root, _ROOT, "config")
     schema_version = root["schema_version"]
     if schema_version not in {"s09.v1", "s09.v2", "s10.v1"}:
@@ -613,12 +691,29 @@ def load_resolved_config(path: str | Path) -> ResolvedConfig:
 def verify_physical_data_identities(config: ResolvedConfig) -> None:
     """Hash the exact cache pickle/sidecar/manifest files before construction."""
     data = config.data["data"]
-    checks = []
-    for role in ("train", "val"):
-        cache = data["caches"][role]
-        checks.extend(((cache["path"], cache["pickle_sha256"], f"{role} cache pickle"),
-                       (cache["sidecar_path"], cache["sidecar_sha256"], f"{role} cache sidecar")))
-    checks.append((data["zip_manifest"]["path"], data["zip_manifest"]["file_sha256"], "ZIP manifest"))
+    if config.is_phase1:
+        cache = data["cache"]
+        checks = [
+            (cache["path"], cache["pickle_sha256"], "train cache pickle"),
+            (cache["sidecar_path"], cache["sidecar_sha256"], "train cache sidecar"),
+            (
+                data["zip_manifest"]["path"],
+                data["zip_manifest"]["file_sha256"],
+                "ZIP manifest",
+            ),
+            (
+                data["split_manifest"]["path"],
+                data["split_manifest"]["sha256"],
+                "S10 split manifest",
+            ),
+        ]
+    else:
+        checks = []
+        for role in ("train", "val"):
+            cache = data["caches"][role]
+            checks.extend(((cache["path"], cache["pickle_sha256"], f"{role} cache pickle"),
+                           (cache["sidecar_path"], cache["sidecar_sha256"], f"{role} cache sidecar")))
+        checks.append((data["zip_manifest"]["path"], data["zip_manifest"]["file_sha256"], "ZIP manifest"))
     for path, expected, label in checks:
         digest = hashlib.sha256()
         try:

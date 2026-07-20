@@ -16,11 +16,12 @@
 > O-144 closes `P1-G0 PLAN_FREEZE`; the binding choices and five-WP/
 > three-gate/two-envelope workflow are in
 > `handoffs/S10/PHASE_I_PLAN.md`. O-145 adds the optimized CUDA BEV-pooling
-> implementation/parity/timing contract to WP2/WP4 and authorizes exact
-> Envelope-A drafting only. Envelope A is not activated.
+> implementation/parity/timing contract to WP2/WP4. O-146 activates the exact
+> Envelope A at `e321aed749fd859c809199d52c30b2771dbef8b3`; WP0-WP4 are in
+> continuous execution inside its bounded engineering authority.
 >
 > S10 now uses phase-level owner approval, one compact status file and one job
-> ledger. There is no current compute authority; S11+ remains pending.
+> ledger. Capability execution remains unauthorized; S11+ remains pending.
 
 ## 1. Active graph and status
 
@@ -33,7 +34,7 @@
   ├─ S09 full-pipeline performance/readiness      [closed PASS under O-120]
   │      └─ independent review of exact profiling/evidence SHA
   │
-  ├─ S10 C/L qualification → staged fusion        [Phase-I plan frozen; Envelope A pending]
+  ├─ S10 C/L qualification → staged fusion        [Envelope A WP0-WP4 active]
   │      └─ capability gate → GH200 optimization  [pending]
   └─ S11 and later                                 [roles pending owner decision]
 ```
@@ -47,7 +48,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | O-145 pooling amendment under O-143/O-144; STOP-A reusable; Envelope A exact draft pending approval; no implementation/compute authority |
+| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | O-146 activates exact Envelope A at `e321aed`; WP0-WP4 bounded implementation/engineering active; capability execution unauthorized |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract
@@ -75,11 +76,11 @@ lifecycle.
    staged-fusion/full capability result. A reviewer reads a durable SHA/evidence
    and does not fix code.
 
-**Authority boundary.** O-144 freezes the plan and O-145 amends WP2/WP4 and permits
-the amendment commit plus exact Envelope-A drafting, but neither activates Envelope A
-or B. No implementation, checkpoint acquisition, GTDB materialization, further commit,
-compute, merge, push, upload or publication is authorized. Future envelope
-authority must state its exact scope, aggregate resource and submission limits.
+**Authority boundary.** O-144 freezes the plan, O-145 amends WP2/WP4, and O-146
+activates only the exact Envelope A at `e321aed749fd859c809199d52c30b2771dbef8b3`.
+It covers WP0-WP4, bounded checkpoint/data actions, material commits and no more
+than three serial engineering submissions / one aggregate GH200-hour. Envelope B,
+capability evaluation, merge, push, upload and publication remain unauthorized.
 S11+ remains pending.
 
 ## 3. Closed foundation summary
@@ -351,11 +352,10 @@ coverage, synchronization, throughput, utilization, memory and operator-level
 cost before optimization. Preserve numerical/metric behavior and do not optimize
 a scientifically failed model.
 
-No phase implementation or compute is authorized by O-144/O-145. The next owner action
-is exact activation of Envelope A for WP0-WP4, official ImageNet acquisition,
-D_fit CBGS/GTDB materialization, optimized-BEV-pooling build/parity/timing,
-material commits and bounded engineering calibration. Envelope B remains pending
-measured `P1-G1` approval.
+O-146 activates Envelope A for WP0-WP4, official ImageNet acquisition, D_fit
+CBGS/GTDB materialization, optimized-BEV-pooling build/parity/timing, material
+commits and bounded engineering calibration. Envelope B remains pending measured
+`P1-G1` approval.
 
 ## 7. S11 and later
 

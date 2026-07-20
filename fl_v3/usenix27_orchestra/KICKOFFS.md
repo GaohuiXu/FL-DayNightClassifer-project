@@ -16,10 +16,10 @@
 >
 > O-144 closes `P1-G0 PLAN_FREEZE`; all Phase-I work must follow
 > `handoffs/S10/PHASE_I_PLAN.md`. O-145 adds the optimized CUDA BEV-pooling
-> implementation/parity/timing contract to WP2/WP4 and permits exact Envelope-A
-> drafting only. Envelope A is not activated, so this kickoff
-> still records no implementation, checkpoint, GTDB, implementation commit or
-> compute authority beyond the O-145 documentation amendment itself.
+> implementation/parity/timing contract to WP2/WP4. O-146 activates the exact
+> Envelope A at `e321aed749fd859c809199d52c30b2771dbef8b3`; this kickoff now
+> authorizes continuous WP0-WP4 execution only within that request's bounded
+> checkpoint, data, commit, submission and aggregate-resource limits.
 
 ## 1. Rules for starting or extending work
 
@@ -390,7 +390,7 @@ recipe claim, multi-seed, Protocol A/B, attack, defense, DDP, full-data payload
 scan, branch selection, normalization experiment, or publication/upload is
 authorized.
 
-## 6. S10 O-143/O-144/O-145 launch state
+## 6. S10 O-143/O-144/O-145/O-146 launch state
 
 - **Science order:** qualify camera and LiDAR independently; freeze reviewed
   branch recipes/checkpoints; staged fusion; aligned absolute-capability and
@@ -413,9 +413,11 @@ authorized.
   BEV-pooling operation or an equivalent kernel without mmdet3d/mmcv runtime;
   WP4 gates fallback parity, FP32/FP16 policy, operator timing and aligned B4
   end-to-end timing. The primary checkpoint is ImageNet Swin-T, not NuImages.
-- **Current authority:** documentation only. Envelope A is not activated; no
-  implementation, checkpoint acquisition, GTDB materialization, commit or compute
-  is executable.
+- **O-146 authority:** the exact Envelope A at
+  `e321aed749fd859c809199d52c30b2771dbef8b3` is active for continuous WP0-WP4,
+  including its bounded checkpoint/data actions, material commits and at most
+  three serial submissions / one aggregate GH200-hour. Envelope B and capability
+  evaluation remain unauthorized.
 
 ## 7. S10 envelope activation skeleton
 
