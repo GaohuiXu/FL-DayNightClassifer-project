@@ -123,6 +123,11 @@ def test_phase1_vectorized_iou3d_matches_known_and_cpu_polygon_geometry():
     random_boxes[:, :2] = torch.randn(6, 2, generator=generator)
     random_boxes[:, 2] = 0.25
     random_boxes[:, 3:6] = torch.rand(6, 3, generator=generator) + 0.5
+    # This block compares 3-D IoU with the independent BEV-only polygon oracle.
+    # Equal centers alone are insufficient when heights differ: the 3-D union
+    # then includes the taller box outside the shared vertical interval.  Hold
+    # height equal so the 3-D ratio reduces exactly to the BEV ratio being tested.
+    random_boxes[:, 5] = 1.0
     random_boxes[:, 6] = torch.rand(6, generator=generator) * 2 * math.pi - math.pi
     actual = pairwise_iou3d(random_boxes[:3], random_boxes[3:])
     for row in range(3):

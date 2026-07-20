@@ -394,12 +394,15 @@ the exact durable source SHA and command are known.
 | WP4 checkpoint-I/O remediation | `67c1b55b59aa81a49b1ed8f4aabd07e6592e88aa` / tree `2c8812f57c3e59fce25ad1d6f3dd63044b39c714` | locally sealed; GH200 verification remains unexecuted because Job D stopped before pytest | scalar/N-D raw-byte hashing plus 0-D BatchNorm-buffer regression; no model/data/config change |
 | O-148 preflight observability remediation | `125e915a0f16f8abfbfa14d73558ee518cf3170c` / tree `34840210a9d426c51973a29af4be91f06c5fe9f6` | locally sealed; Camera Job E pending | names every fail-closed source/hash/module/environment/resource stage; no model/data/config/gate change |
 | O-148 canonical-config remediation | `ea3cadec02cdd91f5caf5553631e916be008985f` / tree `811376a0c0eda575b7be3f87422024a6071ee02f` | locally sealed; Camera Job G pending | exact canonical bytes/physical SHA invariant plus production-path regression; no model/data/config/gate change |
+| O-148 parity/sort remediation | `8e55f5d135dbc83f2e937c4942117d9e1901f323` / tree `1faebff1f495fad5cf798f7781a8371a250d432c` | locally sealed; Camera Job H pending | same-backend repeat control, deterministic parity isolation, exact composite-key fast sort; frozen tolerances/gates unchanged |
 | Job A / `521859` | `4c13ad736319c022d7fb6466a48a77c90ae79dde`; config `f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d` | `FAILED 1:0` in focused test; engineering incident, no model/data execution | `00:01:42` = `0.028333` GH200-hour; 27 passed / 1 pooling parity failure |
 | Job C / `521901` Camera derived replacement | remediation `564fb9d97c44a463ac055dc40d25b79acdc77858` / tree `a1b9f7e809708b72a927afa4ef9c3f4bae82e137` | `FAILED 1:0` in checkpoint hash; engineering incident, no checkpoint promotion/model/data execution | `00:01:48` = `0.030000` GH200-hour; pooling focused tests 29/29 passed |
 | Job D / `521959` Camera O-147 replacement | `c45e020ed16496e2acaa5f8d34b135da21fb1230` / tree `3887d82545207ec67b861bf48ff49042f52cebdb`; config `f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d` | `FAILED 1:0` before runner control/output creation; exact pre-control predicate unlocalized | `00:00:04` = `0.001111` GH200-hour; no pytest/checkpoint/data/model/build/calibration execution; Job B blocked |
 | Job E / `522037` Camera O-148 smoke | `125e915a0f16f8abfbfa14d73558ee518cf3170c` / tree `34840210a9d426c51973a29af4be91f06c5fe9f6`; config `f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d` | `FAILED 2:0` in explicit hash preflight; command-construction incident | `00:00:05` = `0.001389` GH200-hour; expected checkpoint-entry hash was truncated to 62 characters; no output/model/data execution |
 | Job F / `522042` Camera O-148 smoke | same exact Job E source/config with mechanically derived 64-character file hashes | `FAILED 1:0` after checkpoint acceptance in resolved-config evidence write | `00:01:58` = `0.032778` GH200-hour; 30 tests passed; checkpoint accepted once; canonical bytes were incorrectly written with an extra newline before physical-hash comparison |
 | Job G / `522094` Camera O-148 smoke | `ea3cadec02cdd91f5caf5553631e916be008985f` / tree `811376a0c0eda575b7be3f87422024a6071ee02f`; exact Job-G record below | `FAILED 2:0` at frozen pool-promotion gate after complete calibration | `00:04:02` = `0.067222` GH200-hour; standalone/FP32/e2e/memory passed; FP16 integrated gradient comparison and 1.25x operator-speed gate failed |
+| Job H / `522113` Camera O-148 smoke | `8e55f5d135dbc83f2e937c4942117d9e1901f323` / tree `1faebff1f495fad5cf798f7781a8371a250d432c`; exact Job-H record below | complete negative qualification: `FAIL_POOL_PROMOTION_GATE` only | `00:04:15` = `0.070833` GH200-hour; all correctness/e2e/memory gates passed; optimized operator ratio 0.976174 > frozen 0.80; kernel not promoted |
+| Original Job B / `522135` LiDAR O-148 smoke | `8e55f5d135dbc83f2e937c4942117d9e1901f323` / tree `1faebff1f495fad5cf798f7781a8371a250d432c`; exact Job-B record below | `FAILED 1:0` in focused test fixture before GTDB | `00:01:07` = `0.018611` GH200-hour; 30 passed/1 failed/3 skipped; test compared 3-D IoU with BEV oracle while random heights differed |
 
 Before O-148 execution, Envelope-A Slurm usage is `3 / unlimited` submissions and
 `0.059444 / 1.10` charged GH200-hours. Jobs `521859`, `521901`, and `521959` are
@@ -608,6 +611,91 @@ REMEDIATION_PERFORMANCE: optimized dispatch uses a unique int64 composite
 RESULT_SHA256: e070545de3daf9d56254be8067707d5ad8c52868cabdd0a97b207e65c6ac80b5
 OUTPUT_MANIFEST_SHA256: 56cba8b7e292d5aa872a3f9fb93d03476168d9f77ed3b2ba17993e0a37378610
 USAGE_AFTER: 6 / unlimited submissions; 0.160833 / 1.10 GH200-hours
+```
+
+### Job H exact Camera pre-submission record under O-148
+
+```text
+SOURCE_SHA: 8e55f5d135dbc83f2e937c4942117d9e1901f323
+SOURCE_TREE: 1faebff1f495fad5cf798f7781a8371a250d432c
+SOURCE_BRANCH: codex/s10-phase1-branch-qualification
+CONFIG_FILE_SHA256: 7101578fdfa38ba364c41ebc9ccd986797fe3261492b1bb149d0f962ec134e55
+RESOLVED_CONFIG_SHA256: f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d
+RUNNER_SHA256: fd12524489c42530758afafc4fb69009c3591d5f81ffec65f9ebf777df378c3c
+ENTRY_SHA256: 0df14419dbec7dba68db83cd36a43bc3db86fd86a7b906ba460b360cdf97cd71
+CHECKPOINT_ENTRY_SHA256: 7bf4d9a24687c6c6c5ac72128f53e35cc99d1f7420bc3611a5c76576833cc402
+DATA/SEED/TOLERANCES/GATES: unchanged exact Camera values
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd/job_h_camera_8e55f5d135db_h1
+CUDA_BUILD: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/torch_extensions/s10_bev_pool_8e55f5d135db_h1
+RESOURCES: unchanged 1 GH200, 16 CPU, 96 GiB, <=00:30:00, no requeue
+HASH_BINDING: mechanically recomputed with 40/64-character assertions
+USAGE_BEFORE: 6 / unlimited submissions; 0.160833 / 1.10 GH200-hours
+```
+
+### Job H `522113` final Camera WP4 result
+
+```text
+TERMINAL: FAILED 2:0 / elapsed 00:04:15 / 0.070833 GH200-hour / node n440
+STATUS: complete negative Camera pooling qualification; not an engineering-smoke bug
+PASSED: 32/32 focused tests; accepted-checkpoint revalidation; canonical config;
+        standalone FP32/FP16 exact feature-gradient parity; integrated FP32 and FP16
+        output/upstream-gradient parity; same-backend repeat controls; zero nonfinite;
+        identical parameter coverage/initialization; zero optimizer/scheduler updates;
+        unchanged parameters; e2e ratio 0.999519 <=1.02; peak allocated ratio
+        0.999795 <=1.05
+OPERATOR: fallback median/p95 10.235424/10.545619 ms; optimized median/p95
+          9.991552/10.307205 ms; ratio 0.976174 > frozen 0.80
+INTERPRETATION: on GH200 with PyTorch 2.11's exact segment-reduce fallback, the pinned
+                MIT-style CUDA reduction provides only about 2.4% operator speedup and
+                no material end-to-end improvement. Degrading the fallback, relaxing
+                the gate, or altering math after observation is forbidden.
+DISPOSITION: optimized kernel not promoted; fallback remains diagnostic-only; Camera
+             qualified config/checkpoint is not emitted; this blocks Envelope B Camera
+             capability until the owner explicitly amends the frozen production-backend
+             requirement. Independent LiDAR WP4 may still be completed.
+RESULT_SHA256: 47eacd4fb2211687703178fc4eadb027657dbdce6f79d9b3223b5e43415e7e41
+OUTPUT_MANIFEST_SHA256: 87c6049f09de492a8998e4b9cdc94b2c126da81c56eca8c1956686c8e92eb19f
+USAGE_AFTER: 7 / unlimited submissions; 0.231667 / 1.10 GH200-hours
+```
+
+### Original Job B exact LiDAR pre-submission record under O-148
+
+```text
+SOURCE_SHA: 8e55f5d135dbc83f2e937c4942117d9e1901f323
+SOURCE_TREE: 1faebff1f495fad5cf798f7781a8371a250d432c
+SOURCE_BRANCH: codex/s10-phase1-branch-qualification
+CONFIG: fl_v3/configs/s10_phase1_lidar.json
+CONFIG_FILE_SHA256: 380bd6623af37241ee867b0bbe2e368abc22ec33292cb676d8189aa533dab1e1
+RESOLVED_CONFIG_SHA256: b9b29dbabba7899ecc703fdd3566e54cca5606dfcd1a783db96c7b9efb57eddf
+RUNNER_SHA256: af2a73e1de4b23aa05ff50914dc4bc4fe25cf397d05a495ec7eb56f4a93f4ddd
+ENTRY_SHA256: 0df14419dbec7dba68db83cd36a43bc3db86fd86a7b906ba460b360cdf97cd71
+GTDB_ENTRY_SHA256: bc1136eb4ff5edc59090000d6f960632de1a8fac589f409477ef60ea54055de0
+DATA/SEED: exact D_fit; keyframe-only GTDB/training consumption; seed 0
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd/job_b_lidar_8e55f5d135db_b1
+GTDB: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_data_e321aed749fd/gtdb_keyframe_d_fit
+RESOURCES: 1 GH200, 16 CPU, 96 GiB, <=00:30:00, no requeue
+HASH_BINDING: mechanically recomputed with 40/64-character assertions
+USAGE_BEFORE: 7 / unlimited submissions; 0.231667 / 1.10 GH200-hours
+```
+
+### Original Job B `522135` terminal fixture incident
+
+```text
+TERMINAL: FAILED 1:0 / elapsed 00:01:07 / 0.018611 GH200-hour / node n440
+PASSED: explicit preflight; 30 focused tests; 3 dependency/condition skips
+FAILURE: test_phase1_vectorized_iou3d_matches_known_and_cpu_polygon_geometry
+         compared pairwise 3-D IoU to an independent BEV-only polygon IoU while
+         random boxes shared center-z but had different heights. Different heights
+         change 3-D intersection/union, so equality with BEV IoU is mathematically false.
+CLASSIFICATION: test-fixture defect; production pairwise_iou3d and TransFusion math
+                remain unchanged
+REMEDIATION: hold random-box height equal in the BEV-oracle comparison so 3-D IoU
+             reduces exactly to BEV IoU; retain randomized x/y/l/w/yaw coverage
+NOT_EXECUTED: GTDB materialization, model construction/calibration, evaluator schema,
+              capability metrics, D_select/D_audit/official validation
+GTDB: absent; no partial artifact
+OUTPUT_MANIFEST_SHA256: 24b4e15b5e2c9cdb1e287d8159e5c0caf2cf408f0fc7f347b95877e7859b878e
+USAGE_AFTER: 8 / unlimited submissions; 0.250278 / 1.10 GH200-hours
 ```
 
 ### Job A exact pre-submission record
