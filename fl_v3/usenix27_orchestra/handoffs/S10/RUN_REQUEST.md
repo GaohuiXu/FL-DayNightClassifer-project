@@ -4,10 +4,10 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: IP-G0 under O-143/O-149; O-150 remains the frozen Phase-I control
-REQUEST_STATE: IP-E1 FROZEN BELOW / OWNER APPROVAL PENDING / NOT EXECUTABLE
-EXECUTION_AUTHORITY: none; IP-G0 authorizes local implementation and commits only
-ACTIVE_PHASE: Phase I-P engineering preflight before C/L qualification
+ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the frozen Phase-I control
+REQUEST_STATE: IP-E1 ACTIVE / IP-WP0 runtime close -> continuous IP-WP1 -> IP-WP2
+EXECUTION_AUTHORITY: Section 8 only; serial GH200 execution within its layered ceiling
+ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -15,10 +15,11 @@ FROZEN_CONTROL: codex/s10-phase1-branch-qualification at the same SHA
 ENVELOPE_B: Section 7 preserved / NOT EXECUTABLE / disposition deferred to IP-G2
 ```
 
-IP-G0 authorizes scoped Phase I-P source/docs/tests, local validation and linear
-commits. It does not authorize GPU/Slurm, any evaluation role, the Section-7
-Envelope B, merge, push or publication. Section 8 is the only prospective Phase
-I-P compute request; preparing or committing it supplies no execution authority.
+IP-G0 authorized scoped Phase I-P source/docs/tests, local validation and linear
+commits. The owner subsequently activated Section 8 at implementation commit
+`85c6719e4b880b198d850e16b1418c230fa5c656`, including continuous IP-WP1 ->
+IP-WP2. This does not authorize any evaluation role, the Section-7 Envelope B,
+merge, push or publication.
 
 O-146 records the owner's exact activation of Envelope A at request commit
 `e321aed749fd859c809199d52c30b2771dbef8b3`. S00 may execute WP0 through WP4
@@ -171,8 +172,8 @@ WORKFLOW: 5 WPs + 3 owner gates + 2 approval envelopes
 CAMERA_POOLING: O-150 PyTorch sorted segment-reduce production backend; CUDA option
                 retained unpromoted; WP2/WP4 parity/policy evidence retained
 EXECUTION_AUTHORITY: Envelope A consumed under O-146/O-147/O-148;
-                     Phase I-P inserted under IP-G0; IP-E1 and the old 49.0-hour
-                     Envelope-B request are both NOT EXECUTABLE
+                     Phase I-P IP-E1 active under Section 8; the old 49.0-hour
+                     Envelope-B request remains NOT EXECUTABLE
 ```
 
 The complete graph, optimizer/scheduler, augmentation, role-bound GT-paste,
@@ -546,14 +547,15 @@ recipe-freeze review-only subagent；review 无 open P0-P2 后，按 Section 7 �
 ## 8. Phase I-P IP-G0 record and exact IP-E1 request
 
 IP-G0 freezes the Phase I-P workflow, candidate classes, measurement protocol,
-topology and stop boundaries in `HANDOFF.md` Section 1. It authorizes WP0 source,
-docs, tests, local validation and linear commits from the unique base only. The
-following phase-sized request is prepared for a later, separate owner approval.
+topology and stop boundaries in `HANDOFF.md` Section 1. It authorized WP0 source,
+docs, tests, local validation and linear commits from the unique base. The owner
+then activated this phase-sized request after WP0 source/static close; its first
+GH200 reference also supplies WP0's architecture-specific runtime close.
 
 ```text
 PHASE: S10 Phase I-P / IP-E1 baseline and strict-output-neutral diagnosis
-REQUEST_STATE: FROZEN / OWNER APPROVAL PENDING / NOT EXECUTABLE
-ACTIVATION_BASELINE: exact containing commit named verbatim by the owner
+REQUEST_STATE: ACTIVE / SERIAL EXECUTION AUTHORIZED
+ACTIVATION_BASELINE: 85c6719e4b880b198d850e16b1418c230fa5c656
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at UNIQUE_BASE_SHA; do not move
@@ -595,11 +597,15 @@ CHECKPOINT: real save/model hash/file hash/load timing; release the original sta
   fresh reconstruction and exact boundary load; compare the next 8 optimizer windows
   with uninterrupted control including state/RNG/sampler identity
 PER_JOB_RESOURCE: 1 node / 1 GH200 / 16 CPUs / 96 GiB / <=00:45:00 / no requeue
-AGGREGATE_GPU_HOURS: 2.0 charged GH200-hours
+BASE_AGGREGATE_GPU_HOURS: 2.0 charged GH200-hours for approved WP1/WP2 cells
+CODE_BUG_REMEDIATION_RESERVE: +1.0 charged GH200-hour, usable only after a diagnosed
+  code-level bug; it is not candidate/science/measurement expansion authority
+HARD_AGGREGATE_GPU_HOURS: 3.0 charged GH200-hours including that conditional reserve
 TARGET_CONSUMPTION: <=0.8 charged GH200-hour; target is not an extra stop authority
 MAX_CONCURRENCY: 1
 SUBMISSION_POLICY: serial; no numeric engineering-submission cap; no blind identical
-  retry; reference cells precede derived strict candidates
+  retry; reference cells precede derived strict candidates; recurring code-level
+  defects are diagnosed and repaired continuously rather than causing a mechanical stop
 OUTPUT_ROOT_RULE: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/
   arrhenius_fl_v3/outputs/s10_phase1p_ip_e1_<approved_sha12>/
   <camera|lidar>/<sustained|trace>_<source_sha12>_r<1|2|3>_<attempt-id>
@@ -608,19 +614,22 @@ DERIVED_SOURCE_POLICY: only linear source/configs implementing the seven frozen 
   groups or O-149 repairs; every derived SHA/profile hash/options/output are ledgered
   before its first submission; default Phase-I behavior remains off; no new candidate
 ENGINEERING_REMEDIATION: diagnose, make the smallest frozen-semantics runner/test/config/
-  dtype/API/checkpoint/provenance/logging repair, validate, record, and resubmit serially
-OWNER_ESCALATION: source/config/data/runtime identity drift; ambiguous diagnosis; same
-  blocker after repair; parity/tolerance failure; nonfinite loss or discarded partial
-  window; unresolved >3% baseline instability; memory leak or >85% reserved; need for a
-  non-listed candidate, scientific/operational semantics, extra resources, or ceiling
-  exhaustion
+  dtype/API/checkpoint/provenance/logging repair, validate, record, and resubmit serially;
+  there is no retry-count stop for code bugs while the applicable layered ceiling remains
+OWNER_ESCALATION: ambiguous diagnosis; scientific-boundary pressure; parity/tolerance
+  failure not attributable to an unambiguous code defect; nonfinite loss or discarded
+  partial window; unresolved >3% baseline instability; memory leak or >85% reserved;
+  need for a non-listed candidate, changed scientific/operational semantics, or hard
+  aggregate-ceiling exhaustion. A diagnosed code bug or recurring code symptom alone
+  does not interrupt the workflow and may consume only the +1.0-hour reserve.
 ALLOWED_INTERPRETATION: D_fit-only throughput, bottleneck, numerical-health, memory,
   checkpoint and projected charged-GH200-hour engineering evidence
 FORBIDDEN_INTERPRETATION: mAP/NDS, capability, generalization, model/candidate selection,
   D_select/D_audit/official validation, fusion, FL, attack/defense, publication claim,
   or activation of Section 7 Envelope B
-OWNER_APPROVAL: pending
-EXECUTABLE_NOW: no
+OWNER_APPROVAL: granted in the task on 2026-07-20 for WP0 runtime close and continuous
+  IP-WP1 -> IP-WP2, with the conditional +1.0-hour code-bug reserve above
+EXECUTABLE_NOW: yes, Section 8 only
 ```
 
 ### 8.1 WP0 implementation identities
@@ -682,14 +691,18 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
   --repeat <REPEAT> --attempt-id <ATTEMPT_ID>
 ```
 
-The exact owner activation sentence, after replacing the SHA with the containing
-commit, is:
+The owner activated the request at implementation commit
+`85c6719e4b880b198d850e16b1418c230fa5c656` and added the conditional code-bug
+reserve. The normalized decision is:
 
 ```text
-批准激活 commit <ACTIVATION_SHA> 中的 S10 Phase I-P IP-E1：按 Section 8 的
+批准激活 commit 85c6719e4b880b198d850e16b1418c230fa5c656 中的 S10 Phase I-P
+IP-E1：按 Section 8 的
 D_fit-only reference cells、七个 strict-output-neutral implementation groups、
-测量/parity/checkpoint/停止边界、2.0 charged-GH200-hour aggregate ceiling、
+测量/parity/checkpoint/停止边界、2.0 charged-GH200-hour base ceiling，以及仅供
+已诊断代码级 bug 修复的 +1.0 charged-GH200-hour reserve（总硬上限 3.0）、
 最大并发 1、每 job 45 分钟和 O-149 remediation 规则串行执行 IP-WP1 -> IP-WP2；
+代码 bug 不设重跑次数上限且不中断连续工作流，但禁止盲目原样重跑；
 measurement-only 候选保持 default-off，D_select、D_audit、official validation、
 原 Envelope B、merge 和 push 仍不授权。
 ```

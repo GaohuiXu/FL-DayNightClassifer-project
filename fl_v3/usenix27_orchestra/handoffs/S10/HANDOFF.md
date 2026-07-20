@@ -1,4 +1,4 @@
-# S10 HANDOFF — Phase I-P IP-G0 active; Envelope B remains frozen
+# S10 HANDOFF — Phase I-P IP-E1 active; Envelope B remains frozen
 
 ## 1. Current state and authority
 
@@ -7,18 +7,20 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: owner-approved IP-G0 under O-143/O-149; O-150 remains the Phase-I control
+ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the Phase-I control
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: scoped Phase I-P source/docs/tests, local validation and linear commits
-EXECUTION_STATE: NO GPU/SLURM; IP-E1 owner approval pending; Envelope B NOT EXECUTABLE
+CURRENT_AUTHORITY: Section-8 IP-E1; WP0 runtime close then continuous IP-WP1 -> IP-WP2
+EXECUTION_STATE: serial GH200 authorized under 2.0h base + conditional 1.0h code-bug reserve
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
-IP-G0 intentionally inserts Phase I-P before the long Camera/LiDAR qualification
-runs. It authorizes this isolated linear branch and the implementation work needed
-to make the profiler reviewable. It does not authorize any compute, scientific
-training, evaluation role, merge, push, or movement of the frozen control branch.
+IP-G0 intentionally inserted Phase I-P before the long Camera/LiDAR qualification
+runs and authorized this isolated linear branch plus WP0 implementation. The owner
+then activated IP-E1 at `85c6719e4b880b198d850e16b1418c230fa5c656` for WP0's
+GH200 runtime close and continuous IP-WP1 -> strict IP-WP2 execution. IP-E1 does
+not authorize scientific training, an evaluation role, merge, push, or movement of
+the frozen control branch.
 The Section-7 Envelope-B request in `RUN_REQUEST.md` is preserved verbatim as a
 historical control and is not activated by Phase I-P.
 
@@ -39,8 +41,8 @@ Gate/envelope order is exact:
 
 ```text
 IP-G0 (closed: plan/topology/local implementation)
-  -> IP-WP0
-  -> IP-E1 (pending: IP-WP1 -> strict IP-WP2 continuously)
+  -> IP-WP0 (source/static closed; GH200 runtime close is first IP-E1 reference)
+  -> IP-E1 (active: IP-WP1 -> strict IP-WP2 continuously)
   -> IP-G1 (baseline diagnosis and exact IP-E2 shortlist)
   -> IP-E2 (pending: IP-WP3 -> IP-WP4 continuously)
   -> IP-G2 (promotion/recipe/checkpoint/Envelope-B disposition)
@@ -49,6 +51,13 @@ IP-G0 (closed: plan/topology/local implementation)
 IP-G2 is not Envelope-B activation. Any accepted production-source or config
 change requires a new exact Envelope-B source/config/resource projection and the
 already-required independent recipe-freeze review.
+
+IP-E1 retains maximum concurrency one and serial execution. Its ordinary WP1/WP2
+cells have a `2.0` charged-GH200-hour aggregate ceiling; a separately accounted
+`+1.0` hour reserve may be consumed only by diagnosed code-level defect repair,
+for a `3.0` hour hard aggregate ceiling. Code bugs have no submission-count stop
+and are repaired continuously without blind identical retry. Ambiguous diagnosis,
+scientific-boundary pressure, or hard-ceiling exhaustion still returns to the owner.
 
 ### 1.2 Candidate classes and immutable scientific boundary
 
