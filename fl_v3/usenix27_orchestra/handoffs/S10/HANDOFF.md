@@ -243,5 +243,21 @@ identities, resolved config hashes, graph timing and one joint recipe review,
 `P1-G1` will present the measured Envelope-B scientific GPU-hour/submission
 request.
 
+WP3 implements the reference-led standalone LiDAR graph without changing the
+historical Fusion detector. The existing reference-shaped sparse SECOND is reused only
+through a new explicit Phase-I boundary: hard-voxel mean VFE receives
+`x,y,z,intensity,time_lag`, sets keyframe lag to exact zero while retaining ring in the
+source payload, preserves the frozen PointShuffle order for point/voxel caps, uses
+BN1d `eps=1e-3,momentum=0.01`, and returns the unprojected FP32 dense collapse
+`[B,256,180,180]`. No old `to_bev` projection or GroupNorm is instantiated.
+
+The dense path is the pinned SECOND `[5,5]`, SECONDFPN `[1,2]`, and an independent
+mmdet3d/mmcv-free one-layer, 200-query TransFusionHead. It includes physical
+`H=y,W=x` query positions, canonical geometric-center box coding, vectorized rotated
+3D IoU, reference focal/BEV-L1/IoU Hungarian costs, Gaussian/query/regression losses,
+and no-NMS decode in the reference class order. Login-node validation is limited to
+syntax, static graph inventory and source/config checks; spconv construction,
+forward/loss/backward, FP16-policy and production timing remain WP4 Job B gates.
+
 No 20-epoch capability run, D_select/D_audit/official-val evaluation, staged fusion,
 broad profiler, merge, push, upload, publication or S11+ work is authorized.

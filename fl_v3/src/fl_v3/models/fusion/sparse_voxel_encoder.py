@@ -3,6 +3,13 @@
 The only dense conversion occurs after three sparse XY downsampling stages and a
 z-only collapse convolution.  Under the frozen 0.075 m contract the conversion is
 ``[B,128,2,180,180]``; no ``1440x1440`` dense or fusion tensor is constructed.
+
+The historical detector consumes a projected BEV tensor.  S10 Phase I instead
+selects the reference SparseEncoder boundary directly: the two remaining sparse
+z bins are folded into channels and the resulting ``[B,256,180,180]`` tensor is
+passed to SECOND without a local projection or normalization layer.  Both paths
+are explicit constructor modes so the Phase-I graph cannot silently alter older
+checkpoints.
 """
 from __future__ import annotations
 
@@ -31,6 +38,26 @@ VOXEL_STAT_FIELDS = (
 )
 
 SPCONV_FP16_EVAL_VERSION = "2.3.8"
+SPARSE_OUTPUT_MODES = frozenset({"projected", "collapsed"})
+POINT_FEATURE_MODES = frozenset({"legacy", "xyzi_time"})
+
+
+def select_xyzi_time_features(points: torch.Tensor) -> torch.Tensor:
+    """Return reference VFE features from collated canonical point rows.
+
+    Collated keyframes are ``[batch,x,y,z,intensity,ring]`` while multi-sweep
+    evaluation appends ``time_lag`` as column six.  The reference model consumes
+    ``x,y,z,intensity,time_lag``: ring remains preserved in the source payload but
+    is deliberately not a model feature, and keyframes receive an exact zero lag.
+    """
+    if points.ndim != 2 or points.shape[1] not in (6, 7):
+        raise ValueError(
+            "xyzi_time points must be collated keyframe [N,6] or multi-sweep [N,7], "
+            f"got {tuple(points.shape)}"
+        )
+    xyzi = points[:, 1:5]
+    time_lag = points[:, 6:7] if points.shape[1] == 7 else torch.zeros_like(xyzi[:, :1])
+    return torch.cat((xyzi, time_lag), dim=1)
 
 
 def _require_supported_spconv_fp16_eval() -> str:
@@ -94,6 +121,8 @@ class SparseVoxelEncoder(nn.Module):
         max_points_per_voxel: int = 10,
         sparse_conv_fp16: bool = False,
         second_normalization: str = "group_norm",
+        output_mode: str = "projected",
+        point_feature_mode: str = "legacy",
     ):
         super().__init__()
         if cfg is None:
@@ -105,9 +134,23 @@ class SparseVoxelEncoder(nn.Module):
                 out_size_factor=8,
             )
         self.cfg = cfg
+        self.output_mode = str(output_mode)
+        self.point_feature_mode = str(point_feature_mode)
+        if self.output_mode not in SPARSE_OUTPUT_MODES:
+            raise ValueError(
+                f"output_mode must be one of {sorted(SPARSE_OUTPUT_MODES)}, "
+                f"got {self.output_mode!r}"
+            )
+        if self.point_feature_mode not in POINT_FEATURE_MODES:
+            raise ValueError(
+                f"point_feature_mode must be one of {sorted(POINT_FEATURE_MODES)}, "
+                f"got {self.point_feature_mode!r}"
+            )
+        if self.point_feature_mode == "xyzi_time" and use_timestamp:
+            raise ValueError("xyzi_time feature selection replaces the legacy use_timestamp flag")
         self.out_channels = int(out_channels)
         self.use_timestamp = bool(use_timestamp)
-        self.n_pt_feat = 5 if use_timestamp else 4
+        self.n_pt_feat = 5 if (use_timestamp or self.point_feature_mode == "xyzi_time") else 4
         self.vx, self.vy = float(cfg.vx), float(cfg.vy)
         self.vz = 0.2 if z_voxel is None else float(z_voxel)
         if self.vz <= 0:
@@ -143,15 +186,25 @@ class SparseVoxelEncoder(nn.Module):
             normalization=self.second_normalization,
         )
         collapsed = self.contract.collapsed_channels
-        self.to_bev = (
-            nn.Identity()
-            if collapsed == self.out_channels
-            else nn.Sequential(
-                nn.Conv2d(collapsed, self.out_channels, 1, bias=False),
-                _gn(self.out_channels),
-                nn.ReLU(inplace=True),
+        if self.output_mode == "collapsed":
+            if self.out_channels != collapsed:
+                raise ValueError(
+                    "collapsed sparse output must expose the exact reference channel count "
+                    f"{collapsed}, got {self.out_channels}"
+                )
+            # Do not even instantiate the historical GN projection: unused
+            # parameters/norms would still make the selected Phase-I graph wrong.
+            self.to_bev = None
+        else:
+            self.to_bev = (
+                nn.Identity()
+                if collapsed == self.out_channels
+                else nn.Sequential(
+                    nn.Conv2d(collapsed, self.out_channels, 1, bias=False),
+                    _gn(self.out_channels),
+                    nn.ReLU(inplace=True),
+                )
             )
-        )
 
         self._voxelizers: dict[tuple[str, int | None, int], object] = {}
         self.record_debug = False
@@ -243,11 +296,44 @@ class SparseVoxelEncoder(nn.Module):
         point_drops = torch.clamp(counts - self.max_pts, min=0).sum().to(torch.int64)
         return pf, unique_voxels, point_drops
 
+    def _reference_order_sample(self, pf: torch.Tensor):
+        """Filter one Phase-I sample while preserving reference PointShuffle order.
+
+        The official hard voxelizer keeps the first points/voxels encountered after
+        ``PointShuffle``.  The legacy path's content-canonical sort is valuable for
+        old deterministic regression contracts but would cancel that frozen LiDAR
+        augmentation and change which points survive the per-voxel cap.
+        """
+        c = self.cfg
+        finite = torch.isfinite(pf).all(dim=1)
+        valid = (
+            finite
+            & (pf[:, 0] >= c.x_min)
+            & (pf[:, 0] < c.x_max)
+            & (pf[:, 1] >= c.y_min)
+            & (pf[:, 1] < c.y_max)
+            & (pf[:, 2] >= c.z_min)
+            & (pf[:, 2] < c.z_max)
+        )
+        pf = pf[valid]
+        if pf.shape[0] == 0:
+            zero = torch.zeros((), dtype=torch.int64, device=pf.device)
+            return pf, zero, zero
+        col = torch.floor((pf[:, 0] - c.x_min) / self.vx).to(torch.int64)
+        row = torch.floor((pf[:, 1] - c.y_min) / self.vy).to(torch.int64)
+        zidx = torch.floor((pf[:, 2] - c.z_min) / self.vz).to(torch.int64)
+        voxel_key = (zidx * self.ny + row) * self.nx + col
+        _, counts = torch.unique(voxel_key, sorted=False, return_counts=True)
+        unique_voxels = torch.tensor(counts.numel(), dtype=torch.int64, device=pf.device)
+        point_drops = torch.clamp(counts - self.max_pts, min=0).sum().to(torch.int64)
+        return pf, unique_voxels, point_drops
+
     def forward(self, points: torch.Tensor, B: int, *, boundary_capture=None) -> torch.Tensor:
         """Encode batched points; output is ``[B,out,H/8,W/8]``."""
         if B < 0:
             raise ValueError(f"B must be non-negative, got {B}")
-        if points.ndim != 2 or points.shape[1] < (7 if self.use_timestamp else 5):
+        minimum_width = 6 if self.point_feature_mode == "xyzi_time" else (7 if self.use_timestamp else 5)
+        if points.ndim != 2 or points.shape[1] < minimum_width:
             raise ValueError(f"unexpected point tensor shape {tuple(points.shape)}")
         if B == 0 and points.shape[0] != 0:
             raise ValueError("non-empty points require B > 0")
@@ -267,7 +353,6 @@ class SparseVoxelEncoder(nn.Module):
 
         import spconv.pytorch as spconv
 
-        feat_cols = [1, 2, 3, 4] + ([6] if self.use_timestamp else [])
         bidx = points[:, 0].to(torch.int64)
         if bidx.numel():
             integral = points[:, 0] == bidx.to(points.dtype)
@@ -301,9 +386,17 @@ class SparseVoxelEncoder(nn.Module):
                 voxelizer = self._voxelizer_for(dev, cap)
                 for b, n_points in enumerate(batch_counts):
                     stop = start + n_points
-                    pf_raw = grouped_points[start:stop, feat_cols].to(torch.float32)
+                    sample_points = grouped_points[start:stop]
+                    if self.point_feature_mode == "xyzi_time":
+                        pf_raw = select_xyzi_time_features(sample_points).to(torch.float32)
+                    else:
+                        feat_cols = [1, 2, 3, 4] + ([6] if self.use_timestamp else [])
+                        pf_raw = sample_points[:, feat_cols].to(torch.float32)
                     start = stop
-                    pf, unique_before, point_drops = self._canonical_sample(pf_raw)
+                    if self.point_feature_mode == "xyzi_time":
+                        pf, unique_before, point_drops = self._reference_order_sample(pf_raw)
+                    else:
+                        pf, unique_before, point_drops = self._canonical_sample(pf_raw)
                     valid_count = torch.tensor(pf.shape[0], dtype=torch.int64, device=dev)
                     input_count = torch.tensor(n_points, dtype=torch.int64, device=dev)
                     if pf.shape[0] == 0:
@@ -389,21 +482,26 @@ class SparseVoxelEncoder(nn.Module):
                     raise RuntimeError(f"dense shape drift: got {dense_shape}, expected {expected}")
                 dense = dense.reshape(B, self.contract.collapsed_channels, *self.output_hw)
 
-        bev_ctx = (
-            torch.autocast(device_type=dev.type, dtype=torch.float16)
-            if sparse_amp
-            else torch.autocast(device_type=dev.type, enabled=False)
-        )
-        with stage("low_resolution_projection"):
-            with bev_ctx:
-                out = self.to_bev(dense)
+        if self.output_mode == "collapsed":
+            out = dense
+            projected_dtype = dense.dtype
+        else:
+            bev_ctx = (
+                torch.autocast(device_type=dev.type, dtype=torch.float16)
+                if sparse_amp
+                else torch.autocast(device_type=dev.type, enabled=False)
+            )
+            with stage("low_resolution_projection"):
+                with bev_ctx:
+                    assert self.to_bev is not None
+                    out = self.to_bev(dense)
+            projected_dtype = out.dtype
         # GroupNorm is intentionally kept in its numerically stable fp32 path,
         # which means the low-resolution projection can leave autocast as fp32.
         # The frozen S04 interface is nevertheless fp16 for the active sparse-AMP
         # path (matching the empty-input return) and fp32 for the reference path.
         # Make that boundary explicit after all projection math; this preserves
         # autograd while preventing empty/non-empty dtype drift.
-        projected_dtype = out.dtype
         if sparse_amp and out.dtype != torch.float16:
             out = out.to(torch.float16)
         self._record_meta(
@@ -455,6 +553,8 @@ class SparseVoxelEncoder(nn.Module):
             "bev_output_dtype": None if output_dtype is None else str(output_dtype),
             "bev_output_contract": "float16" if sparse_amp else "float32",
             "bev_shape": (B, self.out_channels, *self.output_hw),
+            "output_mode": self.output_mode,
+            "point_feature_mode": self.point_feature_mode,
             "voxel_size_xyz": self.contract.voxel_xyz,
             "output_stride_xy": self.output_stride,
             "output_cell_xy": self.contract.output_cell_xy,
