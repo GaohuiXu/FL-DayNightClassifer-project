@@ -438,11 +438,24 @@ class MultiTaskCenterPointLoss(nn.Module):
         reg_weight: float = 0.25,
         class_weights=None,
         reg_class_weights=None,
+        global_class_names: Sequence[str] | None = None,
     ) -> None:
         super().__init__()
-        from fl_v3.models.fusion.centerhead_decode import task_local_to_global_ids
+        from fl_v3.models.fusion.head import (
+            NUSCENES_CENTERHEAD_TASKS,
+            NUSCENES_DETECTION_NAMES,
+        )
 
-        self.global_ids = task_local_to_global_ids()
+        names = tuple(global_class_names or NUSCENES_DETECTION_NAMES)
+        if len(names) != 10 or len(names) != len(set(names)):
+            raise ValueError("CenterHead global_class_names must be a ten-class bijection")
+        by_name = {name: index for index, name in enumerate(names)}
+        if set(by_name) != set(NUSCENES_DETECTION_NAMES):
+            raise ValueError("CenterHead global_class_names differs from nuScenes taxonomy")
+        self.global_ids = tuple(
+            tuple(by_name[name] for name in task)
+            for task in NUSCENES_CENTERHEAD_TASKS
+        )
         self.losses = nn.ModuleList()
         for ids in self.global_ids:
             heat_weights = None if class_weights is None else [class_weights[i] for i in ids]

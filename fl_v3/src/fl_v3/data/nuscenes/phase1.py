@@ -51,6 +51,26 @@ def phase1_augmentation_parameters(config: ResolvedConfig) -> dict[str, Any]:
     raw = config.as_dict()
     scene = raw["augmentation"]["scene_3d"]
     point_range = raw["model"]["head"]["train"]["point_cloud_range"]
+    image = raw["augmentation"]["image"]
+    reference_image = None
+    if raw["contract"]["branch"] == "camera":
+        if image is None:
+            raise ValueError("Phase-I Camera recipe is missing image augmentation")
+        reference_image = {
+            "output_size": tuple(int(value) for value in image["output_size"]),
+            "resize_limits": tuple(float(value) for value in image["train_resize"]),
+            "bottom_crop_limits": tuple(
+                float(value) for value in image["bottom_crop_percent"]
+            ),
+            "rotation_limits_degrees": tuple(
+                float(value) for value in image["train_rotation_degrees"]
+            ),
+            "horizontal_flip_probability": float(
+                image["train_horizontal_flip_probability"]
+            ),
+        }
+    elif image is not None:
+        raise ValueError("Phase-I LiDAR recipe must not contain image augmentation")
     return {
         "rot": float(scene["train_yaw_radians"][1]),
         "scale": tuple(float(value) for value in scene["train_scale"]),
@@ -66,6 +86,7 @@ def phase1_augmentation_parameters(config: ResolvedConfig) -> dict[str, Any]:
         "point_cloud_range": tuple(float(value) for value in point_range),
         "object_classes": tuple(raw["taxonomy"]["reference_object_classes"]),
         "point_shuffle": bool(raw["augmentation"]["point_shuffle"]),
+        "reference_image_augmentation": reference_image,
     }
 
 

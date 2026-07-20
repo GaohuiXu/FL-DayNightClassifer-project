@@ -50,6 +50,12 @@ def detection_collate_fn(batch: List[dict]) -> dict:
         out["images"] = torch.stack([s["images"] for s in batch], dim=0)
     elif any("images" in sample for sample in batch):
         raise ValueError("lidar_only sample unexpectedly contains camera payload")
+    if any("augmentation_params" in sample for sample in batch):
+        if not all("augmentation_params" in sample for sample in batch):
+            raise ValueError("cannot collate partially sampled image augmentation")
+        out["augmentation_params"] = torch.stack(
+            [sample["augmentation_params"] for sample in batch], dim=0
+        )
 
     # LiDAR points → [TotalP, 1+W] with a leading batch-index column. W=5 single-sweep
     # (x,y,z,intensity,ring) or W=6 multi-sweep (…,dt) — the concat is width-agnostic.

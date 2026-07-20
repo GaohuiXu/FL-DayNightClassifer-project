@@ -33,7 +33,7 @@ checkpoint/cache identity separately.
 """
 from __future__ import annotations
 
-from typing import List
+from typing import List, Sequence
 
 import torch
 import torch.nn as nn
@@ -52,7 +52,9 @@ class CameraBackbone(nn.Module):
     """
 
     def __init__(self, name: str = "swin_t", frozen: bool = True, pretrained: bool = True,
-                 activation_checkpoint: bool = False, sdpa_attention: bool = False):
+                 activation_checkpoint: bool = False, sdpa_attention: bool = False,
+                 out_indices: Sequence[int] = (0, 1, 2, 3),
+                 output_layer_norm: bool = False):
         super().__init__()
         self.name = name
         self.frozen = bool(frozen)
@@ -64,15 +66,31 @@ class CameraBackbone(nn.Module):
         # ~20-30% recompute for the VRAM headroom that lets fp16 backbone-training fit a useful batch.
         # No effect when frozen (no backward through the backbone) or in eval; off ⇒ byte-identical.
         self.activation_checkpoint = bool(activation_checkpoint)
-        self.strides = (4, 8, 16, 32)
+        self.out_indices = tuple(int(index) for index in out_indices)
+        if not self.out_indices or len(self.out_indices) != len(set(self.out_indices)):
+            raise ValueError("camera backbone out_indices must be non-empty and unique")
+        if any(index < 0 or index > 3 for index in self.out_indices):
+            raise ValueError("camera backbone out_indices must be within [0,3]")
+        self.output_layer_norm = bool(output_layer_norm)
+        all_strides = (4, 8, 16, 32)
         if name == "swin_t":
             self._build_swin(pretrained)
-            self.out_channels = [96, 192, 384, 768]
+            all_channels = [96, 192, 384, 768]
         elif name == "resnet18":
             self._build_resnet18(pretrained)
-            self.out_channels = [64, 128, 256, 512]
+            all_channels = [64, 128, 256, 512]
         else:
             raise ValueError(f"unknown camera-backbone {name!r} (use swin_t|resnet18)")
+        self.strides = tuple(all_strides[index] for index in self.out_indices)
+        self.out_channels = [all_channels[index] for index in self.out_indices]
+        self.stage_output_norms = nn.ModuleDict()
+        if self.output_layer_norm:
+            if self.name != "swin_t":
+                raise ValueError("output_layer_norm is defined only for Swin")
+            self.stage_output_norms.update({
+                str(index): nn.LayerNorm(all_channels[index])
+                for index in self.out_indices
+            })
 
         if self.frozen:
             for p in self.parameters():
@@ -95,7 +113,7 @@ class CameraBackbone(nn.Module):
         # after each stage (odd indices are the SwinBlock stages, even are
         # PatchEmbed/PatchMerging): taps at features[1,3,5,7] → strides 4,8,16,32.
         self._swin_features = net.features
-        self._swin_tap_after = {1, 3, 5, 7}
+        self._swin_tap_after = {1: 0, 3: 1, 5: 2, 7: 3}
         if self.sdpa_attention:
             from fl_v3.models.fusion.swin_sdpa import apply_sdpa_to_swin
             apply_sdpa_to_swin(self._swin_features)
@@ -132,7 +150,14 @@ class CameraBackbone(nn.Module):
             for i, stage in enumerate(self._swin_features):
                 h = torch.utils.checkpoint.checkpoint(stage, h, use_reentrant=False) if ckpt else stage(h)
                 if i in self._swin_tap_after:
-                    feats.append(h.permute(0, 3, 1, 2).contiguous())  # NHWC→NCHW
+                    stage_index = self._swin_tap_after[i]
+                    if stage_index not in self.out_indices:
+                        continue
+                    if self.output_layer_norm:
+                        h_out = self.stage_output_norms[str(stage_index)](h)
+                    else:
+                        h_out = h
+                    feats.append(h_out.permute(0, 3, 1, 2).contiguous())  # NHWC→NCHW
             return feats
         # resnet18
         h = self._stem(x)
@@ -140,7 +165,8 @@ class CameraBackbone(nn.Module):
         f2 = self._layer2(f1)
         f3 = self._layer3(f2)
         f4 = self._layer4(f3)
-        return [f1, f2, f3, f4]
+        all_features = [f1, f2, f3, f4]
+        return [all_features[index] for index in self.out_indices]
 
     def output_contract(self) -> dict:
         """Return the immutable feature interface consumed by the camera FPN."""
@@ -151,6 +177,8 @@ class CameraBackbone(nn.Module):
             "channels": list(self.out_channels),
             "n_levels": len(self.strides),
             "all_declared_levels_are_returned": True,
+            "out_indices": list(self.out_indices),
+            "output_layer_norm": self.output_layer_norm,
         }
 
     def param_count(self) -> int:

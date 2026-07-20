@@ -70,6 +70,10 @@ NUSCENES_TASK_SPECS: Tuple[CenterHeadTaskSpec, ...] = tuple(
 class CenterHeadDecodeConfig:
     score_threshold: float = 0.1
     per_class_pre_max: int = 500
+    # ``None`` preserves O-018's no-starvation adaptation.  The exact Phase-I
+    # standalone Camera passes 500, restoring the pinned coder's second
+    # task-wide top-K after its per-class top-K.
+    task_pre_max: int | None = None
     nms_pre_max: int = 1000
     nms_post_max: int = 83
     rotate_iou_threshold: float = 0.2
@@ -87,6 +91,8 @@ class CenterHeadDecodeConfig:
             raise ValueError("score_threshold must lie in [0,1]")
         if int(self.per_class_pre_max) <= 0:
             raise ValueError("per_class_pre_max must be positive")
+        if self.task_pre_max is not None and int(self.task_pre_max) <= 0:
+            raise ValueError("task_pre_max must be positive when specified")
         if int(self.nms_pre_max) <= 0 or int(self.nms_post_max) <= 0:
             raise ValueError("NMS budgets must be positive")
         if int(self.nms_post_max) > int(self.nms_pre_max):
@@ -258,6 +264,12 @@ def _select_task_candidates_for_sample(
         labels[order],
         spatial[order],
     )
+    if config.task_pre_max is not None:
+        count = min(int(config.task_pre_max), int(scores.numel()))
+        scores = scores[:count]
+        local_labels = local_labels[:count]
+        labels = labels[:count]
+        spatial = spatial[:count]
 
     col, row = flat_to_colrow(spatial, bev.head_nx)
     reg = _gather_field(output_fp32["reg"], batch_index, spatial)

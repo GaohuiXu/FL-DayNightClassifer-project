@@ -339,6 +339,35 @@ class NuScenesMultimodalDataset(Dataset):
             sample["images"] = torch.from_numpy(imgs)
         if pts is not None:
             sample["lidar_points"] = torch.from_numpy(np.ascontiguousarray(pts))
+        # Reference ImageAug3D samples six camera transforms before the scene-3D
+        # RNG draws.  Apply the pixels later in the model preprocessor, but bind
+        # the exact NumPy MT19937 draws here inside the seeded DataLoader worker.
+        image_augmentation = (
+            None if self.augment is None else self.augment.get("reference_image_augmentation")
+        )
+        if image_augmentation is not None:
+            if imgs is None:
+                raise RuntimeError("image augmentation was enabled without camera payload")
+            from fl_v3.models.fusion.preprocess import (
+                sample_reference_image_augmentation_parameters,
+            )
+
+            output_height, output_width = image_augmentation["output_size"]
+            sample["augmentation_params"] = sample_reference_image_augmentation_parameters(
+                camera_count=int(imgs.shape[0]),
+                native_height=int(imgs.shape[-2]),
+                native_width=int(imgs.shape[-1]),
+                output_height=int(output_height),
+                output_width=int(output_width),
+                resize_limits=tuple(image_augmentation["resize_limits"]),
+                bottom_crop_limits=tuple(image_augmentation["bottom_crop_limits"]),
+                rotation_limits_degrees=tuple(
+                    image_augmentation["rotation_limits_degrees"]
+                ),
+                random_flip=(
+                    float(image_augmentation["horizontal_flip_probability"]) == 0.5
+                ),
+            )
         # TRAIN-ONLY GT-paste (rare-class object copy-paste). BEFORE the BEV aug so the scene transform T
         # transforms pasted points/boxes/velocity CONSISTENTLY with the host scene. Default None ⇒ byte-identical.
         if self.gtpaste is not None:

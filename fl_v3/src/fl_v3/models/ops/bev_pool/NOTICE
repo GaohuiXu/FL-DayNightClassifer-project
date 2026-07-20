@@ -1,0 +1,14 @@
+S10 Phase-I BEV pooling operator
+
+This directory contains an independent PyTorch extension integration derived from
+the BEV pooling algorithm and CUDA implementation in MIT HAN Lab BEVFusion commit
+326653dc06e0938edf1aae7d01efcd158ba83de5.
+
+Upstream project: https://github.com/mit-han-lab/bevfusion
+Upstream files: mmdet3d/ops/bev_pool/
+Upstream license: Apache License 2.0
+
+Copyright 2022 MIT HAN Lab contributors.
+Modifications include fail-closed dtype/shape checks, modern PyTorch extension
+bindings, stable Python-side geometry ordering, empty-input handling, build/source
+identity reporting, and explicit CUDA launch checks.

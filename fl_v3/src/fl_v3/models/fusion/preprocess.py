@@ -25,6 +25,7 @@ from dataclasses import dataclass
 import math
 from typing import Optional, Tuple
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -141,8 +142,6 @@ def image_augmentation_affine(
 
 
 def _uniform(low: float, high: float, generator: Optional[torch.Generator]) -> float:
-    if low == high:
-        return float(low)
     value = torch.rand((), generator=generator, device="cpu", dtype=torch.float64)
     return float(low + (high - low) * value.item())
 
@@ -165,27 +164,30 @@ def _sample_parameters(
     for _ in range(B * N):
         if random_train:
             resize = _uniform(*config.resize_limits, generator)
+            resized_w = max(1, int(W_in * resize))
+            resized_h = max(1, int(H_in * resize))
             bottom = _uniform(*config.bottom_crop_limits, generator)
-            rotate = _uniform(*config.rotation_limits_degrees, generator)
+            crop_top = int((1.0 - bottom) * resized_h) - H_out
+            max_left = max(0, resized_w - W_out)
+            crop_left = int(_uniform(0.0, float(max_left), generator))
             flip = bool(
                 config.random_flip
                 and int(torch.randint(0, 2, (), generator=generator, device="cpu").item())
             )
+            rotate = _uniform(*config.rotation_limits_degrees, generator)
         else:
             resize = float(config.validation_resize)
+            resized_w = max(1, int(W_in * resize))
+            resized_h = max(1, int(H_in * resize))
             bottom = 0.5 * sum(config.bottom_crop_limits)
+            crop_top = int((1.0 - bottom) * resized_h) - H_out
+            max_left = max(0, resized_w - W_out)
+            crop_left = int(max_left / 2)
             rotate = 0.0
             flip = False
 
         # Match the reference's scalar aspect-preserving resize choice.  The
         # realized sx/sy (after integer rounding) are used by calibration.
-        resized_w = max(1, int(W_in * resize))
-        resized_h = max(1, int(H_in * resize))
-        crop_top = int((1.0 - bottom) * resized_h) - H_out
-        max_left = max(0, resized_w - W_out)
-        crop_left = (
-            int(_uniform(0.0, float(max_left), generator)) if random_train else int(max_left / 2)
-        )
         rows.append(
             [
                 resize,
@@ -198,6 +200,52 @@ def _sample_parameters(
             ]
         )
     return torch.tensor(rows, dtype=torch.float64).view(B, N, len(AUGMENTATION_PARAM_FIELDS))
+
+
+def sample_reference_image_augmentation_parameters(
+    *,
+    camera_count: int,
+    native_height: int,
+    native_width: int,
+    output_height: int = 256,
+    output_width: int = 704,
+    resize_limits: Tuple[float, float] = (0.38, 0.55),
+    bottom_crop_limits: Tuple[float, float] = (0.0, 0.0),
+    rotation_limits_degrees: Tuple[float, float] = (-5.4, 5.4),
+    random_flip: bool = True,
+) -> torch.Tensor:
+    """Sample MIT ``ImageAug3D`` parameters with its exact NumPy RNG order.
+
+    This runs inside the DataLoader worker before scene-3D augmentation.  Merely
+    delaying application of the sampled image transform until the model
+    preprocessor is output-equivalent because image augmentation left-multiplies
+    ``lidar2img`` while scene augmentation right-multiplies it.
+    """
+    if camera_count <= 0 or min(native_height, native_width, output_height, output_width) <= 0:
+        raise ValueError("image augmentation dimensions and camera_count must be positive")
+    rows = []
+    for _ in range(int(camera_count)):
+        resize = float(np.random.uniform(*resize_limits))
+        resized_width = max(1, int(native_width * resize))
+        resized_height = max(1, int(native_height * resize))
+        bottom = float(np.random.uniform(*bottom_crop_limits))
+        crop_top = int((1.0 - bottom) * resized_height) - int(output_height)
+        maximum_left = max(0, resized_width - int(output_width))
+        crop_left = int(np.random.uniform(0, maximum_left))
+        flip = bool(random_flip and np.random.choice([0, 1]))
+        rotation = float(np.random.uniform(*rotation_limits_degrees))
+        rows.append(
+            [
+                resize,
+                float(resized_height),
+                float(resized_width),
+                float(crop_left),
+                float(crop_top),
+                float(flip),
+                rotation,
+            ]
+        )
+    return torch.tensor(rows, dtype=torch.float64)
 
 
 def _crop_or_pad(

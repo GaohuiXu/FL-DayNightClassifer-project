@@ -335,3 +335,17 @@ REQUEST_STATE: NOT YET REQUESTABLE
 BLOCKED_ON: Envelope-A implementation/calibration/identities and joint recipe review
 EXECUTABLE_NOW: no
 ```
+
+## 8. Envelope-A compact execution ledger
+
+This is the sole active ledger for Envelope A. Submission rows are appended only when
+the exact durable source SHA and command are known.
+
+| Item | Durable source / identity | State | Resources / interpretation |
+|---|---|---|---|
+| WP0 | `714f7a1067f375861c80e3020ab302a928983f12` | complete | local/static only; no compute |
+| WP1 | `933ca6feb142bcedc2ab842b25d6a1caf242c749` | complete | exact CBGS artifact `64cc0d1d...e115ef`; no GPU submission |
+| Swin acquisition 1/1 | source URL in Section 6.2; 114,342,173 bytes; SHA-256 `9f71c168d837d1b99dd1dc29e14990a7a9e8bdc5f673d46b04fe36fe15590ad3` | quarantined / not accepted | HTTPS 200; final host `release-assets.githubusercontent.com`; no GPU-hour charge; final path absent |
+| WP2 implementation | material commit containing this row | implemented; WP4 qualification pending | login syntax/static checks only; no capability inference |
+
+Envelope-A Slurm usage remains `0 / 3` submissions and `0.0 / 1.0` charged GH200-hours.

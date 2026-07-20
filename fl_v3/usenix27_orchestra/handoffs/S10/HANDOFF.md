@@ -215,6 +215,27 @@ freeze. Login-node validation covers syntax, canonical config resolution, exact
 physical data identities, and deterministic CBGS derivation. Torch/CUDA focused
 tests remain bound to WP4's already-approved GH200 jobs; no capability run occurred.
 
+WP2 implements the standalone Camera graph without modifying the historical Fusion
+detector: trainable Swin-T with stage outputs `[1,2,3]` and identity-initialized output
+LayerNorms; concat GeneralizedLSSFPN; pure-camera LSS; the request-scoped optimized
+CUDA pooling backend plus sorted segment-sum fallback; Camera GeneralizedResNet/LSSFPN;
+and six-task BatchNorm CenterHead. The Phase-I decode restores the pinned second
+task-wide top-500 selection rather than inheriting the older no-starvation adaptation.
+The project-wide physical `H=y,W=x` convention is retained explicitly and covered by a
+non-square pooling fixture, while the CUDA segment reduction remains the pinned
+operation. ImageAug3D parameters are sampled in DataLoader workers using the exact
+NumPy reference draw order before the scene-3D draws, so epoch-boundary recovery also
+replays Camera augmentation.
+
+The single approved ImageNet Swin acquisition completed into the read-only quarantine
+path (114,342,173 bytes), redirected through the allowlisted
+`release-assets.githubusercontent.com` host, with physical SHA-256
+`9f71c168d837d1b99dd1dc29e14990a7a9e8bdc5f673d46b04fe36fe15590ad3`.
+The final checkpoint path remains absent and the bytes remain unusable: schema,
+per-tensor mapping, loaded/missing/unexpected keys, initialized-state identity and
+atomic promotion are all still gated on WP4 Job A. WP2 login-node validation is syntax
+and static-contract only; it is not CUDA parity or performance qualification.
+
 The checkpoint is the MIT Camera YAML's ImageNet
 `swin_tiny_patch4_window7_224.pth`, not `swint-nuimages-pretrained.pth`; acquisition
 and quarantine acceptance now belong to WP2. After Envelope A yields final GTDB
