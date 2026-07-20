@@ -42,7 +42,7 @@ closing commit is `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`.
 
 S10 is active on `codex/s10-phase1-branch-qualification`, advanced linearly from
 `codex/s10-cl-model-recipe` and created from audited clean base
-`a080d49c1c22de20ccb5b1353d4922c7df14a729`. Terminal evidence through O-149
+`a080d49c1c22de20ccb5b1353d4922c7df14a729`. Terminal evidence through O-150
 is preserved in `fl_v3/usenix27_orchestra/handoffs/S10/`; the compact state is:
 
 - STOP-A's train-only split/evaluator gate is closed and reusable.
@@ -58,9 +58,11 @@ is preserved in `fl_v3/usenix27_orchestra/handoffs/S10/`; the compact state is:
 - Phase-I Envelope A WP0-WP4 is terminal. Camera correctness/parity, checkpoint,
   end-to-end and memory gates passed, but the optimized BEV-pooling operator was
   only about 2.4% faster than the exact PyTorch fallback and failed the frozen
-  1.25x promotion gate; Camera is therefore an honest negative and not qualified.
-  LiDAR WP4 passed with the reference BN/no-GN TransFusion graph, exact keyframe
-  GTDB, FP16 plus sparse FP32 island, and directly consumable qualified config and
+  1.25x promotion gate. O-150 accepts the numerically qualified PyTorch sorted
+  `segment_reduce` fallback as the Phase-I Camera production backend, retains CUDA
+  as an unpromoted option, and removes 1.25x as a capability prerequisite. LiDAR
+  WP4 passed with the reference BN/no-GN TransFusion graph, exact keyframe GTDB,
+  FP16 plus sparse FP32 island, and directly consumable qualified config and
   zero-update recovery checkpoint. No capability metric or training update ran.
 
 Owner decision O-143 supersedes the active S10 six-stop execution order and the
@@ -108,6 +110,14 @@ Owner decision O-149 establishes the completion-oriented engineering-validation
 contract below. It removes a default numeric submission cap only inside an
 explicitly approved validation envelope; it does not weaken scientific owner
 gates or create standing compute authority.
+
+Owner decision O-150 accepts the parity-qualified PyTorch sorted `segment_reduce`
+path as the Phase-I Camera production backend and keeps the CUDA kernel available
+only as an explicit, unpromoted optimization. Job H's failed 1.25x promotion gate
+remains historical performance evidence but no longer gates Camera capability.
+Envelope-B preparation is active; its scientific submission still requires a
+reviewed branch-recipe freeze and an explicitly approved aggregate GH200-hour
+ceiling.
 
 For this stage, `fl_v3/collab/` is read-only legacy evidence. Agents may inspect and
 cite it, but must not add or update plans, handoffs, reviews, results, or status

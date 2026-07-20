@@ -27,7 +27,7 @@ T5/T6/T7 or old defense code/routes from them or from Git history.
 S07-S09 are closed. S10 is active on `codex/s10-phase1-branch-qualification`,
 advanced linearly from `codex/s10-cl-model-recipe` and audited base
 `a080d49c1c22de20ccb5b1353d4922c7df14a729`. Accepted S10 evidence through
-O-149 remains under `fl_v3/usenix27_orchestra/handoffs/S10/`: STOP-A's
+O-150 remains under `fl_v3/usenix27_orchestra/handoffs/S10/`: STOP-A's
 train-only split/evaluator is reusable; STOP-B is `INCONCLUSIVE`; C1-A
 localized the observed large LiDAR-stem gradient to the current tiny-group GN
 path; bounded fusion proxy runs did not establish production capability or an
@@ -44,11 +44,13 @@ O-143 replaces S10's active six-stop execution order. The new order is:
 Current-A2 and the old C→D→E→F path are paused. Phase-I Envelope A WP0-WP4 is
 terminal after 12 serial submissions and `0.516389` GH200-hours. Camera passed
 checkpoint/correctness/parity/end-to-end/memory checks but failed the frozen
-optimized-pooling promotion gate (`0.976174 > 0.80`) and is not qualified. LiDAR
-engineering qualification passed with exact keyframe GTDB, BN/no-GN TransFusion,
-the sparse FP32 island, a qualified config and a zero-update recovery checkpoint.
-No capability metric or optimizer update ran. Camera disposition and branch
-recipe-freeze review are owner-gated; no compute is currently authorized. S11+
+optimized-pooling promotion gate (`0.976174 > 0.80`). O-150 accepts the qualified
+PyTorch sorted `segment_reduce` fallback as the Camera production backend, keeps
+CUDA unpromoted, and removes 1.25x as a capability prerequisite. LiDAR engineering
+qualification passed with exact keyframe GTDB, BN/no-GN TransFusion, the sparse
+FP32 island, a qualified config and a zero-update recovery checkpoint. No capability
+metric or optimizer update ran. Envelope-B preparation is active; recipe-freeze
+review and an explicit aggregate GH200-hour ceiling remain before submission. S11+
 remains pending.
 
 ## Collaboration

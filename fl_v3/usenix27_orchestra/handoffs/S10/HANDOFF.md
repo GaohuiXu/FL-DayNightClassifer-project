@@ -1,4 +1,4 @@
-# S10 HANDOFF — Phase-I Envelope A closed: Camera negative / LiDAR engineering PASS
+# S10 HANDOFF — O-150 resolves Camera backend; Envelope B preparation active
 
 ## 1. Current state and authority
 
@@ -6,12 +6,12 @@
 SESSION: persistent S00 / S10
 BASE_SHA: a080d49c1c22de20ccb5b1353d4922c7df14a729
 BRANCH: codex/s10-phase1-branch-qualification
-ACTIVE_DECISION: O-149 under O-143/O-144/O-145
+ACTIVE_DECISION: O-150 under O-143/O-144/O-145/O-149
 SCIENCE_ORDER: C/L independent recipe+capability -> staged fusion -> capability gate -> profiler
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: none; O-146/O-147/O-148 Envelope-A execution is consumed
-EXECUTION_STATE: OWNER_GATE; Camera production-backend disposition and branch
-                 recipe-freeze review are required before any Envelope-B request
+CURRENT_AUTHORITY: Envelope-A authority consumed; Envelope-B resource tuple not yet bound
+EXECUTION_STATE: ENVELOPE-B PREPARATION; fallback production backend accepted;
+                 branch recipe-freeze review and exact resource ceiling remain
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -35,6 +35,13 @@ ceiling. Envelope A is now closed after 12 submissions and `0.516389` GH200-hour
 O-149 consolidates the future completion-oriented engineering-validation
 contract. None of these decisions activates Envelope B or capability evaluation.
 
+O-150 accepts Job H's numerically qualified PyTorch sorted `segment_reduce` path as
+the Camera production backend and retains the CUDA kernel as an unpromoted optional
+optimization. The historical `1.25x` CUDA promotion failure remains evidence but no
+longer blocks Camera capability. The owner instructed S00 to start Envelope-B
+preparation; no approximately 50-GH200-hour submission may be inferred until the
+exact aggregate ceiling is explicitly bound.
+
 Current-A2 and the old C→D→E→F route are paused. The primary S10 claim remains
 **absolute clean capability + fusion contribution**, but it must now be earned
 through independently qualified branches followed by staged fusion.
@@ -50,7 +57,7 @@ through independently qualified branches followed by staged fusion.
 | C1-B0 / Job `504508` | GN and BN1d both completed 256 B4 updates; BN1d strongly reduced stem gradients and was about 1.41x faster | convergence or evaluator superiority |
 | C1-B1 / Job `504921` | GN-B4: NDS/mAP 0.144475/0.061553, 1,538 updates, 8.4914 samples/s; BN1d-B4: 0.136705/0.053125, 1,537 updates after one first-window overflow, 12.1663 samples/s | fair winner selection because exposure differed and uncertainty was absent |
 | BN1d-B8 / Job `505316` | 769/769 updates, zero overflow, 14.1569 samples/s; D_select NDS/mAP 0.078409/0.013024 | batch-size causality, capability acceptance or a complete tail evidence gate |
-| Envelope-A Camera / Job H `522113` | checkpoint and all correctness/e2e/memory gates passed; optimized-pool ratio `0.976174` failed frozen `<=0.80`; Camera WP4 is a terminal negative | production-backend promotion, Camera recipe qualification or capability |
+| Envelope-A Camera / Job H `522113` | checkpoint and all correctness/e2e/memory gates passed; optimized-pool ratio `0.976174` failed frozen `<=0.80`; O-150 accepts the parity-qualified fallback for production | CUDA promotion or Camera capability |
 | Envelope-A LiDAR / Job B5 `522222` | exact keyframe GTDB, BN/no-GN graph, sparse FP32 island, no-update calibration/evaluator/checkpoint gates passed; qualified config emitted | training convergence, mAP/NDS, scientific checkpoint or candidate selection |
 
 The bounded proxy scores are low and do not answer the owner's central question:
@@ -322,8 +329,9 @@ and is explicitly non-selectable/non-scientific.
 Final Envelope-A usage is 12/unlimited serial submissions and
 `0.516389/1.10` GH200-hours. No optimizer update, capability metric, D_select,
 D_audit, official validation, scientific checkpoint or candidate selection
-occurred. Camera disposition and the required branch recipe-freeze review are now
-owner-gated; `P1-G1` Envelope B is blocked rather than automatically activated.
+occurred. O-150 resolves the Camera backend disposition without revising the
+historical CUDA-performance result. Recipe review and the exact Envelope-B resource
+tuple remain before scientific submission.
 
 WP3 implements the reference-led standalone LiDAR graph without changing the
 historical Fusion detector. The existing reference-shaped sparse SECOND is reused only

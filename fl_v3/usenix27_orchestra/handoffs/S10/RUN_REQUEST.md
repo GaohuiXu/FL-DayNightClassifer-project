@@ -4,11 +4,11 @@
 
 ```text
 SESSION: persistent S00 / S10
-ACTIVE_DECISION: O-149 collaboration contract under O-143/O-144/O-145
-REQUEST_STATE: ENVELOPE A CONSUMED / NO ACTIVE COMPUTE REQUEST
-EXECUTION_AUTHORITY: none; O-146/O-147/O-148 consumed
-ACTIVE_PHASE: Phase I C/L independent recipe and capability — Camera disposition
-              and branch recipe-freeze review owner-gated
+ACTIVE_DECISION: O-150 under O-143/O-144/O-145/O-149
+REQUEST_STATE: ENVELOPE A CONSUMED / ENVELOPE B DRAFTING
+EXECUTION_AUTHORITY: preparation only; exact Envelope-B resource ceiling not bound
+ACTIVE_PHASE: Phase I C/L independent recipe and capability — fallback accepted;
+              resource tuple and branch recipe-freeze review pending
 PLAN: PHASE_I_PLAN.md / P1-G0 closed
 BRANCH: codex/s10-phase1-branch-qualification
 ```
@@ -112,6 +112,14 @@ FORBIDDEN_INTERPRETATION:
 OWNER_APPROVAL:
 ```
 
+Owner decision O-150 (2026-07-20) explicitly amends only the future Phase-I Camera
+backend and capability prerequisite: the numerically qualified PyTorch sorted
+`segment_reduce` fallback is production; the CUDA kernel remains available but
+unpromoted; the historical `1.25x` target no longer blocks capability. O-150 also
+instructs S00 to start Envelope-B preparation. It does not itself state an aggregate
+GPU-hour ceiling, so the first scientific submission still requires that exact field
+to be bound.
+
 Within an approved engineering-validation phase, S00 may derive commands/resolved
 configs and repair unambiguous frozen-semantics test/fixture, config/schema,
 dtype/API, runner, checkpoint-I/O, artifact/provenance or logging failures. Under
@@ -153,10 +161,11 @@ SEED_POLICY: seed 0
 EXPOSURE: 20 exact-CBGS epochs; physical B4; accumulation 8; effective B32
 CHECKPOINT_SELECTION: epoch-20 terminal only
 WORKFLOW: 5 WPs + 3 owner gates + 2 approval envelopes
-CAMERA_POOLING: optimized in-tree CUDA/equivalent production backend plus labelled
-                fallback and WP2/WP4 parity/policy/performance gates
+CAMERA_POOLING: O-150 PyTorch sorted segment-reduce production backend; CUDA option
+                retained unpromoted; WP2/WP4 parity/policy evidence retained
 EXECUTION_AUTHORITY: Envelope A consumed under O-146/O-147/O-148;
-                     Envelope B remains unauthorized and Camera-blocked
+                     Envelope-B preparation active, scientific submission pending
+                     exact resource ceiling and recipe-freeze review
 ```
 
 The complete graph, optimizer/scheduler, augmentation, role-bound GT-paste,
@@ -367,9 +376,9 @@ The single approval sentence is:
 批准激活 commit <REQUEST_COMMIT> 中的 S10 Phase I Envelope A，并按其中边界连续执行 WP0-WP4。
 ```
 
-## 7. Envelope B — blocked before P1-G1
+## 7. Envelope B — preparation active under O-150
 
-Envelope B is not yet a complete request. If unblocked, it will bind the approved candidates,
+Envelope B is not yet a complete request. It will bind the approved candidates,
 seed 0, exact data/evaluator identities, `N_cbgs`, accepted precision, 20-epoch
 B32 exposure, terminal-only selection, measured aggregate GPU-hours, wall-time
 segmentation, submission policy/concurrency, output root and owner-escalation conditions.
@@ -377,8 +386,10 @@ LiDAR runs before Camera by default; `D_audit` resources may be reserved but the
 data remain sealed until `P1-G2` explicitly opens them.
 
 ```text
-REQUEST_STATE: NOT YET REQUESTABLE
-BLOCKED_ON: Camera production-backend disposition and branch recipe-freeze review
+REQUEST_STATE: DRAFTING / NOT YET EXECUTABLE
+CAMERA_PRODUCTION_BACKEND: pytorch_sorted_segment_reduce
+CAMERA_OPTIONAL_BACKEND: optimized_cuda_unpromoted
+BLOCKED_ON: exact aggregate GH200-hour ceiling and branch recipe-freeze review
 EXECUTABLE_NOW: no
 ```
 

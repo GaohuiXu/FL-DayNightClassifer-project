@@ -22,7 +22,10 @@
 > `1.10` GH200-hour ceiling. WP0-WP4 is terminal: Camera is negative at the frozen
 > pooling-promotion gate and LiDAR engineering qualification passed. O-149 now
 > governs future explicitly approved engineering-validation loops; it creates no
-> standing compute authority.
+> standing compute authority. O-150 accepts the parity-qualified PyTorch sorted
+> `segment_reduce` backend for Camera production, keeps CUDA unpromoted, and removes
+> `1.25x` as a capability prerequisite. Envelope-B preparation is active; its exact
+> aggregate resource ceiling and recipe-freeze review remain before submission.
 
 ## 1. Rules for starting or extending work
 
@@ -427,9 +430,11 @@ authorized.
   completion-oriented under its aggregate GPU-hour ceiling and concurrency, with
   no default numeric submission cap. It permits only diagnosed frozen-semantics
   repairs and serial reruns; science/resource changes remain owner-gated.
-- **Next launch gate:** resolve Camera production-backend disposition and the
-  branch recipe-freeze review. Envelope B and capability evaluation remain
-  unauthorized.
+- **O-150 backend decision:** PyTorch sorted `segment_reduce` is the Phase-I Camera
+  production backend; CUDA remains an unpromoted explicit option, and its unmet
+  `1.25x` promotion target is not a capability gate.
+- **Next launch gate:** complete the branch recipe-freeze review and bind the exact
+  Envelope-B aggregate GH200-hour ceiling before capability submission.
 
 ## 7. S10 envelope activation skeleton
 
@@ -450,11 +455,10 @@ OUTPUT_ROOT:
 OWNER_APPROVAL: pending
 ```
 
-No new envelope is executable. Envelope A is closed, and its unused budget cannot
-be reused. The next request follows only after the owner resolves whether the
-Camera backend requirement remains, is scientifically amended, or yields a
-terminal Phase-I negative, and after the required recipe-freeze review scope is
-set. Envelope B cannot be requested mechanically from the mixed WP4 result.
+Envelope A is closed, and its unused budget cannot be reused. O-150 resolves the
+Camera backend requirement and starts Envelope-B preparation. The exact resource
+ceiling and branch recipe-freeze review still precede the first scientific
+submission; neither is inferred from Envelope A's unused budget.
 
 After approval, individual job rows in `handoffs/S10/RUN_REQUEST.md` record Git
 SHA, resolved-config hash, split, seed, command, resources, output, terminal state,

@@ -3,15 +3,16 @@
 ## 0. Status, purpose, and authority
 
 ```text
-STATUS: OWNER-FROZEN SCIENTIFIC PLAN / ENVELOPE A TERMINAL
+STATUS: OWNER-FROZEN SCIENTIFIC PLAN / O-150 FALLBACK-BACKEND AMENDMENT
 DATE: 2026-07-20
-OWNER_DECISION: O-144 plus O-145 optimized-BEV-pooling amendment;
-                O-149 collaboration-process amendment
+OWNER_DECISION: O-144 plus O-145 optimized-BEV-pooling qualification;
+                O-149 collaboration-process amendment;
+                O-150 production-fallback/capability-gate amendment
 SCOPE: Phase I camera/LiDAR clean branch qualification
 AUTHORITY: freezes the Phase I scientific choices, work-package order, gates,
            approval structure, and execution boundaries recorded below
 IMPLEMENTATION: WP0-WP4 completed under consumed O-146/O-147/O-148
-COMPUTE: no active authority; Envelope A is terminal
+COMPUTE: Envelope A is terminal; Envelope-B exact resource tuple remains to be bound
 CHECKPOINT_ACQUISITION: completed once under consumed Envelope A
 COMMIT: material Envelope-A implementation/result/contract closure commits authorized
 MERGE/PUSH/UPLOAD/PUBLICATION: not authorized by this document
@@ -41,6 +42,13 @@ optimized-pooling promotion gate and LiDAR engineering PASS. O-149 amends only
 the collaboration/remediation mechanics for future explicitly approved
 engineering-validation envelopes; it creates no compute authority.
 
+O-150 accepts the numerically qualified PyTorch sorted `segment_reduce` fallback as
+the Phase-I Camera production backend. The CUDA backend remains available only as an
+explicit, unpromoted optimization path. Job H's historical `1.25x` promotion gate and
+negative result remain intact as performance evidence, but that target is no longer a
+Camera capability prerequisite and may not block Envelope B. This changes no model
+graph, data, seed, recipe, evaluator, precision policy, or candidate count.
+
 ## 1. Technical summary
 
 Phase I will qualify camera and LiDAR as independent clean perception branches before
@@ -50,10 +58,10 @@ current shared-GN hybrid:
 - **Camera:** use the exact standalone MIT Camera graph family: Swin-T,
   GeneralizedLSSFPN, pure-camera LSS, the camera-specific GeneralizedResNet/LSSFPN
   decoder, and the reference six-task CenterHead.
-- **Camera BEV pooling:** replace the current production PyTorch scatter/cumsum
-  implementation with an independent mmdet3d/mmcv-free port of the pinned MIT CUDA
-  pooling operation, or a functionally equivalent kernel. Retain a correctness
-  fallback and require forward/backward plus precision-policy parity before use.
+- **Camera BEV pooling:** use the numerically qualified PyTorch sorted
+  `segment_reduce` implementation as the production backend. Retain the independent
+  mmdet3d/mmcv-free CUDA port as an explicit, unpromoted optimization backend; its
+  measured performance is not a capability gate.
 - **LiDAR:** use the MIT `voxelnet_0p075` graph family with keyframe-only training,
   reference BatchNorm, SECOND/SECONDFPN, and TransFusionHead.
 - **Fusion:** no Phase I training. Phase II will use the reference staging direction:
@@ -111,10 +119,9 @@ attack/defense experiments, or an automatic NuImages repair cell. No current C0/
 diagnostic graph is an automatic second candidate. The initial scientific candidate
 cap is exactly two: one Camera primary and one LiDAR primary.
 
-The O-145 CUDA BEV-pooling port, parity qualification, and bounded operator/end-to-end
-timing are the sole Phase-I custom-kernel performance exception. They are part of
-implementing the selected Camera graph, not a third candidate or a general profiler
-campaign.
+The completed O-145 CUDA BEV-pooling port, parity qualification, and bounded
+operator/end-to-end timing are retained engineering evidence. Under O-150 the port is
+not promoted and its `1.25x` target is not a Phase-I capability prerequisite.
 
 ## 3. Frozen graph direction
 
@@ -124,19 +131,18 @@ campaign.
 six camera images
   -> Swin-T (native LayerNorm)
   -> reference GeneralizedLSSFPN (BatchNorm)
-  -> pure-camera LSS with optimized CUDA BEV pooling
+  -> pure-camera LSS with PyTorch sorted segment-reduce BEV pooling
   -> camera-specific GeneralizedResNet + LSSFPN decoder (BatchNorm)
   -> reference six-task CenterHead (BatchNorm)
 ```
 
-The production backend must be an independent in-tree port of the optimized pooling
-operation at pinned MIT commit `326653dc06e0938edf1aae7d01efcd158ba83de5`, or a
-functionally equivalent CUDA kernel. It must not add mmdet3d or mmcv as a runtime
-dependency. A clearly labelled reference/fallback backend remains available for
-correctness tests and emergency diagnosis, but it is not another scientific candidate
-and may not silently replace a failed production kernel in Envelope B.
+The Phase-I production backend is the in-tree PyTorch sorted `segment_reduce` path
+qualified by Job H. It is part of the single Camera candidate, not an alternate
+scientific candidate. The independent CUDA port remains in-tree, retains its pinned
+Apache-2.0 attribution, and may be selected only explicitly for later optimization or
+diagnosis. It must not silently replace the production backend in Envelope B.
 
-Before the optimized backend can become the Camera production default, WP2/WP4 must:
+The completed WP2/WP4 qualification established the following reusable requirements:
 
 1. prove exact geometry/rank/cell-membership and output-shape agreement with the
    reference/fallback path, including empty inputs, singletons, collisions, and B4;
@@ -145,7 +151,8 @@ Before the optimized backend can become the Camera production default, WP2/WP4 m
    error, and freeze the tolerances before the first GPU parity run;
 3. prove that autocast boundaries, FP32 accumulation where required, output dtype,
    finite-state checks, and the accepted S08 precision policy are unchanged;
-4. fail closed on build, dispatch, dtype, architecture, or parity failure; and
+4. fail closed on production-backend dispatch, dtype, architecture, or parity failure;
+   a CUDA build failure cannot affect the production fallback; and
 5. retain the pinned Apache-2.0 source attribution/NOTICE obligations if source is
    ported, and record the extension source/build/runtime identity.
 
@@ -575,17 +582,17 @@ create a per-WP worktree, harness, handoff, review chain, or approval cycle.
    deterministic epoch order/remainder identity, checkpoint/resume, and the direct
    production `--preflight-only` path.
 3. **WP2 — exact standalone Camera.** Implement the Section-3.1 graph, ImageNet tensor
-   mapping, reference CenterHead recipe, Camera augmentation, the independent in-tree
-   optimized CUDA BEV-pooling backend plus reference fallback and forward/backward
-   parity tests, and the tested output-neutral omission of unused point payloads when
-   parity permits.
+   mapping, reference CenterHead recipe, Camera augmentation, the production PyTorch
+   sorted-segment-reduce BEV-pooling backend plus the unpromoted CUDA option and
+   forward/backward parity tests, and the tested output-neutral omission of unused
+   point payloads when parity permits.
 4. **WP3 — reference-led LiDAR.** Implement the Section-3.2 graph, BN, reference
    SECOND/SECONDFPN, mmdet-free TransFusionHead/target/loss/decode path, and
    keyframe-train/ten-sweep-eval separation.
 5. **WP4 — production integration, qualification, and review preparation.** Run
-   focused local/static tests; qualify optimized/fallback pooling forward values,
-   backward gradients, and FP16/FP32 policy; measure both pooling-operator and aligned
-   B4 end-to-end Camera timing; run production-path C/L engineering calibration,
+   focused local/static tests; qualify CUDA/fallback pooling forward values, backward
+   gradients, and FP16/FP32 policy; measure both pooling-operator and aligned B4
+   end-to-end Camera timing; run production-path C/L engineering calibration,
    checkpoint resume, and evaluator preflight; inventory the historical Alvis
    checkpoint/config/class/evaluator provenance without performing the Phase-II aligned
    comparison; then freeze one durable C/L implementation SHA for one combined recipe
@@ -602,11 +609,10 @@ commit authority must be explicit in Envelope A.
 1. **`P1-G0 PLAN_FREEZE` — closed by O-144.** The scientific recipe, five work
    packages, three gates, two-envelope model, and amendment boundaries in this
    document are binding. This closure does not activate Envelope A.
-2. **`P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` — blocked before request.** Envelope A
-   returned a Camera backend-promotion negative and a LiDAR engineering PASS. The
-   owner must first resolve Camera disposition and the branch recipe-freeze review;
-   only then may a measured Envelope-B resource tuple be drafted. No 20-epoch
-   training starts before this gate.
+2. **`P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` — preparation active under O-150.** The
+   Camera backend disposition is resolved in favor of the qualified PyTorch fallback.
+   The branch recipe-freeze review and an exact measured Envelope-B resource tuple
+   remain required before the first 20-epoch submission.
 3. **`P1-G2 SELECT_AND_AUDIT` — pending.** The owner receives both terminal
    `D_select` results and chooses, per branch, accept/freeze, honest negative, or an
    explicit cause-directed amendment. `D_audit` opens only when the owner says
@@ -646,9 +652,9 @@ checkpoint ran. Unused budget is not continuing authority.
 ### 10.4 Envelope B — scientific branch qualification
 
 The frozen Envelope-B design contains exactly two primary candidates: one Camera and
-one LiDAR, but it is not executable while Camera lacks a qualified production backend.
-Any change to that requirement or candidate is an explicit scientific amendment.
-If unblocked, each uses seed 0, 20 exact-CBGS epochs over D_fit, physical B4,
+one LiDAR. O-150 qualifies the PyTorch fallback as the Camera production backend and
+removes the former CUDA-performance blocker. Each candidate uses seed 0, 20 exact-CBGS
+epochs over D_fit, physical B4,
 accumulation 8/effective B32, accepted S08 precision, terminal-only checkpoint
 selection, one `D_select` evaluation, and conditionally one owner-unsealed `D_audit`
 evaluation. No NuImages, GN, alternate LR, alternate seed, or automatic scientific
@@ -674,9 +680,9 @@ H_B = 1.15 * (
 ```
 
 The exact aggregate GPU-hour ceiling, planned wall-time segmentation, submission
-policy/concurrency, output root, and resolved config hashes remain pending. After
-Camera disposition is approved, the resource request must be recalculated from the
-eligible graph and current evidence. D_audit resources may be reserved in Envelope B,
+policy/concurrency, output root, and resolved config hashes remain pending. O-150
+resolves Camera disposition; the resource request must now be calculated from the
+fallback production graph and current evidence. D_audit resources may be reserved in Envelope B,
 but reservation does not unseal the data. No estimate derived solely from the old C1
 graph is acceptable.
 
@@ -710,9 +716,10 @@ envelope, and O-149 creates no standing compute authority.
 - physical B4, accumulation 8, effective optimizer B32, scheduler per optimizer update,
   activation checkpointing off, and redundant telemetry synchronization off;
 - exact standalone reference Camera graph;
-- independent in-tree optimized CUDA BEV pooling/equivalent kernel for the Camera
-  production backend, with a labelled fallback and WP2/WP4 forward, backward,
-  FP16/FP32-policy, operator-timing, and end-to-end-timing gates;
+- PyTorch sorted `segment_reduce` as the Camera production BEV-pooling backend;
+  independent in-tree CUDA pooling retained as an unpromoted explicit option, with
+  the completed WP2/WP4 forward, backward, FP16/FP32-policy, operator-timing, and
+  end-to-end evidence retained but no `1.25x` capability prerequisite;
 - Camera ImageNet-1K Swin-T primary initialization;
 - Camera CenterHead; LiDAR/Fusion TransFusionHead;
 - reference L/F SECOND+SECONDFPN decoder rather than the current shallow shared neck;
