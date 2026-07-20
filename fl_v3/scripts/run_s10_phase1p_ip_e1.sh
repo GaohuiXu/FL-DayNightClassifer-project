@@ -40,8 +40,16 @@ done
 [[ "${approved_source_sha}" =~ ^[0-9a-f]{40}$ ]] || usage
 [[ -n "${config}" && -n "${profile_config}" && -n "${output_dir}" ]] || usage
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source_root="$(cd "${script_dir}/../.." && pwd)"
+# Slurm executes a copied batch script from its spool directory, so BASH_SOURCE
+# is not a repository path there.  Bind to the exact submission worktree; keep
+# the script-relative fallback for direct/local validation.
+if [[ -n "${SLURM_SUBMIT_DIR:-}" && \
+      -f "${SLURM_SUBMIT_DIR}/fl_v3/scripts/s10_phase1_throughput.py" ]]; then
+  source_root="$(realpath "${SLURM_SUBMIT_DIR}")"
+else
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  source_root="$(cd "${script_dir}/../.." && pwd)"
+fi
 entry="fl_v3/scripts/s10_phase1_throughput.py"
 expected_base_sha="f1a2babda8dafd181b5a5144ab025a3f6be21cc2"
 if [[ "${config}" != /* ]]; then config="${source_root}/${config}"; fi

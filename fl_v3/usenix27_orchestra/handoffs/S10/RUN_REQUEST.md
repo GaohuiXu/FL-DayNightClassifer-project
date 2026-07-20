@@ -643,7 +643,7 @@ that do not depend on that documentation commit are:
 | LiDAR source config | file `c7e1fa26e1714a31c5998296cb95cbab5e8732d4bf2f06da81fd6d631c574bfc`; resolved `0efe4d6d5138e3d99ae80254a6ecf884300dd18985ab45a00425228fc3ef082e` |
 | IP-E1 reference profile | file `f51c7a62f93887d8cffcb125ebd1cbeb6fc3f3911ec3378fa96a82eaf01f48e0`; canonical `7b9aede3daa9b4b605ee34a64e4c672dc6136ef2e6a47ccdd60b94b26a7ed949` |
 | profiler entry | `e1ffda1b0ede860c3d4886050ad9d4dcfb054f436490da8991bdfa0fe3d5955e` |
-| exact environment wrapper | `e4fb3b5b530ed8eea4f2980e7fdb2059dbc056e2629fd70257e50476f1770caa` |
+| exact environment wrapper at activation | `e4fb3b5b530ed8eea4f2980e7fdb2059dbc056e2629fd70257e50476f1770caa` |
 | accumulation-aware training loop | `170b1b5614b81dae059e257c3b5de86ebeaf0362f62fccdf3f0525c50abc263c` |
 | fail-closed profile parser | `fe3468ff5828fe73b13359c64414138b9fd19dcb06feed8173b8a0c538d31685` |
 
@@ -706,6 +706,22 @@ D_fit-only reference cells、七个 strict-output-neutral implementation groups�
 measurement-only 候选保持 default-off，D_select、D_audit、official validation、
 原 Envelope B、merge 和 push 仍不授权。
 ```
+
+### 8.4 Compact IP-E1 execution ledger
+
+Budget accounting separates ordinary approved cells from the conditional code-bug
+reserve. Raw Slurm logs and any created attempt directory are immutable.
+
+| Attempt | Source / profile / output | Terminal state and diagnosis | Charged GH200-hours |
+|---|---|---|---:|
+| Job `525163`, LiDAR sustained reference r1 | source `07d7db10db3f2c5cf92b774b1ba0511157fa16e8`; approved source `85c6719e4b880b198d850e16b1418c230fa5c656`; profile file `f51c7a62...f48e0`, canonical `7b9aede3...ed949`; intended attempt `lidar/sustained_07d7db10db3f_r1_reference`; Slurm logs under the approved root | `FAILED_PRE_MODEL` in `00:00:05`; Slurm executed its copied batch script from `/var/lib/slurm`, so the wrapper derived a nonexistent spool-relative repository path and failed at config `realpath`; no config, runtime, data, model or update executed. Unambiguous runner-path bug; replacement must bind `source_root` to `SLURM_SUBMIT_DIR`, use a fresh attempt path and a new linear source. | reserve `0.001389`; base `0.000000` |
+
+Current accounting after Job `525163`: base cells `0.000000 / 2.0`, code-bug
+reserve `0.001389 / 1.0`, hard aggregate `0.001389 / 3.0` charged GH200-hours.
+The derived wrapper hash after the diagnosed repair is
+`4f532d1e2db4658523e9e83196e83785b13295fe7312e69524007ec507dc564d`;
+its exact source SHA and replacement Job ID are appended after the linear repair
+commit and serial submission.
 
 ## 9. Envelope-A compact execution ledger
 
