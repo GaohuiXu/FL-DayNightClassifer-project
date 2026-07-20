@@ -348,11 +348,15 @@ the exact durable source SHA and command are known.
 | Swin acquisition 1/1 | source URL in Section 6.2; 114,342,173 bytes; SHA-256 `9f71c168d837d1b99dd1dc29e14990a7a9e8bdc5f673d46b04fe36fe15590ad3` | quarantined / not accepted | HTTPS 200; final host `release-assets.githubusercontent.com`; no GPU-hour charge; final path absent |
 | WP2 implementation | `5a001c96f00fffd0816492f181197e2d310a5ae1` | implemented; WP4 qualification pending | login syntax/static checks only; no capability inference |
 | WP3 implementation | `22138371d28e75d5218b0b888c225953fd429f0c` | complete; WP4 qualification pending | exact collapsed sparse boundary + SECOND/SECONDFPN/TransFusion; login syntax/static checks only |
-| WP4 implementation | `4c13ad736319c022d7fb6466a48a77c90ae79dde` / tree `af1a582488191b0e49799ebc02b9489990ce0edf` | complete; execution pending | exact zero-update calibrator, checkpoint/evaluator preflight, production-input pooling parity/timing, fail-closed Job A/B runners |
+| WP4 implementation | `4c13ad736319c022d7fb6466a48a77c90ae79dde` / tree `af1a582488191b0e49799ebc02b9489990ce0edf` | implemented; execution stopped before qualification | exact zero-update calibrator, checkpoint/evaluator preflight, production-input pooling parity/timing, fail-closed Job A/B runners |
+| WP4 checkpoint-I/O remediation | `67c1b55b59aa81a49b1ed8f4aabd07e6592e88aa` / tree `2c8812f57c3e59fce25ad1d6f3dd63044b39c714` | locally sealed; GH200 verification not authorized | scalar/N-D raw-byte hashing plus 0-D BatchNorm-buffer regression; no model/data/config change |
 | Job A / `521859` | `4c13ad736319c022d7fb6466a48a77c90ae79dde`; config `f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d` | `FAILED 1:0` in focused test; engineering incident, no model/data execution | `00:01:42` = `0.028333` GH200-hour; 27 passed / 1 pooling parity failure |
+| Job C / `521901` Camera derived replacement | remediation `564fb9d97c44a463ac055dc40d25b79acdc77858` / tree `a1b9f7e809708b72a927afa4ef9c3f4bae82e137` | `FAILED 1:0` in checkpoint hash; engineering incident, no checkpoint promotion/model/data execution | `00:01:48` = `0.030000` GH200-hour; pooling focused tests 29/29 passed |
 
-Envelope-A Slurm usage is `1 / 3` submissions and `0.028333 / 1.0` charged
-GH200-hours. Job `521859` is consumed and is not retried identically.
+Envelope-A Slurm usage is `2 / 3` submissions and `0.058333 / 1.0` charged
+GH200-hours. Job `521859` and sole derived replacement Job `521901` are consumed.
+The remaining numerical submission capacity is not authority to retry Camera or
+reinterpret Job B as a replacement; execution is stopped at the owner boundary.
 
 ### Job A exact pre-submission record
 
@@ -383,6 +387,33 @@ STOP: focused-test/checkpoint/content/build/parity/promotion failure; timeout; s
 INTERPRETATION: implementation conformance, numerical parity and engineering timing only
 ```
 
+### Job C `521901` terminal incident and phase stop
+
+```text
+TERMINAL: FAILED 1:0 / elapsed 00:01:48 / 0.030000 GH200-hour
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/
+        s10_phase1_envelope_a_eng_e321aed749fd/job_c_camera_564fb9dc58a9_c1
+PASSED: 29/29 focused tests, including optimized/fallback FP32/autocast forward and
+        exact feature-gradient parity plus cross-cell rounding regression
+FAILURE_STAGE: one-time Swin state mapping/identity, before report write and atomic rename
+OBSERVED: tensor_state_sha256 called tensor.view(torch.uint8) on a scalar Long
+          BatchNorm num_batches_tracked buffer; PyTorch 2.11 rejects 0-D
+          cross-element-size view
+ARTIFACT_LIFECYCLE: quarantine remains present/read-only with original physical SHA;
+                    final checkpoint and mapping report remain absent; acquisition count
+                    remains one; no second download occurred
+NOT_EXECUTED: D_fit read, model calibration, operator/e2e timing, checkpoint preflight,
+              evaluator schema, capability metrics, D_select, D_audit, official val
+CLASSIFICATION: output-neutral checkpoint identity/hash implementation defect, distinct
+                from Job 521859's corrected oracle defect; safe local repair is allowed,
+                but Job C is consumed and another Camera submission is not authorized
+LOCAL_REMEDIATION: `67c1b55b59aa81a49b1ed8f4aabd07e6592e88aa`; export contiguous
+                   tensor bytes through NumPy for both 0-D and N-D tensors and add
+                   an exact scalar-buffer identity regression test
+PHASE_STATE: STOPPED_OWNER_GATE; Job B not submitted; owner must explicitly authorize
+             a revised submission/envelope before any further Slurm execution
+```
+
 ### Job A `521859` incident and derived-replacement classification
 
 ```text
@@ -406,4 +437,27 @@ SCIENCE_EFFECT: optimized candidate math/data/precision/config/seed/gates unchan
                 only the diagnostic oracle is corrected to the frozen reference order
 DERIVED_JOB_C: eligible after a durable remediation SHA and fresh output/build roots;
                same command family, data, seed, resources, tolerances and stop gates
+```
+
+### Job C exact derived pre-submission record
+
+```text
+DERIVES_FROM: Job A 521859 / one diagnosed fallback-oracle implementation defect
+SOURCE_SHA: 564fb9d97c44a463ac055dc40d25b79acdc77858
+SOURCE_TREE: a1b9f7e809708b72a927afa4ef9c3f4bae82e137
+SOURCE_BRANCH: codex/s10-phase1-branch-qualification
+SOURCE_CONFIG: fl_v3/configs/s10_phase1_camera.json
+SOURCE_CONFIG_FILE_SHA256: 7101578fdfa38ba364c41ebc9ccd986797fe3261492b1bb149d0f962ec134e55
+RESOLVED_CONFIG_SHA256: f198817a4e6e021136cc1ec7c34f4079ff272341e97461458bf1715a607c658d
+RUNNER_SHA256: 48f962a274baf4a8205465cee6a21a596783e489e9abdf33743e1e9280c6d8a4
+ENTRY_SHA256: c56d1e9b8c79586aa1651d5d8b65706a29d71ec5a3700577374af9c95e415da8
+CHECKPOINT_ENTRY_SHA256: 7bf4d9a24687c6c6c5ac72128f53e35cc99d1f7420bc3611a5c76576833cc402
+DATA/SEED/GATES: identical to Job A; exact D_fit first four official-CBGS B4; seed 0;
+                 frozen forward/backward tolerances and 0.80/1.02/1.05 gates unchanged
+OUTPUT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_eng_e321aed749fd/job_c_camera_564fb9dc58a9_c1
+CUDA_BUILD: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/torch_extensions/s10_bev_pool_564fb9dc58a9
+RESOURCES: identical to Job A — 1 GH200, 16 CPU, 96 GiB, 00:30:00, no requeue
+STOP: any focused-test, content, parity, performance, resource or runtime failure;
+      Job C is the sole derived replacement and cannot be retried
+INTERPRETATION: implementation conformance, numerical parity and engineering timing only
 ```

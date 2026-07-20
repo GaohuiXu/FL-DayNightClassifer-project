@@ -1,4 +1,4 @@
-# S10 HANDOFF — O-146 active Phase-I Envelope A
+# S10 HANDOFF — Phase-I Envelope A stopped at owner gate
 
 ## 1. Current state and authority
 
@@ -10,7 +10,9 @@ ACTIVE_DECISION: O-146 under O-143/O-144/O-145
 SCIENCE_ORDER: C/L independent recipe+capability -> staged fusion -> capability gate -> profiler
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: exact Envelope A at e321aed749fd859c809199d52c30b2771dbef8b3;
-                   continuous WP0-WP4 plus bounded acquisition/materialization/calibration
+                   implementation authority remains, but further Slurm execution is stopped
+EXECUTION_STATE: STOPPED_OWNER_GATE after Job A 521859 and sole derived Job C 521901;
+                 Job B was not submitted and no Camera retry is authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -182,8 +184,10 @@ and evaluator paths, extended only by the smallest required branch-mode seams.
 ## 7. Active Envelope-A execution
 
 `P1-G0 PLAN_FREEZE` is closed, O-145 is incorporated, and O-146 activated Envelope A
-at request commit `e321aed749fd859c809199d52c30b2771dbef8b3`. S00 is executing
-WP0-WP4 continuously. The request-scoped roots are
+at request commit `e321aed749fd859c809199d52c30b2771dbef8b3`. WP0-WP3 and the
+WP4 implementation are committed, but WP4 execution is stopped at the owner boundary
+after the sole derived Camera replacement also hit a pre-model engineering failure.
+The request-scoped roots are
 `s10_phase1_envelope_a_data_e321aed749fd` and
 `s10_phase1_envelope_a_eng_e321aed749fd` under the accepted Arrhenius output root.
 
@@ -233,13 +237,37 @@ path (114,342,173 bytes), redirected through the allowlisted
 `9f71c168d837d1b99dd1dc29e14990a7a9e8bdc5f673d46b04fe36fe15590ad3`.
 The final checkpoint path remains absent and the bytes remain unusable: schema,
 per-tensor mapping, loaded/missing/unexpected keys, initialized-state identity and
-atomic promotion are all still gated on WP4 Job A. WP2 login-node validation is syntax
-and static-contract only; it is not CUDA parity or performance qualification.
+atomic promotion did not complete before the execution stop.
+
+WP4 Camera Job A `521859` stopped after `00:01:42` in the focused CUDA gate:
+27 tests passed and one failed because the fallback used a global prefix-cumsum whose
+cross-cell rounding order did not match the pinned per-cell sequential CUDA sum. The
+production kernel was unchanged; remediation `564fb9d97c44a463ac055dc40d25b79acdc77858`
+replaced only the independent fallback reduction with PyTorch's length-delimited
+per-cell SegmentReduce and added a rounding-order regression.
+
+The sole derived Job C `521901` then passed all 29 focused tests, including FP32 and
+autocast forward parity and exact feature-gradient parity, but stopped after
+`00:01:48` while hashing the mapped Swin state: the identity helper attempted a
+cross-element-size uint8 view of a scalar Long BatchNorm buffer. It failed before
+writing the mapping report or renaming the quarantine, and before any D_fit read,
+model calibration, operator/end-to-end timing, checkpoint preflight or evaluator
+schema check. Output-neutral remediation
+`67c1b55b59aa81a49b1ed8f4aabd07e6592e88aa` uses raw contiguous NumPy bytes for
+both scalar and N-D tensors and adds an exact scalar-buffer identity test; it has only
+login-node syntax/static validation because another Camera submission is not authorized.
+
+Total Envelope-A execution so far is 2/3 submissions and 0.058333/1.0 GH200-hours.
+The one downloaded Swin object remains read-only in quarantine with the recorded
+physical SHA; the final checkpoint and mapping report are absent, and no second download
+occurred. GTDB materialization and LiDAR Job B did not run. No capability metric,
+D_select, D_audit, official validation, scientific checkpoint or candidate selection
+occurred. A revised explicit owner authorization is required before further Slurm work.
 
 The checkpoint is the MIT Camera YAML's ImageNet
 `swin_tiny_patch4_window7_224.pth`, not `swint-nuimages-pretrained.pth`; acquisition
-and quarantine acceptance now belong to WP2. After Envelope A yields final GTDB
-identities, resolved config hashes, graph timing and one joint recipe review,
+and quarantine acceptance now belong to WP2. After revised authority lets Envelope A
+yield final GTDB identities, resolved config hashes, graph timing and one joint recipe review,
 `P1-G1` will present the measured Envelope-B scientific GPU-hour/submission
 request.
 
