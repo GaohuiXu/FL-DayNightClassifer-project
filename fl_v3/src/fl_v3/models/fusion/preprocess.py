@@ -344,6 +344,7 @@ class ImagePreprocessor(nn.Module):
         self._phase1p_augmentation_transfer_cleanup = False
         self._phase1p_static_grid_cache = False
         self._phase1p_batched_affine_grid = False
+        self._phase1p_batched_preprocess = False
 
     def set_phase1p_augmentation_transfer_cleanup(self, enabled: bool) -> None:
         """Enable the profiler-only, output-neutral augmentation transfer cleanup.
@@ -395,6 +396,26 @@ class ImagePreprocessor(nn.Module):
         if not isinstance(enabled, bool):
             raise TypeError("Phase I-P batched affine/grid control must be boolean")
         self._phase1p_batched_affine_grid = enabled
+
+    def set_phase1p_batched_preprocess(self, enabled: bool) -> None:
+        """Batch the final rotation ``grid_sample`` for the scoped IP-E3 probe.
+
+        This flag deliberately covers only the already-isolated rotation stage;
+        resize/crop/flip and per-image affine construction remain unchanged.  The
+        candidate requires both the shared non-persistent output-coordinate grid
+        and batched affine/grid construction, then issues one ``grid_sample`` for
+        all rotated images in the microbatch instead of one call per image.
+        """
+        if not isinstance(enabled, bool):
+            raise TypeError("Phase I-P batched preprocess control must be boolean")
+        if enabled and not (
+            self._phase1p_static_grid_cache
+            and self._phase1p_batched_affine_grid
+        ):
+            raise ValueError(
+                "batched rotation grid_sample requires static grid and batched affine/grid"
+            )
+        self._phase1p_batched_preprocess = enabled
 
     @property
     def geometry_mode(self) -> str:
@@ -632,15 +653,36 @@ class ImagePreprocessor(nn.Module):
             grid_x = (2.0 * (src[..., 0] + 0.5) / W_out) - 1.0
             grid_y = (2.0 * (src[..., 1] + 0.5) / H_out) - 1.0
             grids = torch.stack((grid_x, grid_y), dim=-1).to(images[0].dtype)
-            for grid_index, image_index in enumerate(rotation_image_indices):
-                image = images[image_index]
-                images[image_index] = F.grid_sample(
-                    image.unsqueeze(0),
-                    grids[grid_index].unsqueeze(0),
+            if self._phase1p_batched_preprocess:
+                rotated_images = F.grid_sample(
+                    torch.stack(
+                        [images[image_index] for image_index in rotation_image_indices],
+                        dim=0,
+                    ),
+                    grids,
                     mode="bilinear",
                     padding_mode="zeros",
                     align_corners=False,
-                ).reshape(C, H_out, W_out)
+                )
+                if tuple(rotated_images.shape) != (
+                    len(rotation_image_indices),
+                    C,
+                    H_out,
+                    W_out,
+                ):
+                    raise RuntimeError("batched rotation grid_sample shape drift")
+                for grid_index, image_index in enumerate(rotation_image_indices):
+                    images[image_index] = rotated_images[grid_index]
+            else:
+                for grid_index, image_index in enumerate(rotation_image_indices):
+                    image = images[image_index]
+                    images[image_index] = F.grid_sample(
+                        image.unsqueeze(0),
+                        grids[grid_index].unsqueeze(0),
+                        mode="bilinear",
+                        padding_mode="zeros",
+                        align_corners=False,
+                    ).reshape(C, H_out, W_out)
 
         x = torch.stack(images, dim=0).reshape(B, N, C, H_out, W_out)
         x = (x - self._mean) / self._std

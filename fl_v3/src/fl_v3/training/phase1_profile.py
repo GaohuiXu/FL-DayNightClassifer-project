@@ -194,6 +194,18 @@ IP_E3_RUNNABLE_CANDIDATES: dict[str, dict[str, Any]] = {
             physical_batch_size=16,
         ),
     },
+    "camera_sdpa_compile_fused_b16_accum2_followup_batched_rotation_grid_sample": {
+        "branches": frozenset({"camera"}),
+        "options": _candidate_options(
+            camera_static_grid_cache=True,
+            camera_batched_affine_grid=True,
+            camera_batched_preprocess=True,
+            camera_sdpa=True,
+            torch_compile=True,
+            fused_adamw=True,
+            physical_batch_size=16,
+        ),
+    },
 }
 
 

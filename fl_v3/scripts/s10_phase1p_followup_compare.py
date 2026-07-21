@@ -11,7 +11,10 @@ import sys
 
 sys.path.insert(0, "fl_v3/src")
 
-from fl_v3.training.phase1p_compare import compare_b16_followup_output_dirs
+from fl_v3.training.phase1p_compare import (
+    compare_b16_batched_rotation_output_dirs,
+    compare_b16_followup_output_dirs,
+)
 
 
 def _canonical_bytes(value) -> bytes:
@@ -49,23 +52,41 @@ def main() -> None:
     parser.add_argument("--reference-dir", required=True)
     parser.add_argument("--candidate-dir", required=True)
     parser.add_argument("--output", required=True)
-    arguments = parser.parse_args()
-    result = compare_b16_followup_output_dirs(
-        arguments.reference_dir,
-        arguments.candidate_dir,
+    parser.add_argument(
+        "--candidate-kind",
+        choices=("conservative", "batched-rotation"),
+        default="conservative",
     )
+    arguments = parser.parse_args()
+    if arguments.candidate_kind == "conservative":
+        result = compare_b16_followup_output_dirs(
+            arguments.reference_dir,
+            arguments.candidate_dir,
+        )
+        gate = result["conservative_followup_gate"]
+        compact = {
+            "status": "COMPLETE_B16_FOLLOWUP_COMPARISON",
+            "verdict": gate["verdict"],
+            "conditional_batched_rotation_implementation_eligible": gate[
+                "conditional_batched_rotation_implementation_eligible"
+            ],
+        }
+    else:
+        result = compare_b16_batched_rotation_output_dirs(
+            arguments.reference_dir,
+            arguments.candidate_dir,
+        )
+        gate = result["batched_rotation_gate"]
+        compact = {
+            "status": "COMPLETE_B16_BATCHED_ROTATION_COMPARISON",
+            "verdict": gate["verdict"],
+            "positive_screen": gate["positive_screen"],
+        }
     digest = _write_once(Path(arguments.output), result)
-    gate = result["conservative_followup_gate"]
+    compact["summary_sha256"] = digest
     print(
         json.dumps(
-            {
-                "status": "COMPLETE_B16_FOLLOWUP_COMPARISON",
-                "verdict": gate["verdict"],
-                "conditional_batched_rotation_implementation_eligible": gate[
-                    "conditional_batched_rotation_implementation_eligible"
-                ],
-                "summary_sha256": digest,
-            },
+            compact,
             sort_keys=True,
         )
     )

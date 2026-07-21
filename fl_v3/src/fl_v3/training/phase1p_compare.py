@@ -23,6 +23,9 @@ B16_FOLLOWUP_REFERENCE_ID = (
 B16_FOLLOWUP_CONSERVATIVE_ID = (
     "camera_sdpa_compile_fused_b16_accum2_followup_batched_affine_grid"
 )
+B16_BATCHED_ROTATION_ID = (
+    "camera_sdpa_compile_fused_b16_accum2_followup_batched_rotation_grid_sample"
+)
 
 
 class Phase1PPairError(RuntimeError):
@@ -496,11 +499,76 @@ def compare_b16_followup_output_dirs(
     return summary
 
 
+def compare_b16_batched_rotation_output_dirs(
+    reference_dir: str | Path,
+    candidate_dir: str | Path,
+) -> dict[str, Any]:
+    """Seal the conditionally authorized combined B16 preprocessing screen."""
+    summary = compare_output_dirs(reference_dir, candidate_dir)
+    _require(
+        summary["reference"]["candidate_id"] == B16_FOLLOWUP_REFERENCE_ID,
+        "IP-E3 batched-rotation reference identity drift",
+    )
+    _require(
+        summary["candidate"]["candidate_id"] == B16_BATCHED_ROTATION_ID,
+        "IP-E3 batched-rotation candidate identity drift",
+    )
+    _require(
+        summary["reference"]["physical_batch_size"]
+        == summary["candidate"]["physical_batch_size"]
+        == 16,
+        "IP-E3 batched-rotation pair must compare physical B16",
+    )
+    health = {
+        "reference_measurement": bool(
+            summary["reference"]["measurement_health"]["gate_pass"]
+        ),
+        "candidate_measurement": bool(
+            summary["candidate"]["measurement_health"]["gate_pass"]
+        ),
+        "reference_checkpoint_continuation": bool(
+            summary["reference"]["checkpoint_continuation"]["gate_pass"]
+        ),
+        "candidate_checkpoint_continuation": bool(
+            summary["candidate"]["checkpoint_continuation"]["gate_pass"]
+        ),
+        "same_batch_input_anchor_exact": bool(
+            summary["matched_allocation"]["same_batch_input_anchor_exact"]
+        ),
+    }
+    hard_gate_pass = all(health.values())
+    speed_verdict = str(summary["throughput"]["speed_verdict"])
+    if not hard_gate_pass:
+        verdict = "HARD_GATE_STOP"
+    else:
+        verdict = speed_verdict
+    summary["schema"] = "s10.phase1p.b16-batched-rotation-comparison.v1"
+    summary["envelope"] = "IP-E3"
+    summary["batched_rotation_gate"] = {
+        "health_checks": health,
+        "hard_gate_pass": hard_gate_pass,
+        "verdict": verdict,
+        "positive_screen": bool(
+            hard_gate_pass and speed_verdict == "POSITIVE_SCREEN"
+        ),
+        "rule": (
+            "return the one-pair throughput, uncertainty, memory and checkpoint "
+            "evidence to the owner; no result promotes the candidate automatically"
+        ),
+    }
+    summary["promotion_authorized"] = False
+    summary["interpretation_limits"].append(
+        "the combined batched-rotation candidate requires an explicit owner recipe decision"
+    )
+    return summary
+
+
 __all__ = [
     "BOOTSTRAP_DRAWS",
     "B16_FOLLOWUP_NEAR_NEUTRAL_LOWER_BOUND",
     "PAIR_SCHEMA",
     "Phase1PPairError",
+    "compare_b16_batched_rotation_output_dirs",
     "compare_b16_followup_output_dirs",
     "compare_output_dirs",
 ]

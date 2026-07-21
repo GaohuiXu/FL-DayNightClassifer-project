@@ -264,6 +264,99 @@ def test_s10_phase1p_batched_affine_grid_is_elementwise_exact_on_cpu_and_cuda():
         check(torch.device("cuda", 0))
 
 
+def test_s10_phase1p_batched_rotation_grid_sample_is_output_neutral_and_single_call(
+    monkeypatch,
+):
+    H_in, W_in = 20, 32
+    H_out, W_out = 12, 20
+    base_images = torch.arange(3 * 3 * H_in * W_in, dtype=torch.int64)
+    base_images = base_images.remainder(256).to(torch.uint8).view(
+        1, 3, 3, H_in, W_in
+    )
+    base_lidar2img, base_K = _calibration()
+    base_lidar2img = base_lidar2img.repeat(1, 3, 1, 1)
+    base_K = base_K.repeat(1, 3, 1, 1)
+    base_params = torch.tensor(
+        [
+            [0.75, 15.0, 24.0, 2.0, 3.0, 0.0, 11.0],
+            [0.75, 15.0, 24.0, -2.0, 5.0, 1.0, -5.4],
+            [0.75, 15.0, 24.0, 0.0, 1.0, 0.0, 0.0],
+        ],
+        dtype=torch.float64,
+    ).view(1, 3, len(AUGMENTATION_PARAM_FIELDS))
+
+    def check(device: torch.device) -> None:
+        reference = ImagePreprocessor(
+            (H_out, W_out), augmentation=ImageAugmentationConfig(enabled=True)
+        ).to(device).eval()
+        candidate = ImagePreprocessor(
+            (H_out, W_out), augmentation=ImageAugmentationConfig(enabled=True)
+        ).to(device).eval()
+        candidate.set_phase1p_static_grid_cache(True)
+        candidate.set_phase1p_batched_affine_grid(True)
+        candidate.set_phase1p_batched_preprocess(True)
+        assert "_phase1p_rotation_output_coordinates" not in candidate.state_dict()
+
+        images = base_images.to(device)
+        lidar2img = base_lidar2img.to(device)
+        intrinsics = base_K.to(device)
+        params = base_params.to(device)
+        expected = reference(
+            images,
+            lidar2img,
+            intrinsics,
+            augmentation_params=params,
+        )
+
+        original_grid_sample = torch.nn.functional.grid_sample
+        calls = []
+
+        def counted_grid_sample(input_tensor, grid, **kwargs):
+            calls.append((tuple(input_tensor.shape), tuple(grid.shape)))
+            return original_grid_sample(input_tensor, grid, **kwargs)
+
+        with monkeypatch.context() as scoped:
+            scoped.setattr(
+                torch.nn.functional,
+                "grid_sample",
+                counted_grid_sample,
+            )
+            actual = candidate(
+                images,
+                lidar2img,
+                intrinsics,
+                augmentation_params=params,
+            )
+        assert calls == [((2, 3, H_out, W_out), (2, H_out, W_out, 2))]
+        assert actual.keys() == expected.keys()
+        torch.testing.assert_close(
+            actual["images"],
+            expected["images"],
+            rtol=0.002,
+            atol=0.0002,
+        )
+        for key in (
+            "lidar2img",
+            "cam_intrinsics",
+            "image_aug_matrix",
+            "augmentation_params",
+        ):
+            assert torch.equal(actual[key], expected[key]), (device, key)
+        assert actual["augmentation_param_fields"] == expected[
+            "augmentation_param_fields"
+        ]
+
+    incomplete = ImagePreprocessor(
+        (H_out, W_out), augmentation=ImageAugmentationConfig(enabled=True)
+    )
+    with pytest.raises(ValueError, match="requires static grid"):
+        incomplete.set_phase1p_batched_preprocess(True)
+
+    check(torch.device("cpu"))
+    if torch.cuda.is_available():
+        check(torch.device("cuda", 0))
+
+
 def test_s03_validation_geometry_is_deterministic_and_training_is_seed_replayable():
     images = torch.arange(2 * 3 * 20 * 32, dtype=torch.int64)
     images = images.remainder(256).to(torch.uint8).view(1, 2, 3, 20, 32)

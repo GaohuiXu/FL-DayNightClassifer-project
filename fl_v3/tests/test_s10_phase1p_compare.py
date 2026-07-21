@@ -8,6 +8,7 @@ import pytest
 
 from fl_v3.training.phase1p_compare import (
     Phase1PPairError,
+    compare_b16_batched_rotation_output_dirs,
     compare_b16_followup_output_dirs,
     compare_output_dirs,
 )
@@ -212,4 +213,37 @@ def test_b16_followup_near_neutral_gate_unlocks_implementation_only(tmp_path):
     assert gate["verdict"] == "NEAR_NEUTRAL_SCREEN"
     assert gate["hard_gate_pass"] is True
     assert gate["conditional_batched_rotation_implementation_eligible"] is True
+    assert summary["promotion_authorized"] is False
+
+
+def test_b16_batched_rotation_comparison_requires_owner_decision(tmp_path):
+    reference = tmp_path / "reference"
+    candidate = tmp_path / "candidate"
+    _output(
+        reference,
+        candidate_id=(
+            "camera_sdpa_compile_fused_b16_accum2_followup_reference"
+        ),
+        batch=16,
+        block_seconds=32.0,
+    )
+    _output(
+        candidate,
+        candidate_id=(
+            "camera_sdpa_compile_fused_b16_accum2_followup_"
+            "batched_rotation_grid_sample"
+        ),
+        batch=16,
+        block_seconds=30.0,
+    )
+
+    summary = compare_b16_batched_rotation_output_dirs(reference, candidate)
+    gate = summary["batched_rotation_gate"]
+    assert summary["schema"] == (
+        "s10.phase1p.b16-batched-rotation-comparison.v1"
+    )
+    assert summary["envelope"] == "IP-E3"
+    assert gate["hard_gate_pass"] is True
+    assert gate["verdict"] == "POSITIVE_SCREEN"
+    assert gate["positive_screen"] is True
     assert summary["promotion_authorized"] is False
