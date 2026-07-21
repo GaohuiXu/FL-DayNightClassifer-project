@@ -4,10 +4,10 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: final Camera B16 runtime stack frozen / bulk conversion promoted
-REQUEST_STATE: IP-E4 CLOSED POSITIVE / ENVELOPE B FROZEN
-EXECUTION_AUTHORITY: none; IP-E4 compute authority consumed and closed; DDP unauthorized
-ACTIVE_PHASE: Phase I-P Camera preprocessing follow-up terminal; DDP discussion next
+ACTIVE_DECISION: final Camera B16 runtime frozen / exact IP-E5 DDP request prepared
+REQUEST_STATE: IP-E5 DESIGNED / OWNER ACTIVATION PENDING / ENVELOPE B FROZEN
+EXECUTION_AUTHORITY: none; IP-E5 source/tests/docs only; GPU/Slurm unauthorized
+ACTIVE_PHASE: owner review of exact same-node 1-GPU versus 2-GPU DDP envelope
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -24,8 +24,11 @@ merge, push or publication.
 After promoting the final Camera B16x2 recipe, the owner froze the next serial
 order: final-B16 stage trace and conservative affine/grid screen; only then a
 separately prepared same-node 2-GH200 DDP qualification. Source commit
-`9233af3119857511f5f2acc310a182449e7b91a2` prepares only the single-GPU
-Section-9.4 path. It does not activate that path, implement DDP, or grant compute.
+`9233af3119857511f5f2acc310a182449e7b91a2` prepared the single-GPU Section-9.4
+path. IP-E3/IP-E4 are now terminal. The owner subsequently authorized materializing
+the final recipe binding and designing, but not executing, the exact Section-9.6
+IP-E5 DDP source/tests/resource envelope at
+`e51df6efa04e6d151315c72b7d7016014852078c`.
 
 O-146 records the owner's exact activation of Envelope A at request commit
 `e321aed749fd859c809199d52c30b2771dbef8b3`. S00 may execute WP0 through WP4
@@ -1741,13 +1744,15 @@ The subsequent 2-GH200 work is intentionally not part of IP-E3. After IP-E3 is
 terminal, its separate design must bind 1 GPU B16x2 against 2 GPUs B16/rank x1 in
 one same-node allocation, effective global B32, and exact DDP-expanded-CBGS union
 with no DDP-induced omission or duplication. Its performance gate is a one-sided
-95% aggregate-throughput speed-ratio lower bound `>=1.60`, implying projected wall
-time `<=11.4 h` and two-GPU charged cost `<=1.25x` the single-GPU reference. Model
+95% aggregate-throughput speed-ratio lower bound `>=1.60`. The later final
+`13.285290 h` single-GPU projection makes the descriptive wall bound `<=8.303306 h`;
+the fresh same-allocation reference remains binding and two-GPU charged cost must
+be `<=1.25x` that reference. Model
 parameters, optimizer/scheduler/scaler state and accepted/skipped counters must be
 rank-consistent; BN running-buffer semantics must be explicitly frozen rather than
-silently excluded. Checkpoint/resume and rank-state gates are mandatory. No DDP
-source change, resource envelope, Slurm execution, production promotion, or 4-GPU
-cell is authorized here.
+silently excluded. Checkpoint/resume and rank-state gates are mandatory. IP-E3
+itself authorized no DDP source, resource, execution, promotion or 4-GPU cell;
+the later separately designed source/request is Section 9.6.
 
 ### 9.5 Camera preprocessing IP-E4 — closed positive
 
@@ -2102,9 +2107,161 @@ LOCAL_TEST_LIMIT: pytest and Torch are absent from the x86 login environment;
   the candidate paths themselves passed the eight in-job CPU/GH200-CUDA pretests
 INTERPRETATION: D_fit throughput/engineering health only; no capability, mAP/NDS,
   generalization, D_select, D_audit, official validation or scientific selection
-NEXT_BOUNDARY: DDP remains discussion-only until the owner freezes and activates
-  a separate same-node 1-GPU versus 2-GPU qualification envelope
+NEXT_BOUNDARY: exact Section-9.6 DDP source/tests/resources are prepared; GPU/Slurm
+  remains blocked until the owner approves its containing commit and full ceiling
 ```
+
+### 9.6 Camera same-node 2-GH200 DDP IP-E5 — designed, owner activation pending
+
+The owner authorizes materializing the already selected final Camera recipe and
+designing exact DDP source/tests/resources. This section is the resulting concrete
+request; design approval is not GPU/Slurm activation.
+
+```text
+REQUEST_STATE: DESIGNED / OWNER ACTIVATION PENDING / NOT EXECUTABLE
+DESIGN_APPROVAL_ANCHOR: e61c486757ca5fe89340c9325014f4c3e048da2b
+PREPARED_IMPLEMENTATION_SHA: e51df6efa04e6d151315c72b7d7016014852078c
+PREPARED_IMPLEMENTATION_TREE: 603ecd1784fcb093532258a42dfa5dc7c563f0a3
+UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
+BRANCH: codex/s10-phase1p-throughput-preflight
+FROZEN_CONTROL: codex/s10-phase1-branch-qualification at UNIQUE_BASE_SHA
+OBJECTIVE: qualify whether same-node two-GH200 DDP gives robust Camera wall-time
+  benefit without changing effective global B32, exposure, model/loss/update,
+  precision, checkpoint cadence, evaluator state or data ownership
+CANDIDATE_CAP: exactly two measurements in one allocation: fresh 1-GPU reference
+  and fresh 2-GPU DDP candidate; no third candidate, 4-GPU cell or ablation
+DATA_ROLE: exact D_fit only; official CBGS 87,930 expanded / 87,904 consumed /
+  26 dropped per epoch; seed 0; no D_select/D_audit/official validation
+PRODUCTION_RECIPE: Camera config file/resolved SHA256
+  2e5368f96a6198e9a3b1bd43b258b53675df49f5c6ca9042fa8f72e0084c3b6a /
+  0df1a19c057312923e0a8e48e81689d9ca265cc613c6f34d4795417414aa0bcf;
+  B16xaccum2; conservative batched affine/grid; vectorized geometry/inverses;
+  bulk native-image conversion; SDPA; scoped five-module forward compile; fused
+  AdamW; FP16; activation checkpoint/telemetry off; one recovery checkpoint/epoch
+REFERENCE: world size 1, physical B16, accumulation 2, effective B32
+DDP_CANDIDATE: one node/world size 2, physical B16 per rank, accumulation 1,
+  effective global B32; NCCL; broadcast_buffers=true; static_graph=true;
+  gradient_as_bucket_view=true; find_unused_parameters=false; no SyncBatchNorm
+GLOBAL_EXPOSURE: reshape each frozen global B32 permutation window, rank 0 gets
+  [0:16] and rank 1 [16:32]; no DistributedSampler padding/striding; runtime epoch-0
+  union plus frozen 20-epoch source identity must show no duplicate or omission
+WORKER_RNG: seed + epoch*world_size + rank; exact within the DDP run and resume;
+  accepted as measurement-only, not silently promoted as the production recipe
+BN_POLICY: ordinary rank-local B16 BN is measured; rank-0 buffers define the
+  checkpoint only after sustained timing, matching the next-forward DDP broadcast;
+  cross-rank BN divergence is finite diagnostic evidence, not an equality gate;
+  owner must explicitly accept the BN/RNG recipe before production promotion
+CONTROL_FLOW: loss-finite, gradient-finite and GradScaler accepted/skipped decisions
+  are synchronized across ranks before the corresponding branch; mismatch fails
+MEASUREMENT: direct focused tests; two-rank NCCL smoke without D_fit; then fresh
+  reference followed by DDP candidate in the same allocation; each sustained path
+  uses 16 accepted warm-up plus 256 accepted measured B32 windows; 16-window blocks;
+  50,000-draw one-sided 95% bootstrap; one-second two-GPU system samples
+MEMORY_GATE: each rank peak reserved <=85% visible memory; no monotonic reserved
+  growth over 64 MiB and no measured steady-state recompile
+PERFORMANCE_GATE: DDP/reference sustained-rate one-sided 95% lower bound >=1.60;
+  projected DDP wall <= fresh reference projection / 1.60; projected two-GPU
+  charged hours <=1.25 * fresh reference projected one-GPU hours
+DESCRIPTIVE_CURRENT_BOUND: Job-541821 final projection 13.285290 h implies <=8.303306 h
+  DDP wall and <=16.606613 charged GH200-hours, but the fresh reference is binding
+CHECKPOINT_GATE: rank-0 standard full checkpoint plus one RNG sidecar per rank;
+  exact restored boundary/config/training/discrete state; exact per-rank input and
+  RNG replay; same-process and fresh-process eight-window continuation; exact rank
+  parameters/non-BN buffers/AdamW/scheduler/scaler/counters before canonical save
+NUMERICAL_POLICY: finite/structural/group-identity checks are hard; grouped
+  parameters/BN mean/BN variance/Adam exp_avg/exp_avg_sq relative-L2, max-absolute
+  and per-element allclose are recorded diagnostics under the owner-amended gate
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/
+  arrhenius_fl_v3/outputs/s10_phase1p_ip_e5_e61c486757ca/
+OUTPUT_RULE: source-SHA-qualified fresh smoke/reference/DDP directories and one
+  write-once pair result; raw outputs immutable; no overwrite or identical retry
+PER_JOB_RESOURCE: account naiss2025-22-1113-gpu; partition gpu; 1 node; 1 task;
+  2 nvidia_gh200_120gb; 32 CPUs; 192 GiB; <=00:45:00; no requeue
+BASE_AGGREGATE_GPU_HOURS: 1.50 charged GH200-hours
+CODE_BUG_REMEDIATION_RESERVE: +1.50 charged GH200-hours, diagnosed code defect only
+HARD_AGGREGATE_GPU_HOURS: 3.00 charged GH200-hours
+MAX_CONCURRENCY: 1
+SUBMISSION_POLICY: serial; no numeric remediation-count cap; base and reserve are
+  separate; no blind identical retry; every derived source uses fresh output
+REMEDIATION_AUTHORITY: smallest single-correct-answer test/fixture, config/schema,
+  rank/dtype/API, runner, checkpoint/artifact/provenance/logging repair anchored to
+  the frozen semantics; record source/command/output/charge before serial resubmit
+STOP_ESCALATE: ceiling would be exceeded; same blocker recurs; ambiguous diagnosis;
+  NCCL/hardware/resource/source drift; test/smoke/data-union/rank/checkpoint hard
+  gate fails; OOM/>85%/growth/recompile; requested change touches math, data,
+  precision, optimizer/scheduler, exposure, BN/RNG recipe, gate or interpretation
+NEGATIVE_RESULT: a healthy result below any performance/payback threshold is a
+  terminal negative qualification, not a code bug and not a rerun trigger
+PROMOTION: never automatic; positive IP-E5 evidence still requires owner acceptance
+  of the DDP BN/worker-RNG recipe and a later production-config decision
+FORBIDDEN: capability/mAP/NDS/generalization/candidate-selection claims; scientific
+  training; D_select; D_audit; official validation; LiDAR; 4-GPU DDP; Envelope B;
+  merge, push, upload or publication
+```
+
+Prepared immutable identities:
+
+```text
+SINGLE_PROFILE_FILE_SHA256:
+  2f01e83e7ccf820a76a6fe25c4ea355e4eaea060523bca755b9caa17f2da1b93
+SINGLE_PROFILE_CANONICAL_SHA256:
+  bb8318dd5e054ed5843402898a7ebab4aa939cc3e565c55400bad445ba0bf135
+SINGLE_EFFECTIVE_RUNTIME_SHA256:
+  4ffcd3a16e0b8a355aef6d17ec11da1e58418409d9b82ea17882b28dda34db58
+DDP_PROFILE_FILE_SHA256:
+  240118b574f32cb09b6a982a48bcb3de1206db5667b3fa32a6012a21922b1497
+DDP_PROFILE_CANONICAL_SHA256:
+  2d8939f15746cecfbeacb6867528b97b6796eac8e300a5ab08b330076873cfe5
+DDP_EFFECTIVE_RUNTIME_SHA256:
+  096415831a743368ca7529e46a3e382e1884038fcab9b7d2d8fc6d81919318f2
+LAUNCHER_SHA256:
+  77b84b103c96dfbe766974ad4051167108b852d0dd170e48d532b7b13ec2b129
+DDP_ENTRY_SHA256:
+  26fbb6d39b38cd89bc93db68df213866299fe9d16a0fe141405e5912a11e5dd3
+PAIR_ANALYZER_SHA256:
+  d8a57f399f2d14e0d554ef77908b095165495716bd1a8296ff8e7578cb9ae209
+DDP_HELPER_SHA256:
+  075df300ad1d808b57bfc6d7b9464b67b23e034e2e95dac5a076e515a8d62a2b
+SINGLE_GPU_PROFILER_SHA256:
+  291c6aa74183327b76d0f0180f21e2c180e8b97d720890763275d12b312aa107
+PAIR_ANALYSIS_CORE_SHA256:
+  35dc2354b9c53da24c3a7af324328ccde70814acc01d93d94dad3d6dc8812c82
+TRAINING_LOOP_SHA256:
+  4e2aeaf37c241f98a41722950e2aee34cc9c52dd444eba33bb1ce09a7de9dc82
+DDP_SAMPLER_SHA256:
+  86f764d4fb8b58d0d097e0b48f36fc4f474dd49f6c14abf98fdc3abab8e7832b
+LOCAL_VALIDATION: shell syntax, Python byte-compilation, JSON syntax, strict direct
+  profile parsing, current config/resolved identity, both effective runtime hashes,
+  synthetic paired-result analysis and diff checks PASS
+LOCAL_TEST_LIMIT: PyTorch/pytest are absent from the x86 login environment; the
+  exact focused CPU/CUDA tests and two-rank NCCL smoke run before D_fit measurement
+```
+
+If and only if the owner activates IP-E5 at the containing clean commit, the exact
+single Slurm invocation is:
+
+```bash
+SOURCE_SHA=$(git rev-parse HEAD)
+APPROVED_SOURCE_SHA=e61c486757ca5fe89340c9325014f4c3e048da2b
+ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e5_e61c486757ca
+mkdir -p "${ROOT}"
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --cpus-per-task=32 --mem=192G \
+  --gpus-per-node=nvidia_gh200_120gb:2 --time=00:45:00 --no-requeue \
+  --job-name=s10-p1p-ddp2 \
+  --output="${ROOT}/slurm_initial_%j.out" \
+  --error="${ROOT}/slurm_initial_%j.err" \
+  fl_v3/scripts/run_s10_phase1p_ip_e5.sh \
+  --config fl_v3/configs/s10_phase1_camera.json \
+  --reference-profile \
+    fl_v3/configs/s10_phase1p_ip_e5_camera_b16_single_gpu.json \
+  --ddp-profile fl_v3/configs/s10_phase1p_ip_e5_camera_b16_ddp2.json \
+  --source-sha "${SOURCE_SHA}" \
+  --approved-source-sha "${APPROVED_SOURCE_SHA}"
+```
+
+No part of this section is executable until the owner explicitly approves the
+containing commit and the `1.50 + 1.50 = 3.00` charged-GH200-hour envelope.
 
 ## 10. Envelope-A compact execution ledger
 

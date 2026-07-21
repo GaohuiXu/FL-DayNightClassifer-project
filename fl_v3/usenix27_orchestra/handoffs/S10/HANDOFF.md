@@ -1,4 +1,4 @@
-# S10 HANDOFF — Camera IP-E4 closed positive
+# S10 HANDOFF — Camera final recipe frozen / IP-E5 DDP request designed
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: final Camera B16 production stack frozen; bulk conversion promoted
-SCIENCE_ORDER: discuss/freeze 2-GH200 DDP qualification, then execute only if approved
+ACTIVE_DECISION: final Camera B16 production stack frozen; exact IP-E5 DDP request prepared
+SCIENCE_ORDER: owner review/activation of IP-E5; execute only after exact approval
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: IP-E4 closure docs/local validation/linear commit only; no compute
-EXECUTION_STATE: IP-E4 terminal; DDP/Envelope B unauthorized
+CURRENT_AUTHORITY: scoped IP-E5 source/docs/tests/local validation/linear commits; no compute
+EXECUTION_STATE: IP-E5 DESIGNED / OWNER ACTIVATION PENDING; Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -30,13 +30,12 @@ After the terminal B16 evidence, the owner closed IP-G2 by promoting B16x2 and
 explicitly accepting its BatchNorm/worker-RNG recipe change relative to B8x4.
 Implementation `299277e8bdb8f60a05e8f06c2c0706e29252b51c` materializes the exact
 Camera stack; it does not activate or revise Section 7.
-The owner has now frozen the follow-up order: re-profile the final B16 stack and
+The owner froze the follow-up order: re-profile the final B16 stack and
 screen the conservative batched affine/grid path first, then qualify same-node
 2-GH200 DDP against the single-GPU B16 reference. Implementation
 `9233af3119857511f5f2acc310a182449e7b91a2` prepares only the first, single-GPU
 follow-up. The owner activated that exact Section-9.4 request at
-`1abe26b3cde2f9f1c26fca130b999d054d6782b1`; it still neither implements nor
-authorizes DDP.
+`1abe26b3cde2f9f1c26fca130b999d054d6782b1`; it did not authorize DDP execution.
 Initial Job `539364` passed the trace and conservative screen on one n89 allocation.
 Preprocessing remained the largest named Camera-forward range at `72.3759%` of
 the named-range CPU sum. Conservative batched affine/grid measured `27.868228`
@@ -67,6 +66,9 @@ IP-G0 (closed: plan/topology/local implementation)
   -> IP-G1 (closed: exact Camera cells/resources/decision boundaries)
   -> IP-E2 (terminal: Cells 1-5 and 7 complete; conditional Cell 6 skipped)
   -> IP-G2 (closed: B16x2 + SDPA + scoped compile + fused AdamW accepted)
+  -> IP-E3 (closed: conservative affine/grid selected; combined path retained)
+  -> IP-E4 (closed: vectorized geometry + bulk conversion promoted)
+  -> IP-E5 (designed: exact same-node 1-GPU versus 2-GPU request; not activated)
 ```
 
 IP-G2 is not Envelope-B activation. Any accepted production-source or config
@@ -596,8 +598,11 @@ The next work is sequential rather than a new scientific search:
    qualify same-node 2-GH200 DDP. The exact comparison is 1 GPU B16xaccum2 versus
    2 GPUs, B16 per rank x accumulation 1, retaining effective global B32.
 5. The DDP performance gate is a one-sided 95% aggregate-throughput speed-ratio
-   lower bound of at least `1.60`. This bounds the projected training wall time
-   near `11.4` hours and charged cost to at most `1.25x` the single-GPU path.
+   lower bound of at least `1.60`. Against the now-frozen `13.285290 h` Camera
+   projection, its descriptive wall/charged bounds are `<=8.303306 h` and
+   `<=16.606613` charged GH200-hours; the fresh same-allocation reference
+   projection is the binding denominator. Charged cost remains at most `1.25x`
+   the single-GPU path.
    The union of rank shards must introduce no DDP-specific duplicate/drop relative
    to the exact expanded CBGS sequence; all ranks must agree on accepted/skipped
    updates and finite state, and checkpoint/resume plus rank state must pass.
@@ -609,7 +614,9 @@ two sequential B16 BN updates per optimizer step, whereas each DDP rank performs
 one. The 2-GPU profiler may measure this only under a separately frozen
 measurement-only recipe; accepting that behavior or implementing an exact buffer
 reconciliation remains an owner decision before any production DDP promotion.
-No 2-GPU source work, resource ceiling, or Slurm execution is authorized yet.
+The exact 2-GPU source/tests and proposed resource ceiling are now prepared at
+`e51df6efa04e6d151315c72b7d7016014852078c`; Slurm execution and production
+promotion remain unauthorized.
 
 Current IP-E3 state: the conservative unlock passed and the exact combined
 batched-rotation/static-grid candidate then completed its exact conditional pair.
@@ -679,8 +686,39 @@ not a matched-node confidence claim.
 IP-E4 consumed `0.782778/1.00` base plus `0.029444/0.50` bug-reserve
 GH200-hours, `0.812222/1.50` total. Its unused capacity expires with closure and
 does not authorize DDP, LiDAR, scientific training or Envelope B. The next owner
-discussion may freeze the already proposed same-node 1-GPU versus 2-GPU DDP
-qualification; no DDP implementation or submission may begin before that gate.
+decision may activate the now-prepared same-node 1-GPU versus 2-GPU DDP
+qualification; no submission may begin before that exact gate.
+
+### 1.8 IP-E5 DDP qualification request — designed, not executable
+
+Implementation `e51df6efa04e6d151315c72b7d7016014852078c` binds both IP-E5
+profiles to the production Camera config at file/resolved hashes
+`2e5368f96a6198e9a3b1bd43b258b53675df49f5c6ca9042fa8f72e0084c3b6a` /
+`0df1a19c057312923e0a8e48e81689d9ca265cc613c6f34d4795417414aa0bcf`.
+Thus the reference is exactly the Job-541821-selected stack: physical B16 x
+accumulation 2, conservative batched affine/grid, vectorized geometry, bulk input
+conversion, SDPA, five-module forward-only compile and fused AdamW. `36.875959`
+presentations/s is its best measured descriptive rate; IP-E5 reruns that recipe as
+a fresh same-allocation control rather than treating the old n77 rate as matched
+DDP evidence.
+
+The two-rank sampler preserves each frozen global B32 permutation window exactly:
+rank 0 receives positions `[0:16]` and rank 1 `[16:32]`, with no padding, striding,
+duplicate or omission. Per-rank worker seeds are `seed + epoch*world_size + rank`;
+this is a deliberate measurement-only DDP RNG recipe. Ordinary DDP rank-local B16
+BatchNorm is measured. Rank-0 buffers define the checkpoint boundary outside the
+sustained timing, matching the next-forward DDP buffer broadcast; production
+acceptance of this BN/RNG recipe remains an explicit owner decision even after a
+positive performance result.
+
+The proposed envelope is one node, two GH200s, 32 CPUs, 192 GiB and at most 45
+minutes per job; maximum concurrency one; `1.50` base plus `1.50` code-bug reserve,
+`3.00` charged-GH200-hour hard ceiling. One allocation performs a two-rank NCCL
+smoke, fresh 1-GPU B16x2 control, fresh 2-GPU B16/rank x1 candidate, checkpoint/
+resume and the paired analysis. Section 9.6 of `RUN_REQUEST.md` is the exact
+request. It is `OWNER ACTIVATION PENDING`: no GPU/Slurm, D_select, D_audit,
+official validation, capability claim, Envelope-B activation, merge or push is
+authorized.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
