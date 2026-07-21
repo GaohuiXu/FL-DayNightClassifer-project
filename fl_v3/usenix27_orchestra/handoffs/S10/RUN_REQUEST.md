@@ -5,7 +5,7 @@
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
 ACTIVE_DECISION: owner closed IP-G1 and activated exact Camera-only IP-E2
-REQUEST_STATE: IP-E2 ACTIVE / PRE-SUBMISSION IMPLEMENTATION / ENVELOPE B FROZEN
+REQUEST_STATE: IP-E2 CELL 1 TERMINAL / OWNER-STOP ON SDPA CONTINUATION / ENVELOPE B FROZEN
 EXECUTION_AUTHORITY: exact Section-9 Camera WP3->WP4 cells inside 4.0+1.0 GH200-hours
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
@@ -980,7 +980,7 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
 
 ```text
 PHASE: S10 Phase I-P / IP-E2 capacity and numerical-runtime screening
-REQUEST_STATE: ACTIVE / IMPLEMENTED / FIRST PAIRED CELL PRE-SUBMISSION FREEZE
+REQUEST_STATE: CELL 1 TERMINAL / POSITIVE SDPA SPEED SCREEN / OWNER-STOP ON CONTINUATION
 ACTIVATION_BASELINE: 3f55e635aef4f893d9fd66e7921f55ce4f7b36e8
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -1100,17 +1100,35 @@ PRE_SUBMISSION_RECORD: before sbatch, seal the containing literal source SHA, fu
   sbatch argv, resolved output paths and budget into
   <OUTPUT_ROOT_RULE>/pre_submission_cell01.json; runner independently rechecks the
   same source/branch/base/clean-output/resource identities on GH200
-BUDGET_BEFORE_FIRST_CELL: base consumed 0.000000 / remaining 4.000000; code-bug
-  reserve consumed 0.000000 / remaining 1.000000; hard remaining 5.000000 GH200-hours
-EXECUTABLE_NOW: yes after the containing pre-submission commit and literal external
-  record are sealed; Envelope B remains non-executable
+BUDGET_AFTER_CELL_1: base consumed 0.428056 / remaining 3.571944; code-bug reserve
+  consumed 0.000000 / remaining 1.000000; hard remaining 4.571944 GH200-hours
+CELL_1_TERMINAL: Job 531766 COMPLETED 0:0 in 1541 s on n203. All eight current-
+  code pretests passed. Eager and SDPA each completed 16+256 accepted windows with
+  zero invalid/discard/scaler-skip, exact same-batch input anchor/CBGS prefix, stable
+  memory and a real checkpoint/fresh-process continuation. SDPA measured 16.183531
+  versus eager 15.143028 presentations/s: ratio 1.068712 and one-sided 95% lower
+  bound 1.065611. Peak allocated/reserved fell from 16,038,963,200 /
+  18,723,373,056 to 14,885,203,968 / 17,458,790,400 bytes. Projected 20-epoch
+  cost fell from 32.264493 to 30.190691 GH200-hours, a 2.073802-hour screen.
+  Both exact boundary/input/RNG/discrete gates passed. Eager repeated the already
+  owner-accepted continuation negative in Adam exp_avg_sq max-abs only. SDPA's
+  fresh-process continuation exceeded the calibrated envelope for Adam exp_avg,
+  Adam exp_avg_sq and BN running mean; model parameters and BN running var passed.
+  This is numerical-runtime nondeterminism, not an unambiguous code bug.
+CELL_1_ARTIFACTS: pre-submission f64f66aa...78949a; eager measurement/result
+  60719b89...004e1 / e4d87f8d...53be9; SDPA measurement/result
+  98f63f82...3b69 / 0201eaee...9185; pair summary 73463de6...55c5;
+  stdout/stderr e0ecbea5...28df / 8db5d05b...e830
+EXECUTABLE_NOW: no; Cell 1 hit the frozen continuation-failure owner-escalation
+  condition. Cell 2 and all combinations/capacity probes are paused. Envelope B
+  remains non-executable.
 ```
 
 ### 9.1 IP-E2 compact execution ledger
 
 | Cell / job | Source, pair and immutable outputs | Terminal evidence | Charged GH200-hours |
 |---|---|---|---:|
-| Cell 1 B4 eager -> B4 SDPA | pending first submission | pending | base `0.000000`; reserve `0.000000` |
+| Cell 1 / Job `531766`, B4 eager -> B4 SDPA | source `b8ac61a5bc464bc1a6bf1c1e4f97b17f0b96fd54`; one `n203` allocation; eager `sustained_b8ac61a5bc46_r1_c1_ref`; SDPA `...c1_sdpa`; pair `73463de6...55c5` | `COMPLETED 0:0`, 8/8 pretests; measurement health PASS both. SDPA ratio/lower bound `1.068712 / 1.065611`, reserved memory `-1.2646 GB`, projected `-2.0738 GH200h`; candidate continuation FAIL in Adam exp_avg/exp_avg_sq/BN mean, so positive throughput screen but no promotion and owner stop | base `0.428056`; reserve `0.000000` |
 
 ## 10. Envelope-A compact execution ledger
 

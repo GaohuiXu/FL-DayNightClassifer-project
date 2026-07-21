@@ -10,8 +10,8 @@ FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a514
 ACTIVE_DECISION: owner closed IP-G1 and activated exact Camera-only IP-E2
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: IP-E2 active for exact Camera WP3->WP4 cells; Envelope B frozen
-EXECUTION_STATE: implementation e6af054 frozen; Cell 1 pre-submission provenance; no IP-E2 job submitted yet
+CURRENT_AUTHORITY: IP-E2 active but paused at its continuation owner-stop; Envelope B frozen
+EXECUTION_STATE: Cell 1 terminal positive SDPA speed/memory screen; continuation negative; owner disposition required
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -348,8 +348,26 @@ prefix, and exact first-window input identity for same-batch pairs; it computes 
 deterministic 50,000-draw one-sided 95% throughput lower bound, 20-epoch payback
 and the frozen R4/R8 B16 margin. Numerical and batch candidates remain
 measurement-only. Local static validation passed; torch/pytest are unavailable in
-the x86 login Python, so the first GH200 allocation runs fail-closed current-code
-numerical pretests before either paired process. No IP-E2 GPU work has run.
+the x86 login Python, so every GH200 allocation runs fail-closed current-code
+numerical pretests before either paired process.
+
+Cell 1 Job `531766` completed `0:0` in `00:25:41` on one `n203` allocation and
+consumed `0.428056` base GH200-hours; the code-bug reserve remains untouched. All
+eight current-code pretests passed. Eager and SDPA each completed 16+256 accepted
+windows with zero invalid/discard/scaler skip, identical same-batch input anchors
+and CBGS prefix, stable reserved memory, and exact boundary/RNG/training/discrete
+state. SDPA measured `16.183531` versus `15.143028` presentations/s: ratio
+`1.068712`, one-sided 95% lower bound `1.065611`. It reduced peak allocated/
+reserved from `16.039/18.723` to `14.885/17.459` GB and lowers the current
+20-epoch projection by `2.073802` GH200-hours.
+
+That is a positive throughput/memory screen, not a promotion. Eager repeated the
+already owner-accepted continuation negative only in Adam `exp_avg_sq` max-abs.
+SDPA passed model-parameter and BN-var groups but failed its calibrated fresh-
+process continuation envelope in Adam `exp_avg`, Adam `exp_avg_sq`, and BN mean;
+all exact context gates still passed. This is not an unambiguous code defect and
+therefore triggers the frozen owner-escalation boundary. Cell 2 and every
+combination/capacity probe are paused; SDPA remains default-off.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
