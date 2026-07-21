@@ -5,7 +5,7 @@
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
 ACTIVE_DECISION: owner activates the exact Section-9.2 B16 extension resource envelope
-REQUEST_STATE: B16 EXTENSION ACTIVE / SERIAL CELL A NEXT / ENVELOPE B FROZEN
+REQUEST_STATE: B16 CAPACITY PASS / SERIAL CELL B NEXT / ENVELOPE B FROZEN
 EXECUTION_AUTHORITY: Section 9.2 only; base 1.20 + bug reserve 0.50 = hard 1.70 GH200-hours
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
@@ -1243,7 +1243,7 @@ is executable; this does not activate Envelope B or authorize any capability run
 
 ```text
 PHASE: S10 Phase I-P / IP-G2 B16 capacity and matched-throughput extension
-REQUEST_STATE: OWNER APPROVED / ACTIVE / CELL A CAPACITY NEXT
+REQUEST_STATE: OWNER APPROVED / ACTIVE / CELL A PASS / CELL B NEXT
 ACTIVATION_BASELINE: df3c17e3e6be19dcc586fdec2c6bd198c1b02d95
 APPROVED_REQUEST_SHA: 1b25f1c98dabc19617fd4e2223c29b4fe076eeef
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -1330,6 +1330,20 @@ PRE_SUBMISSION_GATE: before each sbatch, record literal SOURCE_SHA, full sbatch 
   resolved fresh paths, exact profile hashes and remaining layered budget under ROOT
 OWNER_APPROVAL: 2026-07-21 — approved base 1.20, code-bug reserve 0.50, hard 1.70
   charged GH200-hours and maximum concurrency one for this exact Section-9.2 sequence
+CELL_A_TERMINAL: Job 535315 COMPLETED 0:0 in 00:04:26 on n446; source
+  a02e0a57669a76e25f28f538eb2c242ce19b5efa; 13/13 GH200 pretests passed;
+  fresh B16x2 completed 8/8 measured accepted windows after one warm-up with zero
+  invalid/discard/scaler-skip/nonfinite windows. Peak allocated/reserved was
+  54,686,040,064 / 65,238,204,416 bytes, 63.9556% of 102,005,473,280 visible
+  bytes, with 36,767,268,864 bytes reserved headroom and no monotonic growth.
+  Twelve SDPA modules and five scoped compile graphs were active; measured compiler
+  counter delta was empty and unexpected steady-state recompile was false. Capacity
+  PASS authorizes Cell B but does not promote B16 or establish sustained throughput.
+CELL_A_ARTIFACTS: pre-submission a1b99e1e...b51c08; measurement
+  3370f607...92e52; result 90c3c026...22c2; complete b07bbc73...935b5;
+  stdout/stderr 62449d3b...47b0 / 8db5d05b...1e830
+B16_EXTENSION_USAGE_AFTER_CELL_A: base 0.073889 / 1.20, remaining 1.126111;
+  code-bug reserve 0.000000 / 0.50, remaining 0.500000; hard remaining 1.626111
 ```
 
 Exact conditional invocations, all through

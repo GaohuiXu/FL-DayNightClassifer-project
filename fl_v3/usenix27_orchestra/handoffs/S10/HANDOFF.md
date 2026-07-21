@@ -11,7 +11,7 @@ ACTIVE_DECISION: owner activates the exact B16 capacity and matched-throughput e
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: Section 9.2 only; base 1.20 + bug reserve 0.50 = hard 1.70 GH200-hours; concurrency one
-EXECUTION_STATE: SDPA+compile+fused+B8 accepted; B16 capacity is next, followed conditionally by two pairs
+EXECUTION_STATE: B16 capacity PASS at 63.9556% reserved; B8->B16 sustained pair is next
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -512,6 +512,13 @@ base plus `0.50` code-bug reserve and `1.70` hard charged-GH200-hour ceiling at
 maximum concurrency one. Any accepted stack still requires production validation
 and an independently reviewed recipe freeze before Envelope B can be revised or
 activated.
+
+Cell A / Job `535315` passed the actual B16 capacity gate: B16x2 completed one
+warm-up plus 8/8 accepted windows with zero invalid/discard/scaler-skip/nonfinite,
+no monotonic growth or measured recompile, and peak allocated/reserved
+`54.686/65.238 GB` (`63.9556%` visible). It consumed `0.073889` charged GH200-hour.
+This authorizes only the same-allocation B8->B16 sustained pair; it is not a B16
+recipe promotion or sustained-throughput conclusion.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
