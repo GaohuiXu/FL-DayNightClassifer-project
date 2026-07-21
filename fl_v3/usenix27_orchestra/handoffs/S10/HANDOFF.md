@@ -1,4 +1,4 @@
-# S10 HANDOFF — Camera IP-E4 bulk-conversion cell unlocked
+# S10 HANDOFF — Camera IP-E4 bulk-conversion cell prepared
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: vectorized geometry promoted; conditional bulk conversion unlocked
+ACTIVE_DECISION: vectorized geometry promoted; conditional bulk conversion prepared
 SCIENCE_ORDER: Camera IP-E4, then 2-GH200 DDP qualification, then production refreeze/review
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: scoped IP-E4 source/docs/tests, linear commits and bounded single-GH200 execution
-EXECUTION_STATE: IP-E4 conditional implementation/pair authorized; DDP and Envelope B unauthorized
+EXECUTION_STATE: IP-E4 exact conditional single-GH200 pair executable; DDP/Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -646,7 +646,11 @@ scientific or measurement input. Derived Job `541221` then passed all hard gates
 vectorized geometry measured `37.482862` versus `26.934770` presentations/s,
 ratio/lower bound `1.391616 / 1.379987`, at `75.525 GB` peak reserved. The frozen
 rule therefore promotes vectorized geometry and unlocks the single bulk native-
-image conversion candidate; no DDP authority follows from this result.
+image conversion candidate. Implementation `d732be28688df974fee14b5d7abc9bd00c4a07f6`
+uses one added 1,658,880,000-byte float32 native-image tensor and leaves every
+per-image interpolation/geometry operation unchanged. The exact second pair uses
+a 33-minute cap so the remaining base budget cannot be exceeded; no DDP authority
+follows from this result.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior

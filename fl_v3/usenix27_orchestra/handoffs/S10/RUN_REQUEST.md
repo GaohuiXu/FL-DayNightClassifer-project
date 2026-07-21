@@ -4,8 +4,8 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: vectorized Camera geometry promoted / IP-E4 conditional cell unlocked
-REQUEST_STATE: IP-E4 APPROVED / BULK CONVERSION UNLOCKED / ENVELOPE B FROZEN
+ACTIVE_DECISION: vectorized Camera geometry promoted / IP-E4 conditional cell prepared
+REQUEST_STATE: IP-E4 APPROVED / BULK CONVERSION CELL PREPARED / ENVELOPE B FROZEN
 EXECUTION_AUTHORITY: exact Section 9.5 single-GH200 envelope only; DDP unauthorized
 ACTIVE_PHASE: Phase I-P Camera preprocessing follow-up before DDP
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
@@ -1946,6 +1946,58 @@ ARTIFACTS: trace result c70b03e7...9597948; trace summary 0ae1417b...fbd98;
 BUDGET_AFTER_REPLACEMENT: base used 0.447222 / 1.00, remaining 0.552778;
   code-bug reserve used 0.016389 / 0.50, remaining 0.483611; hard total used
   0.463611 / 1.50, remaining 1.036389 charged GH200-hours
+```
+
+The unlocked conditional implementation and exact second pair are now sealed.
+The candidate allocates one flattened `[96,3,900,1600]` float32 tensor, performs
+the existing `/255` pointwise operation in place, and then uses the unchanged
+per-image interpolation/geometry path. A `00:33:00` job limit is deliberately
+stricter than the approved 45-minute per-job maximum so even a full time-limit
+charge cannot exceed the remaining `0.552778` base budget.
+
+```text
+CONDITIONAL_IMPLEMENTATION_SHA: d732be28688df974fee14b5d7abc9bd00c4a07f6
+CONDITIONAL_IMPLEMENTATION_TREE: 1d5685701058c152dabe0a48cb25e787843268ae
+VECTORIZED_REFERENCE_PROFILE_FILE_SHA256: 29d78cdfdae1cec73bb8b59d131c64282f68bb605572c5f19c63bc119b488aa6
+VECTORIZED_REFERENCE_PROFILE_CANONICAL_SHA256: 2bf1b5bd68dbcb3e89724cb857c098531688488e479c4673e7a06f7b7a871a63
+BULK_PROFILE_FILE_SHA256: 9c6f6e165efb8962aba6c4ef3f996a2fa5e0529ecabf02fe20b71d3d8753ebfe
+BULK_PROFILE_CANONICAL_SHA256: 2179f65fa28a4d5a6756aa62c939ac47a6db552829b395a7b8389e6fa2e811bf
+CONDITIONAL_LAUNCHER_SHA256: 9ddb41b1c11e12896e90eeafc868e9a2d5aeb954e64f2a3519cf271603740085
+CONDITIONAL_ANALYZER_SHA256: 0351e681b136caed66aa85727e0184fa7d54c18abd38ef84d7ac64b6b209f90c
+CONDITIONAL_PROFILER_SHA256: fca4c52db0685814716c2c8de8f6acdd717f4465b8e544342ac449c898027575
+CONDITIONAL_PREPROCESS_SHA256: e4e5e65af35efd6a5f5a5214eb6bc9d4d522fd787f202133addd6fafd9e9c8a3
+UNLOCK_PAIR_SHA256: 6cc4f70f7691633b7e34ed1bc358ac40dc938dfedc1b61d32dce1ce1416eb8ef
+CONDITIONAL_SCOPE: fresh vectorized-geometry reference followed by fresh bulk-
+  conversion candidate in one allocation; repeat identity 2; 16+256 accepted
+  windows and checkpoint continuation for each; same frozen >=1.02 gate
+MAX_ADDED_LIVE_TENSOR: 1,658,880,000 bytes; no second full-size division tensor
+LOCAL_VALIDATION: Python syntax, JSON syntax, strict standalone three-profile
+  mapping/config identities, shell syntax/shellcheck and diff checks PASS
+NOT_RUN_LOCALLY: Torch absent on x86 login; focused CPU/GH200-CUDA exact-output,
+  one-conversion, config and comparison tests run before D_fit/model measurement
+CONDITIONAL_STATE_AT_SUBMISSION: exact one-pair cell executable; no DDP, LiDAR,
+  evaluation role or Envelope-B authority
+```
+
+The exact conditional invocation from the containing clean source commit is:
+
+```bash
+SOURCE_SHA=$(git rev-parse HEAD)
+APPROVED_SOURCE_SHA=7d4bb6efdbb7b8fb61ee72243c72a5ec3ef7d451
+ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e4_7d4bb6efdbb7
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G \
+  --gpus-per-node=nvidia_gh200_120gb:1 --time=00:33:00 --no-requeue \
+  --output="${ROOT}/slurm_bulk_%j.out" \
+  --error="${ROOT}/slurm_bulk_%j.err" \
+  fl_v3/scripts/run_s10_phase1p_ip_e4_bulk.sh \
+  --config fl_v3/configs/s10_phase1_camera.json \
+  --reference-profile \
+    fl_v3/configs/s10_phase1p_ip_e4_camera_b16_vectorized_geometry.json \
+  --candidate-profile \
+    fl_v3/configs/s10_phase1p_ip_e4_camera_b16_bulk_input_conversion.json \
+  --source-sha "${SOURCE_SHA}" \
+  --approved-source-sha "${APPROVED_SOURCE_SHA}"
 ```
 
 ## 10. Envelope-A compact execution ledger
