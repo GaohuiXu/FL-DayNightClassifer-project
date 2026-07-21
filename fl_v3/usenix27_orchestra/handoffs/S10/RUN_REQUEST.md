@@ -921,6 +921,55 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
   --repeat 1 --attempt-id staticgrid
 ```
 
+### 8.8 WP2 Camera conservative batched affine/grid candidate
+
+This is the third owner-approved ordered item. To preserve the strict boundary,
+per-image resize/crop/flip, affine construction and inverse, and each individual
+`grid_sample` call remain unchanged. The candidate creates one fixed output basis
+per microbatch and batches only the `out @ inverse.T` source-coordinate multiply.
+It is independent of both rejected candidates; their flags remain false.
+
+```text
+SOURCE: containing pre-submission commit; runtime implementation parent
+        834677c243659677b0a19cb3478b3057ba7c28a1; no runtime-file change follows
+CANDIDATE_ID: camera_batched_affine_grid_b4_accum8
+SINGLE_CHANGED_OPTION: camera_batched_affine_grid=true; augmentation cleanup,
+                       static cache and every other option remain reference values
+PROFILE: fl_v3/configs/s10_phase1p_camera_batched_affine_grid.json
+PROFILE_FILE_SHA256: fa5297457b4453e420f950fd9b1c860bcfb70089de3600428d7b37e7a24fb4f1
+PROFILE_CANONICAL_SHA256: 6a809032c9340789a08592fa8c6d887480ba9833b0da5dab8ba06dcc63d7a19b
+PREPROCESS_SHA256: f48689a7aabb4ae4350a95445e197a19a1fc72c93ccd70cf153f51450ac3732f
+LOCAL_VALIDATION: git diff --check; Python py_compile; bash -n; shellcheck; exact
+                  Camera binding/single-option mapping and LiDAR rejection PASS
+PRE_MODEL_PARITY: three focused GH200 tests must PASS before profiler construction:
+                  unchanged reference profile, exact candidate mapping, and
+                  elementwise-exact Camera preprocess on both CPU and CUDA
+OUTPUT: <approved root>/camera/sustained_<containing-source-SHA12>_r1_batchedgrid
+RESOURCES: 1 GH200, 16 CPU, 96 GiB, 00:45:00, no requeue, concurrency one
+STOP: any CPU/CUDA elementwise mismatch or focused-test/profile/source/input/
+      nonfinite/discard/memory failure; no tolerance relaxation or sustained timing
+      after a pre-model mismatch; grouped continuation remains non-waived
+```
+
+Exact command after sealing the containing source SHA `<SOURCE>` is:
+
+```bash
+sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G \
+  --gpus-per-node=nvidia_gh200_120gb:1 --time=00:45:00 --no-requeue \
+  --job-name=s10-ip-e1-camera-batchedgrid \
+  --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e1_85c6719e4b88/slurm/camera-batchedgrid-%j.out \
+  --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e1_85c6719e4b88/slurm/camera-batchedgrid-%j.err \
+  fl_v3/scripts/run_s10_phase1p_ip_e1.sh \
+  --branch camera --mode sustained \
+  --config fl_v3/configs/s10_phase1_camera.json \
+  --profile-config fl_v3/configs/s10_phase1p_camera_batched_affine_grid.json \
+  --output-dir /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e1_85c6719e4b88/camera/sustained_<SOURCE12>_r1_batchedgrid \
+  --source-sha <SOURCE> \
+  --approved-source-sha 85c6719e4b880b198d850e16b1418c230fa5c656 \
+  --repeat 1 --attempt-id batchedgrid
+```
+
 ## 9. Envelope-A compact execution ledger
 
 This is the sole terminal ledger for Envelope A. Submission rows were appended only when
