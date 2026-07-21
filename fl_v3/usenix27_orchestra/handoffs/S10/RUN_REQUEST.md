@@ -4,10 +4,10 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: IP-E3 terminal positive / Camera recipe owner decision pending
-REQUEST_STATE: IP-E3 TERMINAL / NO COMPUTE AUTHORITY / ENVELOPE B FROZEN
-EXECUTION_AUTHORITY: exhausted; neither further Camera cells nor DDP are executable
-ACTIVE_PHASE: Phase I-P Camera follow-up before any DDP or C/L qualification
+ACTIVE_DECISION: conservative Camera preprocessing accepted / IP-E4 active
+REQUEST_STATE: IP-E4 APPROVED / IMPLEMENTATION PENDING / ENVELOPE B FROZEN
+EXECUTION_AUTHORITY: exact Section 9.5 single-GH200 envelope only; DDP unauthorized
+ACTIVE_PHASE: Phase I-P Camera preprocessing follow-up before DDP
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -1748,6 +1748,74 @@ rank-consistent; BN running-buffer semantics must be explicitly frozen rather th
 silently excluded. Checkpoint/resume and rank-state gates are mandatory. No DDP
 source change, resource envelope, Slurm execution, production promotion, or 4-GPU
 cell is authorized here.
+
+### 9.5 Camera preprocessing IP-E4 — approved, implementation pending
+
+The owner accepts conservative batched affine/grid as the Camera production
+default and retains the combined static-grid/batched-rotation implementation as a
+qualified optional path. IP-E4 is a narrow output-neutral follow-up before DDP so
+that every later rank can consume any accepted per-rank gain.
+
+```text
+REQUEST_STATE: APPROVED / implementation and immutable pre-submission identities pending
+OWNER_APPROVAL_ANCHOR: 7d4bb6efdbb7b8fb61ee72243c72a5ec3ef7d451
+UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
+BRANCH: codex/s10-phase1p-throughput-preflight
+FROZEN_CONTROL: codex/s10-phase1-branch-qualification at UNIQUE_BASE_SHA
+OBJECTIVE: reduce the final B16 Camera preprocessing host/launch fragmentation
+  without changing augmentation, image/calibration math or training semantics;
+  qualify accepted changes before any 2-GH200 DDP comparison
+DATA_ROLE: D_fit only; frozen exact CBGS identity/order, seed 0 and B16xaccum2/B32
+REFERENCE: SDPA + scoped compile + fused AdamW + accepted conservative
+  camera_batched_affine_grid; checkpoint cadence remains one epoch
+INITIAL_CANDIDATE: reference plus batched construction/composition/inversion of the
+  same per-image 3x3 geometry; per-image resize/crop/pad/flip and interpolation
+  calls remain unchanged
+CONDITIONAL_CANDIDATE: accepted initial candidate plus one bulk native-image
+  uint8-to-float32 conversion; maximum added live tensor is the exact
+  [96,3,900,1600] float32 batch (1,658,880,000 bytes)
+CANDIDATE_CAP: reference plus the two ordered candidates above; no combination or
+  extra implementation outside that chain
+DEFAULTS: new candidates default-off outside their explicit IP-E4 profiles until
+  the frozen >=1.02 promotion rule accepts them
+TRACE: first allocation traces the final reference after 16 accepted warm-up and
+  3 accepted active windows; required subranges cover parameter preparation,
+  conversion/resize, crop/flip, geometry, rotation grid/sample, stack/normalize
+  and calibration update
+PAIR: within one allocation, fresh reference then candidate; 16 accepted warm-up
+  plus 256 accepted measured windows each; exact source/config/CBGS/input anchor;
+  16-window blocks and 50,000-draw one-sided bootstrap
+PROMOTION_GATE: every hard gate PASS and candidate/reference one-sided 95%
+  throughput-ratio lower bound >=1.02. The initial result then both accepts that
+  output-neutral item and unlocks conditional implementation/execution; a lower
+  positive result is retained but not selected
+HARD_GATES: exact boundary/input/RNG/discrete/training state; accepted grouped
+  continuation policy for parameters, BN mean/variance and Adam moments; both
+  checkpoint/resume gates; zero invalid/discard/scaler-skip/nonfinite windows;
+  <=85% visible reserved memory; no growth/recompile; same interpolation modes,
+  sampled augmentation values/order and calibration formula
+FORBIDDEN: fused single-resample image math; changed resize/crop/flip/rotation or
+  border semantics; D_select; D_audit; official validation; capability metrics;
+  LiDAR; DDP; Envelope B; merge/push/publication
+BASE_AGGREGATE_GPU_HOURS: 1.00 charged GH200-hour
+CODE_BUG_REMEDIATION_RESERVE: +0.50 charged GH200-hour, code-level bug only
+HARD_AGGREGATE_GPU_HOURS: 1.50 charged GH200-hours
+MAX_CONCURRENCY: 1
+PER_JOB_RESOURCE: 1 node / 1 GH200 / 16 CPUs / 96 GiB / <=00:45:00 / no requeue
+SUBMISSION_POLICY: serial; no numeric bug-remediation cap; no blind identical retry;
+  layered aggregate ceiling and concurrency are binding
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/
+  arrhenius_fl_v3/outputs/s10_phase1p_ip_e4_7d4bb6efdbb7/
+FRESH_OUTPUT: every trace/process/pair path absent before execution; raw outputs
+  immutable and no overwrite
+REMEDIATION: O-149 frozen-semantics test/runner/API/config/checkpoint/logging repairs
+  only; source/command/output provenance appended before a derived submission
+STOP_ESCALATE: hard/base+reserve ceiling; repeated/ambiguous blocker; hard-gate
+  failure; initial lower bound <1.02 ends the conditional chain; OOM/>85%; changed
+  math/data/RNG/recipe/gate/resources; any DDP or scientific-boundary pressure
+SOURCE_RULE: clean linear descendants of OWNER_APPROVAL_ANCHOR and UNIQUE_BASE_SHA;
+  exact source/profile/command hashes are appended before each submission
+```
 
 ## 10. Envelope-A compact execution ledger
 

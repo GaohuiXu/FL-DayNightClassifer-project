@@ -1,4 +1,4 @@
-# S10 HANDOFF — Camera B16 follow-up terminal; owner recipe decision pending
+# S10 HANDOFF — Camera IP-E4 preprocessing follow-up active
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: IP-E3 terminal positive; choose Camera preprocessing recipe before DDP
-SCIENCE_ORDER: Camera B16 follow-up, then 2-GH200 DDP qualification, then production refreeze/review
+ACTIVE_DECISION: conservative batched affine/grid accepted; bounded IP-E4 active
+SCIENCE_ORDER: Camera IP-E4, then 2-GH200 DDP qualification, then production refreeze/review
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: scoped local analysis/docs/linear commits only; IP-E3 compute cells are terminal
-EXECUTION_STATE: no GPU/Slurm job is executable; DDP and Envelope B are not authorized
+CURRENT_AUTHORITY: scoped IP-E4 source/docs/tests, linear commits and bounded single-GH200 execution
+EXECUTION_STATE: IP-E4 only; DDP and Envelope B remain unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -626,6 +626,16 @@ recipe. These are not additive choices: the combined implementation already
 contains conservative batched affine/grid. This decision does not activate compute,
 DDP or Envelope B; the final production config/source binding remains part of the
 next recipe-freeze boundary.
+
+The owner then inserts one narrow Camera-only IP-E4 before DDP. It first profiles
+and pairs the accepted conservative path against a mathematically equivalent
+batched geometry/inverse implementation. Only a hard-gate PASS with one-sided 95%
+throughput lower bound `>=1.02` may unlock a second pair adding one bulk
+`uint8 -> float32` conversion. IP-E4 is limited to one GH200 at a time, 45 minutes
+per job, `1.00` base plus `0.50` code-bug reserve and `1.50` hard charged-GH200-hour
+aggregate. Resize/crop/flip/interpolation, augmentation values/order, data, model,
+loss, optimizer, precision and checkpoint cadence remain frozen. DDP is not part
+of this authority.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
