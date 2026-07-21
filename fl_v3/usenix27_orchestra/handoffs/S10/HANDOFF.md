@@ -7,7 +7,7 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: owner closed IP-E1/IP-WP2 and opened IP-G1 discussion; O-150 remains the Phase-I control
+ACTIVE_DECISION: IP-G1 discussion open; batch/RNG, matched-allocation and resource boundaries accepted
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: IP-E1/IP-WP2 closed; IP-G1 discussion only; IP-WP3/IP-E2/Envelope B frozen
@@ -36,7 +36,7 @@ five WPs and three gates are not independent mini-projects:
 | IP-WP0 measurement path | frozen C/L configs and production model/data/loss/AdamW/scheduler/scaler/checkpoint paths | accumulation-aware B4x8 profiler; separate low-overhead sustained and short trace modes; exact identities; every candidate default-off; local/focused checks | IP-G0 permits scoped implementation and linear commits; stop before scientific semantics or compute |
 | IP-WP1 real baseline | exact D_fit, official CBGS/GTDB, seed 0, physical B4 x accumulation 8 | two-process sustained C/L baselines, whole-model trace, system/memory evidence and real checkpoint continuation | runs only inside approved IP-E1; stop on identity drift, nonfinite/discarded windows, unresolved instability or ceiling |
 | IP-WP2 output-neutral work | WP1 bottleneck evidence plus the named plumbing shortlist | individual parity, accepted-update, checkpoint/resume and sustained-throughput evidence; safe items may be combined | may proceed continuously inside IP-E1 only for frozen strict-output-neutral candidates; ambiguous or changed failure semantics go to owner |
-| IP-WP3 capacity/runtime screening | IP-G1 owner-frozen cells | B8/B12/B16 capacity evidence and selected SDPA/compile/AdamW/checkpoint probes, all measurement-only by default | runs only inside separately approved IP-E2; no automatic recipe promotion |
+| IP-WP3 capacity/runtime screening | IP-G1 owner-frozen cells | B8 and conditionally B16 capacity evidence plus selected SDPA/compile/AdamW probes, all measurement-only by default | runs only inside separately approved IP-E2; no automatic recipe promotion |
 | IP-WP4 synthesis | accepted WP1-WP3 evidence | final combination validation, GH200 payback, keep/reject/owner-gated table, revised Envelope-B projection | IP-G2 decides promotion and later Envelope-B refreeze; Phase I-P itself makes no capability claim |
 
 Gate/envelope order is exact:
@@ -257,8 +257,9 @@ IP-E2 shortlist and resource envelope.
   foreach/fused AdamW. They remain measurement-only and default-off until IP-G2.
 - Recipe/operational candidates: physical B8/B16, checkpoint cadence, activation
   checkpoint, persistent-worker/RNG changes. B8x4 and B16x2 preserve effective B32
-  but alter BatchNorm statistics; B12 cannot exactly realize effective B32. They
-  cannot be promoted without an explicit owner recipe decision.
+  but alter BatchNorm statistics. The owner deletes B12 because it cannot exactly
+  realize effective B32. Batch candidates cannot be promoted without an explicit
+  owner recipe decision.
 - Material science outside Phase I-P: normalization, precision/TF32 policy,
   model/head/math/shape, loss/target/decode/tie semantics, data ownership/order/
   exposure, scheduler mathematics, evaluator/metric, seed, or candidate count.
@@ -287,7 +288,9 @@ measures that cost; it does not silently lower the cadence or change eligibility
 - Memory is measured after the first accepted AdamW update has materialized state.
   Steady-state reserved memory must stay at or below 85% of visible memory and show
   no monotonic 256-window growth. Capacity probes use a fresh process; OOM is a
-  recorded `CAPACITY_OOM`, B8 OOM skips larger sizes, and B12 OOM skips B16.
+  recorded `CAPACITY_OOM`; B8 OOM skips B16. B16 is considered only after the
+  B8+SDPA+compile stack passes and retains an owner-frozen substantial-memory-margin
+  gate.
 - Parity remains exact/hash-exact for boundary, input, RNG and unchanged discrete/
   plumbing state. Continuation numerics are grouped into model parameters, BN mean,
   BN var, Adam `exp_avg` and Adam `exp_avg_sq`; in each group fresh-process
@@ -295,6 +298,10 @@ measures that cost; it does not silently lower the cadence or change eligibility
   `max(frozen tolerance, 1.25 * same-process repeat-control)`. The frozen FP32
   tolerances are `1e-4 / 1e-6` and FP16 tolerances are `2e-3 / 2e-4`; per-element
   allclose is retained as a diagnostic, not a hard gate.
+- Same-physical-batch numerical candidates retain cross-cell input/RNG identity.
+  For B8/B16 the owner accepts that DataLoader worker assignment and augmentation
+  draws need not equal B4; boundary/input/RNG/discrete state must instead be exact
+  within each batch candidate's repeats and fresh-process continuation.
 - Checkpoint validation occurs after AdamW state exists at an optimizer boundary:
   real save and file/model hashes, full release, fresh stack reconstruction/load,
   exact identity/RNG/sampler/state checks, then eight D_fit optimizer windows
@@ -306,6 +313,18 @@ measures that cost; it does not silently lower the cadence or change eligibility
   `T20 = 1,758,080 / sustained_samples_per_second + checkpoint stalls + startup`,
   `saved_GH200h = T20_baseline - T20_candidate`, and
   `break_even_runs = actual_candidate_profiler_GH200h / saved_GH200h`.
+
+### 1.4 Accepted IP-G1 boundaries still awaiting exact cell freeze
+
+The owner accepts same-allocation matched measurement so each reference/candidate
+pair runs serially on one GH200 node, with reverse order when confirmation is
+required. The owner also accepts deletion of B12, the within-candidate RNG rule for
+B8/B16, and an IP-E2 resource boundary of `4.0` ordinary plus `1.0` code-bug-only
+charged GH200-hours, hard aggregate `5.0`, maximum concurrency one and at most 60
+minutes per job. B16 is conditional on a passing B8+SDPA+compile stack with clear
+measured memory headroom. These accepted planning/resource boundaries are not
+IP-E2 execution authority; exact cell order, the quantitative B16 margin predicate
+and activation SHA remain under IP-G1 discussion.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior

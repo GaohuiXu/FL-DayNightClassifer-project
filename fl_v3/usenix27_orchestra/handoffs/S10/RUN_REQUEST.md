@@ -4,7 +4,7 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: owner closed IP-E1/IP-WP2 and opened IP-G1 discussion; O-150 remains the frozen Phase-I control
+ACTIVE_DECISION: IP-G1 discussion open; batch/RNG, matched-allocation and resource boundaries accepted
 REQUEST_STATE: IP-E1 AND IP-WP2 CLOSED / IP-G1 DISCUSSION OPEN / WP3-ENVELOPE B FROZEN
 EXECUTION_AUTHORITY: none; IP-G1 discussion is not IP-E2 or GPU/Slurm authority
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
@@ -976,7 +976,63 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
   --repeat 1 --attempt-id batchedgrid
 ```
 
-## 9. Envelope-A compact execution ledger
+## 9. Phase I-P IP-G1 accepted boundaries and draft IP-E2 request
+
+```text
+PHASE: S10 Phase I-P / IP-E2 capacity and numerical-runtime screening
+REQUEST_STATE: DRAFT / RESOURCE BOUNDARY OWNER-ACCEPTED / NOT EXECUTABLE
+BRANCH: codex/s10-phase1p-throughput-preflight
+UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
+FROZEN_CONTROL: codex/s10-phase1-branch-qualification at UNIQUE_BASE_SHA; do not move
+OBJECTIVE: measure Camera physical-batch scaling, Swin SDPA, scoped torch.compile
+  and fused AdamW with real D_fit training mechanics; synthesize one measurement-
+  only stack and projected 20-epoch payback without capability or recipe claims
+BATCH_CELLS: B4x8 reference; B8x4 measurement-only; B12 deleted; B16x2 conditional
+B16_PRECONDITION: B8+SDPA+compile passes capacity, sustained-health and checkpoint
+  gates and retains an exact quantitative substantial-memory-margin predicate still
+  to be frozen in IP-G1
+NUMERICAL_CELLS: Camera Swin SDPA; scoped Camera torch.compile; fused AdamW;
+  individually default-off and isolated before any combination
+MATCHED_DESIGN: each comparison runs two fresh processes serially inside one Slurm
+  allocation/on one GH200; confirmation reverses reference/candidate order
+BATCH_RNG: B8/B16 need not reproduce B4 worker assignment or per-sample augmentation
+  draws; each candidate's own boundary/input/RNG/discrete state and fresh-process
+  continuation remain exact
+DATA_AND_CLAIMS: D_fit only; D_select, D_audit, official validation, capability
+  metrics, generalization and candidate-selection claims forbidden
+PRECISION_UPDATE: frozen FP16 policy, loss, targets, GradScaler, clip, accepted
+  optimizer update and scheduler semantics; physical batch preserves effective B32
+MEASUREMENT: 16 accepted warm-up plus 256 accepted measured optimizer windows per
+  process; one-second system sampling; compile cold-start/cache/graph/recompile cost;
+  real Adam-state memory and eight-window checkpoint continuation
+MEMORY_HARD_GATE: fresh process; peak reserved <=85% visible; no monotonic growth;
+  OOM recorded as CAPACITY_OOM; B8 OOM skips B16
+BASE_AGGREGATE_GPU_HOURS: 4.0 charged GH200-hours
+CODE_BUG_REMEDIATION_RESERVE: +1.0 charged GH200-hour, code-level bug only
+HARD_AGGREGATE_GPU_HOURS: 5.0 charged GH200-hours
+MAX_CONCURRENCY: 1
+PER_JOB_RESOURCE: 1 node / 1 GH200 / 16 CPUs / 96 GiB / <=01:00:00 / no requeue
+SUBMISSION_POLICY: serial; no numeric submission cap; no blind identical retry
+OUTPUT_ROOT_RULE: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/
+  arrhenius_fl_v3/outputs/s10_phase1p_ip_e2_<activation_sha12>/
+FRESH_OUTPUT: every subprocess/attempt path absent before execution; no overwrite;
+  raw evidence immutable
+ENGINEERING_REMEDIATION: O-149 frozen-semantics repairs only within the layered
+  ceiling; compiler limitation, ambiguous numerical drift or candidate-scope change
+  is not silently classified as a code bug
+OWNER_ESCALATION: science-boundary pressure; ambiguous or repeated blocker;
+  nonfinite/discard; continuation failure without an unambiguous code cause;
+  >85% memory, monotonic growth, ceiling exhaustion, or requested candidate change
+OWNER_ACCEPTED_NOW: remove B12; conditional B16 after B8+SDPA+compile with substantial
+  headroom; same-allocation pairs; within-candidate B8/B16 exactness; all resource
+  limits above
+PENDING_IP_G1_FREEZE: exact serial cells; quantitative B16 headroom predicate;
+  compile module/backend scope; conditional combination/confirmation rules;
+  implementation/activation SHA
+EXECUTABLE_NOW: no; explicit IP-E2 activation remains required
+```
+
+## 10. Envelope-A compact execution ledger
 
 This is the sole terminal ledger for Envelope A. Submission rows were appended only when
 the exact durable source SHA and command are known.
