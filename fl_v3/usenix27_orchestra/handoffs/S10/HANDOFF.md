@@ -1,4 +1,4 @@
-# S10 HANDOFF — Phase I-P closed; Camera B16 recipe promoted
+# S10 HANDOFF — Camera B16 follow-up prepared; compute pending
 
 ## 1. Current state and authority
 
@@ -7,10 +7,10 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: IP-G2 closed; B16x2 Camera recipe materialized; Envelope B remains frozen
-SCIENCE_ORDER: Camera production refreeze/review and LiDAR optimization discussion precede C/L qualification
+ACTIVE_DECISION: B16 follow-up -> 2-GH200 DDP preflight order frozen; IP-E3 activation pending
+SCIENCE_ORDER: Camera B16 follow-up, then 2-GH200 DDP qualification, then production refreeze/review
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: Section 9.2 exhausted; no further GPU/Slurm cell is executable
+CURRENT_AUTHORITY: scoped local source/docs/tests and linear commits only; IP-E3 is not executable
 EXECUTION_STATE: no GPU/Slurm authority; no profiler or capability job is executable
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
@@ -30,6 +30,11 @@ After the terminal B16 evidence, the owner closed IP-G2 by promoting B16x2 and
 explicitly accepting its BatchNorm/worker-RNG recipe change relative to B8x4.
 Implementation `299277e8bdb8f60a05e8f06c2c0706e29252b51c` materializes the exact
 Camera stack; it does not activate or revise Section 7.
+The owner has now frozen the follow-up order: re-profile the final B16 stack and
+screen the conservative batched affine/grid path first, then qualify same-node
+2-GH200 DDP against the single-GPU B16 reference. Implementation
+`9233af3119857511f5f2acc310a182449e7b91a2` prepares only the first, single-GPU
+follow-up. It neither activates IP-E3 nor implements/authorizes DDP.
 
 ### 1.1 Frozen Phase I-P workflow
 
@@ -562,6 +567,40 @@ gives about `108.392 GB` allocated and `119.752 GB` reserved at B32, respectivel
 `106.26%` and `117.40%` of the `102.005 GB` visible device memory. Thus the plain
 current graph is expected to OOM before accounting for safety margin; B32 would
 require a separate activation-memory reduction design and new owner approval.
+
+### 1.7 Owner-frozen Camera follow-up and DDP order
+
+The next work is sequential rather than a new scientific search:
+
+1. On the final B16x2/SDPA/scoped-compile/fused-AdamW stack, run one short
+   structured stage trace. Preprocessing must remain the largest named Camera
+   forward range before further preprocessing work proceeds.
+2. In one single-GH200 allocation, compare fresh current-B16 and conservative
+   B16 batched-affine/grid processes with identical source/config/CBGS/input
+   anchors and the existing 16-warm-up plus 256-window sustained protocol.
+3. The conservative item may unlock implementation of one later candidate only
+   when every health/checkpoint gate passes and its one-sided 95% speed-ratio
+   lower bound is at least `0.98`. That later implementation may combine one
+   batched rotation `grid_sample` call with the non-persistent static grid; it is
+   not implemented speculatively and no result promotes it automatically.
+4. Only after this single-GPU follow-up is terminal may the session implement and
+   qualify same-node 2-GH200 DDP. The exact comparison is 1 GPU B16xaccum2 versus
+   2 GPUs, B16 per rank x accumulation 1, retaining effective global B32.
+5. The DDP performance gate is a one-sided 95% aggregate-throughput speed-ratio
+   lower bound of at least `1.60`. This bounds the projected training wall time
+   near `11.4` hours and charged cost to at most `1.25x` the single-GPU path.
+   The union of rank shards must introduce no DDP-specific duplicate/drop relative
+   to the exact expanded CBGS sequence; all ranks must agree on accepted/skipped
+   updates and finite state, and checkpoint/resume plus rank state must pass.
+6. Four-GPU DDP is excluded from the first qualification. B8 per rank would be a
+   new BN/worker-RNG recipe; B16 per rank would change global batch to B64.
+
+Ordinary DDP also changes BN running-buffer evolution: the single process performs
+two sequential B16 BN updates per optimizer step, whereas each DDP rank performs
+one. The 2-GPU profiler may measure this only under a separately frozen
+measurement-only recipe; accepting that behavior or implementing an exact buffer
+reconciliation remains an owner decision before any production DDP promotion.
+No 2-GPU source work, resource ceiling, or Slurm execution is authorized yet.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior

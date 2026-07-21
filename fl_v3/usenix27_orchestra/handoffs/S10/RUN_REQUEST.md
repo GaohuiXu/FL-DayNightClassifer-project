@@ -4,10 +4,10 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: IP-G2 closed; Camera B16x2 recipe promoted and materialized
-REQUEST_STATE: PHASE I-P CLOSED / NO COMPUTE AUTHORITY / ENVELOPE B FROZEN
-EXECUTION_AUTHORITY: exhausted; no further GPU/Slurm cell is executable
-ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
+ACTIVE_DECISION: B16 follow-up -> 2-GH200 DDP preflight order frozen
+REQUEST_STATE: IP-E3 PREPARED / OWNER ACTIVATION PENDING / ENVELOPE B FROZEN
+EXECUTION_AUTHORITY: none; Section 9.4 is not executable until explicitly activated
+ACTIVE_PHASE: Phase I-P Camera follow-up before any DDP or C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -20,6 +20,12 @@ commits. The owner subsequently activated Section 8 at implementation commit
 `85c6719e4b880b198d850e16b1418c230fa5c656`, including continuous IP-WP1 ->
 IP-WP2. This does not authorize any evaluation role, the Section-7 Envelope B,
 merge, push or publication.
+
+After promoting the final Camera B16x2 recipe, the owner froze the next serial
+order: final-B16 stage trace and conservative affine/grid screen; only then a
+separately prepared same-node 2-GH200 DDP qualification. Source commit
+`9233af3119857511f5f2acc310a182449e7b91a2` prepares only the single-GPU
+Section-9.4 path. It does not activate that path, implement DDP, or grant compute.
 
 O-146 records the owner's exact activation of Envelope A at request commit
 `e321aed749fd859c809199d52c30b2771dbef8b3`. S00 may execute WP0 through WP4
@@ -1487,6 +1493,144 @@ partition `gpu`, one node/task, `--cpus-per-task=16`, `--mem=96G`,
 Cells B and C each used one such allocation for both fresh processes and their pair
 analysis. The displayed Cell-C attempt IDs are the terminal command-plumbing
 correction recorded above. All commands are now terminal and no longer executable.
+
+### 9.4 Camera B16 follow-up IP-E3 — exact request, activation pending
+
+This request implements the owner-frozen first step before any DDP work. It is a
+Camera-only, D_fit-only engineering profiler and cannot make capability or recipe-
+selection claims. The two prepared candidates are output-neutral in intent but
+remain measurement-only; the conservative candidate cannot modify production
+defaults. A third implementation is conditionally in scope only under the exact
+unlock below.
+
+```text
+REQUEST_STATE: READY FOR OWNER REVIEW / NOT EXECUTABLE
+OWNER_APPROVAL: pending
+UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
+BRANCH: codex/s10-phase1p-throughput-preflight
+FROZEN_CONTROL: codex/s10-phase1-branch-qualification at UNIQUE_BASE_SHA
+PREPARED_IMPLEMENTATION_SHA: 9233af3119857511f5f2acc310a182449e7b91a2
+PREPARED_IMPLEMENTATION_TREE: e9e2af82ba2543b01d1428407e81cdc58d131aa3
+OBJECTIVE:
+  1. localize the largest named Camera-forward stage on the final production B16
+     stack using a short structured trace;
+  2. only if preprocessing remains largest, pair fresh final-B16 reference and
+     conservative batched-affine/grid processes in the same allocation;
+  3. only if the conservative screen is near-neutral/positive and every hard gate
+     passes, implement and pair one combined batched-rotation grid_sample plus
+     non-persistent static-grid candidate under the same protocol.
+DATA_ROLE: D_fit only, exact frozen train CBGS identity and seed 0
+FORBIDDEN: D_select; D_audit; official validation; mAP/NDS/capability;
+  candidate selection/generalization claims; LiDAR; DDP; Envelope B; merge/push
+REFERENCE_RECIPE: final Camera physical B16 x accumulation 2/effective B32,
+  Swin SDPA + five forward-only scoped compile graphs + fused AdamW, FP16 policy,
+  activation checkpoint off, one-epoch checkpoint cadence
+PREPARED_CANDIDATES:
+  A. exact final-B16 reference
+  B. A plus conservative camera_batched_affine_grid only
+CONDITIONAL_CANDIDATE_CAP:
+  C. A plus one batched rotation grid_sample call and a non-persistent static grid;
+     implementation is forbidden unless B passes the unlock gate; no other
+     preprocessing/model/precision/normalization/data/loss/optimizer change
+DEFAULTS: B and C remain default-off outside their explicit profiler identities
+TRACE_PROTOCOL: A; 16 accepted warm-up windows + 3 traced accepted windows;
+  structured CPU/CUDA operator and named-stage timing/memory; trace-inflated stage
+  totals are localization evidence only, never sustained-throughput estimates
+TRACE_CONTINUE_GATE: fl_v3::camera::preprocess is the largest named Camera-forward
+  range; otherwise record TRACE_STOP and end IP-E3 before the paired screen
+PAIR_PROTOCOL: fresh processes, 16 accepted warm-up + 256 accepted measured windows
+  each; same allocation/node/GPU/source/config/CBGS/input anchor; reference first;
+  16-window blocks and 50,000-draw one-sided block bootstrap
+HARD_GATES: both measurement-health gates; exact same-B16 first-window input/RNG
+  anchor; exact boundary, discrete, optimizer-step and checkpoint-context state;
+  both fresh-process checkpoint-continuation gates; zero invalid/discard/scaler-
+  skip/nonfinite windows; stable memory <=85% visible; no unexpected recompile
+NUMERICAL_POLICY: grouped parameters/BN mean/BN variance/Adam exp_avg/exp_avg_sq
+  relative-L2 and max-absolute gates remain max(frozen tolerance, 1.25x same-process
+  repeat control); elementwise allclose remains diagnostic for non-deterministic
+  kernels; any clear bug or scientific drift is a hard stop
+CONSERVATIVE_UNLOCK: every hard gate PASS and candidate/reference one-sided 95%
+  throughput-ratio lower bound >=0.98. This authorizes local implementation of C
+  and its one additional same-allocation A-versus-C pair only; it promotes nothing
+CONSERVATIVE_STOP: lower bound <0.98 or any hard-gate failure ends preprocessing
+  work; do not implement C
+CONDITIONAL_PROMOTION: none; any B/C promotion returns to the owner with throughput,
+  uncertainty, memory, checkpoint and projected-GH200-hour evidence
+INITIAL_EXACT_CELL: one allocation runs A trace, then conditionally A followed by B
+CONDITIONAL_EXACT_CELL: only after unlock, one new allocation runs fresh A followed
+  by C with the identical sustained protocol and newly recorded exact source/profile
+  identities; it is within the candidate cap but cannot be submitted before those
+  immutable identities and the command are appended to this ledger
+BASE_AGGREGATE_GPU_HOURS: proposed 1.50 charged GH200-hours
+CODE_BUG_REMEDIATION_RESERVE: proposed +0.50 charged GH200-hour, code-level bug only
+HARD_AGGREGATE_GPU_HOURS: proposed 2.00 charged GH200-hours
+RESOURCE_RATIONALE: at most two scientific allocations at <=0.75 hour each: the
+  prepared trace+pair allocation and the conditional A-versus-C allocation; the
+  separate reserve is only for diagnosed frozen-semantics engineering replacement
+MAX_CONCURRENCY: 1
+PER_JOB_RESOURCE: 1 node / 1 GH200 / 16 CPUs / 96 GiB / <=00:45:00 / no requeue
+SUBMISSION_POLICY: serial; no numeric remediation-submission cap; no blind retry;
+  aggregate layered ceiling and concurrency are binding
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/
+  arrhenius_fl_v3/outputs/s10_phase1p_ip_e3_<APPROVED_SOURCE_SHA12>/
+FRESH_OUTPUT: every trace/process/pair/attempt path absent before execution; no
+  overwrite; raw evidence immutable
+ENGINEERING_REMEDIATION: O-149 unambiguous frozen-semantics source/test/runner/API/
+  checkpoint/logging repair only, serially, inside the reserve; no candidate,
+  math, data, precision, normalization, recipe, gate or resource change
+STOP_ESCALATE: layered ceiling exhaustion; repeated/ambiguous blocker; trace
+  contradiction; any hard-gate failure; lower bound below 0.98; OOM or >85% visible;
+  science-boundary pressure; candidate/resource/gate change
+SOURCE_RULE: owner approves one clean linear descendant containing this request;
+  each execution SOURCE_SHA must be a clean linear descendant of that approved SHA;
+  no merge; exact source/profile/command/output/budget is recorded before sbatch
+CAMERA_CONFIG_FILE_SHA256: 25f53fc554c348c329c7a9cf4b9a5c8d521d993908114fbf64a46f75b3db0bda
+CAMERA_RESOLVED_CONFIG_SHA256: f6040d30c23571f049bba3602081a9ec3bbfbdafc5d5ab8b76e9dd375eb76f25
+LIDAR_TRACE_FROZEN_FILE_SHA256: c7e1fa26e1714a31c5998296cb95cbab5e8732d4bf2f06da81fd6d631c574bfc
+LIDAR_TRACE_FROZEN_RESOLVED_SHA256: 0efe4d6d5138e3d99ae80254a6ecf884300dd18985ab45a00425228fc3ef082e
+REFERENCE_PROFILE_FILE_SHA256: 0b655b3108680c806257c71b2df4e6f9147a63583ea7883f87fc0436b0924b4b
+REFERENCE_PROFILE_CANONICAL_SHA256: 5ab0d49133248977a15acb049b98227baa21dcbd83dbf6e1a584d152922d0a5d
+CONSERVATIVE_PROFILE_FILE_SHA256: bb2d423e46a84df7f3aca0b085995607f6d53c32b6ca1671d1ea23cc564e672b
+CONSERVATIVE_PROFILE_CANONICAL_SHA256: cdc8aaab138940fcaa05cb9390909565174177c34befe6c3810420d8f0537d4a
+LAUNCHER_SHA256: 1b22bc7d030bdb58f73b63d5a9f02d8a7d601c66e9e64617d5c0e396c30c1a53
+PAIR_ANALYZER_SHA256: 189562288d95ce6d94add8e3c580e3cbf1c2c5bd4fa6077b796535725af1d521
+PROFILER_SHA256: 637f00b92369ecf90bf2ef7cbb06db1aeb8a9ada8cc38dcf24a46ac3f6608ab0
+LOCAL_VALIDATION: JSON/profile validation, shell syntax/shellcheck, Python syntax,
+  comparison fixture and focused pure-Python gate checks PASS
+NOT_RUN_LOCALLY: pytest/Torch runtime unavailable on x86 login; the launcher keeps
+  six focused GH200 tests as hard pre-model gates
+```
+
+The exact initial command after explicit owner activation of the containing clean
+SHA is:
+
+```bash
+SOURCE_SHA=$(git rev-parse HEAD)
+APPROVED_SOURCE_SHA=<owner-approved-containing-SHA>
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G \
+  --gpus-per-node=nvidia_gh200_120gb:1 --time=00:45:00 --no-requeue \
+  fl_v3/scripts/run_s10_phase1p_ip_e3.sh \
+  --config fl_v3/configs/s10_phase1_camera.json \
+  --reference-profile \
+    fl_v3/configs/s10_phase1p_ip_e3_camera_b16_reference.json \
+  --candidate-profile \
+    fl_v3/configs/s10_phase1p_ip_e3_camera_b16_batched_affine_grid.json \
+  --source-sha "${SOURCE_SHA}" \
+  --approved-source-sha "${APPROVED_SOURCE_SHA}"
+```
+
+The subsequent 2-GH200 work is intentionally not part of IP-E3. After IP-E3 is
+terminal, its separate design must bind 1 GPU B16x2 against 2 GPUs B16/rank x1 in
+one same-node allocation, effective global B32, and exact DDP-expanded-CBGS union
+with no DDP-induced omission or duplication. Its performance gate is a one-sided
+95% aggregate-throughput speed-ratio lower bound `>=1.60`, implying projected wall
+time `<=11.4 h` and two-GPU charged cost `<=1.25x` the single-GPU reference. Model
+parameters, optimizer/scheduler/scaler state and accepted/skipped counters must be
+rank-consistent; BN running-buffer semantics must be explicitly frozen rather than
+silently excluded. Checkpoint/resume and rank-state gates are mandatory. No DDP
+source change, resource envelope, Slurm execution, production promotion, or 4-GPU
+cell is authorized here.
 
 ## 10. Envelope-A compact execution ledger
 
