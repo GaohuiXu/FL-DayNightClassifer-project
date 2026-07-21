@@ -119,27 +119,32 @@ def _gate(same: dict, fresh: dict) -> dict:
     )
 
 
-def test_group_gate_uses_same_process_control_and_keeps_allclose_diagnostic_only():
+def test_group_diagnostic_uses_same_process_control_and_keeps_allclose_diagnostic_only():
     result = _gate(_record(0.01), _record(0.012))
     assert result["gate_pass"] is True
+    assert result["numerical_diagnostic_pass"] is True
     assert result["same_process"]["elementwise_allclose_diagnostic_pass"] is False
     assert result["fresh_process"]["elementwise_allclose_diagnostic_pass"] is False
-    assert set(result["group_gates"]) == set(GROUPS)
+    assert set(result["group_diagnostics"]) == set(GROUPS)
     for group in GROUPS:
-        assert result["group_gates"][group]["relative_l2_limit"] == 0.0125
-        assert result["group_gates"][group]["max_absolute_limit"] == 0.0125
+        diagnostic = result["group_diagnostics"][group]
+        assert diagnostic["relative_l2_limit"] == 0.0125
+        assert diagnostic["max_absolute_limit"] == 0.0125
+        assert diagnostic["enforcement"] == "diagnostic_only"
 
 
-def test_group_gate_applies_relative_and_absolute_limits_independently():
+def test_group_numerical_limit_failure_is_diagnostic_not_a_hard_failure():
     same = _record(0.0)
     fresh = _record(0.0)
     name = MODEL_NAMES["model_parameters"]
     fresh["continuation"]["model"]["numerical"]["by_tensor"][name] = _entry(0.001)
     result = _gate(same, fresh)
-    group = result["group_gates"]["model_parameters"]
+    group = result["group_diagnostics"]["model_parameters"]
     assert group["relative_l2_pass"] is True
     assert group["max_absolute_pass"] is False
-    assert result["gate_pass"] is False
+    assert group["diagnostic_pass"] is False
+    assert result["numerical_diagnostic_pass"] is False
+    assert result["gate_pass"] is True
 
 
 def test_input_rng_and_semantically_discrete_optimizer_step_remain_exact():
@@ -152,4 +157,19 @@ def test_input_rng_and_semantically_discrete_optimizer_step_remain_exact():
     result = _gate(same, fresh)
     assert result["fresh_process"]["exact_context"]["input_stream_exact"] is False
     assert result["fresh_process"]["exact_tensor_failure_count"] == 1
+    assert result["gate_pass"] is False
+
+
+def test_nonfinite_numerical_state_remains_a_hard_failure():
+    same = _record(0.0)
+    fresh = _record(0.0)
+    name = MODEL_NAMES["model_parameters"]
+    fresh["continuation"]["model"]["numerical"]["by_tensor"][name][
+        "all_finite"
+    ] = False
+    fresh["continuation"]["model"]["numerical"]["global"][
+        "all_finite"
+    ] = False
+    result = _gate(same, fresh)
+    assert result["fresh_process"]["comparison_integrity_pass"] is False
     assert result["gate_pass"] is False

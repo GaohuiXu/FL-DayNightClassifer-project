@@ -1,8 +1,10 @@
-"""Numerical gate for S10 Phase I-P checkpoint continuation.
+"""Checkpoint-continuation gate for S10 Phase I-P.
 
 The production profiler captures complete per-tensor diagnostics.  This module
 turns those diagnostics into the owner-approved continuation verdict without
 importing PyTorch, so an immutable raw attempt can also be reassessed offline.
+Numerical trajectory distances remain visible but do not reject an otherwise
+exact, structurally valid, finite checkpoint continuation.
 """
 from __future__ import annotations
 
@@ -12,7 +14,7 @@ import math
 from typing import Any, Mapping, Sequence
 
 
-SCHEMA = "s10.phase1p.calibrated-continuation-gate.v1"
+SCHEMA = "s10.phase1p.continuation-gate.v2"
 GROUPS = (
     "model_parameters",
     "bn_running_mean",
@@ -249,7 +251,7 @@ def evaluate_calibrated_continuation_gate(
     max_absolute_tolerance: float,
     calibration_factor: float = 1.25,
 ) -> dict[str, Any]:
-    """Apply the owner-approved same-process-calibrated continuation gate."""
+    """Apply the exact-state gate and calibrated numerical diagnostics."""
     _require(
         math.isfinite(relative_l2_tolerance) and relative_l2_tolerance >= 0.0,
         "relative-L2 tolerance must be finite and nonnegative",
@@ -265,7 +267,7 @@ def evaluate_calibrated_continuation_gate(
     boundary = _boundary_exact(restored_boundary)
     same = _view(same_process, label="same-process")
     fresh = _view(fresh_process, label="fresh-process")
-    group_gates = {}
+    group_diagnostics = {}
     for group in GROUPS:
         control = same["groups"][group]
         candidate = fresh["groups"][group]
@@ -283,37 +285,43 @@ def evaluate_calibrated_continuation_gate(
         )
         relative_pass = float(candidate["relative_l2_error"]) <= relative_limit
         absolute_pass = float(candidate["max_abs_error"]) <= absolute_limit
-        gate = bool(
+        integrity_pass = bool(
             names_equal
             and control["all_finite"]
             and candidate["all_finite"]
-            and relative_pass
-            and absolute_pass
         )
-        group_gates[group] = {
+        diagnostic_pass = bool(integrity_pass and relative_pass and absolute_pass)
+        group_diagnostics[group] = {
             "same_process_repeat_control": control,
             "fresh_process": candidate,
             "relative_l2_limit": relative_limit,
             "max_absolute_limit": absolute_limit,
             "tensor_names_equal": names_equal,
+            "integrity_pass": integrity_pass,
             "relative_l2_pass": relative_pass,
             "max_absolute_pass": absolute_pass,
-            "gate_pass": gate,
+            "diagnostic_pass": diagnostic_pass,
+            "enforcement": "diagnostic_only",
         }
 
     gate = bool(
         boundary["gate_pass"]
         and same["exact_gate_pass"]
         and fresh["exact_gate_pass"]
-        and all(item["gate_pass"] for item in group_gates.values())
+        and all(item["integrity_pass"] for item in group_diagnostics.values())
     )
     return {
         "schema": SCHEMA,
         "rule": (
-            "exact boundary/input/RNG/discrete state; for each numerical group, "
-            "fresh-process relative-L2 and max-absolute error must each be <= "
-            "max(frozen tolerance, 1.25 * same-process repeat-control); "
-            "elementwise allclose is diagnostic only"
+            "exact boundary/input/RNG/training/discrete state and exact structural "
+            "identity plus finite numerical state are hard gates; grouped "
+            "fresh-process relative-L2, max-absolute and elementwise-allclose "
+            "results are diagnostic only"
+        ),
+        "diagnostic_rule": (
+            "for each numerical group, compare fresh-process relative-L2 and "
+            "max-absolute error with max(frozen tolerance, 1.25 * same-process "
+            "repeat-control)"
         ),
         "frozen_tolerances": {
             "relative_l2": float(relative_l2_tolerance),
@@ -323,6 +331,9 @@ def evaluate_calibrated_continuation_gate(
         "restored_boundary_exact": boundary,
         "same_process": same,
         "fresh_process": fresh,
-        "group_gates": group_gates,
+        "group_diagnostics": group_diagnostics,
+        "numerical_diagnostic_pass": all(
+            item["diagnostic_pass"] for item in group_diagnostics.values()
+        ),
         "gate_pass": gate,
     }

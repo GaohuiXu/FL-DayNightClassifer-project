@@ -130,6 +130,7 @@ equal "Slurm GPUs on node" "${SLURM_GPUS_ON_NODE:-0}" "1"
 
 cd "${source_root}"
 python -m pytest -q \
+  fl_v3/tests/test_s10_phase1p_checkpoint_gate.py \
   fl_v3/tests/test_s10_phase1p_profile.py::test_ip_e2_profiles_are_exact_camera_only_mappings \
   fl_v3/tests/test_s10_phase1p_profile.py::test_ip_e2_runtime_views_preserve_effective_b32_and_source_bytes \
   fl_v3/tests/test_s10_phase1p_profile.py::test_ip_e2_candidate_configuration_preserves_state_dict_names \

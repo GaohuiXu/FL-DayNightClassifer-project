@@ -55,12 +55,18 @@ def _read_object(path: Path) -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--result", required=True)
+    parser.add_argument("--output")
     args = parser.parse_args()
     result_path = Path(args.result).resolve()
     result = _read_object(result_path)
-    config_path = result_path.parent / "resolved_config.json"
+    if "effective_runtime_config_sha256" in result:
+        config_path = result_path.parent / "effective_runtime_config.json"
+        expected_config_sha256 = result["effective_runtime_config_sha256"]
+    else:
+        config_path = result_path.parent / "resolved_config.json"
+        expected_config_sha256 = result["resolved_config_sha256"]
     config = _read_object(config_path)
-    if _sha256_file(config_path) != result["resolved_config_sha256"]:
+    if _sha256_file(config_path) != expected_config_sha256:
         raise RuntimeError("resolved config hash does not match profiler result")
     precision = str(config["precision"]["global_autocast"])
     tolerances = {
@@ -88,14 +94,21 @@ def main() -> None:
             "sha256": _sha256_file(result_path),
             "original_status": result["status"],
         },
-        "resolved_config_sha256": result["resolved_config_sha256"],
+        "resolved_config_sha256": expected_config_sha256,
         "precision": precision,
         "continuation_gate": gate,
     }
     reassessment["reassessment_sha256"] = hashlib.sha256(
         _canonical_bytes(reassessment)
     ).hexdigest()
-    print(_canonical_bytes(reassessment).decode("utf-8"))
+    payload = _canonical_bytes(reassessment) + b"\n"
+    if args.output:
+        output_path = Path(args.output).resolve()
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("xb") as stream:
+            stream.write(payload)
+    else:
+        print(payload.decode("utf-8"), end="")
 
 
 if __name__ == "__main__":
