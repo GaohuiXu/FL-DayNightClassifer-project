@@ -40,6 +40,15 @@ IP_E5_SINGLE_REFERENCE_ID = "camera_final_b16_single_gpu_reference"
 IP_E5_DDP_CANDIDATE_ID = "camera_final_b16_ddp2"
 IP_E5_SPEEDUP_LOWER_BOUND = 1.60
 IP_E5_MAX_CHARGED_RATIO = 1.25
+_MATERIAL_SOURCE_IDENTITY_KEYS = (
+    "approved_source_sha",
+    "branch",
+    "derived_source",
+    "frozen_control_sha",
+    "git_sha",
+    "git_tree",
+    "unique_base_sha",
+)
 
 
 class Phase1PPairError(RuntimeError):
@@ -49,6 +58,19 @@ class Phase1PPairError(RuntimeError):
 def _require(condition: bool, message: str) -> None:
     if not condition:
         raise Phase1PPairError(message)
+
+
+def _material_source_identity(source: Any, *, label: str) -> dict[str, Any]:
+    """Normalize source provenance shared by the profiler and DDP schemas.
+
+    The single-GPU profiler additionally records ``frozen_control_ref`` while the
+    DDP result records the same frozen control by immutable SHA.  The ref spelling
+    is descriptive metadata, not a material source-identity field.
+    """
+    _require(isinstance(source, Mapping), f"IP-E5 {label} source identity is absent")
+    missing = [key for key in _MATERIAL_SOURCE_IDENTITY_KEYS if key not in source]
+    _require(not missing, f"IP-E5 {label} source identity is incomplete: {missing}")
+    return {key: source[key] for key in _MATERIAL_SOURCE_IDENTITY_KEYS}
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -360,7 +382,8 @@ def compare_ip_e5_ddp_output_dirs(
     )
     _require(reference.get("branch") == "camera", "IP-E5 reference is not Camera")
     _require(
-        reference.get("source") == candidate.get("source"),
+        _material_source_identity(reference.get("source"), label="reference")
+        == _material_source_identity(candidate.get("source"), label="DDP candidate"),
         "IP-E5 source identity differs",
     )
     _require(

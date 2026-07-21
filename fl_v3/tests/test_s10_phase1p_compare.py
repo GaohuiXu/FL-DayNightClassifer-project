@@ -17,6 +17,23 @@ from fl_v3.training.phase1p_compare import (
 )
 
 
+def _source_identity(*, include_control_ref: bool) -> dict:
+    value = {
+        "approved_source_sha": "9" * 40,
+        "branch": "codex/s10-phase1p-throughput-preflight",
+        "derived_source": True,
+        "frozen_control_sha": "8" * 40,
+        "git_sha": "a" * 40,
+        "git_tree": "7" * 40,
+        "unique_base_sha": "8" * 40,
+    }
+    if include_control_ref:
+        value["frozen_control_ref"] = (
+            "refs/heads/codex/s10-phase1-branch-qualification"
+        )
+    return value
+
+
 def _write_json(path: Path, value) -> str:
     payload = json.dumps(value, sort_keys=True).encode("utf-8") + b"\n"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -72,7 +89,7 @@ def _output(
         "mode": "sustained",
         "branch": "camera",
         "candidate_id": candidate_id,
-        "source": {"git_sha": "a" * 40},
+        "source": _source_identity(include_control_ref=True),
         "source_resolved_config_sha256": "b" * 64,
         "effective_runtime_config_sha256": "c" * 64,
         "profile_config_sha256": hashlib.sha256(candidate_id.encode()).hexdigest(),
@@ -144,7 +161,7 @@ def _ddp_output(root: Path, *, block_seconds: float, hard_gate: bool = True) -> 
             if hard_gate
             else "COMPLETE_DDP_HARD_GATE_FAILURE"
         ),
-        "source": {"git_sha": "a" * 40},
+        "source": _source_identity(include_control_ref=False),
         "attempt": {
             "slurm_job_id": "123",
             "node_list": "n1",
@@ -201,6 +218,19 @@ def test_ip_e5_ddp_gate_requires_robust_speed_and_charged_payback(tmp_path):
     summary = compare_ip_e5_ddp_output_dirs(reference, slower)
     assert summary["qualification_gate"]["gate_pass"] is False
     assert summary["verdict"] == "DDP_NOT_QUALIFIED"
+
+    different_source = tmp_path / "different_source"
+    _ddp_output(different_source, block_seconds=32.0 / 1.70)
+    result_path = different_source / "result.json"
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    result["source"]["git_tree"] = "6" * 40
+    result_sha = _write_json(result_path, result)
+    _write_json(
+        different_source / "complete.json",
+        {"status": result["status"], "result_sha256": result_sha},
+    )
+    with pytest.raises(Phase1PPairError, match="source identity differs"):
+        compare_ip_e5_ddp_output_dirs(reference, different_source)
 
 
 def test_pair_comparison_enforces_match_and_emits_b16_gate(tmp_path):
