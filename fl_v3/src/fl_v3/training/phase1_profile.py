@@ -116,6 +116,10 @@ IP_E1_RUNNABLE_CANDIDATES: dict[str, dict[str, Any]] = {
         "branches": frozenset({"camera"}),
         "options": _candidate_options(camera_static_grid_cache=True),
     },
+    "camera_batched_affine_grid_b4_accum8": {
+        "branches": frozenset({"camera"}),
+        "options": _candidate_options(camera_batched_affine_grid=True),
+    },
 }
 
 

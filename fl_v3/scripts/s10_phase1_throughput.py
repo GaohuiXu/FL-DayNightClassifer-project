@@ -89,6 +89,7 @@ def _configure_profile_candidate(model, profile, branch: str) -> None:
         profile.candidates["camera_augmentation_transfer_cleanup"]
     )
     static_grid_cache = bool(profile.candidates["camera_static_grid_cache"])
+    batched_affine_grid = bool(profile.candidates["camera_batched_affine_grid"])
     if branch == "camera":
         augmentation_setter = getattr(
             getattr(model, "preprocess", None),
@@ -100,15 +101,25 @@ def _configure_profile_candidate(model, profile, branch: str) -> None:
             "set_phase1p_static_grid_cache",
             None,
         )
+        batched_grid_setter = getattr(
+            getattr(model, "preprocess", None),
+            "set_phase1p_batched_affine_grid",
+            None,
+        )
         _require(
-            callable(augmentation_setter) and callable(grid_setter),
+            callable(augmentation_setter)
+            and callable(grid_setter)
+            and callable(batched_grid_setter),
             "Camera preprocessor lacks Phase I-P candidate controls",
         )
         augmentation_setter(augmentation_cleanup)
         grid_setter(static_grid_cache)
+        batched_grid_setter(batched_affine_grid)
     else:
         _require(
-            not augmentation_cleanup and not static_grid_cache,
+            not augmentation_cleanup
+            and not static_grid_cache
+            and not batched_affine_grid,
             "LiDAR cannot enable Camera profiler candidates",
         )
 

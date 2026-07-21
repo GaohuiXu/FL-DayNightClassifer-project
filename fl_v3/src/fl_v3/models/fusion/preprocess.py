@@ -343,6 +343,7 @@ class ImagePreprocessor(nn.Module):
         )
         self._phase1p_augmentation_transfer_cleanup = False
         self._phase1p_static_grid_cache = False
+        self._phase1p_batched_affine_grid = False
 
     def set_phase1p_augmentation_transfer_cleanup(self, enabled: bool) -> None:
         """Enable the profiler-only, output-neutral augmentation transfer cleanup.
@@ -382,6 +383,18 @@ class ImagePreprocessor(nn.Module):
                 dtype=torch.float64,
             )
         self._phase1p_rotation_output_coordinates = coordinates
+
+    def set_phase1p_batched_affine_grid(self, enabled: bool) -> None:
+        """Batch only rotation-grid coordinate construction for profiling.
+
+        Resize/crop/flip, per-image affine construction and inversion, and each
+        image's ``grid_sample`` call retain the reference path.  The candidate
+        shares one output-coordinate basis per microbatch and batches only the
+        ``out @ inverse.T`` source-coordinate multiplication.
+        """
+        if not isinstance(enabled, bool):
+            raise TypeError("Phase I-P batched affine/grid control must be boolean")
+        self._phase1p_batched_affine_grid = enabled
 
     @property
     def geometry_mode(self) -> str:
@@ -498,6 +511,8 @@ class ImagePreprocessor(nn.Module):
 
         images = []
         affines = []
+        rotation_image_indices: list[int] = []
+        rotation_inverse_affines: list[torch.Tensor] = []
         flat = images_u8.reshape(B * N, C, H_in, W_in)
         parameter_rows = params.view(-1, 7)
         if self._phase1p_augmentation_transfer_cleanup:
@@ -573,18 +588,59 @@ class ImagePreprocessor(nn.Module):
                     dtype=torch.float64,
                 )
                 A_rotation = A @ torch.linalg.inv(A_before_rotation)
-                output_coordinates = (
-                    self._phase1p_rotation_output_coordinates
-                    if self._phase1p_static_grid_cache
-                    else None
-                )
-                image = _rotate_image(
-                    image,
-                    A_rotation,
-                    output_coordinates=output_coordinates,
-                )
+                if self._phase1p_batched_affine_grid:
+                    rotation_image_indices.append(idx)
+                    rotation_inverse_affines.append(
+                        torch.linalg.inv(
+                            A_rotation.to(
+                                device=image.device,
+                                dtype=torch.float64,
+                            )
+                        )
+                    )
+                else:
+                    output_coordinates = (
+                        self._phase1p_rotation_output_coordinates
+                        if self._phase1p_static_grid_cache
+                        else None
+                    )
+                    image = _rotate_image(
+                        image,
+                        A_rotation,
+                        output_coordinates=output_coordinates,
+                    )
             images.append(image)
             affines.append(A)
+
+        if rotation_image_indices:
+            if len(rotation_image_indices) != len(rotation_inverse_affines):
+                raise RuntimeError("batched rotation bookkeeping drift")
+            output_coordinates = (
+                self._phase1p_rotation_output_coordinates
+                if self._phase1p_static_grid_cache
+                else _rotation_output_coordinates(
+                    H_out,
+                    W_out,
+                    device=images_u8.device,
+                )
+            )
+            inverse_affines = torch.stack(rotation_inverse_affines, dim=0)
+            src = (
+                output_coordinates.reshape(1, H_out * W_out, 3)
+                @ inverse_affines.transpose(1, 2)
+            ).reshape(len(rotation_image_indices), H_out, W_out, 3)
+            grid_x = (2.0 * (src[..., 0] + 0.5) / W_out) - 1.0
+            grid_y = (2.0 * (src[..., 1] + 0.5) / H_out) - 1.0
+            grids = torch.stack((grid_x, grid_y), dim=-1).to(images[0].dtype)
+            for grid_index, image_index in enumerate(rotation_image_indices):
+                image = images[image_index]
+                images[image_index] = F.grid_sample(
+                    image.unsqueeze(0),
+                    grids[grid_index].unsqueeze(0),
+                    mode="bilinear",
+                    padding_mode="zeros",
+                    align_corners=False,
+                ).reshape(C, H_out, W_out)
 
         x = torch.stack(images, dim=0).reshape(B, N, C, H_out, W_out)
         x = (x - self._mean) / self._std
