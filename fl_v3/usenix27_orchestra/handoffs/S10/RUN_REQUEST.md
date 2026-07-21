@@ -980,7 +980,7 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
 
 ```text
 PHASE: S10 Phase I-P / IP-E2 capacity and numerical-runtime screening
-REQUEST_STATE: CELL 4 B8 POSITIVE / B16 INELIGIBLE / CELL 5 READY
+REQUEST_STATE: CELL 5 FUSED POSITIVE / B16 SKIPPED / CELL 7 REVERSE CONFIRMATION READY
 ACTIVATION_BASELINE: 3f55e635aef4f893d9fd66e7921f55ce4f7b36e8
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -1110,9 +1110,9 @@ PRE_SUBMISSION_RECORD: before sbatch, seal the containing literal source SHA, fu
   sbatch argv, resolved output paths and budget into
   <OUTPUT_ROOT_RULE>/pre_submission_cell01.json; runner independently rechecks the
   same source/branch/base/clean-output/resource identities on GH200
-BUDGET_AFTER_CELL_4: base consumed 1.965556 / remaining 2.034444;
+BUDGET_AFTER_CELL_5: base consumed 2.403333 / remaining 1.596667;
   code-bug reserve consumed 0.000000 / remaining 1.000000; hard remaining
-  3.034444 GH200-hours
+  2.596667 GH200-hours
 CELL_1_TERMINAL: Job 531766 COMPLETED 0:0 in 1541 s on n203. All eight current-
   code pretests passed. Eager and SDPA each completed 16+256 accepted windows with
   zero invalid/discard/scaler-skip, exact same-batch input anchor/CBGS prefix, stable
@@ -1185,19 +1185,32 @@ B16_CONDITIONAL_STOP: `R4=19,331,547,136`, `R8=37,981,519,872`, projected
   B16 reserved `75,281,465,344` bytes = `73.8014%` visible, which exceeds the
   frozen `70%` prerequisite. `eligible_for_fresh_capacity_probe=false`; no B16
   submission is authorized or needed.
-NEXT_CELL: Cell 5, B8 SDPA+compile reference then B8 SDPA+compile+fused-AdamW,
-  fresh processes in one allocation. Outputs use
-  `camera/sustained_<sha12>_r1_c5_b8`,
-  `camera/sustained_<sha12>_r1_c5_b8_fused`, and
-  `pairs/cell05_fused_adamw_<sha12>_r1.json`.
+CELL_5_TERMINAL: Job 533512 COMPLETED 0:0 in 1576 s on n145. Fused AdamW
+  measured 23.284372 versus the same-node unfused B8 SDPA+compile reference at
+  22.348477 presentations/s, ratio/lower bound 1.041877/1.038384 and projected
+  saving 0.883318 GH200-hours per 20 epochs. Both completed 16+256 accepted
+  windows with zero invalid/discard/scaler skip, identical peak reserved memory
+  37,981,519,872 bytes, no monotonic growth/recompile and passing exact checkpoint
+  hard gates. Fused Adam exp_avg relative-L2 is a retained diagnostic negative;
+  all groups are finite and structurally intact.
+CELL_5_ARTIFACTS: pre-submission `f4d31e7...800d75`; unfused measurement/result
+  `1c7326c...bdc3 / 011fbe9...8af`; fused measurement/result
+  `e6b3ab3...e5961 / f7dcd9e...716e`; pair `5c5a728...23a85`;
+  stdout/stderr `ae42dcf...24e56 / 8db5d05...1e830`.
+CELL_6_STOP: B16 remains ineligible under the frozen 70% projection gate; it is
+  skipped without a capacity or sustained submission.
+NEXT_CELL: Cell 7 final best-stack confirmation, B8 SDPA+compile+fused-AdamW first
+  and original B4 eager reference second in fresh processes within one allocation.
+  Outputs use `camera/sustained_<sha12>_r2_c7_best_first`,
+  `camera/sustained_<sha12>_r2_c7_ref_second`, and
+  `pairs/cell07_best_stack_reverse_<sha12>_r2.json`.
 NEXT_COMMAND: `fl_v3/scripts/run_s10_phase1p_ip_e2.sh` with Camera config and the
-  SDPA+compile-B8 then fused-AdamW-B8 profiles in sustained mode, pair-reference first,
-  approved source
-  `3f55e635aef4f893d9fd66e7921f55ce4f7b36e8`, repeat 1, under the frozen
-  one-GH200 resource tuple.
-EXECUTABLE_NOW: yes; Cell 5 may submit after its containing clean source
+  fused-B8 best-stack then eager-B4 profiles in sustained mode, pair-reference
+  second, approved source `3f55e635aef4f893d9fd66e7921f55ce4f7b36e8`,
+  repeat 2, under the frozen one-GH200 resource tuple.
+EXECUTABLE_NOW: yes; Cell 7 may submit after its containing clean source
   SHA, literal argv, fresh paths and remaining budget are sealed in
-  `pre_submission_cell05.json`. Envelope B remains
+  `pre_submission_cell07.json`. Envelope B remains
   non-executable.
 ```
 
@@ -1210,6 +1223,7 @@ EXECUTABLE_NOW: yes; Cell 5 may submit after its containing clean source
 | Cell 3 / Job `533212`, B4 eager -> B4 SDPA+compile | source `a1f21878a26759df48ffe0deed24656bd6d7a316`; one `n69` allocation; eager `sustained_a1f21878a267_r1_c3_ref`; combination `...c3_sdpa_compile`; pair `0afc8ca5...78a1e` | `COMPLETED 0:0`, 12/12 pretests; health/checkpoint hard gates PASS. Ratio/lower bound `1.183783 / 1.178471`; projected `-5.4030 GH200h`; 12 SDPA modules plus five graphs, no measured recompile; numerical distance remains diagnostic negative | base `0.492222`; reserve `0.000000` |
 | Pre-Cell-4 B8 capacity / Job `533364` | source `3d17ce097f0b26af2fde803f9e87d677dbc5fded`; `capacity_3d17ce097f0b_r1_c4_b8_probe`; result `734a4d70...8f8b` | `COMPLETED 0:0`; B8x4 SDPA+compile 8/8 accepted; peak allocated/reserved `27.788/32.877 GB`, `32.2307%` visible; no growth/recompile; capacity PASS | base `0.072778`; reserve `0.000000` |
 | Cell 4 / Job `533384`, B4 -> B8 SDPA+compile | source `e9d4b8f378c884338b5972d244f17922a6b18826`; one `n463` allocation; B4 `sustained_e9d4b8f378c8_r1_c4_b4`; B8 `...c4_b8`; pair `ffa37629...6c48d` | `COMPLETED 0:0`; health/checkpoint hard gates PASS. B8 ratio/lower bound `1.288873 / 1.273372`, projected `-6.5446 GH200h`; R8 `37.982 GB`; B16 projection `73.8014%` fails frozen 70% prerequisite, so B16 skipped | base `0.492222`; reserve `0.000000` |
+| Cell 5 / Job `533512`, B8 unfused -> fused AdamW | source `66760f45cdc3c41964ab73af48e97dbe60dd3e8d`; one `n145` allocation; unfused `sustained_66760f45cdc3_r1_c5_b8`; fused `...c5_b8_fused`; pair `5c5a728c...23a85` | `COMPLETED 0:0`; health/checkpoint hard gates PASS. Fused ratio/lower bound `1.041877 / 1.038384`, projected `-0.8833 GH200h`; identical `37.982 GB` peak reserved, no growth/recompile; Adam exp_avg distance remains diagnostic | base `0.437778`; reserve `0.000000` |
 
 ## 10. Envelope-A compact execution ledger
 

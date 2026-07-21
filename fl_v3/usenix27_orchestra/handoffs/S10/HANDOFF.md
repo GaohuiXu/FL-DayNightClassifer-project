@@ -11,7 +11,7 @@ ACTIVE_DECISION: owner amended continuation enforcement, promoted Cell-1 SDPA, a
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: IP-E2 active for serial Cells 2-7 inside the frozen resource ceiling; Envelope B frozen
-EXECUTION_STATE: Cell 4 B8 positive; conditional B16 ineligible; Cell 5 fused AdamW is next
+EXECUTION_STATE: Cell 5 fused AdamW positive; conditional B16 skipped; Cell 7 reverse confirmation is next
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -20,9 +20,10 @@ runs and authorized this isolated linear branch plus WP0 implementation. The own
 then activated IP-E1 at `85c6719e4b880b198d850e16b1418c230fa5c656` for WP0's
 GH200 runtime close and continuous IP-WP1 -> strict IP-WP2 execution. After the
 three ordered Camera candidates reached terminal negative/no-promotion results, the
-owner closed IP-WP2 and IP-E1 and opened IP-G1 discussion. There is currently no
-GPU/Slurm authority. IP-E1 did not authorize scientific training, an evaluation
-role, merge, push, or movement of the frozen control branch.
+owner closed IP-WP2 and IP-E1 and opened IP-G1 discussion. The owner subsequently
+closed IP-G1 and activated the bounded Camera-only IP-E2 authority recorded below.
+Neither IP-E1 nor IP-E2 authorizes scientific training, an evaluation role, merge,
+push, or movement of the frozen control branch.
 The Section-7 Envelope-B request in `RUN_REQUEST.md` is preserved verbatim as a
 historical control and is not activated by Phase I-P.
 
@@ -433,8 +434,20 @@ The frozen conditional B16 margin does not pass: `R4=19,331,547,136`,
 `R8=37,981,519,872`, and `R8 + 2*(R8-R4) = 75,281,465,344` bytes, or
 `73.8014%` of visible memory, above the owner-frozen `70%` prerequisite. No B16
 capacity or sustained job is therefore executable. B8 remains measurement-only
-because its physical batch changes BN statistics and worker RNG assignment; Cell 5
-now isolates the fused-AdamW delta on this B8 stack.
+because its physical batch changes BN statistics and worker RNG assignment.
+
+Cell 5 Job `533512` completed `0:0` in `00:26:16` on one `n145`
+allocation. Fused AdamW measured `23.284372` versus the same-node unfused B8
+SDPA+compile reference at `22.348477` presentations/s: ratio `1.041877`, one-sided
+95% lower bound `1.038384`, and projected 20-epoch saving `0.883318` GH200-hours.
+Both processes completed 16+256 accepted windows with zero invalid/discard/scaler
+skip, identical peak reserved memory at `37.982` GB, no monotonic growth or measured
+recompile, and passing exact checkpoint/context/integrity/finite hard gates. The
+fused process's Adam `exp_avg` relative-L2 envelope is a diagnostic negative; every
+group is finite and structurally intact. Fused AdamW therefore joins B8+SDPA+compile
+in the measurement-only best stack for Cell 7. Cell 6/B16 remains skipped; Cell 7
+runs that best stack first and the original B4 eager reference second so the final
+end-to-end pair reverses the reference/candidate process order.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
