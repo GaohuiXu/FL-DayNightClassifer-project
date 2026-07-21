@@ -4,10 +4,10 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: exact IP-E5 same-node 1-GPU versus 2-GPU DDP envelope activated
-REQUEST_STATE: IP-E5 OWNER APPROVED / ACTIVE / ENVELOPE B FROZEN
-EXECUTION_AUTHORITY: exact Section-9.6 compute and bounded engineering remediation
-ACTIVE_PHASE: execute IP-E5 continuously to its terminal qualification result
+ACTIVE_DECISION: IP-E5 terminal POSITIVE_DDP_QUALIFICATION; production gate pending
+REQUEST_STATE: IP-E5 CLOSED POSITIVE / ENVELOPE B FROZEN
+EXECUTION_AUTHORITY: none; unused IP-E5 compute authority expired at closure
+ACTIVE_PHASE: owner decision on exact two-rank BN/worker-RNG production recipe
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -2108,18 +2108,18 @@ LOCAL_TEST_LIMIT: pytest and Torch are absent from the x86 login environment;
   the candidate paths themselves passed the eight in-job CPU/GH200-CUDA pretests
 INTERPRETATION: D_fit throughput/engineering health only; no capability, mAP/NDS,
   generalization, D_select, D_audit, official validation or scientific selection
-NEXT_BOUNDARY: execute exact Section-9.6 IP-E5; return with its terminal result or
-  at a frozen stop/escalation condition
+NEXT_BOUNDARY: owner accepts or rejects production promotion of the exact DDP
+  BN/worker-RNG recipe; no automatic promotion or further IP-E5 compute
 ```
 
-### 9.6 Camera same-node 2-GH200 DDP IP-E5 — owner approved and active
+### 9.6 Camera same-node 2-GH200 DDP IP-E5 — terminal positive
 
 The owner authorizes materializing the already selected final Camera recipe and
 designing exact DDP source/tests/resources. The owner then activated this concrete
 request at its containing clean request commit and full frozen resource ceiling.
 
 ```text
-REQUEST_STATE: OWNER APPROVED / ACTIVE / EXECUTABLE
+REQUEST_STATE: CLOSED / POSITIVE_DDP_QUALIFICATION / NOT EXECUTABLE
 OWNER_ACTIVATION_REQUEST_SHA: 2505db02920021663ccce7783dee483f10e638f8
 DESIGN_APPROVAL_ANCHOR: e61c486757ca5fe89340c9325014f4c3e048da2b
 PREPARED_IMPLEMENTATION_SHA: e51df6efa04e6d151315c72b7d7016014852078c
@@ -2265,6 +2265,56 @@ sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
 The owner explicitly activated this section at containing request commit
 `2505db02920021663ccce7783dee483f10e638f8` with the full
 `1.50 + 1.50 = 3.00` charged-GH200-hour envelope.
+
+Terminal compact ledger:
+
+```text
+INITIAL_JOB: 543028
+SOURCE_SHA: e25160f8811953c03e5805cf8c2917bc7f7ae2e0
+SOURCE_TREE: 655c22e33b335e5c5deeb77a744c9f4290fe2014
+NODE / RESOURCES: n418 / 2xGH200 / 32 CPU / 192 GiB / no restart or requeue
+START / END / ELAPSED: 2026-07-21T20:54:22 / 21:15:02 / 00:20:40
+SLURM_STATE: FAILED 1:0 only at terminal CPU pair analysis
+CHARGE: 0.688889 charged GH200-hours
+PRETEST: 10/10 PASS
+NCCL_SMOKE: PASS; world size two / distinct devices / boolean collective /
+  cross-rank gradient equality
+REFERENCE: 35.469970 presentations/s; 256/256 accepted; checkpoint continuation
+  PASS; projected 13.814431 h
+DDP: 64.886915 presentations/s; 256/256 accepted; exact 87,904-presentation
+  sampler union; all engineering/checkpoint/resume gates PASS
+MEMORY: rank 0/1 peak reserved 75,807,850,496 / 75,939,971,072 bytes;
+  74.32% / 74.45%; no >64 MiB monotonic growth
+BN_DIAGNOSTIC: finite; relative-L2 0.0053210147; max-absolute 0.1102724075;
+  cosine 0.9999869987; expected rank-local-B16 recipe distinction
+FRESH_CONTINUATION_DIAGNOSTIC: exact hard gate PASS on both ranks; BN running-mean
+  max-absolute 0.0054980032 exceeded diagnostic limit 0.0048224255 while its
+  relative-L2 0.0004567734 passed 0.002; parameters, BN variance and both Adam
+  groups passed their grouped diagnostics; elementwise allclose diagnostic false
+INITIAL_TERMINAL_INCIDENT: pair analyzer compared whole source dictionaries;
+  reference alone carried descriptive frozen_control_ref although all material
+  source fields were identical
+REPAIR_SHA / TREE: 26bf727ab36f5c3016b0c146eb8b8f3b3b66ec6d /
+  a76fb348e8743f8494f682dd78b4f07ec177392a
+REPAIR_SCOPE: output-neutral CPU provenance normalization plus regression test;
+  no model/data/precision/optimizer/exposure/gate change and no GPU rerun
+REPAIRED_PAIR_CORE_SHA256:
+  ae2c4540b0faed7d46c82f904f0afd605ce323deb2eb25012f5c122daa603b2e
+PAIR_RESULT_SHA256:
+  0a0bd6569387c05cc170a129f9b83c94b6fefc2c5f8e6e6b0751d906d6d5a31c
+THROUGHPUT_RATIO / ONE-SIDED_95_LB: 1.829347881 / 1.818635492; gate >=1.60 PASS
+PROJECTED_DDP_WALL / LIMIT: 7.581252 / 8.634019 h PASS
+PROJECTED_DDP_CHARGED / LIMIT: 15.162504 / 17.268039 GH200-hours PASS
+CHARGED_RATIO: 1.097584; gate <=1.25 PASS
+VERDICT: POSITIVE_DDP_QUALIFICATION
+PRODUCTION_PROMOTION: false / explicit owner BN+worker-RNG recipe decision required
+BUDGET: base used 0.688889/1.50; code-bug reserve used 0/1.50;
+  total 0.688889/3.00; unused authority expired at closure
+RESIDUAL: one non-contiguous 1x1-convolution grad/bucket-view stride warning may
+  leave optional performance headroom; no correctness/hard-gate impact
+INTERPRETATION: D_fit throughput and engineering health only; no capability,
+  mAP/NDS, generalization, candidate-selection or Envelope-B claim
+```
 
 ## 10. Envelope-A compact execution ledger
 

@@ -1,4 +1,4 @@
-# S10 HANDOFF — Camera final recipe frozen / IP-E5 DDP activated
+# S10 HANDOFF — Camera IP-E5 DDP positive / production decision pending
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: exact IP-E5 same-node 1-GPU versus 2-GPU DDP envelope activated
-SCIENCE_ORDER: execute IP-E5 continuously to its terminal qualification result
+ACTIVE_DECISION: IP-E5 terminal POSITIVE_DDP_QUALIFICATION; production gate pending
+SCIENCE_ORDER: owner decision on the exact two-rank BN/worker-RNG production recipe
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: exact IP-E5 Section-9.6 compute plus bounded engineering remediation
-EXECUTION_STATE: IP-E5 OWNER APPROVED / ACTIVE; Envelope B unauthorized
+CURRENT_AUTHORITY: IP-E5 compact evidence closure only; no further compute
+EXECUTION_STATE: IP-E5 CLOSED POSITIVE; Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -690,7 +690,7 @@ subsequently approved the exact Section-9.6 IP-E5 request at containing request
 commit `2505db02920021663ccce7783dee483f10e638f8`, including its `1.50` base plus
 `1.50` diagnosed-code-bug reserve and `3.00` charged-GH200-hour hard ceiling.
 
-### 1.8 IP-E5 DDP qualification — owner approved and active
+### 1.8 IP-E5 DDP qualification — terminal positive, not automatically promoted
 
 Implementation `e51df6efa04e6d151315c72b7d7016014852078c` binds both IP-E5
 profiles to the production Camera config at file/resolved hashes
@@ -720,6 +720,50 @@ resume and the paired analysis. Section 9.6 of `RUN_REQUEST.md` is the exact
 request. The owner activated it at request commit `2505db02920021663ccce7783dee483f10e638f8`.
 No D_select, D_audit, official validation, capability claim, Envelope-B
 activation, merge or push is authorized.
+
+Job `543028` ran on same-node n418 from source
+`e25160f8811953c03e5805cf8c2917bc7f7ae2e0`. The focused tests passed `10/10`,
+the two-rank NCCL smoke passed, and both the fresh single-GPU and DDP profile plus
+fresh-process continuation completed every engineering hard gate. The single-GPU
+reference measured `35.469970` presentations/s; DDP measured `64.886915`, a
+`1.829348x` point ratio with one-sided 95% block-bootstrap lower bound
+`1.818635x`. This passes the frozen `1.60x` gate. The aligned C-only projections
+are `13.814431` one-GPU hours versus `7.581252` two-GPU wall hours and
+`15.162504` charged GH200-hours, a charged ratio of `1.097584` that passes the
+`1.25x` limit.
+
+The DDP sampler reconstructed all `87,904` epoch-0 presentations without padding,
+duplicate or omission. Both ranks had 256/256 accepted measured windows, no
+overflow/discard/invalid window or steady-state recompile, and peak reserved
+memory `75.807850/75.939971` GB (`74.32/74.45%`). Parameters, non-BN buffers,
+AdamW, scheduler, scaler and discrete rank state agreed exactly at the canonical
+checkpoint boundaries; fresh-process eight-window continuation passed. Ordinary
+rank-local BN remained finite but intentionally non-identical: relative-L2
+`0.005321`, max-absolute `0.110272`, cosine `0.999987`. This is the predeclared
+recipe distinction requiring owner acceptance, not a failed engineering gate.
+The fresh-process grouped numerical diagnostic had one narrow miss on both ranks:
+BN running-mean max-absolute error `0.005498` versus its repeat-calibrated
+`0.004822` diagnostic limit, while BN-mean relative-L2 `0.000457` passed its
+`0.002` limit and parameters, BN variance and both Adam groups passed both
+diagnostic limits. Exact boundary/input/RNG/discrete/structure and finite-state
+hard gates all passed, as frozen in the approved IP-E5 numerical policy.
+
+The Slurm job ended `1:0` only because the terminal CPU comparator compared two
+equivalent source dictionaries byte-for-byte while the single-GPU schema alone
+included descriptive `frozen_control_ref`. Repair
+`26bf727ab36f5c3016b0c146eb8b8f3b3b66ec6d` now requires equality of every
+material source field and ignores only that non-material extra key. It re-used the
+immutable completed GPU artifacts and emitted write-once positive summary SHA-256
+`0a0bd6569387c05cc170a129f9b83c94b6fefc2c5f8e6e6b0751d906d6d5a31c`;
+no GPU rerun was needed. Job charge was `0.688889` GH200-hours, all from the base;
+bug reserve use was zero and the unused authority expires with IP-E5 closure.
+
+One residual performance warning reported a non-contiguous 1x1-convolution
+gradient stride differing from its DDP bucket view. It did not affect correctness
+or any hard gate and the measured result already clears the speed/payback gates;
+it is optional future headroom, not a reason to rerun IP-E5. Production promotion
+remains false until the owner explicitly accepts ordinary per-rank B16 BatchNorm,
+`seed + epoch*world_size + rank` worker RNG, and the exact two-GH200 recipe.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
