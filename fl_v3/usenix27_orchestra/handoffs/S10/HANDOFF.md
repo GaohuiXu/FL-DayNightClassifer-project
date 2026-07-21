@@ -1,4 +1,4 @@
-# S10 HANDOFF — Camera IP-E4 preprocessing follow-up active
+# S10 HANDOFF — Camera IP-E4 bulk-conversion cell unlocked
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: conservative batched affine/grid accepted; bounded IP-E4 active
+ACTIVE_DECISION: vectorized geometry promoted; conditional bulk conversion unlocked
 SCIENCE_ORDER: Camera IP-E4, then 2-GH200 DDP qualification, then production refreeze/review
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: scoped IP-E4 source/docs/tests, linear commits and bounded single-GH200 execution
-EXECUTION_STATE: IP-E4 derived single-GH200 replacement prepared; DDP and Envelope B unauthorized
+EXECUTION_STATE: IP-E4 conditional implementation/pair authorized; DDP and Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -642,7 +642,11 @@ remains locked until the first pair's hard gates pass and lower bound is at leas
 `1.02`. Initial Job `541217` stopped before D_fit/model execution because its
 trace output suffix did not equal its attempt ID; the recorded one-line-derived
 runner repair consumes `0.016389` GH200-hour of bug reserve and changes no
-scientific or measurement input.
+scientific or measurement input. Derived Job `541221` then passed all hard gates:
+vectorized geometry measured `37.482862` versus `26.934770` presentations/s,
+ratio/lower bound `1.391616 / 1.379987`, at `75.525 GB` peak reserved. The frozen
+rule therefore promotes vectorized geometry and unlocks the single bulk native-
+image conversion candidate; no DDP authority follows from this result.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior

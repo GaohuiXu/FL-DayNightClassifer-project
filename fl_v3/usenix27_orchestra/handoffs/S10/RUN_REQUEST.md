@@ -4,8 +4,8 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: conservative Camera preprocessing accepted / IP-E4 active
-REQUEST_STATE: IP-E4 APPROVED / INITIAL CELL PREPARED / ENVELOPE B FROZEN
+ACTIVE_DECISION: vectorized Camera geometry promoted / IP-E4 conditional cell unlocked
+REQUEST_STATE: IP-E4 APPROVED / BULK CONVERSION UNLOCKED / ENVELOPE B FROZEN
 EXECUTION_AUTHORITY: exact Section 9.5 single-GH200 envelope only; DDP unauthorized
 ACTIVE_PHASE: Phase I-P Camera preprocessing follow-up before DDP
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
@@ -1909,6 +1909,43 @@ sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
     fl_v3/configs/s10_phase1p_ip_e4_camera_b16_vectorized_geometry.json \
   --source-sha "${SOURCE_SHA}" \
   --approved-source-sha "${APPROVED_SOURCE_SHA}"
+```
+
+The derived replacement is terminal positive. It promotes only the scoped
+vectorized geometry item under the already frozen rule and unlocks, but does not
+yet execute, the one conditional bulk-conversion candidate.
+
+```text
+REPLACEMENT_JOB: 541221 / source 69272b01509335813117a482ff15543186b84e67 /
+  tree 028a188c22b0289ba22c01a667a14ad425a7395d / n416
+REPLACEMENT_TERMINAL: COMPLETED 0:0 / 00:26:50 / 0.447222 base GH200-hour
+PRETESTS: 9 passed in 3.35 seconds; initial path defect did not recur
+TRACE: COMPLETE_TRACE; every core and preprocessing subrange present; preprocess
+  was the largest named Camera-forward range at 0.681777; geometry was the largest
+  preprocessing subrange at 1,655,485.456 CPU-inclusive us over 6 active windows
+REFERENCE: 26.934770 presentations/s; 256/256 accepted; zero invalid/discard/
+  scaler-skip; checkpoint continuation PASS; peak allocated/reserved
+  54,668,524,032 / 65,315,799,040 bytes (64.0317% visible); no growth/recompile
+VECTORIZED_GEOMETRY: 37.482862 presentations/s; 256/256 accepted; zero invalid/
+  discard/scaler-skip; checkpoint continuation PASS; peak allocated/reserved
+  54,666,238,464 / 75,524,734,976 bytes (74.0399% visible); no growth/recompile
+PAIR: same allocation/node/GPU/source/config/CBGS and exact B16 input anchor;
+  candidate/reference ratio 1.391616; one-sided 95% lower bound 1.379987; every
+  hard gate PASS; PROMOTE_AND_UNLOCK_BULK_CONVERSION
+PROJECTED_20_EPOCH: 18.174655 reference versus 13.072462 vectorized-geometry
+  GH200-hours; diagnostic saving 5.102194 per Camera run
+PROMOTED_ITEM: batch only the existing float64 3x3 construction, left-associated
+  composition and two inversion stages; resize/crop/pad/flip/interpolation and
+  augmentation/calibration semantics unchanged
+CONDITIONAL_UNLOCK: one candidate adding exactly one bulk native-image
+  uint8-to-float32 conversion is now eligible for implementation and one fresh
+  same-allocation vectorized-reference -> bulk-candidate pair
+ARTIFACTS: trace result c70b03e7...9597948; trace summary 0ae1417b...fbd98;
+  reference result 41db16a5...c490b; candidate result 52cf019f...7215c;
+  pair 6cc4f70f...eb8ef; stdout 72052da2...5c7e; stderr b7e8519a...1aa3
+BUDGET_AFTER_REPLACEMENT: base used 0.447222 / 1.00, remaining 0.552778;
+  code-bug reserve used 0.016389 / 0.50, remaining 0.483611; hard total used
+  0.463611 / 1.50, remaining 1.036389 charged GH200-hours
 ```
 
 ## 10. Envelope-A compact execution ledger
