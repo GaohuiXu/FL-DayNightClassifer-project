@@ -5,7 +5,7 @@
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
 ACTIVE_DECISION: conservative Camera preprocessing accepted / IP-E4 active
-REQUEST_STATE: IP-E4 APPROVED / IMPLEMENTATION PENDING / ENVELOPE B FROZEN
+REQUEST_STATE: IP-E4 APPROVED / INITIAL CELL PREPARED / ENVELOPE B FROZEN
 EXECUTION_AUTHORITY: exact Section 9.5 single-GH200 envelope only; DDP unauthorized
 ACTIVE_PHASE: Phase I-P Camera preprocessing follow-up before DDP
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
@@ -1749,7 +1749,7 @@ silently excluded. Checkpoint/resume and rank-state gates are mandatory. No DDP
 source change, resource envelope, Slurm execution, production promotion, or 4-GPU
 cell is authorized here.
 
-### 9.5 Camera preprocessing IP-E4 — approved, implementation pending
+### 9.5 Camera preprocessing IP-E4 — approved, initial cell prepared
 
 The owner accepts conservative batched affine/grid as the Camera production
 default and retains the combined static-grid/batched-rotation implementation as a
@@ -1815,6 +1815,53 @@ STOP_ESCALATE: hard/base+reserve ceiling; repeated/ambiguous blocker; hard-gate
   math/data/RNG/recipe/gate/resources; any DDP or scientific-boundary pressure
 SOURCE_RULE: clean linear descendants of OWNER_APPROVAL_ANCHOR and UNIQUE_BASE_SHA;
   exact source/profile/command hashes are appended before each submission
+```
+
+The initial output-neutral candidate and its fail-closed trace/pair runner are now
+sealed. The containing pre-submission commit changes only this ledger relative to
+the prepared implementation source; the launch command resolves that clean
+containing commit as the literal execution `SOURCE_SHA`.
+
+```text
+PREPARED_IMPLEMENTATION_SHA: b909d4ee7e02375e230f2d44b193aae1d0af399b
+PREPARED_IMPLEMENTATION_TREE: b3aa65547b300d8dde4c36cb1a8bb5c38887eb72
+REFERENCE_PROFILE_FILE_SHA256: 675239186a53c6467fc1e9e8490e978deaf8eb3f2bf7987ee260c241490143a8
+REFERENCE_PROFILE_CANONICAL_SHA256: e963b7720c778685a9de429c05a38c25636f63dc23dd88f1339a1b3756e75f6c
+VECTORIZED_PROFILE_FILE_SHA256: 29d78cdfdae1cec73bb8b59d131c64282f68bb605572c5f19c63bc119b488aa6
+VECTORIZED_PROFILE_CANONICAL_SHA256: 2bf1b5bd68dbcb3e89724cb857c098531688488e479c4673e7a06f7b7a871a63
+LAUNCHER_SHA256: afbec29160857c33ad4509789cd43f269a1f42c3017e73dc38f9b2901a5df34b
+PAIR_ANALYZER_SHA256: 79721e8401b5bbb59c5ed27071165bada5310f7f53c12f8b06b84717c2de5b2f
+PROFILER_SHA256: 3c91704d3f7c2d8fe0add8a63b76bf08a7fa8e96bb814692362faf8eb9ed9611
+PREPROCESS_SHA256: 0e0fedb70f3e6b4d7f3cc8ad4beaae9c6851c3bc60ec582cc29a41095ef519f9
+LOCAL_VALIDATION: Python syntax, JSON syntax, strict standalone profile parsing,
+  config file/resolved identities, shell syntax/shellcheck and diff checks PASS
+NOT_RUN_LOCALLY: Torch/PyTorch is absent on the x86 login node; five focused
+  CPU/GH200-CUDA profile/config/numerical/gate tests run before any D_fit/model
+  measurement and fail closed
+INITIAL_STATE_AT_SUBMISSION: one trace plus one same-allocation fresh reference ->
+  vectorized-geometry pair; bulk conversion remains locked and unimplemented
+```
+
+The exact initial invocation from the containing clean source commit is:
+
+```bash
+SOURCE_SHA=$(git rev-parse HEAD)
+APPROVED_SOURCE_SHA=7d4bb6efdbb7b8fb61ee72243c72a5ec3ef7d451
+ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e4_7d4bb6efdbb7
+mkdir -p "${ROOT}"
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G \
+  --gpus-per-node=nvidia_gh200_120gb:1 --time=00:45:00 --no-requeue \
+  --output="${ROOT}/slurm_initial_%j.out" \
+  --error="${ROOT}/slurm_initial_%j.err" \
+  fl_v3/scripts/run_s10_phase1p_ip_e4.sh \
+  --config fl_v3/configs/s10_phase1_camera.json \
+  --reference-profile \
+    fl_v3/configs/s10_phase1p_ip_e4_camera_b16_reference.json \
+  --candidate-profile \
+    fl_v3/configs/s10_phase1p_ip_e4_camera_b16_vectorized_geometry.json \
+  --source-sha "${SOURCE_SHA}" \
+  --approved-source-sha "${APPROVED_SOURCE_SHA}"
 ```
 
 ## 10. Envelope-A compact execution ledger
