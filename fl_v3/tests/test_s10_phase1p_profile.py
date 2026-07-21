@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+import copy
+from contextlib import nullcontext
 import importlib.util
 import json
 from pathlib import Path
@@ -12,7 +14,9 @@ from fl_v3.config import load_resolved_config
 from fl_v3.training.phase1_profile import (
     BASELINE_CANDIDATES,
     IP_E1_RUNNABLE_CANDIDATES,
+    IP_E2_RUNNABLE_CANDIDATES,
     Phase1ProfileError,
+    derive_profile_runtime_config,
     load_phase1_profile_spec,
     validate_phase1_profile_spec,
 )
@@ -27,6 +31,7 @@ BATCHED_GRID_PROFILE = (
 )
 CAMERA = ROOT / "configs" / "s10_phase1_camera.json"
 LIDAR = ROOT / "configs" / "s10_phase1_lidar.json"
+IP_E2_PROFILES = tuple(sorted((ROOT / "configs").glob("s10_phase1p_ip_e2_*.json")))
 
 
 def _raw() -> dict:
@@ -110,6 +115,178 @@ def test_ip_e1_batched_grid_profile_has_one_exact_camera_only_candidate():
         profile.assert_runnable("lidar")
     with pytest.raises(Phase1ProfileError, match="baseline candidate"):
         profile.assert_baseline()
+
+
+def test_ip_e2_profiles_are_exact_camera_only_mappings():
+    assert len(IP_E2_PROFILES) == len(IP_E2_RUNNABLE_CANDIDATES) == 8
+    seen = set()
+    for path in IP_E2_PROFILES:
+        profile = load_phase1_profile_spec(path)
+        candidate_id = str(profile.data["candidate_id"])
+        assert profile.data["envelope"] == "IP-E2"
+        assert candidate_id not in seen
+        seen.add(candidate_id)
+        profile.assert_runnable("camera")
+        assert dict(profile.candidates) == IP_E2_RUNNABLE_CANDIDATES[candidate_id]["options"]
+        with pytest.raises(Phase1ProfileError, match="not runnable"):
+            profile.assert_runnable("lidar")
+        profile.assert_branch_binding("camera", CAMERA, load_resolved_config(CAMERA))
+        assert profile.measurement["capacity_accepted_windows"] == 8
+        assert profile.candidates["physical_batch_size"] in {4, 8, 16}
+    assert seen == set(IP_E2_RUNNABLE_CANDIDATES)
+    assert all("b12" not in candidate_id for candidate_id in seen)
+
+
+def test_ip_e2_runtime_views_preserve_effective_b32_and_source_bytes():
+    source_bytes = CAMERA.read_bytes()
+    source = load_resolved_config(CAMERA)
+    expected = {
+        "camera_reference_b4_accum8": (4, 8, False),
+        "camera_sdpa_compile_b8_accum4": (8, 4, False),
+        "camera_sdpa_compile_fused_b8_accum4": (8, 4, True),
+        "camera_sdpa_compile_b16_accum2": (16, 2, False),
+        "camera_sdpa_compile_fused_b16_accum2": (16, 2, True),
+    }
+    for path in IP_E2_PROFILES:
+        profile = load_phase1_profile_spec(path)
+        if profile.data["candidate_id"] not in expected:
+            continue
+        runtime = derive_profile_runtime_config(source, profile)
+        batch, accumulation, fused = expected[str(profile.data["candidate_id"])]
+        raw = runtime.as_dict()
+        assert raw["training"]["micro_batch_size"] == batch
+        assert raw["training"]["accumulation_steps"] == accumulation
+        assert raw["training"]["effective_global_batch"] == 32
+        assert raw["optimizer"]["fused"] is fused
+        assert raw["phase1p_runtime"]["profile_sha256"] == profile.sha256
+        assert raw["phase1p_runtime"]["candidate_id"] == profile.data["candidate_id"]
+        assert raw["phase1p_runtime"]["source_resolved_config_sha256"] == source.sha256
+        assert runtime.sha256 != source.sha256
+        assert runtime.source.sha256 == source.sha256
+        assert runtime.data_identities == source.data_identities
+    assert CAMERA.read_bytes() == source_bytes
+
+
+def test_ip_e2_candidate_configuration_preserves_state_dict_names(monkeypatch):
+    runner = _runner_module()
+    profile = load_phase1_profile_spec(
+        ROOT / "configs" / "s10_phase1p_ip_e2_camera_compile_b4.json"
+    )
+
+    class Preprocess(torch.nn.Module):
+        def set_phase1p_augmentation_transfer_cleanup(self, value):
+            assert value is False
+
+        def set_phase1p_static_grid_cache(self, value):
+            assert value is False
+
+        def set_phase1p_batched_affine_grid(self, value):
+            assert value is False
+
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.preprocess = Preprocess()
+            for name in runner._COMPILE_MODULES:
+                setattr(self, name, torch.nn.Linear(2, 2))
+
+    monkeypatch.setattr(torch, "compile", lambda fn, **kwargs: fn)
+    model = Model()
+    before = tuple(model.state_dict())
+    record = runner._configure_profile_candidate(model, profile, "camera")
+    assert tuple(model.state_dict()) == before
+    assert record["compiled_forward_modules"] == list(runner._COMPILE_MODULES)
+    assert record["state_dict_name_sha256"] == runner._state_name_sha256(model)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="requires the IP-E2 GH200")
+@pytest.mark.parametrize(
+    ("precision", "rtol", "atol"),
+    [("fp32", 1e-4, 1e-6), ("fp16", 2e-3, 2e-4)],
+)
+def test_ip_e2_current_swin_sdpa_forward_backward_parity(precision, rtol, atol):
+    from torchvision.models import swin_t
+
+    from fl_v3.models.fusion.swin_sdpa import apply_sdpa_to_swin
+
+    torch.manual_seed(20260721)
+    features = swin_t(weights=None).features
+    attentions = [
+        module
+        for module in features.modules()
+        if type(module).__name__ == "ShiftedWindowAttention"
+    ]
+    assert len(attentions) == 12
+    # Cover both the unshifted and shifted mask forms used by every Swin stage.
+    for source in attentions[:2]:
+        reference = copy.deepcopy(source).cuda().train()
+        candidate = copy.deepcopy(source).cuda().train()
+        assert apply_sdpa_to_swin(candidate) == 1
+        assert tuple(reference.state_dict()) == tuple(candidate.state_dict())
+        channels = int(reference.qkv.in_features)
+        reference_input = torch.randn(
+            1, 14, 14, channels, device="cuda", requires_grad=True
+        )
+        candidate_input = reference_input.detach().clone().requires_grad_(True)
+        context = (
+            nullcontext()
+            if precision == "fp32"
+            else torch.autocast(device_type="cuda", dtype=torch.float16)
+        )
+        previous = torch.backends.cudnn.deterministic
+        torch.backends.cudnn.deterministic = precision == "fp32"
+        try:
+            with context:
+                reference_output = reference(reference_input)
+                candidate_output = candidate(candidate_input)
+            reference_loss = reference_output.float().square().mean()
+            candidate_loss = candidate_output.float().square().mean()
+            reference_gradients = torch.autograd.grad(
+                reference_loss,
+                [reference_input, *reference.parameters()],
+            )
+            candidate_gradients = torch.autograd.grad(
+                candidate_loss,
+                [candidate_input, *candidate.parameters()],
+            )
+        finally:
+            torch.backends.cudnn.deterministic = previous
+        torch.testing.assert_close(
+            candidate_output, reference_output, rtol=rtol, atol=atol
+        )
+        for observed, expected in zip(candidate_gradients, reference_gradients):
+            torch.testing.assert_close(observed, expected, rtol=rtol, atol=atol)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="requires the IP-E2 GH200")
+def test_ip_e2_fused_adamw_matches_unfused_accepted_updates():
+    torch.manual_seed(20260721)
+    reference_parameter = torch.nn.Parameter(torch.randn(4096, device="cuda"))
+    candidate_parameter = torch.nn.Parameter(
+        reference_parameter.detach().clone()
+    )
+    reference = torch.optim.AdamW(
+        [reference_parameter], lr=2e-4, weight_decay=0.01, fused=False
+    )
+    candidate = torch.optim.AdamW(
+        [candidate_parameter], lr=2e-4, weight_decay=0.01, fused=True
+    )
+    for step in range(8):
+        gradient = torch.sin(reference_parameter.detach() * 0.01 + step)
+        reference_parameter.grad = gradient.clone()
+        candidate_parameter.grad = gradient.clone()
+        reference.step()
+        candidate.step()
+    torch.testing.assert_close(
+        candidate_parameter, reference_parameter, rtol=2e-3, atol=2e-4
+    )
+    for key in ("exp_avg", "exp_avg_sq"):
+        torch.testing.assert_close(
+            candidate.state[candidate_parameter][key],
+            reference.state[reference_parameter][key],
+            rtol=2e-3,
+            atol=2e-4,
+        )
 
 
 @pytest.mark.parametrize(

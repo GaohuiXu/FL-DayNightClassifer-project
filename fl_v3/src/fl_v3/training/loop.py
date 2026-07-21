@@ -100,6 +100,11 @@ class _ReadinessTiming:
         self.measurement_wall_start: float | None = None
         self.measurement_start_counters: dict[str, int] | None = None
         self.warmup_boundary_attempted_window: int | None = None
+        self.block_size_windows = 16
+        self.block_wall_start: float | None = None
+        self.block_samples = 0
+        self.block_windows = 0
+        self.block_records: list[dict[str, Any]] = []
 
     def _mark(self) -> Any:
         if self.stage_timing and self.use_cuda:
@@ -122,6 +127,7 @@ class _ReadinessTiming:
             torch.cuda.reset_peak_memory_stats(self.device)
         self.measurement_started = True
         self.measurement_wall_start = time.perf_counter()
+        self.block_wall_start = self.measurement_wall_start
         self.measurement_start_counters = _state_counters(state)
         self.warmup_boundary_attempted_window = int(state.attempted_windows)
 
@@ -198,12 +204,39 @@ class _ReadinessTiming:
             self.active.pop("total_start")
         self.active["outcome"] = str(outcome)
         self.active["global_samples"] = int(global_samples)
+        if self.use_cuda:
+            self.active["memory_allocated_bytes"] = int(
+                torch.cuda.memory_allocated(self.device)
+            )
+            self.active["memory_reserved_bytes"] = int(
+                torch.cuda.memory_reserved(self.device)
+            )
         if self.active["microbatches"] != self.accumulation_steps:
             raise RuntimeError(
                 "readiness timing accumulation-window length drift: "
                 f"{self.active['microbatches']} != {self.accumulation_steps}"
             )
         self.records.append(self.active)
+        if self.active["measured"] and outcome == "accepted":
+            self.block_samples += int(global_samples)
+            self.block_windows += 1
+            if self.block_windows == self.block_size_windows:
+                if self.use_cuda:
+                    torch.cuda.synchronize(self.device)
+                now = time.perf_counter()
+                assert self.block_wall_start is not None
+                seconds = float(now - self.block_wall_start)
+                self.block_records.append({
+                    "accepted_windows": self.block_windows,
+                    "exposure_samples": self.block_samples,
+                    "wall_seconds": seconds,
+                    "exposure_samples_per_second": (
+                        self.block_samples / seconds if seconds > 0.0 else None
+                    ),
+                })
+                self.block_wall_start = now
+                self.block_samples = 0
+                self.block_windows = 0
         self.active = None
 
     def finalize(self, state: TrainingState) -> dict[str, Any]:
@@ -212,6 +245,19 @@ class _ReadinessTiming:
         if self.use_cuda:
             torch.cuda.synchronize(self.device)
         terminal = time.perf_counter()
+        if self.block_windows:
+            assert self.block_wall_start is not None
+            seconds = float(terminal - self.block_wall_start)
+            self.block_records.append({
+                "accepted_windows": self.block_windows,
+                "exposure_samples": self.block_samples,
+                "wall_seconds": seconds,
+                "exposure_samples_per_second": (
+                    self.block_samples / seconds if seconds > 0.0 else None
+                ),
+            })
+            self.block_samples = 0
+            self.block_windows = 0
         resolved_records: list[dict[str, Any]] = []
         for pending in self.records:
             pairs = pending.pop("pairs")
@@ -226,6 +272,37 @@ class _ReadinessTiming:
 
         measured = [record for record in resolved_records if record["measured"]]
         accepted = [record for record in measured if record["outcome"] == "accepted"]
+        accepted_reserved = [
+            int(record["memory_reserved_bytes"])
+            for record in accepted
+            if "memory_reserved_bytes" in record
+        ]
+        accepted_allocated = [
+            int(record["memory_allocated_bytes"])
+            for record in accepted
+            if "memory_allocated_bytes" in record
+        ]
+
+        def quartile_medians(values: list[int]) -> list[int]:
+            if len(values) < 4:
+                return []
+            medians = []
+            for index in range(4):
+                start = len(values) * index // 4
+                end = len(values) * (index + 1) // 4
+                chunk = sorted(values[start:end])
+                medians.append(int(chunk[len(chunk) // 2]))
+            return medians
+
+        reserved_quartiles = quartile_medians(accepted_reserved)
+        monotonic_reserved_growth = bool(
+            len(reserved_quartiles) == 4
+            and all(
+                right > left
+                for left, right in zip(reserved_quartiles, reserved_quartiles[1:])
+            )
+            and reserved_quartiles[-1] - reserved_quartiles[0] > 64 * 1024 * 1024
+        )
         stage_distributions = {
             name: _distribution([
                 record["durations_ms"][name]
@@ -330,6 +407,10 @@ class _ReadinessTiming:
                 window_p95 / window_p50 if window_p50 and window_p50 > 0.0 else None
             ),
             "throughput": throughput,
+            "throughput_blocks": {
+                "target_accepted_windows_per_block": self.block_size_windows,
+                "records": self.block_records,
+            },
             "memory": {
                 "peak_allocated_bytes": peak_allocated,
                 "peak_reserved_bytes": peak_reserved,
@@ -340,6 +421,10 @@ class _ReadinessTiming:
                 "peak_reserved_fraction": (
                     peak_reserved / total_memory if total_memory else 0.0
                 ),
+                "accepted_window_allocated_bytes": accepted_allocated,
+                "accepted_window_reserved_bytes": accepted_reserved,
+                "reserved_quartile_medians_bytes": reserved_quartiles,
+                "monotonic_reserved_growth_over_64mib": monotonic_reserved_growth,
             },
             "records": resolved_records,
         }

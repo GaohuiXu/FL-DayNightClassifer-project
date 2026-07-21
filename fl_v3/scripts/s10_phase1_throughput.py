@@ -4,8 +4,8 @@
 This entry reuses the production Phase-I model, loader, loss, AdamW, cyclic
 scheduler, GradScaler, training loop, and checkpoint implementation.  It has no
 evaluation import or code path and cannot access D_select, D_audit, or official
-validation.  The checked-in IP-E1 profile permits only the B4 x accumulation-8
-reference candidate; every optimization remains default-off.
+validation.  Checked-in profile mappings fail closed per envelope; every
+optimization remains default-off outside its explicit Phase I-P profile.
 """
 from __future__ import annotations
 
@@ -38,7 +38,10 @@ from fl_v3.training.checkpoint import load_checkpoint, save_checkpoint
 from fl_v3.training.loop import train_one_epoch
 from fl_v3.training.phase1 import build_phase1_training_stack
 from fl_v3.training.phase1_checkpoint_gate import evaluate_calibrated_continuation_gate
-from fl_v3.training.phase1_profile import load_phase1_profile_spec
+from fl_v3.training.phase1_profile import (
+    derive_profile_runtime_config,
+    load_phase1_profile_spec,
+)
 from fl_v3.training.runtime_state import TrainingState
 from fl_v3.training.s10_observation import compare_tensor_tree_tensors
 from fl_v3.utils.runtime import (
@@ -82,7 +85,80 @@ def _candidate_cpu_resident_batch_fields(profile, branch: str) -> tuple[str, ...
     return ()
 
 
-def _configure_profile_candidate(model, profile, branch: str) -> None:
+_COMPILE_MODULES = (
+    "camera_backbone",
+    "camera_neck",
+    "decoder_backbone",
+    "decoder_neck",
+    "head",
+)
+
+
+def _state_name_sha256(model: torch.nn.Module) -> str:
+    return _canonical_sha256(sorted(model.state_dict()))
+
+
+def _dynamo_counters() -> dict[str, dict[str, int]]:
+    try:
+        from torch._dynamo.utils import counters
+    except Exception:
+        return {}
+    result: dict[str, dict[str, int]] = {}
+    for category, values in counters.items():
+        normalized = {
+            str(key): int(value)
+            for key, value in values.items()
+            if isinstance(value, (int, np.integer))
+        }
+        if normalized:
+            result[str(category)] = normalized
+    return result
+
+
+def _counter_delta(
+    before: Mapping[str, Mapping[str, int]],
+    after: Mapping[str, Mapping[str, int]],
+) -> dict[str, dict[str, int]]:
+    result: dict[str, dict[str, int]] = {}
+    for category in sorted(set(before) | set(after)):
+        keys = set(before.get(category, {})) | set(after.get(category, {}))
+        values = {
+            key: int(after.get(category, {}).get(key, 0))
+            - int(before.get(category, {}).get(key, 0))
+            for key in sorted(keys)
+        }
+        values = {key: value for key, value in values.items() if value}
+        if values:
+            result[category] = values
+    return result
+
+
+def _counter_has_steady_recompile(
+    delta: Mapping[str, Mapping[str, int]],
+) -> bool:
+    """Conservatively identify new compiler graphs/cache misses after warm-up."""
+    signals = ("unique_graph", "recompil", "cache_miss", "fxgraph_cache_miss")
+    return any(
+        int(value) > 0 and any(signal in str(key).lower() for signal in signals)
+        for values in delta.values()
+        for key, value in values.items()
+    )
+
+
+def _optimizer_configuration(optimizer: torch.optim.Optimizer) -> dict[str, Any]:
+    defaults = optimizer.defaults
+    return {
+        "type": f"{type(optimizer).__module__}.{type(optimizer).__qualname__}",
+        "parameter_groups": len(optimizer.param_groups),
+        "state_entries": len(optimizer.state),
+        "fused": defaults.get("fused"),
+        "foreach": defaults.get("foreach"),
+        "capturable": defaults.get("capturable"),
+        "differentiable": defaults.get("differentiable"),
+    }
+
+
+def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
     """Apply only the fail-closed profiler runtime options bound by the profile."""
     profile.assert_runnable(branch)
     augmentation_cleanup = bool(
@@ -122,6 +198,46 @@ def _configure_profile_candidate(model, profile, branch: str) -> None:
             and not batched_affine_grid,
             "LiDAR cannot enable Camera profiler candidates",
         )
+    camera_sdpa = bool(profile.candidates["camera_sdpa"])
+    lidar_sdpa = bool(profile.candidates["lidar_sdpa"])
+    compile_enabled = bool(profile.candidates["torch_compile"])
+    _require(not lidar_sdpa, "IP-E2 does not authorize LiDAR SDPA")
+    _require(not compile_enabled or branch == "camera", "compile candidate is Camera-only")
+    before_state_names = _state_name_sha256(model)
+    sdpa_modules = 0
+    if camera_sdpa:
+        _require(branch == "camera", "Camera SDPA cannot run on the LiDAR branch")
+        from fl_v3.models.fusion.swin_sdpa import apply_sdpa_to_swin
+
+        sdpa_modules = int(apply_sdpa_to_swin(model.camera_backbone))
+        _require(sdpa_modules == 12, f"Camera SDPA patched {sdpa_modules} modules, expected 12")
+    compiled_modules: list[str] = []
+    if compile_enabled:
+        for name in _COMPILE_MODULES:
+            module = getattr(model, name, None)
+            _require(isinstance(module, torch.nn.Module), f"compile module {name!r} is absent")
+            module.forward = torch.compile(  # type: ignore[method-assign]
+                module.forward,
+                backend="inductor",
+                dynamic=False,
+                mode="default",
+            )
+            compiled_modules.append(name)
+    after_state_names = _state_name_sha256(model)
+    _require(
+        before_state_names == after_state_names,
+        "profile candidate changed model state-dict parameter/buffer names",
+    )
+    return {
+        "camera_sdpa": camera_sdpa,
+        "sdpa_modules_patched": sdpa_modules,
+        "torch_compile": compile_enabled,
+        "compiled_forward_modules": compiled_modules,
+        "compile_backend": "inductor" if compile_enabled else None,
+        "compile_dynamic": False if compile_enabled else None,
+        "compile_mode": "default" if compile_enabled else None,
+        "state_dict_name_sha256": after_state_names,
+    }
 
 
 def _batch_sha256(value: Any) -> str:
@@ -174,9 +290,10 @@ def _batch_sha256(value: Any) -> str:
 class _BatchDigestLoader:
     """Observational loader proxy used only by checkpoint-continuation diagnostics."""
 
-    def __init__(self, loader, records: list[str]) -> None:
+    def __init__(self, loader, records: list[str], *, limit: int | None = None) -> None:
         self.loader = loader
         self.records = records
+        self.limit = None if limit is None else int(limit)
         self.batch_size = getattr(loader, "batch_size", None)
 
     def __len__(self) -> int:
@@ -184,7 +301,8 @@ class _BatchDigestLoader:
 
     def __iter__(self):
         for batch in self.loader:
-            self.records.append(_batch_sha256(batch))
+            if self.limit is None or len(self.records) < self.limit:
+                self.records.append(_batch_sha256(batch))
             yield batch
 
 
@@ -320,6 +438,7 @@ def _attempt_identity() -> dict[str, Any]:
         "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
         "slurm_restart_count": os.environ.get("SLURM_RESTART_COUNT", "0"),
         "partition": os.environ.get("SLURM_JOB_PARTITION"),
+        "node_list": os.environ.get("SLURM_JOB_NODELIST"),
         "cpus_per_task": os.environ.get("SLURM_CPUS_PER_TASK"),
         "memory_per_node_mib": os.environ.get("SLURM_MEM_PER_NODE"),
         "gpus_on_node": os.environ.get("SLURM_GPUS_ON_NODE"),
@@ -587,13 +706,17 @@ def _run_segment(
     warmup: int = 0,
     trace_controller: _TraceController | None = None,
     batch_digests: list[str] | None = None,
+    batch_digest_limit: int | None = None,
     cpu_resident_batch_fields: tuple[str, ...] = (),
+    attempted_window_callback=None,
 ) -> dict[str, Any]:
     raw = config.as_dict()
     loader = (
         bundle.loader
         if batch_digests is None
-        else _BatchDigestLoader(bundle.loader, batch_digests)
+        else _BatchDigestLoader(
+            bundle.loader, batch_digests, limit=batch_digest_limit
+        )
     )
     with ExitStack() as ranges:
         if trace_controller is not None:
@@ -625,7 +748,9 @@ def _run_segment(
             readiness_stage_timing=False if readiness else True,
             readiness_profiler_ranges=trace_controller is not None,
             attempted_window_callback=(
-                None if trace_controller is None else trace_controller.step
+                attempted_window_callback
+                if attempted_window_callback is not None
+                else None if trace_controller is None else trace_controller.step
             ),
             cpu_resident_batch_fields=cpu_resident_batch_fields,
         )
@@ -664,17 +789,18 @@ def _checkpoint_resume_worker(request_path: Path) -> dict[str, Any]:
     _require(torch.cuda.is_available() and torch.cuda.device_count() == 1,
              "resume worker requires exactly one visible CUDA device")
 
-    config = load_resolved_config(request["config_path"])
-    _require(config.sha256 == request["config_sha256"], "resume-worker config identity drift")
-    branch = str(config.as_dict()["contract"]["branch"])
+    source_config = load_resolved_config(request["config_path"])
     profile = load_phase1_profile_spec(request["profile_path"])
     _require(profile.sha256 == request["profile_sha256"], "resume-worker profile identity drift")
     _require(
         profile.data["candidate_id"] == request["candidate_id"],
         "resume-worker candidate identity drift",
     )
-    profile.assert_branch_binding(branch, request["config_path"], config)
+    branch = str(source_config.as_dict()["contract"]["branch"])
+    profile.assert_branch_binding(branch, request["config_path"], source_config)
     profile.assert_runnable(branch)
+    config = derive_profile_runtime_config(source_config, profile)
+    _require(config.sha256 == request["config_sha256"], "resume-worker config identity drift")
     phase1_runtime_ready(config.as_dict())
     _require(request["continuation_windows"] == 8, "resume-worker window count drift")
     precision = str(config.as_dict()["precision"]["global_autocast"])
@@ -700,11 +826,21 @@ def _checkpoint_resume_worker(request_path: Path) -> dict[str, Any]:
     device = torch.device("cuda", 0)
     enforce_determinism(strict=False, precision="fp16")
     seed_everything(int(config.as_dict()["training"]["seed"]))
+    compile_cache = request_path.parent / "torchinductor_cache_resume"
+    if bool(profile.candidates["torch_compile"]):
+        _require(not compile_cache.exists(), "fresh resume compile cache already exists")
+        os.environ["TORCHINDUCTOR_CACHE_DIR"] = str(compile_cache)
     started = time.perf_counter()
     model, criterion, optimizer, scheduler, scaler = build_phase1_training_stack(
         config, device
     )
-    _configure_profile_candidate(model, profile, branch)
+    optimizer_configuration = _optimizer_configuration(optimizer)
+    _require(
+        optimizer_configuration["fused"]
+        is bool(profile.candidates["fused_adamw"]),
+        "resume-worker AdamW fused backend differs from the profile",
+    )
+    candidate_configuration = _configure_profile_candidate(model, profile, branch)
     cpu_resident_batch_fields = _candidate_cpu_resident_batch_fields(profile, branch)
     model_build_seconds = time.perf_counter() - started
     started = time.perf_counter()
@@ -810,6 +946,9 @@ def _checkpoint_resume_worker(request_path: Path) -> dict[str, Any]:
             "model_stack_build_seconds": model_build_seconds,
             "D_fit_loader_build_seconds": loader_build_seconds,
             "checkpoint_load_seconds": load_seconds,
+            "candidate_configuration": candidate_configuration,
+            "optimizer_configuration": optimizer_configuration,
+            "compile_cache": str(compile_cache) if compile_cache.exists() else None,
             "restored_boundary": restored,
             "continuation": continuation,
             "input_stream": {
@@ -1118,6 +1257,8 @@ def _checkpoint_and_continuation(
         "fresh_process": {
             "parent_pid": os.getpid(),
             "worker_pid": worker["fresh_process_pid"],
+            "candidate_configuration": worker["candidate_configuration"],
+            "optimizer_configuration": worker["optimizer_configuration"],
             "request": {
                 "path": str(worker_request_path),
                 "sha256": sha256_file(worker_request_path),
@@ -1169,21 +1310,40 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     profile = load_phase1_profile_spec(args.profile_config)
     profile.assert_runnable(args.branch)
     _require(args.mode != "trace" or args.repeat == 1, "trace mode permits repeat 1 only")
-    config = load_resolved_config(args.config)
-    profile.assert_branch_binding(args.branch, args.config, config)
+    _require(args.mode != "capacity" or args.repeat == 1,
+             "capacity mode permits repeat 1 only")
+    _require(
+        args.mode != "capacity"
+        or (
+            profile.data["envelope"] == "IP-E2"
+            and int(profile.candidates["physical_batch_size"]) in {8, 16}
+        ),
+        "capacity mode is frozen to IP-E2 physical B8/B16",
+    )
+    source_config = load_resolved_config(args.config)
+    profile.assert_branch_binding(args.branch, args.config, source_config)
+    config = derive_profile_runtime_config(source_config, profile)
     raw = config.as_dict()
     _require(raw["contract"]["lifecycle"] == "envelope_b_ready", "Phase-I config lifecycle drift")
     _require(raw["execution"]["mode"] == "phase1_train_eval", "Phase-I execution identity drift")
-    _require(raw["training"]["micro_batch_size"] == 4, "IP-E1 requires physical B4")
-    _require(raw["training"]["accumulation_steps"] == 8, "IP-E1 requires accumulation 8")
-    _require(raw["training"]["effective_global_batch"] == 32, "IP-E1 requires effective B32")
+    physical_batch = int(profile.candidates["physical_batch_size"])
+    _require(
+        raw["training"]["micro_batch_size"] == physical_batch,
+        "profile physical batch/runtime config drift",
+    )
+    _require(
+        raw["training"]["accumulation_steps"] == 32 // physical_batch,
+        "profile accumulation/runtime config drift",
+    )
+    _require(raw["training"]["effective_global_batch"] == 32,
+             "Phase I-P requires effective B32")
     _require(
         raw["checkpointing"]["recovery_cadence_epochs"] == 1,
-        "IP-E1 reference requires the frozen per-epoch recovery cadence",
+        "Phase I-P requires the frozen per-epoch recovery cadence",
     )
     _require(
         raw["training"]["activation_checkpoint"] is False,
-        "IP-E1 reference requires activation checkpointing off",
+        "Phase I-P requires activation checkpointing off",
     )
     phase1_runtime_ready(raw)
 
@@ -1201,6 +1361,10 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     source = _source_identity(args.source_sha, args.approved_source_sha)
     runtime, runtime_dependency_sha = _runtime_identity(config)
     output_dir.mkdir(parents=True)
+    compile_cache = output_dir / "torchinductor_cache_main"
+    if bool(profile.candidates["torch_compile"]):
+        _require(not compile_cache.exists(), "fresh main compile cache already exists")
+        os.environ["TORCHINDUCTOR_CACHE_DIR"] = str(compile_cache)
     device = torch.device("cuda", 0)
     enforce_determinism(strict=False, precision="fp16")
     seed_everything(int(raw["training"]["seed"]))
@@ -1211,7 +1375,8 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "branch": args.branch,
         "candidate_id": profile.data["candidate_id"],
         "source": source,
-        "resolved_config_sha256": config.sha256,
+        "source_resolved_config_sha256": source_config.sha256,
+        "effective_runtime_config_sha256": config.sha256,
         "source_config_file_sha256": sha256_file(args.config),
         "profile_config_sha256": profile.sha256,
         "runtime_dependencies_sha256": runtime_dependency_sha,
@@ -1226,7 +1391,12 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "attempt": {**_attempt_identity(), "repeat": args.repeat, "attempt_id": args.attempt_id},
     }
     _atomic_write_once(output_dir / "run_identity.json", identity)
-    _atomic_write_bytes_once(output_dir / "resolved_config.json", config.canonical_bytes)
+    _atomic_write_bytes_once(
+        output_dir / "source_resolved_config.json", source_config.canonical_bytes
+    )
+    _atomic_write_bytes_once(
+        output_dir / "effective_runtime_config.json", config.canonical_bytes
+    )
     _atomic_write_bytes_once(output_dir / "profile_config.json", profile.canonical_bytes)
 
     startup_started = time.perf_counter()
@@ -1234,7 +1404,14 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     model, criterion, optimizer, scheduler, scaler = build_phase1_training_stack(
         config, device
     )
-    _configure_profile_candidate(model, profile, args.branch)
+    optimizer_configuration_before = _optimizer_configuration(optimizer)
+    _require(
+        optimizer_configuration_before["fused"]
+        is bool(profile.candidates["fused_adamw"]),
+        "runtime AdamW fused backend differs from the profile",
+    )
+    dynamo_before = _dynamo_counters()
+    candidate_configuration = _configure_profile_candidate(model, profile, args.branch)
     cpu_resident_batch_fields = _candidate_cpu_resident_batch_fields(
         profile, args.branch
     )
@@ -1244,14 +1421,15 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     loader_seconds = time.perf_counter() - loader_started
     bundle.set_epoch(0)
     state = TrainingState()
-    warmup = int(profile.measurement["warmup_accepted_windows"])
-    active = int(
-        profile.measurement[
-            "sustained_accepted_windows"
-            if args.mode == "sustained"
-            else "trace_accepted_windows"
-        ]
+    warmup = (
+        1 if args.mode == "capacity"
+        else int(profile.measurement["warmup_accepted_windows"])
     )
+    active = int(profile.measurement[{
+        "sustained": "sustained_accepted_windows",
+        "trace": "trace_accepted_windows",
+        "capacity": "capacity_accepted_windows",
+    }[args.mode]])
     target = warmup + active
     trace_controller = (
         _TraceController(state, warmup=warmup, active=active)
@@ -1265,6 +1443,16 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     system_sampler.start()
     training_started = time.perf_counter()
     training_seconds = None
+    input_anchor_sha256: list[str] = []
+    dynamo_after_warmup: dict[str, dict[str, int]] | None = None
+
+    def attempted_window_callback() -> None:
+        nonlocal dynamo_after_warmup
+        if trace_controller is not None:
+            trace_controller.step()
+        if state.optimizer_step == warmup and dynamo_after_warmup is None:
+            dynamo_after_warmup = _dynamo_counters()
+
     try:
         metrics = _run_segment(
             model=model,
@@ -1280,7 +1468,10 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             readiness=True,
             warmup=warmup,
             trace_controller=trace_controller,
+            batch_digests=input_anchor_sha256,
+            batch_digest_limit=int(raw["training"]["accumulation_steps"]),
             cpu_resident_batch_fields=cpu_resident_batch_fields,
+            attempted_window_callback=attempted_window_callback,
         )
         training_seconds = time.perf_counter() - training_started
     finally:
@@ -1288,31 +1479,62 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             trace_controller.close()
         system_record = system_sampler.stop()
     _require(training_seconds is not None, "profiler training wall interval was not completed")
+    dynamo_after = _dynamo_counters()
+    _require(dynamo_after_warmup is not None, "compiler warm-up boundary was not observed")
 
     timing = metrics["readiness_timing"]
     _require(state.optimizer_step == target, "profiler did not reach accepted-window target")
     _require(state.nonfinite_windows == 0, "direct nonfinite profiler window")
     _require(state.discarded_windows == 0, "profiler discarded a partial window")
+    _require(
+        len(input_anchor_sha256) == int(raw["training"]["accumulation_steps"]),
+        "first-window input anchor count drift",
+    )
     _require(timing["measured_accepted_windows"] == active, "measured accepted-window drift")
-    _require(timing["accumulation_steps"] == 8, "timing accumulation identity drift")
+    _require(
+        timing["accumulation_steps"] == int(raw["training"]["accumulation_steps"]),
+        "timing accumulation identity drift",
+    )
     _require(timing["stage_timing"] is False, "sustained timing enabled stage events")
     memory_safe = (
         timing["memory"]["peak_reserved_fraction"]
         <= float(profile.measurement["max_reserved_fraction"])
+        and not timing["memory"]["monotonic_reserved_growth_over_64mib"]
     )
-    _require(memory_safe, "baseline exceeds the frozen 85% reserved-memory ceiling")
+    if args.mode != "capacity":
+        _require(memory_safe, "candidate exceeds the frozen memory safety gate")
     prefix = _sampler_prefix_identity(bundle, 0, state.attempted_samples)
 
     trace_record = (
         None if trace_controller is None else trace_controller.publish(output_dir)
     )
+    compile_steady_delta = _counter_delta(dynamo_after_warmup, dynamo_after)
+    compile_evidence = {
+        **candidate_configuration,
+        "counter_delta_total": _counter_delta(dynamo_before, dynamo_after),
+        "counter_delta_through_warmup": _counter_delta(
+            dynamo_before, dynamo_after_warmup
+        ),
+        "counter_delta_measured_interval": compile_steady_delta,
+        "unexpected_steady_state_recompile": (
+            bool(profile.candidates["torch_compile"])
+            and _counter_has_steady_recompile(compile_steady_delta)
+        ),
+        "cache_path": str(compile_cache) if compile_cache.exists() else None,
+        "warmup_including_compile_seconds": max(
+            0.0,
+            float(training_seconds)
+            - float(timing["measurement_wall_seconds"] or 0.0),
+        ),
+    }
     measurement_record = {
-        "schema": "s10.phase1p.measurement.v1",
+        "schema": "s10.phase1p.measurement.v2",
         "mode": args.mode,
         "branch": args.branch,
         "candidate_id": profile.data["candidate_id"],
         "source": source,
-        "resolved_config_sha256": config.sha256,
+        "source_resolved_config_sha256": source_config.sha256,
+        "effective_runtime_config_sha256": config.sha256,
         "profile_config_sha256": profile.sha256,
         "startup_seconds": {
             "model_loss_optimizer_scheduler_scaler": model_seconds,
@@ -1321,6 +1543,13 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         },
         "training_wall_seconds_including_warmup": training_seconds,
         "measurement": metrics,
+        "physical_batch_size": physical_batch,
+        "accumulation_steps": int(raw["training"]["accumulation_steps"]),
+        "first_optimizer_window_input_sha256": input_anchor_sha256,
+        "candidate_configuration": candidate_configuration,
+        "optimizer_configuration_before_training": optimizer_configuration_before,
+        "optimizer_configuration_after_training": _optimizer_configuration(optimizer),
+        "compile_evidence": compile_evidence,
         "sampler_prefix": prefix,
         "system_sampling": system_record,
         "torch_trace": trace_record,
@@ -1369,13 +1598,14 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     checkpoint_gate = (
         True if checkpoint_record is None else bool(checkpoint_record["gate_pass"])
     )
-    status = (
-        "FAILED_CHECKPOINT_PARITY"
-        if not checkpoint_gate
-        else "COMPLETE_SUSTAINED"
-        if args.mode == "sustained"
-        else "COMPLETE_TRACE"
-    )
+    if not checkpoint_gate:
+        status = "FAILED_CHECKPOINT_PARITY"
+    elif args.mode == "sustained":
+        status = "COMPLETE_SUSTAINED"
+    elif args.mode == "capacity":
+        status = "COMPLETE_CAPACITY" if memory_safe else "CAPACITY_MEMORY_REJECTED"
+    else:
+        status = "COMPLETE_TRACE"
     result = {
         "schema": SCHEMA,
         "status": status,
@@ -1383,9 +1613,16 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "branch": args.branch,
         "candidate_id": profile.data["candidate_id"],
         "source": source,
-        "resolved_config_sha256": config.sha256,
+        "source_resolved_config_sha256": source_config.sha256,
+        "effective_runtime_config_sha256": config.sha256,
         "profile_config_sha256": profile.sha256,
         "candidate_options": dict(profile.candidates),
+        "candidate_configuration": candidate_configuration,
+        "optimizer_configuration_before_training": optimizer_configuration_before,
+        "compile_evidence": compile_evidence,
+        "physical_batch_size": physical_batch,
+        "accumulation_steps": int(raw["training"]["accumulation_steps"]),
+        "first_optimizer_window_input_sha256": input_anchor_sha256,
         "startup_seconds": {
             "model_loss_optimizer_scheduler_scaler": model_seconds,
             "D_fit_loader": loader_seconds,
@@ -1420,7 +1657,8 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
                 "failed_unix_seconds": time.time(),
             },
         )
-        raise RuntimeError("fresh-process checkpoint continuation parity failed")
+        if profile.data["envelope"] != "IP-E2":
+            raise RuntimeError("fresh-process checkpoint continuation parity failed")
     complete = {
         "schema": "s10.phase1p.complete.v1",
         "status": status,
@@ -1428,6 +1666,68 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "completed_unix_seconds": time.time(),
     }
     _atomic_write_once(output_dir / "complete.json", complete)
+    return result
+
+
+def _record_capacity_oom(
+    args: argparse.Namespace,
+    error: BaseException,
+) -> dict[str, Any]:
+    """Seal an expected capacity OOM instead of misclassifying it as a code bug."""
+    _require(args.mode == "capacity", "only a capacity probe may record CAPACITY_OOM")
+    output_dir = Path(args.output_dir).resolve()
+    identity_path = output_dir / "run_identity.json"
+    _require(identity_path.is_file(), "capacity OOM occurred before run identity publication")
+    identity = _read_json(identity_path)
+    device = torch.device("cuda", 0)
+    peak_allocated = int(torch.cuda.max_memory_allocated(device))
+    peak_reserved = int(torch.cuda.max_memory_reserved(device))
+    total_memory = int(torch.cuda.get_device_properties(device).total_memory)
+    result = {
+        "schema": SCHEMA,
+        "status": "CAPACITY_OOM",
+        "mode": "capacity",
+        "branch": identity["branch"],
+        "candidate_id": identity["candidate_id"],
+        "source": identity["source"],
+        "source_resolved_config_sha256": identity[
+            "source_resolved_config_sha256"
+        ],
+        "effective_runtime_config_sha256": identity[
+            "effective_runtime_config_sha256"
+        ],
+        "profile_config_sha256": identity["profile_config_sha256"],
+        "candidate_options": identity["candidate_options"],
+        "capacity_evidence": {
+            "exception_type": f"{type(error).__module__}.{type(error).__qualname__}",
+            "exception_message": str(error),
+            "peak_allocated_bytes": peak_allocated,
+            "peak_reserved_bytes": peak_reserved,
+            "device_total_bytes": total_memory,
+            "peak_reserved_fraction": (
+                peak_reserved / total_memory if total_memory else None
+            ),
+        },
+        "memory_safe_under_85_percent_reserved": False,
+        "D_select_executed": False,
+        "D_audit_executed": False,
+        "official_validation_executed": False,
+        "capability_metrics": False,
+        "interpretation_limits": [
+            "measurement-only capacity rejection",
+            "no capability, quality, or recipe claim",
+        ],
+    }
+    result_sha = _atomic_write_once(output_dir / "result.json", result)
+    _atomic_write_once(
+        output_dir / "complete.json",
+        {
+            "schema": "s10.phase1p.complete.v1",
+            "status": "CAPACITY_OOM",
+            "result_sha256": result_sha,
+            "completed_unix_seconds": time.time(),
+        },
+    )
     return result
 
 
@@ -1444,7 +1744,7 @@ def main() -> None:
         return
     parser = argparse.ArgumentParser()
     parser.add_argument("--branch", choices=("camera", "lidar"), required=True)
-    parser.add_argument("--mode", choices=("sustained", "trace"), required=True)
+    parser.add_argument("--mode", choices=("sustained", "trace", "capacity"), required=True)
     parser.add_argument("--config", required=True)
     parser.add_argument("--profile-config", required=True)
     parser.add_argument("--output-dir", required=True)
@@ -1459,12 +1759,17 @@ def main() -> None:
             parser.error(f"--{name.replace('_', '-')} must be a 40-character Git SHA")
     if not _ATTEMPT_ID.fullmatch(arguments.attempt_id):
         parser.error("--attempt-id must match [a-z0-9][a-z0-9_-]{0,31}")
-    result = _run(arguments)
+    try:
+        result = _run(arguments)
+    except torch.OutOfMemoryError as error:
+        if arguments.mode != "capacity":
+            raise
+        result = _record_capacity_oom(arguments, error)
     print(json.dumps({
         "status": result["status"],
         "branch": result["branch"],
         "mode": result["mode"],
-        "resolved_config_sha256": result["resolved_config_sha256"],
+        "effective_runtime_config_sha256": result["effective_runtime_config_sha256"],
         "profile_config_sha256": result["profile_config_sha256"],
     }, sort_keys=True))
 

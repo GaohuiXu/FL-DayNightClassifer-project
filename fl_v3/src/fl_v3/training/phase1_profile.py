@@ -17,6 +17,7 @@ from fl_v3.config import ResolvedConfig
 
 
 PHASE1_PROFILE_SCHEMA = "s10.phase1p.profile.v1"
+PHASE1_PROFILE_SCHEMA_V2 = "s10.phase1p.profile.v2"
 
 _HEX = frozenset("0123456789abcdef")
 _ROOT_KEYS = frozenset({
@@ -45,6 +46,7 @@ _MEASUREMENT_KEYS = frozenset({
     "max_reserved_fraction",
     "system_sample_interval_seconds",
 })
+_MEASUREMENT_KEYS_V2 = _MEASUREMENT_KEYS | frozenset({"capacity_accepted_windows"})
 _PARITY_KEYS = frozenset({"fp32", "fp16"})
 _TOLERANCE_KEYS = frozenset({"rtol", "atol"})
 _CANDIDATE_KEYS = frozenset({
@@ -121,6 +123,63 @@ IP_E1_RUNNABLE_CANDIDATES: dict[str, dict[str, Any]] = {
         "options": _candidate_options(camera_batched_affine_grid=True),
     },
 }
+
+IP_E2_RUNNABLE_CANDIDATES: dict[str, dict[str, Any]] = {
+    "camera_reference_b4_accum8": {
+        "branches": frozenset({"camera"}),
+        "options": _candidate_options(),
+    },
+    "camera_sdpa_b4_accum8": {
+        "branches": frozenset({"camera"}),
+        "options": _candidate_options(camera_sdpa=True),
+    },
+    "camera_compile_b4_accum8": {
+        "branches": frozenset({"camera"}),
+        "options": _candidate_options(torch_compile=True),
+    },
+    "camera_sdpa_compile_b4_accum8": {
+        "branches": frozenset({"camera"}),
+        "options": _candidate_options(camera_sdpa=True, torch_compile=True),
+    },
+    "camera_sdpa_compile_b8_accum4": {
+        "branches": frozenset({"camera"}),
+        "options": _candidate_options(
+            camera_sdpa=True, torch_compile=True, physical_batch_size=8
+        ),
+    },
+    "camera_sdpa_compile_fused_b8_accum4": {
+        "branches": frozenset({"camera"}),
+        "options": _candidate_options(
+            camera_sdpa=True,
+            torch_compile=True,
+            fused_adamw=True,
+            physical_batch_size=8,
+        ),
+    },
+    "camera_sdpa_compile_b16_accum2": {
+        "branches": frozenset({"camera"}),
+        "options": _candidate_options(
+            camera_sdpa=True, torch_compile=True, physical_batch_size=16
+        ),
+    },
+    "camera_sdpa_compile_fused_b16_accum2": {
+        "branches": frozenset({"camera"}),
+        "options": _candidate_options(
+            camera_sdpa=True,
+            torch_compile=True,
+            fused_adamw=True,
+            physical_batch_size=16,
+        ),
+    },
+}
+
+
+def _runnable_candidates(envelope: str) -> dict[str, dict[str, Any]]:
+    if envelope == "IP-E1":
+        return IP_E1_RUNNABLE_CANDIDATES
+    if envelope == "IP-E2":
+        return IP_E2_RUNNABLE_CANDIDATES
+    raise Phase1ProfileError(f"unknown Phase I-P envelope {envelope!r}")
 
 
 class Phase1ProfileError(ValueError):
@@ -227,14 +286,15 @@ class Phase1ProfileSpec:
 
     def assert_runnable(self, branch: str) -> None:
         candidate_id = str(self.data["candidate_id"])
-        specification = IP_E1_RUNNABLE_CANDIDATES.get(candidate_id)
+        envelope = str(self.data["envelope"])
+        specification = _runnable_candidates(envelope).get(candidate_id)
         if specification is None:
             raise Phase1ProfileError(
-                f"IP-E1 candidate {candidate_id!r} has no frozen runnable mapping"
+                f"{envelope} candidate {candidate_id!r} has no frozen runnable mapping"
             )
         if branch not in specification["branches"]:
             raise Phase1ProfileError(
-                f"IP-E1 candidate {candidate_id!r} is not runnable for {branch!r}"
+                f"{envelope} candidate {candidate_id!r} is not runnable for {branch!r}"
             )
         actual = dict(self.candidates)
         expected = specification["options"]
@@ -245,7 +305,7 @@ class Phase1ProfileSpec:
                 if actual.get(key) != value
             }
             raise Phase1ProfileError(
-                f"IP-E1 candidate {candidate_id!r} option drift: {drift}"
+                f"{envelope} candidate {candidate_id!r} option drift: {drift}"
             )
 
     def assert_branch_binding(
@@ -279,15 +339,19 @@ class Phase1ProfileSpec:
 
 def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
     root = _keys(dict(raw), _ROOT_KEYS, "profile")
-    if root["schema"] != PHASE1_PROFILE_SCHEMA:
+    if root["schema"] not in {PHASE1_PROFILE_SCHEMA, PHASE1_PROFILE_SCHEMA_V2}:
         raise Phase1ProfileError(f"unsupported profile schema {root['schema']!r}")
-    if root["phase"] != "S10 Phase I-P" or root["envelope"] != "IP-E1":
+    expected_envelope = (
+        "IP-E1" if root["schema"] == PHASE1_PROFILE_SCHEMA else "IP-E2"
+    )
+    if root["phase"] != "S10 Phase I-P" or root["envelope"] != expected_envelope:
         raise Phase1ProfileError("profile phase/envelope identity drift")
+    runnable = _runnable_candidates(expected_envelope)
     if (
         not isinstance(root["candidate_id"], str)
-        or root["candidate_id"] not in IP_E1_RUNNABLE_CANDIDATES
+        or root["candidate_id"] not in runnable
     ):
-        raise Phase1ProfileError("IP-E1 candidate identity drift")
+        raise Phase1ProfileError(f"{expected_envelope} candidate identity drift")
 
     bindings = _keys(
         root["branch_bindings"], frozenset({"camera", "lidar"}), "branch_bindings"
@@ -300,7 +364,12 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
         _sha256(binding["config_file_sha256"], f"{branch}.config_file_sha256")
         _sha256(binding["resolved_config_sha256"], f"{branch}.resolved_config_sha256")
 
-    measurement = _keys(root["measurement"], _MEASUREMENT_KEYS, "measurement")
+    measurement_keys = (
+        _MEASUREMENT_KEYS
+        if expected_envelope == "IP-E1"
+        else _MEASUREMENT_KEYS_V2
+    )
+    measurement = _keys(root["measurement"], measurement_keys, "measurement")
     expected_integers = {
         "warmup_accepted_windows": 16,
         "sustained_accepted_windows": 256,
@@ -311,6 +380,12 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
     for key, expected in expected_integers.items():
         if _integer(measurement[key], f"measurement.{key}", minimum=1) != expected:
             raise Phase1ProfileError(f"measurement.{key} must remain {expected}")
+    if expected_envelope == "IP-E2" and _integer(
+        measurement["capacity_accepted_windows"],
+        "measurement.capacity_accepted_windows",
+        minimum=1,
+    ) != 8:
+        raise Phase1ProfileError("measurement.capacity_accepted_windows must remain 8")
     if _fraction(
         measurement["repeat_instability_fraction"],
         "measurement.repeat_instability_fraction",
@@ -351,6 +426,10 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
         "candidates.checkpoint_cadence_epochs",
         minimum=1,
     )
+    if expected_envelope == "IP-E2" and candidates["physical_batch_size"] not in {
+        4, 8, 16
+    }:
+        raise Phase1ProfileError("IP-E2 physical batch must be one of 4, 8, or 16")
 
     boundaries = _keys(root["boundaries"], _BOUNDARY_KEYS, "boundaries")
     if boundaries["allowed_data_role"] != "D_fit":
@@ -364,13 +443,103 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
     prefix = boundaries["output_root_prefix"]
     expected_prefix = (
         "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/"
-        "arrhenius_fl_v3/outputs/s10_phase1p_ip_e1_"
+        f"arrhenius_fl_v3/outputs/s10_phase1p_{expected_envelope.lower().replace('-', '_')}_"
     )
     if prefix != expected_prefix:
         raise Phase1ProfileError("Phase I-P output root prefix drift")
 
     # Detach custom containers and reject NaN/Infinity before hashing.
     return json.loads(json.dumps(root, allow_nan=False))
+
+
+@dataclass(frozen=True)
+class Phase1ProfileRuntimeConfig:
+    """Profile-only effective runtime view over one validated Phase-I recipe.
+
+    Production config bytes stay untouched.  Only physical batch/accumulation and
+    the AdamW fused backend may differ.  A non-scientific ``phase1p_runtime``
+    identity binds every profiler candidate (including SDPA/compile flags) into
+    checkpoint and runtime provenance without making it a production recipe.
+    """
+
+    source: ResolvedConfig
+    profile_sha256: str
+    data: Mapping[str, Any]
+    canonical_bytes: bytes
+    sha256: str
+
+    @property
+    def schema_version(self) -> str:
+        return str(self.data["schema_version"])
+
+    @property
+    def is_phase1(self) -> bool:
+        return True
+
+    @property
+    def model_mode(self) -> str:
+        return "camera_only" if self.data["contract"]["branch"] == "camera" else "lidar_only"
+
+    @property
+    def precision(self) -> str:
+        return str(self.data["precision"]["global_autocast"])
+
+    @property
+    def data_identities(self) -> dict[str, Any]:
+        return self.source.data_identities
+
+    def as_dict(self) -> dict[str, Any]:
+        return json.loads(self.canonical_bytes.decode("utf-8"))
+
+    def to_run_config(self) -> dict[str, Any]:
+        run = self.source.to_run_config()
+        raw = self.as_dict()
+        run["resolved-config-sha256"] = self.sha256
+        run["phase1"] = raw
+        run["batch-size"] = int(raw["training"]["micro_batch_size"])
+        run["accumulation-steps"] = int(raw["training"]["accumulation_steps"])
+        run["effective-global-batch"] = int(raw["training"]["effective_global_batch"])
+        return run
+
+
+def derive_profile_runtime_config(
+    source: ResolvedConfig,
+    profile: Phase1ProfileSpec,
+) -> Phase1ProfileRuntimeConfig:
+    """Derive the explicit non-production runtime config bound by ``profile``."""
+    if not source.is_phase1:
+        raise Phase1ProfileError("Phase I-P runtime view requires a Phase-I source config")
+    raw = source.as_dict()
+    batch = int(profile.candidates["physical_batch_size"])
+    if batch not in {4, 8, 16} or 32 % batch:
+        raise Phase1ProfileError("physical batch must divide effective B32 exactly")
+    accumulation = 32 // batch
+    training = raw["training"]
+    training["micro_batch_size"] = batch
+    training["accumulation_steps"] = accumulation
+    training["effective_global_batch"] = 32
+    training["loss_accumulation"] = {
+        8: "mean_over_eight_microbatches",
+        4: "mean_over_four_microbatches",
+        2: "mean_over_two_microbatches",
+    }[accumulation]
+    raw["optimizer"]["fused"] = bool(profile.candidates["fused_adamw"])
+    raw["phase1p_runtime"] = {
+        "schema": "s10.phase1p.runtime-config.v1",
+        "source_resolved_config_sha256": source.sha256,
+        "profile_sha256": profile.sha256,
+        "envelope": str(profile.data["envelope"]),
+        "candidate_id": str(profile.data["candidate_id"]),
+        "candidate_options": dict(profile.candidates),
+    }
+    encoded = _canonical_bytes(raw)
+    return Phase1ProfileRuntimeConfig(
+        source=source,
+        profile_sha256=profile.sha256,
+        data=_freeze(raw),
+        canonical_bytes=encoded,
+        sha256=hashlib.sha256(encoded).hexdigest(),
+    )
 
 
 def load_phase1_profile_spec(path: str | Path) -> Phase1ProfileSpec:
@@ -388,9 +557,13 @@ def load_phase1_profile_spec(path: str | Path) -> Phase1ProfileSpec:
 __all__ = [
     "BASELINE_CANDIDATES",
     "IP_E1_RUNNABLE_CANDIDATES",
+    "IP_E2_RUNNABLE_CANDIDATES",
     "PHASE1_PROFILE_SCHEMA",
+    "PHASE1_PROFILE_SCHEMA_V2",
     "Phase1ProfileError",
+    "Phase1ProfileRuntimeConfig",
     "Phase1ProfileSpec",
+    "derive_profile_runtime_config",
     "load_phase1_profile_spec",
     "validate_phase1_profile_spec",
 ]
