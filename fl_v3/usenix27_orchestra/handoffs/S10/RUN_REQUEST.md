@@ -4,7 +4,7 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: B16 follow-up -> 2-GH200 DDP preflight order frozen
+ACTIVE_DECISION: IP-E3 conditional batched-rotation pair is next
 REQUEST_STATE: IP-E3 ACTIVE AT 1abe26b3cde2 / ENVELOPE B FROZEN
 EXECUTION_AUTHORITY: exact Section-9.4 serial single-GH200 envelope only
 ACTIVE_PHASE: Phase I-P Camera follow-up before any DDP or C/L qualification
@@ -1504,7 +1504,7 @@ defaults. A third implementation is conditionally in scope only under the exact
 unlock below.
 
 ```text
-REQUEST_STATE: ACTIVE / exact initial cell executable
+REQUEST_STATE: ACTIVE / initial cell terminal positive / conditional cell executable
 OWNER_APPROVAL: 2026-07-21 — approved containing SHA
   1abe26b3cde2f9f1c26fca130b999d054d6782b1, the >=0.98 conservative unlock,
   base 1.50 + code-bug reserve 0.50 / hard 2.00 charged GH200-hours,
@@ -1620,6 +1620,72 @@ sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
     fl_v3/configs/s10_phase1p_ip_e3_camera_b16_reference.json \
   --candidate-profile \
     fl_v3/configs/s10_phase1p_ip_e3_camera_b16_batched_affine_grid.json \
+  --source-sha "${SOURCE_SHA}" \
+  --approved-source-sha "${APPROVED_SOURCE_SHA}"
+```
+
+Initial Job `539364` is terminal positive and condition C is now prepared:
+
+```text
+INITIAL_JOB: 539364 / source b44b5d4c03a258a54a9c25eb8cbd2569a4472211 /
+  tree 074a47637502b256c927db0d4bdb91b8dd30e3c0 / n89
+INITIAL_TERMINAL: COMPLETED 0:0 / 00:28:26 / 0.473889 charged GH200-hour
+PRETESTS: 9 passed; no pre-model incident
+TRACE: COMPLETE_TRACE; every required named range present; preprocess was the
+  largest Camera-forward range at 0.723759 of the named-range CPU sum; this is
+  localization evidence, not a sustained wall-time fraction
+REFERENCE: 25.400589 presentations/s; 256/256 measured accepted; checkpoint PASS;
+  zero invalid/discard/scaler-skip/nonfinite; peak allocated/reserved
+  54,663,526,912 / 65,238,204,416 bytes; no growth/recompile
+CONSERVATIVE: 27.868228 presentations/s; 256/256 measured accepted; checkpoint
+  PASS; zero invalid/discard/scaler-skip/nonfinite; peak allocated/reserved
+  54,668,524,032 / 65,315,799,040 bytes; no growth/recompile
+PAIR: same allocation/node/GPU/source/config/CBGS and exact B16 input anchor;
+  candidate/reference ratio 1.097149; one-sided 95% lower bound 1.087948;
+  every hard gate PASS; POSITIVE_SCREEN; conditional implementation eligible
+PROJECTED_20_EPOCH: 19.269164 reference versus 17.566398 candidate GH200-hours;
+  diagnostic saving 1.702766; no automatic promotion
+INITIAL_ARTIFACTS: pre-submission e3aa62a1...f17c84; structured trace
+  26253a19...4ac60; trace result b4f4c3e6...2e188; reference result
+  a16732c1...19b4c; conservative result f7010ba1...f5055; pair
+  0fdb037d...87ec; stdout/stderr f5770c06...2b104 / b7e8519a...1aa3
+BUDGET_AFTER_INITIAL: base used 0.473889 / 1.50, remaining 1.026111;
+  code-bug reserve used 0.000000 / 0.50, remaining 0.500000;
+  hard remaining 1.526111 charged GH200-hours
+CONDITIONAL_IMPLEMENTATION_SHA: 417dfefb8b37551bdd284fa30f0ef575b4a075e8
+CONDITIONAL_IMPLEMENTATION_TREE: e4077302740907d31421bc0cbb1a6126364551e7
+CONDITIONAL_SCOPE: retain resize/crop/flip and per-image affine math; reuse one
+  non-persistent static output-coordinate grid, batch source-grid construction,
+  and issue one rotation grid_sample over all rotated images; default-off
+CONDITIONAL_PROFILE_FILE_SHA256: 08102445b725d0920560d94b5cd6155257170a73be9064c95db9f6dad78df40d
+CONDITIONAL_PROFILE_CANONICAL_SHA256: 8313dbb4cacceec34d6fae29fc8bfd7766c67526527b4d46d9a46e43fdb2527a
+CONDITIONAL_LAUNCHER_SHA256: 5ff6014085058547d94e2e19eabedc4bc593456bd9a2d208552aa33111e99e3f
+CONDITIONAL_ANALYZER_SHA256: 2f2a082884d0479d2a37c38fa637e9886b59d078b8815805750a96a2b452ac07
+CONDITIONAL_PROFILER_SHA256: 675cdd524e5ed400ee9a0252b4c00ad35ceb388f02300f6da1d67e7fc7751dde
+CONDITIONAL_PREPROCESS_SHA256: f894206c8fbdc6b23b196e3b4ead5d9e38104d088526f798817952a11a164be2
+CONDITIONAL_LOCAL_VALIDATION: shell syntax/shellcheck, Python syntax, JSON/profile
+  validation, conditional-unlock replay and diff checks PASS; Torch unavailable on
+  login, so exact CPU/CUDA forward-policy test remains a fail-closed GH200 pretest
+CONDITIONAL_STATE: exact one-pair cell executable; no result promotes the candidate
+```
+
+The exact conditional command from a clean containing source commit is:
+
+```bash
+SOURCE_SHA=$(git rev-parse HEAD)
+APPROVED_SOURCE_SHA=1abe26b3cde2f9f1c26fca130b999d054d6782b1
+ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e3_1abe26b3cde2
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G \
+  --gpus-per-node=nvidia_gh200_120gb:1 --time=00:45:00 --no-requeue \
+  --output="${ROOT}/slurm_conditional_%j.out" \
+  --error="${ROOT}/slurm_conditional_%j.err" \
+  fl_v3/scripts/run_s10_phase1p_ip_e3_conditional.sh \
+  --config fl_v3/configs/s10_phase1_camera.json \
+  --reference-profile \
+    fl_v3/configs/s10_phase1p_ip_e3_camera_b16_reference.json \
+  --candidate-profile \
+    fl_v3/configs/s10_phase1p_ip_e3_camera_b16_batched_rotation_grid_sample.json \
   --source-sha "${SOURCE_SHA}" \
   --approved-source-sha "${APPROVED_SOURCE_SHA}"
 ```

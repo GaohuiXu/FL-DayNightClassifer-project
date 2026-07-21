@@ -1,4 +1,4 @@
-# S10 HANDOFF — Camera B16 follow-up prepared; compute pending
+# S10 HANDOFF — Camera B16 conditional follow-up active
 
 ## 1. Current state and authority
 
@@ -7,7 +7,7 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: IP-E3 Camera B16 follow-up active; 2-GH200 DDP remains pending
+ACTIVE_DECISION: IP-E3 conditional batched-rotation pair active; 2-GH200 DDP remains pending
 SCIENCE_ORDER: Camera B16 follow-up, then 2-GH200 DDP qualification, then production refreeze/review
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: RUN_REQUEST.md Section 9.4 at approved SHA 1abe26b3cde2; 2.00 GH200-hour hard ceiling
@@ -37,6 +37,13 @@ screen the conservative batched affine/grid path first, then qualify same-node
 follow-up. The owner activated that exact Section-9.4 request at
 `1abe26b3cde2f9f1c26fca130b999d054d6782b1`; it still neither implements nor
 authorizes DDP.
+Initial Job `539364` passed the trace and conservative screen on one n89 allocation.
+Preprocessing remained the largest named Camera-forward range at `72.3759%` of
+the named-range CPU sum. Conservative batched affine/grid measured `27.868228`
+versus `25.400589` presentations/s, ratio/lower bound `1.097149 / 1.087948`,
+with every health/checkpoint gate PASS. This unlocked, but did not promote, the
+combined batched-rotation candidate implemented at
+`417dfefb8b37551bdd284fa30f0ef575b4a075e8`.
 
 ### 1.1 Frozen Phase I-P workflow
 
@@ -603,6 +610,11 @@ one. The 2-GPU profiler may measure this only under a separately frozen
 measurement-only recipe; accepting that behavior or implementing an exact buffer
 reconciliation remains an owner decision before any production DDP promotion.
 No 2-GPU source work, resource ceiling, or Slurm execution is authorized yet.
+
+Current IP-E3 state: the conservative unlock passed and the exact combined
+batched-rotation/static-grid candidate is prepared default-off. One conditional
+same-allocation reference-versus-candidate pair remains executable inside the
+approved Section-9.4 base budget; it cannot promote a recipe automatically.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
