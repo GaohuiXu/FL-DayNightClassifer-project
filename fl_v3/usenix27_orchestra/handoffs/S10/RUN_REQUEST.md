@@ -873,6 +873,53 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
   --repeat 1 --attempt-id augvalues
 ```
 
+### 8.7 WP2 Camera fixed rotation-coordinate grid candidate
+
+This candidate is independent of the rejected augmentation-cleanup group. It
+caches only the fixed `256x704x[x,y,1]` float64 rotation output-coordinate basis
+as a non-persistent buffer. Per-image resize/crop/flip, affine construction and
+inversion, sampling-grid arithmetic and `grid_sample` remain on the reference path.
+
+```text
+SOURCE: containing pre-submission commit; runtime implementation parent
+        42f1168b835bab3ad64eff455df6916450cae8d2; no runtime-file change follows
+CANDIDATE_ID: camera_static_grid_cache_b4_accum8
+SINGLE_CHANGED_OPTION: camera_static_grid_cache=true; augmentation cleanup and every
+                       other candidate option remain at the reference value
+PROFILE: fl_v3/configs/s10_phase1p_camera_static_grid.json
+PROFILE_FILE_SHA256: 5d0c00cd3e1ec9410b96d303bfbfce13138ef888fb50eb96734dd138f3b72e77
+PROFILE_CANONICAL_SHA256: cc5b4a596dbed6e5dd3390b96909f5a6def4e584e0baa36d1c039caab3727beb
+PREPROCESS_SHA256: 0ac0c55690c85f756239aa98d47b0951e5da3107227ad20081edb3ba3f8e5cf3
+LOCAL_VALIDATION: git diff --check; Python py_compile; bash -n; shellcheck; exact
+                  Camera binding/single-option mapping and LiDAR rejection PASS
+PRE_MODEL_PARITY: three focused GH200 tests must PASS before profiler construction:
+                  unchanged reference profile, exact static-grid candidate mapping,
+                  and two-call elementwise-exact/non-persistent cache behavior
+OUTPUT: <approved root>/camera/sustained_<containing-source-SHA12>_r1_staticgrid
+RESOURCES: 1 GH200, 16 CPU, 96 GiB, 00:45:00, no requeue, concurrency one
+STOP: any focused-test/profile/source/input/nonfinite/discard/memory failure; grouped
+      checkpoint continuation is reported honestly and remains non-waived
+```
+
+Exact command after sealing the containing source SHA `<SOURCE>` is:
+
+```bash
+sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G \
+  --gpus-per-node=nvidia_gh200_120gb:1 --time=00:45:00 --no-requeue \
+  --job-name=s10-ip-e1-camera-staticgrid \
+  --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e1_85c6719e4b88/slurm/camera-staticgrid-%j.out \
+  --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e1_85c6719e4b88/slurm/camera-staticgrid-%j.err \
+  fl_v3/scripts/run_s10_phase1p_ip_e1.sh \
+  --branch camera --mode sustained \
+  --config fl_v3/configs/s10_phase1_camera.json \
+  --profile-config fl_v3/configs/s10_phase1p_camera_static_grid.json \
+  --output-dir /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e1_85c6719e4b88/camera/sustained_<SOURCE12>_r1_staticgrid \
+  --source-sha <SOURCE> \
+  --approved-source-sha 85c6719e4b880b198d850e16b1418c230fa5c656 \
+  --repeat 1 --attempt-id staticgrid
+```
+
 ## 9. Envelope-A compact execution ledger
 
 This is the sole terminal ledger for Envelope A. Submission rows were appended only when
