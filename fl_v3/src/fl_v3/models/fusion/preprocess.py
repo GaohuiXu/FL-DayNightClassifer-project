@@ -264,15 +264,38 @@ def _crop_or_pad(
     return image[:, top : top + H_out, left : left + W_out]
 
 
-def _rotate_image(image: torch.Tensor, affine: torch.Tensor) -> torch.Tensor:
-    """Apply only the rotation component of ``affine`` to an already-cropped CHW image."""
-    C, H, W = image.shape
+def _rotation_output_coordinates(
+    height: int,
+    width: int,
+    *,
+    device: torch.device,
+) -> torch.Tensor:
     ys, xs = torch.meshgrid(
-        torch.arange(H, device=image.device, dtype=torch.float64),
-        torch.arange(W, device=image.device, dtype=torch.float64),
+        torch.arange(height, device=device, dtype=torch.float64),
+        torch.arange(width, device=device, dtype=torch.float64),
         indexing="ij",
     )
-    out = torch.stack((xs, ys, torch.ones_like(xs)), dim=-1)
+    return torch.stack((xs, ys, torch.ones_like(xs)), dim=-1)
+
+
+def _rotate_image(
+    image: torch.Tensor,
+    affine: torch.Tensor,
+    *,
+    output_coordinates: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
+    """Apply only the rotation component of ``affine`` to an already-cropped CHW image."""
+    C, H, W = image.shape
+    if output_coordinates is None:
+        out = _rotation_output_coordinates(H, W, device=image.device)
+    else:
+        if output_coordinates.shape != (H, W, 3):
+            raise ValueError("cached rotation coordinates have the wrong shape")
+        if output_coordinates.device != image.device:
+            raise ValueError("cached rotation coordinates have the wrong device")
+        if output_coordinates.dtype != torch.float64:
+            raise TypeError("cached rotation coordinates must be float64")
+        out = output_coordinates
     inv = torch.linalg.inv(affine.to(device=image.device, dtype=torch.float64))
     src = out @ inv.T
     grid_x = (2.0 * (src[..., 0] + 0.5) / W) - 1.0
@@ -313,7 +336,13 @@ class ImagePreprocessor(nn.Module):
         std = torch.tensor(IMAGENET_STD, dtype=torch.float32).view(1, 1, 3, 1, 1)
         self.register_buffer("_mean", mean, persistent=False)
         self.register_buffer("_std", std, persistent=False)
+        self.register_buffer(
+            "_phase1p_rotation_output_coordinates",
+            torch.empty(0, dtype=torch.float64),
+            persistent=False,
+        )
         self._phase1p_augmentation_transfer_cleanup = False
+        self._phase1p_static_grid_cache = False
 
     def set_phase1p_augmentation_transfer_cleanup(self, enabled: bool) -> None:
         """Enable the profiler-only, output-neutral augmentation transfer cleanup.
@@ -328,6 +357,31 @@ class ImagePreprocessor(nn.Module):
         if not isinstance(enabled, bool):
             raise TypeError("Phase I-P augmentation transfer cleanup must be boolean")
         self._phase1p_augmentation_transfer_cleanup = enabled
+
+    def set_phase1p_static_grid_cache(self, enabled: bool) -> None:
+        """Enable the profiler-only fixed rotation-coordinate cache.
+
+        The cached tensor is non-persistent and therefore absent from checkpoints.
+        Only the fixed output coordinate basis is reused; per-image augmentation
+        matrices, their inverse, sampling grids and interpolation remain unchanged.
+        """
+        if not isinstance(enabled, bool):
+            raise TypeError("Phase I-P static grid cache control must be boolean")
+        self._phase1p_static_grid_cache = enabled
+        if enabled:
+            height, width = self.image_hw
+            coordinates = _rotation_output_coordinates(
+                height,
+                width,
+                device=self._mean.device,
+            )
+        else:
+            coordinates = torch.empty(
+                0,
+                device=self._mean.device,
+                dtype=torch.float64,
+            )
+        self._phase1p_rotation_output_coordinates = coordinates
 
     @property
     def geometry_mode(self) -> str:
@@ -519,7 +573,16 @@ class ImagePreprocessor(nn.Module):
                     dtype=torch.float64,
                 )
                 A_rotation = A @ torch.linalg.inv(A_before_rotation)
-                image = _rotate_image(image, A_rotation)
+                output_coordinates = (
+                    self._phase1p_rotation_output_coordinates
+                    if self._phase1p_static_grid_cache
+                    else None
+                )
+                image = _rotate_image(
+                    image,
+                    A_rotation,
+                    output_coordinates=output_coordinates,
+                )
             images.append(image)
             affines.append(A)
 

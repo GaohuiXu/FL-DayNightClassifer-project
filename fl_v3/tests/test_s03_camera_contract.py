@@ -151,6 +151,58 @@ def test_s10_phase1p_augmentation_transfer_cleanup_is_output_neutral():
         )
 
 
+def test_s10_phase1p_static_grid_cache_is_output_neutral_and_nonpersistent():
+    H_in, W_in = 20, 32
+    H_out, W_out = 12, 20
+    images = torch.arange(2 * 3 * H_in * W_in, dtype=torch.int64)
+    images = images.remainder(256).to(torch.uint8).view(1, 2, 3, H_in, W_in)
+    lidar2img, K = _calibration()
+    lidar2img = lidar2img.repeat(1, 2, 1, 1)
+    K = K.repeat(1, 2, 1, 1)
+    params = torch.tensor(
+        [
+            [0.75, 15.0, 24.0, 2.0, 3.0, 0.0, 11.0],
+            [0.75, 15.0, 24.0, -2.0, 5.0, 1.0, -5.4],
+        ],
+        dtype=torch.float64,
+    ).view(1, 2, len(AUGMENTATION_PARAM_FIELDS))
+
+    reference = ImagePreprocessor(
+        (H_out, W_out), augmentation=ImageAugmentationConfig(enabled=True)
+    ).eval()
+    candidate = ImagePreprocessor(
+        (H_out, W_out), augmentation=ImageAugmentationConfig(enabled=True)
+    ).eval()
+    candidate.set_phase1p_static_grid_cache(True)
+    coordinates = candidate._phase1p_rotation_output_coordinates
+    assert coordinates.shape == (H_out, W_out, 3)
+    assert coordinates.dtype == torch.float64
+    assert "_phase1p_rotation_output_coordinates" not in candidate.state_dict()
+    coordinates_pointer = coordinates.data_ptr()
+
+    expected = reference(images, lidar2img, K, augmentation_params=params)
+    for _ in range(2):
+        actual = candidate(images, lidar2img, K, augmentation_params=params)
+        assert actual.keys() == expected.keys()
+        for key in (
+            "images",
+            "lidar2img",
+            "cam_intrinsics",
+            "image_aug_matrix",
+            "augmentation_params",
+        ):
+            assert torch.equal(actual[key], expected[key]), key
+        assert actual["augmentation_param_fields"] == expected[
+            "augmentation_param_fields"
+        ]
+        assert candidate._phase1p_rotation_output_coordinates.data_ptr() == (
+            coordinates_pointer
+        )
+
+    candidate.set_phase1p_static_grid_cache(False)
+    assert candidate._phase1p_rotation_output_coordinates.numel() == 0
+
+
 def test_s03_validation_geometry_is_deterministic_and_training_is_seed_replayable():
     images = torch.arange(2 * 3 * 20 * 32, dtype=torch.int64)
     images = images.remainder(256).to(torch.uint8).view(1, 2, 3, 20, 32)

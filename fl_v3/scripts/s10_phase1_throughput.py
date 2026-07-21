@@ -85,17 +85,32 @@ def _candidate_cpu_resident_batch_fields(profile, branch: str) -> tuple[str, ...
 def _configure_profile_candidate(model, profile, branch: str) -> None:
     """Apply only the fail-closed profiler runtime options bound by the profile."""
     profile.assert_runnable(branch)
-    enabled = bool(profile.candidates["camera_augmentation_transfer_cleanup"])
+    augmentation_cleanup = bool(
+        profile.candidates["camera_augmentation_transfer_cleanup"]
+    )
+    static_grid_cache = bool(profile.candidates["camera_static_grid_cache"])
     if branch == "camera":
-        setter = getattr(
+        augmentation_setter = getattr(
             getattr(model, "preprocess", None),
             "set_phase1p_augmentation_transfer_cleanup",
             None,
         )
-        _require(callable(setter), "Camera preprocessor lacks Phase I-P candidate control")
-        setter(enabled)
+        grid_setter = getattr(
+            getattr(model, "preprocess", None),
+            "set_phase1p_static_grid_cache",
+            None,
+        )
+        _require(
+            callable(augmentation_setter) and callable(grid_setter),
+            "Camera preprocessor lacks Phase I-P candidate controls",
+        )
+        augmentation_setter(augmentation_cleanup)
+        grid_setter(static_grid_cache)
     else:
-        _require(not enabled, "LiDAR cannot enable Camera augmentation cleanup")
+        _require(
+            not augmentation_cleanup and not static_grid_cache,
+            "LiDAR cannot enable Camera profiler candidates",
+        )
 
 
 def _batch_sha256(value: Any) -> str:

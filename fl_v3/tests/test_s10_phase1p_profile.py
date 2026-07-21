@@ -21,6 +21,7 @@ from fl_v3.training.phase1_profile import (
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE = ROOT / "configs" / "s10_phase1p_ip_e1.json"
 AUG_CLEANUP_PROFILE = ROOT / "configs" / "s10_phase1p_camera_aug_cleanup.json"
+STATIC_GRID_PROFILE = ROOT / "configs" / "s10_phase1p_camera_static_grid.json"
 CAMERA = ROOT / "configs" / "s10_phase1_camera.json"
 LIDAR = ROOT / "configs" / "s10_phase1_lidar.json"
 
@@ -59,6 +60,25 @@ def test_ip_e1_aug_cleanup_profile_has_one_exact_camera_only_candidate():
     ]["options"]
     assert dict(profile.candidates) == expected
     assert profile.candidates["camera_augmentation_transfer_cleanup"] is True
+    assert sum(
+        bool(value)
+        for key, value in profile.candidates.items()
+        if key not in {"physical_batch_size", "checkpoint_cadence_epochs"}
+    ) == 1
+    with pytest.raises(Phase1ProfileError, match="not runnable"):
+        profile.assert_runnable("lidar")
+    with pytest.raises(Phase1ProfileError, match="baseline candidate"):
+        profile.assert_baseline()
+
+
+def test_ip_e1_static_grid_profile_has_one_exact_camera_only_candidate():
+    profile = load_phase1_profile_spec(STATIC_GRID_PROFILE)
+    profile.assert_runnable("camera")
+    expected = IP_E1_RUNNABLE_CANDIDATES[
+        "camera_static_grid_cache_b4_accum8"
+    ]["options"]
+    assert dict(profile.candidates) == expected
+    assert profile.candidates["camera_static_grid_cache"] is True
     assert sum(
         bool(value)
         for key, value in profile.candidates.items()
