@@ -10,6 +10,7 @@ from fl_v3.training.phase1p_compare import (
     Phase1PPairError,
     compare_b16_batched_rotation_output_dirs,
     compare_b16_followup_output_dirs,
+    compare_ip_e4_vectorized_geometry_output_dirs,
     compare_output_dirs,
 )
 
@@ -247,3 +248,32 @@ def test_b16_batched_rotation_comparison_requires_owner_decision(tmp_path):
     assert gate["verdict"] == "POSITIVE_SCREEN"
     assert gate["positive_screen"] is True
     assert summary["promotion_authorized"] is False
+
+
+def test_ip_e4_vectorized_geometry_gate_promotes_at_102_percent(tmp_path):
+    reference = tmp_path / "reference"
+    candidate = tmp_path / "candidate"
+    _output(
+        reference,
+        candidate_id="camera_b16_batched_affine_reference",
+        batch=16,
+        block_seconds=32.0,
+    )
+    _output(
+        candidate,
+        candidate_id="camera_b16_batched_affine_vectorized_geometry",
+        batch=16,
+        block_seconds=32.0 / 1.03,
+    )
+
+    summary = compare_ip_e4_vectorized_geometry_output_dirs(reference, candidate)
+    gate = summary["ip_e4_vectorized_geometry_gate"]
+    assert summary["schema"] == (
+        "s10.phase1p.ip-e4-vectorized-geometry-comparison.v1"
+    )
+    assert summary["envelope"] == "IP-E4"
+    assert gate["hard_gate_pass"] is True
+    assert gate["one_sided_95_percent_lower_bound_threshold"] == 1.02
+    assert gate["promoted_by_owner_gate"] is True
+    assert gate["conditional_bulk_input_conversion_implementation_eligible"] is True
+    assert summary["promotion_authorized"] is True

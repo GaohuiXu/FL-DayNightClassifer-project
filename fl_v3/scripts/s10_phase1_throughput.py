@@ -167,6 +167,9 @@ def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
     static_grid_cache = bool(profile.candidates["camera_static_grid_cache"])
     batched_affine_grid = bool(profile.candidates["camera_batched_affine_grid"])
     batched_preprocess = bool(profile.candidates["camera_batched_preprocess"])
+    vectorized_geometry = bool(
+        profile.candidates.get("camera_vectorized_geometry", False)
+    )
     if branch == "camera":
         augmentation_setter = getattr(
             getattr(model, "preprocess", None),
@@ -188,23 +191,32 @@ def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
             "set_phase1p_batched_preprocess",
             None,
         )
+        vectorized_geometry_setter = getattr(
+            getattr(model, "preprocess", None),
+            "set_phase1p_vectorized_geometry",
+            None,
+        )
         _require(
             callable(augmentation_setter)
             and callable(grid_setter)
             and callable(batched_grid_setter)
-            and callable(batched_preprocess_setter),
+            and callable(batched_preprocess_setter)
+            and (not vectorized_geometry or callable(vectorized_geometry_setter)),
             "Camera preprocessor lacks Phase I-P candidate controls",
         )
         augmentation_setter(augmentation_cleanup)
         grid_setter(static_grid_cache)
         batched_grid_setter(batched_affine_grid)
         batched_preprocess_setter(batched_preprocess)
+        if callable(vectorized_geometry_setter):
+            vectorized_geometry_setter(vectorized_geometry)
     else:
         _require(
             not augmentation_cleanup
             and not static_grid_cache
             and not batched_affine_grid
-            and not batched_preprocess,
+            and not batched_preprocess
+            and not vectorized_geometry,
             "LiDAR cannot enable Camera profiler candidates",
         )
     camera_sdpa = bool(profile.candidates["camera_sdpa"])
@@ -286,6 +298,8 @@ def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
         "compile_dynamic": False if compile_enabled else None,
         "compile_mode": "default" if compile_enabled else None,
         "runtime_application": runtime_application,
+        "camera_batched_affine_grid": batched_affine_grid,
+        "camera_vectorized_geometry": vectorized_geometry,
         "state_dict_name_sha256": after_state_names,
     }
 
@@ -680,6 +694,18 @@ _CAMERA_FORWARD_TRACE_RANGES = (
     "fl_v3::camera::decoder_neck",
     "fl_v3::camera::head",
 )
+_CAMERA_PREPROCESS_TRACE_RANGES = tuple(
+    f"fl_v3::camera_preprocess::{name}"
+    for name in (
+        "parameter_prepare",
+        "convert_resize",
+        "crop_pad_flip",
+        "geometry",
+        "rotation_grid_sample",
+        "stack_normalize",
+        "calibration_update",
+    )
+)
 _TRAIN_TRACE_RANGES = tuple(
     f"fl_v3::train::{name}"
     for name in ("h2d", "forward", "loss", "backward", "optimizer")
@@ -736,7 +762,14 @@ def _profile_event_rows(events) -> list[dict[str, Any]]:
 
 
 def _camera_trace_diagnosis(range_rows: list[dict[str, Any]]) -> dict[str, Any]:
-    by_key = {str(row["key"]): row for row in range_rows}
+    by_key: dict[str, dict[str, Any]] = {}
+    for row in range_rows:
+        key = str(row["key"])
+        current = by_key.get(key)
+        if current is None or float(row["cpu_time_total_us"]) > float(
+            current["cpu_time_total_us"]
+        ):
+            by_key[key] = row
     expected = (*_TRAIN_TRACE_RANGES, *_CAMERA_FORWARD_TRACE_RANGES)
     missing = sorted(set(expected) - set(by_key))
     camera_cpu = {
@@ -747,6 +780,19 @@ def _camera_trace_diagnosis(range_rows: list[dict[str, Any]]) -> dict[str, Any]:
     camera_total = sum(camera_cpu.values())
     largest = max(camera_cpu, key=camera_cpu.get) if camera_cpu else None
     preprocess = "fl_v3::camera::preprocess"
+    preprocess_subranges = {
+        key: float(by_key[key]["cpu_time_total_us"])
+        for key in _CAMERA_PREPROCESS_TRACE_RANGES
+        if key in by_key
+    }
+    missing_preprocess_subranges = sorted(
+        set(_CAMERA_PREPROCESS_TRACE_RANGES) - set(by_key)
+    )
+    largest_preprocess_subrange = (
+        max(preprocess_subranges, key=preprocess_subranges.get)
+        if preprocess_subranges
+        else None
+    )
     return {
         "expected_core_range_keys": list(expected),
         "missing_core_range_keys": missing,
@@ -757,6 +803,10 @@ def _camera_trace_diagnosis(range_rows: list[dict[str, Any]]) -> dict[str, Any]:
             None if camera_total <= 0.0 else camera_cpu.get(preprocess, 0.0) / camera_total
         ),
         "preprocess_is_largest_camera_forward_range": largest == preprocess,
+        "expected_preprocess_subrange_keys": list(_CAMERA_PREPROCESS_TRACE_RANGES),
+        "missing_preprocess_subrange_keys": missing_preprocess_subranges,
+        "preprocess_subrange_cpu_time_total_us": preprocess_subranges,
+        "largest_preprocess_subrange": largest_preprocess_subrange,
         "interpretation": (
             "CPU range totals are trace-inflated localization evidence; use them to "
             "rank named stages, not as sustained wall-time estimates"

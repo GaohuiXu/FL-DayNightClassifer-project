@@ -21,9 +21,10 @@ publish the new module contract without editing ``detector.py`` or ``tasks.py``.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 import math
-from typing import Optional, Tuple
+from typing import Optional, Sequence, Tuple
 
 import numpy as np
 import torch
@@ -139,6 +140,132 @@ def image_augmentation_affine(
     A_rotate[:2, :2] = R
     A_rotate[:2, 2] = centre - R @ centre
     return A_rotate @ A_flip @ A_crop @ A_resize
+
+
+@dataclass(frozen=True)
+class _DecodedAugmentationRow:
+    resize: float
+    resized_h: int
+    resized_w: int
+    crop_left: int
+    crop_top: int
+    flip: bool
+    rotate_degrees: float
+
+
+def _decode_augmentation_row(values: Sequence[object]) -> _DecodedAugmentationRow:
+    if len(values) != len(AUGMENTATION_PARAM_FIELDS):
+        raise ValueError("augmentation parameter row has the wrong length")
+    resize, resized_h_f, resized_w_f, left_f, top_f, flip_f, angle = values
+    if float(resize) <= 0:
+        raise ValueError("resize must be positive")
+    for field_name, value in (
+        ("resized_h", resized_h_f),
+        ("resized_w", resized_w_f),
+        ("crop_left", left_f),
+        ("crop_top", top_f),
+        ("flip", flip_f),
+    ):
+        if float(value) != float(int(value)):
+            raise ValueError(f"{field_name} must be integer-valued")
+    if int(flip_f) not in (0, 1):
+        raise ValueError("flip must be 0 or 1")
+    resized_h, resized_w = int(resized_h_f), int(resized_w_f)
+    if min(resized_h, resized_w) <= 0:
+        raise ValueError("resized dimensions must be positive")
+    return _DecodedAugmentationRow(
+        resize=float(resize),
+        resized_h=resized_h,
+        resized_w=resized_w,
+        crop_left=int(left_f),
+        crop_top=int(top_f),
+        flip=bool(int(flip_f)),
+        rotate_degrees=float(angle),
+    )
+
+
+def _batched_image_augmentation_geometry(
+    H_in: int,
+    W_in: int,
+    H_out: int,
+    W_out: int,
+    rows: Sequence[_DecodedAugmentationRow],
+    *,
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Batch the unchanged 3x3 affine/inverse operation sequence.
+
+    Per-row scalar choices and ``math.sin``/``math.cos`` remain on the host, as in
+    :func:`image_augmentation_affine`.  One packed float64 transfer supplies the
+    primitive matrices; composition and both inversions retain the reference
+    left-associated operation order but execute over the complete image batch.
+    """
+    if not rows:
+        raise ValueError("batched augmentation geometry requires at least one row")
+    scalar_rows = []
+    for row in rows:
+        sx = row.resized_w / W_in
+        sy = row.resized_h / H_in
+        theta = math.radians(row.rotate_degrees)
+        co, si = math.cos(theta), math.sin(theta)
+        scalar_rows.append(
+            (
+                sx,
+                sy,
+                0.5 * sx - 0.5,
+                0.5 * sy - 0.5,
+                -float(row.crop_left),
+                -float(row.crop_top),
+                -1.0 if row.flip else 1.0,
+                float(W_out - 1) if row.flip else 0.0,
+                co,
+                si,
+            )
+        )
+    scalars = torch.tensor(scalar_rows, dtype=torch.float64).to(device=device)
+    count = len(rows)
+
+    A_resize = torch.zeros((count, 3, 3), device=device, dtype=torch.float64)
+    A_resize[:, 0, 0] = scalars[:, 0]
+    A_resize[:, 1, 1] = scalars[:, 1]
+    A_resize[:, 0, 2] = scalars[:, 2]
+    A_resize[:, 1, 2] = scalars[:, 3]
+    A_resize[:, 2, 2] = 1.0
+
+    identity = torch.eye(3, device=device, dtype=torch.float64).expand(
+        count, -1, -1
+    )
+    A_crop = identity.clone()
+    A_crop[:, 0, 2] = scalars[:, 4]
+    A_crop[:, 1, 2] = scalars[:, 5]
+    A_flip = identity.clone()
+    A_flip[:, 0, 0] = scalars[:, 6]
+    A_flip[:, 0, 2] = scalars[:, 7]
+    A_rotate = identity.clone()
+    A_rotate[:, 0, 0] = scalars[:, 8]
+    A_rotate[:, 0, 1] = scalars[:, 9]
+    A_rotate[:, 1, 0] = -scalars[:, 9]
+    A_rotate[:, 1, 1] = scalars[:, 8]
+    centre = torch.tensor(
+        [(W_out - 1) / 2.0, (H_out - 1) / 2.0],
+        device=device,
+        dtype=torch.float64,
+    )
+    A_rotate[:, :2, 2] = centre - torch.bmm(
+        A_rotate[:, :2, :2],
+        centre.view(1, 2, 1).expand(count, -1, -1),
+    ).squeeze(-1)
+
+    def compose(rotation: torch.Tensor) -> torch.Tensor:
+        value = torch.bmm(rotation, A_flip)
+        value = torch.bmm(value, A_crop)
+        return torch.bmm(value, A_resize)
+
+    affine = compose(A_rotate)
+    before_rotation = compose(identity)
+    rotation = torch.bmm(affine, torch.linalg.inv(before_rotation))
+    inverse_rotation = torch.linalg.inv(rotation)
+    return affine, inverse_rotation
 
 
 def _uniform(low: float, high: float, generator: Optional[torch.Generator]) -> float:
@@ -345,6 +472,24 @@ class ImagePreprocessor(nn.Module):
         self._phase1p_static_grid_cache = False
         self._phase1p_batched_affine_grid = False
         self._phase1p_batched_preprocess = False
+        self._phase1p_vectorized_geometry = False
+        self._operator_profile_ranges = False
+
+    @contextmanager
+    def operator_profile_ranges(self):
+        """Enable bounded preprocessing subranges for a short torch trace."""
+        if self._operator_profile_ranges:
+            raise RuntimeError("Camera preprocessing profiler ranges are already active")
+        self._operator_profile_ranges = True
+        try:
+            yield self
+        finally:
+            self._operator_profile_ranges = False
+
+    def _profile_range(self, name: str):
+        if not self._operator_profile_ranges:
+            return nullcontext()
+        return torch.profiler.record_function(f"fl_v3::camera_preprocess::{name}")
 
     def set_phase1p_augmentation_transfer_cleanup(self, enabled: bool) -> None:
         """Enable the profiler-only, output-neutral augmentation transfer cleanup.
@@ -416,6 +561,21 @@ class ImagePreprocessor(nn.Module):
                 "batched rotation grid_sample requires static grid and batched affine/grid"
             )
         self._phase1p_batched_preprocess = enabled
+
+    def set_phase1p_vectorized_geometry(self, enabled: bool) -> None:
+        """Batch the reference affine composition and inverse sequence.
+
+        Resize/crop/pad/flip and interpolation remain per image.  The candidate
+        requires conservative batched affine/grid so only the small-matrix host/
+        launch fragmentation changes.
+        """
+        if not isinstance(enabled, bool):
+            raise TypeError("Phase I-P vectorized geometry control must be boolean")
+        if enabled and not self._phase1p_batched_affine_grid:
+            raise ValueError(
+                "vectorized geometry requires conservative batched affine/grid"
+            )
+        self._phase1p_vectorized_geometry = enabled
 
     @property
     def geometry_mode(self) -> str:
@@ -493,42 +653,43 @@ class ImagePreprocessor(nn.Module):
             return self._legacy_forward(images_u8, lidar2img, cam_intrinsics)
 
         H_out, W_out = self.image_hw
-        if augmentation_params is None:
-            params = _sample_parameters(
-                self.augmentation,
-                self.training,
-                B,
-                N,
-                H_in,
-                W_in,
-                H_out,
-                W_out,
-                generator,
-            )
-        else:
-            expected = (B, N, len(AUGMENTATION_PARAM_FIELDS))
-            if tuple(augmentation_params.shape) != expected:
-                raise ValueError(f"augmentation_params must have shape {expected}")
-            if self._phase1p_augmentation_transfer_cleanup:
-                if augmentation_params.device.type != "cpu":
-                    raise ValueError(
-                        "Phase I-P augmentation transfer cleanup requires CPU parameters"
-                    )
-                if augmentation_params.dtype != torch.float64:
-                    raise TypeError(
-                        "Phase I-P augmentation transfer cleanup requires float64 parameters"
-                    )
-                if not augmentation_params.is_contiguous():
-                    raise ValueError(
-                        "Phase I-P augmentation transfer cleanup requires contiguous parameters"
-                    )
-                params = augmentation_params.detach()
+        with self._profile_range("parameter_prepare"):
+            if augmentation_params is None:
+                params = _sample_parameters(
+                    self.augmentation,
+                    self.training,
+                    B,
+                    N,
+                    H_in,
+                    W_in,
+                    H_out,
+                    W_out,
+                    generator,
+                )
             else:
-                params = augmentation_params.detach().to(
-                    device="cpu", dtype=torch.float64
-                ).clone()
-        if not torch.isfinite(params).all():
-            raise ValueError("augmentation_params must be finite")
+                expected = (B, N, len(AUGMENTATION_PARAM_FIELDS))
+                if tuple(augmentation_params.shape) != expected:
+                    raise ValueError(f"augmentation_params must have shape {expected}")
+                if self._phase1p_augmentation_transfer_cleanup:
+                    if augmentation_params.device.type != "cpu":
+                        raise ValueError(
+                            "Phase I-P augmentation transfer cleanup requires CPU parameters"
+                        )
+                    if augmentation_params.dtype != torch.float64:
+                        raise TypeError(
+                            "Phase I-P augmentation transfer cleanup requires float64 parameters"
+                        )
+                    if not augmentation_params.is_contiguous():
+                        raise ValueError(
+                            "Phase I-P augmentation transfer cleanup requires contiguous parameters"
+                        )
+                    params = augmentation_params.detach()
+                else:
+                    params = augmentation_params.detach().to(
+                        device="cpu", dtype=torch.float64
+                    ).clone()
+            if not torch.isfinite(params).all():
+                raise ValueError("augmentation_params must be finite")
 
         images = []
         affines = []
@@ -543,83 +704,125 @@ class ImagePreprocessor(nn.Module):
             # float conversion is exact for the required float64 values and the
             # downstream resize/affine/grid_sample path remains unchanged.
             parameter_rows = parameter_rows.tolist()
-        for idx in range(B * N):
-            resize, resized_h_f, resized_w_f, left_f, top_f, flip_f, angle = (
-                parameter_rows[idx]
-            )
-            if float(resize) <= 0:
-                raise ValueError("resize must be positive")
-            for field_name, value in (
-                ("resized_h", resized_h_f),
-                ("resized_w", resized_w_f),
-                ("crop_left", left_f),
-                ("crop_top", top_f),
-                ("flip", flip_f),
-            ):
-                if float(value) != float(int(value)):
-                    raise ValueError(f"{field_name} must be integer-valued")
-            if int(flip_f) not in (0, 1):
-                raise ValueError("flip must be 0 or 1")
-            resized_h, resized_w = int(resized_h_f), int(resized_w_f)
-            crop_left, crop_top = int(left_f), int(top_f)
-            flip = bool(int(flip_f))
-            if min(resized_h, resized_w) <= 0:
-                raise ValueError("resized dimensions must be positive")
-
-            image = flat[idx].to(torch.float32).unsqueeze(0) / 255.0
-            image = F.interpolate(
-                image,
-                size=(resized_h, resized_w),
-                mode="bilinear",
-                align_corners=False,
-            ).squeeze(0)
-            image = _crop_or_pad(image, crop_left, crop_top, H_out, W_out)
-            if flip:
-                image = torch.flip(image, dims=(-1,))
-
-            A = image_augmentation_affine(
-                H_in,
-                W_in,
-                H_out,
-                W_out,
-                resized_h,
-                resized_w,
-                crop_left,
-                crop_top,
-                flip,
-                float(angle),
-                device=images_u8.device,
-                dtype=torch.float64,
-            )
-            if float(angle) != 0.0:
-                # At this point resize/crop/flip are already applied.  Supply only
-                # the final rotation to the inverse-sampling grid.
-                A_before_rotation = image_augmentation_affine(
-                    H_in,
-                    W_in,
-                    H_out,
-                    W_out,
-                    resized_h,
-                    resized_w,
-                    crop_left,
-                    crop_top,
-                    flip,
-                    0.0,
-                    device=images_u8.device,
-                    dtype=torch.float64,
+        vectorized_rows: list[_DecodedAugmentationRow] | None = None
+        vectorized_affines: torch.Tensor | None = None
+        vectorized_inverse_affines: torch.Tensor | None = None
+        if self._phase1p_vectorized_geometry:
+            with self._profile_range("geometry"):
+                vectorized_rows = [
+                    _decode_augmentation_row(parameter_rows[idx])
+                    for idx in range(B * N)
+                ]
+                vectorized_affines, vectorized_inverse_affines = (
+                    _batched_image_augmentation_geometry(
+                        H_in,
+                        W_in,
+                        H_out,
+                        W_out,
+                        vectorized_rows,
+                        device=images_u8.device,
+                    )
                 )
-                A_rotation = A @ torch.linalg.inv(A_before_rotation)
-                if self._phase1p_batched_affine_grid:
-                    rotation_image_indices.append(idx)
-                    rotation_inverse_affines.append(
-                        torch.linalg.inv(
-                            A_rotation.to(
-                                device=image.device,
-                                dtype=torch.float64,
+        for idx in range(B * N):
+            if vectorized_rows is None:
+                resize, resized_h_f, resized_w_f, left_f, top_f, flip_f, angle = (
+                    parameter_rows[idx]
+                )
+                if float(resize) <= 0:
+                    raise ValueError("resize must be positive")
+                for field_name, value in (
+                    ("resized_h", resized_h_f),
+                    ("resized_w", resized_w_f),
+                    ("crop_left", left_f),
+                    ("crop_top", top_f),
+                    ("flip", flip_f),
+                ):
+                    if float(value) != float(int(value)):
+                        raise ValueError(f"{field_name} must be integer-valued")
+                if int(flip_f) not in (0, 1):
+                    raise ValueError("flip must be 0 or 1")
+                resized_h, resized_w = int(resized_h_f), int(resized_w_f)
+                crop_left, crop_top = int(left_f), int(top_f)
+                flip = bool(int(flip_f))
+                angle_value = float(angle)
+                if min(resized_h, resized_w) <= 0:
+                    raise ValueError("resized dimensions must be positive")
+            else:
+                row = vectorized_rows[idx]
+                resized_h, resized_w = row.resized_h, row.resized_w
+                crop_left, crop_top = row.crop_left, row.crop_top
+                flip = row.flip
+                angle_value = row.rotate_degrees
+
+            with self._profile_range("convert_resize"):
+                image = flat[idx].to(torch.float32).unsqueeze(0) / 255.0
+                image = F.interpolate(
+                    image,
+                    size=(resized_h, resized_w),
+                    mode="bilinear",
+                    align_corners=False,
+                ).squeeze(0)
+            with self._profile_range("crop_pad_flip"):
+                image = _crop_or_pad(image, crop_left, crop_top, H_out, W_out)
+                if flip:
+                    image = torch.flip(image, dims=(-1,))
+
+            A_rotation = None
+            with self._profile_range("geometry"):
+                if vectorized_affines is not None:
+                    if vectorized_inverse_affines is None:
+                        raise RuntimeError("vectorized inverse geometry is absent")
+                    A = vectorized_affines[idx]
+                    if angle_value != 0.0:
+                        rotation_image_indices.append(idx)
+                        rotation_inverse_affines.append(
+                            vectorized_inverse_affines[idx]
+                        )
+                else:
+                    A = image_augmentation_affine(
+                        H_in,
+                        W_in,
+                        H_out,
+                        W_out,
+                        resized_h,
+                        resized_w,
+                        crop_left,
+                        crop_top,
+                        flip,
+                        angle_value,
+                        device=images_u8.device,
+                        dtype=torch.float64,
+                    )
+                if angle_value != 0.0 and vectorized_affines is None:
+                    # At this point resize/crop/flip are already applied.  Supply only
+                    # the final rotation to the inverse-sampling grid.
+                    A_before_rotation = image_augmentation_affine(
+                        H_in,
+                        W_in,
+                        H_out,
+                        W_out,
+                        resized_h,
+                        resized_w,
+                        crop_left,
+                        crop_top,
+                        flip,
+                        0.0,
+                        device=images_u8.device,
+                        dtype=torch.float64,
+                    )
+                    A_rotation = A @ torch.linalg.inv(A_before_rotation)
+                    if self._phase1p_batched_affine_grid:
+                        rotation_image_indices.append(idx)
+                        rotation_inverse_affines.append(
+                            torch.linalg.inv(
+                                A_rotation.to(
+                                    device=image.device,
+                                    dtype=torch.float64,
+                                )
                             )
                         )
-                    )
-                else:
+            if A_rotation is not None and not self._phase1p_batched_affine_grid:
+                with self._profile_range("rotation_grid_sample"):
                     output_coordinates = (
                         self._phase1p_rotation_output_coordinates
                         if self._phase1p_static_grid_cache
@@ -633,66 +836,82 @@ class ImagePreprocessor(nn.Module):
             images.append(image)
             affines.append(A)
 
-        if rotation_image_indices:
-            if len(rotation_image_indices) != len(rotation_inverse_affines):
-                raise RuntimeError("batched rotation bookkeeping drift")
-            output_coordinates = (
-                self._phase1p_rotation_output_coordinates
-                if self._phase1p_static_grid_cache
-                else _rotation_output_coordinates(
-                    H_out,
-                    W_out,
-                    device=images_u8.device,
+        with self._profile_range("rotation_grid_sample"):
+            if rotation_image_indices:
+                if len(rotation_image_indices) != len(rotation_inverse_affines):
+                    raise RuntimeError("batched rotation bookkeeping drift")
+                output_coordinates = (
+                    self._phase1p_rotation_output_coordinates
+                    if self._phase1p_static_grid_cache
+                    else _rotation_output_coordinates(
+                        H_out,
+                        W_out,
+                        device=images_u8.device,
+                    )
                 )
-            )
-            inverse_affines = torch.stack(rotation_inverse_affines, dim=0)
-            src = (
-                output_coordinates.reshape(1, H_out * W_out, 3)
-                @ inverse_affines.transpose(1, 2)
-            ).reshape(len(rotation_image_indices), H_out, W_out, 3)
-            grid_x = (2.0 * (src[..., 0] + 0.5) / W_out) - 1.0
-            grid_y = (2.0 * (src[..., 1] + 0.5) / H_out) - 1.0
-            grids = torch.stack((grid_x, grid_y), dim=-1).to(images[0].dtype)
-            if self._phase1p_batched_preprocess:
-                rotated_images = F.grid_sample(
-                    torch.stack(
-                        [images[image_index] for image_index in rotation_image_indices],
-                        dim=0,
-                    ),
-                    grids,
-                    mode="bilinear",
-                    padding_mode="zeros",
-                    align_corners=False,
-                )
-                if tuple(rotated_images.shape) != (
-                    len(rotation_image_indices),
-                    C,
-                    H_out,
-                    W_out,
-                ):
-                    raise RuntimeError("batched rotation grid_sample shape drift")
-                for grid_index, image_index in enumerate(rotation_image_indices):
-                    images[image_index] = rotated_images[grid_index]
-            else:
-                for grid_index, image_index in enumerate(rotation_image_indices):
-                    image = images[image_index]
-                    images[image_index] = F.grid_sample(
-                        image.unsqueeze(0),
-                        grids[grid_index].unsqueeze(0),
+                if vectorized_inverse_affines is None:
+                    inverse_affines = torch.stack(rotation_inverse_affines, dim=0)
+                else:
+                    rotation_indices = torch.tensor(
+                        rotation_image_indices,
+                        device=images_u8.device,
+                        dtype=torch.long,
+                    )
+                    inverse_affines = vectorized_inverse_affines.index_select(
+                        0, rotation_indices
+                    )
+                src = (
+                    output_coordinates.reshape(1, H_out * W_out, 3)
+                    @ inverse_affines.transpose(1, 2)
+                ).reshape(len(rotation_image_indices), H_out, W_out, 3)
+                grid_x = (2.0 * (src[..., 0] + 0.5) / W_out) - 1.0
+                grid_y = (2.0 * (src[..., 1] + 0.5) / H_out) - 1.0
+                grids = torch.stack((grid_x, grid_y), dim=-1).to(images[0].dtype)
+                if self._phase1p_batched_preprocess:
+                    rotated_images = F.grid_sample(
+                        torch.stack(
+                            [images[image_index] for image_index in rotation_image_indices],
+                            dim=0,
+                        ),
+                        grids,
                         mode="bilinear",
                         padding_mode="zeros",
                         align_corners=False,
-                    ).reshape(C, H_out, W_out)
+                    )
+                    if tuple(rotated_images.shape) != (
+                        len(rotation_image_indices),
+                        C,
+                        H_out,
+                        W_out,
+                    ):
+                        raise RuntimeError("batched rotation grid_sample shape drift")
+                    for grid_index, image_index in enumerate(rotation_image_indices):
+                        images[image_index] = rotated_images[grid_index]
+                else:
+                    for grid_index, image_index in enumerate(rotation_image_indices):
+                        image = images[image_index]
+                        images[image_index] = F.grid_sample(
+                            image.unsqueeze(0),
+                            grids[grid_index].unsqueeze(0),
+                            mode="bilinear",
+                            padding_mode="zeros",
+                            align_corners=False,
+                        ).reshape(C, H_out, W_out)
 
-        x = torch.stack(images, dim=0).reshape(B, N, C, H_out, W_out)
-        x = (x - self._mean) / self._std
-        A_batch = torch.stack(affines, dim=0).reshape(B, N, 3, 3)
-        M_batch = torch.eye(
-            4, device=images_u8.device, dtype=torch.float64
-        ).view(1, 1, 4, 4).repeat(B, N, 1, 1)
-        M_batch[:, :, :3, :3] = A_batch
-        K2 = (A_batch @ cam_intrinsics.to(torch.float64)).to(cam_intrinsics.dtype)
-        l2i2 = (M_batch @ lidar2img.to(torch.float64)).to(lidar2img.dtype)
+        with self._profile_range("stack_normalize"):
+            x = torch.stack(images, dim=0).reshape(B, N, C, H_out, W_out)
+            x = (x - self._mean) / self._std
+        with self._profile_range("calibration_update"):
+            if vectorized_affines is None:
+                A_batch = torch.stack(affines, dim=0).reshape(B, N, 3, 3)
+            else:
+                A_batch = vectorized_affines.reshape(B, N, 3, 3)
+            M_batch = torch.eye(
+                4, device=images_u8.device, dtype=torch.float64
+            ).view(1, 1, 4, 4).repeat(B, N, 1, 1)
+            M_batch[:, :, :3, :3] = A_batch
+            K2 = (A_batch @ cam_intrinsics.to(torch.float64)).to(cam_intrinsics.dtype)
+            l2i2 = (M_batch @ lidar2img.to(torch.float64)).to(lidar2img.dtype)
         result = {
             "images": x.contiguous(),
             "cam_intrinsics": K2.contiguous(),

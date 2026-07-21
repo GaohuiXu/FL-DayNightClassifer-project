@@ -26,6 +26,11 @@ B16_FOLLOWUP_CONSERVATIVE_ID = (
 B16_BATCHED_ROTATION_ID = (
     "camera_sdpa_compile_fused_b16_accum2_followup_batched_rotation_grid_sample"
 )
+IP_E4_PROMOTION_LOWER_BOUND = 1.02
+IP_E4_REFERENCE_ID = "camera_b16_batched_affine_reference"
+IP_E4_VECTORIZED_GEOMETRY_ID = (
+    "camera_b16_batched_affine_vectorized_geometry"
+)
 
 
 class Phase1PPairError(RuntimeError):
@@ -563,12 +568,91 @@ def compare_b16_batched_rotation_output_dirs(
     return summary
 
 
+def compare_ip_e4_vectorized_geometry_output_dirs(
+    reference_dir: str | Path,
+    candidate_dir: str | Path,
+) -> dict[str, Any]:
+    """Apply the owner-frozen IP-E4 output-neutral promotion gate."""
+    summary = compare_output_dirs(reference_dir, candidate_dir)
+    _require(
+        summary["reference"]["candidate_id"] == IP_E4_REFERENCE_ID,
+        "IP-E4 reference candidate identity drift",
+    )
+    _require(
+        summary["candidate"]["candidate_id"]
+        == IP_E4_VECTORIZED_GEOMETRY_ID,
+        "IP-E4 vectorized-geometry candidate identity drift",
+    )
+    _require(
+        summary["reference"]["physical_batch_size"]
+        == summary["candidate"]["physical_batch_size"]
+        == 16,
+        "IP-E4 must compare physical B16",
+    )
+    lower_bound = float(
+        summary["throughput"]["one_sided_95_percent_lower_bound"]
+    )
+    health = {
+        "reference_measurement": bool(
+            summary["reference"]["measurement_health"]["gate_pass"]
+        ),
+        "candidate_measurement": bool(
+            summary["candidate"]["measurement_health"]["gate_pass"]
+        ),
+        "reference_checkpoint_continuation": bool(
+            summary["reference"]["checkpoint_continuation"]["gate_pass"]
+        ),
+        "candidate_checkpoint_continuation": bool(
+            summary["candidate"]["checkpoint_continuation"]["gate_pass"]
+        ),
+        "same_batch_input_anchor_exact": bool(
+            summary["matched_allocation"]["same_batch_input_anchor_exact"]
+        ),
+    }
+    hard_gate_pass = all(health.values())
+    promoted = bool(
+        hard_gate_pass and lower_bound >= IP_E4_PROMOTION_LOWER_BOUND
+    )
+    if not hard_gate_pass:
+        verdict = "HARD_GATE_STOP"
+    elif promoted:
+        verdict = "PROMOTE_AND_UNLOCK_BULK_CONVERSION"
+    elif lower_bound > 1.0:
+        verdict = "POSITIVE_BELOW_PROMOTION_GATE"
+    else:
+        verdict = str(summary["throughput"]["speed_verdict"])
+    summary["schema"] = "s10.phase1p.ip-e4-vectorized-geometry-comparison.v1"
+    summary["envelope"] = "IP-E4"
+    summary["ip_e4_vectorized_geometry_gate"] = {
+        "one_sided_95_percent_lower_bound_threshold": (
+            IP_E4_PROMOTION_LOWER_BOUND
+        ),
+        "health_checks": health,
+        "hard_gate_pass": hard_gate_pass,
+        "verdict": verdict,
+        "promoted_by_owner_gate": promoted,
+        "conditional_bulk_input_conversion_implementation_eligible": promoted,
+        "rule": (
+            "promote vectorized geometry and unlock the separately scoped bulk "
+            "uint8-to-float32 candidate only when every hard gate passes and the "
+            "one-sided 95% speed-ratio lower bound is >=1.02"
+        ),
+    }
+    summary["promotion_authorized"] = promoted
+    summary["interpretation_limits"].append(
+        "IP-E4 may promote output-neutral runtime plumbing only; it makes no capability claim"
+    )
+    return summary
+
+
 __all__ = [
     "BOOTSTRAP_DRAWS",
     "B16_FOLLOWUP_NEAR_NEUTRAL_LOWER_BOUND",
+    "IP_E4_PROMOTION_LOWER_BOUND",
     "PAIR_SCHEMA",
     "Phase1PPairError",
     "compare_b16_batched_rotation_output_dirs",
     "compare_b16_followup_output_dirs",
+    "compare_ip_e4_vectorized_geometry_output_dirs",
     "compare_output_dirs",
 ]

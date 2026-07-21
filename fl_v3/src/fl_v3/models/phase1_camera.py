@@ -511,7 +511,8 @@ class Phase1CameraDetector(nn.Module):
             raise RuntimeError("Phase-I Camera profiler ranges are already active")
         self._operator_profile_ranges = True
         try:
-            yield self
+            with self.preprocess.operator_profile_ranges():
+                yield self
         finally:
             self._operator_profile_ranges = False
 
