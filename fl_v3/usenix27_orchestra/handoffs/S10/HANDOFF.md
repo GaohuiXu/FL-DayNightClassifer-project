@@ -1,4 +1,4 @@
-# S10 HANDOFF — Phase I-P Camera WP2 active; Envelope B remains frozen
+# S10 HANDOFF — Phase I-P ordered Camera WP2 probes terminal; Envelope B frozen
 
 ## 1. Current state and authority
 
@@ -10,8 +10,8 @@ FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a514
 ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the Phase-I control
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: strict IP-WP2 resumed in the approved order; IP-WP3/Envelope B frozen
-EXECUTION_STATE: augmentation and static-grid groups rejected on throughput; implement exact-gated batched affine/grid
+CURRENT_AUTHORITY: IP-E1 ordered Camera probes terminal; additional WP2 paused for owner discussion; IP-WP3/Envelope B frozen
+EXECUTION_STATE: three default-off candidates measured; no promotion or combination; owner disposition next
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -216,6 +216,26 @@ microbatch and the source-coordinate matrix multiply are batched. Focused CPU an
 CUDA elementwise equality must pass before the sustained model body. A CUDA rounding
 difference is a candidate-boundary failure and defers the item; it is not authority
 to relax tolerances or change interpolation math.
+
+Batched-grid Job `527323` passed CPU and CUDA elementwise preprocess equality before
+model construction, then completed 256/256 accepted windows and all checkpoint
+continuation gates. It was the best candidate at `15.7309` presentations/s and
+recovered `6.739-7.790%` relative to the two slower candidates, while stable-load
+GPU utilization/power reached `56.98% / 305.09 W`. It still remained `4.886%`
+below the `16.5390` reference and projects `31.04` rather than `29.53` presentation-
+only GH200-hours. Peak allocated/reserved stayed `16,038,303,744 /
+18,717,081,600` bytes, so the deliberately batched geometry did not create memory
+pressure, but neither did it establish payback. It is retained default-off as the
+best later engineering anchor, not promoted or repeated.
+
+The ordered WP2 result is therefore compact: augmentation cleanup `REJECT`, static
+grid `REJECT`, conservative batched grid `HOLD_FOR_LATER / NO_PROMOTION`. No
+candidate earned combination or the two-repeat final protocol. Smaller field-
+whitelist and target-D2H plumbing are paused because the trace ranks them below the
+already-negative items; spending the remaining base budget on them has poor expected
+payback. Current accounting after Job `527323` is base `1.617500 / 2.0`, code-bug
+reserve `0.146389 / 1.0`, hard aggregate `1.763889 / 3.0` charged GH200-hours.
+Unused budget is not IP-WP3, B8, SDPA/compile, fused-AdamW or Envelope-B authority.
 
 ### 1.2 Candidate classes and immutable scientific boundary
 
