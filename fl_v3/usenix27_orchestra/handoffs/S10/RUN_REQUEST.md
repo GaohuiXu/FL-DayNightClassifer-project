@@ -4,9 +4,9 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: IP-E3 conditional batched-rotation pair is next
-REQUEST_STATE: IP-E3 ACTIVE AT 1abe26b3cde2 / ENVELOPE B FROZEN
-EXECUTION_AUTHORITY: exact Section-9.4 serial single-GH200 envelope only
+ACTIVE_DECISION: IP-E3 terminal positive / Camera recipe owner decision pending
+REQUEST_STATE: IP-E3 TERMINAL / NO COMPUTE AUTHORITY / ENVELOPE B FROZEN
+EXECUTION_AUTHORITY: exhausted; neither further Camera cells nor DDP are executable
 ACTIVE_PHASE: Phase I-P Camera follow-up before any DDP or C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -1494,7 +1494,7 @@ Cells B and C each used one such allocation for both fresh processes and their p
 analysis. The displayed Cell-C attempt IDs are the terminal command-plumbing
 correction recorded above. All commands are now terminal and no longer executable.
 
-### 9.4 Camera B16 follow-up IP-E3 — exact request, activation pending
+### 9.4 Camera B16 follow-up IP-E3 — terminal positive
 
 This request implements the owner-frozen first step before any DDP work. It is a
 Camera-only, D_fit-only engineering profiler and cannot make capability or recipe-
@@ -1504,7 +1504,7 @@ defaults. A third implementation is conditionally in scope only under the exact
 unlock below.
 
 ```text
-REQUEST_STATE: ACTIVE / initial cell terminal positive / conditional cell executable
+REQUEST_STATE: TERMINAL / both exact cells completed / no further compute authority
 OWNER_APPROVAL: 2026-07-21 — approved containing SHA
   1abe26b3cde2f9f1c26fca130b999d054d6782b1, the >=0.98 conservative unlock,
   base 1.50 + code-bug reserve 0.50 / hard 2.00 charged GH200-hours,
@@ -1666,7 +1666,8 @@ CONDITIONAL_PREPROCESS_SHA256: f894206c8fbdc6b23b196e3b4ead5d9e38104d088526f7988
 CONDITIONAL_LOCAL_VALIDATION: shell syntax/shellcheck, Python syntax, JSON/profile
   validation, conditional-unlock replay and diff checks PASS; Torch unavailable on
   login, so exact CPU/CUDA forward-policy test remains a fail-closed GH200 pretest
-CONDITIONAL_STATE: exact one-pair cell executable; no result promotes the candidate
+CONDITIONAL_STATE_AT_SUBMISSION: exact one-pair cell executable; no result promotes
+  the candidate
 ```
 
 The exact conditional command from a clean containing source commit is:
@@ -1688,6 +1689,48 @@ sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
     fl_v3/configs/s10_phase1p_ip_e3_camera_b16_batched_rotation_grid_sample.json \
   --source-sha "${SOURCE_SHA}" \
   --approved-source-sha "${APPROVED_SOURCE_SHA}"
+```
+
+The conditional cell is terminal and closes IP-E3 compute:
+
+```text
+CONDITIONAL_JOB: 539853 / source e855320b59f8d616b6a5c44e7949850e46362184 /
+  tree 9bd0d59a2736c990ff63b8b50059d79b13fbd86d / n469
+CONDITIONAL_TERMINAL: COMPLETED 0:0 / 00:25:21 / 0.422500 charged GH200-hour
+PRETESTS: 8 passed, including GH200 CPU/CUDA output-policy and one-call grid_sample;
+  no pre-model incident
+REFERENCE: 26.340313 presentations/s; 256/256 measured accepted; checkpoint PASS;
+  zero invalid/discard/scaler-skip/nonfinite; peak allocated/reserved
+  54,663,514,624 / 65,238,204,416 bytes; no growth/recompile
+COMBINED_CANDIDATE: 27.537525 presentations/s; 256/256 measured accepted;
+  checkpoint PASS; zero invalid/discard/scaler-skip/nonfinite; peak allocated/
+  reserved 54,671,440,384 / 65,307,410,432 bytes (`64.0234%` visible);
+  no growth/recompile
+CHECKPOINT_NUMERICS: exact boundary/input/RNG/training/discrete/structure gates PASS;
+  model-parameter, BN mean/variance and Adam exp_avg/exp_avg_sq grouped diagnostics
+  all within max(frozen tolerance, 1.25x same-process repeat-control); elementwise
+  allclose remains false and diagnostic-only under the accepted policy
+PAIR: same allocation/node/GPU/source/config/CBGS and exact B16 input anchor;
+  candidate/reference ratio 1.045452; one-sided 95% lower bound 1.025241;
+  every hard gate PASS; POSITIVE_SCREEN; no automatic promotion
+PROJECTED_20_EPOCH: 18.585048 reference versus 17.777780 candidate GH200-hours;
+  diagnostic saving 0.807268
+CONDITIONAL_ARTIFACTS: pre-submission 9aa68b99...aa25e5; reference result
+  86c3fb8a...5164f; candidate result ab8975f0...2fd4c; pair
+  245cbaba...073dc; stdout/stderr bb024f10...fdea8 / 8db5d05b...1e830
+IP_E3_FINAL_USAGE: base 0.896389 / 1.50, unused 0.603611 expired;
+  code-bug reserve 0.000000 / 0.50, unused 0.500000 expired;
+  total 0.896389 / hard 2.00, unused 1.103611 expired
+CROSS_ALLOCATION_DIAGNOSTIC: conservative-effect / combined-effect ratio 1.049450;
+  10,000-draw one-sided 95% lower bound 1.032706 and two-sided interval
+  [1.030356, 1.076059]. This is advisory only because allocations/nodes differ;
+  it is not a new promotion gate
+SYNTHESIS: both items are positive screens; conservative affine/grid is simpler,
+  elementwise-exact in its focused test and showed the larger matched speedup
+  (1.097149 / lower 1.087948 versus 1.045452 / lower 1.025241). Recommend promoting
+  conservative affine/grid and retaining combined batched rotation default-off
+EXECUTABLE_NOW: no; owner Camera recipe decision and a separately frozen 2-GH200
+  DDP implementation/resource envelope are next
 ```
 
 The subsequent 2-GH200 work is intentionally not part of IP-E3. After IP-E3 is

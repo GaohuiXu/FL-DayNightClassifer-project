@@ -1,4 +1,4 @@
-# S10 HANDOFF — Camera B16 conditional follow-up active
+# S10 HANDOFF — Camera B16 follow-up terminal; owner recipe decision pending
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: IP-E3 conditional batched-rotation pair active; 2-GH200 DDP remains pending
+ACTIVE_DECISION: IP-E3 terminal positive; choose Camera preprocessing recipe before DDP
 SCIENCE_ORDER: Camera B16 follow-up, then 2-GH200 DDP qualification, then production refreeze/review
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: RUN_REQUEST.md Section 9.4 at approved SHA 1abe26b3cde2; 2.00 GH200-hour hard ceiling
-EXECUTION_STATE: exact serial single-GH200 IP-E3 profiler is executable; DDP and Envelope B are not
+CURRENT_AUTHORITY: scoped local analysis/docs/linear commits only; IP-E3 compute cells are terminal
+EXECUTION_STATE: no GPU/Slurm job is executable; DDP and Envelope B are not authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -612,9 +612,15 @@ reconciliation remains an owner decision before any production DDP promotion.
 No 2-GPU source work, resource ceiling, or Slurm execution is authorized yet.
 
 Current IP-E3 state: the conservative unlock passed and the exact combined
-batched-rotation/static-grid candidate is prepared default-off. One conditional
-same-allocation reference-versus-candidate pair remains executable inside the
-approved Section-9.4 base budget; it cannot promote a recipe automatically.
+batched-rotation/static-grid candidate then completed its exact conditional pair.
+Job `539853` measured `27.537525` versus `26.340313` presentations/s, ratio/lower
+bound `1.045452 / 1.025241`, with every hard gate PASS. Both candidates are positive,
+but the simpler conservative affine/grid screen had the larger matched speedup.
+A cross-allocation ratio-of-ratios bootstrap is diagnostic only but also favors the
+conservative item (`1.049450`, one-sided lower bound `1.032706`). The recommendation
+is therefore to promote conservative batched affine/grid and retain the combined
+batched-rotation candidate default-off. This remains an explicit owner recipe
+decision; no IP-E3 result promotes either candidate automatically.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
