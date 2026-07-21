@@ -11,7 +11,7 @@ ACTIVE_DECISION: conservative batched affine/grid accepted; bounded IP-E4 active
 SCIENCE_ORDER: Camera IP-E4, then 2-GH200 DDP qualification, then production refreeze/review
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: scoped IP-E4 source/docs/tests, linear commits and bounded single-GH200 execution
-EXECUTION_STATE: IP-E4 initial single-GH200 trace/pair prepared; DDP and Envelope B unauthorized
+EXECUTION_STATE: IP-E4 derived single-GH200 replacement prepared; DDP and Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -639,7 +639,10 @@ of this authority. Prepared implementation source
 `b909d4ee7e02375e230f2d44b193aae1d0af399b` batches only the existing float64
 3x3 construction/composition/inversion sequence; the bulk-conversion candidate
 remains locked until the first pair's hard gates pass and lower bound is at least
-`1.02`.
+`1.02`. Initial Job `541217` stopped before D_fit/model execution because its
+trace output suffix did not equal its attempt ID; the recorded one-line-derived
+runner repair consumes `0.016389` GH200-hour of bug reserve and changes no
+scientific or measurement input.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior

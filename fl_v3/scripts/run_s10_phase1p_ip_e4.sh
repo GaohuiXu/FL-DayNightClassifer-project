@@ -65,9 +65,12 @@ git -C "${source_root}" merge-base --is-ancestor \
   || fail "source worktree is not clean"
 
 expected_output_root="/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e4_${approved_source_sha:0:12}"
-trace_output="${expected_output_root}/camera/trace_${source_sha:0:12}_r1_b16_reference"
-reference_output="${expected_output_root}/camera/sustained_${source_sha:0:12}_r1_b16_reference"
-candidate_output="${expected_output_root}/camera/sustained_${source_sha:0:12}_r1_b16_vectorized_geometry"
+trace_attempt="b16_reference_trace"
+reference_attempt="b16_reference"
+candidate_attempt="b16_vectorized_geometry"
+trace_output="${expected_output_root}/camera/trace_${source_sha:0:12}_r1_${trace_attempt}"
+reference_output="${expected_output_root}/camera/sustained_${source_sha:0:12}_r1_${reference_attempt}"
+candidate_output="${expected_output_root}/camera/sustained_${source_sha:0:12}_r1_${candidate_attempt}"
 pair_output="${expected_output_root}/pairs/b16_reference_vs_vectorized_geometry.json"
 for fresh_path in "${trace_output}" "${reference_output}" "${candidate_output}" "${pair_output}"; do
   [[ ! -e "${fresh_path}" ]] || fail "fresh output already exists: ${fresh_path}"
@@ -117,7 +120,7 @@ run_one() {
     --repeat 1 --attempt-id "${attempt}"
 }
 
-run_one trace "${reference_profile}" "${trace_output}" b16_reference_trace
+run_one trace "${reference_profile}" "${trace_output}" "${trace_attempt}"
 python - "${trace_output}/torch_trace_summary.json" <<'PY'
 import json, sys
 with open(sys.argv[1], encoding="utf-8") as stream:
@@ -127,8 +130,8 @@ if missing:
     raise SystemExit(f"IP-E4 preprocessing subranges are missing: {missing}")
 PY
 
-run_one sustained "${reference_profile}" "${reference_output}" b16_reference
-run_one sustained "${candidate_profile}" "${candidate_output}" b16_vectorized_geometry
+run_one sustained "${reference_profile}" "${reference_output}" "${reference_attempt}"
+run_one sustained "${candidate_profile}" "${candidate_output}" "${candidate_attempt}"
 python fl_v3/scripts/s10_phase1p_ip_e4_compare.py \
   --reference-dir "${reference_output}" \
   --candidate-dir "${candidate_output}" \

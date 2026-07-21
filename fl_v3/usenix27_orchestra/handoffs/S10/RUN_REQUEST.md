@@ -1864,6 +1864,53 @@ sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
   --approved-source-sha "${APPROVED_SOURCE_SHA}"
 ```
 
+The initial submission exposed one pre-model command/provenance defect and is
+terminal. The replacement below is a strictly derived O-149 repair: it binds each
+output suffix to the same variable passed as `--attempt-id`; no profile, candidate,
+data, math, test, gate, window or resource changes.
+
+```text
+INITIAL_JOB: 541217 / source 9db1ce96ebc9488ebd8c1523962bebd4029cc6cf /
+  tree d754e7be48ed1b5fc0511c223fc323efe6b97fe4 / n447
+INITIAL_TERMINAL: FAILED 1:0 / 00:00:59 / 0.016389 charged GH200-hour
+INITIAL_PRETESTS: 9 passed in 3.73 seconds, including CPU/GH200-CUDA output policy;
+  no D_fit loader, model, trace, checkpoint or measurement output was created
+INCIDENT: trace attempt-id was `b16_reference_trace`, while the frozen output
+  suffix was `b16_reference`; the profiler rejected this exact path mismatch
+REMEDIATION: define the three attempt IDs once and derive each trace/sustained
+  output suffix from the identical variable; all scientific and measurement
+  inputs remain byte-identical
+REPLACEMENT_LAUNCHER_SHA256: 938634e65ab36051e46cd8f901755d740f774184c857433ce71bc59183e5ac76
+INITIAL_STDOUT_SHA256: 217e4a55556d0747912538778087c45dee9c6cebcbcad41226b81267c2bd2ec9
+INITIAL_STDERR_SHA256: b03d595a8882a0ad9b43c874dd9aafb116ad21e6edf915a8aa945f11bfd8a67c
+BUDGET_AFTER_INITIAL_INCIDENT: base used 0.000000 / 1.00; code-bug reserve used
+  0.016389 / 0.50; hard total used 0.016389 / 1.50
+REPLACEMENT_OUTPUTS: source-SHA-qualified fresh trace/reference/candidate paths;
+  fixed pair path remains absent; Slurm logs use fresh `slurm_replacement_%j`
+```
+
+The exact serial replacement invocation from this containing clean source commit
+is:
+
+```bash
+SOURCE_SHA=$(git rev-parse HEAD)
+APPROVED_SOURCE_SHA=7d4bb6efdbb7b8fb61ee72243c72a5ec3ef7d451
+ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e4_7d4bb6efdbb7
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G \
+  --gpus-per-node=nvidia_gh200_120gb:1 --time=00:45:00 --no-requeue \
+  --output="${ROOT}/slurm_replacement_%j.out" \
+  --error="${ROOT}/slurm_replacement_%j.err" \
+  fl_v3/scripts/run_s10_phase1p_ip_e4.sh \
+  --config fl_v3/configs/s10_phase1_camera.json \
+  --reference-profile \
+    fl_v3/configs/s10_phase1p_ip_e4_camera_b16_reference.json \
+  --candidate-profile \
+    fl_v3/configs/s10_phase1p_ip_e4_camera_b16_vectorized_geometry.json \
+  --source-sha "${SOURCE_SHA}" \
+  --approved-source-sha "${APPROVED_SOURCE_SHA}"
+```
+
 ## 10. Envelope-A compact execution ledger
 
 This is the sole terminal ledger for Envelope A. Submission rows were appended only when
