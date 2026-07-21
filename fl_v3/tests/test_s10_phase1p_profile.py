@@ -65,11 +65,37 @@ def _historical_camera_config():
     return config
 
 
+def _pre_ip_e4_camera_config():
+    """Reconstruct the immutable B16 source graph used by IP-E3/IP-E4."""
+    raw = json.loads(CAMERA.read_text(encoding="utf-8"))
+    raw["contract"]["throughput_decision"] = "IP-G2"
+    raw["contract"]["throughput_evidence_commit"] = (
+        "6ec7fb6d067259ac61ecaed89481e7e2562c3a2d"
+    )
+    raw["runtime_optimizations"].pop("camera_preprocess")
+    config = resolve_config(raw)
+    assert config.sha256 == (
+        "f6040d30c23571f049bba3602081a9ec3bbfbdafc5d5ab8b76e9dd375eb76f25"
+    )
+    return config
+
+
 def _assert_historical_camera_binding(profile) -> None:
     binding = profile.data["branch_bindings"]["camera"]
     assert binding["config_path"] == "fl_v3/configs/s10_phase1_camera.json"
     assert binding["config_file_sha256"] == HISTORICAL_CAMERA_FILE_SHA256
     assert binding["resolved_config_sha256"] == HISTORICAL_CAMERA_RESOLVED_SHA256
+
+
+def _assert_pre_ip_e4_camera_binding(profile) -> None:
+    binding = profile.data["branch_bindings"]["camera"]
+    assert binding["config_path"] == "fl_v3/configs/s10_phase1_camera.json"
+    assert binding["config_file_sha256"] == (
+        "25f53fc554c348c329c7a9cf4b9a5c8d521d993908114fbf64a46f75b3db0bda"
+    )
+    assert binding["resolved_config_sha256"] == (
+        "f6040d30c23571f049bba3602081a9ec3bbfbdafc5d5ab8b76e9dd375eb76f25"
+    )
 
 
 def _runner_module():
@@ -175,17 +201,14 @@ def test_ip_e2_profiles_are_exact_camera_only_mappings():
 
 def test_ip_e3_profiles_bind_the_promoted_b16_stack():
     assert len(IP_E3_PROFILES) == len(IP_E3_RUNNABLE_CANDIDATES) == 3
-    source = load_resolved_config(CAMERA)
-    assert source.sha256 == (
-        "f6040d30c23571f049bba3602081a9ec3bbfbdafc5d5ab8b76e9dd375eb76f25"
-    )
+    source = _pre_ip_e4_camera_config()
     seen = set()
     for path in IP_E3_PROFILES:
         profile = load_phase1_profile_spec(path)
         candidate_id = str(profile.data["candidate_id"])
         seen.add(candidate_id)
         assert profile.data["envelope"] == "IP-E3"
-        profile.assert_branch_binding("camera", CAMERA, source)
+        _assert_pre_ip_e4_camera_binding(profile)
         profile.assert_runnable("camera")
         assert dict(profile.candidates) == IP_E3_RUNNABLE_CANDIDATES[
             candidate_id
@@ -205,17 +228,14 @@ def test_ip_e3_profiles_bind_the_promoted_b16_stack():
 
 def test_ip_e4_profiles_bind_the_final_b16_stack():
     assert len(IP_E4_PROFILES) == len(IP_E4_RUNNABLE_CANDIDATES) == 3
-    source = load_resolved_config(CAMERA)
-    assert source.sha256 == (
-        "f6040d30c23571f049bba3602081a9ec3bbfbdafc5d5ab8b76e9dd375eb76f25"
-    )
+    source = _pre_ip_e4_camera_config()
     seen = set()
     for path in IP_E4_PROFILES:
         profile = load_phase1_profile_spec(path)
         candidate_id = str(profile.data["candidate_id"])
         seen.add(candidate_id)
         assert profile.data["envelope"] == "IP-E4"
-        profile.assert_branch_binding("camera", CAMERA, source)
+        _assert_pre_ip_e4_camera_binding(profile)
         profile.assert_runnable("camera")
         assert dict(profile.candidates) == IP_E4_RUNNABLE_CANDIDATES[
             candidate_id
@@ -643,9 +663,27 @@ def test_promoted_camera_runtime_stack_applies_exact_profiled_scope(monkeypatch)
     monkeypatch.setattr(torch, "compile", fake_compile)
     monkeypatch.setattr(swin_sdpa, "apply_sdpa_to_swin", lambda module: 12)
 
+    class Preprocess:
+        def __init__(self):
+            self.batched_affine_grid = False
+            self.vectorized_geometry = False
+            self.bulk_input_conversion = False
+
+        def set_phase1p_batched_affine_grid(self, value):
+            self.batched_affine_grid = bool(value)
+
+        def set_phase1p_vectorized_geometry(self, value):
+            assert self.batched_affine_grid
+            self.vectorized_geometry = bool(value)
+
+        def set_phase1p_bulk_input_conversion(self, value):
+            assert self.vectorized_geometry
+            self.bulk_input_conversion = bool(value)
+
     class Model(torch.nn.Module):
         def __init__(self):
             super().__init__()
+            self.preprocess = Preprocess()
             for name in (
                 "camera_backbone",
                 "camera_neck",
@@ -663,6 +701,14 @@ def test_promoted_camera_runtime_stack_applies_exact_profiled_scope(monkeypatch)
     assert tuple(model.state_dict()) == before
     assert record["sdpa_modules_patched"] == 12
     assert record["fused_adamw"] is True
+    assert record["camera_preprocess"] == {
+        "batched_affine_grid": True,
+        "vectorized_geometry": True,
+        "bulk_input_conversion": True,
+    }
+    assert model.preprocess.batched_affine_grid is True
+    assert model.preprocess.vectorized_geometry is True
+    assert model.preprocess.bulk_input_conversion is True
     assert record["compiled_forward_modules"] == [
         "camera_backbone",
         "camera_neck",

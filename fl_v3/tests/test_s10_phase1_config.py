@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -66,9 +67,19 @@ def test_phase1_cbgs_and_effective_exposure_are_explicit_and_aligned():
         )
 
 
-def test_phase1_camera_ip_g2_recipe_is_exact_b16_runtime_stack():
-    config = load_resolved_config(CAMERA).as_dict()
-    assert config["contract"]["throughput_decision"] == "IP-G2"
+def test_phase1_camera_ip_e4_recipe_is_exact_b16_runtime_stack():
+    resolved = load_resolved_config(CAMERA)
+    assert hashlib.sha256(CAMERA.read_bytes()).hexdigest() == (
+        "2e5368f96a6198e9a3b1bd43b258b53675df49f5c6ca9042fa8f72e0084c3b6a"
+    )
+    assert resolved.sha256 == (
+        "0df1a19c057312923e0a8e48e81689d9ca265cc613c6f34d4795417414aa0bcf"
+    )
+    config = resolved.as_dict()
+    assert config["contract"]["throughput_decision"] == "IP-E4"
+    assert config["contract"]["throughput_evidence_commit"] == (
+        "48fa78a60b3308c407fbc16b64dde188216f87e4"
+    )
     assert config["training"]["micro_batch_size"] == 16
     assert config["training"]["accumulation_steps"] == 2
     assert config["training"]["effective_global_batch"] == 32
@@ -77,6 +88,11 @@ def test_phase1_camera_ip_g2_recipe_is_exact_b16_runtime_stack():
     assert config["checkpointing"]["recovery_cadence_epochs"] == 1
     runtime = config["runtime_optimizations"]
     assert runtime["camera_sdpa"] is True
+    assert runtime["camera_preprocess"] == {
+        "batched_affine_grid": True,
+        "vectorized_geometry": True,
+        "bulk_input_conversion": True,
+    }
     assert runtime["torch_compile"] == {
         "enabled": True,
         "scope": "forward_only",
@@ -110,6 +126,13 @@ def test_phase1_run_bridge_carries_full_resolved_recipe_and_leaf_inventory():
         (CAMERA, lambda c: c["optimizer"]["parameter_group_rules"][0].update(decay_mult=1.0), "parameter_group_rules"),
         (CAMERA, lambda c: c["training"].update(micro_batch_size=8), "training"),
         (CAMERA, lambda c: c["runtime_optimizations"].update(camera_sdpa=False), "camera_sdpa"),
+        (
+            CAMERA,
+            lambda c: c["runtime_optimizations"]["camera_preprocess"].update(
+                bulk_input_conversion=False
+            ),
+            "bulk_input_conversion",
+        ),
         (CAMERA, lambda c: c["runtime_optimizations"]["torch_compile"].update(modules=["head"]), "modules"),
         (LIDAR, lambda c: c["data"].update(train_point_sweeps=10), "data.train_point_sweeps"),
         (LIDAR, lambda c: c["gt_paste"].update(yaw_jitter_radians=0.1), "gt_paste.yaw_jitter_radians"),

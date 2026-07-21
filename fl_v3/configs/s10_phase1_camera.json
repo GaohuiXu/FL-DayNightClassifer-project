@@ -7,8 +7,8 @@
     "request_commit": "e321aed749fd859c809199d52c30b2771dbef8b3",
     "amendment_decision": "O-150",
     "amendment_commit": "2a26c63b61022e2947043a9ffd0538d537c51fb9",
-    "throughput_decision": "IP-G2",
-    "throughput_evidence_commit": "6ec7fb6d067259ac61ecaed89481e7e2562c3a2d",
+    "throughput_decision": "IP-E4",
+    "throughput_evidence_commit": "48fa78a60b3308c407fbc16b64dde188216f87e4",
     "reference_repository": "mit-han-lab/bevfusion",
     "reference_commit": "326653dc06e0938edf1aae7d01efcd158ba83de5",
     "reference_license": "Apache-2.0",
@@ -92,6 +92,11 @@
   },
   "runtime_optimizations": {
     "camera_sdpa": true,
+    "camera_preprocess": {
+      "batched_affine_grid": true,
+      "vectorized_geometry": true,
+      "bulk_input_conversion": true
+    },
     "torch_compile": {
       "enabled": true,
       "scope": "forward_only",

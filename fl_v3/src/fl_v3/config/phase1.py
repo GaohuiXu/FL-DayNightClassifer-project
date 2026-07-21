@@ -25,6 +25,7 @@ PHASE1_PLAN_SHA = "260750a76548208f62c384b0e0547744b619244c"
 PHASE1_REQUEST_COMMIT = "e321aed749fd859c809199d52c30b2771dbef8b3"
 PHASE1_O150_AMENDMENT_COMMIT = "2a26c63b61022e2947043a9ffd0538d537c51fb9"
 PHASE1_IP_G2_EVIDENCE_COMMIT = "6ec7fb6d067259ac61ecaed89481e7e2562c3a2d"
+PHASE1_IP_E4_EVIDENCE_COMMIT = "48fa78a60b3308c407fbc16b64dde188216f87e4"
 MIT_BEVFUSION_COMMIT = "326653dc06e0938edf1aae7d01efcd158ba83de5"
 
 CAMERA_COMPILE_FORWARD_MODULES = (
@@ -454,10 +455,16 @@ def _validate_contract(raw: Any, schema_version: str) -> tuple[dict[str, Any], s
         )
     if schema_version == PHASE1_SCHEMA_V3:
         _same(branch, "camera", "contract.branch")
-        _same(contract["throughput_decision"], "IP-G2", "contract.throughput_decision")
+        decision = contract["throughput_decision"]
+        evidence_commits = {
+            "IP-G2": PHASE1_IP_G2_EVIDENCE_COMMIT,
+            "IP-E4": PHASE1_IP_E4_EVIDENCE_COMMIT,
+        }
+        if not isinstance(decision, str) or decision not in evidence_commits:
+            raise Phase1ConfigError("contract.throughput_decision is unknown")
         _same(
             contract["throughput_evidence_commit"],
-            PHASE1_IP_G2_EVIDENCE_COMMIT,
+            evidence_commits[decision],
             "contract.throughput_evidence_commit",
         )
     _same(contract["reference_repository"], "mit-han-lab/bevfusion", "contract.reference_repository")
@@ -693,22 +700,47 @@ def _validate_runtime_optimizations(
     raw: Any,
     branch: str,
     schema_version: str,
+    throughput_decision: str,
 ) -> None:
     if schema_version != PHASE1_SCHEMA_V3 or branch != "camera":
         raise Phase1ConfigError(
             "runtime_optimizations is reserved for the promoted Camera recipe"
         )
-    runtime = _keys(
-        raw,
-        {"camera_sdpa", "torch_compile", "state_dict_names_unchanged_required"},
-        "runtime_optimizations",
-    )
+    runtime_keys = {
+        "camera_sdpa",
+        "torch_compile",
+        "state_dict_names_unchanged_required",
+    }
+    if throughput_decision == "IP-E4":
+        runtime_keys.add("camera_preprocess")
+    runtime = _keys(raw, runtime_keys, "runtime_optimizations")
     _same(runtime["camera_sdpa"], True, "runtime_optimizations.camera_sdpa")
     _same(
         runtime["state_dict_names_unchanged_required"],
         True,
         "runtime_optimizations.state_dict_names_unchanged_required",
     )
+    preprocess_spec = runtime.get("camera_preprocess")
+    if preprocess_spec is not None:
+        preprocess_spec = _keys(
+            preprocess_spec,
+            {
+                "batched_affine_grid",
+                "vectorized_geometry",
+                "bulk_input_conversion",
+            },
+            "runtime_optimizations.camera_preprocess",
+        )
+        for key in (
+            "batched_affine_grid",
+            "vectorized_geometry",
+            "bulk_input_conversion",
+        ):
+            _same(
+                preprocess_spec[key],
+                True,
+                f"runtime_optimizations.camera_preprocess.{key}",
+            )
     compile_spec = _keys(
         runtime["torch_compile"],
         {"enabled", "scope", "backend", "dynamic", "mode", "modules"},
@@ -1090,7 +1122,10 @@ def validate_phase1_config(raw: Mapping[str, Any]) -> dict[str, Any]:
     _validate_training(root["training"], branch, schema_version)
     if schema_version == PHASE1_SCHEMA_V3:
         _validate_runtime_optimizations(
-            root["runtime_optimizations"], branch, schema_version
+            root["runtime_optimizations"],
+            branch,
+            schema_version,
+            str(contract["throughput_decision"]),
         )
     _validate_data(root["data"])
     _same(

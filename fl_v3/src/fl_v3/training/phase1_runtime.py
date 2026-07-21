@@ -32,9 +32,10 @@ def apply_phase1_runtime_optimizations(
 ) -> dict[str, Any]:
     """Apply the exact runtime stack encoded by a resolved production recipe.
 
-    The operation changes only Swin attention dispatch and selected module
-    ``forward`` callables. Parameter and buffer names must remain unchanged so
-    optimizer grouping and checkpoint compatibility stay bound to the same graph.
+    The operation changes only Camera preprocessing dispatch, Swin attention
+    dispatch and selected module ``forward`` callables. Parameter and buffer names
+    must remain unchanged so optimizer grouping and checkpoint compatibility stay
+    bound to the same graph.
     """
     if hasattr(model, "_phase1_runtime_optimization_identity"):
         raise RuntimeError("Phase-I runtime optimizations were applied more than once")
@@ -44,6 +45,11 @@ def apply_phase1_runtime_optimizations(
     if spec is None:
         record = {
             "camera_sdpa": False,
+            "camera_preprocess": {
+                "batched_affine_grid": False,
+                "vectorized_geometry": False,
+                "bulk_input_conversion": False,
+            },
             "sdpa_modules_patched": 0,
             "torch_compile": False,
             "fused_adamw": bool(raw["optimizer"]["fused"]),
@@ -65,6 +71,37 @@ def apply_phase1_runtime_optimizations(
         raise RuntimeError(
             f"Camera production SDPA patched {sdpa_modules} modules, expected 12"
         )
+
+    preprocess_identity = {
+        "batched_affine_grid": False,
+        "vectorized_geometry": False,
+        "bulk_input_conversion": False,
+    }
+    preprocess_spec = spec.get("camera_preprocess")
+    if preprocess_spec is not None:
+        preprocess = getattr(model, "preprocess", None)
+        setters = (
+            (
+                "batched_affine_grid",
+                getattr(preprocess, "set_phase1p_batched_affine_grid", None),
+            ),
+            (
+                "vectorized_geometry",
+                getattr(preprocess, "set_phase1p_vectorized_geometry", None),
+            ),
+            (
+                "bulk_input_conversion",
+                getattr(preprocess, "set_phase1p_bulk_input_conversion", None),
+            ),
+        )
+        for name, setter in setters:
+            if not callable(setter):
+                raise RuntimeError(
+                    f"Camera production preprocessing setter {name!r} is absent"
+                )
+            enabled = bool(preprocess_spec[name])
+            setter(enabled)
+            preprocess_identity[name] = enabled
 
     compile_spec = spec["torch_compile"]
     compiled_modules: list[str] = []
@@ -91,6 +128,7 @@ def apply_phase1_runtime_optimizations(
         )
     record = {
         "camera_sdpa": True,
+        "camera_preprocess": preprocess_identity,
         "sdpa_modules_patched": sdpa_modules,
         "torch_compile": True,
         "fused_adamw": bool(raw["optimizer"]["fused"]),
