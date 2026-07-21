@@ -1727,10 +1727,14 @@ CROSS_ALLOCATION_DIAGNOSTIC: conservative-effect / combined-effect ratio 1.04945
   it is not a new promotion gate
 SYNTHESIS: both items are positive screens; conservative affine/grid is simpler,
   elementwise-exact in its focused test and showed the larger matched speedup
-  (1.097149 / lower 1.087948 versus 1.045452 / lower 1.025241). Recommend promoting
-  conservative affine/grid and retaining combined batched rotation default-off
-EXECUTABLE_NOW: no; owner Camera recipe decision and a separately frozen 2-GH200
-  DDP implementation/resource envelope are next
+  (1.097149 / lower 1.087948 versus 1.045452 / lower 1.025241)
+OWNER_RECIPE_DECISION: both implementations are accepted as qualified output-neutral
+  paths. Conservative batched affine/grid is the production default; the combined
+  static-grid plus batched-rotation path is retained as a qualified optional path
+  but is not selected by the production recipe. The combined path already contains
+  conservative batched affine/grid, so their measured gains are not additive
+EXECUTABLE_NOW: no; final production source/config materialization and a separately
+  frozen follow-up or 2-GH200 DDP implementation/resource envelope are next
 ```
 
 The subsequent 2-GH200 work is intentionally not part of IP-E3. After IP-E3 is

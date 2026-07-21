@@ -617,10 +617,15 @@ Job `539853` measured `27.537525` versus `26.340313` presentations/s, ratio/lowe
 bound `1.045452 / 1.025241`, with every hard gate PASS. Both candidates are positive,
 but the simpler conservative affine/grid screen had the larger matched speedup.
 A cross-allocation ratio-of-ratios bootstrap is diagnostic only but also favors the
-conservative item (`1.049450`, one-sided lower bound `1.032706`). The recommendation
-is therefore to promote conservative batched affine/grid and retain the combined
-batched-rotation candidate default-off. This remains an explicit owner recipe
-decision; no IP-E3 result promotes either candidate automatically.
+conservative item (`1.049450`, one-sided lower bound `1.032706`). The owner accepts
+both paths as output-neutral, qualified implementations. Conservative batched
+affine/grid is the production default because it showed the larger matched benefit
+with the simpler path. The combined static-grid plus batched-rotation implementation
+is retained as a qualified optional path and is not selected by the production
+recipe. These are not additive choices: the combined implementation already
+contains conservative batched affine/grid. This decision does not activate compute,
+DDP or Envelope B; the final production config/source binding remains part of the
+next recipe-freeze boundary.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
