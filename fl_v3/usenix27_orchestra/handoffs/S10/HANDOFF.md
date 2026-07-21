@@ -10,8 +10,8 @@ FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a514
 ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the Phase-I control
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: Section-8 IP-E1; WP0 runtime closed; owner disposition required at WP1 instability stop
-EXECUTION_STATE: submissions paused after the conditional third LiDAR sustained repeat
+CURRENT_AUTHORITY: Section-8 IP-E1 Camera WP1 only; LiDAR trace frozen; WP2 owner-paused
+EXECUTION_STATE: LiDAR baseline frozen with hardware/power limitation; next cell is Camera sustained r1
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -89,9 +89,14 @@ from about `56.81% / 289.84 W` to `53.27% / 285.55 W` and `52.31% / 280.12 W` at
 fixed reported clocks. The data therefore point to runtime/system compute variation,
 not loader, memory, acceptance or checkpoint failure, but do not identify its cause.
 The frozen conditional third repeat has been consumed; unresolved >3% instability
-blocks a LiDAR speed claim and triggers owner escalation. No trace, Camera or WP2
-job is queued. Current accounting is base `0.426389 / 2.0`, code-bug reserve
-`0.146389 / 1.0`, hard aggregate `0.572778 / 3.0` charged GH200-hours.
+blocks a LiDAR speed claim. The owner subsequently accepted that HPC hardware/power
+variation makes more identical LiDAR measurement poor-value: no fourth sustained
+repeat is permitted and the LiDAR trace is frozen. The three rates remain an
+engineering interval with median `38.0943` presentations/s, not a stable promotion
+baseline or scientific result. Camera WP1 may proceed under the original repeat and
+trace protocol; WP2 is explicitly paused for further owner discussion. Current
+accounting is base `0.426389 / 2.0`, code-bug reserve `0.146389 / 1.0`, hard
+aggregate `0.572778 / 3.0` charged GH200-hours.
 
 ### 1.2 Candidate classes and immutable scientific boundary
 

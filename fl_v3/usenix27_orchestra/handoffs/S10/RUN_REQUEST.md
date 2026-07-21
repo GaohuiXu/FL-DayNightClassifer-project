@@ -5,8 +5,8 @@
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
 ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the frozen Phase-I control
-REQUEST_STATE: IP-E1 ACTIVE / WP0 RUNTIME CLOSED / PAUSED AT LIDAR INSTABILITY STOP
-EXECUTION_AUTHORITY: Section 8 only; further submission requires owner disposition
+REQUEST_STATE: IP-E1 ACTIVE / LIDAR BASELINE FROZEN / CAMERA WP1 AUTHORIZED / WP2 PAUSED
+EXECUTION_AUTHORITY: Section 8 Camera WP1 only; LiDAR trace and all WP2 cells frozen
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -752,8 +752,13 @@ BN mean `0.00226839 / 0.00270428; 0.0792162 / 0.103417`, BN var
 `5.46709e-5 / 0.002; 7.60471e-6 / 0.0002`. The original old-gate terminal label is
 preserved as historical evidence; under the amended rule LiDAR sustained r1 is an
 accepted WP1 reference. Jobs `527225` and `527229` then exhausted the frozen repeat
-protocol and reached the unresolved-instability stop recorded above; no speed claim
-or further submission is authorized by inference.
+protocol and reached the unresolved-instability stop recorded above. The owner then
+directed no additional LiDAR repeat, froze the LiDAR trace, and accepted HPC
+hardware/power variation as the reason not to spend further profiler budget on that
+branch. This is an operational disposition, not a proven causal attribution or a
+stable LiDAR speed claim. Camera WP1 resumes under the unchanged two-repeat,
+conditional-third and one-trace protocol. WP2 is owner-paused pending discussion;
+no strict-output-neutral candidate cell may run by inference.
 
 ## 9. Envelope-A compact execution ledger
 
