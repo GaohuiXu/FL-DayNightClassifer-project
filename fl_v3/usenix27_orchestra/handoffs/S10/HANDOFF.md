@@ -10,8 +10,8 @@ FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a514
 ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the Phase-I control
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: Section-8 IP-E1 Camera WP1 only; LiDAR trace frozen; WP2 owner-paused
-EXECUTION_STATE: LiDAR baseline frozen with hardware/power limitation; next cell is Camera sustained r1
+CURRENT_AUTHORITY: Section-8 IP-E1; Camera WP1 paused at continuation-parity stop; WP2 owner-paused
+EXECUTION_STATE: LiDAR trace frozen; Camera r1 measurement valid but checkpoint continuation FAIL
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -97,6 +97,21 @@ baseline or scientific result. Camera WP1 may proceed under the original repeat 
 trace protocol; WP2 is explicitly paused for further owner discussion. Current
 accounting is base `0.426389 / 2.0`, code-bug reserve `0.146389 / 1.0`, hard
 aggregate `0.572778 / 3.0` charged GH200-hours.
+
+Camera sustained r1 Job `527239` produced a valid 256/256-window main measurement
+at `16.5390` presentations/s with zero nonfinite/overflow/discarded windows, mean
+loader wait `2.3420 ms/window`, and peak allocated/reserved
+`16,038,963,200 / 18,723,373,056` bytes (`18.3553%` reserved). The checkpoint was
+`525,165,739` bytes; save plus file/model hashing cost about `0.8053 s/epoch`, so
+checkpoint cadence is not a material Camera throughput lever. Exact checkpoint
+boundary, all 64 input hashes, RNG, training state and discrete state passed, but
+fresh-process continuation exceeded the owner-amended same-process envelope in all
+five groups: Adam moments failed both metrics; BN mean/var and model parameters each
+failed one metric. This is a numerical acceptance failure, not a code defect; the
+valid one-repeat projection of about `29.56` GH200-hours is preliminary and cannot
+close a stable baseline. Camera r2 and Camera trace are not submitted. Current
+accounting is base `0.638889 / 2.0`, code-bug reserve `0.146389 / 1.0`, hard
+aggregate `0.785278 / 3.0` charged GH200-hours.
 
 ### 1.2 Candidate classes and immutable scientific boundary
 

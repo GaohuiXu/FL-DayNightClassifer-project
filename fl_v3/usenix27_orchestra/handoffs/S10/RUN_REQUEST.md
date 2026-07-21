@@ -5,8 +5,8 @@
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
 ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the frozen Phase-I control
-REQUEST_STATE: IP-E1 ACTIVE / LIDAR BASELINE FROZEN / CAMERA WP1 AUTHORIZED / WP2 PAUSED
-EXECUTION_AUTHORITY: Section 8 Camera WP1 only; LiDAR trace and all WP2 cells frozen
+REQUEST_STATE: IP-E1 ACTIVE / LIDAR FROZEN / CAMERA WP1 PARITY STOP / WP2 PAUSED
+EXECUTION_AUTHORITY: no further submission; owner disposition required
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -719,9 +719,10 @@ reserve. Raw Slurm logs and any created attempt directory are immutable.
 | Job `525192`, LiDAR sustained r1 checkpoint diagnostic | source `a8a0b1498d020a51902d3008bfbcb65c4eaa3649`; same approved source/profile; attempt `lidar/sustained_a8a0b1498d02_r1_ckptdiag`; measurement `5208e80d...e4ae`; terminal result `62e8249c...b6b`; checkpoint `7a5e12ad...4379`; worker result `da05fada...f173` | `FAILED_CHECKPOINT_PARITY` in `00:08:42`, with valid persisted main measurement: 256/256 accepted, `40.4214` presentations/s, `1.26317` updates/s, mean loader wait `1.5169 ms/window`, peak allocated/reserved `5,534,907,904 / 6,958,350,336` bytes (`6.8215%` reserved), no scaler skip/nonfinite. All 64 continuation microbatch hashes, state and RNG were exact. Boundary restore was exact. Both same-process replay and fresh-process replay failed per-tensor FP16 allclose while remaining globally small: model relative L2 `1.32064e-4 / 6.56332e-5`, optimizer `6.17808e-5 / 6.20772e-5`. This localizes the divergence to permitted runtime-kernel nondeterminism rather than loader order, checkpoint I/O or fresh-process reconstruction. The frozen elementwise gate was not changed. One-repeat projection is `12.1294` GH200-hours for 20 epochs using the end-to-end `167.341 s` pre-training startup plus measured per-epoch checkpoint/hash cost; it is preliminary, not a final baseline. The measured save+file-hash+model-hash cost is only `0.23468 s/epoch` (`4.69 s` over 20 epochs), so lowering checkpoint cadence is not a material LiDAR speed lever. | reserve `0.145000`; base `0.000000` |
 | Job `527225`, LiDAR sustained reference r2 | source `3b23a7df4818d34524ac3b01e88cba04b46ae82a`; same approved source/profile; attempt `lidar/sustained_3b23a7df4818_r2_calibrated`; measurement `55f0b2b6...0708`; result `b1645479...fe98`; complete `3d9f48dd...96f`; checkpoint `a8b4d136...500d`; worker result `0a4b61d9...ca76` | `COMPLETE_SUSTAINED` in `00:09:01`: 256/256 accepted, `38.0943` presentations/s and `1.19045` updates/s; mean/p95 loader wait `2.1058 / 2.0121 ms/window` with one `67.22 ms` maximum; peak allocated/reserved unchanged at `5,534,907,904 / 6,958,350,336` bytes; no scaler skip/nonfinite/discard. Exact boundary/input/RNG/training/discrete state and all five calibrated continuation groups PASS; per-element allclose remains diagnostic FAIL. r1-r2 spread is `5.928%`, so the frozen protocol triggers repeat 3. | base `0.150278`; reserve `0.000000` |
 | Job `527229`, LiDAR sustained conditional r3 | same source/profile; attempt `lidar/sustained_3b23a7df4818_r3_calibrated`; measurement `ec4f5c66...196d`; result `31b5c5cb...6b1f`; complete `9b6eb190...2e4e`; checkpoint `4026492a...358d`; worker result `fd0cbe48...5070` | `COMPLETE_SUSTAINED` in `00:07:36`: 256/256 accepted, `36.9148` presentations/s and `1.15359` updates/s; mean/p95 loader wait `1.9870 / 4.1063 ms/window`; memory and numerical-health gates unchanged; exact boundary/input/RNG/training/discrete state and all five calibrated groups PASS. Three-repeat rates are `40.4214 / 38.0943 / 36.9148`; min-max spread/mean is `9.113%`, while same-node r2-r3 spread remains `3.145%`. Measurement-window GPU utilization/power declines `56.81% / 289.84 W -> 53.27% / 285.55 W -> 52.31% / 280.12 W` at fixed reported clocks; loader, input identity, memory and accepted-update evidence do not explain the change. Conditional repeat is exhausted and the unresolved-instability owner stop is reached. | base `0.126667`; reserve `0.000000` |
+| Job `527239`, Camera sustained reference r1 | source `e3a42364236a6d4a237c3ad01d97d90656cb9de8`; same approved source/profile; attempt `camera/sustained_e3a42364236a_r1_reference`; measurement `c17b369f...3a67`; result `bf32835f...ba3`; failed `d2d8485b...6d43`; checkpoint `b45b3c4e...8b81`; worker result `a0cdc8fd...4426`; nvidia sampling `ff1f72c5...e2c1` | `FAILED_CHECKPOINT_PARITY` in `00:12:45` after a valid main interval: 256/256 accepted, `16.5390` presentations/s and `0.516845` updates/s, loader mean/p95 `2.3420 / 2.5142 ms/window`, peak allocated/reserved `16,038,963,200 / 18,723,373,056` bytes (`18.3553%`), zero overflow/nonfinite/discard. Boundary, 64 input hashes, RNG, training/discrete state are exact. The grouped gate fails without changing tolerances: fresh/control ratios reach `1.475/1.559` for Adam `exp_avg`, `1.399/1.297` for `exp_avg_sq`; BN mean max-abs, BN var relative-L2 and model-parameter max-abs also exceed their 1.25x/frozen limits. The 525,165,739-byte checkpoint's save+file/model-hash cost is `0.8053 s/epoch`; the one-repeat 20-epoch projection is about `29.56` GH200-hours but remains preliminary. This is not a code defect; Camera r2/trace stop for owner disposition. | base `0.212500`; reserve `0.000000` |
 
-Current accounting after Job `527229`: base cells `0.426389 / 2.0`, code-bug
-reserve `0.146389 / 1.0`, hard aggregate `0.572778 / 3.0` charged GH200-hours.
+Current accounting after Job `527239`: base cells `0.638889 / 2.0`, code-bug
+reserve `0.146389 / 1.0`, hard aggregate `0.785278 / 3.0` charged GH200-hours.
 The worktree-path repair is sealed at source `b2ee9900cdc4968180bf90e39c10e62db94cac1b`
 with wrapper hash `4f532d1e...c564d`. The next derived diagnostic persists the
 main measurement before checkpoint work, hashes all 64 continuation microbatches,
@@ -758,7 +759,10 @@ hardware/power variation as the reason not to spend further profiler budget on t
 branch. This is an operational disposition, not a proven causal attribution or a
 stable LiDAR speed claim. Camera WP1 resumes under the unchanged two-repeat,
 conditional-third and one-trace protocol. WP2 is owner-paused pending discussion;
-no strict-output-neutral candidate cell may run by inference.
+no strict-output-neutral candidate cell may run by inference. Camera Job `527239`
+then reached the grouped continuation-parity stop described in the ledger; the
+owner's instruction to continue Camera WP1 did not waive that gate, so neither r2
+nor Camera trace is authorized by inference.
 
 ## 9. Envelope-A compact execution ledger
 
