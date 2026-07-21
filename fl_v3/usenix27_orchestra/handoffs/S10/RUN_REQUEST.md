@@ -822,6 +822,56 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
   --repeat 1 --attempt-id augcleanup
 ```
 
+### 8.6 WP2 Camera augmentation-cleanup value-table refinement
+
+Job `527276` is immutable and terminal negative. It removed the GPU round trip but
+left `augmentation_params` in recursively pinned DataLoader memory, after which the
+unchanged Python loop read 168 scalar tensor values per B4 microbatch. The derived
+implementation converts the same contiguous CPU float64 `24x7` block to Python
+float values once per microbatch. It does not change the loader tensor, sampled
+values, image order, resize/crop/flip/affine/grid math, returned training tensors,
+loss, update, precision or checkpoint semantics.
+
+```text
+DERIVES_FROM: Job 527276 / measured negative implementation mechanism
+SOURCE: containing pre-submission commit; runtime implementation parent
+        57c928eac212e1604b4eeca3ed6e2c94c2083f68; no runtime-file change follows
+CANDIDATE_ID: camera_aug_transfer_cleanup_b4_accum8
+SINGLE_CHANGED_OPTION: camera_augmentation_transfer_cleanup=true; every other
+                       candidate option remains at the reference value
+PROFILE: fl_v3/configs/s10_phase1p_camera_aug_cleanup.json
+PROFILE_FILE_SHA256: 9a9a48b9185cbeac59d6614c6bb7567a11d5f3ae4a6f1d55145afb6f6b147cb9
+PROFILE_CANONICAL_SHA256: cdeed0799bb87d8916512d90befbd2a903329a8fea69766dc611eef82a6a9d6e
+PREPROCESS_SHA256: ef3907bb2582a8c12e8fdeba7ff0badafae860bccc2d5d7fba0551984e996a6e
+LOCAL_VALIDATION: git diff --check and Python py_compile PASS
+PRE_MODEL_PARITY: the same four focused GH200 tests must PASS; the elementwise-
+                  exact preprocess test additionally exercises DataLoader-pinned
+                  augmentation parameters when CUDA is available
+OUTPUT: <approved root>/camera/sustained_<containing-source-SHA12>_r1_augvalues
+RESOURCES: 1 GH200, 16 CPU, 96 GiB, 00:45:00, no requeue, concurrency one
+STOP: any focused-test/profile/source/input/nonfinite/discard/memory failure; grouped
+      checkpoint continuation is reported honestly and remains non-waived
+```
+
+Exact command after sealing the containing source SHA `<SOURCE>` is:
+
+```bash
+sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G \
+  --gpus-per-node=nvidia_gh200_120gb:1 --time=00:45:00 --no-requeue \
+  --job-name=s10-ip-e1-camera-augvalues \
+  --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e1_85c6719e4b88/slurm/camera-augvalues-%j.out \
+  --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e1_85c6719e4b88/slurm/camera-augvalues-%j.err \
+  fl_v3/scripts/run_s10_phase1p_ip_e1.sh \
+  --branch camera --mode sustained \
+  --config fl_v3/configs/s10_phase1_camera.json \
+  --profile-config fl_v3/configs/s10_phase1p_camera_aug_cleanup.json \
+  --output-dir /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e1_85c6719e4b88/camera/sustained_<SOURCE12>_r1_augvalues \
+  --source-sha <SOURCE> \
+  --approved-source-sha 85c6719e4b880b198d850e16b1418c230fa5c656 \
+  --repeat 1 --attempt-id augvalues
+```
+
 ## 9. Envelope-A compact execution ledger
 
 This is the sole terminal ledger for Envelope A. Submission rows were appended only when
