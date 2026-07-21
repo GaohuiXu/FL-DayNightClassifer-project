@@ -1,4 +1,4 @@
-# S10 HANDOFF — Phase I-P IP-G1 closed; IP-E2 active; Envelope B frozen
+# S10 HANDOFF — Phase I-P IP-E2 terminal; IP-G2 discussion ready; Envelope B frozen
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: owner amended continuation enforcement, promoted Cell-1 SDPA, and ordered Cells 2-7
+ACTIVE_DECISION: owner amended continuation enforcement and ordered Cells 2-7; the exact sequence is terminal
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: IP-E2 active for serial Cells 2-7 inside the frozen resource ceiling; Envelope B frozen
-EXECUTION_STATE: Cell 5 fused AdamW positive; conditional B16 skipped; Cell 7 reverse confirmation is next
+CURRENT_AUTHORITY: IP-E2 exact compute sequence exhausted; no further GPU/Slurm cell is executable; Envelope B frozen
+EXECUTION_STATE: Cells 1-5 and 7 complete, Cell 6/B16 skipped; IP-WP4 synthesis complete; IP-G2 ready
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -47,8 +47,8 @@ IP-G0 (closed: plan/topology/local implementation)
   -> IP-WP0 (closed)
   -> IP-E1 (closed: IP-WP1 and IP-WP2 terminal)
   -> IP-G1 (closed: exact Camera cells/resources/decision boundaries)
-  -> IP-E2 (active: Cell 1 closed; Cells 2-7 and IP-WP3 -> IP-WP4 continuously)
-  -> IP-G2 (promotion/recipe/checkpoint/Envelope-B disposition)
+  -> IP-E2 (terminal: Cells 1-5 and 7 complete; conditional Cell 6 skipped)
+  -> IP-G2 (ready: promotion/recipe/checkpoint/Envelope-B disposition)
 ```
 
 IP-G2 is not Envelope-B activation. Any accepted production-source or config
@@ -448,6 +448,53 @@ group is finite and structurally intact. Fused AdamW therefore joins B8+SDPA+com
 in the measurement-only best stack for Cell 7. Cell 6/B16 remains skipped; Cell 7
 runs that best stack first and the original B4 eager reference second so the final
 end-to-end pair reverses the reference/candidate process order.
+
+Cell 7 Job `534737` completed `0:0` in `00:28:05` on one `n411`
+allocation. The best B8+SDPA+compile+fused stack ran first and measured
+`21.803544` presentations/s; the original B4 eager reference ran second and
+measured `15.152073`. The reversed-order ratio was `1.438981`, with a one-sided
+95% lower bound of `1.413203`. Both processes completed 16+256 accepted windows
+with zero invalid/discard/scaler skip, no memory growth or recompile, and passing
+exact checkpoint/context/integrity/finite hard gates. Best-stack peak allocated/
+reserved was `27.833/37.982` GB (`37.235%` visible), versus
+`16.039/18.723` GB for B4 eager. The final-stack B16 projection is `76.498` GB,
+or `74.994%` visible, and independently reaffirms the frozen B16 skip.
+
+### 1.5 IP-WP4 synthesis and IP-G2 inputs
+
+The direct same-node projection, including measured startup/compile-cold and
+per-epoch checkpoint/hash costs, is `32.245064` GH200-hours for B4 eager versus
+`22.443901` for the best stack over 20 epochs: `9.801163` GH200-hours saved. As a
+separate scaling estimate, applying the point ratio to the documented `29.87`
+GH200-hour Camera projection gives `20.757745` hours; using the throughput lower
+bound gives `21.136384` hours. The corresponding conservative saving range is
+therefore `8.733616-9.112255` GH200-hours, without treating cross-node absolute
+rates as aligned.
+
+IP-E2 consumed `2.871389 / 4.0` ordinary GH200-hours and no code-bug reserve. Its
+direct-pair break-even is `0.292964` one 20-epoch Camera run. Including all IP-E1
+and IP-E2 compute (`4.635278` GH200-hours), the whole Phase I-P preflight breaks
+even after `0.472931` such a run under the direct Cell-7 saving. Unused IP-E2
+budget expires with the exact sequence and is not authority for another cell.
+
+| Candidate | Class | Terminal evidence | IP-G2 disposition required |
+|---|---|---|---|
+| Camera Swin SDPA | numerical runtime, measurement-only | isolated `+6.871%`, lower bound `+6.561%`; hard gates pass | promote or keep default-off |
+| scoped Camera compile | numerical runtime, measurement-only | isolated `+5.587%`, lower bound `+5.086%`; five stable graphs, no measured recompile | promote or keep default-off |
+| SDPA+compile | numerical runtime stack, measurement-only | B4 ratio/lower bound `1.183783/1.178471`; final stack confirms composition | promote or keep default-off |
+| fused AdamW | numerical runtime, measurement-only | B8 delta ratio/lower bound `1.041877/1.038384`; no extra reserved memory; hard gates pass | promote or keep default-off |
+| B8x4 | recipe/operational, measurement-only | stack delta ratio/lower bound `1.288873/1.273372`; effective B32 retained | explicit owner recipe decision because BN statistics and worker RNG assignment change |
+| B16x2 | conditional recipe/capacity probe | both frozen projections exceed 70% | reject/retain unexecuted |
+| checkpoint cadence | operational/material | measured synchronous save+hash is only about `0.84-0.89 s/epoch` | no speed-driven cadence change recommended |
+| IP-WP2 augmentation/grid plumbing | strict output-neutral engineering | all ordered Camera candidates were slower than reference | reject from the Phase-I production stack |
+
+Cell-1 SDPA's prior owner promotion was scoped to its use as an IP-E2 building
+block; this synthesis does not silently convert it or any other candidate into a
+Phase-I production default. IP-G2 must decide the numerical-runtime defaults and
+the B8 recipe explicitly. Any accepted stack then needs the already frozen
+production validation obligations and an independently reviewed recipe freeze
+before revising or activating Envelope B; this evidence makes no capability,
+mAP/NDS, generalization or selection claim.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior

@@ -4,9 +4,9 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: owner closed IP-G1 and activated exact Camera-only IP-E2
-REQUEST_STATE: IP-E2 CELL 1 TERMINAL / OWNER-STOP ON SDPA CONTINUATION / ENVELOPE B FROZEN
-EXECUTION_AUTHORITY: exact Section-9 Camera WP3->WP4 cells inside 4.0+1.0 GH200-hours
+ACTIVE_DECISION: owner-ordered Camera-only IP-E2 sequence is terminal; IP-G2 is ready
+REQUEST_STATE: IP-E2 TERMINAL / CELL 7 POSITIVE / B16 SKIPPED / ENVELOPE B FROZEN
+EXECUTION_AUTHORITY: exhausted; no further Section-9 GPU/Slurm cell is executable
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -980,7 +980,7 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
 
 ```text
 PHASE: S10 Phase I-P / IP-E2 capacity and numerical-runtime screening
-REQUEST_STATE: CELL 5 FUSED POSITIVE / B16 SKIPPED / CELL 7 REVERSE CONFIRMATION READY
+REQUEST_STATE: IP-E2 TERMINAL / CELL 7 POSITIVE / B16 SKIPPED / IP-G2 READY
 ACTIVATION_BASELINE: 3f55e635aef4f893d9fd66e7921f55ce4f7b36e8
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -1110,9 +1110,9 @@ PRE_SUBMISSION_RECORD: before sbatch, seal the containing literal source SHA, fu
   sbatch argv, resolved output paths and budget into
   <OUTPUT_ROOT_RULE>/pre_submission_cell01.json; runner independently rechecks the
   same source/branch/base/clean-output/resource identities on GH200
-BUDGET_AFTER_CELL_5: base consumed 2.403333 / remaining 1.596667;
+BUDGET_AFTER_CELL_7: base consumed 2.871389 / remaining 1.128611;
   code-bug reserve consumed 0.000000 / remaining 1.000000; hard remaining
-  2.596667 GH200-hours
+  2.128611 GH200-hours
 CELL_1_TERMINAL: Job 531766 COMPLETED 0:0 in 1541 s on n203. All eight current-
   code pretests passed. Eager and SDPA each completed 16+256 accepted windows with
   zero invalid/discard/scaler-skip, exact same-batch input anchor/CBGS prefix, stable
@@ -1199,19 +1199,27 @@ CELL_5_ARTIFACTS: pre-submission `f4d31e7...800d75`; unfused measurement/result
   stdout/stderr `ae42dcf...24e56 / 8db5d05...1e830`.
 CELL_6_STOP: B16 remains ineligible under the frozen 70% projection gate; it is
   skipped without a capacity or sustained submission.
-NEXT_CELL: Cell 7 final best-stack confirmation, B8 SDPA+compile+fused-AdamW first
-  and original B4 eager reference second in fresh processes within one allocation.
-  Outputs use `camera/sustained_<sha12>_r2_c7_best_first`,
-  `camera/sustained_<sha12>_r2_c7_ref_second`, and
-  `pairs/cell07_best_stack_reverse_<sha12>_r2.json`.
-NEXT_COMMAND: `fl_v3/scripts/run_s10_phase1p_ip_e2.sh` with Camera config and the
-  fused-B8 best-stack then eager-B4 profiles in sustained mode, pair-reference
-  second, approved source `3f55e635aef4f893d9fd66e7921f55ce4f7b36e8`,
-  repeat 2, under the frozen one-GH200 resource tuple.
-EXECUTABLE_NOW: yes; Cell 7 may submit after its containing clean source
-  SHA, literal argv, fresh paths and remaining budget are sealed in
-  `pre_submission_cell07.json`. Envelope B remains
-  non-executable.
+CELL_7_TERMINAL: Job 534737 COMPLETED 0:0 in 1685 s on n411. The B8
+  SDPA+compile+fused best stack ran first at 21.803544 presentations/s; original
+  B4 eager ran second at 15.152073. The reversed-order ratio/lower bound is
+  1.438981/1.413203. Both completed 16+256 accepted windows with zero invalid/
+  discard/scaler skip, no memory growth/recompile, and passing exact checkpoint
+  hard gates. Direct 20-epoch projections are 22.443901 versus 32.245064
+  GH200-hours, saving 9.801163. Best-stack peak allocated/reserved is
+  27,833,308,672/37,981,519,872 bytes. Final projected B16 reserved is
+  76,497,813,504 bytes = 74.9938% visible, still failing the frozen 70% gate.
+CELL_7_ARTIFACTS: pre-submission `6e13a8c...be777`; best measurement/result
+  `3a49918...f07e9 / 8d84197...bc9da7`; B4 reference measurement/result
+  `7a94b02...e62db / 503cec8...246ce`; pair `7e67036...25034`;
+  stdout/stderr `2d19aaa...fa076 / 8db5d05...1e830`.
+PAYBACK: IP-E2 consumed 2.871389 GH200-hours, giving a 0.292964-run break-even
+  against the direct Cell-7 saving. IP-E1+IP-E2 consumed 4.635278 GH200-hours,
+  giving a 0.472931-run whole-preflight break-even. The documented 29.87-hour
+  Camera projection scaled by the Cell-7 point/lower-bound ratios becomes
+  20.757745/21.136384 hours, a conservative 8.733616-9.112255-hour saving range.
+EXECUTABLE_NOW: no; the exact IP-E2 serial sequence is terminal and unused budget
+  expires. IP-G2 owner disposition is required before any candidate promotion,
+  recipe freeze, new profiler cell or Envelope-B revision/activation.
 ```
 
 ### 9.1 IP-E2 compact execution ledger
@@ -1224,6 +1232,7 @@ EXECUTABLE_NOW: yes; Cell 7 may submit after its containing clean source
 | Pre-Cell-4 B8 capacity / Job `533364` | source `3d17ce097f0b26af2fde803f9e87d677dbc5fded`; `capacity_3d17ce097f0b_r1_c4_b8_probe`; result `734a4d70...8f8b` | `COMPLETED 0:0`; B8x4 SDPA+compile 8/8 accepted; peak allocated/reserved `27.788/32.877 GB`, `32.2307%` visible; no growth/recompile; capacity PASS | base `0.072778`; reserve `0.000000` |
 | Cell 4 / Job `533384`, B4 -> B8 SDPA+compile | source `e9d4b8f378c884338b5972d244f17922a6b18826`; one `n463` allocation; B4 `sustained_e9d4b8f378c8_r1_c4_b4`; B8 `...c4_b8`; pair `ffa37629...6c48d` | `COMPLETED 0:0`; health/checkpoint hard gates PASS. B8 ratio/lower bound `1.288873 / 1.273372`, projected `-6.5446 GH200h`; R8 `37.982 GB`; B16 projection `73.8014%` fails frozen 70% prerequisite, so B16 skipped | base `0.492222`; reserve `0.000000` |
 | Cell 5 / Job `533512`, B8 unfused -> fused AdamW | source `66760f45cdc3c41964ab73af48e97dbe60dd3e8d`; one `n145` allocation; unfused `sustained_66760f45cdc3_r1_c5_b8`; fused `...c5_b8_fused`; pair `5c5a728c...23a85` | `COMPLETED 0:0`; health/checkpoint hard gates PASS. Fused ratio/lower bound `1.041877 / 1.038384`, projected `-0.8833 GH200h`; identical `37.982 GB` peak reserved, no growth/recompile; Adam exp_avg distance remains diagnostic | base `0.437778`; reserve `0.000000` |
+| Cell 7 / Job `534737`, best B8 first -> eager B4 second | source `cde351f99b039968133db0c273e0e0715a60b35e`; one `n411` allocation; best `sustained_cde351f99b03_r2_c7_best_first`; reference `...c7_ref_second`; pair `7e670362...25034` | `COMPLETED 0:0`; both hard gates PASS. Reversed total-stack ratio/lower bound `1.438981 / 1.413203`, projected `-9.8012 GH200h`; best reserved `37.982 GB`; final B16 projection `74.9938%`, still skipped | base `0.468056`; reserve `0.000000` |
 
 ## 10. Envelope-A compact execution ledger
 
