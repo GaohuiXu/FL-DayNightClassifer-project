@@ -11,7 +11,7 @@ ACTIVE_DECISION: owner amended continuation enforcement, promoted Cell-1 SDPA, a
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: IP-E2 active for serial Cells 2-7 inside the frozen resource ceiling; Envelope B frozen
-EXECUTION_STATE: Cells 1-3 terminal positive; SDPA promoted; B8 capacity probe is next
+EXECUTION_STATE: Cells 1-3 and B8 capacity terminal PASS; sustained Cell 4 is next
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -412,6 +412,13 @@ monotonic growth. Exact checkpoint/context/integrity/finite hard gates passed;
 grouped numerical trajectory distance remained a reported negative diagnostic.
 The combination is therefore eligible for the frozen fresh B8 capacity probe and
 same-allocation B4-to-B8 measurement, not yet a batch-recipe promotion.
+
+Pre-Cell-4 B8 capacity Job `533364` completed `0:0` in `00:04:22` on
+`n127`. The fresh SDPA+compile B8x4 process completed one warm-up plus 8/8
+accepted windows with zero invalid/discard/scaler skip. Peak allocated/reserved was
+`27.788/32.877` GB, only `32.231%` of visible memory, with no monotonic growth or
+unexpected recompile. This passes the frozen OOM/85% capacity prerequisite and
+enables sustained Cell 4; it is not a throughput or batch-recipe claim.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior

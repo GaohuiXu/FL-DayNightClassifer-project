@@ -980,7 +980,7 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
 
 ```text
 PHASE: S10 Phase I-P / IP-E2 capacity and numerical-runtime screening
-REQUEST_STATE: CELLS 1-3 TERMINAL POSITIVE / B8 CAPACITY PROBE READY
+REQUEST_STATE: B8 CAPACITY PASS / SUSTAINED CELL 4 READY
 ACTIVATION_BASELINE: 3f55e635aef4f893d9fd66e7921f55ce4f7b36e8
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -1110,8 +1110,9 @@ PRE_SUBMISSION_RECORD: before sbatch, seal the containing literal source SHA, fu
   sbatch argv, resolved output paths and budget into
   <OUTPUT_ROOT_RULE>/pre_submission_cell01.json; runner independently rechecks the
   same source/branch/base/clean-output/resource identities on GH200
-BUDGET_AFTER_CELL_3: base consumed 1.400556 / remaining 2.599444; code-bug reserve
-  consumed 0.000000 / remaining 1.000000; hard remaining 3.599444 GH200-hours
+BUDGET_AFTER_B8_CAPACITY: base consumed 1.473334 / remaining 2.526666;
+  code-bug reserve consumed 0.000000 / remaining 1.000000; hard remaining
+  3.526666 GH200-hours
 CELL_1_TERMINAL: Job 531766 COMPLETED 0:0 in 1541 s on n203. All eight current-
   code pretests passed. Eager and SDPA each completed 16+256 accepted windows with
   zero invalid/discard/scaler-skip, exact same-batch input anchor/CBGS prefix, stable
@@ -1161,17 +1162,26 @@ CELL_3_ARTIFACTS: pre-submission `0a3aacf...c0c29`; eager measurement/result
   `3a66ace...7d729 / ab65b31...7f814`; combination measurement/result
   `f0bb189...b41c1 / b381382...634d`; pair `0afc8ca...78a1e`;
   stdout/stderr `e739336...5f0ca / 8db5d05...1e830`.
-NEXT_CELL: frozen pre-Cell-4 fresh B8 SDPA+compile capacity probe: one warm-up plus
-  eight accepted B8x4 windows in a new process, no paired comparison. Output uses
-  `camera/capacity_<sha12>_r1_c4_b8_probe`.
+B8_CAPACITY_TERMINAL: Job 533364 COMPLETED 0:0 in 262 s on n127. The fresh
+  SDPA+compile B8x4 process completed 8/8 accepted windows after one warm-up with
+  zero invalid/discard/scaler skip. Peak allocated/reserved was
+  27,787,762,176/32,877,051,904 bytes (`32.2307%` visible), with no monotonic
+  growth or unexpected recompile. The frozen <=85% capacity gate PASS.
+B8_CAPACITY_ARTIFACTS: pre-submission `9df6167...6f816`; measurement/result
+  `0c4781d...2453 / 734a4d7...8f8b`; stdout/stderr
+  `b35ca7a...23990 / 8db5d05...1e830`.
+NEXT_CELL: sustained Cell 4, B4 SDPA+compile reference then B8x4 SDPA+compile,
+  fresh processes in one allocation. Outputs use `camera/sustained_<sha12>_r1_c4_b4`,
+  `camera/sustained_<sha12>_r1_c4_b8`, and
+  `pairs/cell04_b8_<sha12>_r1.json`.
 NEXT_COMMAND: `fl_v3/scripts/run_s10_phase1p_ip_e2.sh` with Camera config and the
-  SDPA+compile-B8 profile in capacity mode, approved source
+  SDPA+compile B4 then B8 profiles in sustained mode, pair-reference first,
+  approved source
   `3f55e635aef4f893d9fd66e7921f55ce4f7b36e8`, repeat 1, under the frozen
   one-GH200 resource tuple.
-EXECUTABLE_NOW: yes; the B8 probe may submit after its containing clean source
-  SHA, literal argv, fresh path and remaining budget are sealed in
-  `pre_submission_cell04_b8_capacity.json`. A PASS immediately enables the
-  already frozen sustained Cell 4; Envelope B remains
+EXECUTABLE_NOW: yes; sustained Cell 4 may submit after its containing clean source
+  SHA, literal argv, fresh paths and remaining budget are sealed in
+  `pre_submission_cell04.json`. Envelope B remains
   non-executable.
 ```
 
@@ -1182,6 +1192,7 @@ EXECUTABLE_NOW: yes; the B8 probe may submit after its containing clean source
 | Cell 1 / Job `531766`, B4 eager -> B4 SDPA | source `b8ac61a5bc464bc1a6bf1c1e4f97b17f0b96fd54`; one `n203` allocation; eager `sustained_b8ac61a5bc46_r1_c1_ref`; SDPA `...c1_sdpa`; pair `73463de6...55c5`; v2 reassessments `08426908...36512 / 50cc83be...9d88c` | `COMPLETED 0:0`, 8/8 pretests; measurement health and amended exact/integrity/finite hard gates PASS both. SDPA ratio/lower bound `1.068712 / 1.065611`, reserved memory `-1.2646 GB`, projected `-2.0738 GH200h`; Adam/BN trajectory-distance negatives remain diagnostics. Owner promotes SDPA inside IP-E2; no rerun | base `0.428056`; reserve `0.000000` |
 | Cell 2 / Job `532763`, B4 eager -> B4 compile | source `83232a770790c545a67aca3450b26ed739051515`; one `n204` allocation; eager `sustained_83232a770790_r1_c2_ref`; compile `...c2_compile`; pair `01085fbb...4661` | `COMPLETED 0:0`, 12/12 pretests; both health/checkpoint hard gates PASS. Compile ratio/lower bound `1.055866 / 1.050861`, reserved memory `-0.9752 GB`, projected `-1.6451 GH200h`; five graphs, no measured recompile; all numerical diagnostics PASS | base `0.480278`; reserve `0.000000` |
 | Cell 3 / Job `533212`, B4 eager -> B4 SDPA+compile | source `a1f21878a26759df48ffe0deed24656bd6d7a316`; one `n69` allocation; eager `sustained_a1f21878a267_r1_c3_ref`; combination `...c3_sdpa_compile`; pair `0afc8ca5...78a1e` | `COMPLETED 0:0`, 12/12 pretests; health/checkpoint hard gates PASS. Ratio/lower bound `1.183783 / 1.178471`; projected `-5.4030 GH200h`; 12 SDPA modules plus five graphs, no measured recompile; numerical distance remains diagnostic negative | base `0.492222`; reserve `0.000000` |
+| Pre-Cell-4 B8 capacity / Job `533364` | source `3d17ce097f0b26af2fde803f9e87d677dbc5fded`; `capacity_3d17ce097f0b_r1_c4_b8_probe`; result `734a4d70...8f8b` | `COMPLETED 0:0`; B8x4 SDPA+compile 8/8 accepted; peak allocated/reserved `27.788/32.877 GB`, `32.2307%` visible; no growth/recompile; capacity PASS | base `0.072778`; reserve `0.000000` |
 
 ## 10. Envelope-A compact execution ledger
 
