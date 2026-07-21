@@ -137,6 +137,7 @@ python -m pytest -q \
   fl_v3/tests/test_s10_phase1p_profile.py::test_ip_e2_current_swin_sdpa_forward_backward_parity \
   fl_v3/tests/test_s10_phase1p_profile.py::test_ip_e2_fused_adamw_matches_unfused_accepted_updates \
   fl_v3/tests/test_s10_phase1p_compare.py::test_pair_comparison_enforces_match_and_emits_b16_gate \
+  fl_v3/tests/test_s10_phase1p_compare.py::test_b16_projection_above_former_70_percent_is_diagnostic_only \
   fl_v3/tests/test_s10_phase1p_compare.py::test_same_batch_pair_requires_exact_input_anchor
 
 run_one() {

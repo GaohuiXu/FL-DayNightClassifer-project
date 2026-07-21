@@ -10,7 +10,7 @@ from typing import Any, Mapping
 
 
 RESULT_SCHEMA = "s10.phase1p.profiler-result.v2"
-PAIR_SCHEMA = "s10.phase1p.paired-comparison.v1"
+PAIR_SCHEMA = "s10.phase1p.paired-comparison.v2"
 MEASURED_WINDOWS = 256
 WARMUP_WINDOWS = 16
 EFFECTIVE_BATCH = 32
@@ -322,13 +322,12 @@ def compare_output_dirs(
         r8 = int(candidate_memory["peak_reserved_bytes"])
         visible = int(candidate_memory["device_total_bytes"])
         projected = r8 + 2 * max(r8 - r4, 0)
-        checks = {
+        health_checks = {
             "B8_measurement_health": bool(candidate_measurement["gate_pass"]),
             "B8_checkpoint_continuation": bool(candidate_continuation["gate_pass"]),
             "B8_no_monotonic_growth": not bool(
                 candidate_memory["monotonic_reserved_growth_over_64mib"]
             ),
-            "projected_B16_reserved_le_70_percent": projected <= 0.70 * visible,
         }
         b16_gate = {
             "R4_peak_reserved_bytes": r4,
@@ -336,8 +335,19 @@ def compare_output_dirs(
             "visible_bytes": visible,
             "projected_B16_reserved_bytes": projected,
             "projected_fraction": projected / visible,
-            "checks": checks,
-            "eligible_for_fresh_capacity_probe": all(checks.values()),
+            "projection_diagnostic": {
+                "former_threshold_fraction": 0.70,
+                "former_gate_pass": projected <= 0.70 * visible,
+                "owner_withdrawn_as_capacity_veto": True,
+                "capacity_hard_gate_fraction": 0.85,
+                "projected_le_capacity_hard_gate": projected <= 0.85 * visible,
+                "rule": (
+                    "projection is diagnostic only; a fresh OOM-tolerant B16 "
+                    "capacity process decides the <=85% hard gate"
+                ),
+            },
+            "checks": health_checks,
+            "eligible_for_fresh_capacity_probe": all(health_checks.values()),
             "sustained_B16_authorized_by_this_summary": False,
         }
 

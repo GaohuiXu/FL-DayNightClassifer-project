@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import json
 from pathlib import Path
@@ -23,6 +25,8 @@ def _output(
     candidate_id: str,
     batch: int,
     block_seconds: float,
+    peak_reserved_bytes: int | None = None,
+    device_total_bytes: int = 100_000,
 ) -> None:
     metrics = {
         "invalid_windows": 0.0,
@@ -46,8 +50,12 @@ def _output(
                 ]
             },
             "memory": {
-                "peak_reserved_bytes": 20_000 if batch == 4 else 30_000,
-                "device_total_bytes": 100_000,
+                "peak_reserved_bytes": (
+                    peak_reserved_bytes
+                    if peak_reserved_bytes is not None
+                    else 20_000 if batch == 4 else 30_000
+                ),
+                "device_total_bytes": device_total_bytes,
                 "monotonic_reserved_growth_over_64mib": False,
             },
         },
@@ -124,7 +132,38 @@ def test_pair_comparison_enforces_match_and_emits_b16_gate(tmp_path):
     assert summary["candidate_screen_gate_pass"] is True
     assert summary["conditional_B16_gate"]["projected_fraction"] == 0.5
     assert summary["conditional_B16_gate"]["eligible_for_fresh_capacity_probe"] is True
+    diagnostic = summary["conditional_B16_gate"]["projection_diagnostic"]
+    assert diagnostic["former_gate_pass"] is True
+    assert diagnostic["owner_withdrawn_as_capacity_veto"] is True
     assert summary["promotion_authorized"] is False
+
+
+def test_b16_projection_above_former_70_percent_is_diagnostic_only(tmp_path):
+    reference = tmp_path / "reference"
+    candidate = tmp_path / "candidate"
+    _output(
+        reference,
+        candidate_id="camera_sdpa_compile_fused_b4_accum8",
+        batch=4,
+        block_seconds=32.0,
+        peak_reserved_bytes=18_000,
+    )
+    _output(
+        candidate,
+        candidate_id="camera_sdpa_compile_fused_b8_accum4",
+        batch=8,
+        block_seconds=28.0,
+        peak_reserved_bytes=38_000,
+    )
+
+    summary = compare_output_dirs(reference, candidate)
+    gate = summary["conditional_B16_gate"]
+    assert gate["projected_B16_reserved_bytes"] == 78_000
+    assert gate["projected_fraction"] == 0.78
+    assert gate["projection_diagnostic"]["former_gate_pass"] is False
+    assert gate["projection_diagnostic"]["projected_le_capacity_hard_gate"] is True
+    assert gate["eligible_for_fresh_capacity_probe"] is True
+    assert gate["sustained_B16_authorized_by_this_summary"] is False
 
 
 def test_same_batch_pair_requires_exact_input_anchor(tmp_path):
