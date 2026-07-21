@@ -4,9 +4,9 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: owner accepts the B8 runtime stack/cadence and withdraws the B16 70% veto
-REQUEST_STATE: B16 EXTENSION RESOURCE APPROVAL PENDING / NOT EXECUTABLE / ENVELOPE B FROZEN
-EXECUTION_AUTHORITY: source/docs/tests/local validation only; no new GPU/Slurm ceiling approved
+ACTIVE_DECISION: owner activates the exact Section-9.2 B16 extension resource envelope
+REQUEST_STATE: B16 EXTENSION ACTIVE / SERIAL CELL A NEXT / ENVELOPE B FROZEN
+EXECUTION_AUTHORITY: Section 9.2 only; base 1.20 + bug reserve 0.50 = hard 1.70 GH200-hours
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -1234,18 +1234,18 @@ EXECUTABLE_NOW: no; the exact IP-E2 serial sequence is terminal and unused budge
 | Cell 5 / Job `533512`, B8 unfused -> fused AdamW | source `66760f45cdc3c41964ab73af48e97dbe60dd3e8d`; one `n145` allocation; unfused `sustained_66760f45cdc3_r1_c5_b8`; fused `...c5_b8_fused`; pair `5c5a728c...23a85` | `COMPLETED 0:0`; health/checkpoint hard gates PASS. Fused ratio/lower bound `1.041877 / 1.038384`, projected `-0.8833 GH200h`; identical `37.982 GB` peak reserved, no growth/recompile; Adam exp_avg distance remains diagnostic | base `0.437778`; reserve `0.000000` |
 | Cell 7 / Job `534737`, best B8 first -> eager B4 second | source `cde351f99b039968133db0c273e0e0715a60b35e`; one `n411` allocation; best `sustained_cde351f99b03_r2_c7_best_first`; reference `...c7_ref_second`; pair `7e670362...25034` | `COMPLETED 0:0`; both hard gates PASS. Reversed total-stack ratio/lower bound `1.438981 / 1.413203`, projected `-9.8012 GH200h`; best reserved `37.982 GB`; final B16 projection `74.9938%`, still skipped | base `0.468056`; reserve `0.000000` |
 
-### 9.2 IP-G2 B16 extension request — resource approval pending
+### 9.2 IP-G2 B16 extension — active
 
-This request is a prospective, independently bounded extension. It does not
-reinterpret or reuse the exhausted Section-9 IP-E2 budget. The owner has withdrawn
-the projected `70%` veto and authorized the corresponding source/docs/tests, but has
-not yet approved the aggregate GH200-hour ceiling below. Therefore this section is
-not executable until that exact resource decision is recorded.
+This is an independently bounded extension. It does not reinterpret or reuse the
+exhausted Section-9 IP-E2 budget. On 2026-07-21, the owner explicitly approved the
+exact layered ceiling and concurrency below. Only the frozen conditional sequence
+is executable; this does not activate Envelope B or authorize any capability run.
 
 ```text
 PHASE: S10 Phase I-P / IP-G2 B16 capacity and matched-throughput extension
-REQUEST_STATE: OWNER RESOURCE APPROVAL PENDING / NOT EXECUTABLE
+REQUEST_STATE: OWNER APPROVED / ACTIVE / CELL A CAPACITY NEXT
 ACTIVATION_BASELINE: df3c17e3e6be19dcc586fdec2c6bd198c1b02d95
+APPROVED_REQUEST_SHA: 1b25f1c98dabc19617fd4e2223c29b4fe076eeef
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at UNIQUE_BASE_SHA; do not move
@@ -1295,9 +1295,9 @@ EXACT_SERIAL_CELLS:
   A. fresh B16 capacity probe
   B. conditional same-allocation B8 first -> B16 second sustained pair
   C. conditional reverse B16 first -> B8 second sustained pair
-PROPOSED_BASE_AGGREGATE_GPU_HOURS: 1.20 charged GH200-hours
-PROPOSED_CODE_BUG_REMEDIATION_RESERVE: +0.50 charged GH200-hour, code-level bug only
-PROPOSED_HARD_AGGREGATE_GPU_HOURS: 1.70 charged GH200-hours
+BASE_AGGREGATE_GPU_HOURS: 1.20 charged GH200-hours
+CODE_BUG_REMEDIATION_RESERVE: +0.50 charged GH200-hour, code-level bug only
+HARD_AGGREGATE_GPU_HOURS: 1.70 charged GH200-hours
 RESOURCE_RATIONALE: about 0.08 hour for capacity plus about 0.50 hour for each of
   at most two sustained pairs; 1.20 base leaves bounded scheduling/runtime margin,
   while 0.50 reserve can cover one diagnosed engineering replacement
@@ -1328,6 +1328,8 @@ SOURCE_RULE: execution SOURCE_SHA is a clean linear descendant of
   IMPLEMENTATION_SHA; pass IMPLEMENTATION_SHA as --approved-source-sha; no merge
 PRE_SUBMISSION_GATE: before each sbatch, record literal SOURCE_SHA, full sbatch argv,
   resolved fresh paths, exact profile hashes and remaining layered budget under ROOT
+OWNER_APPROVAL: 2026-07-21 — approved base 1.20, code-bug reserve 0.50, hard 1.70
+  charged GH200-hours and maximum concurrency one for this exact Section-9.2 sequence
 ```
 
 Exact conditional invocations, all through
@@ -1380,8 +1382,8 @@ The containing `sbatch` command is fixed at account `naiss2025-22-1113-gpu`,
 partition `gpu`, one node/task, `--cpus-per-task=16`, `--mem=96G`,
 `--gpus-per-node=nvidia_gh200_120gb:1`, `--time=01:00:00`, `--no-requeue`.
 Cells B and C each use one such allocation for both fresh processes and their pair
-analysis. No command above is executable until the owner explicitly approves the
-proposed `1.20 + 0.50 = 1.70` layered ceiling.
+analysis. These commands are executable serially under the owner-approved
+`1.20 + 0.50 = 1.70` layered ceiling and no broader authority.
 
 ## 10. Envelope-A compact execution ledger
 

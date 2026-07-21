@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: owner promotes the B8 runtime stack, keeps checkpoint cadence, and withdraws the B16 70% veto
+ACTIVE_DECISION: owner activates the exact B16 capacity and matched-throughput extension
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: B16 gate/source/docs/tests may be amended; new GPU/Slurm resource ceiling is not yet approved
-EXECUTION_STATE: SDPA+compile+fused+B8 accepted; B16 capacity/pair/reverse extension drafted but not executable
+CURRENT_AUTHORITY: Section 9.2 only; base 1.20 + bug reserve 0.50 = hard 1.70 GH200-hours; concurrency one
+EXECUTION_STATE: SDPA+compile+fused+B8 accepted; B16 capacity is next, followed conditionally by two pairs
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -507,10 +507,11 @@ The exact extension is fresh B16 capacity, then one same-allocation B8->B16
 sustained pair if capacity passes, then a reversed B16->B8 confirmation only if
 the first pair is positive. It retains D_fit, seed 0, effective B32, the promoted
 SDPA+compile+fused stack, exact checkpoint/context/finite hard gates and every
-claim prohibition. Section 9.2 of `RUN_REQUEST.md` proposes the new aggregate
-resource ceiling; until the owner approves that number, no B16 GPU/Slurm job is
-executable. Any accepted stack still requires production validation and an
-independently reviewed recipe freeze before Envelope B can be revised or activated.
+claim prohibition. On 2026-07-21, the owner activated Section 9.2 with a `1.20`
+base plus `0.50` code-bug reserve and `1.70` hard charged-GH200-hour ceiling at
+maximum concurrency one. Any accepted stack still requires production validation
+and an independently reviewed recipe freeze before Envelope B can be revised or
+activated.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
