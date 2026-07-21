@@ -10,8 +10,8 @@ FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a514
 ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the Phase-I control
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: Section-8 IP-E1; WP0 runtime closed; owner parity disposition required
-EXECUTION_STATE: submissions paused after LiDAR same-process/fresh-process parity evidence
+CURRENT_AUTHORITY: Section-8 IP-E1; WP0 runtime closed; IP-WP1 -> strict IP-WP2 resumed
+EXECUTION_STATE: owner-amended checkpoint gate implemented; next serial cell is LiDAR sustained r2
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -65,10 +65,17 @@ mean loader wait, and `6.8215%` peak reserved-memory fraction. Checkpoint bounda
 64 continuation microbatches, RNG and training state were exact, but both a same-
 process replay and a fresh-process replay failed the frozen per-tensor FP16 allclose
 after eight windows at globally small relative L2 error. This proves the symptom is
-runtime-kernel nondeterminism, not checkpoint corruption or input drift. Because a
-change from elementwise allclose to a same-process-calibrated global error gate is
-an acceptance-rule decision rather than a code repair, further submission awaits
-explicit owner disposition; no tolerance has been relaxed.
+runtime-kernel nondeterminism, not checkpoint corruption or input drift. On
+2026-07-21 the owner amended the continuation rule: boundary, input, RNG and
+discrete state remain exact; model parameters, BN mean, BN var, Adam `exp_avg` and
+Adam `exp_avg_sq` are gated separately, with fresh-process relative-L2 and
+max-absolute error each no greater than
+`max(frozen tolerance, 1.25 * same-process repeat-control)`. Per-element allclose
+remains diagnostic only. Implementation `73158b7` applies that rule without
+changing model/data/update semantics or the frozen FP32/FP16 numeric tolerances.
+Read-only reassessment of the immutable Job `525192` result passes all five groups
+and every exact requirement (`d883c1ef...f7fa2`); the raw old-gate failure remains
+unchanged. IP-WP1 execution may therefore continue serially.
 
 ### 1.2 Candidate classes and immutable scientific boundary
 
@@ -117,9 +124,13 @@ measures that cost; it does not silently lower the cadence or change eligibility
   Steady-state reserved memory must stay at or below 85% of visible memory and show
   no monotonic 256-window growth. Capacity probes use a fresh process; OOM is a
   recorded `CAPACITY_OOM`, B8 OOM skips larger sizes, and B12 OOM skips B16.
-- Parity remains exact/hash-exact for unchanged discrete/plumbing state where
-  attainable; integrated FP32 uses `rtol=1e-4, atol=1e-6`, and accepted FP16 uses
-  `rtol=2e-3, atol=2e-4`. Tolerances are not relaxed inside an envelope.
+- Parity remains exact/hash-exact for boundary, input, RNG and unchanged discrete/
+  plumbing state. Continuation numerics are grouped into model parameters, BN mean,
+  BN var, Adam `exp_avg` and Adam `exp_avg_sq`; in each group fresh-process
+  relative-L2 and max-absolute error must independently stay within
+  `max(frozen tolerance, 1.25 * same-process repeat-control)`. The frozen FP32
+  tolerances are `1e-4 / 1e-6` and FP16 tolerances are `2e-3 / 2e-4`; per-element
+  allclose is retained as a diagnostic, not a hard gate.
 - Checkpoint validation occurs after AdamW state exists at an optimizer boundary:
   real save and file/model hashes, full release, fresh stack reconstruction/load,
   exact identity/RNG/sampler/state checks, then eight D_fit optimizer windows

@@ -5,8 +5,8 @@
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
 ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the frozen Phase-I control
-REQUEST_STATE: IP-E1 ACTIVE / WP0 RUNTIME CLOSED / PAUSED AT LIDAR PARITY DISPOSITION
-EXECUTION_AUTHORITY: Section 8 only; next submission awaits the owner gate below
+REQUEST_STATE: IP-E1 ACTIVE / WP0 RUNTIME CLOSED / WP1-WP2 SERIAL EXECUTION RESUMED
+EXECUTION_AUTHORITY: Section 8 only; serial WP1-WP2 under the amended checkpoint gate
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -728,13 +728,28 @@ diagnostic-only; they do not alter the data, model, loss, precision, update or f
 parity tolerances. Its runner hash is
 `b8014624e3dbf44c3e11d704a0d0694646a01ad3f270e6c729082d6edb4f130d`.
 
-Owner disposition is now required because this is not a code-level bug. Option A
-retains elementwise `torch.allclose(rtol=2e-3, atol=2e-4)`, records LiDAR checkpoint
-continuation FAIL and prevents LiDAR WP2. Option B keeps the exact boundary/input/
-RNG/state requirements and the same numeric `2e-3` bound, but calibrates continuation
-against the same-process nondeterminism control: global relative L2 must be <=`2e-3`
-and fresh-process divergence must not exceed the same-process control envelope. No
-further submission is authorized by inference while this acceptance-rule choice is open.
+The owner closed the parity disposition on 2026-07-21. Boundary, input, RNG and
+discrete state remain exact. Model parameters, BN mean, BN var, Adam `exp_avg` and
+Adam `exp_avg_sq` are gated separately; for every group, fresh-process relative-L2
+and max-absolute error must each be no greater than
+`max(frozen tolerance, 1.25 * same-process repeat-control)`. Per-element allclose is
+retained as a diagnostic and is no longer the hard gate for nondeterministic kernels.
+Implementation `73158b70cb853a4bac99f6fd9f7c4f1598565bc3` adds explicit floating/discrete
+state identities, the grouped comparator, focused tests and a read-only reassessment
+entry point; it changes no model, data, loss, precision, optimizer update or scheduler
+semantics.
+
+Read-only reassessment of immutable Job `525192` result
+`62e8249c...b6b` is PASS with reassessment SHA `d883c1ef...f7fa2`; no raw artifact
+was modified and no GH200 time was charged. Exact boundary/input/RNG/training state,
+BN counts and Adam steps pass. Group `(fresh relative-L2 / limit; fresh max-abs /
+limit)` is: model parameters `0.00105484 / 0.002; 0.000769451 / 0.000792537`,
+BN mean `0.00226839 / 0.00270428; 0.0792162 / 0.103417`, BN var
+`0.000640081 / 0.00200864; 0.188965 / 0.492682`, Adam `exp_avg`
+`0.288651 / 0.359091; 0.00564399 / 0.0105385`, and Adam `exp_avg_sq`
+`5.46709e-5 / 0.002; 7.60471e-6 / 0.0002`. The original old-gate terminal label is
+preserved as historical evidence; under the amended rule LiDAR sustained r1 is an
+accepted WP1 reference and serial IP-E1 execution resumes with repeat 2.
 
 ## 9. Envelope-A compact execution ledger
 
