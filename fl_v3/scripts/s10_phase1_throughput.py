@@ -37,6 +37,7 @@ from fl_v3.models.phase1_swin import sha256_file, tensor_state_sha256
 from fl_v3.training.checkpoint import load_checkpoint, save_checkpoint
 from fl_v3.training.loop import train_one_epoch
 from fl_v3.training.phase1 import build_phase1_training_stack
+from fl_v3.training.phase1_checkpoint_gate import evaluate_calibrated_continuation_gate
 from fl_v3.training.phase1_profile import load_phase1_profile_spec
 from fl_v3.training.runtime_state import TrainingState
 from fl_v3.training.s10_observation import compare_tensor_tree_tensors
@@ -47,7 +48,7 @@ from fl_v3.utils.runtime import (
 )
 
 
-SCHEMA = "s10.phase1p.profiler-result.v1"
+SCHEMA = "s10.phase1p.profiler-result.v2"
 EXPECTED_BRANCH = "codex/s10-phase1p-throughput-preflight"
 EXPECTED_BASE_SHA = "f1a2babda8dafd181b5a5144ab025a3f6be21cc2"
 FROZEN_CONTROL_REF = "refs/heads/codex/s10-phase1-branch-qualification"
@@ -325,16 +326,21 @@ def _compare_state_captures(
     numerical = compare_tensor_tree_tensors(reference_tensors, candidate_tensors)
     allclose_failures = []
     exact_failures = []
+    floating_tensor_names = []
+    discrete_tensor_names = []
     for name in sorted(set(reference_tensors) & set(candidate_tensors)):
         left = reference_tensors[name]
         right = candidate_tensors[name]
         if left.shape != right.shape or left.dtype != right.dtype:
             continue
         if left.is_floating_point() or left.is_complex():
+            floating_tensor_names.append(name)
             if not torch.allclose(left, right, rtol=rtol, atol=atol, equal_nan=False):
                 allclose_failures.append(name)
-        elif not torch.equal(left, right):
-            exact_failures.append(name)
+        else:
+            discrete_tensor_names.append(name)
+            if not torch.equal(left, right):
+                exact_failures.append(name)
     gate = (
         reference_structure == candidate_structure
         and numerical["name_set_equal"]
@@ -352,6 +358,8 @@ def _compare_state_captures(
         "allclose_atol": float(atol),
         "floating_allclose_failures": allclose_failures,
         "discrete_exact_failures": exact_failures,
+        "floating_tensor_names": floating_tensor_names,
+        "discrete_tensor_names": discrete_tensor_names,
         "numerical": numerical,
         "gate_pass": gate,
     }
@@ -580,7 +588,7 @@ def _checkpoint_resume_worker(request_path: Path) -> dict[str, Any]:
         "rtol", "atol",
     }
     _require(set(request) == expected, "fresh-process resume request fields drift")
-    _require(request["schema"] == "s10.phase1p.resume-worker-request.v1", "resume schema drift")
+    _require(request["schema"] == "s10.phase1p.resume-worker-request.v2", "resume schema drift")
     checkpoint = Path(request["checkpoint"]).resolve()
     reference_path = Path(request["reference"]).resolve()
     result_path = Path(request["result"]).resolve()
@@ -721,14 +729,14 @@ def _checkpoint_resume_worker(request_path: Path) -> dict[str, Any]:
         state_equal = reference["control"]["training_state"] == resumed["training_state"]
         rng_equal = reference["control"]["rng_sha256"] == resumed["rng_sha256"]
         input_equal = reference["control_batch_sha256"] == resumed_batch_sha256
-        gate = (
+        elementwise_diagnostic = (
             all(item["gate_pass"] for item in continuation.values())
             and state_equal
             and rng_equal
             and input_equal
         )
         result = {
-            "schema": "s10.phase1p.resume-worker-result.v1",
+            "schema": "s10.phase1p.resume-worker-result.v2",
             "fresh_process_pid": os.getpid(),
             "model_stack_build_seconds": model_build_seconds,
             "D_fit_loader_build_seconds": loader_build_seconds,
@@ -743,7 +751,7 @@ def _checkpoint_resume_worker(request_path: Path) -> dict[str, Any]:
             },
             "training_state_equal": state_equal,
             "rng_state_equal": rng_equal,
-            "gate_pass": gate,
+            "elementwise_allclose_diagnostic_pass": elementwise_diagnostic,
         }
         _atomic_write_once(result_path, result)
         return result
@@ -915,7 +923,7 @@ def _checkpoint_and_continuation(
         },
         "training_state_equal": replay_state_equal,
         "rng_state_equal": replay_rng_equal,
-        "gate_pass": (
+        "elementwise_allclose_diagnostic_pass": (
             all(item["gate_pass"] for item in replay_continuation.values())
             and replay_input_equal
             and replay_state_equal
@@ -951,7 +959,7 @@ def _checkpoint_and_continuation(
     _atomic_write_once(
         worker_request_path,
         {
-            "schema": "s10.phase1p.resume-worker-request.v1",
+            "schema": "s10.phase1p.resume-worker-request.v2",
             "config_path": str(config_path.resolve()),
             "config_sha256": config.sha256,
             "checkpoint": str(checkpoint),
@@ -987,12 +995,29 @@ def _checkpoint_and_continuation(
     )
     worker = _read_json(worker_result_path)
     _require(
-        isinstance(worker.get("gate_pass"), bool),
-        "fresh-process checkpoint worker omitted its gate verdict",
+        isinstance(worker.get("elementwise_allclose_diagnostic_pass"), bool),
+        "fresh-process checkpoint worker omitted its allclose diagnostic",
+    )
+
+    fresh_process = {
+        "continuation": worker["continuation"],
+        "input_stream": worker["input_stream"],
+        "training_state_equal": worker["training_state_equal"],
+        "rng_state_equal": worker["rng_state_equal"],
+        "elementwise_allclose_diagnostic_pass": worker[
+            "elementwise_allclose_diagnostic_pass"
+        ],
+    }
+    continuation_gate = evaluate_calibrated_continuation_gate(
+        restored_boundary=worker["restored_boundary"],
+        same_process=same_process,
+        fresh_process=fresh_process,
+        relative_l2_tolerance=float(rtol),
+        max_absolute_tolerance=float(atol),
     )
 
     return {
-        "schema": "s10.phase1p.checkpoint-profile.v1",
+        "schema": "s10.phase1p.checkpoint-profile.v2",
         "checkpoint": {
             "path": str(checkpoint),
             "sha256": checkpoint_sha,
@@ -1033,7 +1058,8 @@ def _checkpoint_and_continuation(
         "input_stream": worker["input_stream"],
         "training_state_equal": worker["training_state_equal"],
         "rng_state_equal": worker["rng_state_equal"],
-        "gate_pass": worker["gate_pass"],
+        "continuation_gate": continuation_gate,
+        "gate_pass": continuation_gate["gate_pass"],
         "profiler_epoch_note": (
             "epoch=1 is a shortened D_fit-only profiler boundary; it validates production "
             "checkpoint mechanics and fresh-process continuation but is not a scientific epoch"
@@ -1324,7 +1350,9 @@ def main() -> None:
         print(json.dumps({
             "status": "COMPLETE_RESUME_WORKER",
             "fresh_process_pid": result["fresh_process_pid"],
-            "gate_pass": result["gate_pass"],
+            "elementwise_allclose_diagnostic_pass": result[
+                "elementwise_allclose_diagnostic_pass"
+            ],
         }, sort_keys=True))
         return
     parser = argparse.ArgumentParser()
