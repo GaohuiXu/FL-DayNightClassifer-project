@@ -34,6 +34,12 @@ IP_E4_VECTORIZED_GEOMETRY_ID = (
 IP_E4_BULK_INPUT_CONVERSION_ID = (
     "camera_b16_batched_affine_vectorized_geometry_bulk_input_conversion"
 )
+IP_E5_DDP_RESULT_SCHEMA = "s10.phase1p.ip-e5-ddp-result.v1"
+IP_E5_DDP_PAIR_SCHEMA = "s10.phase1p.ip-e5-ddp-comparison.v1"
+IP_E5_SINGLE_REFERENCE_ID = "camera_final_b16_single_gpu_reference"
+IP_E5_DDP_CANDIDATE_ID = "camera_final_b16_ddp2"
+IP_E5_SPEEDUP_LOWER_BOUND = 1.60
+IP_E5_MAX_CHARGED_RATIO = 1.25
 
 
 class Phase1PPairError(RuntimeError):
@@ -246,6 +252,280 @@ def _projection(result: Mapping[str, Any], rate: float) -> dict[str, Any]:
         "projected_GH200_hours": (
             None if projected_seconds is None else projected_seconds / 3600.0
         ),
+    }
+
+
+def _load_ddp_output(path: str | Path) -> dict[str, Any]:
+    root = Path(path).resolve()
+    result_path = root / "result.json"
+    result = _read_json(result_path)
+    complete = _read_json(root / "complete.json")
+    profile_path = root / "profile.json"
+    _require(
+        result.get("schema") == IP_E5_DDP_RESULT_SCHEMA,
+        f"DDP result schema drift at {root}",
+    )
+    _require(
+        complete.get("result_sha256") == _sha256_file(result_path),
+        f"DDP terminal result hash drift at {root}",
+    )
+    _require(
+        complete.get("status") == result.get("status"),
+        f"DDP terminal/result status drift at {root}",
+    )
+    _require(profile_path.is_file(), f"DDP profile artifact is absent at {root}")
+    _require(
+        result.get("profile_artifact_sha256") == _sha256_file(profile_path),
+        f"DDP profile artifact hash drift at {root}",
+    )
+    return {"root": str(root), "result": result}
+
+
+def _ddp_blocks(result: Mapping[str, Any]) -> list[dict[str, float]]:
+    raw = result.get("measurement", {}).get("throughput_blocks")
+    _require(isinstance(raw, list), "DDP throughput block records are absent")
+    _require(len(raw) == MEASURED_WINDOWS // 16, "DDP throughput block count drift")
+    blocks = []
+    for index, block in enumerate(raw):
+        _require(isinstance(block, Mapping), f"DDP throughput block {index} is invalid")
+        _require(
+            block.get("accepted_windows") == 16
+            and block.get("exposure_samples") == 16 * EFFECTIVE_BATCH,
+            f"DDP throughput block {index} exposure drift",
+        )
+        seconds = block.get("wall_seconds")
+        _require(
+            isinstance(seconds, (int, float))
+            and not isinstance(seconds, bool)
+            and seconds > 0,
+            f"DDP throughput block {index} wall time is invalid",
+        )
+        blocks.append(
+            {
+                "samples": float(block["exposure_samples"]),
+                "seconds": float(seconds),
+            }
+        )
+    return blocks
+
+
+def _ddp_projection(result: Mapping[str, Any], rate: float) -> dict[str, Any]:
+    measurement = result["measurement"]
+    startup = float(measurement["startup_seconds"]["before_training_total"])
+    warmup_wall = float(
+        measurement["compile_evidence"]["warmup_including_compile_seconds"]
+    )
+    expected_warmup_wall = WARMUP_WINDOWS * EFFECTIVE_BATCH / rate
+    cold_extra = max(0.0, warmup_wall - expected_warmup_wall)
+    checkpoint_seconds = float(
+        result["checkpoint"][
+            "wall_seconds_including_rank_rng_sidecars_and_hash"
+        ]
+    )
+    projected_seconds = (
+        TWENTY_EPOCH_PRESENTATIONS / rate
+        + startup
+        + cold_extra
+        + 20.0 * checkpoint_seconds
+    )
+    return {
+        "presentations": TWENTY_EPOCH_PRESENTATIONS,
+        "startup_seconds": startup,
+        "warmup_or_compile_cold_extra_seconds": cold_extra,
+        "checkpoint_stall_seconds_per_epoch": checkpoint_seconds,
+        "projected_seconds": projected_seconds,
+        "projected_wall_hours": projected_seconds / 3600.0,
+        "projected_charged_GH200_hours": 2.0 * projected_seconds / 3600.0,
+    }
+
+
+def compare_ip_e5_ddp_output_dirs(
+    reference_dir: str | Path,
+    candidate_dir: str | Path,
+) -> dict[str, Any]:
+    """Evaluate the exact same-allocation one-GPU versus two-GPU DDP gate."""
+    reference_output = _load_output(reference_dir)
+    candidate_output = _load_ddp_output(candidate_dir)
+    reference = reference_output["result"]
+    reference_identity = reference_output["identity"]
+    candidate = candidate_output["result"]
+
+    _require(
+        reference.get("candidate_id") == IP_E5_SINGLE_REFERENCE_ID,
+        "IP-E5 single-GPU reference identity drift",
+    )
+    _require(
+        candidate.get("candidate_id") == IP_E5_DDP_CANDIDATE_ID,
+        "IP-E5 DDP candidate identity drift",
+    )
+    _require(reference.get("branch") == "camera", "IP-E5 reference is not Camera")
+    _require(
+        reference.get("source") == candidate.get("source"),
+        "IP-E5 source identity differs",
+    )
+    _require(
+        reference.get("source_resolved_config_sha256")
+        == candidate.get("source_config_sha256"),
+        "IP-E5 source config differs",
+    )
+    _require(
+        int(reference.get("physical_batch_size", 0)) == 16
+        and int(reference.get("accumulation_steps", 0)) == 2,
+        "IP-E5 reference is not B16xaccum2",
+    )
+    _require(
+        int(candidate.get("world_size", 0)) == 2
+        and int(candidate.get("local_batch", 0)) == 16
+        and int(candidate.get("accumulation_steps", 0)) == 1
+        and int(candidate.get("effective_global_batch", 0)) == EFFECTIVE_BATCH,
+        "IP-E5 DDP effective-B32 identity drift",
+    )
+
+    reference_attempt = reference_identity.get("attempt", {})
+    candidate_attempt = candidate.get("attempt", {})
+    job_id = reference_attempt.get("slurm_job_id")
+    node_list = reference_attempt.get("node_list")
+    _require(
+        job_id and job_id == candidate_attempt.get("slurm_job_id"),
+        "IP-E5 pair did not share one Slurm allocation",
+    )
+    _require(
+        node_list and node_list == candidate_attempt.get("node_list"),
+        "IP-E5 pair node identity differs",
+    )
+    rank_devices = candidate.get("measurement", {}).get("rank_devices")
+    _require(
+        isinstance(rank_devices, list) and len(rank_devices) == 2,
+        "IP-E5 DDP rank-device evidence is incomplete",
+    )
+    reference_device = reference_identity.get("runtime", {}).get("device_name")
+    _require(
+        reference_device
+        and all(item.get("name") == reference_device for item in rank_devices),
+        "IP-E5 pair GPU model identity differs",
+    )
+
+    reference_rate = _rate(reference)
+    candidate_rate = float(
+        candidate.get("measurement", {}).get("exposure_samples_per_second", 0.0)
+    )
+    _require(
+        math.isfinite(candidate_rate) and candidate_rate > 0.0,
+        "IP-E5 DDP sustained exposure rate is invalid",
+    )
+    seed_material = (
+        f"{reference.get('profile_config_sha256')}:"
+        f"{candidate.get('profile_sha256')}:{job_id}"
+    ).encode("utf-8")
+    bootstrap_seed = int.from_bytes(hashlib.sha256(seed_material).digest()[:8], "big")
+    lower_bound = _bootstrap_ratio_lower_bound(
+        _blocks(reference), _ddp_blocks(candidate), seed=bootstrap_seed
+    )
+    ratio = candidate_rate / reference_rate
+
+    reference_measurement = _measurement_health(reference)
+    reference_continuation = _continuation_health(reference)
+    candidate_hard = candidate.get("hard_gates")
+    _require(isinstance(candidate_hard, Mapping), "IP-E5 DDP hard gates are absent")
+    bn_diagnostics = candidate.get("bn_rank_diagnostics")
+    bn_diagnostics_present = bool(
+        isinstance(bn_diagnostics, Mapping)
+        and isinstance(bn_diagnostics.get("rank0_vs_rank1"), Mapping)
+        and bn_diagnostics["rank0_vs_rank1"].get("all_finite") is True
+    )
+
+    reference_projection = _projection(reference, reference_rate)
+    reference_hours = reference_projection["projected_GH200_hours"]
+    _require(reference_hours is not None, "IP-E5 reference projection is incomplete")
+    candidate_projection = _ddp_projection(candidate, candidate_rate)
+    candidate_wall_hours = float(candidate_projection["projected_wall_hours"])
+    candidate_charged_hours = float(
+        candidate_projection["projected_charged_GH200_hours"]
+    )
+    wall_limit = float(reference_hours) / IP_E5_SPEEDUP_LOWER_BOUND
+    charged_limit = float(reference_hours) * IP_E5_MAX_CHARGED_RATIO
+    charged_ratio = candidate_charged_hours / float(reference_hours)
+
+    checks = {
+        "reference_measurement_health": bool(reference_measurement["gate_pass"]),
+        "reference_checkpoint_continuation": bool(
+            reference_continuation["gate_pass"]
+        ),
+        "ddp_engineering_hard_gates": bool(candidate_hard.get("gate_pass")),
+        "ddp_bn_diagnostics_finite": bn_diagnostics_present,
+        "speedup_one_sided_lower_bound_at_least_1_60": (
+            lower_bound >= IP_E5_SPEEDUP_LOWER_BOUND
+        ),
+        "projected_wall_at_most_reference_over_1_60": (
+            candidate_wall_hours <= wall_limit
+        ),
+        "projected_charged_hours_at_most_reference_times_1_25": (
+            candidate_charged_hours <= charged_limit
+        ),
+    }
+    gate_pass = all(checks.values())
+    return {
+        "schema": IP_E5_DDP_PAIR_SCHEMA,
+        "phase": "S10 Phase I-P",
+        "envelope": "IP-E5",
+        "matched_allocation": {
+            "slurm_job_id": job_id,
+            "node_list": node_list,
+            "reference_visible_gpus": 1,
+            "candidate_world_size": 2,
+            "same_source_and_production_recipe": True,
+        },
+        "reference": {
+            "root": reference_output["root"],
+            "candidate_id": reference["candidate_id"],
+            "physical_batch_size": 16,
+            "accumulation_steps": 2,
+            "exposure_samples_per_second": reference_rate,
+            "measurement_health": reference_measurement,
+            "checkpoint_continuation": reference_continuation,
+            "projection": reference_projection,
+        },
+        "candidate": {
+            "root": candidate_output["root"],
+            "candidate_id": candidate["candidate_id"],
+            "world_size": 2,
+            "local_batch_per_rank": 16,
+            "accumulation_steps": 1,
+            "effective_global_batch": EFFECTIVE_BATCH,
+            "exposure_samples_per_second": candidate_rate,
+            "engineering_hard_gates": candidate_hard,
+            "bn_rank_diagnostics": bn_diagnostics,
+            "projection": candidate_projection,
+        },
+        "throughput": {
+            "candidate_over_reference": ratio,
+            "bootstrap_method": "independent 16-window-block percentile bootstrap",
+            "bootstrap_blocks_per_process": MEASURED_WINDOWS // 16,
+            "bootstrap_draws": BOOTSTRAP_DRAWS,
+            "bootstrap_seed": bootstrap_seed,
+            "one_sided_95_percent_lower_bound": lower_bound,
+            "required_lower_bound": IP_E5_SPEEDUP_LOWER_BOUND,
+        },
+        "projection_gates": {
+            "reference_projected_wall_hours": float(reference_hours),
+            "candidate_projected_wall_hours": candidate_wall_hours,
+            "candidate_wall_limit_hours": wall_limit,
+            "candidate_projected_charged_GH200_hours": candidate_charged_hours,
+            "candidate_charged_limit_GH200_hours": charged_limit,
+            "candidate_charged_over_reference": charged_ratio,
+        },
+        "qualification_gate": {"checks": checks, "gate_pass": gate_pass},
+        "verdict": "POSITIVE_DDP_QUALIFICATION" if gate_pass else "DDP_NOT_QUALIFIED",
+        "production_promotion_authorized": False,
+        "owner_decision_required": (
+            "even a positive engineering result requires explicit acceptance of the "
+            "two-rank B16 BatchNorm/worker-RNG recipe before production promotion"
+        ),
+        "interpretation_limits": [
+            "D_fit-only throughput and engineering-health evidence",
+            "no capability, mAP, NDS, generalization, or candidate-selection claim",
+            "four-GPU DDP is outside IP-E5",
+        ],
     }
 
 
@@ -728,11 +1008,14 @@ __all__ = [
     "BOOTSTRAP_DRAWS",
     "B16_FOLLOWUP_NEAR_NEUTRAL_LOWER_BOUND",
     "IP_E4_PROMOTION_LOWER_BOUND",
+    "IP_E5_MAX_CHARGED_RATIO",
+    "IP_E5_SPEEDUP_LOWER_BOUND",
     "PAIR_SCHEMA",
     "Phase1PPairError",
     "compare_b16_batched_rotation_output_dirs",
     "compare_b16_followup_output_dirs",
     "compare_ip_e4_bulk_input_conversion_output_dirs",
     "compare_ip_e4_vectorized_geometry_output_dirs",
+    "compare_ip_e5_ddp_output_dirs",
     "compare_output_dirs",
 ]

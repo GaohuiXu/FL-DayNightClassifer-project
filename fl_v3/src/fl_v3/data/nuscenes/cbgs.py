@@ -252,3 +252,84 @@ class Phase1EpochPermutationSampler(Sampler[int]):
 
     def __len__(self) -> int:
         return self.consumed_samples
+
+
+class Phase1DistributedWindowSampler(Phase1EpochPermutationSampler):
+    """Shard each exact global effective-batch window without pad or overlap.
+
+    The global Phase-I permutation and 26-sample remainder stay byte-identical to
+    the single-process recipe.  For every effective-B32 optimizer window, rank
+    ``r`` receives the contiguous local-B16 slice ``[r*16:(r+1)*16]``.  This is
+    deliberately not ``DistributedSampler``: padding or strided sharding would
+    obscure the exact per-update union contract used by the DDP qualifier.
+    """
+
+    def __init__(
+        self,
+        dataset: Dataset,
+        *,
+        seed: int,
+        consumed_samples: int,
+        rank: int,
+        world_size: int,
+        local_batch_size: int,
+        effective_global_batch: int,
+        expected_twenty_epoch_order_sha256: str | None = None,
+        expected_twenty_epoch_remainder_sha256: str | None = None,
+        epochs: int = 20,
+    ) -> None:
+        super().__init__(
+            dataset,
+            seed=seed,
+            consumed_samples=consumed_samples,
+            expected_twenty_epoch_order_sha256=(
+                expected_twenty_epoch_order_sha256
+            ),
+            expected_twenty_epoch_remainder_sha256=(
+                expected_twenty_epoch_remainder_sha256
+            ),
+            epochs=epochs,
+        )
+        self.rank = int(rank)
+        self.world_size = int(world_size)
+        self.local_batch_size = int(local_batch_size)
+        self.effective_global_batch = int(effective_global_batch)
+        if self.world_size < 2:
+            raise ValueError("distributed Phase-I sampler requires world_size >= 2")
+        if not 0 <= self.rank < self.world_size:
+            raise ValueError("distributed Phase-I sampler rank is out of range")
+        if self.local_batch_size < 1:
+            raise ValueError("distributed Phase-I local batch must be positive")
+        if (
+            self.local_batch_size * self.world_size
+            != self.effective_global_batch
+        ):
+            raise ValueError(
+                "distributed Phase-I local batches do not form effective global batch"
+            )
+        if self.consumed_samples % self.effective_global_batch:
+            raise ValueError(
+                "distributed Phase-I exposure is not global-window aligned"
+            )
+
+    def global_epoch_positions(self, epoch: int | None = None) -> np.ndarray:
+        value = self.epoch if epoch is None else int(epoch)
+        if value < 0 or value >= self.epochs:
+            raise ValueError("distributed Phase-I sampler epoch is out of range")
+        return np.ascontiguousarray(
+            self._positions(value)[: self.consumed_samples], dtype=np.int64
+        )
+
+    def rank_epoch_positions(self, epoch: int | None = None) -> np.ndarray:
+        global_positions = self.global_epoch_positions(epoch).reshape(
+            -1, self.effective_global_batch
+        )
+        begin = self.rank * self.local_batch_size
+        end = begin + self.local_batch_size
+        return np.ascontiguousarray(global_positions[:, begin:end].reshape(-1))
+
+    def __iter__(self):
+        return iter(self.rank_epoch_positions().tolist())
+
+    def __len__(self) -> int:
+        return self.consumed_samples // self.world_size

@@ -12,6 +12,7 @@ from fl_v3.training.phase1p_compare import (
     compare_b16_followup_output_dirs,
     compare_ip_e4_bulk_input_conversion_output_dirs,
     compare_ip_e4_vectorized_geometry_output_dirs,
+    compare_ip_e5_ddp_output_dirs,
     compare_output_dirs,
 )
 
@@ -112,6 +113,94 @@ def _output(
         root / "complete.json",
         {"status": result["status"], "result_sha256": result_sha},
     )
+
+
+def _ddp_output(root: Path, *, block_seconds: float, hard_gate: bool = True) -> None:
+    profile_sha = _write_json(root / "profile.json", {"schema": "profile"})
+    rate = 512.0 / block_seconds
+    measurement = {
+        "measurement_wall_seconds": 16.0 * block_seconds,
+        "exposure_samples": 8192,
+        "exposure_samples_per_second": rate,
+        "throughput_blocks": [
+            {
+                "accepted_windows": 16,
+                "exposure_samples": 512,
+                "wall_seconds": block_seconds,
+            }
+            for _ in range(16)
+        ],
+        "startup_seconds": {"before_training_total": 12.0},
+        "compile_evidence": {"warmup_including_compile_seconds": 512.0 / rate},
+        "rank_devices": [
+            {"rank": rank, "name": "NVIDIA GH200 120GB", "total_memory_bytes": 100_000}
+            for rank in range(2)
+        ],
+    }
+    result = {
+        "schema": "s10.phase1p.ip-e5-ddp-result.v1",
+        "status": (
+            "COMPLETE_DDP_ENGINEERING"
+            if hard_gate
+            else "COMPLETE_DDP_HARD_GATE_FAILURE"
+        ),
+        "source": {"git_sha": "a" * 40},
+        "attempt": {
+            "slurm_job_id": "123",
+            "node_list": "n1",
+            "gpus_on_node": "2",
+        },
+        "source_config_sha256": "b" * 64,
+        "effective_config_sha256": "f" * 64,
+        "profile_sha256": "1" * 64,
+        "profile_artifact_sha256": profile_sha,
+        "candidate_id": "camera_final_b16_ddp2",
+        "world_size": 2,
+        "local_batch": 16,
+        "accumulation_steps": 1,
+        "effective_global_batch": 32,
+        "measurement": measurement,
+        "bn_rank_diagnostics": {
+            "rank0_vs_rank1": {"all_finite": True},
+            "elementwise_exact": False,
+        },
+        "checkpoint": {
+            "wall_seconds_including_rank_rng_sidecars_and_hash": 0.8,
+        },
+        "hard_gates": {"checks": {}, "gate_pass": hard_gate},
+    }
+    result_sha = _write_json(root / "result.json", result)
+    _write_json(
+        root / "complete.json",
+        {"status": result["status"], "result_sha256": result_sha},
+    )
+
+
+def test_ip_e5_ddp_gate_requires_robust_speed_and_charged_payback(tmp_path):
+    reference = tmp_path / "reference"
+    candidate = tmp_path / "candidate"
+    _output(
+        reference,
+        candidate_id="camera_final_b16_single_gpu_reference",
+        batch=16,
+        block_seconds=32.0,
+    )
+    _ddp_output(candidate, block_seconds=32.0 / 1.70)
+
+    summary = compare_ip_e5_ddp_output_dirs(reference, candidate)
+    assert summary["schema"] == "s10.phase1p.ip-e5-ddp-comparison.v1"
+    assert summary["throughput"]["candidate_over_reference"] == pytest.approx(1.70)
+    assert summary["throughput"]["one_sided_95_percent_lower_bound"] >= 1.60
+    assert summary["projection_gates"]["candidate_charged_over_reference"] <= 1.25
+    assert summary["qualification_gate"]["gate_pass"] is True
+    assert summary["verdict"] == "POSITIVE_DDP_QUALIFICATION"
+    assert summary["production_promotion_authorized"] is False
+
+    slower = tmp_path / "slower"
+    _ddp_output(slower, block_seconds=32.0 / 1.50)
+    summary = compare_ip_e5_ddp_output_dirs(reference, slower)
+    assert summary["qualification_gate"]["gate_pass"] is False
+    assert summary["verdict"] == "DDP_NOT_QUALIFIED"
 
 
 def test_pair_comparison_enforces_match_and_emits_b16_gate(tmp_path):

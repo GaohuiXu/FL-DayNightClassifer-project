@@ -20,6 +20,7 @@ PHASE1_PROFILE_SCHEMA = "s10.phase1p.profile.v1"
 PHASE1_PROFILE_SCHEMA_V2 = "s10.phase1p.profile.v2"
 PHASE1_PROFILE_SCHEMA_V3 = "s10.phase1p.profile.v3"
 PHASE1_PROFILE_SCHEMA_V4 = "s10.phase1p.profile.v4"
+PHASE1_PROFILE_SCHEMA_V5 = "s10.phase1p.profile.v5"
 
 _HEX = frozenset("0123456789abcdef")
 _ROOT_KEYS = frozenset({
@@ -74,6 +75,7 @@ _CANDIDATE_KEYS_V4 = _CANDIDATE_KEYS | frozenset({
     "camera_vectorized_geometry",
     "camera_bulk_input_conversion",
 })
+_CANDIDATE_KEYS_V5 = _CANDIDATE_KEYS_V4 | frozenset({"world_size"})
 _BOUNDARY_KEYS = frozenset({
     "allowed_data_role",
     "forbidden_roles",
@@ -105,6 +107,10 @@ IP_E4_BASELINE_CANDIDATES: dict[str, Any] = {
     "camera_vectorized_geometry": False,
     "camera_bulk_input_conversion": False,
 }
+IP_E5_BASELINE_CANDIDATES: dict[str, Any] = {
+    **IP_E4_BASELINE_CANDIDATES,
+    "world_size": 1,
+}
 
 
 def _candidate_options(**overrides: Any) -> dict[str, Any]:
@@ -121,6 +127,15 @@ def _ip_e4_candidate_options(**overrides: Any) -> dict[str, Any]:
     unknown = set(overrides) - set(options)
     if unknown:
         raise RuntimeError(f"unknown Phase I-P IP-E4 option(s): {sorted(unknown)}")
+    options.update(overrides)
+    return options
+
+
+def _ip_e5_candidate_options(**overrides: Any) -> dict[str, Any]:
+    options = dict(IP_E5_BASELINE_CANDIDATES)
+    unknown = set(overrides) - set(options)
+    if unknown:
+        raise RuntimeError(f"unknown Phase I-P IP-E5 option(s): {sorted(unknown)}")
     options.update(overrides)
     return options
 
@@ -263,6 +278,35 @@ IP_E4_RUNNABLE_CANDIDATES: dict[str, dict[str, Any]] = {
     },
 }
 
+IP_E5_RUNNABLE_CANDIDATES: dict[str, dict[str, Any]] = {
+    "camera_final_b16_single_gpu_reference": {
+        "branches": frozenset({"camera"}),
+        "options": _ip_e5_candidate_options(
+            camera_batched_affine_grid=True,
+            camera_vectorized_geometry=True,
+            camera_bulk_input_conversion=True,
+            camera_sdpa=True,
+            torch_compile=True,
+            fused_adamw=True,
+            physical_batch_size=16,
+            world_size=1,
+        ),
+    },
+    "camera_final_b16_ddp2": {
+        "branches": frozenset({"camera"}),
+        "options": _ip_e5_candidate_options(
+            camera_batched_affine_grid=True,
+            camera_vectorized_geometry=True,
+            camera_bulk_input_conversion=True,
+            camera_sdpa=True,
+            torch_compile=True,
+            fused_adamw=True,
+            physical_batch_size=16,
+            world_size=2,
+        ),
+    },
+}
+
 
 def _runnable_candidates(envelope: str) -> dict[str, dict[str, Any]]:
     if envelope == "IP-E1":
@@ -273,6 +317,8 @@ def _runnable_candidates(envelope: str) -> dict[str, dict[str, Any]]:
         return IP_E3_RUNNABLE_CANDIDATES
     if envelope == "IP-E4":
         return IP_E4_RUNNABLE_CANDIDATES
+    if envelope == "IP-E5":
+        return IP_E5_RUNNABLE_CANDIDATES
     raise Phase1ProfileError(f"unknown Phase I-P envelope {envelope!r}")
 
 
@@ -438,6 +484,7 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
         PHASE1_PROFILE_SCHEMA_V2: "IP-E2",
         PHASE1_PROFILE_SCHEMA_V3: "IP-E3",
         PHASE1_PROFILE_SCHEMA_V4: "IP-E4",
+        PHASE1_PROFILE_SCHEMA_V5: "IP-E5",
     }
     if root["schema"] not in schema_to_envelope:
         raise Phase1ProfileError(f"unsupported profile schema {root['schema']!r}")
@@ -476,7 +523,7 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
     for key, expected in expected_integers.items():
         if _integer(measurement[key], f"measurement.{key}", minimum=1) != expected:
             raise Phase1ProfileError(f"measurement.{key} must remain {expected}")
-    if expected_envelope in {"IP-E2", "IP-E3", "IP-E4"} and _integer(
+    if expected_envelope in {"IP-E2", "IP-E3", "IP-E4", "IP-E5"} and _integer(
         measurement["capacity_accepted_windows"],
         "measurement.capacity_accepted_windows",
         minimum=1,
@@ -513,10 +560,18 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
             raise Phase1ProfileError(f"parity.{precision} tolerance drift")
 
     candidate_keys = (
-        _CANDIDATE_KEYS_V4 if expected_envelope == "IP-E4" else _CANDIDATE_KEYS
+        _CANDIDATE_KEYS_V5
+        if expected_envelope == "IP-E5"
+        else _CANDIDATE_KEYS_V4
+        if expected_envelope == "IP-E4"
+        else _CANDIDATE_KEYS
     )
     candidates = _keys(root["candidates"], candidate_keys, "candidates")
-    for key in candidate_keys - {"physical_batch_size", "checkpoint_cadence_epochs"}:
+    for key in candidate_keys - {
+        "physical_batch_size",
+        "checkpoint_cadence_epochs",
+        "world_size",
+    }:
         if not isinstance(candidates[key], bool):
             raise Phase1ProfileError(f"candidates.{key} must be boolean")
     _integer(candidates["physical_batch_size"], "candidates.physical_batch_size", minimum=1)
@@ -525,7 +580,11 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
         "candidates.checkpoint_cadence_epochs",
         minimum=1,
     )
-    if expected_envelope in {"IP-E2", "IP-E3", "IP-E4"} and candidates[
+    if expected_envelope == "IP-E5" and _integer(
+        candidates["world_size"], "candidates.world_size", minimum=1
+    ) not in {1, 2}:
+        raise Phase1ProfileError("IP-E5 world size must be one or two")
+    if expected_envelope in {"IP-E2", "IP-E3", "IP-E4", "IP-E5"} and candidates[
         "physical_batch_size"
     ] not in {
         4, 8, 16
@@ -559,8 +618,8 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
 class Phase1ProfileRuntimeConfig:
     """Profile-only effective runtime view over one validated Phase-I recipe.
 
-    Production config bytes stay untouched.  Only physical batch/accumulation and
-    the AdamW fused backend may differ.  A non-scientific ``phase1p_runtime``
+    Production config bytes stay untouched.  Only physical batch/world-size/
+    accumulation and the AdamW fused backend may differ.  A non-scientific ``phase1p_runtime``
     identity binds every profiler candidate (including SDPA/compile flags) into
     checkpoint and runtime provenance without making it a production recipe.
     """
@@ -614,14 +673,20 @@ def derive_profile_runtime_config(
         raise Phase1ProfileError("Phase I-P runtime view requires a Phase-I source config")
     raw = source.as_dict()
     batch = int(profile.candidates["physical_batch_size"])
-    if batch not in {4, 8, 16} or 32 % batch:
-        raise Phase1ProfileError("physical batch must divide effective B32 exactly")
-    accumulation = 32 // batch
+    world_size = int(profile.candidates.get("world_size", 1))
+    per_window = batch * world_size
+    if batch not in {4, 8, 16} or world_size not in {1, 2} or 32 % per_window:
+        raise Phase1ProfileError(
+            "physical batch times world size must divide effective B32 exactly"
+        )
+    accumulation = 32 // per_window
     training = raw["training"]
     training["micro_batch_size"] = batch
+    training["world_size"] = world_size
     training["accumulation_steps"] = accumulation
     training["effective_global_batch"] = 32
     training["loss_accumulation"] = {
+        1: "mean_over_one_microbatch_per_rank_after_ddp_mean",
         8: "mean_over_eight_microbatches",
         4: "mean_over_four_microbatches",
         2: "mean_over_two_microbatches",
@@ -664,10 +729,13 @@ __all__ = [
     "IP_E3_RUNNABLE_CANDIDATES",
     "IP_E4_BASELINE_CANDIDATES",
     "IP_E4_RUNNABLE_CANDIDATES",
+    "IP_E5_BASELINE_CANDIDATES",
+    "IP_E5_RUNNABLE_CANDIDATES",
     "PHASE1_PROFILE_SCHEMA",
     "PHASE1_PROFILE_SCHEMA_V2",
     "PHASE1_PROFILE_SCHEMA_V3",
     "PHASE1_PROFILE_SCHEMA_V4",
+    "PHASE1_PROFILE_SCHEMA_V5",
     "Phase1ProfileError",
     "Phase1ProfileRuntimeConfig",
     "Phase1ProfileSpec",

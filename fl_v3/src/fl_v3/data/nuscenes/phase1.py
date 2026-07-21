@@ -11,6 +11,7 @@ from fl_v3.config import ResolvedConfig, verify_physical_data_identities
 from fl_v3.data.nuscenes import info_cache
 from fl_v3.data.nuscenes.cbgs import (
     OfficialCBGSWrapper,
+    Phase1DistributedWindowSampler,
     Phase1EpochPermutationSampler,
 )
 from fl_v3.data.nuscenes.dataset import NuScenesMultimodalDataset, make_loader
@@ -25,11 +26,13 @@ class Phase1DataBundle:
 
     base_dataset: NuScenesMultimodalDataset
     dataset: OfficialCBGSWrapper
-    sampler: Phase1EpochPermutationSampler
+    sampler: Phase1EpochPermutationSampler | Phase1DistributedWindowSampler
     loader: DataLoader
     role_identity: dict[str, Any]
     cache_meta: dict[str, Any]
     seed: int
+    rank: int = 0
+    world_size: int = 1
 
     def set_epoch(self, epoch: int) -> None:
         self.dataset.set_epoch(epoch)
@@ -38,7 +41,9 @@ class Phase1DataBundle:
         # worker seed by epoch makes an epoch-boundary recovery checkpoint replay
         # the same augmentation/GT-paste streams instead of inheriting opaque
         # persistent-worker RNG state.
-        self.loader.generator.manual_seed(self.seed + int(epoch))
+        self.loader.generator.manual_seed(
+            self.seed + int(epoch) * self.world_size + self.rank
+        )
 
     def close(self) -> None:
         self.base_dataset.close()
@@ -176,8 +181,10 @@ def build_phase1_train_data(
     config: ResolvedConfig,
     *,
     materialized_gtdb_manifest_sha256: str | None = None,
+    distributed_rank: int = 0,
+    distributed_world_size: int = 1,
 ) -> Phase1DataBundle:
-    """Build the exact D_fit -> official-CBGS -> B4 production loader."""
+    """Build exact D_fit -> official-CBGS single-rank or DDP-window data."""
     if not config.is_phase1:
         raise ValueError("build_phase1_train_data requires a Phase-I config")
     verify_physical_data_identities(config)
@@ -249,16 +256,36 @@ def build_phase1_train_data(
     )
     dataset = OfficialCBGSWrapper(base, artifact)
     training = raw["training"]
-    sampler = Phase1EpochPermutationSampler(
-        dataset,
-        seed=int(training["seed"]),
-        consumed_samples=int(training["consumed_samples_per_epoch"]),
-        expected_twenty_epoch_order_sha256=sampling["twenty_epoch_order_sha256"],
-        expected_twenty_epoch_remainder_sha256=sampling[
+    rank = int(distributed_rank)
+    world_size = int(distributed_world_size)
+    if world_size < 1 or not 0 <= rank < world_size:
+        raise ValueError("Phase-I distributed rank/world-size identity is invalid")
+    if int(training["world_size"]) != world_size:
+        raise ValueError("Phase-I loader world size differs from the runtime recipe")
+    sampler_arguments = {
+        "seed": int(training["seed"]),
+        "consumed_samples": int(training["consumed_samples_per_epoch"]),
+        "expected_twenty_epoch_order_sha256": sampling[
+            "twenty_epoch_order_sha256"
+        ],
+        "expected_twenty_epoch_remainder_sha256": sampling[
             "twenty_epoch_remainder_sha256"
         ],
-        epochs=int(training["epochs"]),
-    )
+        "epochs": int(training["epochs"]),
+    }
+    if world_size == 1:
+        if rank != 0:
+            raise ValueError("single-process Phase-I loader requires rank zero")
+        sampler = Phase1EpochPermutationSampler(dataset, **sampler_arguments)
+    else:
+        sampler = Phase1DistributedWindowSampler(
+            dataset,
+            rank=rank,
+            world_size=world_size,
+            local_batch_size=int(training["micro_batch_size"]),
+            effective_global_batch=int(training["effective_global_batch"]),
+            **sampler_arguments,
+        )
     loader = make_loader(
         dataset,
         batch_size=int(training["micro_batch_size"]),
@@ -278,6 +305,8 @@ def build_phase1_train_data(
         role_identity=role.identity(),
         cache_meta=dict(meta),
         seed=int(training["seed"]),
+        rank=rank,
+        world_size=world_size,
     )
 
 

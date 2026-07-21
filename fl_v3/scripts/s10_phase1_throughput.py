@@ -273,6 +273,16 @@ def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
             and source_runtime["compile_mode"] == "default",
             "production Camera compile policy drift",
         )
+        if profile.data["envelope"] == "IP-E5":
+            _require(
+                source_runtime["camera_preprocess"]
+                == {
+                    "batched_affine_grid": batched_affine_grid,
+                    "vectorized_geometry": vectorized_geometry,
+                    "bulk_input_conversion": bulk_input_conversion,
+                },
+                "IP-E5 profile differs from the production Camera preprocessing stack",
+            )
         runtime_application = "production_config"
     else:
         if camera_sdpa:
@@ -1582,6 +1592,10 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     _require(
         raw["training"]["micro_batch_size"] == physical_batch,
         "profile physical batch/runtime config drift",
+    )
+    _require(
+        raw["training"]["world_size"] == 1,
+        "single-GPU profiler requires world_size=1",
     )
     _require(
         raw["training"]["accumulation_steps"] == 32 // physical_batch,

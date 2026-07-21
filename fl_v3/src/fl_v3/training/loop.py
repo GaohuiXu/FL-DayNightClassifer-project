@@ -575,6 +575,7 @@ def train_one_epoch(
     readiness_stage_timing: bool = True,
     readiness_profiler_ranges: bool = False,
     attempted_window_callback: Optional[Any] = None,
+    distributed_boolean_and: Optional[Any] = None,
     cpu_resident_batch_fields: tuple[str, ...] = (),
 ) -> Dict[str, Any]:
     """One epoch of training with the injected criterion (tensor or dict batch).
@@ -594,6 +595,9 @@ def train_one_epoch(
     before clip/step; it is fail-closed to one-microbatch windows.  A callable
     ``attempted_window_callback`` is output-neutral lifecycle plumbing used by
     bounded profilers and is invoked once after every complete attempted window.
+    ``distributed_boolean_and`` is a default-off DDP safety hook: every rank
+    supplies its local finite/accepted decision and receives the global logical
+    AND before taking the corresponding control-flow branch.
     ``cpu_resident_batch_fields`` is default-off profiler plumbing for named
     top-level dictionary fields consumed by host-side preprocessing."""
     if accumulation_steps < 1:
@@ -620,6 +624,8 @@ def train_one_epoch(
         )
     if attempted_window_callback is not None and not callable(attempted_window_callback):
         raise TypeError("attempted_window_callback must be callable or None")
+    if distributed_boolean_and is not None and not callable(distributed_boolean_and):
+        raise TypeError("distributed_boolean_and must be callable or None")
     if not isinstance(cpu_resident_batch_fields, tuple):
         raise TypeError("cpu_resident_batch_fields must be a tuple")
     if (
@@ -827,7 +833,14 @@ def train_one_epoch(
                     "microbatch sample count drift would change the effective update batch: "
                     f"expected={fixed_microbatch_samples}, actual={global_bs}"
                 )
-            finite_loss = bool(torch.isfinite(loss.detach()).item())
+            local_finite_loss = bool(torch.isfinite(loss.detach()).item())
+            finite_loss = (
+                local_finite_loss
+                if distributed_boolean_and is None
+                else bool(
+                    distributed_boolean_and("finite_loss", local_finite_loss)
+                )
+            )
             diagnostic_loss_value = float(loss.detach().item()) if diagnostic_step else 0.0
             if timing is not None:
                 timing.end_stage("loss")
@@ -897,7 +910,13 @@ def train_one_epoch(
                 scaler.update()
                 skipped = float(scaler.get_scale()) < scale_before
                 scaler_skips += int(skipped)
-                successful = not skipped
+                successful = (
+                    not skipped
+                    if distributed_boolean_and is None
+                    else bool(
+                        distributed_boolean_and("optimizer_accepted", not skipped)
+                    )
+                )
                 if skipped:
                     overflow = True
             else:
@@ -912,7 +931,17 @@ def train_one_epoch(
                         loss_finite=finite_loss,
                         parameters_unscaled=True,
                     )
-                if not _gradients_finite(model):
+                local_gradients_finite = _gradients_finite(model)
+                gradients_finite = (
+                    local_gradients_finite
+                    if distributed_boolean_and is None
+                    else bool(
+                        distributed_boolean_and(
+                            "gradients_finite", local_gradients_finite
+                        )
+                    )
+                )
+                if not gradients_finite:
                     nonfinite_loss_count += 1
                     window_nonfinite = True
                     successful = False

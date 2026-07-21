@@ -16,6 +16,7 @@ from fl_v3.training.phase1_profile import (
     IP_E2_RUNNABLE_CANDIDATES,
     IP_E3_RUNNABLE_CANDIDATES,
     IP_E4_RUNNABLE_CANDIDATES,
+    IP_E5_RUNNABLE_CANDIDATES,
     Phase1ProfileError,
     derive_profile_runtime_config,
     load_phase1_profile_spec,
@@ -35,6 +36,7 @@ LIDAR = ROOT / "configs" / "s10_phase1_lidar.json"
 IP_E2_PROFILES = tuple(sorted((ROOT / "configs").glob("s10_phase1p_ip_e2_*.json")))
 IP_E3_PROFILES = tuple(sorted((ROOT / "configs").glob("s10_phase1p_ip_e3_*.json")))
 IP_E4_PROFILES = tuple(sorted((ROOT / "configs").glob("s10_phase1p_ip_e4_*.json")))
+IP_E5_PROFILES = tuple(sorted((ROOT / "configs").glob("s10_phase1p_ip_e5_*.json")))
 HISTORICAL_CAMERA_FILE_SHA256 = (
     "567cb1b71535b4866193273960e531ae4b45318e56e81101e99ad186ac23ce60"
 )
@@ -95,6 +97,17 @@ def _assert_pre_ip_e4_camera_binding(profile) -> None:
     )
     assert binding["resolved_config_sha256"] == (
         "f6040d30c23571f049bba3602081a9ec3bbfbdafc5d5ab8b76e9dd375eb76f25"
+    )
+
+
+def _assert_final_camera_binding(profile) -> None:
+    binding = profile.data["branch_bindings"]["camera"]
+    assert binding["config_path"] == "fl_v3/configs/s10_phase1_camera.json"
+    assert binding["config_file_sha256"] == (
+        "2e5368f96a6198e9a3b1bd43b258b53675df49f5c6ca9042fa8f72e0084c3b6a"
+    )
+    assert binding["resolved_config_sha256"] == (
+        "0df1a19c057312923e0a8e48e81689d9ca265cc613c6f34d4795417414aa0bcf"
     )
 
 
@@ -262,6 +275,47 @@ def test_ip_e4_profiles_bind_the_final_b16_stack():
             )
         )
     assert seen == set(IP_E4_RUNNABLE_CANDIDATES)
+
+
+def test_ip_e5_profiles_bind_final_camera_recipe():
+    assert len(IP_E5_PROFILES) == len(IP_E5_RUNNABLE_CANDIDATES) == 2
+    source_bytes = CAMERA.read_bytes()
+    source = load_resolved_config(CAMERA)
+    seen = set()
+    expected = {
+        "camera_final_b16_single_gpu_reference": (1, 2),
+        "camera_final_b16_ddp2": (2, 1),
+    }
+    for path in IP_E5_PROFILES:
+        profile = load_phase1_profile_spec(path)
+        candidate_id = str(profile.data["candidate_id"])
+        seen.add(candidate_id)
+        assert profile.data["envelope"] == "IP-E5"
+        _assert_final_camera_binding(profile)
+        profile.assert_runnable("camera")
+        assert dict(profile.candidates) == IP_E5_RUNNABLE_CANDIDATES[
+            candidate_id
+        ]["options"]
+        with pytest.raises(Phase1ProfileError, match="not runnable"):
+            profile.assert_runnable("lidar")
+        runtime = derive_profile_runtime_config(source, profile)
+        raw = runtime.as_dict()
+        world_size, accumulation = expected[candidate_id]
+        assert raw["training"]["micro_batch_size"] == 16
+        assert raw["training"]["world_size"] == world_size
+        assert raw["training"]["accumulation_steps"] == accumulation
+        assert raw["training"]["effective_global_batch"] == 32
+        assert raw["optimizer"]["fused"] is True
+        assert raw["runtime_optimizations"] == source.as_dict()[
+            "runtime_optimizations"
+        ]
+        assert profile.candidates["camera_sdpa"] is True
+        assert profile.candidates["torch_compile"] is True
+        assert profile.candidates["camera_batched_affine_grid"] is True
+        assert profile.candidates["camera_vectorized_geometry"] is True
+        assert profile.candidates["camera_bulk_input_conversion"] is True
+    assert seen == set(IP_E5_RUNNABLE_CANDIDATES)
+    assert CAMERA.read_bytes() == source_bytes
 
 
 def test_ip_e2_runtime_views_preserve_effective_b32_and_source_bytes():
