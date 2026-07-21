@@ -74,6 +74,30 @@ def _canonical_sha256(value: Any) -> str:
     return hashlib.sha256(_canonical_bytes(value)).hexdigest()
 
 
+def _candidate_cpu_resident_batch_fields(profile, branch: str) -> tuple[str, ...]:
+    profile.assert_runnable(branch)
+    if bool(profile.candidates["camera_augmentation_transfer_cleanup"]):
+        _require(branch == "camera", "augmentation transfer cleanup is Camera-only")
+        return ("augmentation_params",)
+    return ()
+
+
+def _configure_profile_candidate(model, profile, branch: str) -> None:
+    """Apply only the fail-closed profiler runtime options bound by the profile."""
+    profile.assert_runnable(branch)
+    enabled = bool(profile.candidates["camera_augmentation_transfer_cleanup"])
+    if branch == "camera":
+        setter = getattr(
+            getattr(model, "preprocess", None),
+            "set_phase1p_augmentation_transfer_cleanup",
+            None,
+        )
+        _require(callable(setter), "Camera preprocessor lacks Phase I-P candidate control")
+        setter(enabled)
+    else:
+        _require(not enabled, "LiDAR cannot enable Camera augmentation cleanup")
+
+
 def _batch_sha256(value: Any) -> str:
     """Hash one CPU loader batch without changing its tensors or container order."""
     digest = hashlib.sha256()
@@ -537,6 +561,7 @@ def _run_segment(
     warmup: int = 0,
     trace_controller: _TraceController | None = None,
     batch_digests: list[str] | None = None,
+    cpu_resident_batch_fields: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     raw = config.as_dict()
     loader = (
@@ -576,6 +601,7 @@ def _run_segment(
             attempted_window_callback=(
                 None if trace_controller is None else trace_controller.step
             ),
+            cpu_resident_batch_fields=cpu_resident_batch_fields,
         )
 
 
@@ -585,10 +611,10 @@ def _checkpoint_resume_worker(request_path: Path) -> dict[str, Any]:
     expected = {
         "schema", "config_path", "config_sha256", "checkpoint", "checkpoint_sha256",
         "reference", "reference_sha256", "result", "source_sha", "continuation_windows",
-        "rtol", "atol",
+        "rtol", "atol", "profile_path", "profile_sha256", "candidate_id",
     }
     _require(set(request) == expected, "fresh-process resume request fields drift")
-    _require(request["schema"] == "s10.phase1p.resume-worker-request.v2", "resume schema drift")
+    _require(request["schema"] == "s10.phase1p.resume-worker-request.v3", "resume schema drift")
     checkpoint = Path(request["checkpoint"]).resolve()
     reference_path = Path(request["reference"]).resolve()
     result_path = Path(request["result"]).resolve()
@@ -614,6 +640,15 @@ def _checkpoint_resume_worker(request_path: Path) -> dict[str, Any]:
 
     config = load_resolved_config(request["config_path"])
     _require(config.sha256 == request["config_sha256"], "resume-worker config identity drift")
+    branch = str(config.as_dict()["contract"]["branch"])
+    profile = load_phase1_profile_spec(request["profile_path"])
+    _require(profile.sha256 == request["profile_sha256"], "resume-worker profile identity drift")
+    _require(
+        profile.data["candidate_id"] == request["candidate_id"],
+        "resume-worker candidate identity drift",
+    )
+    profile.assert_branch_binding(branch, request["config_path"], config)
+    profile.assert_runnable(branch)
     phase1_runtime_ready(config.as_dict())
     _require(request["continuation_windows"] == 8, "resume-worker window count drift")
     precision = str(config.as_dict()["precision"]["global_autocast"])
@@ -627,9 +662,14 @@ def _checkpoint_resume_worker(request_path: Path) -> dict[str, Any]:
         "resume-worker parity tolerance drift",
     )
     reference = torch.load(reference_path, map_location="cpu", weights_only=False)
-    _require(reference["schema"] == "s10.phase1p.continuation-reference.v1",
+    _require(reference["schema"] == "s10.phase1p.continuation-reference.v2",
              "continuation reference schema drift")
     _require(reference["config_sha256"] == config.sha256, "continuation reference config drift")
+    _require(
+        reference["profile_sha256"] == profile.sha256
+        and reference["candidate_id"] == profile.data["candidate_id"],
+        "continuation reference candidate drift",
+    )
 
     device = torch.device("cuda", 0)
     enforce_determinism(strict=False, precision="fp16")
@@ -638,6 +678,8 @@ def _checkpoint_resume_worker(request_path: Path) -> dict[str, Any]:
     model, criterion, optimizer, scheduler, scaler = build_phase1_training_stack(
         config, device
     )
+    _configure_profile_candidate(model, profile, branch)
+    cpu_resident_batch_fields = _candidate_cpu_resident_batch_fields(profile, branch)
     model_build_seconds = time.perf_counter() - started
     started = time.perf_counter()
     bundle = build_phase1_train_data(config)
@@ -702,6 +744,7 @@ def _checkpoint_resume_worker(request_path: Path) -> dict[str, Any]:
             target_optimizer_step=target,
             readiness=False,
             batch_digests=resumed_batch_sha256,
+            cpu_resident_batch_fields=cpu_resident_batch_fields,
         )
         _require(
             len(resumed_batch_sha256)
@@ -766,12 +809,16 @@ def _checkpoint_and_continuation(
     state: TrainingState,
     config,
     config_path: Path,
+    profile,
+    profile_path: Path,
     source_sha: str,
     device: torch.device,
     continuation_windows: int,
     rtol: float,
     atol: float,
 ) -> dict[str, Any]:
+    branch = str(config.as_dict()["contract"]["branch"])
+    cpu_resident_batch_fields = _candidate_cpu_resident_batch_fields(profile, branch)
     # Ownership is transferred from the caller so the original model, optimizer
     # state and loader can be genuinely released before the resume worker starts.
     expected_stack = {"model", "criterion", "optimizer", "scheduler", "scaler", "bundle"}
@@ -836,6 +883,7 @@ def _checkpoint_and_continuation(
         target_optimizer_step=control_target,
         readiness=False,
         batch_digests=control_batch_sha256,
+        cpu_resident_batch_fields=cpu_resident_batch_fields,
     )
     expected_continuation_microbatches = int(continuation_windows) * int(
         config.as_dict()["training"]["accumulation_steps"]
@@ -891,6 +939,7 @@ def _checkpoint_and_continuation(
         target_optimizer_step=control_target,
         readiness=False,
         batch_digests=replay_batch_sha256,
+        cpu_resident_batch_fields=cpu_resident_batch_fields,
     )
     _require(
         len(replay_batch_sha256) == expected_continuation_microbatches,
@@ -937,8 +986,10 @@ def _checkpoint_and_continuation(
     reference_sha = _torch_save_once(
         reference_path,
         {
-            "schema": "s10.phase1p.continuation-reference.v1",
+            "schema": "s10.phase1p.continuation-reference.v2",
             "config_sha256": config.sha256,
+            "profile_sha256": profile.sha256,
+            "candidate_id": profile.data["candidate_id"],
             "boundary_model_sha256": boundary_model_sha,
             "boundary_training_state": boundary_state,
             "boundary": boundary,
@@ -959,9 +1010,12 @@ def _checkpoint_and_continuation(
     _atomic_write_once(
         worker_request_path,
         {
-            "schema": "s10.phase1p.resume-worker-request.v2",
+            "schema": "s10.phase1p.resume-worker-request.v3",
             "config_path": str(config_path.resolve()),
             "config_sha256": config.sha256,
+            "profile_path": str(profile_path.resolve()),
+            "profile_sha256": profile.sha256,
+            "candidate_id": profile.data["candidate_id"],
             "checkpoint": str(checkpoint),
             "checkpoint_sha256": checkpoint_sha,
             "reference": str(reference_path),
@@ -1087,7 +1141,7 @@ def _validate_output_dir(
 
 def _run(args: argparse.Namespace) -> dict[str, Any]:
     profile = load_phase1_profile_spec(args.profile_config)
-    profile.assert_baseline()
+    profile.assert_runnable(args.branch)
     _require(args.mode != "trace" or args.repeat == 1, "trace mode permits repeat 1 only")
     config = load_resolved_config(args.config)
     profile.assert_branch_binding(args.branch, args.config, config)
@@ -1154,6 +1208,10 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     model, criterion, optimizer, scheduler, scaler = build_phase1_training_stack(
         config, device
     )
+    _configure_profile_candidate(model, profile, args.branch)
+    cpu_resident_batch_fields = _candidate_cpu_resident_batch_fields(
+        profile, args.branch
+    )
     model_seconds = time.perf_counter() - model_started
     loader_started = time.perf_counter()
     bundle = build_phase1_train_data(config)
@@ -1196,6 +1254,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             readiness=True,
             warmup=warmup,
             trace_controller=trace_controller,
+            cpu_resident_batch_fields=cpu_resident_batch_fields,
         )
         training_seconds = time.perf_counter() - training_started
     finally:
@@ -1268,6 +1327,8 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             state=state,
             config=config,
             config_path=Path(args.config),
+            profile=profile,
+            profile_path=Path(args.profile_config),
             source_sha=args.source_sha,
             device=device,
             continuation_windows=int(

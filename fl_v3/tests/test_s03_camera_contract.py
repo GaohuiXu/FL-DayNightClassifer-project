@@ -94,6 +94,50 @@ def test_s03_projection_residual_for_every_image_transform(
     )
 
 
+def test_s10_phase1p_augmentation_transfer_cleanup_is_output_neutral():
+    H_in, W_in = 20, 32
+    H_out, W_out = 12, 20
+    images = torch.arange(2 * 3 * H_in * W_in, dtype=torch.int64)
+    images = images.remainder(256).to(torch.uint8).view(1, 2, 3, H_in, W_in)
+    lidar2img, K = _calibration()
+    lidar2img = lidar2img.repeat(1, 2, 1, 1)
+    K = K.repeat(1, 2, 1, 1)
+    params = torch.tensor(
+        [
+            [0.75, 15.0, 24.0, 2.0, 3.0, 0.0, 11.0],
+            [0.75, 15.0, 24.0, -2.0, 5.0, 1.0, -5.4],
+        ],
+        dtype=torch.float64,
+    ).view(1, 2, len(AUGMENTATION_PARAM_FIELDS))
+    params_before = params.clone()
+
+    reference = ImagePreprocessor(
+        (H_out, W_out), augmentation=ImageAugmentationConfig(enabled=True)
+    ).eval()
+    candidate = ImagePreprocessor(
+        (H_out, W_out), augmentation=ImageAugmentationConfig(enabled=True)
+    ).eval()
+    candidate.set_phase1p_augmentation_transfer_cleanup(True)
+
+    expected = reference(images, lidar2img, K, augmentation_params=params)
+    actual = candidate(images, lidar2img, K, augmentation_params=params)
+    for key in ("images", "lidar2img", "cam_intrinsics", "image_aug_matrix"):
+        assert torch.equal(actual[key], expected[key]), key
+    assert actual["image_hw"] == expected["image_hw"]
+    assert actual["geometry_mode"] == expected["geometry_mode"]
+    assert "augmentation_params" not in actual
+    assert "augmentation_param_fields" not in actual
+    assert torch.equal(params, params_before)
+
+    with pytest.raises(TypeError, match="float64"):
+        candidate(
+            images,
+            lidar2img,
+            K,
+            augmentation_params=params.to(torch.float32),
+        )
+
+
 def test_s03_validation_geometry_is_deterministic_and_training_is_seed_replayable():
     images = torch.arange(2 * 3 * 20 * 32, dtype=torch.int64)
     images = images.remainder(256).to(torch.uint8).view(1, 2, 3, 20, 32)

@@ -5,8 +5,8 @@
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
 ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the frozen Phase-I control
-REQUEST_STATE: IP-E1 COMPUTE PAUSED / CAMERA R2-LIDAR TRACE-WP2 FROZEN
-EXECUTION_AUTHORITY: none; the one Camera diagnostic trace is complete
+REQUEST_STATE: IP-E1 ACTIVE / STRICT CAMERA WP2 RESUMED / WP3-ENVELOPE B FROZEN
+EXECUTION_AUTHORITY: serial approved WP2 order inside the unchanged layered ceiling
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -767,7 +767,17 @@ the single predeclared Camera trace r1 only, despite that stop, to localize
 whole-model bottlenecks. Job `527247` consumed and completed that authority. Camera
 sustained r2 remains frozen; the trace does not waive checkpoint parity, change
 numeric tolerances, support a stable speed claim, or activate any WP2 candidate.
-No further IP-E1 compute is currently authorized.
+That one-off trace authority was exhausted before the subsequent WP2 decision below.
+
+The owner then explicitly resumes WP2 and accepts the negative Camera reference
+continuation result as a known reference limitation, not as a parity waiver. The
+exact serial order is augmentation transfer/unused-return cleanup, fixed coordinate
+grid, then batched affine/grid construction retaining per-image resize and
+`grid_sample`; only afterwards may the already-frozen smaller whitelist/target-D2H
+items be considered. Each candidate remains default-off outside its explicit
+profile, receives a fresh output, and retains the exact data/model/loss/precision/
+update/checkpoint gates. IP-WP3, physical-batch probes, SDPA/compile, fused AdamW,
+checkpoint cadence, original Envelope B, merge and push remain unauthorized.
 
 ## 9. Envelope-A compact execution ledger
 

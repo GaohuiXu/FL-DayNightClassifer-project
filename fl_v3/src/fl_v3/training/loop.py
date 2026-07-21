@@ -384,14 +384,32 @@ def _float_tensors(obj: Any) -> Any:
     return obj
 
 
-def _unpack_batch(batch: Any, device: torch.device) -> Tuple[Any, Any]:
+def _unpack_batch(
+    batch: Any,
+    device: torch.device,
+    *,
+    cpu_resident_batch_fields: tuple[str, ...] = (),
+) -> Tuple[Any, Any]:
     """Return ``(inputs, targets)`` both on ``device``.
 
     Tensor path: ``(X, y)`` → ``(X.to, y.to)`` — the exact original behavior. Dict path:
     the detection batch is moved ONCE and used as both inputs and targets."""
     if isinstance(batch, dict):
-        batch = _move_to_device(batch, device)
+        if len(cpu_resident_batch_fields) != len(set(cpu_resident_batch_fields)) or any(
+            not isinstance(field, str) or not field for field in cpu_resident_batch_fields
+        ):
+            raise ValueError("CPU-resident batch fields must be unique non-empty strings")
+        missing = set(cpu_resident_batch_fields) - set(batch)
+        if missing:
+            raise KeyError(f"CPU-resident batch fields are missing: {sorted(missing)}")
+        retained = frozenset(cpu_resident_batch_fields)
+        batch = {
+            key: value if key in retained else _move_to_device(value, device)
+            for key, value in batch.items()
+        }
         return batch, batch
+    if cpu_resident_batch_fields:
+        raise TypeError("CPU-resident batch fields require a dictionary batch")
     inputs, targets = batch
     return _move_to_device(inputs, device), _move_to_device(targets, device)
 
@@ -472,6 +490,7 @@ def train_one_epoch(
     readiness_stage_timing: bool = True,
     readiness_profiler_ranges: bool = False,
     attempted_window_callback: Optional[Any] = None,
+    cpu_resident_batch_fields: tuple[str, ...] = (),
 ) -> Dict[str, Any]:
     """One epoch of training with the injected criterion (tensor or dict batch).
 
@@ -489,7 +508,9 @@ def train_one_epoch(
     ``precision_diagnostics`` performs all tensor reductions after unscale and
     before clip/step; it is fail-closed to one-microbatch windows.  A callable
     ``attempted_window_callback`` is output-neutral lifecycle plumbing used by
-    bounded profilers and is invoked once after every complete attempted window."""
+    bounded profilers and is invoked once after every complete attempted window.
+    ``cpu_resident_batch_fields`` is default-off profiler plumbing for named
+    top-level dictionary fields consumed by host-side preprocessing."""
     if accumulation_steps < 1:
         raise ValueError("accumulation_steps must be >= 1")
     if exposure_multiplier < 1:
@@ -514,6 +535,8 @@ def train_one_epoch(
         )
     if attempted_window_callback is not None and not callable(attempted_window_callback):
         raise TypeError("attempted_window_callback must be callable or None")
+    if not isinstance(cpu_resident_batch_fields, tuple):
+        raise TypeError("cpu_resident_batch_fields must be a tuple")
     if (
         isinstance(readiness_warmup_successful_windows, bool)
         or not isinstance(readiness_warmup_successful_windows, int)
@@ -663,7 +686,11 @@ def train_one_epoch(
                 else:
                     timing.add_data_wait(data_wait_ms)
                 timing.begin_stage("h2d")
-            inputs, targets = _unpack_batch(batch, device)
+            inputs, targets = _unpack_batch(
+                batch,
+                device,
+                cpu_resident_batch_fields=cpu_resident_batch_fields,
+            )
             if timing is not None:
                 timing.end_stage("h2d")
             if diagnostic_step:

@@ -10,8 +10,8 @@ FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a514
 ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the Phase-I control
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: read-only Camera diagnosis/discussion; Camera r2/LiDAR trace/WP2 frozen
-EXECUTION_STATE: the one authorized Camera trace is complete; no further GPU/Slurm or promotion authority
+CURRENT_AUTHORITY: strict IP-WP2 resumed in the approved order; IP-WP3/Envelope B frozen
+EXECUTION_STATE: implement and validate augmentation cleanup, then static grid, then batched affine/grid
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -42,7 +42,7 @@ Gate/envelope order is exact:
 ```text
 IP-G0 (closed: plan/topology/local implementation)
   -> IP-WP0 (source/static closed; GH200 runtime close is first IP-E1 reference)
-  -> IP-E1 (compute-paused: IP-WP1 evidence terminal under owner dispositions; IP-WP2 frozen)
+  -> IP-E1 (active: IP-WP1 evidence terminal; strict IP-WP2 resumed in exact order)
   -> IP-G1 (baseline diagnosis and exact IP-E2 shortlist)
   -> IP-E2 (pending: IP-WP3 -> IP-WP4 continuously)
   -> IP-G2 (promotion/recipe/checkpoint/Envelope-B disposition)
@@ -150,8 +150,21 @@ WP2. The higher-value exact candidates are augmentation transfer/unused-return
 cleanup, a fixed coordinate-grid cache, and batched affine/grid construction while
 retaining per-image interpolation. Training-field whitelisting and consolidated
 target D2H remain plausible smaller candidates. This ranking activates none of
-them: Camera r2, LiDAR trace and every WP2 cell remain frozen pending owner
-discussion, and the failed Camera checkpoint gate is unchanged.
+them by itself, and the failed Camera checkpoint gate is unchanged.
+
+The owner subsequently accepts that negative Camera reference continuation result
+as the reference limitation and resumes strict WP2 in the exact diagnosed order.
+This is not a tolerance waiver: candidate boundary/input/RNG/discrete state remains
+exact, candidate continuation is still reported under the grouped rule, and no
+candidate is promoted merely because the reference is negative. Execution order is
+augmentation-parameter CPU residency plus unused-return cleanup first; fixed
+coordinate-grid cache second; batched affine/grid construction third while retaining
+per-image resize and `grid_sample`. Each item remains default-off, separately
+identified and individually checked before any combination. Training-field
+whitelisting and consolidated target D2H follow only after those three; full batched
+preprocessing, finite-loss aggregation, physical batch, SDPA/compile, fused AdamW,
+checkpoint cadence and all other measurement-only candidates remain outside the
+current WP2 authority.
 
 ### 1.2 Candidate classes and immutable scientific boundary
 

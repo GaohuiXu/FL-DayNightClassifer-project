@@ -313,6 +313,20 @@ class ImagePreprocessor(nn.Module):
         std = torch.tensor(IMAGENET_STD, dtype=torch.float32).view(1, 1, 3, 1, 1)
         self.register_buffer("_mean", mean, persistent=False)
         self.register_buffer("_std", std, persistent=False)
+        self._phase1p_augmentation_transfer_cleanup = False
+
+    def set_phase1p_augmentation_transfer_cleanup(self, enabled: bool) -> None:
+        """Enable the profiler-only, output-neutral augmentation transfer cleanup.
+
+        The production/default path remains unchanged.  The candidate requires
+        loader-sampled parameters to remain contiguous CPU float64 tensors, avoids
+        cloning them, and omits the two diagnostic-only augmentation fields from
+        the returned mapping.  Image/calibration tensors and all augmentation math
+        are unchanged.
+        """
+        if not isinstance(enabled, bool):
+            raise TypeError("Phase I-P augmentation transfer cleanup must be boolean")
+        self._phase1p_augmentation_transfer_cleanup = enabled
 
     @property
     def geometry_mode(self) -> str:
@@ -406,7 +420,24 @@ class ImagePreprocessor(nn.Module):
             expected = (B, N, len(AUGMENTATION_PARAM_FIELDS))
             if tuple(augmentation_params.shape) != expected:
                 raise ValueError(f"augmentation_params must have shape {expected}")
-            params = augmentation_params.detach().to(device="cpu", dtype=torch.float64).clone()
+            if self._phase1p_augmentation_transfer_cleanup:
+                if augmentation_params.device.type != "cpu":
+                    raise ValueError(
+                        "Phase I-P augmentation transfer cleanup requires CPU parameters"
+                    )
+                if augmentation_params.dtype != torch.float64:
+                    raise TypeError(
+                        "Phase I-P augmentation transfer cleanup requires float64 parameters"
+                    )
+                if not augmentation_params.is_contiguous():
+                    raise ValueError(
+                        "Phase I-P augmentation transfer cleanup requires contiguous parameters"
+                    )
+                params = augmentation_params.detach()
+            else:
+                params = augmentation_params.detach().to(
+                    device="cpu", dtype=torch.float64
+                ).clone()
         if not torch.isfinite(params).all():
             raise ValueError("augmentation_params must be finite")
 
@@ -490,13 +521,15 @@ class ImagePreprocessor(nn.Module):
         M_batch[:, :, :3, :3] = A_batch
         K2 = (A_batch @ cam_intrinsics.to(torch.float64)).to(cam_intrinsics.dtype)
         l2i2 = (M_batch @ lidar2img.to(torch.float64)).to(lidar2img.dtype)
-        return {
+        result = {
             "images": x.contiguous(),
             "cam_intrinsics": K2.contiguous(),
             "lidar2img": l2i2.contiguous(),
             "image_aug_matrix": A_batch.to(cam_intrinsics.dtype).contiguous(),
-            "augmentation_params": params.to(device=images_u8.device),
-            "augmentation_param_fields": AUGMENTATION_PARAM_FIELDS,
             "image_hw": (H_out, W_out),
             "geometry_mode": self.geometry_mode,
         }
+        if not self._phase1p_augmentation_transfer_cleanup:
+            result["augmentation_params"] = params.to(device=images_u8.device)
+            result["augmentation_param_fields"] = AUGMENTATION_PARAM_FIELDS
+        return result

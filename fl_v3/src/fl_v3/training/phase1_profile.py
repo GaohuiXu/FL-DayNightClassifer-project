@@ -94,6 +94,27 @@ BASELINE_CANDIDATES: dict[str, Any] = {
 }
 
 
+def _candidate_options(**overrides: Any) -> dict[str, Any]:
+    options = dict(BASELINE_CANDIDATES)
+    unknown = set(overrides) - set(options)
+    if unknown:
+        raise RuntimeError(f"unknown Phase I-P candidate option(s): {sorted(unknown)}")
+    options.update(overrides)
+    return options
+
+
+IP_E1_RUNNABLE_CANDIDATES: dict[str, dict[str, Any]] = {
+    "reference_b4_accum8": {
+        "branches": frozenset({"camera", "lidar"}),
+        "options": _candidate_options(),
+    },
+    "camera_aug_transfer_cleanup_b4_accum8": {
+        "branches": frozenset({"camera"}),
+        "options": _candidate_options(camera_augmentation_transfer_cleanup=True),
+    },
+}
+
+
 class Phase1ProfileError(ValueError):
     """The Phase I-P measurement contract is missing or has drifted."""
 
@@ -183,6 +204,8 @@ class Phase1ProfileSpec:
         return json.loads(self.canonical_bytes.decode("utf-8"))
 
     def assert_baseline(self) -> None:
+        if self.data["candidate_id"] != "reference_b4_accum8":
+            raise Phase1ProfileError("IP-E1 baseline candidate identity drift")
         actual = dict(self.candidates)
         if actual != BASELINE_CANDIDATES:
             drift = {
@@ -192,6 +215,29 @@ class Phase1ProfileSpec:
             }
             raise Phase1ProfileError(
                 f"IP-E1 baseline requires every candidate default-off: {drift}"
+            )
+
+    def assert_runnable(self, branch: str) -> None:
+        candidate_id = str(self.data["candidate_id"])
+        specification = IP_E1_RUNNABLE_CANDIDATES.get(candidate_id)
+        if specification is None:
+            raise Phase1ProfileError(
+                f"IP-E1 candidate {candidate_id!r} has no frozen runnable mapping"
+            )
+        if branch not in specification["branches"]:
+            raise Phase1ProfileError(
+                f"IP-E1 candidate {candidate_id!r} is not runnable for {branch!r}"
+            )
+        actual = dict(self.candidates)
+        expected = specification["options"]
+        if actual != expected:
+            drift = {
+                key: {"actual": actual.get(key), "expected": value}
+                for key, value in expected.items()
+                if actual.get(key) != value
+            }
+            raise Phase1ProfileError(
+                f"IP-E1 candidate {candidate_id!r} option drift: {drift}"
             )
 
     def assert_branch_binding(
@@ -229,7 +275,10 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
         raise Phase1ProfileError(f"unsupported profile schema {root['schema']!r}")
     if root["phase"] != "S10 Phase I-P" or root["envelope"] != "IP-E1":
         raise Phase1ProfileError("profile phase/envelope identity drift")
-    if root["candidate_id"] != "reference_b4_accum8":
+    if (
+        not isinstance(root["candidate_id"], str)
+        or root["candidate_id"] not in IP_E1_RUNNABLE_CANDIDATES
+    ):
         raise Phase1ProfileError("IP-E1 candidate identity drift")
 
     bindings = _keys(
@@ -330,6 +379,7 @@ def load_phase1_profile_spec(path: str | Path) -> Phase1ProfileSpec:
 
 __all__ = [
     "BASELINE_CANDIDATES",
+    "IP_E1_RUNNABLE_CANDIDATES",
     "PHASE1_PROFILE_SCHEMA",
     "Phase1ProfileError",
     "Phase1ProfileSpec",

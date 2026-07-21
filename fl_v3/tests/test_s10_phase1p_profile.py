@@ -11,6 +11,7 @@ import torch
 from fl_v3.config import load_resolved_config
 from fl_v3.training.phase1_profile import (
     BASELINE_CANDIDATES,
+    IP_E1_RUNNABLE_CANDIDATES,
     Phase1ProfileError,
     load_phase1_profile_spec,
     validate_phase1_profile_spec,
@@ -19,6 +20,7 @@ from fl_v3.training.phase1_profile import (
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE = ROOT / "configs" / "s10_phase1p_ip_e1.json"
+AUG_CLEANUP_PROFILE = ROOT / "configs" / "s10_phase1p_camera_aug_cleanup.json"
 CAMERA = ROOT / "configs" / "s10_phase1_camera.json"
 LIDAR = ROOT / "configs" / "s10_phase1_lidar.json"
 
@@ -47,6 +49,25 @@ def test_ip_e1_profile_binds_both_frozen_configs_and_every_candidate_off():
     profile.assert_branch_binding("camera", CAMERA, load_resolved_config(CAMERA))
     profile.assert_branch_binding("lidar", LIDAR, load_resolved_config(LIDAR))
     assert json.loads(profile.canonical_bytes) == profile.as_dict()
+
+
+def test_ip_e1_aug_cleanup_profile_has_one_exact_camera_only_candidate():
+    profile = load_phase1_profile_spec(AUG_CLEANUP_PROFILE)
+    profile.assert_runnable("camera")
+    expected = IP_E1_RUNNABLE_CANDIDATES[
+        "camera_aug_transfer_cleanup_b4_accum8"
+    ]["options"]
+    assert dict(profile.candidates) == expected
+    assert profile.candidates["camera_augmentation_transfer_cleanup"] is True
+    assert sum(
+        bool(value)
+        for key, value in profile.candidates.items()
+        if key not in {"physical_batch_size", "checkpoint_cadence_epochs"}
+    ) == 1
+    with pytest.raises(Phase1ProfileError, match="not runnable"):
+        profile.assert_runnable("lidar")
+    with pytest.raises(Phase1ProfileError, match="baseline candidate"):
+        profile.assert_baseline()
 
 
 @pytest.mark.parametrize(
@@ -144,6 +165,26 @@ def test_checkpoint_diagnostic_batch_hash_is_value_sensitive_and_observational()
     changed = copy.deepcopy(batch)
     changed["lidar_points"][0][0, 0] += 1.0
     assert runner._batch_sha256(changed) != reference
+
+
+def test_profiler_cpu_resident_batch_field_skips_only_the_named_transfer():
+    from fl_v3.training.loop import _unpack_batch
+
+    batch = {
+        "images": torch.ones((1, 2), dtype=torch.float32),
+        "augmentation_params": torch.arange(7, dtype=torch.float64).view(1, 1, 7),
+        "sample_token": ["token"],
+    }
+    moved, targets = _unpack_batch(
+        batch,
+        torch.device("meta"),
+        cpu_resident_batch_fields=("augmentation_params",),
+    )
+    assert moved is targets
+    assert moved["images"].device.type == "meta"
+    assert moved["augmentation_params"] is batch["augmentation_params"]
+    assert moved["augmentation_params"].device.type == "cpu"
+    assert moved["sample_token"] == ["token"]
 
 
 def test_profiler_entry_has_no_evaluation_constructor_or_metric_path():
