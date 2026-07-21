@@ -2000,6 +2000,52 @@ sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
   --approved-source-sha "${APPROVED_SOURCE_SHA}"
 ```
 
+The first conditional submission is a terminal pre-model engineering incident.
+Both approved candidates and every resource/measurement setting remain frozen;
+the derived replacement only shortens the two attempt labels and validates their
+CLI grammar before invoking the profiler.
+
+```text
+CONDITIONAL_INITIAL_JOB: 541688 / source da2b559b64ec62b97df8b00a7da030d24a9e61a7 /
+  tree b36ffbe6fc04b461970dae42c3379bb830494b61 / n77
+CONDITIONAL_INITIAL_TERMINAL: FAILED 2:0 / 00:00:47 / 0.013056 charged
+  GH200-hour from code-bug reserve
+CONDITIONAL_INITIAL_PRETESTS: 8 passed in 3.57 seconds, including CPU/GH200-CUDA
+  elementwise output equality and exactly one complete-native-batch conversion
+CONDITIONAL_INCIDENT: descriptive attempt IDs exceeded the profiler's frozen
+  32-character maximum; argparse stopped before output-directory creation,
+  D_fit loader/model construction, checkpointing or measurement
+CONDITIONAL_REMEDIATION: use `b16_vecgeom_ref` and `b16_vecgeom_bulk`; derive
+  fresh output suffixes from those exact values and prevalidate their grammar
+CONDITIONAL_REPLACEMENT_LAUNCHER_SHA256: c7538317115b51fa3415cd1bf19c5689ff27baa0b6b39d15791eb8290da3af66
+CONDITIONAL_INITIAL_STDOUT_SHA256: 90ccdedfd17d04a0e3b2940ee1244ba4ae90caa1c1186c7c1a4f65c30c079633
+CONDITIONAL_INITIAL_STDERR_SHA256: e1623530aa4792bb169127c3f98a6f59694f82fe86c7bdd40f141874b29a23b0
+BUDGET_AFTER_CONDITIONAL_INCIDENT: base used 0.447222 / 1.00, remaining
+  0.552778; code-bug reserve used 0.029444 / 0.50, remaining 0.470556;
+  hard total used 0.476667 / 1.50, remaining 1.023333 charged GH200-hours
+```
+
+The exact derived replacement keeps the 33-minute base-budget cap:
+
+```bash
+SOURCE_SHA=$(git rev-parse HEAD)
+APPROVED_SOURCE_SHA=7d4bb6efdbb7b8fb61ee72243c72a5ec3ef7d451
+ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e4_7d4bb6efdbb7
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G \
+  --gpus-per-node=nvidia_gh200_120gb:1 --time=00:33:00 --no-requeue \
+  --output="${ROOT}/slurm_bulk_replacement_%j.out" \
+  --error="${ROOT}/slurm_bulk_replacement_%j.err" \
+  fl_v3/scripts/run_s10_phase1p_ip_e4_bulk.sh \
+  --config fl_v3/configs/s10_phase1_camera.json \
+  --reference-profile \
+    fl_v3/configs/s10_phase1p_ip_e4_camera_b16_vectorized_geometry.json \
+  --candidate-profile \
+    fl_v3/configs/s10_phase1p_ip_e4_camera_b16_bulk_input_conversion.json \
+  --source-sha "${SOURCE_SHA}" \
+  --approved-source-sha "${APPROVED_SOURCE_SHA}"
+```
+
 ## 10. Envelope-A compact execution ledger
 
 This is the sole terminal ledger for Envelope A. Submission rows were appended only when

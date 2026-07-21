@@ -84,8 +84,12 @@ if not (
     raise SystemExit("IP-E4 bulk conversion is not unlocked")
 PY
 
-reference_attempt="b16_vectorized_geometry_reference"
-candidate_attempt="b16_vectorized_geometry_bulk_input_conversion"
+reference_attempt="b16_vecgeom_ref"
+candidate_attempt="b16_vecgeom_bulk"
+for attempt in "${reference_attempt}" "${candidate_attempt}"; do
+  [[ "${attempt}" =~ ^[a-z0-9][a-z0-9_-]{0,31}$ ]] \
+    || fail "invalid profiler attempt ID: ${attempt}"
+done
 reference_output="${expected_output_root}/camera/sustained_${source_sha:0:12}_r2_${reference_attempt}"
 candidate_output="${expected_output_root}/camera/sustained_${source_sha:0:12}_r2_${candidate_attempt}"
 pair_output="${expected_output_root}/pairs/b16_vectorized_geometry_vs_bulk_input_conversion.json"

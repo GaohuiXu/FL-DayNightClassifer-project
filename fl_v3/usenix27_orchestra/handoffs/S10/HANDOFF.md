@@ -11,7 +11,7 @@ ACTIVE_DECISION: vectorized geometry promoted; conditional bulk conversion prepa
 SCIENCE_ORDER: Camera IP-E4, then 2-GH200 DDP qualification, then production refreeze/review
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: scoped IP-E4 source/docs/tests, linear commits and bounded single-GH200 execution
-EXECUTION_STATE: IP-E4 exact conditional single-GH200 pair executable; DDP/Envelope B unauthorized
+EXECUTION_STATE: IP-E4 derived conditional replacement prepared; DDP/Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -650,7 +650,10 @@ image conversion candidate. Implementation `d732be28688df974fee14b5d7abc9bd00c4a
 uses one added 1,658,880,000-byte float32 native-image tensor and leaves every
 per-image interpolation/geometry operation unchanged. The exact second pair uses
 a 33-minute cap so the remaining base budget cannot be exceeded; no DDP authority
-follows from this result.
+follows from this result. Conditional Job `541688` passed all eight pretests but
+stopped before D_fit/model execution because its descriptive attempt IDs exceeded
+the profiler's 32-character limit. The derived replacement shortens only those
+labels; cumulative bug-reserve use is `0.029444` GH200-hour.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
