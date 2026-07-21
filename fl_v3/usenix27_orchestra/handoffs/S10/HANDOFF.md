@@ -1,4 +1,4 @@
-# S10 HANDOFF — Phase I-P Camera diagnosis complete; Envelope B remains frozen
+# S10 HANDOFF — Phase I-P Camera WP2 active; Envelope B remains frozen
 
 ## 1. Current state and authority
 
@@ -11,7 +11,7 @@ ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the Phase
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: strict IP-WP2 resumed in the approved order; IP-WP3/Envelope B frozen
-EXECUTION_STATE: implement and validate augmentation cleanup, then static grid, then batched affine/grid
+EXECUTION_STATE: augmentation-cleanup r1 terminal negative; diagnose exact refinement, then static grid and batched affine/grid
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -165,6 +165,34 @@ whitelisting and consolidated target D2H follow only after those three; full bat
 preprocessing, finite-loss aggregation, physical batch, SDPA/compile, fused AdamW,
 checkpoint cadence and all other measurement-only candidates remain outside the
 current WP2 authority.
+
+Camera augmentation-cleanup r1 Job `527276` then completed the full real-training
+body at source `efe767a`: all four focused pre-model tests passed, 256/256 measured
+windows were accepted, and there were zero nonfinite, overflow or discarded
+windows. The candidate was nevertheless a clear performance negative at `14.1774`
+presentations/s versus the `16.5390` one-repeat reference (`-14.279%`), projecting
+about `34.45` rather than `29.53` GH200-hours for 20 consumed-CBGS epochs. Peak
+allocated/reserved memory was effectively identical at `16,038,960,128 /
+18,723,373,056` bytes, and loader wait remained only `2.478 ms/window`; unused
+VRAM was not converted into throughput. Stable-load system samples also moved in
+the wrong direction across different nodes (`60.67% / 310.51 W` reference on
+`n183` versus `51.29% / 284.84 W` candidate on `n462`), so they support a host/
+launch-stall mechanism but cannot by themselves separate candidate causality from
+node variation.
+
+The candidate's checkpoint boundary, input stream, RNG and all discrete state were
+exact. The grouped continuation remained negative: model parameters and BN mean
+passed, while BN var and both Adam moment groups failed. As already decided for the
+reference, this is retained honestly and is not an automatic promotion blocker
+waiver. Source inspection supplies one exact refinement hypothesis inside the same
+candidate group: the profiler leaves `augmentation_params` in DataLoader-pinned CPU
+memory, but preprocessing reads 168 scalar tensor values per B4 microbatch. Removing
+the GPU round trip therefore exposed pinned-host scalar access rather than removing
+the whole path. A derived candidate may materialize the tiny parameter block once
+into ordinary CPU memory or a Python value table, with elementwise-exact preprocess
+tests, before the fixed-grid candidate. Current accounting after Job `527276` is
+base `0.944722 / 2.0`, code-bug reserve `0.146389 / 1.0`, hard aggregate
+`1.091111 / 3.0` charged GH200-hours.
 
 ### 1.2 Candidate classes and immutable scientific boundary
 
