@@ -16,6 +16,13 @@ WARMUP_WINDOWS = 16
 EFFECTIVE_BATCH = 32
 TWENTY_EPOCH_PRESENTATIONS = 1_758_080
 BOOTSTRAP_DRAWS = 50_000
+B16_FOLLOWUP_NEAR_NEUTRAL_LOWER_BOUND = 0.98
+B16_FOLLOWUP_REFERENCE_ID = (
+    "camera_sdpa_compile_fused_b16_accum2_followup_reference"
+)
+B16_FOLLOWUP_CONSERVATIVE_ID = (
+    "camera_sdpa_compile_fused_b16_accum2_followup_batched_affine_grid"
+)
 
 
 class Phase1PPairError(RuntimeError):
@@ -407,9 +414,93 @@ def compare_output_dirs(
     }
 
 
+def compare_b16_followup_output_dirs(
+    reference_dir: str | Path,
+    candidate_dir: str | Path,
+) -> dict[str, Any]:
+    """Evaluate the exact IP-E3 conservative B16 preprocessing screen.
+
+    The candidate is deliberately allowed to unlock the *implementation* of the
+    later batched-rotation ``grid_sample`` candidate when its robust lower bound
+    is within two percent of parity. It cannot promote either candidate.
+    """
+    summary = compare_output_dirs(reference_dir, candidate_dir)
+    _require(
+        summary["reference"]["candidate_id"] == B16_FOLLOWUP_REFERENCE_ID,
+        "IP-E3 reference candidate identity drift",
+    )
+    _require(
+        summary["candidate"]["candidate_id"] == B16_FOLLOWUP_CONSERVATIVE_ID,
+        "IP-E3 conservative candidate identity drift",
+    )
+    _require(
+        summary["reference"]["physical_batch_size"]
+        == summary["candidate"]["physical_batch_size"]
+        == 16,
+        "IP-E3 follow-up must compare physical B16",
+    )
+    lower_bound = float(
+        summary["throughput"]["one_sided_95_percent_lower_bound"]
+    )
+    health = {
+        "reference_measurement": bool(
+            summary["reference"]["measurement_health"]["gate_pass"]
+        ),
+        "candidate_measurement": bool(
+            summary["candidate"]["measurement_health"]["gate_pass"]
+        ),
+        "reference_checkpoint_continuation": bool(
+            summary["reference"]["checkpoint_continuation"]["gate_pass"]
+        ),
+        "candidate_checkpoint_continuation": bool(
+            summary["candidate"]["checkpoint_continuation"]["gate_pass"]
+        ),
+        "same_batch_input_anchor_exact": bool(
+            summary["matched_allocation"]["same_batch_input_anchor_exact"]
+        ),
+    }
+    hard_gate_pass = all(health.values())
+    eligible = bool(
+        hard_gate_pass
+        and lower_bound >= B16_FOLLOWUP_NEAR_NEUTRAL_LOWER_BOUND
+    )
+    if not hard_gate_pass:
+        verdict = "HARD_GATE_STOP"
+    elif lower_bound > 1.0:
+        verdict = "POSITIVE_SCREEN"
+    elif eligible:
+        verdict = "NEAR_NEUTRAL_SCREEN"
+    else:
+        verdict = "NEGATIVE_STOP"
+
+    summary["schema"] = "s10.phase1p.b16-followup-comparison.v1"
+    summary["envelope"] = "IP-E3"
+    summary["conservative_followup_gate"] = {
+        "one_sided_95_percent_lower_bound_threshold": (
+            B16_FOLLOWUP_NEAR_NEUTRAL_LOWER_BOUND
+        ),
+        "health_checks": health,
+        "hard_gate_pass": hard_gate_pass,
+        "verdict": verdict,
+        "conditional_batched_rotation_implementation_eligible": eligible,
+        "rule": (
+            "implement the separately owner-scoped batched rotation grid_sample "
+            "candidate only when every hard gate passes and the conservative "
+            "candidate's one-sided 95% speed-ratio lower bound is >=0.98"
+        ),
+    }
+    summary["promotion_authorized"] = False
+    summary["interpretation_limits"].append(
+        "near-neutral screening may unlock implementation only; it cannot promote a runtime recipe"
+    )
+    return summary
+
+
 __all__ = [
     "BOOTSTRAP_DRAWS",
+    "B16_FOLLOWUP_NEAR_NEUTRAL_LOWER_BOUND",
     "PAIR_SCHEMA",
     "Phase1PPairError",
+    "compare_b16_followup_output_dirs",
     "compare_output_dirs",
 ]

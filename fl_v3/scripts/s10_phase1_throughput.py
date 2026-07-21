@@ -201,28 +201,68 @@ def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
     camera_sdpa = bool(profile.candidates["camera_sdpa"])
     lidar_sdpa = bool(profile.candidates["lidar_sdpa"])
     compile_enabled = bool(profile.candidates["torch_compile"])
-    _require(not lidar_sdpa, "IP-E2 does not authorize LiDAR SDPA")
+    _require(not lidar_sdpa, "Phase I-P does not authorize LiDAR SDPA")
     _require(not compile_enabled or branch == "camera", "compile candidate is Camera-only")
     before_state_names = _state_name_sha256(model)
-    sdpa_modules = 0
-    if camera_sdpa:
-        _require(branch == "camera", "Camera SDPA cannot run on the LiDAR branch")
-        from fl_v3.models.fusion.swin_sdpa import apply_sdpa_to_swin
+    from fl_v3.training.phase1_runtime import phase1_runtime_optimization_identity
 
-        sdpa_modules = int(apply_sdpa_to_swin(model.camera_backbone))
-        _require(sdpa_modules == 12, f"Camera SDPA patched {sdpa_modules} modules, expected 12")
+    source_runtime = phase1_runtime_optimization_identity(model)
+    source_runtime_active = bool(
+        source_runtime["camera_sdpa"] or source_runtime["torch_compile"]
+    )
+    sdpa_modules = 0
     compiled_modules: list[str] = []
-    if compile_enabled:
-        for name in _COMPILE_MODULES:
-            module = getattr(model, name, None)
-            _require(isinstance(module, torch.nn.Module), f"compile module {name!r} is absent")
-            module.forward = torch.compile(  # type: ignore[method-assign]
-                module.forward,
-                backend="inductor",
-                dynamic=False,
-                mode="default",
+    if source_runtime_active:
+        _require(branch == "camera", "preconfigured runtime stack is not Camera-only")
+        _require(
+            bool(source_runtime["camera_sdpa"]) == camera_sdpa
+            and bool(source_runtime["torch_compile"]) == compile_enabled,
+            "profile runtime flags differ from the production-config runtime stack",
+        )
+        _require(
+            bool(source_runtime["fused_adamw"])
+            is bool(profile.candidates["fused_adamw"]),
+            "profile fused AdamW flag differs from the production config",
+        )
+        sdpa_modules = int(source_runtime["sdpa_modules_patched"])
+        compiled_modules = list(source_runtime["compiled_forward_modules"])
+        _require(sdpa_modules == 12, "production Camera SDPA module count drift")
+        _require(
+            tuple(compiled_modules) == _COMPILE_MODULES,
+            "production Camera compile scope drift",
+        )
+        _require(
+            source_runtime["compile_backend"] == "inductor"
+            and source_runtime["compile_dynamic"] is False
+            and source_runtime["compile_mode"] == "default",
+            "production Camera compile policy drift",
+        )
+        runtime_application = "production_config"
+    else:
+        if camera_sdpa:
+            _require(branch == "camera", "Camera SDPA cannot run on the LiDAR branch")
+            from fl_v3.models.fusion.swin_sdpa import apply_sdpa_to_swin
+
+            sdpa_modules = int(apply_sdpa_to_swin(model.camera_backbone))
+            _require(
+                sdpa_modules == 12,
+                f"Camera SDPA patched {sdpa_modules} modules, expected 12",
             )
-            compiled_modules.append(name)
+        if compile_enabled:
+            for name in _COMPILE_MODULES:
+                module = getattr(model, name, None)
+                _require(
+                    isinstance(module, torch.nn.Module),
+                    f"compile module {name!r} is absent",
+                )
+                module.forward = torch.compile(  # type: ignore[method-assign]
+                    module.forward,
+                    backend="inductor",
+                    dynamic=False,
+                    mode="default",
+                )
+                compiled_modules.append(name)
+        runtime_application = "profile_candidate"
     after_state_names = _state_name_sha256(model)
     _require(
         before_state_names == after_state_names,
@@ -236,6 +276,7 @@ def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
         "compile_backend": "inductor" if compile_enabled else None,
         "compile_dynamic": False if compile_enabled else None,
         "compile_mode": "default" if compile_enabled else None,
+        "runtime_application": runtime_application,
         "state_dict_name_sha256": after_state_names,
     }
 
@@ -621,11 +662,113 @@ class _SystemSampler:
         }
 
 
+_CAMERA_FORWARD_TRACE_RANGES = (
+    "fl_v3::camera::preprocess",
+    "fl_v3::camera::swin_backbone",
+    "fl_v3::camera::camera_neck",
+    "fl_v3::camera::view_transform_and_pool",
+    "fl_v3::camera::decoder_backbone",
+    "fl_v3::camera::decoder_neck",
+    "fl_v3::camera::head",
+)
+_TRAIN_TRACE_RANGES = tuple(
+    f"fl_v3::train::{name}"
+    for name in ("h2d", "forward", "loss", "backward", "optimizer")
+)
+
+
+def _profile_event_number(event: Any, *names: str) -> float:
+    for name in names:
+        value = getattr(event, name, None)
+        if value is not None:
+            return float(value)
+    return 0.0
+
+
+def _profile_event_rows(events) -> list[dict[str, Any]]:
+    rows = []
+    for event in events:
+        rows.append(
+            {
+                "key": str(event.key),
+                "count": int(event.count),
+                "self_cpu_time_total_us": _profile_event_number(
+                    event, "self_cpu_time_total"
+                ),
+                "cpu_time_total_us": _profile_event_number(event, "cpu_time_total"),
+                "self_device_time_total_us": _profile_event_number(
+                    event, "self_device_time_total", "self_cuda_time_total"
+                ),
+                "device_time_total_us": _profile_event_number(
+                    event, "device_time_total", "cuda_time_total"
+                ),
+                "self_cpu_memory_usage_bytes": int(
+                    getattr(event, "self_cpu_memory_usage", 0)
+                ),
+                "cpu_memory_usage_bytes": int(
+                    getattr(event, "cpu_memory_usage", 0)
+                ),
+                "self_device_memory_usage_bytes": int(
+                    getattr(event, "self_device_memory_usage", 0)
+                ),
+                "device_memory_usage_bytes": int(
+                    getattr(event, "device_memory_usage", 0)
+                ),
+            }
+        )
+    rows.sort(
+        key=lambda row: (
+            -row["self_device_time_total_us"],
+            -row["self_cpu_time_total_us"],
+            row["key"],
+        )
+    )
+    return rows
+
+
+def _camera_trace_diagnosis(range_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    by_key = {str(row["key"]): row for row in range_rows}
+    expected = (*_TRAIN_TRACE_RANGES, *_CAMERA_FORWARD_TRACE_RANGES)
+    missing = sorted(set(expected) - set(by_key))
+    camera_cpu = {
+        key: float(by_key[key]["cpu_time_total_us"])
+        for key in _CAMERA_FORWARD_TRACE_RANGES
+        if key in by_key
+    }
+    camera_total = sum(camera_cpu.values())
+    largest = max(camera_cpu, key=camera_cpu.get) if camera_cpu else None
+    preprocess = "fl_v3::camera::preprocess"
+    return {
+        "expected_core_range_keys": list(expected),
+        "missing_core_range_keys": missing,
+        "camera_forward_cpu_time_total_us": camera_cpu,
+        "camera_forward_named_range_sum_cpu_time_us": camera_total,
+        "largest_camera_forward_range": largest,
+        "preprocess_fraction_of_camera_forward_named_range_sum": (
+            None if camera_total <= 0.0 else camera_cpu.get(preprocess, 0.0) / camera_total
+        ),
+        "preprocess_is_largest_camera_forward_range": largest == preprocess,
+        "interpretation": (
+            "CPU range totals are trace-inflated localization evidence; use them to "
+            "rank named stages, not as sustained wall-time estimates"
+        ),
+    }
+
+
 class _TraceController:
     """Start after accepted warm-up and stop after the requested accepted windows."""
 
-    def __init__(self, state: TrainingState, *, warmup: int, active: int) -> None:
+    def __init__(
+        self,
+        state: TrainingState,
+        *,
+        branch: str,
+        warmup: int,
+        active: int,
+    ) -> None:
         self.state = state
+        self.branch = str(branch)
+        _require(self.branch in {"camera", "lidar"}, "trace branch identity drift")
         self.warmup = int(warmup)
         self.target = self.warmup + int(active)
         activities = [torch.profiler.ProfilerActivity.CPU]
@@ -664,16 +807,44 @@ class _TraceController:
         _require(self.started and self.stopped, "bounded torch trace did not reach its target")
         trace = root / "torch_trace.json"
         summary = root / "torch_trace_summary.txt"
+        structured_summary = root / "torch_trace_summary.json"
         self.profiler.export_chrome_trace(str(trace))
         sort_key = "self_cuda_time_total" if torch.cuda.is_available() else "self_cpu_time_total"
-        table = self.profiler.key_averages().table(sort_by=sort_key, row_limit=200)
+        averages = self.profiler.key_averages()
+        table = averages.table(sort_by=sort_key, row_limit=200)
         with summary.open("x", encoding="utf-8") as stream:
             stream.write(table)
             stream.write("\n")
             stream.flush()
             os.fsync(stream.fileno())
+        rows = _profile_event_rows(averages)
+        range_rows = [row for row in rows if row["key"].startswith("fl_v3::")]
+        operator_rows = [row for row in rows if not row["key"].startswith("fl_v3::")]
+        diagnosis = (
+            _camera_trace_diagnosis(range_rows)
+            if self.branch == "camera"
+            else None
+        )
+        _require(
+            diagnosis is None or not diagnosis["missing_core_range_keys"],
+            "Camera trace omitted required core ranges: "
+            f"{None if diagnosis is None else diagnosis['missing_core_range_keys']}",
+        )
+        structured_sha = _atomic_write_once(
+            structured_summary,
+            {
+                "schema": "s10.phase1p.torch-trace-summary.v1",
+                "units": {"time": "microseconds", "memory": "bytes"},
+                "all_row_count": len(rows),
+                "range_row_count": len(range_rows),
+                "operator_row_count": len(operator_rows),
+                "range_rows": range_rows,
+                "operator_rows": operator_rows[:200],
+                "camera_stage_diagnosis": diagnosis,
+            },
+        )
         return {
-            "schema": "s10.phase1p.torch-trace.v1",
+            "schema": "s10.phase1p.torch-trace.v2",
             "accepted_warmup_windows": self.warmup,
             "accepted_active_windows": self.target - self.warmup,
             "attempted_active_step_calls": self.step_calls,
@@ -686,6 +857,12 @@ class _TraceController:
                 "path": str(summary),
                 "sha256": sha256_file(summary),
                 "bytes": summary.stat().st_size,
+            },
+            "structured_summary": {
+                "path": str(structured_summary),
+                "sha256": structured_sha,
+                "bytes": structured_summary.stat().st_size,
+                "camera_stage_diagnosis": diagnosis,
             },
         }
 
@@ -1432,7 +1609,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     }[args.mode]])
     target = warmup + active
     trace_controller = (
-        _TraceController(state, warmup=warmup, active=active)
+        _TraceController(state, branch=args.branch, warmup=warmup, active=active)
         if args.mode == "trace"
         else None
     )

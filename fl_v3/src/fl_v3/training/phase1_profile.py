@@ -18,6 +18,7 @@ from fl_v3.config import ResolvedConfig
 
 PHASE1_PROFILE_SCHEMA = "s10.phase1p.profile.v1"
 PHASE1_PROFILE_SCHEMA_V2 = "s10.phase1p.profile.v2"
+PHASE1_PROFILE_SCHEMA_V3 = "s10.phase1p.profile.v3"
 
 _HEX = frozenset("0123456789abcdef")
 _ROOT_KEYS = frozenset({
@@ -173,12 +174,36 @@ IP_E2_RUNNABLE_CANDIDATES: dict[str, dict[str, Any]] = {
     },
 }
 
+IP_E3_RUNNABLE_CANDIDATES: dict[str, dict[str, Any]] = {
+    "camera_sdpa_compile_fused_b16_accum2_followup_reference": {
+        "branches": frozenset({"camera"}),
+        "options": _candidate_options(
+            camera_sdpa=True,
+            torch_compile=True,
+            fused_adamw=True,
+            physical_batch_size=16,
+        ),
+    },
+    "camera_sdpa_compile_fused_b16_accum2_followup_batched_affine_grid": {
+        "branches": frozenset({"camera"}),
+        "options": _candidate_options(
+            camera_batched_affine_grid=True,
+            camera_sdpa=True,
+            torch_compile=True,
+            fused_adamw=True,
+            physical_batch_size=16,
+        ),
+    },
+}
+
 
 def _runnable_candidates(envelope: str) -> dict[str, dict[str, Any]]:
     if envelope == "IP-E1":
         return IP_E1_RUNNABLE_CANDIDATES
     if envelope == "IP-E2":
         return IP_E2_RUNNABLE_CANDIDATES
+    if envelope == "IP-E3":
+        return IP_E3_RUNNABLE_CANDIDATES
     raise Phase1ProfileError(f"unknown Phase I-P envelope {envelope!r}")
 
 
@@ -339,11 +364,14 @@ class Phase1ProfileSpec:
 
 def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
     root = _keys(dict(raw), _ROOT_KEYS, "profile")
-    if root["schema"] not in {PHASE1_PROFILE_SCHEMA, PHASE1_PROFILE_SCHEMA_V2}:
+    schema_to_envelope = {
+        PHASE1_PROFILE_SCHEMA: "IP-E1",
+        PHASE1_PROFILE_SCHEMA_V2: "IP-E2",
+        PHASE1_PROFILE_SCHEMA_V3: "IP-E3",
+    }
+    if root["schema"] not in schema_to_envelope:
         raise Phase1ProfileError(f"unsupported profile schema {root['schema']!r}")
-    expected_envelope = (
-        "IP-E1" if root["schema"] == PHASE1_PROFILE_SCHEMA else "IP-E2"
-    )
+    expected_envelope = schema_to_envelope[root["schema"]]
     if root["phase"] != "S10 Phase I-P" or root["envelope"] != expected_envelope:
         raise Phase1ProfileError("profile phase/envelope identity drift")
     runnable = _runnable_candidates(expected_envelope)
@@ -365,9 +393,7 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
         _sha256(binding["resolved_config_sha256"], f"{branch}.resolved_config_sha256")
 
     measurement_keys = (
-        _MEASUREMENT_KEYS
-        if expected_envelope == "IP-E1"
-        else _MEASUREMENT_KEYS_V2
+        _MEASUREMENT_KEYS if expected_envelope == "IP-E1" else _MEASUREMENT_KEYS_V2
     )
     measurement = _keys(root["measurement"], measurement_keys, "measurement")
     expected_integers = {
@@ -380,7 +406,7 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
     for key, expected in expected_integers.items():
         if _integer(measurement[key], f"measurement.{key}", minimum=1) != expected:
             raise Phase1ProfileError(f"measurement.{key} must remain {expected}")
-    if expected_envelope == "IP-E2" and _integer(
+    if expected_envelope in {"IP-E2", "IP-E3"} and _integer(
         measurement["capacity_accepted_windows"],
         "measurement.capacity_accepted_windows",
         minimum=1,
@@ -426,10 +452,14 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
         "candidates.checkpoint_cadence_epochs",
         minimum=1,
     )
-    if expected_envelope == "IP-E2" and candidates["physical_batch_size"] not in {
+    if expected_envelope in {"IP-E2", "IP-E3"} and candidates[
+        "physical_batch_size"
+    ] not in {
         4, 8, 16
     }:
-        raise Phase1ProfileError("IP-E2 physical batch must be one of 4, 8, or 16")
+        raise Phase1ProfileError(
+            f"{expected_envelope} physical batch must be one of 4, 8, or 16"
+        )
 
     boundaries = _keys(root["boundaries"], _BOUNDARY_KEYS, "boundaries")
     if boundaries["allowed_data_role"] != "D_fit":
@@ -558,8 +588,10 @@ __all__ = [
     "BASELINE_CANDIDATES",
     "IP_E1_RUNNABLE_CANDIDATES",
     "IP_E2_RUNNABLE_CANDIDATES",
+    "IP_E3_RUNNABLE_CANDIDATES",
     "PHASE1_PROFILE_SCHEMA",
     "PHASE1_PROFILE_SCHEMA_V2",
+    "PHASE1_PROFILE_SCHEMA_V3",
     "Phase1ProfileError",
     "Phase1ProfileRuntimeConfig",
     "Phase1ProfileSpec",

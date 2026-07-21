@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import copy
 from contextlib import nullcontext
 import importlib.util
 import json
@@ -15,6 +14,7 @@ from fl_v3.training.phase1_profile import (
     BASELINE_CANDIDATES,
     IP_E1_RUNNABLE_CANDIDATES,
     IP_E2_RUNNABLE_CANDIDATES,
+    IP_E3_RUNNABLE_CANDIDATES,
     Phase1ProfileError,
     derive_profile_runtime_config,
     load_phase1_profile_spec,
@@ -32,6 +32,7 @@ BATCHED_GRID_PROFILE = (
 CAMERA = ROOT / "configs" / "s10_phase1_camera.json"
 LIDAR = ROOT / "configs" / "s10_phase1_lidar.json"
 IP_E2_PROFILES = tuple(sorted((ROOT / "configs").glob("s10_phase1p_ip_e2_*.json")))
+IP_E3_PROFILES = tuple(sorted((ROOT / "configs").glob("s10_phase1p_ip_e3_*.json")))
 HISTORICAL_CAMERA_FILE_SHA256 = (
     "567cb1b71535b4866193273960e531ae4b45318e56e81101e99ad186ac23ce60"
 )
@@ -170,6 +171,36 @@ def test_ip_e2_profiles_are_exact_camera_only_mappings():
     assert all("b12" not in candidate_id for candidate_id in seen)
 
 
+def test_ip_e3_profiles_bind_the_promoted_b16_stack():
+    assert len(IP_E3_PROFILES) == len(IP_E3_RUNNABLE_CANDIDATES) == 2
+    source = load_resolved_config(CAMERA)
+    assert source.sha256 == (
+        "f6040d30c23571f049bba3602081a9ec3bbfbdafc5d5ab8b76e9dd375eb76f25"
+    )
+    seen = set()
+    for path in IP_E3_PROFILES:
+        profile = load_phase1_profile_spec(path)
+        candidate_id = str(profile.data["candidate_id"])
+        seen.add(candidate_id)
+        assert profile.data["envelope"] == "IP-E3"
+        profile.assert_branch_binding("camera", CAMERA, source)
+        profile.assert_runnable("camera")
+        assert dict(profile.candidates) == IP_E3_RUNNABLE_CANDIDATES[
+            candidate_id
+        ]["options"]
+        with pytest.raises(Phase1ProfileError, match="not runnable"):
+            profile.assert_runnable("lidar")
+        runtime = derive_profile_runtime_config(source, profile)
+        raw = runtime.as_dict()
+        assert raw["training"]["micro_batch_size"] == 16
+        assert raw["training"]["accumulation_steps"] == 2
+        assert raw["training"]["effective_global_batch"] == 32
+        assert raw["optimizer"]["fused"] is True
+        assert raw["runtime_optimizations"]["camera_sdpa"] is True
+        assert raw["runtime_optimizations"]["torch_compile"]["enabled"] is True
+    assert seen == set(IP_E3_RUNNABLE_CANDIDATES)
+
+
 def test_ip_e2_runtime_views_preserve_effective_b32_and_source_bytes():
     source_bytes = CAMERA.read_bytes()
     source = _historical_camera_config()
@@ -223,6 +254,18 @@ def test_ip_e2_candidate_configuration_preserves_state_dict_names(monkeypatch):
             for name in runner._COMPILE_MODULES:
                 setattr(self, name, torch.nn.Linear(2, 2))
 
+            self._phase1_runtime_optimization_identity = {
+                "camera_sdpa": False,
+                "sdpa_modules_patched": 0,
+                "torch_compile": False,
+                "fused_adamw": False,
+                "compiled_forward_modules": [],
+                "compile_backend": None,
+                "compile_dynamic": None,
+                "compile_mode": None,
+                "state_dict_name_sha256": runner._state_name_sha256(self),
+            }
+
     monkeypatch.setattr(torch, "compile", lambda fn, **kwargs: fn)
     model = Model()
     before = tuple(model.state_dict())
@@ -230,6 +273,83 @@ def test_ip_e2_candidate_configuration_preserves_state_dict_names(monkeypatch):
     assert tuple(model.state_dict()) == before
     assert record["compiled_forward_modules"] == list(runner._COMPILE_MODULES)
     assert record["state_dict_name_sha256"] == runner._state_name_sha256(model)
+
+
+def test_ip_e3_production_runtime_is_not_patched_twice():
+    runner = _runner_module()
+    profile = load_phase1_profile_spec(
+        ROOT / "configs" / "s10_phase1p_ip_e3_camera_b16_batched_affine_grid.json"
+    )
+
+    class Preprocess(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.values = {}
+
+        def set_phase1p_augmentation_transfer_cleanup(self, value):
+            self.values["augmentation"] = value
+
+        def set_phase1p_static_grid_cache(self, value):
+            self.values["static"] = value
+
+        def set_phase1p_batched_affine_grid(self, value):
+            self.values["batched"] = value
+
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.preprocess = Preprocess()
+            for name in runner._COMPILE_MODULES:
+                setattr(self, name, torch.nn.Linear(2, 2))
+            self._phase1_runtime_optimization_identity = {
+                "camera_sdpa": True,
+                "sdpa_modules_patched": 12,
+                "torch_compile": True,
+                "fused_adamw": True,
+                "compiled_forward_modules": list(runner._COMPILE_MODULES),
+                "compile_backend": "inductor",
+                "compile_dynamic": False,
+                "compile_mode": "default",
+                "state_dict_name_sha256": runner._state_name_sha256(self),
+            }
+
+    model = Model()
+    before = tuple(model.state_dict())
+    record = runner._configure_profile_candidate(model, profile, "camera")
+    assert tuple(model.state_dict()) == before
+    assert model.preprocess.values == {
+        "augmentation": False,
+        "static": False,
+        "batched": True,
+    }
+    assert record["runtime_application"] == "production_config"
+    assert record["sdpa_modules_patched"] == 12
+    assert record["compiled_forward_modules"] == list(runner._COMPILE_MODULES)
+
+
+def test_camera_trace_diagnosis_requires_preprocess_to_rank_first():
+    runner = _runner_module()
+    keys = (*runner._TRAIN_TRACE_RANGES, *runner._CAMERA_FORWARD_TRACE_RANGES)
+    rows = [
+        {
+            "key": key,
+            "cpu_time_total_us": (
+                10.0 if key == "fl_v3::camera::preprocess" else 1.0
+            ),
+        }
+        for key in keys
+    ]
+    diagnosis = runner._camera_trace_diagnosis(rows)
+    assert diagnosis["missing_core_range_keys"] == []
+    assert diagnosis["largest_camera_forward_range"] == "fl_v3::camera::preprocess"
+    assert diagnosis["preprocess_is_largest_camera_forward_range"] is True
+
+    for row in rows:
+        if row["key"] == "fl_v3::camera::swin_backbone":
+            row["cpu_time_total_us"] = 20.0
+    diagnosis = runner._camera_trace_diagnosis(rows)
+    assert diagnosis["largest_camera_forward_range"] == "fl_v3::camera::swin_backbone"
+    assert diagnosis["preprocess_is_largest_camera_forward_range"] is False
 
 
 def test_promoted_camera_runtime_stack_applies_exact_profiled_scope(monkeypatch):
