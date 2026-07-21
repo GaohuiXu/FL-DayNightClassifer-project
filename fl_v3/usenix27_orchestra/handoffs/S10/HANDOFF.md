@@ -1,4 +1,4 @@
-# S10 HANDOFF — Phase I-P IP-G2 partial close; B16 extension pending; Envelope B frozen
+# S10 HANDOFF — Phase I-P B16 evidence complete; IP-G2 recipe decision pending
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: owner activates the exact B16 capacity and matched-throughput extension
+ACTIVE_DECISION: choose B16x2 or retain accepted B8x4; no profiler compute remains
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: Section 9.2 only; base 1.20 + bug reserve 0.50 = hard 1.70 GH200-hours; concurrency one
-EXECUTION_STATE: Cell C command-path incident diagnosed; exact derived replacement next
+CURRENT_AUTHORITY: Section 9.2 exhausted; no further GPU/Slurm cell is executable
+EXECUTION_STATE: B16 capacity PASS and both sustained process orders positive
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -48,7 +48,7 @@ IP-G0 (closed: plan/topology/local implementation)
   -> IP-E1 (closed: IP-WP1 and IP-WP2 terminal)
   -> IP-G1 (closed: exact Camera cells/resources/decision boundaries)
   -> IP-E2 (terminal: Cells 1-5 and 7 complete; conditional Cell 6 skipped)
-  -> IP-G2 (partially closed: B8 stack/cadence accepted; B16 measurement pending)
+  -> IP-G2 (B8 stack/cadence accepted; B16 recipe decision ready)
 ```
 
 IP-G2 is not Envelope-B activation. Any accepted production-source or config
@@ -484,17 +484,18 @@ budget expires with the exact sequence and is not authority for another cell.
 | SDPA+compile | numerical runtime stack, measurement-only | B4 ratio/lower bound `1.183783/1.178471`; final stack confirms composition | owner-accepted composition |
 | fused AdamW | numerical runtime, measurement-only | B8 delta ratio/lower bound `1.041877/1.038384`; no extra reserved memory; hard gates pass | owner-accepted for the final Camera recipe |
 | B8x4 | recipe/operational, measurement-only | stack delta ratio/lower bound `1.288873/1.273372`; effective B32 retained | owner explicitly accepts changed BN statistics and worker RNG assignment |
-| B16x2 | conditional recipe/capacity probe | projected `74.994%` is below the actual 85% capacity hard limit; no B16 process has run | former 70% prediction is diagnostic only; fresh capacity and matched timing pending |
+| B16x2 | recipe/operational, measurement-only | capacity `63.9556%` reserved; two-order ratio/lower bound `1.186583/1.182178` and `1.132013/1.128524`; all hard gates pass | explicit owner recipe decision because BN statistics and worker RNG assignment change again |
 | checkpoint cadence | operational/material | measured synchronous save+hash is only about `0.84-0.89 s/epoch` | owner retains one recovery checkpoint per epoch |
 | IP-WP2 augmentation/grid plumbing | strict output-neutral engineering | all ordered Camera candidates were slower than reference | reject from the Phase-I production stack |
 
 The owner now promotes SDPA, scoped compile and fused AdamW, explicitly accepts
 B8x4's BN/RNG recipe change, and keeps recovery cadence at one epoch. B8 is the
 accepted fallback if B16 does not pass. Production config bytes are intentionally
-left unchanged until the B16 branch closes, so the frozen B8/B16 profiler bindings
-remain exact and the final batch recipe is materialized once rather than twice.
+left unchanged until the B16 recipe decision closes, so the frozen B8/B16 profiler
+bindings remain exact and the final batch recipe is materialized once rather than
+twice.
 
-### 1.6 B16 veto withdrawal and pending extension
+### 1.6 B16 veto withdrawal and terminal extension
 
 The owner withdraws the `70%` projected-memory precondition. Implementation
 `df3c17e3e6be19dcc586fdec2c6bd198c1b02d95` bumps paired comparison to schema v2:
@@ -533,6 +534,20 @@ creation, D_fit/model execution or training: descriptive output suffix
 command/provenance defect. The O-149 replacement changes only the two attempt IDs
 to match the frozen output suffixes, costs `0.020278` bug-reserve GH200-hour, and
 retains every candidate, scientific, measurement and resource boundary.
+
+The derived replacement Job `536621` completed on `n421`. B16-first measured
+`27.031478` and B8-second `23.879129` presentations/s; ratio/lower bound were
+`1.132013/1.128524`, with every measurement/checkpoint hard gate PASS. Across both
+orders, the conservative confirmed B16-over-B8 advantage is therefore `12.852%`.
+B16 reserved memory was exactly `65.238 GB` (`63.9556%`) in capacity and both
+sustained runs, with `36.767 GB` headroom, no growth and no measured recompile.
+
+The extension consumed `0.913889` base plus `0.020278` bug-reserve GH200-hour,
+`0.934167` total. Conservative B16-over-B8 projected saving is `2.382176`
+GH200-hours per 20-epoch Camera run, so the extension breaks even after `0.392148`
+runs. Unused budget expires. This is strong throughput/health evidence, not a
+capability claim: B16 still requires the owner's explicit BN/RNG recipe decision;
+production config bytes remain unchanged and Envelope B stays frozen.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior

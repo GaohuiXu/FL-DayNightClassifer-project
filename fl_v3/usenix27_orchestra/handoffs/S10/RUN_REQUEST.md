@@ -4,9 +4,9 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: owner activates the exact Section-9.2 B16 extension resource envelope
-REQUEST_STATE: CELL C COMMAND INCIDENT / SERIAL DERIVED REPLACEMENT NEXT / ENVELOPE B FROZEN
-EXECUTION_AUTHORITY: Section 9.2 only; base 1.20 + bug reserve 0.50 = hard 1.70 GH200-hours
+ACTIVE_DECISION: Section 9.2 is terminal positive; B16 recipe owner decision pending
+REQUEST_STATE: B16 EXTENSION TERMINAL / TWO POSITIVE PAIRS / ENVELOPE B FROZEN
+EXECUTION_AUTHORITY: exhausted; no further GPU/Slurm cell is executable
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -1234,16 +1234,16 @@ EXECUTABLE_NOW: no; the exact IP-E2 serial sequence is terminal and unused budge
 | Cell 5 / Job `533512`, B8 unfused -> fused AdamW | source `66760f45cdc3c41964ab73af48e97dbe60dd3e8d`; one `n145` allocation; unfused `sustained_66760f45cdc3_r1_c5_b8`; fused `...c5_b8_fused`; pair `5c5a728c...23a85` | `COMPLETED 0:0`; health/checkpoint hard gates PASS. Fused ratio/lower bound `1.041877 / 1.038384`, projected `-0.8833 GH200h`; identical `37.982 GB` peak reserved, no growth/recompile; Adam exp_avg distance remains diagnostic | base `0.437778`; reserve `0.000000` |
 | Cell 7 / Job `534737`, best B8 first -> eager B4 second | source `cde351f99b039968133db0c273e0e0715a60b35e`; one `n411` allocation; best `sustained_cde351f99b03_r2_c7_best_first`; reference `...c7_ref_second`; pair `7e670362...25034` | `COMPLETED 0:0`; both hard gates PASS. Reversed total-stack ratio/lower bound `1.438981 / 1.413203`, projected `-9.8012 GH200h`; best reserved `37.982 GB`; final B16 projection `74.9938%`, still skipped | base `0.468056`; reserve `0.000000` |
 
-### 9.2 IP-G2 B16 extension — active
+### 9.2 IP-G2 B16 extension — terminal positive
 
-This is an independently bounded extension. It does not reinterpret or reuse the
+This was an independently bounded extension. It does not reinterpret or reuse the
 exhausted Section-9 IP-E2 budget. On 2026-07-21, the owner explicitly approved the
-exact layered ceiling and concurrency below. Only the frozen conditional sequence
-is executable; this does not activate Envelope B or authorize any capability run.
+exact layered ceiling and concurrency below. The sequence is now terminal; unused
+budget expires and this does not activate Envelope B or authorize a capability run.
 
 ```text
 PHASE: S10 Phase I-P / IP-G2 B16 capacity and matched-throughput extension
-REQUEST_STATE: OWNER APPROVED / CELL A PASS / CELL B POSITIVE / CELL C REPLACEMENT NEXT
+REQUEST_STATE: TERMINAL POSITIVE / CELL A PASS / CELLS B AND C POSITIVE
 ACTIVATION_BASELINE: df3c17e3e6be19dcc586fdec2c6bd198c1b02d95
 APPROVED_REQUEST_SHA: 1b25f1c98dabc19617fd4e2223c29b4fe076eeef
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -1378,6 +1378,27 @@ CELL_C_INITIAL_ARTIFACTS: pre-submission ca761acb...40892c; stdout/stderr
 B16_EXTENSION_USAGE_AFTER_CELL_C_INCIDENT: base 0.499445 / 1.20, remaining
   0.700555; code-bug reserve 0.020278 / 0.50, remaining 0.479722; hard remaining
   1.180277
+CELL_C_REPLACEMENT_TERMINAL: Job 536621 COMPLETED 0:0 in 00:24:52 on n421;
+  source c48aef0027cd0af06f220b78889d816ead6be773; the single command blocker did
+  not recur. The same-allocation fresh B16->B8 processes each completed 16+256
+  accepted windows with zero invalid/discard/scaler-skip/nonfinite, stable memory,
+  no measured recompile and checkpoint hard-gate PASS. B16 measured 27.031478 at
+  65,238,204,416 peak reserved bytes (`63.9556%` visible); B8 measured 23.879129
+  presentations/s at 37,981,519,872 bytes. B16/B8 ratio and one-sided 95%
+  block-bootstrap lower bound were 1.132013 / 1.128524, so the reverse positive
+  gate PASS. Projected 20-epoch cost was 18.110736 versus 20.492912 GH200-hours,
+  saving 2.382176. The two-order evidence supports returning B16 to IP-G2 for an
+  explicit recipe decision; it does not itself promote B16.
+CELL_C_REPLACEMENT_ARTIFACTS: pre-submission 0f24e66f...9d570; B16
+  measurement/result 2763a62a...41d73 / defbd731...9f360; B8 measurement/result
+  4c6a7fa9...8bcd8 / ada82b93...f218d; pair ab277e8f...5a7fe;
+  stdout/stderr c612a1f4...91bae / 8db5d05b...1e830
+B16_EXTENSION_FINAL_USAGE: base 0.913889 / 1.20, unused 0.286111 expired;
+  code-bug reserve 0.020278 / 0.50, unused 0.479722 expired; total 0.934167 /
+  hard 1.70, unused 0.765833 expired. Against the conservative reverse-pair saving
+  of 2.382176 GH200-hours/run, this extension breaks even after 0.392148 runs.
+EXECUTABLE_NOW: no; Section 9.2 is terminal and only the B16 recipe owner decision
+  remains. Production config bytes are unchanged and Envelope B remains frozen.
 ```
 
 Exact conditional invocations, all through
@@ -1417,10 +1438,10 @@ CELL_C_B16_THEN_B8:
   --config ${CONFIG}
   --first-profile ${B16} --first-mode sustained
   --first-output ${ROOT}/camera/sustained_${SHA12}_r2_b16_c2_b16_first
-  --first-attempt b16_c2_b16
+  --first-attempt b16_c2_b16_first
   --second-profile ${B8} --second-mode sustained
   --second-output ${ROOT}/camera/sustained_${SHA12}_r2_b16_c2_b8_second
-  --second-attempt b16_c2_b8
+  --second-attempt b16_c2_b8_second
   --pair-output ${ROOT}/pairs/b16_cell02_reverse_${SHA12}_r2.json
   --pair-reference second
   --source-sha ${SOURCE_SHA} --approved-source-sha ${APPROVED_SOURCE} --repeat 2
@@ -1429,9 +1450,9 @@ CELL_C_B16_THEN_B8:
 The containing `sbatch` command is fixed at account `naiss2025-22-1113-gpu`,
 partition `gpu`, one node/task, `--cpus-per-task=16`, `--mem=96G`,
 `--gpus-per-node=nvidia_gh200_120gb:1`, `--time=01:00:00`, `--no-requeue`.
-Cells B and C each use one such allocation for both fresh processes and their pair
-analysis. These commands are executable serially under the owner-approved
-`1.20 + 0.50 = 1.70` layered ceiling and no broader authority.
+Cells B and C each used one such allocation for both fresh processes and their pair
+analysis. The displayed Cell-C attempt IDs are the terminal command-plumbing
+correction recorded above. All commands are now terminal and no longer executable.
 
 ## 10. Envelope-A compact execution ledger
 
