@@ -4,10 +4,10 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: final Camera B16 runtime frozen / exact IP-E5 DDP request prepared
-REQUEST_STATE: IP-E5 DESIGNED / OWNER ACTIVATION PENDING / ENVELOPE B FROZEN
-EXECUTION_AUTHORITY: none; IP-E5 source/tests/docs only; GPU/Slurm unauthorized
-ACTIVE_PHASE: owner review of exact same-node 1-GPU versus 2-GPU DDP envelope
+ACTIVE_DECISION: exact IP-E5 same-node 1-GPU versus 2-GPU DDP envelope activated
+REQUEST_STATE: IP-E5 OWNER APPROVED / ACTIVE / ENVELOPE B FROZEN
+EXECUTION_AUTHORITY: exact Section-9.6 compute and bounded engineering remediation
+ACTIVE_PHASE: execute IP-E5 continuously to its terminal qualification result
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -26,9 +26,10 @@ order: final-B16 stage trace and conservative affine/grid screen; only then a
 separately prepared same-node 2-GH200 DDP qualification. Source commit
 `9233af3119857511f5f2acc310a182449e7b91a2` prepared the single-GPU Section-9.4
 path. IP-E3/IP-E4 are now terminal. The owner subsequently authorized materializing
-the final recipe binding and designing, but not executing, the exact Section-9.6
-IP-E5 DDP source/tests/resource envelope at
-`e51df6efa04e6d151315c72b7d7016014852078c`.
+the final recipe binding and designing the exact Section-9.6 IP-E5 DDP
+source/tests/resource envelope at `e51df6efa04e6d151315c72b7d7016014852078c`,
+then activated that exact envelope at containing request commit
+`2505db02920021663ccce7783dee483f10e638f8`.
 
 O-146 records the owner's exact activation of Envelope A at request commit
 `e321aed749fd859c809199d52c30b2771dbef8b3`. S00 may execute WP0 through WP4
@@ -2107,18 +2108,19 @@ LOCAL_TEST_LIMIT: pytest and Torch are absent from the x86 login environment;
   the candidate paths themselves passed the eight in-job CPU/GH200-CUDA pretests
 INTERPRETATION: D_fit throughput/engineering health only; no capability, mAP/NDS,
   generalization, D_select, D_audit, official validation or scientific selection
-NEXT_BOUNDARY: exact Section-9.6 DDP source/tests/resources are prepared; GPU/Slurm
-  remains blocked until the owner approves its containing commit and full ceiling
+NEXT_BOUNDARY: execute exact Section-9.6 IP-E5; return with its terminal result or
+  at a frozen stop/escalation condition
 ```
 
-### 9.6 Camera same-node 2-GH200 DDP IP-E5 — designed, owner activation pending
+### 9.6 Camera same-node 2-GH200 DDP IP-E5 — owner approved and active
 
 The owner authorizes materializing the already selected final Camera recipe and
-designing exact DDP source/tests/resources. This section is the resulting concrete
-request; design approval is not GPU/Slurm activation.
+designing exact DDP source/tests/resources. The owner then activated this concrete
+request at its containing clean request commit and full frozen resource ceiling.
 
 ```text
-REQUEST_STATE: DESIGNED / OWNER ACTIVATION PENDING / NOT EXECUTABLE
+REQUEST_STATE: OWNER APPROVED / ACTIVE / EXECUTABLE
+OWNER_ACTIVATION_REQUEST_SHA: 2505db02920021663ccce7783dee483f10e638f8
 DESIGN_APPROVAL_ANCHOR: e61c486757ca5fe89340c9325014f4c3e048da2b
 PREPARED_IMPLEMENTATION_SHA: e51df6efa04e6d151315c72b7d7016014852078c
 PREPARED_IMPLEMENTATION_TREE: 603ecd1784fcb093532258a42dfa5dc7c563f0a3
@@ -2260,8 +2262,9 @@ sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
   --approved-source-sha "${APPROVED_SOURCE_SHA}"
 ```
 
-No part of this section is executable until the owner explicitly approves the
-containing commit and the `1.50 + 1.50 = 3.00` charged-GH200-hour envelope.
+The owner explicitly activated this section at containing request commit
+`2505db02920021663ccce7783dee483f10e638f8` with the full
+`1.50 + 1.50 = 3.00` charged-GH200-hour envelope.
 
 ## 10. Envelope-A compact execution ledger
 

@@ -1,4 +1,4 @@
-# S10 HANDOFF — Camera final recipe frozen / IP-E5 DDP request designed
+# S10 HANDOFF — Camera final recipe frozen / IP-E5 DDP activated
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: final Camera B16 production stack frozen; exact IP-E5 DDP request prepared
-SCIENCE_ORDER: owner review/activation of IP-E5; execute only after exact approval
+ACTIVE_DECISION: exact IP-E5 same-node 1-GPU versus 2-GPU DDP envelope activated
+SCIENCE_ORDER: execute IP-E5 continuously to its terminal qualification result
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: scoped IP-E5 source/docs/tests/local validation/linear commits; no compute
-EXECUTION_STATE: IP-E5 DESIGNED / OWNER ACTIVATION PENDING; Envelope B unauthorized
+CURRENT_AUTHORITY: exact IP-E5 Section-9.6 compute plus bounded engineering remediation
+EXECUTION_STATE: IP-E5 OWNER APPROVED / ACTIVE; Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -685,11 +685,12 @@ not a matched-node confidence claim.
 
 IP-E4 consumed `0.782778/1.00` base plus `0.029444/0.50` bug-reserve
 GH200-hours, `0.812222/1.50` total. Its unused capacity expires with closure and
-does not authorize DDP, LiDAR, scientific training or Envelope B. The next owner
-decision may activate the now-prepared same-node 1-GPU versus 2-GPU DDP
-qualification; no submission may begin before that exact gate.
+does not authorize DDP, LiDAR, scientific training or Envelope B. The owner
+subsequently approved the exact Section-9.6 IP-E5 request at containing request
+commit `2505db02920021663ccce7783dee483f10e638f8`, including its `1.50` base plus
+`1.50` diagnosed-code-bug reserve and `3.00` charged-GH200-hour hard ceiling.
 
-### 1.8 IP-E5 DDP qualification request — designed, not executable
+### 1.8 IP-E5 DDP qualification — owner approved and active
 
 Implementation `e51df6efa04e6d151315c72b7d7016014852078c` binds both IP-E5
 profiles to the production Camera config at file/resolved hashes
@@ -711,14 +712,14 @@ sustained timing, matching the next-forward DDP buffer broadcast; production
 acceptance of this BN/RNG recipe remains an explicit owner decision even after a
 positive performance result.
 
-The proposed envelope is one node, two GH200s, 32 CPUs, 192 GiB and at most 45
+The approved envelope is one node, two GH200s, 32 CPUs, 192 GiB and at most 45
 minutes per job; maximum concurrency one; `1.50` base plus `1.50` code-bug reserve,
 `3.00` charged-GH200-hour hard ceiling. One allocation performs a two-rank NCCL
 smoke, fresh 1-GPU B16x2 control, fresh 2-GPU B16/rank x1 candidate, checkpoint/
 resume and the paired analysis. Section 9.6 of `RUN_REQUEST.md` is the exact
-request. It is `OWNER ACTIVATION PENDING`: no GPU/Slurm, D_select, D_audit,
-official validation, capability claim, Envelope-B activation, merge or push is
-authorized.
+request. The owner activated it at request commit `2505db02920021663ccce7783dee483f10e638f8`.
+No D_select, D_audit, official validation, capability claim, Envelope-B
+activation, merge or push is authorized.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
