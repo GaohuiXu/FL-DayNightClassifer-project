@@ -249,6 +249,18 @@ IP_E4_RUNNABLE_CANDIDATES: dict[str, dict[str, Any]] = {
             physical_batch_size=16,
         ),
     },
+    "camera_b16_batched_affine_vectorized_geometry_bulk_input_conversion": {
+        "branches": frozenset({"camera"}),
+        "options": _ip_e4_candidate_options(
+            camera_batched_affine_grid=True,
+            camera_vectorized_geometry=True,
+            camera_bulk_input_conversion=True,
+            camera_sdpa=True,
+            torch_compile=True,
+            fused_adamw=True,
+            physical_batch_size=16,
+        ),
+    },
 }
 
 

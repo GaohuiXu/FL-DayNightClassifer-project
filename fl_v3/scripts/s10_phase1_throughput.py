@@ -170,6 +170,9 @@ def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
     vectorized_geometry = bool(
         profile.candidates.get("camera_vectorized_geometry", False)
     )
+    bulk_input_conversion = bool(
+        profile.candidates.get("camera_bulk_input_conversion", False)
+    )
     if branch == "camera":
         augmentation_setter = getattr(
             getattr(model, "preprocess", None),
@@ -196,12 +199,21 @@ def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
             "set_phase1p_vectorized_geometry",
             None,
         )
+        bulk_input_conversion_setter = getattr(
+            getattr(model, "preprocess", None),
+            "set_phase1p_bulk_input_conversion",
+            None,
+        )
         _require(
             callable(augmentation_setter)
             and callable(grid_setter)
             and callable(batched_grid_setter)
             and callable(batched_preprocess_setter)
-            and (not vectorized_geometry or callable(vectorized_geometry_setter)),
+            and (not vectorized_geometry or callable(vectorized_geometry_setter))
+            and (
+                not bulk_input_conversion
+                or callable(bulk_input_conversion_setter)
+            ),
             "Camera preprocessor lacks Phase I-P candidate controls",
         )
         augmentation_setter(augmentation_cleanup)
@@ -210,13 +222,16 @@ def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
         batched_preprocess_setter(batched_preprocess)
         if callable(vectorized_geometry_setter):
             vectorized_geometry_setter(vectorized_geometry)
+        if callable(bulk_input_conversion_setter):
+            bulk_input_conversion_setter(bulk_input_conversion)
     else:
         _require(
             not augmentation_cleanup
             and not static_grid_cache
             and not batched_affine_grid
             and not batched_preprocess
-            and not vectorized_geometry,
+            and not vectorized_geometry
+            and not bulk_input_conversion,
             "LiDAR cannot enable Camera profiler candidates",
         )
     camera_sdpa = bool(profile.candidates["camera_sdpa"])
@@ -300,6 +315,7 @@ def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
         "runtime_application": runtime_application,
         "camera_batched_affine_grid": batched_affine_grid,
         "camera_vectorized_geometry": vectorized_geometry,
+        "camera_bulk_input_conversion": bulk_input_conversion,
         "state_dict_name_sha256": after_state_names,
     }
 

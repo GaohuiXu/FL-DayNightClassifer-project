@@ -350,6 +350,98 @@ def test_s10_phase1p_vectorized_geometry_preserves_output_policy_and_batches_inv
         check(torch.device("cuda", 0))
 
 
+def test_s10_phase1p_bulk_input_conversion_preserves_output_and_uses_one_native_batch(
+    monkeypatch,
+):
+    from fl_v3.models.fusion import preprocess as preprocess_module
+
+    H_in, W_in = 20, 32
+    H_out, W_out = 12, 20
+    base_images = torch.arange(3 * 3 * H_in * W_in, dtype=torch.int64)
+    base_images = base_images.remainder(256).to(torch.uint8).view(
+        1, 3, 3, H_in, W_in
+    )
+    base_lidar2img, base_K = _calibration()
+    base_lidar2img = base_lidar2img.repeat(1, 3, 1, 1)
+    base_K = base_K.repeat(1, 3, 1, 1)
+    base_params = torch.tensor(
+        [
+            [0.75, 15.0, 24.0, 2.0, 3.0, 0.0, 11.0],
+            [0.75, 15.0, 24.0, -2.0, 5.0, 1.0, -5.4],
+            [0.75, 15.0, 24.0, 0.0, 1.0, 0.0, 0.0],
+        ],
+        dtype=torch.float64,
+    ).view(1, 3, len(AUGMENTATION_PARAM_FIELDS))
+
+    incomplete = ImagePreprocessor(
+        (H_out, W_out), augmentation=ImageAugmentationConfig(enabled=True)
+    )
+    with pytest.raises(ValueError, match="requires promoted"):
+        incomplete.set_phase1p_bulk_input_conversion(True)
+
+    def check(device: torch.device) -> None:
+        reference = ImagePreprocessor(
+            (H_out, W_out), augmentation=ImageAugmentationConfig(enabled=True)
+        ).to(device).eval()
+        reference.set_phase1p_batched_affine_grid(True)
+        reference.set_phase1p_vectorized_geometry(True)
+        candidate = ImagePreprocessor(
+            (H_out, W_out), augmentation=ImageAugmentationConfig(enabled=True)
+        ).to(device).eval()
+        candidate.set_phase1p_batched_affine_grid(True)
+        candidate.set_phase1p_vectorized_geometry(True)
+        candidate.set_phase1p_bulk_input_conversion(True)
+        assert tuple(candidate.state_dict()) == tuple(reference.state_dict())
+
+        images = base_images.to(device)
+        lidar2img = base_lidar2img.to(device)
+        intrinsics = base_K.to(device)
+        params = base_params.to(device)
+        expected = reference(
+            images,
+            lidar2img,
+            intrinsics,
+            augmentation_params=params,
+        )
+
+        original_bulk_convert = preprocess_module._bulk_uint8_to_float01
+        conversion_shapes = []
+
+        def counted_bulk_convert(value):
+            conversion_shapes.append(tuple(value.shape))
+            return original_bulk_convert(value)
+
+        with monkeypatch.context() as scoped:
+            scoped.setattr(
+                preprocess_module,
+                "_bulk_uint8_to_float01",
+                counted_bulk_convert,
+            )
+            actual = candidate(
+                images,
+                lidar2img,
+                intrinsics,
+                augmentation_params=params,
+            )
+        assert conversion_shapes == [(3, 3, H_in, W_in)]
+        assert actual.keys() == expected.keys()
+        for key in (
+            "images",
+            "lidar2img",
+            "cam_intrinsics",
+            "image_aug_matrix",
+            "augmentation_params",
+        ):
+            assert torch.equal(actual[key], expected[key]), (device, key)
+        assert actual["augmentation_param_fields"] == expected[
+            "augmentation_param_fields"
+        ]
+
+    check(torch.device("cpu"))
+    if torch.cuda.is_available():
+        check(torch.device("cuda", 0))
+
+
 def test_s10_phase1p_batched_rotation_grid_sample_is_output_neutral_and_single_call(
     monkeypatch,
 ):

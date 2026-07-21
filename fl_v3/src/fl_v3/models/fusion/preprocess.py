@@ -268,6 +268,13 @@ def _batched_image_augmentation_geometry(
     return affine, inverse_rotation
 
 
+def _bulk_uint8_to_float01(images_u8: torch.Tensor) -> torch.Tensor:
+    """Convert one native-image batch with exactly one added float32 tensor."""
+    if images_u8.dtype != torch.uint8:
+        raise TypeError("bulk native-image conversion requires torch.uint8 input")
+    return images_u8.to(dtype=torch.float32).div_(255.0)
+
+
 def _uniform(low: float, high: float, generator: Optional[torch.Generator]) -> float:
     value = torch.rand((), generator=generator, device="cpu", dtype=torch.float64)
     return float(low + (high - low) * value.item())
@@ -473,6 +480,7 @@ class ImagePreprocessor(nn.Module):
         self._phase1p_batched_affine_grid = False
         self._phase1p_batched_preprocess = False
         self._phase1p_vectorized_geometry = False
+        self._phase1p_bulk_input_conversion = False
         self._operator_profile_ranges = False
 
     @contextmanager
@@ -576,6 +584,22 @@ class ImagePreprocessor(nn.Module):
                 "vectorized geometry requires conservative batched affine/grid"
             )
         self._phase1p_vectorized_geometry = enabled
+
+    def set_phase1p_bulk_input_conversion(self, enabled: bool) -> None:
+        """Convert the complete native uint8 image batch once before resizing.
+
+        The conditional IP-E4 candidate retains every per-image interpolation and
+        geometry operation.  Its only added live tensor is the flattened native
+        image batch in float32; in-place division avoids a second full-size
+        temporary.
+        """
+        if not isinstance(enabled, bool):
+            raise TypeError("Phase I-P bulk input conversion control must be boolean")
+        if enabled and not self._phase1p_vectorized_geometry:
+            raise ValueError(
+                "bulk input conversion requires promoted vectorized geometry"
+            )
+        self._phase1p_bulk_input_conversion = enabled
 
     @property
     def geometry_mode(self) -> str:
@@ -696,6 +720,10 @@ class ImagePreprocessor(nn.Module):
         rotation_image_indices: list[int] = []
         rotation_inverse_affines: list[torch.Tensor] = []
         flat = images_u8.reshape(B * N, C, H_in, W_in)
+        bulk_float_images: torch.Tensor | None = None
+        if self._phase1p_bulk_input_conversion:
+            with self._profile_range("convert_resize"):
+                bulk_float_images = _bulk_uint8_to_float01(flat)
         parameter_rows = params.view(-1, 7)
         if self._phase1p_augmentation_transfer_cleanup:
             # DataLoader pinning applies recursively to augmentation_params.  A
@@ -755,7 +783,10 @@ class ImagePreprocessor(nn.Module):
                 angle_value = row.rotate_degrees
 
             with self._profile_range("convert_resize"):
-                image = flat[idx].to(torch.float32).unsqueeze(0) / 255.0
+                if bulk_float_images is None:
+                    image = flat[idx].to(torch.float32).unsqueeze(0) / 255.0
+                else:
+                    image = bulk_float_images[idx].unsqueeze(0)
                 image = F.interpolate(
                     image,
                     size=(resized_h, resized_w),
