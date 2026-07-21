@@ -5,8 +5,8 @@
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
 ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the frozen Phase-I control
-REQUEST_STATE: IP-E1 ACTIVE / WP0 RUNTIME CLOSED / WP1-WP2 SERIAL EXECUTION RESUMED
-EXECUTION_AUTHORITY: Section 8 only; serial WP1-WP2 under the amended checkpoint gate
+REQUEST_STATE: IP-E1 ACTIVE / WP0 RUNTIME CLOSED / PAUSED AT LIDAR INSTABILITY STOP
+EXECUTION_AUTHORITY: Section 8 only; further submission requires owner disposition
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -717,9 +717,11 @@ reserve. Raw Slurm logs and any created attempt directory are immutable.
 | Job `525163`, LiDAR sustained reference r1 | source `07d7db10db3f2c5cf92b774b1ba0511157fa16e8`; approved source `85c6719e4b880b198d850e16b1418c230fa5c656`; profile file `f51c7a62...f48e0`, canonical `7b9aede3...ed949`; intended attempt `lidar/sustained_07d7db10db3f_r1_reference`; Slurm logs under the approved root | `FAILED_PRE_MODEL` in `00:00:05`; Slurm executed its copied batch script from `/var/lib/slurm`, so the wrapper derived a nonexistent spool-relative repository path and failed at config `realpath`; no config, runtime, data, model or update executed. Unambiguous runner-path bug; replacement must bind `source_root` to `SLURM_SUBMIT_DIR`, use a fresh attempt path and a new linear source. | reserve `0.001389`; base `0.000000` |
 | Job `525168`, LiDAR sustained reference r1 path-fix replacement | source `b2ee9900cdc4968180bf90e39c10e62db94cac1b`; same approved source/profile; attempt `lidar/sustained_b2ee9900cdc4_r1_pathfix`; immutable raw artifacts retained | `FAILED_CHECKPOINT_PARITY` in `00:08:58` after the complete 16+256-window main interval. The real 100,014,315-byte checkpoint loaded with exact boundary model/optimizer/scheduler/scaler, training state and RNG. After eight continuation windows, scheduler/scaler/state/RNG remained equal but model and optimizer failed unchanged FP16 allclose: global relative L2 `1.34867e-4` and `6.42201e-5`, with 119/102 per-tensor failures. The runner did not persist the already-complete main measurement before the late gate, so no throughput verdict is recoverable. Diagnosis remains open between input-stream drift, permitted sparse-kernel nondeterminism and a comparison-protocol defect; tolerances are unchanged. | base `0.149444`; reserve `0.000000` |
 | Job `525192`, LiDAR sustained r1 checkpoint diagnostic | source `a8a0b1498d020a51902d3008bfbcb65c4eaa3649`; same approved source/profile; attempt `lidar/sustained_a8a0b1498d02_r1_ckptdiag`; measurement `5208e80d...e4ae`; terminal result `62e8249c...b6b`; checkpoint `7a5e12ad...4379`; worker result `da05fada...f173` | `FAILED_CHECKPOINT_PARITY` in `00:08:42`, with valid persisted main measurement: 256/256 accepted, `40.4214` presentations/s, `1.26317` updates/s, mean loader wait `1.5169 ms/window`, peak allocated/reserved `5,534,907,904 / 6,958,350,336` bytes (`6.8215%` reserved), no scaler skip/nonfinite. All 64 continuation microbatch hashes, state and RNG were exact. Boundary restore was exact. Both same-process replay and fresh-process replay failed per-tensor FP16 allclose while remaining globally small: model relative L2 `1.32064e-4 / 6.56332e-5`, optimizer `6.17808e-5 / 6.20772e-5`. This localizes the divergence to permitted runtime-kernel nondeterminism rather than loader order, checkpoint I/O or fresh-process reconstruction. The frozen elementwise gate was not changed. One-repeat projection is `12.1294` GH200-hours for 20 epochs using the end-to-end `167.341 s` pre-training startup plus measured per-epoch checkpoint/hash cost; it is preliminary, not a final baseline. The measured save+file-hash+model-hash cost is only `0.23468 s/epoch` (`4.69 s` over 20 epochs), so lowering checkpoint cadence is not a material LiDAR speed lever. | reserve `0.145000`; base `0.000000` |
+| Job `527225`, LiDAR sustained reference r2 | source `3b23a7df4818d34524ac3b01e88cba04b46ae82a`; same approved source/profile; attempt `lidar/sustained_3b23a7df4818_r2_calibrated`; measurement `55f0b2b6...0708`; result `b1645479...fe98`; complete `3d9f48dd...96f`; checkpoint `a8b4d136...500d`; worker result `0a4b61d9...ca76` | `COMPLETE_SUSTAINED` in `00:09:01`: 256/256 accepted, `38.0943` presentations/s and `1.19045` updates/s; mean/p95 loader wait `2.1058 / 2.0121 ms/window` with one `67.22 ms` maximum; peak allocated/reserved unchanged at `5,534,907,904 / 6,958,350,336` bytes; no scaler skip/nonfinite/discard. Exact boundary/input/RNG/training/discrete state and all five calibrated continuation groups PASS; per-element allclose remains diagnostic FAIL. r1-r2 spread is `5.928%`, so the frozen protocol triggers repeat 3. | base `0.150278`; reserve `0.000000` |
+| Job `527229`, LiDAR sustained conditional r3 | same source/profile; attempt `lidar/sustained_3b23a7df4818_r3_calibrated`; measurement `ec4f5c66...196d`; result `31b5c5cb...6b1f`; complete `9b6eb190...2e4e`; checkpoint `4026492a...358d`; worker result `fd0cbe48...5070` | `COMPLETE_SUSTAINED` in `00:07:36`: 256/256 accepted, `36.9148` presentations/s and `1.15359` updates/s; mean/p95 loader wait `1.9870 / 4.1063 ms/window`; memory and numerical-health gates unchanged; exact boundary/input/RNG/training/discrete state and all five calibrated groups PASS. Three-repeat rates are `40.4214 / 38.0943 / 36.9148`; min-max spread/mean is `9.113%`, while same-node r2-r3 spread remains `3.145%`. Measurement-window GPU utilization/power declines `56.81% / 289.84 W -> 53.27% / 285.55 W -> 52.31% / 280.12 W` at fixed reported clocks; loader, input identity, memory and accepted-update evidence do not explain the change. Conditional repeat is exhausted and the unresolved-instability owner stop is reached. | base `0.126667`; reserve `0.000000` |
 
-Current accounting after Job `525192`: base cells `0.149444 / 2.0`, code-bug
-reserve `0.146389 / 1.0`, hard aggregate `0.295833 / 3.0` charged GH200-hours.
+Current accounting after Job `527229`: base cells `0.426389 / 2.0`, code-bug
+reserve `0.146389 / 1.0`, hard aggregate `0.572778 / 3.0` charged GH200-hours.
 The worktree-path repair is sealed at source `b2ee9900cdc4968180bf90e39c10e62db94cac1b`
 with wrapper hash `4f532d1e...c564d`. The next derived diagnostic persists the
 main measurement before checkpoint work, hashes all 64 continuation microbatches,
@@ -749,7 +751,9 @@ BN mean `0.00226839 / 0.00270428; 0.0792162 / 0.103417`, BN var
 `0.288651 / 0.359091; 0.00564399 / 0.0105385`, and Adam `exp_avg_sq`
 `5.46709e-5 / 0.002; 7.60471e-6 / 0.0002`. The original old-gate terminal label is
 preserved as historical evidence; under the amended rule LiDAR sustained r1 is an
-accepted WP1 reference and serial IP-E1 execution resumes with repeat 2.
+accepted WP1 reference. Jobs `527225` and `527229` then exhausted the frozen repeat
+protocol and reached the unresolved-instability stop recorded above; no speed claim
+or further submission is authorized by inference.
 
 ## 9. Envelope-A compact execution ledger
 

@@ -10,8 +10,8 @@ FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a514
 ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the Phase-I control
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: Section-8 IP-E1; WP0 runtime closed; IP-WP1 -> strict IP-WP2 resumed
-EXECUTION_STATE: owner-amended checkpoint gate implemented; next serial cell is LiDAR sustained r2
+CURRENT_AUTHORITY: Section-8 IP-E1; WP0 runtime closed; owner disposition required at WP1 instability stop
+EXECUTION_STATE: submissions paused after the conditional third LiDAR sustained repeat
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -75,7 +75,23 @@ remains diagnostic only. Implementation `73158b7` applies that rule without
 changing model/data/update semantics or the frozen FP32/FP16 numeric tolerances.
 Read-only reassessment of the immutable Job `525192` result passes all five groups
 and every exact requirement (`d883c1ef...f7fa2`); the raw old-gate failure remains
-unchanged. IP-WP1 execution may therefore continue serially.
+unchanged.
+
+Jobs `527225` and `527229` then completed the same LiDAR sustained reference at
+`38.0943` and `36.9148` presentations/s. Both had 256/256 accepted windows, zero
+nonfinite/discarded/overflow windows, the identical CBGS prefix, the same
+`6.8215%` peak reserved-memory fraction, exact boundary/input/RNG/discrete state,
+and PASS for all five calibrated continuation groups. Across the accepted r1-r3
+measurements, rates are `40.4214 / 38.0943 / 36.9148`; min-max spread over the mean
+is `9.113%`, and even same-node r2-r3 spread is `3.145%`. Loader mean stayed only
+`1.517-2.106 ms/window`, while measurement-window GPU utilization/power declined
+from about `56.81% / 289.84 W` to `53.27% / 285.55 W` and `52.31% / 280.12 W` at
+fixed reported clocks. The data therefore point to runtime/system compute variation,
+not loader, memory, acceptance or checkpoint failure, but do not identify its cause.
+The frozen conditional third repeat has been consumed; unresolved >3% instability
+blocks a LiDAR speed claim and triggers owner escalation. No trace, Camera or WP2
+job is queued. Current accounting is base `0.426389 / 2.0`, code-bug reserve
+`0.146389 / 1.0`, hard aggregate `0.572778 / 3.0` charged GH200-hours.
 
 ### 1.2 Candidate classes and immutable scientific boundary
 
