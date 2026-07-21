@@ -980,7 +980,7 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
 
 ```text
 PHASE: S10 Phase I-P / IP-E2 capacity and numerical-runtime screening
-REQUEST_STATE: CELL 1 PROMOTED UNDER OWNER-AMENDED GATE / CELL 2 READY
+REQUEST_STATE: CELLS 1-2 TERMINAL POSITIVE / CELL 3 READY
 ACTIVATION_BASELINE: 3f55e635aef4f893d9fd66e7921f55ce4f7b36e8
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -1110,8 +1110,8 @@ PRE_SUBMISSION_RECORD: before sbatch, seal the containing literal source SHA, fu
   sbatch argv, resolved output paths and budget into
   <OUTPUT_ROOT_RULE>/pre_submission_cell01.json; runner independently rechecks the
   same source/branch/base/clean-output/resource identities on GH200
-BUDGET_AFTER_CELL_1: base consumed 0.428056 / remaining 3.571944; code-bug reserve
-  consumed 0.000000 / remaining 1.000000; hard remaining 4.571944 GH200-hours
+BUDGET_AFTER_CELL_2: base consumed 0.908334 / remaining 3.091666; code-bug reserve
+  consumed 0.000000 / remaining 1.000000; hard remaining 4.091666 GH200-hours
 CELL_1_TERMINAL: Job 531766 COMPLETED 0:0 in 1541 s on n203. All eight current-
   code pretests passed. Eager and SDPA each completed 16+256 accepted windows with
   zero invalid/discard/scaler-skip, exact same-batch input anchor/CBGS prefix, stable
@@ -1135,17 +1135,31 @@ CELL_1_REASSESSMENT: immutable raw results unchanged. Derived v2 reassessments a
   eager `08426908dcd1e67d05c4ae18402a4cfa73c4daddaa09eac3609e873699e36512`
   and SDPA `50cc83be5f1c1e24814e45b4efa65568793b2fc5ced58dcd3a2ae2a4caf9d88c`;
   both hard PASS, with the original group-distance negatives retained.
-NEXT_CELL: Cell 2, B4 eager reference then B4 scoped torch.compile, fresh processes
+CELL_2_TERMINAL: Job 532763 COMPLETED 0:0 in 1729 s on n204. Eager and compile
+  each completed 16+256 accepted B4x8 windows with zero invalid/discard/scaler
+  skip. Compile measured 16.287596 versus 15.425816 presentations/s, ratio/lower
+  bound 1.055866/1.050861, and projects 1.645086 GH200-hours saved per 20 epochs.
+  Peak allocated/reserved fell from 16,038,963,200/18,723,373,056 to
+  15,259,009,024/17,748,197,376 bytes. Five scoped graphs compiled during warm-up;
+  the measured interval had no compiler-counter delta or unexpected recompile.
+  Measurement health, exact checkpoint hard gates and all numerical diagnostics
+  PASS for both processes.
+CELL_2_ARTIFACTS: pre-submission `1ada62a...1a788`; eager measurement/result
+  `ca4ccf9...376f / 86846c8...7ec2e`; compile measurement/result
+  `5f58f73...e70ac / a4697f9...04f9`; pair `01085fb...4661`;
+  stdout/stderr `f06617a...fea44 / 8db5d05...1e830`.
+NEXT_CELL: Cell 3, B4 eager reference then B4 SDPA+scoped-compile, fresh processes
   in one allocation. Outputs use the containing source SHA and repeat 1:
-  `camera/sustained_<sha12>_r1_c2_ref`, `camera/sustained_<sha12>_r1_c2_compile`,
-  and `pairs/cell02_compile_<sha12>_r1.json`.
+  `camera/sustained_<sha12>_r1_c3_ref`,
+  `camera/sustained_<sha12>_r1_c3_sdpa_compile`, and
+  `pairs/cell03_sdpa_compile_<sha12>_r1.json`.
 NEXT_COMMAND: `fl_v3/scripts/run_s10_phase1p_ip_e2.sh` with Camera config,
-  reference-B4 then compile-B4 profiles, sustained/sustained, pair-reference first,
-  approved source `3f55e635aef4f893d9fd66e7921f55ce4f7b36e8`, repeat 1, under the frozen
-  one-GH200 resource tuple.
-EXECUTABLE_NOW: yes; Cell 2 may submit after its containing clean source SHA,
+  reference-B4 then SDPA+compile-B4 profiles, sustained/sustained, pair-reference
+  first, approved source `3f55e635aef4f893d9fd66e7921f55ce4f7b36e8`, repeat 1,
+  under the frozen one-GH200 resource tuple.
+EXECUTABLE_NOW: yes; Cell 3 may submit after its containing clean source SHA,
   literal argv, fresh paths and remaining budget are sealed in
-  `pre_submission_cell02.json`. Cells continue serially; Envelope B remains
+  `pre_submission_cell03.json`. Cells continue serially; Envelope B remains
   non-executable.
 ```
 
@@ -1154,6 +1168,7 @@ EXECUTABLE_NOW: yes; Cell 2 may submit after its containing clean source SHA,
 | Cell / job | Source, pair and immutable outputs | Terminal evidence | Charged GH200-hours |
 |---|---|---|---:|
 | Cell 1 / Job `531766`, B4 eager -> B4 SDPA | source `b8ac61a5bc464bc1a6bf1c1e4f97b17f0b96fd54`; one `n203` allocation; eager `sustained_b8ac61a5bc46_r1_c1_ref`; SDPA `...c1_sdpa`; pair `73463de6...55c5`; v2 reassessments `08426908...36512 / 50cc83be...9d88c` | `COMPLETED 0:0`, 8/8 pretests; measurement health and amended exact/integrity/finite hard gates PASS both. SDPA ratio/lower bound `1.068712 / 1.065611`, reserved memory `-1.2646 GB`, projected `-2.0738 GH200h`; Adam/BN trajectory-distance negatives remain diagnostics. Owner promotes SDPA inside IP-E2; no rerun | base `0.428056`; reserve `0.000000` |
+| Cell 2 / Job `532763`, B4 eager -> B4 compile | source `83232a770790c545a67aca3450b26ed739051515`; one `n204` allocation; eager `sustained_83232a770790_r1_c2_ref`; compile `...c2_compile`; pair `01085fbb...4661` | `COMPLETED 0:0`, 12/12 pretests; both health/checkpoint hard gates PASS. Compile ratio/lower bound `1.055866 / 1.050861`, reserved memory `-0.9752 GB`, projected `-1.6451 GH200h`; five graphs, no measured recompile; all numerical diagnostics PASS | base `0.480278`; reserve `0.000000` |
 
 ## 10. Envelope-A compact execution ledger
 

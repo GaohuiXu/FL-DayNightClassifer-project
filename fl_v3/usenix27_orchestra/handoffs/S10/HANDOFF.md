@@ -11,7 +11,7 @@ ACTIVE_DECISION: owner amended continuation enforcement, promoted Cell-1 SDPA, a
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: IP-E2 active for serial Cells 2-7 inside the frozen resource ceiling; Envelope B frozen
-EXECUTION_STATE: Cell 1 terminal; SDPA promoted inside IP-E2; Cell 2 scoped compile is next
+EXECUTION_STATE: Cells 1-2 terminal positive; SDPA promoted; Cell 3 SDPA+compile is next
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -386,6 +386,18 @@ amended rule return hard PASS for eager and SDPA while preserving those numerica
 diagnostic negatives (`08426908...36512` and `50cc83be...9d88c`). No Cell-1
 rerun is needed. Cell 2 and the remaining frozen sequence may proceed serially;
 production Envelope-B activation remains separately forbidden.
+
+Cell 2 Job `532763` completed `0:0` in `00:28:49` on one `n204`
+allocation. Eager and scoped compile each completed 16+256 accepted B4x8 windows
+with zero invalid/discard/scaler skip. Compile measured `16.287596` versus eager
+`15.425816` presentations/s: ratio `1.055866`, one-sided 95% lower bound
+`1.050861`, and projected 20-epoch saving `1.645086` GH200-hours. Peak allocated/
+reserved fell from `16.039/18.723` to `15.259/17.748` GB with no monotonic growth.
+All five forward scopes compiled into five unique graphs during warm-up; the
+measured interval had no compiler-counter delta or unexpected recompile. Exact
+checkpoint/context/integrity/finite hard gates and every grouped numerical
+diagnostic passed. This is a positive isolated compile screen; the already frozen
+Cell 3 now tests whether it composes with promoted SDPA before any stack decision.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
