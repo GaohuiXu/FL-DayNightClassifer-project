@@ -1,4 +1,4 @@
-# S10 HANDOFF — Phase I-P IP-E1 active; Envelope B remains frozen
+# S10 HANDOFF — Phase I-P Camera diagnosis complete; Envelope B remains frozen
 
 ## 1. Current state and authority
 
@@ -10,8 +10,8 @@ FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a514
 ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the Phase-I control
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: one Camera diagnostic trace despite r1 parity stop; r2/LiDAR trace/WP2 frozen
-EXECUTION_STATE: next and only authorized cell is Camera trace r1; no promotion authority
+CURRENT_AUTHORITY: read-only Camera diagnosis/discussion; Camera r2/LiDAR trace/WP2 frozen
+EXECUTION_STATE: the one authorized Camera trace is complete; no further GPU/Slurm or promotion authority
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -42,7 +42,7 @@ Gate/envelope order is exact:
 ```text
 IP-G0 (closed: plan/topology/local implementation)
   -> IP-WP0 (source/static closed; GH200 runtime close is first IP-E1 reference)
-  -> IP-E1 (active: IP-WP1 -> strict IP-WP2 continuously)
+  -> IP-E1 (compute-paused: IP-WP1 evidence terminal under owner dispositions; IP-WP2 frozen)
   -> IP-G1 (baseline diagnosis and exact IP-E2 shortlist)
   -> IP-E2 (pending: IP-WP3 -> IP-WP4 continuously)
   -> IP-G2 (promotion/recipe/checkpoint/Envelope-B disposition)
@@ -93,10 +93,9 @@ blocks a LiDAR speed claim. The owner subsequently accepted that HPC hardware/po
 variation makes more identical LiDAR measurement poor-value: no fourth sustained
 repeat is permitted and the LiDAR trace is frozen. The three rates remain an
 engineering interval with median `38.0943` presentations/s, not a stable promotion
-baseline or scientific result. Camera WP1 may proceed under the original repeat and
-trace protocol; WP2 is explicitly paused for further owner discussion. Current
-accounting is base `0.426389 / 2.0`, code-bug reserve `0.146389 / 1.0`, hard
-aggregate `0.572778 / 3.0` charged GH200-hours.
+baseline or scientific result. The owner disposition ends LiDAR WP1 measurement
+collection without another sustained repeat or a LiDAR trace. WP2 is explicitly
+paused for further owner discussion.
 
 Camera sustained r1 Job `527239` produced a valid 256/256-window main measurement
 at `16.5390` presentations/s with zero nonfinite/overflow/discarded windows, mean
@@ -109,15 +108,50 @@ fresh-process continuation exceeded the owner-amended same-process envelope in a
 five groups: Adam moments failed both metrics; BN mean/var and model parameters each
 failed one metric. This is a numerical acceptance failure, not a code defect; the
 valid one-repeat projection of about `29.56` GH200-hours is preliminary and cannot
-close a stable baseline. Camera r2 and Camera trace are not submitted. Current
-accounting is base `0.638889 / 2.0`, code-bug reserve `0.146389 / 1.0`, hard
-aggregate `0.785278 / 3.0` charged GH200-hours.
+close a stable baseline. Camera sustained r2 remains frozen.
 
-The owner subsequently permits exactly the already-frozen Camera trace cell despite
-the r1 continuation-parity stop, solely to localize whole-model bottlenecks. This
-does not waive or reinterpret the failed checkpoint gate, authorize Camera sustained
-r2, change tolerances, or permit a throughput/scientific promotion. LiDAR trace and
-all WP2 candidate cells remain frozen.
+The owner then permitted exactly the predeclared Camera trace despite that stop,
+solely for diagnosis. Job `527247` at source `2d2f717` completed 16 warm-up plus
+3/3 active accepted B4x8 windows with zero nonfinite/overflow/discard, `18.3553%`
+peak reserved memory and `2.744 ms/window` mean loader wait. Its `4.638`
+presentations/s is profiler overhead and is not comparable with the sustained
+`16.5390`; the trace is localization evidence only. Current accounting is base
+`0.702222 / 2.0`, code-bug reserve `0.146389 / 1.0`, hard aggregate
+`0.848611 / 3.0` charged GH200-hours.
+
+The trace's CPU wall ranges are profiler-inflated, but their internal partition is
+coherent enough to rank work. Of the captured stage sum, forward is `53.774%`,
+backward `29.770%`, loss `12.490%`, optimizer `3.632%`, and H2D `0.334%`.
+Within forward, preprocessing is `122.831 ms` per B4 microbatch (`48.893%`), ahead
+of Swin `20.078%`, view-transform/pool `14.407%`, head `10.906%`, and all remaining
+forward ranges together `5.716%`. This does not make those percentages sustained
+wall-time shares, because tracing changes latency and asynchronous work may cross
+range boundaries.
+
+The source explains the leading hotspot. Each B4 microbatch processes 24 images
+serially; loader-sampled augmentation parameters are first copied to GPU with the
+batch, then synchronously copied back to CPU and cloned. Every image separately
+runs resize/crop/flip, constructs float64 affine matrices, builds a full `256x704`
+meshgrid, performs two small matrix inversions, and calls `grid_sample`. Across the
+24 traced microbatches there are exactly 576 `grid_sampler_2d` calls, but their
+self-CUDA time is only `3.613 ms` total; repeated geometry construction, resize,
+copies and launch/host overhead are therefore the useful target, not replacement of
+the interpolation kernel alone. `aten::copy_` is the trace's largest aggregate
+self-CUDA operator (`512.233 ms`, 44,487 calls), although that total spans the whole
+model and cannot be attributed only to batch transfer.
+
+Loss is secondary but nontrivial. The six task partitions consume `17.196 ms` and
+the six target/loss ranges `40.518 ms` of the `58.352 ms` mean loss range per
+microbatch. The remaining `0.639 ms` is only an upper bound for stack/sum plus the
+single `isfinite(loss).item()` check. The check does detect nonfinite loss before
+backward, but it is not the source of most observed loss time; moving it to once per
+B32 window would also change abnormal-path control flow and remains outside strict
+WP2. The higher-value exact candidates are augmentation transfer/unused-return
+cleanup, a fixed coordinate-grid cache, and batched affine/grid construction while
+retaining per-image interpolation. Training-field whitelisting and consolidated
+target D2H remain plausible smaller candidates. This ranking activates none of
+them: Camera r2, LiDAR trace and every WP2 cell remain frozen pending owner
+discussion, and the failed Camera checkpoint gate is unchanged.
 
 ### 1.2 Candidate classes and immutable scientific boundary
 
