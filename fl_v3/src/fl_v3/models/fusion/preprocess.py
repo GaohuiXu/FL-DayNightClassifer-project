@@ -320,9 +320,10 @@ class ImagePreprocessor(nn.Module):
 
         The production/default path remains unchanged.  The candidate requires
         loader-sampled parameters to remain contiguous CPU float64 tensors, avoids
-        cloning them, and omits the two diagnostic-only augmentation fields from
-        the returned mapping.  Image/calibration tensors and all augmentation math
-        are unchanged.
+        their GPU round trip, materializes one Python value table instead of
+        repeatedly reading pinned-memory scalar tensors, and omits the two
+        diagnostic-only augmentation fields from the returned mapping.
+        Image/calibration tensors and all augmentation math are unchanged.
         """
         if not isinstance(enabled, bool):
             raise TypeError("Phase I-P augmentation transfer cleanup must be boolean")
@@ -444,8 +445,18 @@ class ImagePreprocessor(nn.Module):
         images = []
         affines = []
         flat = images_u8.reshape(B * N, C, H_in, W_in)
+        parameter_rows = params.view(-1, 7)
+        if self._phase1p_augmentation_transfer_cleanup:
+            # DataLoader pinning applies recursively to augmentation_params.  A
+            # Python loop over individual scalar tensors then performs poorly on
+            # pinned host memory.  Convert the tiny B*N x 7 block once; Python
+            # float conversion is exact for the required float64 values and the
+            # downstream resize/affine/grid_sample path remains unchanged.
+            parameter_rows = parameter_rows.tolist()
         for idx in range(B * N):
-            resize, resized_h_f, resized_w_f, left_f, top_f, flip_f, angle = params.view(-1, 7)[idx]
+            resize, resized_h_f, resized_w_f, left_f, top_f, flip_f, angle = (
+                parameter_rows[idx]
+            )
             if float(resize) <= 0:
                 raise ValueError("resize must be positive")
             for field_name, value in (

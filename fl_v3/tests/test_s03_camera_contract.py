@@ -129,6 +129,19 @@ def test_s10_phase1p_augmentation_transfer_cleanup_is_output_neutral():
     assert "augmentation_param_fields" not in actual
     assert torch.equal(params, params_before)
 
+    if torch.cuda.is_available():
+        pinned_params = params.pin_memory()
+        assert pinned_params.is_pinned()
+        pinned_actual = candidate(
+            images,
+            lidar2img,
+            K,
+            augmentation_params=pinned_params,
+        )
+        for key in ("images", "lidar2img", "cam_intrinsics", "image_aug_matrix"):
+            assert torch.equal(pinned_actual[key], expected[key]), key
+        assert torch.equal(pinned_params, params_before)
+
     with pytest.raises(TypeError, match="float64"):
         candidate(
             images,
