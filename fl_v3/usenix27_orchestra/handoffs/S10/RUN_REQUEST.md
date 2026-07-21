@@ -5,8 +5,8 @@
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
 ACTIVE_DECISION: B16 follow-up -> 2-GH200 DDP preflight order frozen
-REQUEST_STATE: IP-E3 PREPARED / OWNER ACTIVATION PENDING / ENVELOPE B FROZEN
-EXECUTION_AUTHORITY: none; Section 9.4 is not executable until explicitly activated
+REQUEST_STATE: IP-E3 ACTIVE AT 1abe26b3cde2 / ENVELOPE B FROZEN
+EXECUTION_AUTHORITY: exact Section-9.4 serial single-GH200 envelope only
 ACTIVE_PHASE: Phase I-P Camera follow-up before any DDP or C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -1504,8 +1504,12 @@ defaults. A third implementation is conditionally in scope only under the exact
 unlock below.
 
 ```text
-REQUEST_STATE: READY FOR OWNER REVIEW / NOT EXECUTABLE
-OWNER_APPROVAL: pending
+REQUEST_STATE: ACTIVE / exact initial cell executable
+OWNER_APPROVAL: 2026-07-21 — approved containing SHA
+  1abe26b3cde2f9f1c26fca130b999d054d6782b1, the >=0.98 conservative unlock,
+  base 1.50 + code-bug reserve 0.50 / hard 2.00 charged GH200-hours,
+  maximum concurrency one and <=45 minutes per single-GH200 job
+APPROVED_SOURCE_SHA: 1abe26b3cde2f9f1c26fca130b999d054d6782b1
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at UNIQUE_BASE_SHA
@@ -1561,9 +1565,9 @@ CONDITIONAL_EXACT_CELL: only after unlock, one new allocation runs fresh A follo
   by C with the identical sustained protocol and newly recorded exact source/profile
   identities; it is within the candidate cap but cannot be submitted before those
   immutable identities and the command are appended to this ledger
-BASE_AGGREGATE_GPU_HOURS: proposed 1.50 charged GH200-hours
-CODE_BUG_REMEDIATION_RESERVE: proposed +0.50 charged GH200-hour, code-level bug only
-HARD_AGGREGATE_GPU_HOURS: proposed 2.00 charged GH200-hours
+BASE_AGGREGATE_GPU_HOURS: 1.50 charged GH200-hours
+CODE_BUG_REMEDIATION_RESERVE: +0.50 charged GH200-hour, code-level bug only
+HARD_AGGREGATE_GPU_HOURS: 2.00 charged GH200-hours
 RESOURCE_RATIONALE: at most two scientific allocations at <=0.75 hour each: the
   prepared trace+pair allocation and the conditional A-versus-C allocation; the
   separate reserve is only for diagnosed frozen-semantics engineering replacement
@@ -1581,8 +1585,8 @@ ENGINEERING_REMEDIATION: O-149 unambiguous frozen-semantics source/test/runner/A
 STOP_ESCALATE: layered ceiling exhaustion; repeated/ambiguous blocker; trace
   contradiction; any hard-gate failure; lower bound below 0.98; OOM or >85% visible;
   science-boundary pressure; candidate/resource/gate change
-SOURCE_RULE: owner approves one clean linear descendant containing this request;
-  each execution SOURCE_SHA must be a clean linear descendant of that approved SHA;
+SOURCE_RULE: each execution SOURCE_SHA must be a clean linear descendant of
+  APPROVED_SOURCE_SHA;
   no merge; exact source/profile/command/output/budget is recorded before sbatch
 CAMERA_CONFIG_FILE_SHA256: 25f53fc554c348c329c7a9cf4b9a5c8d521d993908114fbf64a46f75b3db0bda
 CAMERA_RESOLVED_CONFIG_SHA256: f6040d30c23571f049bba3602081a9ec3bbfbdafc5d5ab8b76e9dd375eb76f25

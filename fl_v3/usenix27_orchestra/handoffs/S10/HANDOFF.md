@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: B16 follow-up -> 2-GH200 DDP preflight order frozen; IP-E3 activation pending
+ACTIVE_DECISION: IP-E3 Camera B16 follow-up active; 2-GH200 DDP remains pending
 SCIENCE_ORDER: Camera B16 follow-up, then 2-GH200 DDP qualification, then production refreeze/review
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: scoped local source/docs/tests and linear commits only; IP-E3 is not executable
-EXECUTION_STATE: no GPU/Slurm authority; no profiler or capability job is executable
+CURRENT_AUTHORITY: RUN_REQUEST.md Section 9.4 at approved SHA 1abe26b3cde2; 2.00 GH200-hour hard ceiling
+EXECUTION_STATE: exact serial single-GH200 IP-E3 profiler is executable; DDP and Envelope B are not
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -34,7 +34,9 @@ The owner has now frozen the follow-up order: re-profile the final B16 stack and
 screen the conservative batched affine/grid path first, then qualify same-node
 2-GH200 DDP against the single-GPU B16 reference. Implementation
 `9233af3119857511f5f2acc310a182449e7b91a2` prepares only the first, single-GPU
-follow-up. It neither activates IP-E3 nor implements/authorizes DDP.
+follow-up. The owner activated that exact Section-9.4 request at
+`1abe26b3cde2f9f1c26fca130b999d054d6782b1`; it still neither implements nor
+authorizes DDP.
 
 ### 1.1 Frozen Phase I-P workflow
 
