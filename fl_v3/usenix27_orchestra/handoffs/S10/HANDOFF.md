@@ -11,7 +11,7 @@ ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the Phase
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: strict IP-WP2 resumed in the approved order; IP-WP3/Envelope B frozen
-EXECUTION_STATE: augmentation-cleanup r1 terminal negative; diagnose exact refinement, then static grid and batched affine/grid
+EXECUTION_STATE: augmentation-cleanup group rejected on throughput; implement static grid, then assess batched affine/grid
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -184,15 +184,18 @@ The candidate's checkpoint boundary, input stream, RNG and all discrete state we
 exact. The grouped continuation remained negative: model parameters and BN mean
 passed, while BN var and both Adam moment groups failed. As already decided for the
 reference, this is retained honestly and is not an automatic promotion blocker
-waiver. Source inspection supplies one exact refinement hypothesis inside the same
-candidate group: the profiler leaves `augmentation_params` in DataLoader-pinned CPU
-memory, but preprocessing reads 168 scalar tensor values per B4 microbatch. Removing
-the GPU round trip therefore exposed pinned-host scalar access rather than removing
-the whole path. A derived candidate may materialize the tiny parameter block once
-into ordinary CPU memory or a Python value table, with elementwise-exact preprocess
-tests, before the fixed-grid candidate. Current accounting after Job `527276` is
-base `0.944722 / 2.0`, code-bug reserve `0.146389 / 1.0`, hard aggregate
-`1.091111 / 3.0` charged GH200-hours.
+waiver. Source inspection supplied one exact refinement hypothesis inside the same
+candidate group: the profiler left `augmentation_params` in DataLoader-pinned CPU
+memory, but preprocessing read 168 scalar tensor values per B4 microbatch. Job
+`527284` therefore materialized the tiny `24x7` block as Python float values once.
+Its pinned-input preprocess test remained elementwise exact, all 256 measured
+windows were accepted, and every exact plus grouped continuation gate passed. It
+recovered `2.939%` over r1 but reached only `14.5941` presentations/s, still
+`11.760%` below the one-repeat reference and a projected `33.46` GH200-hours.
+Accordingly the augmentation cleanup group is rejected on payback, not on numerical
+correctness; no third implementation attempt or combination is justified. Current
+accounting after Job `527284` is base `1.179444 / 2.0`, code-bug reserve
+`0.146389 / 1.0`, hard aggregate `1.325833 / 3.0` charged GH200-hours.
 
 ### 1.2 Candidate classes and immutable scientific boundary
 
