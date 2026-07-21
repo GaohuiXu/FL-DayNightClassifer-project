@@ -1,4 +1,4 @@
-# S10 HANDOFF — Phase I-P ordered Camera WP2 probes terminal; Envelope B frozen
+# S10 HANDOFF — Phase I-P WP2 closed; IP-G1 discussion open; Envelope B frozen
 
 ## 1. Current state and authority
 
@@ -7,20 +7,22 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the Phase-I control
+ACTIVE_DECISION: owner closed IP-E1/IP-WP2 and opened IP-G1 discussion; O-150 remains the Phase-I control
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: IP-E1 ordered Camera probes terminal; additional WP2 paused for owner discussion; IP-WP3/Envelope B frozen
-EXECUTION_STATE: three default-off candidates measured; no promotion or combination; owner disposition next
+CURRENT_AUTHORITY: IP-E1/IP-WP2 closed; IP-G1 discussion only; IP-WP3/IP-E2/Envelope B frozen
+EXECUTION_STATE: three default-off candidates measured; no promotion or combination; no active compute authority
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
 IP-G0 intentionally inserted Phase I-P before the long Camera/LiDAR qualification
 runs and authorized this isolated linear branch plus WP0 implementation. The owner
 then activated IP-E1 at `85c6719e4b880b198d850e16b1418c230fa5c656` for WP0's
-GH200 runtime close and continuous IP-WP1 -> strict IP-WP2 execution. IP-E1 does
-not authorize scientific training, an evaluation role, merge, push, or movement of
-the frozen control branch.
+GH200 runtime close and continuous IP-WP1 -> strict IP-WP2 execution. After the
+three ordered Camera candidates reached terminal negative/no-promotion results, the
+owner closed IP-WP2 and IP-E1 and opened IP-G1 discussion. There is currently no
+GPU/Slurm authority. IP-E1 did not authorize scientific training, an evaluation
+role, merge, push, or movement of the frozen control branch.
 The Section-7 Envelope-B request in `RUN_REQUEST.md` is preserved verbatim as a
 historical control and is not activated by Phase I-P.
 
@@ -41,9 +43,9 @@ Gate/envelope order is exact:
 
 ```text
 IP-G0 (closed: plan/topology/local implementation)
-  -> IP-WP0 (source/static closed; GH200 runtime close is first IP-E1 reference)
-  -> IP-E1 (active: IP-WP1 evidence terminal; strict IP-WP2 resumed in exact order)
-  -> IP-G1 (baseline diagnosis and exact IP-E2 shortlist)
+  -> IP-WP0 (closed)
+  -> IP-E1 (closed: IP-WP1 and IP-WP2 terminal)
+  -> IP-G1 (open for discussion: baseline diagnosis and exact IP-E2 shortlist)
   -> IP-E2 (pending: IP-WP3 -> IP-WP4 continuously)
   -> IP-G2 (promotion/recipe/checkpoint/Envelope-B disposition)
 ```
@@ -52,12 +54,12 @@ IP-G2 is not Envelope-B activation. Any accepted production-source or config
 change requires a new exact Envelope-B source/config/resource projection and the
 already-required independent recipe-freeze review.
 
-IP-E1 retains maximum concurrency one and serial execution. Its ordinary WP1/WP2
+IP-E1 retained maximum concurrency one and serial execution. Its ordinary WP1/WP2
 cells have a `2.0` charged-GH200-hour aggregate ceiling; a separately accounted
 `+1.0` hour reserve may be consumed only by diagnosed code-level defect repair,
 for a `3.0` hour hard aggregate ceiling. Code bugs have no submission-count stop
-and are repaired continuously without blind identical retry. Ambiguous diagnosis,
-scientific-boundary pressure, or hard-ceiling exhaustion still returns to the owner.
+and were repaired continuously without blind identical retry. Those ceilings and
+remediation authority expired when IP-E1 closed.
 
 Job `525192` closes WP0 runtime and supplies one valid LiDAR sustained measurement:
 `40.4214` presentations/s over 256/256 accepted windows, only `1.5169 ms/window`
@@ -230,12 +232,14 @@ best later engineering anchor, not promoted or repeated.
 
 The ordered WP2 result is therefore compact: augmentation cleanup `REJECT`, static
 grid `REJECT`, conservative batched grid `HOLD_FOR_LATER / NO_PROMOTION`. No
-candidate earned combination or the two-repeat final protocol. Smaller field-
-whitelist and target-D2H plumbing are paused because the trace ranks them below the
-already-negative items; spending the remaining base budget on them has poor expected
-payback. Current accounting after Job `527323` is base `1.617500 / 2.0`, code-bug
+candidate earned combination or the two-repeat final protocol. The owner closes
+IP-WP2 without running the lower-ranked field-whitelist or target-D2H plumbing;
+their expected payback is below the already-negative ordered items. IP-E1 is also
+closed. Current accounting after Job `527323` is base `1.617500 / 2.0`, code-bug
 reserve `0.146389 / 1.0`, hard aggregate `1.763889 / 3.0` charged GH200-hours.
-Unused budget is not IP-WP3, B8, SDPA/compile, fused-AdamW or Envelope-B authority.
+Unused budget expires with IP-E1 and is not IP-WP3, B8, SDPA/compile, fused-AdamW
+or Envelope-B authority. IP-G1 is discussion-only until the owner freezes an exact
+IP-E2 shortlist and resource envelope.
 
 ### 1.2 Candidate classes and immutable scientific boundary
 

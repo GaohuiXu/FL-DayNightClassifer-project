@@ -4,9 +4,9 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the frozen Phase-I control
-REQUEST_STATE: IP-E1 ACTIVE / ORDERED CAMERA WP2 PROBES TERMINAL / WP3-ENVELOPE B FROZEN
-EXECUTION_AUTHORITY: additional WP2 submissions paused for owner discussion; unused budget is not new scope
+ACTIVE_DECISION: owner closed IP-E1/IP-WP2 and opened IP-G1 discussion; O-150 remains the frozen Phase-I control
+REQUEST_STATE: IP-E1 AND IP-WP2 CLOSED / IP-G1 DISCUSSION OPEN / WP3-ENVELOPE B FROZEN
+EXECUTION_AUTHORITY: none; IP-G1 discussion is not IP-E2 or GPU/Slurm authority
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -554,7 +554,7 @@ GH200 reference also supplies WP0's architecture-specific runtime close.
 
 ```text
 PHASE: S10 Phase I-P / IP-E1 baseline and strict-output-neutral diagnosis
-REQUEST_STATE: ACTIVE / SERIAL EXECUTION AUTHORIZED
+REQUEST_STATE: CLOSED / TERMINAL
 ACTIVATION_BASELINE: 85c6719e4b880b198d850e16b1418c230fa5c656
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -629,7 +629,9 @@ FORBIDDEN_INTERPRETATION: mAP/NDS, capability, generalization, model/candidate s
   or activation of Section 7 Envelope B
 OWNER_APPROVAL: granted in the task on 2026-07-20 for WP0 runtime close and continuous
   IP-WP1 -> IP-WP2, with the conditional +1.0-hour code-bug reserve above
-EXECUTABLE_NOW: yes, Section 8 only
+OWNER_CLOSURE: after the three ordered Camera candidates reached terminal results,
+  the owner closed IP-WP2 and IP-E1 and opened IP-G1 discussion
+EXECUTABLE_NOW: no; all Section-8 execution and remediation authority has expired
 ```
 
 ### 8.1 WP0 implementation identities
@@ -728,6 +730,9 @@ reserve. Raw Slurm logs and any created attempt directory are immutable.
 
 Current accounting after Job `527323`: base cells `1.617500 / 2.0`, code-bug
 reserve `0.146389 / 1.0`, hard aggregate `1.763889 / 3.0` charged GH200-hours.
+The owner then closes IP-WP2 and IP-E1 without running the lower-ranked field-
+whitelist or target-D2H items and opens IP-G1 discussion. All unused IP-E1 budget
+expires; it does not authorize IP-WP3, IP-E2 or any additional job.
 The worktree-path repair is sealed at source `b2ee9900cdc4968180bf90e39c10e62db94cac1b`
 with wrapper hash `4f532d1e...c564d`. The next derived diagnostic persists the
 main measurement before checkpoint work, hashes all 64 continuation microbatches,
