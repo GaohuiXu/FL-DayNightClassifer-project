@@ -11,7 +11,7 @@ ACTIVE_DECISION: owner amended continuation enforcement, promoted Cell-1 SDPA, a
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: IP-E2 active for serial Cells 2-7 inside the frozen resource ceiling; Envelope B frozen
-EXECUTION_STATE: Cells 1-3 and B8 capacity terminal PASS; sustained Cell 4 is next
+EXECUTION_STATE: Cell 4 B8 positive; conditional B16 ineligible; Cell 5 fused AdamW is next
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -419,6 +419,22 @@ accepted windows with zero invalid/discard/scaler skip. Peak allocated/reserved 
 `27.788/32.877` GB, only `32.231%` of visible memory, with no monotonic growth or
 unexpected recompile. This passes the frozen OOM/85% capacity prerequisite and
 enables sustained Cell 4; it is not a throughput or batch-recipe claim.
+
+Cell 4 Job `533384` completed `0:0` in `00:29:32` on one `n463`
+allocation. B8x4 SDPA+compile measured `21.554602` versus B4x8 stack reference
+`16.723609` presentations/s: ratio `1.288873`, one-sided 95% lower bound
+`1.273372`, and projected 20-epoch saving `6.544602` GH200-hours. Both completed
+16+256 accepted windows with zero invalid/discard/scaler skip, no monotonic growth
+or unexpected recompile, and passing exact checkpoint/context/integrity/finite
+hard gates. B8 peak allocated/reserved was `27.833/37.982` GB (`37.235%`
+visible); its numerical trajectory distance remained a diagnostic negative.
+
+The frozen conditional B16 margin does not pass: `R4=19,331,547,136`,
+`R8=37,981,519,872`, and `R8 + 2*(R8-R4) = 75,281,465,344` bytes, or
+`73.8014%` of visible memory, above the owner-frozen `70%` prerequisite. No B16
+capacity or sustained job is therefore executable. B8 remains measurement-only
+because its physical batch changes BN statistics and worker RNG assignment; Cell 5
+now isolates the fused-AdamW delta on this B8 stack.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
