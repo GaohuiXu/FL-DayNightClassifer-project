@@ -4,10 +4,10 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: vectorized Camera geometry promoted / IP-E4 conditional cell prepared
-REQUEST_STATE: IP-E4 APPROVED / BULK CONVERSION CELL PREPARED / ENVELOPE B FROZEN
-EXECUTION_AUTHORITY: exact Section 9.5 single-GH200 envelope only; DDP unauthorized
-ACTIVE_PHASE: Phase I-P Camera preprocessing follow-up before DDP
+ACTIVE_DECISION: final Camera B16 runtime stack frozen / bulk conversion promoted
+REQUEST_STATE: IP-E4 CLOSED POSITIVE / ENVELOPE B FROZEN
+EXECUTION_AUTHORITY: none; IP-E4 compute authority consumed and closed; DDP unauthorized
+ACTIVE_PHASE: Phase I-P Camera preprocessing follow-up terminal; DDP discussion next
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -1749,7 +1749,7 @@ silently excluded. Checkpoint/resume and rank-state gates are mandatory. No DDP
 source change, resource envelope, Slurm execution, production promotion, or 4-GPU
 cell is authorized here.
 
-### 9.5 Camera preprocessing IP-E4 — approved, initial cell prepared
+### 9.5 Camera preprocessing IP-E4 — closed positive
 
 The owner accepts conservative batched affine/grid as the Camera production
 default and retains the combined static-grid/batched-rotation implementation as a
@@ -1757,7 +1757,7 @@ qualified optional path. IP-E4 is a narrow output-neutral follow-up before DDP s
 that every later rank can consume any accepted per-rank gain.
 
 ```text
-REQUEST_STATE: APPROVED / implementation and immutable pre-submission identities pending
+REQUEST_STATE: CLOSED POSITIVE / compute authority consumed
 OWNER_APPROVAL_ANCHOR: 7d4bb6efdbb7b8fb61ee72243c72a5ec3ef7d451
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -2044,6 +2044,66 @@ sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
     fl_v3/configs/s10_phase1p_ip_e4_camera_b16_bulk_input_conversion.json \
   --source-sha "${SOURCE_SHA}" \
   --approved-source-sha "${APPROVED_SOURCE_SHA}"
+```
+
+The derived conditional replacement is terminal positive. It closes IP-E4 and
+promotes bulk conversion under the pre-frozen automatic rule; no additional
+compute follows from this result.
+
+```text
+CONDITIONAL_REPLACEMENT_JOB: 541821 / source
+  48fa78a60b3308c407fbc16b64dde188216f87e4 / tree
+  4ed528542a443e7790ddbc06f68da1824b42606d / n77
+CONDITIONAL_REPLACEMENT_TERMINAL: COMPLETED 0:0 / 00:20:08 /
+  0.335556 base GH200-hour
+PRETESTS: 8 passed, including CPU/GH200-CUDA elementwise output equality and
+  exactly one complete-native-batch conversion; shortened-ID defect did not recur
+REFERENCE: vectorized geometry at 36.018676 presentations/s; 256/256 accepted;
+  zero invalid/discard/scaler-skip; checkpoint continuation PASS; peak allocated/
+  reserved 54,666,238,464 / 75,524,734,976 bytes (74.0399% visible); no growth
+BULK_CONVERSION: 36.875959 presentations/s; 256/256 accepted; zero invalid/
+  discard/scaler-skip; checkpoint continuation PASS; peak allocated/reserved
+  54,666,490,368 / 75,522,637,824 bytes (74.0378% visible); no growth
+CONTINUATION_POLICY: boundary/input/RNG/discrete/training state and accepted
+  grouped numerical gate PASS; per-element allclose remains a recorded non-hard
+  diagnostic under the owner-amended non-deterministic-kernel policy
+PAIR: exact same allocation/node/GPU/source/config/CBGS and B16 input anchor;
+  candidate/reference ratio 1.023801; one-sided 95% lower bound 1.022026;
+  every hard gate PASS; PROMOTE_BULK_INPUT_CONVERSION
+PROJECTED_20_EPOCH: 13.603467 vectorized reference versus 13.285290 bulk
+  GH200-hours; incremental diagnostic saving 0.318177 per Camera run
+RESULT_SHA256: reference 0dc4c0fddbc09ba3808d2fdec4e502fb87bdca983c1fdf988de0b70793d1c660;
+  candidate 0fe97ec71bd0f6e658696a529ea8357c0efc5bb3da4e8eee5f0fadd388d457bb
+PAIR_SHA256: 69f9209b31b23ab1218eba930216c202a6c64425d30e606e6543284851b20d95
+SLURM_STDOUT_SHA256: e09dac70ca2913939a31f8aa6593b070d70d1a4b59fd2b2eac37d29b6eff394b
+SLURM_STDERR_SHA256: 8db5d05b4abfa9c9cc1bd7028c410675c3e2d697af110ce6c6d9aa51f2e1e830
+FINAL_BUDGET: base 0.782778 / 1.00; code-bug reserve 0.029444 / 0.50;
+  hard total 0.812222 / 1.50 charged GH200-hours
+UNUSED_AUTHORITY: base 0.217222, bug reserve 0.470556 and hard total 0.687778
+  expire at IP-E4 closure; they cannot be transferred to DDP or Envelope B
+```
+
+The final production binding is local/source-only and consumed no further GPU:
+
+```text
+PRODUCTION_FREEZE_SHA: 93cac472916e1c9c69c8910ad7034f11846e8cec
+PRODUCTION_STACK: B16xaccum2; conservative batched affine/grid; vectorized
+  geometry/inverses; bulk native-image conversion; SDPA; scoped forward compile;
+  fused AdamW; one-epoch recovery-checkpoint cadence unchanged
+CAMERA_CONFIG_FILE_SHA256:
+  2e5368f96a6198e9a3b1bd43b258b53675df49f5c6ca9042fa8f72e0084c3b6a
+CAMERA_RESOLVED_CONFIG_SHA256:
+  0df1a19c057312923e0a8e48e81689d9ca265cc613c6f34d4795417414aa0bcf
+HISTORICAL_IP_G2_RESOLVED_CONFIG_SHA256:
+  f6040d30c23571f049bba3602081a9ec3bbfbdafc5d5ab8b76e9dd375eb76f25
+LOCAL_VALIDATION: JSON syntax, current/historical resolved identities,
+  fail-closed preprocess binding, Python byte-compilation and diff checks PASS
+LOCAL_TEST_LIMIT: pytest and Torch are absent from the x86 login environment;
+  the candidate paths themselves passed the eight in-job CPU/GH200-CUDA pretests
+INTERPRETATION: D_fit throughput/engineering health only; no capability, mAP/NDS,
+  generalization, D_select, D_audit, official validation or scientific selection
+NEXT_BOUNDARY: DDP remains discussion-only until the owner freezes and activates
+  a separate same-node 1-GPU versus 2-GPU qualification envelope
 ```
 
 ## 10. Envelope-A compact execution ledger

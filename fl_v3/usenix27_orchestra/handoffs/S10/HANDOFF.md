@@ -1,4 +1,4 @@
-# S10 HANDOFF — Camera IP-E4 bulk-conversion cell prepared
+# S10 HANDOFF — Camera IP-E4 closed positive
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: vectorized geometry promoted; conditional bulk conversion prepared
-SCIENCE_ORDER: Camera IP-E4, then 2-GH200 DDP qualification, then production refreeze/review
+ACTIVE_DECISION: final Camera B16 production stack frozen; bulk conversion promoted
+SCIENCE_ORDER: discuss/freeze 2-GH200 DDP qualification, then execute only if approved
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: scoped IP-E4 source/docs/tests, linear commits and bounded single-GH200 execution
-EXECUTION_STATE: IP-E4 derived conditional replacement prepared; DDP/Envelope B unauthorized
+CURRENT_AUTHORITY: IP-E4 closure docs/local validation/linear commit only; no compute
+EXECUTION_STATE: IP-E4 terminal; DDP/Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -623,9 +623,9 @@ affine/grid is the production default because it showed the larger matched benef
 with the simpler path. The combined static-grid plus batched-rotation implementation
 is retained as a qualified optional path and is not selected by the production
 recipe. These are not additive choices: the combined implementation already
-contains conservative batched affine/grid. This decision does not activate compute,
-DDP or Envelope B; the final production config/source binding remains part of the
-next recipe-freeze boundary.
+contains conservative batched affine/grid. At that boundary the production
+config/source binding remained open; the IP-E4 closure recorded below now freezes
+it without activating DDP or Envelope B.
 
 The owner then inserts one narrow Camera-only IP-E4 before DDP. It first profiles
 and pairs the accepted conservative path against a mathematically equivalent
@@ -654,6 +654,33 @@ follows from this result. Conditional Job `541688` passed all eight pretests but
 stopped before D_fit/model execution because its descriptive attempt IDs exceeded
 the profiler's 32-character limit. The derived replacement shortens only those
 labels; cumulative bug-reserve use is `0.029444` GH200-hour.
+
+Derived Job `541821` completed the exact same-allocation pair on n77. The
+vectorized reference measured `36.018676` presentations/s and bulk conversion
+measured `36.875959`; ratio/lower bound was `1.023801 / 1.022026`, narrowly but
+unambiguously above the frozen `1.02` gate. Both sides completed 256/256 accepted
+windows with zero invalid/discarded/scaler-skipped windows, exact paired input
+anchor, checkpoint continuation PASS and no memory growth/recompile. Candidate
+peak allocated/reserved memory was `54,666,490,368 / 75,522,637,824` bytes
+(`74.0378%` visible), so every hard gate passed and bulk conversion is promoted.
+
+The final production stack is physical B16 x accumulation 2, conservative
+batched affine/grid, vectorized geometry/inverses, bulk native-image conversion,
+SDPA, scoped forward compile and fused AdamW; checkpoint cadence remains one
+recovery checkpoint per epoch. Commit `93cac472916e1c9c69c8910ad7034f11846e8cec`
+binds that stack in the production runtime. The Camera config file/resolved hashes
+are `2e5368f96a6198e9a3b1bd43b258b53675df49f5c6ca9042fa8f72e0084c3b6a`
+and `0df1a19c057312923e0a8e48e81689d9ca265cc613c6f34d4795417414aa0bcf`.
+The final matched projection is `13.285290` GH200-hours for the 20-epoch C-only
+run. Relative to the original clean B4 `16.5390` presentations/s measurement,
+the final `36.875959` rate is a descriptive cross-allocation `2.2296x` (`+122.96%`),
+not a matched-node confidence claim.
+
+IP-E4 consumed `0.782778/1.00` base plus `0.029444/0.50` bug-reserve
+GH200-hours, `0.812222/1.50` total. Its unused capacity expires with closure and
+does not authorize DDP, LiDAR, scientific training or Envelope B. The next owner
+discussion may freeze the already proposed same-node 1-GPU versus 2-GPU DDP
+qualification; no DDP implementation or submission may begin before that gate.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
