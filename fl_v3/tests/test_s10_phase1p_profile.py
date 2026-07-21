@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from fl_v3.config import load_resolved_config
+from fl_v3.config import load_resolved_config, resolve_config
 from fl_v3.training.phase1_profile import (
     BASELINE_CANDIDATES,
     IP_E1_RUNNABLE_CANDIDATES,
@@ -32,10 +32,41 @@ BATCHED_GRID_PROFILE = (
 CAMERA = ROOT / "configs" / "s10_phase1_camera.json"
 LIDAR = ROOT / "configs" / "s10_phase1_lidar.json"
 IP_E2_PROFILES = tuple(sorted((ROOT / "configs").glob("s10_phase1p_ip_e2_*.json")))
+HISTORICAL_CAMERA_FILE_SHA256 = (
+    "567cb1b71535b4866193273960e531ae4b45318e56e81101e99ad186ac23ce60"
+)
+HISTORICAL_CAMERA_RESOLVED_SHA256 = (
+    "e95e65a63a32c494296b38baf98fd913ff1ec6a168b78aabac48a8dc8f0ffe1d"
+)
 
 
 def _raw() -> dict:
     return json.loads(PROFILE.read_text(encoding="utf-8"))
+
+
+def _historical_camera_config():
+    """Reconstruct the immutable B4 source graph bound by terminal profiles."""
+    raw = json.loads(CAMERA.read_text(encoding="utf-8"))
+    raw["schema_version"] = "s10.phase1.v2"
+    raw["contract"].pop("throughput_decision")
+    raw["contract"].pop("throughput_evidence_commit")
+    raw["optimizer"]["fused"] = False
+    raw["training"].update(
+        micro_batch_size=4,
+        accumulation_steps=8,
+        loss_accumulation="mean_over_eight_microbatches",
+    )
+    raw.pop("runtime_optimizations")
+    config = resolve_config(raw)
+    assert config.sha256 == HISTORICAL_CAMERA_RESOLVED_SHA256
+    return config
+
+
+def _assert_historical_camera_binding(profile) -> None:
+    binding = profile.data["branch_bindings"]["camera"]
+    assert binding["config_path"] == "fl_v3/configs/s10_phase1_camera.json"
+    assert binding["config_file_sha256"] == HISTORICAL_CAMERA_FILE_SHA256
+    assert binding["resolved_config_sha256"] == HISTORICAL_CAMERA_RESOLVED_SHA256
 
 
 def _runner_module():
@@ -55,7 +86,9 @@ def test_ip_e1_profile_binds_both_frozen_configs_and_every_candidate_off():
     assert profile.measurement["sustained_accepted_windows"] == 256
     assert profile.measurement["trace_accepted_windows"] == 3
     assert profile.measurement["checkpoint_continuation_windows"] == 8
-    profile.assert_branch_binding("camera", CAMERA, load_resolved_config(CAMERA))
+    _assert_historical_camera_binding(profile)
+    with pytest.raises(Phase1ProfileError, match="source config file identity drift"):
+        profile.assert_branch_binding("camera", CAMERA, load_resolved_config(CAMERA))
     profile.assert_branch_binding("lidar", LIDAR, load_resolved_config(LIDAR))
     assert json.loads(profile.canonical_bytes) == profile.as_dict()
 
@@ -130,7 +163,7 @@ def test_ip_e2_profiles_are_exact_camera_only_mappings():
         assert dict(profile.candidates) == IP_E2_RUNNABLE_CANDIDATES[candidate_id]["options"]
         with pytest.raises(Phase1ProfileError, match="not runnable"):
             profile.assert_runnable("lidar")
-        profile.assert_branch_binding("camera", CAMERA, load_resolved_config(CAMERA))
+        _assert_historical_camera_binding(profile)
         assert profile.measurement["capacity_accepted_windows"] == 8
         assert profile.candidates["physical_batch_size"] in {4, 8, 16}
     assert seen == set(IP_E2_RUNNABLE_CANDIDATES)
@@ -139,7 +172,7 @@ def test_ip_e2_profiles_are_exact_camera_only_mappings():
 
 def test_ip_e2_runtime_views_preserve_effective_b32_and_source_bytes():
     source_bytes = CAMERA.read_bytes()
-    source = load_resolved_config(CAMERA)
+    source = _historical_camera_config()
     expected = {
         "camera_reference_b4_accum8": (4, 8, False),
         "camera_sdpa_compile_b8_accum4": (8, 4, False),
@@ -197,6 +230,53 @@ def test_ip_e2_candidate_configuration_preserves_state_dict_names(monkeypatch):
     assert tuple(model.state_dict()) == before
     assert record["compiled_forward_modules"] == list(runner._COMPILE_MODULES)
     assert record["state_dict_name_sha256"] == runner._state_name_sha256(model)
+
+
+def test_promoted_camera_runtime_stack_applies_exact_profiled_scope(monkeypatch):
+    from fl_v3.models.fusion import swin_sdpa
+    from fl_v3.training.phase1_runtime import apply_phase1_runtime_optimizations
+
+    compiled = []
+
+    def fake_compile(fn, **kwargs):
+        compiled.append(kwargs)
+        return fn
+
+    monkeypatch.setattr(torch, "compile", fake_compile)
+    monkeypatch.setattr(swin_sdpa, "apply_sdpa_to_swin", lambda module: 12)
+
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            for name in (
+                "camera_backbone",
+                "camera_neck",
+                "decoder_backbone",
+                "decoder_neck",
+                "head",
+            ):
+                setattr(self, name, torch.nn.Linear(2, 2))
+
+    model = Model()
+    before = tuple(model.state_dict())
+    record = apply_phase1_runtime_optimizations(
+        model, load_resolved_config(CAMERA)
+    )
+    assert tuple(model.state_dict()) == before
+    assert record["sdpa_modules_patched"] == 12
+    assert record["fused_adamw"] is True
+    assert record["compiled_forward_modules"] == [
+        "camera_backbone",
+        "camera_neck",
+        "decoder_backbone",
+        "decoder_neck",
+        "head",
+    ]
+    assert compiled == [
+        {"backend": "inductor", "dynamic": False, "mode": "default"}
+    ] * 5
+    with pytest.raises(RuntimeError, match="more than once"):
+        apply_phase1_runtime_optimizations(model, load_resolved_config(CAMERA))
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires the IP-E2 GH200")

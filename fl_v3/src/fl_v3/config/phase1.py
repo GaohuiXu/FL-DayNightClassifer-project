@@ -18,11 +18,22 @@ from fl_v3.source_identity import validate_source_state
 
 PHASE1_SCHEMA = "s10.phase1.v1"
 PHASE1_SCHEMA_V2 = "s10.phase1.v2"
-PHASE1_SCHEMAS = frozenset({PHASE1_SCHEMA, PHASE1_SCHEMA_V2})
+PHASE1_SCHEMA_V3 = "s10.phase1.v3"
+PHASE1_SCHEMAS = frozenset({PHASE1_SCHEMA, PHASE1_SCHEMA_V2, PHASE1_SCHEMA_V3})
+PHASE1_ENVELOPE_B_SCHEMAS = frozenset({PHASE1_SCHEMA_V2, PHASE1_SCHEMA_V3})
 PHASE1_PLAN_SHA = "260750a76548208f62c384b0e0547744b619244c"
 PHASE1_REQUEST_COMMIT = "e321aed749fd859c809199d52c30b2771dbef8b3"
 PHASE1_O150_AMENDMENT_COMMIT = "2a26c63b61022e2947043a9ffd0538d537c51fb9"
+PHASE1_IP_G2_EVIDENCE_COMMIT = "6ec7fb6d067259ac61ecaed89481e7e2562c3a2d"
 MIT_BEVFUSION_COMMIT = "326653dc06e0938edf1aae7d01efcd158ba83de5"
+
+CAMERA_COMPILE_FORWARD_MODULES = (
+    "camera_backbone",
+    "camera_neck",
+    "decoder_backbone",
+    "decoder_neck",
+    "head",
+)
 
 REFERENCE_OBJECT_CLASSES = (
     "car",
@@ -419,8 +430,10 @@ def _validate_contract(raw: Any, schema_version: str) -> tuple[dict[str, Any], s
         "reference_repository", "reference_commit", "reference_license",
         "lifecycle", "scientific_candidate_count", "seed",
     }
-    if schema_version == PHASE1_SCHEMA_V2:
+    if schema_version in PHASE1_ENVELOPE_B_SCHEMAS:
         keys.update({"amendment_decision", "amendment_commit"})
+    if schema_version == PHASE1_SCHEMA_V3:
+        keys.update({"throughput_decision", "throughput_evidence_commit"})
     contract = _keys(
         raw,
         keys,
@@ -432,12 +445,20 @@ def _validate_contract(raw: Any, schema_version: str) -> tuple[dict[str, Any], s
     _same(contract["candidate_id"], f"phase1_{branch}_primary", "contract.candidate_id")
     _same(contract["plan_sha"], PHASE1_PLAN_SHA, "contract.plan_sha")
     _same(contract["request_commit"], PHASE1_REQUEST_COMMIT, "contract.request_commit")
-    if schema_version == PHASE1_SCHEMA_V2:
+    if schema_version in PHASE1_ENVELOPE_B_SCHEMAS:
         _same(contract["amendment_decision"], "O-150", "contract.amendment_decision")
         _same(
             contract["amendment_commit"],
             PHASE1_O150_AMENDMENT_COMMIT,
             "contract.amendment_commit",
+        )
+    if schema_version == PHASE1_SCHEMA_V3:
+        _same(branch, "camera", "contract.branch")
+        _same(contract["throughput_decision"], "IP-G2", "contract.throughput_decision")
+        _same(
+            contract["throughput_evidence_commit"],
+            PHASE1_IP_G2_EVIDENCE_COMMIT,
+            "contract.throughput_evidence_commit",
         )
     _same(contract["reference_repository"], "mit-han-lab/bevfusion", "contract.reference_repository")
     _same(contract["reference_commit"], MIT_BEVFUSION_COMMIT, "contract.reference_commit")
@@ -555,7 +576,12 @@ def _validate_precision(raw: Any, branch: str, lifecycle: str) -> None:
         raise Phase1ConfigError("qualified/Envelope-B recipe requires accepted GradScaler state")
 
 
-def _validate_optimizer_scheduler(raw_optimizer: Any, raw_scheduler: Any, branch: str) -> None:
+def _validate_optimizer_scheduler(
+    raw_optimizer: Any,
+    raw_scheduler: Any,
+    branch: str,
+    schema_version: str,
+) -> None:
     optimizer = _keys(
         raw_optimizer,
         {
@@ -570,7 +596,11 @@ def _validate_optimizer_scheduler(raw_optimizer: Any, raw_scheduler: Any, branch
     _same(optimizer["betas"], [0.9, 0.999], "optimizer.betas")
     _same(optimizer["eps"], 1e-8, "optimizer.eps")
     _same(optimizer["amsgrad"], False, "optimizer.amsgrad")
-    _same(optimizer["fused"], False, "optimizer.fused")
+    _same(
+        optimizer["fused"],
+        schema_version == PHASE1_SCHEMA_V3,
+        "optimizer.fused",
+    )
     _same(optimizer["coverage_policy"], "complete_disjoint_trainable_parameters", "optimizer.coverage_policy")
     expected_rules = (
         [
@@ -618,7 +648,7 @@ def _validate_optimizer_scheduler(raw_optimizer: Any, raw_scheduler: Any, branch
     _same(scheduler["warmup"], expected_warmup, "scheduler.warmup")
 
 
-def _validate_training(raw: Any) -> None:
+def _validate_training(raw: Any, branch: str, schema_version: str) -> None:
     training = _keys(
         raw,
         {
@@ -631,13 +661,18 @@ def _validate_training(raw: Any) -> None:
         },
         "training",
     )
+    promoted_camera = branch == "camera" and schema_version == PHASE1_SCHEMA_V3
     expected = {
         "epochs": 20,
-        "micro_batch_size": 4,
+        "micro_batch_size": 16 if promoted_camera else 4,
         "world_size": 1,
-        "accumulation_steps": 8,
+        "accumulation_steps": 2 if promoted_camera else 8,
         "effective_global_batch": 32,
-        "loss_accumulation": "mean_over_eight_microbatches",
+        "loss_accumulation": (
+            "mean_over_two_microbatches"
+            if promoted_camera
+            else "mean_over_eight_microbatches"
+        ),
         "num_workers": 8,
         "epoch_remainder_policy": "shuffle_then_drop_incomplete_effective_b32_window",
         "cbgs_samples_per_epoch": 87930,
@@ -652,6 +687,51 @@ def _validate_training(raw: Any) -> None:
         "seed": 0,
     }
     _same(training, expected, "training")
+
+
+def _validate_runtime_optimizations(
+    raw: Any,
+    branch: str,
+    schema_version: str,
+) -> None:
+    if schema_version != PHASE1_SCHEMA_V3 or branch != "camera":
+        raise Phase1ConfigError(
+            "runtime_optimizations is reserved for the promoted Camera recipe"
+        )
+    runtime = _keys(
+        raw,
+        {"camera_sdpa", "torch_compile", "state_dict_names_unchanged_required"},
+        "runtime_optimizations",
+    )
+    _same(runtime["camera_sdpa"], True, "runtime_optimizations.camera_sdpa")
+    _same(
+        runtime["state_dict_names_unchanged_required"],
+        True,
+        "runtime_optimizations.state_dict_names_unchanged_required",
+    )
+    compile_spec = _keys(
+        runtime["torch_compile"],
+        {"enabled", "scope", "backend", "dynamic", "mode", "modules"},
+        "runtime_optimizations.torch_compile",
+    )
+    _same(compile_spec["enabled"], True, "runtime_optimizations.torch_compile.enabled")
+    _same(
+        compile_spec["scope"],
+        "forward_only",
+        "runtime_optimizations.torch_compile.scope",
+    )
+    _same(
+        compile_spec["backend"],
+        "inductor",
+        "runtime_optimizations.torch_compile.backend",
+    )
+    _same(compile_spec["dynamic"], False, "runtime_optimizations.torch_compile.dynamic")
+    _same(compile_spec["mode"], "default", "runtime_optimizations.torch_compile.mode")
+    _same(
+        compile_spec["modules"],
+        list(CAMERA_COMPILE_FORWARD_MODULES),
+        "runtime_optimizations.torch_compile.modules",
+    )
 
 
 def _validate_data(raw: Any) -> None:
@@ -818,7 +898,7 @@ def _validate_evaluation(raw: Any, schema_version: str) -> None:
             "executions": 1,
             "status": (
                 "open_once_in_envelope_b"
-                if schema_version == PHASE1_SCHEMA_V2
+                if schema_version in PHASE1_ENVELOPE_B_SCHEMAS
                 else "sealed_until_envelope_b"
             ),
         },
@@ -949,13 +1029,18 @@ def _validate_execution(raw: Any, branch: str) -> None:
 
 def validate_phase1_config(raw: Mapping[str, Any]) -> dict[str, Any]:
     """Validate and return a detached JSON-normalized Phase-I recipe."""
+    raw_config = dict(raw)
+    schema_version = str(raw_config.get("schema_version"))
+    root_keys = {
+        "schema_version", "contract", "taxonomy", "model", "initialization", "precision",
+        "optimizer", "scheduler", "training", "data", "augmentation", "sampling",
+        "gt_paste", "evaluation", "checkpointing", "dependencies", "execution",
+    }
+    if schema_version == PHASE1_SCHEMA_V3:
+        root_keys.add("runtime_optimizations")
     root = _keys(
-        dict(raw),
-        {
-            "schema_version", "contract", "taxonomy", "model", "initialization", "precision",
-            "optimizer", "scheduler", "training", "data", "augmentation", "sampling",
-            "gt_paste", "evaluation", "checkpointing", "dependencies", "execution",
-        },
+        raw_config,
+        root_keys,
         "config",
     )
     schema_version = str(root["schema_version"])
@@ -974,13 +1059,13 @@ def validate_phase1_config(raw: Mapping[str, Any]) -> dict[str, Any]:
     # see or hash a library default or an unresolved inheritance node.
     model_version = (
         "v2"
-        if schema_version == PHASE1_SCHEMA_V2 and branch == "camera"
+        if schema_version in PHASE1_ENVELOPE_B_SCHEMAS and branch == "camera"
         else "v1"
     )
     model_selector = {"frozen_spec": f"phase1_{branch}_model_{model_version}"}
     frozen_model = (
         FROZEN_CAMERA_MODEL_V2
-        if branch == "camera" and schema_version == PHASE1_SCHEMA_V2
+        if branch == "camera" and schema_version in PHASE1_ENVELOPE_B_SCHEMAS
         else FROZEN_CAMERA_MODEL
         if branch == "camera"
         else FROZEN_LIDAR_MODEL
@@ -999,8 +1084,14 @@ def validate_phase1_config(raw: Mapping[str, Any]) -> dict[str, Any]:
     _same(root["model"], frozen_model, "model")
     _validate_initialization(root["initialization"], branch, contract["lifecycle"])
     _validate_precision(root["precision"], branch, contract["lifecycle"])
-    _validate_optimizer_scheduler(root["optimizer"], root["scheduler"], branch)
-    _validate_training(root["training"])
+    _validate_optimizer_scheduler(
+        root["optimizer"], root["scheduler"], branch, schema_version
+    )
+    _validate_training(root["training"], branch, schema_version)
+    if schema_version == PHASE1_SCHEMA_V3:
+        _validate_runtime_optimizations(
+            root["runtime_optimizations"], branch, schema_version
+        )
     _validate_data(root["data"])
     _same(
         root["augmentation"],
@@ -1013,7 +1104,7 @@ def validate_phase1_config(raw: Mapping[str, Any]) -> dict[str, Any]:
     _validate_checkpointing(root["checkpointing"])
     _validate_dependencies(root["dependencies"], branch)
     _validate_execution(root["execution"], branch)
-    if schema_version == PHASE1_SCHEMA_V2:
+    if schema_version in PHASE1_ENVELOPE_B_SCHEMAS:
         _same(contract["lifecycle"], "envelope_b_ready", "contract.lifecycle")
         _same(root["execution"]["mode"], "phase1_train_eval", "execution.mode")
     # JSON round-trip rejects tuples/custom objects and provides a detached graph.

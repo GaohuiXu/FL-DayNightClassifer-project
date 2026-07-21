@@ -42,6 +42,7 @@ from fl_v3.models.phase1_swin import sha256_file, tensor_state_sha256
 from fl_v3.training.checkpoint import load_checkpoint, save_checkpoint
 from fl_v3.training.loop import _float_tensors, _move_to_device, train_one_epoch
 from fl_v3.training.phase1 import build_phase1_training_stack
+from fl_v3.training.phase1_runtime import phase1_runtime_optimization_identity
 from fl_v3.training.runtime_state import TrainingState
 from fl_v3.utils.runtime import (
     enforce_determinism,
@@ -209,6 +210,8 @@ def _preflight(
         config, branch, device
     )
     state = TrainingState()
+    physical_batch = int(config.as_dict()["training"]["micro_batch_size"])
+    runtime_optimizations = phase1_runtime_optimization_identity(model)
     initial_state_sha = tensor_state_sha256(model.state_dict())
     checkpoint = output_dir / ".preflight-zero.pt"
     save_checkpoint(
@@ -229,7 +232,10 @@ def _preflight(
     iterator = iter(bundle.loader)
     try:
         batch = next(iterator)
-        _require(int(batch["batch_size"]) == 4, "preflight requires physical B4")
+        _require(
+            int(batch["batch_size"]) == physical_batch,
+            "preflight batch differs from the configured physical batch",
+        )
         tokens = list(batch["sample_token"])
         moved = _move_to_device(batch, device)
         model.train()
@@ -254,7 +260,7 @@ def _preflight(
             output_fp32,
             score_threshold=float(config.as_dict()["model"]["head"]["test"]["score_threshold"]),
         )
-        decode_schema = _decoded_schema(decoded, 4)
+        decode_schema = _decoded_schema(decoded, physical_batch)
         loss_value = float(loss.detach().cpu())
     finally:
         del iterator
@@ -267,6 +273,10 @@ def _preflight(
     torch.cuda.empty_cache()
     model, criterion, optimizer, scheduler, scaler = _build_components(
         config, branch, device
+    )
+    _require(
+        phase1_runtime_optimization_identity(model) == runtime_optimizations,
+        "preflight runtime optimization identity changed on reconstruction",
     )
     loaded, identity = load_checkpoint(
         str(checkpoint),
@@ -288,7 +298,8 @@ def _preflight(
     record = {
         "schema": "s10.phase1.envelope-b-preflight.v1",
         "role": "D_fit",
-        "physical_batch": 4,
+        "physical_batch": physical_batch,
+        "runtime_optimizations": runtime_optimizations,
         "sample_tokens": tokens,
         "optimizer_updates": 0,
         "loss_finite": True,
@@ -539,6 +550,14 @@ def _validate_run_identity(
         "runtime_dependencies_sha256": runtime_dependency_sha256,
         "seed": int(config.as_dict()["training"]["seed"]),
         "camera_pool_backend": "pytorch_sorted_segment_reduce" if branch == "camera" else None,
+        "runtime_optimizations": config.as_dict().get("runtime_optimizations"),
+        "compile_cache_relative_path": (
+            "torchinductor_cache"
+            if config.as_dict().get("runtime_optimizations", {})
+            .get("torch_compile", {})
+            .get("enabled", False)
+            else None
+        ),
     }
     for key, value in expected.items():
         _require(identity.get(key) == value, f"run identity drift at {key}")
@@ -563,6 +582,13 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         _require(not args.resume, "resume requested but the output directory is absent")
         output_dir.mkdir(parents=True)
 
+    compile_spec = raw.get("runtime_optimizations", {}).get("torch_compile", {})
+    compile_cache_relative_path = None
+    if bool(compile_spec.get("enabled", False)):
+        compile_cache = output_dir / "torchinductor_cache"
+        os.environ["TORCHINDUCTOR_CACHE_DIR"] = str(compile_cache)
+        compile_cache_relative_path = compile_cache.relative_to(output_dir).as_posix()
+
     source = _source_identity(args.source_sha)
     runtime, runtime_dependency_sha = _runtime_identity(config)
     device = torch.device("cuda", 0)
@@ -582,6 +608,8 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "runtime": runtime,
         "seed": int(raw["training"]["seed"]),
         "camera_pool_backend": "pytorch_sorted_segment_reduce" if branch == "camera" else None,
+        "runtime_optimizations": raw.get("runtime_optimizations"),
+        "compile_cache_relative_path": compile_cache_relative_path,
         "unpromoted_optional_backend_executed": False,
         "D_fit": raw["data"]["roles"]["fit"],
         "D_select": raw["data"]["roles"]["select"],
@@ -634,6 +662,11 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
 
     model, criterion, optimizer, scheduler, scaler = _build_components(
         config, branch, device
+    )
+    main_runtime_optimizations = phase1_runtime_optimization_identity(model)
+    _require(
+        main_runtime_optimizations == preflight["runtime_optimizations"],
+        "production runtime optimization identity differs from preflight",
     )
     train_bundle = build_phase1_train_data(config)
     try:
@@ -746,6 +779,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "resolved_config_sha256": config.sha256,
         "seed": int(raw["training"]["seed"]),
         "camera_pool_backend": "pytorch_sorted_segment_reduce" if branch == "camera" else None,
+        "runtime_optimizations": main_runtime_optimizations,
         "unpromoted_optional_backend_executed": False,
         "training": {
             "epochs": terminal_epoch,

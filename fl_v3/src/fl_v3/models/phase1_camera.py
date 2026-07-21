@@ -23,7 +23,7 @@ import torch.nn.functional as F
 from fl_v3.config.phase1 import (
     FROZEN_CAMERA_MODEL,
     FROZEN_CAMERA_MODEL_V2,
-    PHASE1_SCHEMA_V2,
+    PHASE1_ENVELOPE_B_SCHEMAS,
     REFERENCE_OBJECT_CLASSES,
 )
 from fl_v3.models.fusion.bev_grid import BEVConfig
@@ -632,12 +632,12 @@ def build_phase1_camera_model(
     schema_version = str(raw["schema_version"])
     frozen_model = (
         FROZEN_CAMERA_MODEL_V2
-        if schema_version == PHASE1_SCHEMA_V2
+        if schema_version in PHASE1_ENVELOPE_B_SCHEMAS
         else FROZEN_CAMERA_MODEL
     )
     expected_pool_identity = (
         "pytorch_sorted_segment_reduce"
-        if schema_version == PHASE1_SCHEMA_V2
+        if schema_version in PHASE1_ENVELOPE_B_SCHEMAS
         else "optimized_cuda"
     )
     if (
@@ -647,13 +647,13 @@ def build_phase1_camera_model(
         raise ValueError("resolved Phase-I Camera graph contract drift")
     selected_backend = (
         "fallback"
-        if pool_backend is None and schema_version == PHASE1_SCHEMA_V2
+        if pool_backend is None and schema_version in PHASE1_ENVELOPE_B_SCHEMAS
         else "optimized"
         if pool_backend is None
         else str(pool_backend)
     )
     if (
-        schema_version == PHASE1_SCHEMA_V2
+        schema_version in PHASE1_ENVELOPE_B_SCHEMAS
         and selected_backend != "fallback"
         and not allow_unpromoted_backend
     ):

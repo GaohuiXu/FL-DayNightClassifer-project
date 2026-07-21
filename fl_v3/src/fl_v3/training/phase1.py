@@ -322,4 +322,7 @@ def build_phase1_training_stack(
         backoff_factor=float(scaler_spec["backoff_factor"]),
         growth_interval=int(scaler_spec["growth_interval"]),
     )
+    from fl_v3.training.phase1_runtime import apply_phase1_runtime_optimizations
+
+    apply_phase1_runtime_optimizations(model, config)
     return model, criterion, optimizer, scheduler, scaler

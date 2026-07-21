@@ -1,5 +1,5 @@
 {
-  "schema_version": "s10.phase1.v2",
+  "schema_version": "s10.phase1.v3",
   "contract": {
     "candidate_id": "phase1_camera_primary",
     "branch": "camera",
@@ -7,6 +7,8 @@
     "request_commit": "e321aed749fd859c809199d52c30b2771dbef8b3",
     "amendment_decision": "O-150",
     "amendment_commit": "2a26c63b61022e2947043a9ffd0538d537c51fb9",
+    "throughput_decision": "IP-G2",
+    "throughput_evidence_commit": "6ec7fb6d067259ac61ecaed89481e7e2562c3a2d",
     "reference_repository": "mit-han-lab/bevfusion",
     "reference_commit": "326653dc06e0938edf1aae7d01efcd158ba83de5",
     "reference_license": "Apache-2.0",
@@ -53,7 +55,7 @@
     "betas": [0.9, 0.999],
     "eps": 1e-8,
     "amsgrad": false,
-    "fused": false,
+    "fused": true,
     "parameter_group_rules": [
       {"name": "backbone_no_decay", "prefix": "camera_backbone.", "contains_any": ["absolute_pos_embed", "relative_position_bias_table"], "lr_mult": 0.1, "decay_mult": 0.0},
       {"name": "backbone", "prefix": "camera_backbone.", "contains_any": [], "lr_mult": 0.1, "decay_mult": 1.0},
@@ -70,11 +72,11 @@
   },
   "training": {
     "epochs": 20,
-    "micro_batch_size": 4,
+    "micro_batch_size": 16,
     "world_size": 1,
-    "accumulation_steps": 8,
+    "accumulation_steps": 2,
     "effective_global_batch": 32,
-    "loss_accumulation": "mean_over_eight_microbatches",
+    "loss_accumulation": "mean_over_two_microbatches",
     "num_workers": 8,
     "epoch_remainder_policy": "shuffle_then_drop_incomplete_effective_b32_window",
     "cbgs_samples_per_epoch": 87930,
@@ -87,6 +89,18 @@
     "activation_checkpoint": false,
     "telemetry_scalar_sync": false,
     "seed": 0
+  },
+  "runtime_optimizations": {
+    "camera_sdpa": true,
+    "torch_compile": {
+      "enabled": true,
+      "scope": "forward_only",
+      "backend": "inductor",
+      "dynamic": false,
+      "mode": "default",
+      "modules": ["camera_backbone", "camera_neck", "decoder_backbone", "decoder_neck", "head"]
+    },
+    "state_dict_names_unchanged_required": true
   },
   "data": {
     "dataroot": "/dataset/easybuild/data/nuScenes-data/1.0-map-1.3-zip",
