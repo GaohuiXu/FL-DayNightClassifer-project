@@ -5,7 +5,7 @@
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
 ACTIVE_DECISION: owner activates the exact Section-9.2 B16 extension resource envelope
-REQUEST_STATE: B16 CAPACITY PASS / SERIAL CELL B NEXT / ENVELOPE B FROZEN
+REQUEST_STATE: CELL B POSITIVE / SERIAL REVERSE CELL C NEXT / ENVELOPE B FROZEN
 EXECUTION_AUTHORITY: Section 9.2 only; base 1.20 + bug reserve 0.50 = hard 1.70 GH200-hours
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
@@ -1243,7 +1243,7 @@ is executable; this does not activate Envelope B or authorize any capability run
 
 ```text
 PHASE: S10 Phase I-P / IP-G2 B16 capacity and matched-throughput extension
-REQUEST_STATE: OWNER APPROVED / ACTIVE / CELL A PASS / CELL B NEXT
+REQUEST_STATE: OWNER APPROVED / CELL A PASS / CELL B POSITIVE / CELL C NEXT
 ACTIVATION_BASELINE: df3c17e3e6be19dcc586fdec2c6bd198c1b02d95
 APPROVED_REQUEST_SHA: 1b25f1c98dabc19617fd4e2223c29b4fe076eeef
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -1344,6 +1344,23 @@ CELL_A_ARTIFACTS: pre-submission a1b99e1e...b51c08; measurement
   stdout/stderr 62449d3b...47b0 / 8db5d05b...1e830
 B16_EXTENSION_USAGE_AFTER_CELL_A: base 0.073889 / 1.20, remaining 1.126111;
   code-bug reserve 0.000000 / 0.50, remaining 0.500000; hard remaining 1.626111
+CELL_B_TERMINAL: Job 535343 COMPLETED 0:0 in 00:25:32 on n141; source
+  441b54093b954f22ca140033f3ffcdd47abc1f58; 13/13 GH200 pretests passed.
+  The same-allocation fresh B8->B16 processes each completed 16+256 accepted
+  windows with zero invalid/discard/scaler-skip/nonfinite, stable memory, no
+  measured recompile and checkpoint hard-gate PASS. B8 measured 22.519035 at
+  37,981,519,872 peak reserved bytes; B16 measured 26.720715 presentations/s at
+  65,238,204,416 bytes (`63.9556%` visible). B16/B8 ratio and one-sided 95%
+  block-bootstrap lower bound were 1.186583 / 1.182178, so the frozen positive
+  gate PASS and conditional reverse Cell C is executable. Projected 20-epoch cost
+  was 21.730894 versus 18.320298 GH200-hours, saving 3.410596. This remains
+  measurement-only evidence and does not promote the B16 recipe.
+CELL_B_ARTIFACTS: pre-submission 2f04c27f...00438; B8 measurement/result
+  3e8881ca...8e7f5 / cf675b93...9476f; B16 measurement/result
+  d23adce1...6bf88 / eeb7c9d4...bc206; pair 9d4c54a8...93162;
+  stdout/stderr ecc7a07a...8f59 / 8db5d05b...1e830
+B16_EXTENSION_USAGE_AFTER_CELL_B: base 0.499445 / 1.20, remaining 0.700555;
+  code-bug reserve 0.000000 / 0.50, remaining 0.500000; hard remaining 1.200555
 ```
 
 Exact conditional invocations, all through
