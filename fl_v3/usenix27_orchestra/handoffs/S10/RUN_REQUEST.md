@@ -5,7 +5,7 @@
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
 ACTIVE_DECISION: owner activates the exact Section-9.2 B16 extension resource envelope
-REQUEST_STATE: CELL B POSITIVE / SERIAL REVERSE CELL C NEXT / ENVELOPE B FROZEN
+REQUEST_STATE: CELL C COMMAND INCIDENT / SERIAL DERIVED REPLACEMENT NEXT / ENVELOPE B FROZEN
 EXECUTION_AUTHORITY: Section 9.2 only; base 1.20 + bug reserve 0.50 = hard 1.70 GH200-hours
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
@@ -1243,7 +1243,7 @@ is executable; this does not activate Envelope B or authorize any capability run
 
 ```text
 PHASE: S10 Phase I-P / IP-G2 B16 capacity and matched-throughput extension
-REQUEST_STATE: OWNER APPROVED / CELL A PASS / CELL B POSITIVE / CELL C NEXT
+REQUEST_STATE: OWNER APPROVED / CELL A PASS / CELL B POSITIVE / CELL C REPLACEMENT NEXT
 ACTIVATION_BASELINE: df3c17e3e6be19dcc586fdec2c6bd198c1b02d95
 APPROVED_REQUEST_SHA: 1b25f1c98dabc19617fd4e2223c29b4fe076eeef
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -1361,6 +1361,23 @@ CELL_B_ARTIFACTS: pre-submission 2f04c27f...00438; B8 measurement/result
   stdout/stderr ecc7a07a...8f59 / 8db5d05b...1e830
 B16_EXTENSION_USAGE_AFTER_CELL_B: base 0.499445 / 1.20, remaining 0.700555;
   code-bug reserve 0.000000 / 0.50, remaining 0.500000; hard remaining 1.200555
+CELL_C_INITIAL_INCIDENT: Job 536510 FAILED 1:0 in 00:01:13 on n411; source
+  12f6ccbd26fae7b2784554c10ec8b7880a7f7b28; 13/13 GH200 pretests passed,
+  then the first profiler failed its fail-closed output-path check before output
+  directory creation, D_fit loader/model construction or training. The frozen
+  output suffix was `b16_c2_b16_first` while attempt ID was `b16_c2_b16`, and the
+  path invariant requires the suffix to equal the attempt ID. No scientific or
+  capacity result was produced. This is an unambiguous command/provenance-plumbing
+  defect eligible for the approved code-bug reserve.
+CELL_C_REMEDIATION: retain candidates, order, profiles, source/runtime math, D_fit,
+  seed, effective B32, windows, gates and resources; mechanically change only the
+  attempt IDs to `b16_c2_b16_first` and `b16_c2_b8_second`, matching the already
+  frozen descriptive output suffixes, then submit one serial fresh-output replacement.
+CELL_C_INITIAL_ARTIFACTS: pre-submission ca761acb...40892c; stdout/stderr
+  1d0456c8...4cf / 4fe08c77...3234; both profiler output directories absent
+B16_EXTENSION_USAGE_AFTER_CELL_C_INCIDENT: base 0.499445 / 1.20, remaining
+  0.700555; code-bug reserve 0.020278 / 0.50, remaining 0.479722; hard remaining
+  1.180277
 ```
 
 Exact conditional invocations, all through

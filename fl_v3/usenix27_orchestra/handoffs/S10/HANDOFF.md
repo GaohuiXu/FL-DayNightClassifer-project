@@ -11,7 +11,7 @@ ACTIVE_DECISION: owner activates the exact B16 capacity and matched-throughput e
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: Section 9.2 only; base 1.20 + bug reserve 0.50 = hard 1.70 GH200-hours; concurrency one
-EXECUTION_STATE: B16 capacity PASS and B8->B16 pair positive; reverse Cell C is next
+EXECUTION_STATE: Cell C command-path incident diagnosed; exact derived replacement next
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -526,6 +526,13 @@ presentations/s; B16/B8 point ratio and one-sided 95% lower bound were
 `1.186583/1.182178`. B16 peak reserved remained `65.238 GB` (`63.9556%`). The
 positive first pair triggers only the frozen reverse-order Cell C. Through Cell B,
 the extension consumed `0.499445/1.20` base GH200-hours with reserve untouched.
+
+The initial Cell C Job `536510` failed after 13/13 pretests but before output
+creation, D_fit/model execution or training: descriptive output suffix
+`b16_c2_b16_first` did not equal attempt ID `b16_c2_b16`. This is a single
+command/provenance defect. The O-149 replacement changes only the two attempt IDs
+to match the frozen output suffixes, costs `0.020278` bug-reserve GH200-hour, and
+retains every candidate, scientific, measurement and resource boundary.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
