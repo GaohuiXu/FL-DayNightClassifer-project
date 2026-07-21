@@ -4,15 +4,15 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: Section 9.2 is terminal positive; B16 recipe owner decision pending
-REQUEST_STATE: B16 EXTENSION TERMINAL / TWO POSITIVE PAIRS / ENVELOPE B FROZEN
+ACTIVE_DECISION: IP-G2 closed; Camera B16x2 recipe promoted and materialized
+REQUEST_STATE: PHASE I-P CLOSED / NO COMPUTE AUTHORITY / ENVELOPE B FROZEN
 EXECUTION_AUTHORITY: exhausted; no further GPU/Slurm cell is executable
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at the same SHA
-ENVELOPE_B: Section 7 preserved / NOT EXECUTABLE / disposition deferred to IP-G2
+ENVELOPE_B: Section 7 preserved / NOT EXECUTABLE / requires a new refreeze and review
 ```
 
 IP-G0 authorized scoped Phase I-P source/docs/tests, local validation and linear
@@ -1401,8 +1401,42 @@ EXECUTABLE_NOW: no; Section 9.2 is terminal and only the B16 recipe owner decisi
   remains. Production config bytes are unchanged and Envelope B remains frozen.
 ```
 
+### 9.3 IP-G2 final Camera recipe decision — closed, no compute authority
+
+The owner now promotes physical B16 x accumulation 2 and explicitly accepts the
+BatchNorm-statistics and worker-RNG assignment changes relative to B8 x accumulation
+4. This closes the decision left open by the immutable Section-9.2 request snapshot;
+it does not retrospectively change that envelope or its raw evidence.
+
+```text
+OWNER_DECISION: promote Camera B16x2/effective B32
+ACCEPTED_RUNTIME: Swin SDPA + five-module forward-only scoped torch.compile +
+  fused AdamW; activation checkpoint remains off; recovery cadence remains one epoch
+ACCEPTED_RECIPE_CHANGE: B16 BatchNorm statistics and worker-RNG assignment may
+  differ from B8; exactness remains required within the B16 recipe/run
+IMPLEMENTATION_SHA: 299277e8bdb8f60a05e8f06c2c0706e29252b51c
+IMPLEMENTATION_TREE: a541ef7b003388175e6a324ac28ed8f31f3deece
+CAMERA_CONFIG_SCHEMA: s10.phase1.v3
+CAMERA_CONFIG_FILE_SHA256: 25f53fc554c348c329c7a9cf4b9a5c8d521d993908114fbf64a46f75b3db0bda
+CAMERA_RESOLVED_CONFIG_SHA256: f6040d30c23571f049bba3602081a9ec3bbfbdafc5d5ab8b76e9dd375eb76f25
+HISTORICAL_PROFILE_BINDING: Section-9.2 profiles retain B4 source file
+  567cb1b7...ce60 and resolved e95e65a6...ffe1d; they are not rewritten
+LOCAL_VALIDATION: strict v3 resolution, drift rejection, historical-v2 resolved
+  hash reconstruction, Python syntax compilation and diff checks PASS
+NOT_RUN_LOCALLY: pytest/Torch runtime unavailable on the x86 login environment;
+  no GPU/Slurm validation is authorized by this decision
+B32_STATUS: not tested or promoted; linear B8/B16 peak extrapolation predicts
+  108.392 GB allocated and 119.752 GB reserved, above 102.005 GB visible memory
+ENVELOPE_B: frozen and NOT EXECUTABLE; the current capability runner/source-branch
+  binding and Section-7 identities remain historical controls
+NEXT_REQUIRED_FOR_CAMERA_RUN: new exact source/config/resource projection plus the
+  already-required independent recipe-freeze review and explicit owner activation
+```
+
 Exact conditional invocations, all through
-`fl_v3/scripts/run_s10_phase1p_ip_e2.sh` with the frozen resource tuple, are:
+`fl_v3/scripts/run_s10_phase1p_ip_e2.sh` with the frozen resource tuple, are shown
+at their recorded source SHAs; they are historical and not runnable from current
+HEAD:
 
 ```text
 COMMON:

@@ -1,4 +1,4 @@
-# S10 HANDOFF — Phase I-P B16 evidence complete; IP-G2 recipe decision pending
+# S10 HANDOFF — Phase I-P closed; Camera B16 recipe promoted
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: choose B16x2 or retain accepted B8x4; no profiler compute remains
-SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
+ACTIVE_DECISION: IP-G2 closed; B16x2 Camera recipe materialized; Envelope B remains frozen
+SCIENCE_ORDER: Camera production refreeze/review and LiDAR optimization discussion precede C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: Section 9.2 exhausted; no further GPU/Slurm cell is executable
-EXECUTION_STATE: B16 capacity PASS and both sustained process orders positive
+EXECUTION_STATE: no GPU/Slurm authority; no profiler or capability job is executable
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -26,6 +26,10 @@ Neither IP-E1 nor IP-E2 authorizes scientific training, an evaluation role, merg
 push, or movement of the frozen control branch.
 The Section-7 Envelope-B request in `RUN_REQUEST.md` is preserved verbatim as a
 historical control and is not activated by Phase I-P.
+After the terminal B16 evidence, the owner closed IP-G2 by promoting B16x2 and
+explicitly accepting its BatchNorm/worker-RNG recipe change relative to B8x4.
+Implementation `299277e8bdb8f60a05e8f06c2c0706e29252b51c` materializes the exact
+Camera stack; it does not activate or revise Section 7.
 
 ### 1.1 Frozen Phase I-P workflow
 
@@ -48,7 +52,7 @@ IP-G0 (closed: plan/topology/local implementation)
   -> IP-E1 (closed: IP-WP1 and IP-WP2 terminal)
   -> IP-G1 (closed: exact Camera cells/resources/decision boundaries)
   -> IP-E2 (terminal: Cells 1-5 and 7 complete; conditional Cell 6 skipped)
-  -> IP-G2 (B8 stack/cadence accepted; B16 recipe decision ready)
+  -> IP-G2 (closed: B16x2 + SDPA + scoped compile + fused AdamW accepted)
 ```
 
 IP-G2 is not Envelope-B activation. Any accepted production-source or config
@@ -477,23 +481,24 @@ and IP-E2 compute (`4.635278` GH200-hours), the whole Phase I-P preflight breaks
 even after `0.472931` such a run under the direct Cell-7 saving. Unused IP-E2
 budget expires with the exact sequence and is not authority for another cell.
 
-| Candidate | Class | Terminal evidence | IP-G2 disposition required |
+| Candidate | Class | Terminal evidence | Final IP-G2 disposition |
 |---|---|---|---|
 | Camera Swin SDPA | numerical runtime, measurement-only | isolated `+6.871%`, lower bound `+6.561%`; hard gates pass | owner-accepted for the final Camera recipe |
 | scoped Camera compile | numerical runtime, measurement-only | isolated `+5.587%`, lower bound `+5.086%`; five stable graphs, no measured recompile | owner-accepted for the final Camera recipe |
 | SDPA+compile | numerical runtime stack, measurement-only | B4 ratio/lower bound `1.183783/1.178471`; final stack confirms composition | owner-accepted composition |
 | fused AdamW | numerical runtime, measurement-only | B8 delta ratio/lower bound `1.041877/1.038384`; no extra reserved memory; hard gates pass | owner-accepted for the final Camera recipe |
 | B8x4 | recipe/operational, measurement-only | stack delta ratio/lower bound `1.288873/1.273372`; effective B32 retained | owner explicitly accepts changed BN statistics and worker RNG assignment |
-| B16x2 | recipe/operational, measurement-only | capacity `63.9556%` reserved; two-order ratio/lower bound `1.186583/1.182178` and `1.132013/1.128524`; all hard gates pass | explicit owner recipe decision because BN statistics and worker RNG assignment change again |
+| B16x2 | recipe/operational, measurement-only | capacity `63.9556%` reserved; two-order ratio/lower bound `1.186583/1.182178` and `1.132013/1.128524`; all hard gates pass | promoted; owner explicitly accepts the BN/worker-RNG recipe change relative to B8x4 |
 | checkpoint cadence | operational/material | measured synchronous save+hash is only about `0.84-0.89 s/epoch` | owner retains one recovery checkpoint per epoch |
 | IP-WP2 augmentation/grid plumbing | strict output-neutral engineering | all ordered Camera candidates were slower than reference | reject from the Phase-I production stack |
 
-The owner now promotes SDPA, scoped compile and fused AdamW, explicitly accepts
-B8x4's BN/RNG recipe change, and keeps recovery cadence at one epoch. B8 is the
-accepted fallback if B16 does not pass. Production config bytes are intentionally
-left unchanged until the B16 recipe decision closes, so the frozen B8/B16 profiler
-bindings remain exact and the final batch recipe is materialized once rather than
-twice.
+The final Camera recipe is B16x2/effective B32 with SDPA, five-module forward-only
+scoped compile, fused AdamW and one-epoch recovery cadence. The v3 production
+config has file SHA-256 `25f53fc554c348c329c7a9cf4b9a5c8d521d993908114fbf64a46f75b3db0bda`
+and resolved SHA-256 `f6040d30c23571f049bba3602081a9ec3bbfbdafc5d5ab8b76e9dd375eb76f25`.
+Terminal profiler records retain the historical B4 file/resolved identities and
+source commits; tests reconstruct the old resolved identity instead of relabelling
+those runs as production-v3 evidence.
 
 ### 1.6 B16 veto withdrawal and terminal extension
 
@@ -546,8 +551,17 @@ The extension consumed `0.913889` base plus `0.020278` bug-reserve GH200-hour,
 `0.934167` total. Conservative B16-over-B8 projected saving is `2.382176`
 GH200-hours per 20-epoch Camera run, so the extension breaks even after `0.392148`
 runs. Unused budget expires. This is strong throughput/health evidence, not a
-capability claim: B16 still requires the owner's explicit BN/RNG recipe decision;
-production config bytes remain unchanged and Envelope B stays frozen.
+capability claim. The owner subsequently promoted B16x2 and explicitly accepted
+its BN/worker-RNG recipe change. Production implementation is
+`299277e8bdb8f60a05e8f06c2c0706e29252b51c`; Envelope B stays frozen pending a
+new exact source/config/resource projection and independent recipe-freeze review.
+
+A direct B32x1 capacity attempt is not justified by the current memory evidence.
+Using the actual final-stack B8 and B16 peaks, a linear per-sample extrapolation
+gives about `108.392 GB` allocated and `119.752 GB` reserved at B32, respectively
+`106.26%` and `117.40%` of the `102.005 GB` visible device memory. Thus the plain
+current graph is expected to OOM before accounting for safety margin; B32 would
+require a separate activation-memory reduction design and new owner approval.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
