@@ -4,9 +4,9 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: IP-G1 discussion open; batch/RNG, matched-allocation and resource boundaries accepted
-REQUEST_STATE: IP-E1 AND IP-WP2 CLOSED / IP-G1 DISCUSSION OPEN / WP3-ENVELOPE B FROZEN
-EXECUTION_AUTHORITY: none; IP-G1 discussion is not IP-E2 or GPU/Slurm authority
+ACTIVE_DECISION: owner closed IP-G1 and activated exact Camera-only IP-E2
+REQUEST_STATE: IP-E2 ACTIVE / PRE-SUBMISSION IMPLEMENTATION / ENVELOPE B FROZEN
+EXECUTION_AUTHORITY: exact Section-9 Camera WP3->WP4 cells inside 4.0+1.0 GH200-hours
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -976,11 +976,12 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
   --repeat 1 --attempt-id batchedgrid
 ```
 
-## 9. Phase I-P IP-G1 accepted boundaries and draft IP-E2 request
+## 9. Phase I-P IP-G1 closure and active IP-E2 request
 
 ```text
 PHASE: S10 Phase I-P / IP-E2 capacity and numerical-runtime screening
-REQUEST_STATE: DRAFT / RESOURCE BOUNDARY OWNER-ACCEPTED / NOT EXECUTABLE
+REQUEST_STATE: ACTIVE / PRE-SUBMISSION IMPLEMENTATION
+ACTIVATION_BASELINE: 3f55e635aef4f893d9fd66e7921f55ce4f7b36e8
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at UNIQUE_BASE_SHA; do not move
@@ -989,12 +990,28 @@ OBJECTIVE: measure Camera physical-batch scaling, Swin SDPA, scoped torch.compil
   only stack and projected 20-epoch payback without capability or recipe claims
 BATCH_CELLS: B4x8 reference; B8x4 measurement-only; B12 deleted; B16x2 conditional
 B16_PRECONDITION: B8+SDPA+compile passes capacity, sustained-health and checkpoint
-  gates and retains an exact quantitative substantial-memory-margin predicate still
-  to be frozen in IP-G1
+  gates with no monotonic memory growth, and peak reserved bytes satisfy
+  R8 + 2*max(R8-R4,0) <= 0.70*visible_bytes; a fresh B16 capacity process must then
+  pass the unchanged <=0.85*visible hard gate before sustained measurement
 NUMERICAL_CELLS: Camera Swin SDPA; scoped Camera torch.compile; fused AdamW;
   individually default-off and isolated before any combination
 MATCHED_DESIGN: each comparison runs two fresh processes serially inside one Slurm
   allocation/on one GH200; confirmation reverses reference/candidate order
+EXACT_SERIAL_CELLS:
+  1. B4 eager reference versus B4 Camera Swin SDPA
+  2. B4 eager reference versus B4 scoped torch.compile
+  3. B4 eager reference versus B4 SDPA+compile
+  4. B4 SDPA+compile versus B8x4 SDPA+compile
+  5. B8 SDPA+compile versus B8 SDPA+compile+fused AdamW
+  6. conditional B8 best-stack versus B16x2 best-stack
+  7. final best-stack confirmation with reversed process order
+COMPILE_SCOPE: backend=inductor, dynamic=false, mode=default; compile only forward
+  callables for camera_backbone, camera_neck, decoder_backbone, decoder_neck and
+  head without replacing registered modules or changing parameter/state-dict names;
+  preprocess, view transform/pool, target/loss and optimizer stay eager
+COMPILE_EVIDENCE: fresh candidate-local cold cache; report cold startup, graph breaks,
+  compiled graphs and recompiles; unexpected steady-state recompile or checkpoint
+  opacity rejects the candidate
 BATCH_RNG: B8/B16 need not reproduce B4 worker assignment or per-sample augmentation
   draws; each candidate's own boundary/input/RNG/discrete state and fresh-process
   continuation remain exact
@@ -1023,13 +1040,11 @@ ENGINEERING_REMEDIATION: O-149 frozen-semantics repairs only within the layered
 OWNER_ESCALATION: science-boundary pressure; ambiguous or repeated blocker;
   nonfinite/discard; continuation failure without an unambiguous code cause;
   >85% memory, monotonic growth, ceiling exhaustion, or requested candidate change
-OWNER_ACCEPTED_NOW: remove B12; conditional B16 after B8+SDPA+compile with substantial
-  headroom; same-allocation pairs; within-candidate B8/B16 exactness; all resource
-  limits above
-PENDING_IP_G1_FREEZE: exact serial cells; quantitative B16 headroom predicate;
-  compile module/backend scope; conditional combination/confirmation rules;
-  implementation/activation SHA
-EXECUTABLE_NOW: no; explicit IP-E2 activation remains required
+OWNER_APPROVAL: 2026-07-21 — accepted the quantitative B16 gate, exact cell order,
+  compile scope and Camera-only boundary; closed IP-G1 and activated IP-E2
+PRE_SUBMISSION_GATE: record durable implementation SHA, profile hashes, exact paired
+  command, fresh output paths and remaining budget before every first submission
+EXECUTABLE_NOW: yes after PRE_SUBMISSION_GATE; no implementation exists at this record
 ```
 
 ## 10. Envelope-A compact execution ledger

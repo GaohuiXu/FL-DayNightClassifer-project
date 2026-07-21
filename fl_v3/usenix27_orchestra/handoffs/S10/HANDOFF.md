@@ -1,4 +1,4 @@
-# S10 HANDOFF — Phase I-P WP2 closed; IP-G1 discussion open; Envelope B frozen
+# S10 HANDOFF — Phase I-P IP-G1 closed; IP-E2 active; Envelope B frozen
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: IP-G1 discussion open; batch/RNG, matched-allocation and resource boundaries accepted
+ACTIVE_DECISION: owner closed IP-G1 and activated exact Camera-only IP-E2
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: IP-E1/IP-WP2 closed; IP-G1 discussion only; IP-WP3/IP-E2/Envelope B frozen
-EXECUTION_STATE: three default-off candidates measured; no promotion or combination; no active compute authority
+CURRENT_AUTHORITY: IP-E2 active for exact Camera WP3->WP4 cells; Envelope B frozen
+EXECUTION_STATE: pre-submission implementation and identity freeze; no IP-E2 job submitted yet
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -45,8 +45,8 @@ Gate/envelope order is exact:
 IP-G0 (closed: plan/topology/local implementation)
   -> IP-WP0 (closed)
   -> IP-E1 (closed: IP-WP1 and IP-WP2 terminal)
-  -> IP-G1 (open for discussion: baseline diagnosis and exact IP-E2 shortlist)
-  -> IP-E2 (pending: IP-WP3 -> IP-WP4 continuously)
+  -> IP-G1 (closed: exact Camera cells/resources/decision boundaries)
+  -> IP-E2 (active: IP-WP3 -> IP-WP4 continuously)
   -> IP-G2 (promotion/recipe/checkpoint/Envelope-B disposition)
 ```
 
@@ -314,17 +314,30 @@ measures that cost; it does not silently lower the cadence or change eligibility
   `saved_GH200h = T20_baseline - T20_candidate`, and
   `break_even_runs = actual_candidate_profiler_GH200h / saved_GH200h`.
 
-### 1.4 Accepted IP-G1 boundaries still awaiting exact cell freeze
+### 1.4 Closed IP-G1 and active IP-E2
 
-The owner accepts same-allocation matched measurement so each reference/candidate
-pair runs serially on one GH200 node, with reverse order when confirmation is
-required. The owner also accepts deletion of B12, the within-candidate RNG rule for
-B8/B16, and an IP-E2 resource boundary of `4.0` ordinary plus `1.0` code-bug-only
-charged GH200-hours, hard aggregate `5.0`, maximum concurrency one and at most 60
-minutes per job. B16 is conditional on a passing B8+SDPA+compile stack with clear
-measured memory headroom. These accepted planning/resource boundaries are not
-IP-E2 execution authority; exact cell order, the quantitative B16 margin predicate
-and activation SHA remain under IP-G1 discussion.
+The owner closes IP-G1 and activates Camera-only IP-E2 from activation baseline
+`3f55e635aef4f893d9fd66e7921f55ce4f7b36e8`. Each reference/candidate pair runs
+as two fresh processes serially inside one Slurm allocation/on one GH200; the final
+confirmation reverses process order. B12 is deleted. B8x4 and conditional B16x2
+retain effective B32 and require exact boundary/input/RNG/discrete identity within
+their own repeats and continuation, while cross-B4 worker assignment/augmentation
+equality is intentionally not required.
+
+The exact serial cells are B4 SDPA, B4 scoped compile, B4 SDPA+compile, B8
+SDPA+compile, B8 fused-AdamW delta, conditional B16 best-stack, then reversed-order
+final confirmation. Scoped compile covers only Camera backbone, Camera neck,
+decoder backbone, decoder neck and head forward callables; preprocess, view
+transform/pooling, target/loss and optimizer remain eager. B16 eligibility requires
+a passing B8+SDPA+compile path, no monotonic memory growth, and
+`R8 + 2*max(R8-R4,0) <= 0.70*V` using peak reserved bytes on the applicable stack;
+its fresh capacity probe and sustained run retain the hard `0.85*V` gate.
+
+IP-E2 has `4.0` ordinary plus `1.0` code-bug-only charged GH200-hours, hard
+aggregate `5.0`, maximum concurrency one and at most 60 minutes per job. No numeric
+submission cap applies inside O-149 remediation. The phase is active, but the first
+submission remains fail-closed until its derived implementation SHA, profiles,
+paired command and fresh output root are recorded in `RUN_REQUEST.md`.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
