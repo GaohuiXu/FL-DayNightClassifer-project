@@ -116,6 +116,19 @@ equal "Slurm memory per node" "${SLURM_MEM_PER_NODE:-}" "98304"
 equal "Slurm GPUs on node" "${SLURM_GPUS_ON_NODE:-0}" "1"
 
 cd "${source_root}"
+candidate_id="$(python - "${profile_config}" <<'PY'
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as stream:
+    print(json.load(stream)["candidate_id"])
+PY
+)"
+if [[ "${candidate_id}" == "camera_aug_transfer_cleanup_b4_accum8" ]]; then
+  python -m pytest -q \
+    fl_v3/tests/test_s10_phase1p_profile.py::test_ip_e1_profile_binds_both_frozen_configs_and_every_candidate_off \
+    fl_v3/tests/test_s10_phase1p_profile.py::test_ip_e1_aug_cleanup_profile_has_one_exact_camera_only_candidate \
+    fl_v3/tests/test_s10_phase1p_profile.py::test_profiler_cpu_resident_batch_field_skips_only_the_named_transfer \
+    fl_v3/tests/test_s03_camera_contract.py::test_s10_phase1p_augmentation_transfer_cleanup_is_output_neutral
+fi
 exec python "${entry}" \
   --branch "${branch}" \
   --mode "${mode}" \
