@@ -779,6 +779,48 @@ profile, receives a fresh output, and retains the exact data/model/loss/precisio
 update/checkpoint gates. IP-WP3, physical-batch probes, SDPA/compile, fused AdamW,
 checkpoint cadence, original Envelope B, merge and push remain unauthorized.
 
+### 8.5 WP2 Camera augmentation-cleanup candidate r1 pre-submission
+
+```text
+SOURCE: containing pre-submission commit; runtime implementation parent
+        37cfde2cab9349fff7e5884d162354a18a265ab0; no runtime-file change follows
+CANDIDATE_ID: camera_aug_transfer_cleanup_b4_accum8
+SINGLE_CHANGED_OPTION: camera_augmentation_transfer_cleanup=true; every other
+                       candidate option remains at the reference value
+PROFILE: fl_v3/configs/s10_phase1p_camera_aug_cleanup.json
+PROFILE_FILE_SHA256: 9a9a48b9185cbeac59d6614c6bb7567a11d5f3ae4a6f1d55145afb6f6b147cb9
+PROFILE_CANONICAL_SHA256: cdeed0799bb87d8916512d90befbd2a903329a8fea69766dc611eef82a6a9d6e
+LOCAL_VALIDATION: git diff --check; Python py_compile for all changed Python/tests;
+                  bash -n and shellcheck for the wrapper; baseline/candidate profile
+                  canonical loading and exact Camera-only single-option mapping PASS
+PRE_MODEL_PARITY: four focused GH200 tests in the wrapper must PASS before profiler
+                  construction: unchanged reference profile, exact candidate mapping,
+                  named-field CPU residency, and elementwise-exact preprocess outputs
+OUTPUT: <approved root>/camera/sustained_<containing-source-SHA12>_r1_augcleanup
+RESOURCES: 1 GH200, 16 CPU, 96 GiB, 00:45:00, no requeue, concurrency one
+STOP: any focused-test/profile/source/input/nonfinite/discard/memory failure; grouped
+      checkpoint continuation is reported honestly and remains non-waived
+```
+
+Exact command after sealing the containing source SHA `<SOURCE>` is:
+
+```bash
+sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G \
+  --gpus-per-node=nvidia_gh200_120gb:1 --time=00:45:00 --no-requeue \
+  --job-name=s10-ip-e1-camera-augcleanup \
+  --output=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e1_85c6719e4b88/slurm/camera-augcleanup-%j.out \
+  --error=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e1_85c6719e4b88/slurm/camera-augcleanup-%j.err \
+  fl_v3/scripts/run_s10_phase1p_ip_e1.sh \
+  --branch camera --mode sustained \
+  --config fl_v3/configs/s10_phase1_camera.json \
+  --profile-config fl_v3/configs/s10_phase1p_camera_aug_cleanup.json \
+  --output-dir /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_e1_85c6719e4b88/camera/sustained_<SOURCE12>_r1_augcleanup \
+  --source-sha <SOURCE> \
+  --approved-source-sha 85c6719e4b880b198d850e16b1418c230fa5c656 \
+  --repeat 1 --attempt-id augcleanup
+```
+
 ## 9. Envelope-A compact execution ledger
 
 This is the sole terminal ledger for Envelope A. Submission rows were appended only when
