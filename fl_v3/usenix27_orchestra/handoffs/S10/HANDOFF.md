@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: owner closed IP-G1 and activated exact Camera-only IP-E2
+ACTIVE_DECISION: owner amended continuation enforcement, promoted Cell-1 SDPA, and ordered Cells 2-7
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: IP-E2 active but paused at its continuation owner-stop; Envelope B frozen
-EXECUTION_STATE: Cell 1 terminal positive SDPA speed/memory screen; continuation negative; owner disposition required
+CURRENT_AUTHORITY: IP-E2 active for serial Cells 2-7 inside the frozen resource ceiling; Envelope B frozen
+EXECUTION_STATE: Cell 1 terminal; SDPA promoted inside IP-E2; Cell 2 scoped compile is next
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -33,10 +33,10 @@ five WPs and three gates are not independent mini-projects:
 
 | WP | Inputs and work | Required output / acceptance | Continuous authority and stop |
 |---|---|---|---|
-| IP-WP0 measurement path | frozen C/L configs and production model/data/loss/AdamW/scheduler/scaler/checkpoint paths | accumulation-aware B4x8 profiler; separate low-overhead sustained and short trace modes; exact identities; every candidate default-off; local/focused checks | IP-G0 permits scoped implementation and linear commits; stop before scientific semantics or compute |
+| IP-WP0 measurement path | frozen C/L configs and production model/data/loss/AdamW/scheduler/scaler/checkpoint paths | accumulation-aware B4x8 profiler; separate low-overhead sustained and short trace modes; exact identities; candidates default-off until an explicit owner promotion; local/focused checks | IP-G0 permits scoped implementation and linear commits; stop before scientific semantics or compute |
 | IP-WP1 real baseline | exact D_fit, official CBGS/GTDB, seed 0, physical B4 x accumulation 8 | two-process sustained C/L baselines, whole-model trace, system/memory evidence and real checkpoint continuation | runs only inside approved IP-E1; stop on identity drift, nonfinite/discarded windows, unresolved instability or ceiling |
 | IP-WP2 output-neutral work | WP1 bottleneck evidence plus the named plumbing shortlist | individual parity, accepted-update, checkpoint/resume and sustained-throughput evidence; safe items may be combined | may proceed continuously inside IP-E1 only for frozen strict-output-neutral candidates; ambiguous or changed failure semantics go to owner |
-| IP-WP3 capacity/runtime screening | IP-G1 owner-frozen cells | B8 and conditionally B16 capacity evidence plus selected SDPA/compile/AdamW probes, all measurement-only by default | runs only inside separately approved IP-E2; no automatic recipe promotion |
+| IP-WP3 capacity/runtime screening | IP-G1 owner-frozen cells | B8 and conditionally B16 capacity evidence plus selected SDPA/compile/AdamW probes; Cell-1 SDPA is the explicit promoted exception | runs only inside separately approved IP-E2; remaining candidates require their frozen screens and owner-scoped interpretation |
 | IP-WP4 synthesis | accepted WP1-WP3 evidence | final combination validation, GH200 payback, keep/reject/owner-gated table, revised Envelope-B projection | IP-G2 decides promotion and later Envelope-B refreeze; Phase I-P itself makes no capability claim |
 
 Gate/envelope order is exact:
@@ -46,7 +46,7 @@ IP-G0 (closed: plan/topology/local implementation)
   -> IP-WP0 (closed)
   -> IP-E1 (closed: IP-WP1 and IP-WP2 terminal)
   -> IP-G1 (closed: exact Camera cells/resources/decision boundaries)
-  -> IP-E2 (active: IP-WP3 -> IP-WP4 continuously)
+  -> IP-E2 (active: Cell 1 closed; Cells 2-7 and IP-WP3 -> IP-WP4 continuously)
   -> IP-G2 (promotion/recipe/checkpoint/Envelope-B disposition)
 ```
 
@@ -73,11 +73,12 @@ discrete state remain exact; model parameters, BN mean, BN var, Adam `exp_avg` a
 Adam `exp_avg_sq` are gated separately, with fresh-process relative-L2 and
 max-absolute error each no greater than
 `max(frozen tolerance, 1.25 * same-process repeat-control)`. Per-element allclose
-remains diagnostic only. Implementation `73158b7` applies that rule without
+was diagnostic only. Implementation `73158b7` applied that rule without
 changing model/data/update semantics or the frozen FP32/FP16 numeric tolerances.
 Read-only reassessment of the immutable Job `525192` result passes all five groups
 and every exact requirement (`d883c1ef...f7fa2`); the raw old-gate failure remains
-unchanged.
+unchanged. The later IP-E2 owner amendment described below supersedes only the
+enforcement role of these numerical distances: they remain reported diagnostics.
 
 Jobs `527225` and `527229` then completed the same LiDAR sustained reference at
 `38.0943` and `36.9148` presentations/s. Both had 256/256 accepted windows, zero
@@ -291,13 +292,15 @@ measures that cost; it does not silently lower the cadence or change eligibility
   recorded `CAPACITY_OOM`; B8 OOM skips B16. B16 is considered only after the
   B8+SDPA+compile stack passes and retains an owner-frozen substantial-memory-margin
   gate.
-- Parity remains exact/hash-exact for boundary, input, RNG and unchanged discrete/
-  plumbing state. Continuation numerics are grouped into model parameters, BN mean,
-  BN var, Adam `exp_avg` and Adam `exp_avg_sq`; in each group fresh-process
-  relative-L2 and max-absolute error must independently stay within
-  `max(frozen tolerance, 1.25 * same-process repeat-control)`. The frozen FP32
-  tolerances are `1e-4 / 1e-6` and FP16 tolerances are `2e-3 / 2e-4`; per-element
-  allclose is retained as a diagnostic, not a hard gate.
+- Parity remains hard and exact/hash-exact for checkpoint boundary, input, RNG,
+  training/discrete state, state names/shapes/dtypes and comparison integrity;
+  every numerical state must remain finite. Model parameters, BN mean, BN var,
+  Adam `exp_avg` and Adam `exp_avg_sq` retain fresh-process relative-L2,
+  max-absolute and per-element-allclose diagnostics against
+  `max(frozen tolerance, 1.25 * same-process repeat-control)`, but exceeding those
+  trajectory-distance envelopes alone is not a promotion stop. A direct
+  forward/backward/accepted-update failure, nonfinite state, structural/context
+  drift or accompanying material loss/gradient/update anomaly remains a stop.
 - Same-physical-batch numerical candidates retain cross-cell input/RNG identity.
   For B8/B16 the owner accepts that DataLoader worker assignment and augmentation
   draws need not equal B4; boundary/input/RNG/discrete state must instead be exact
@@ -351,6 +354,18 @@ measurement-only. Local static validation passed; torch/pytest are unavailable i
 the x86 login Python, so every GH200 allocation runs fail-closed current-code
 numerical pretests before either paired process.
 
+Owner decision on 2026-07-21 amends IP-E2 after Cell 1: grouped continuation
+relative-L2/max-absolute/allclose results are trajectory-reproducibility
+diagnostics, not hard promotion gates. Exact boundary/input/RNG/training/discrete
+state, exact names/shapes/dtypes, comparison integrity and finite state remain
+hard. Implementation `89181c117d69aaa7094def38f6931623f385a691` applies that
+single enforcement change and adds current-schema immutable-result reassessment;
+it changes no model math, data, precision, loss, optimizer update or scheduler
+semantics. The owner promotes SDPA as the IP-E2 Camera runtime building block and
+orders serial continuation through Cell 2 compile, Cell 3 SDPA+compile, B8,
+fused AdamW, conditional B16 and the final reversed-order confirmation. This does
+not modify or activate the frozen Envelope B.
+
 Cell 1 Job `531766` completed `0:0` in `00:25:41` on one `n203` allocation and
 consumed `0.428056` base GH200-hours; the code-bug reserve remains untouched. All
 eight current-code pretests passed. Eager and SDPA each completed 16+256 accepted
@@ -361,13 +376,16 @@ state. SDPA measured `16.183531` versus `15.143028` presentations/s: ratio
 reserved from `16.039/18.723` to `14.885/17.459` GB and lowers the current
 20-epoch projection by `2.073802` GH200-hours.
 
-That is a positive throughput/memory screen, not a promotion. Eager repeated the
+That is a positive throughput/memory screen and is now an owner-approved IP-E2
+SDPA promotion. Eager repeated the
 already owner-accepted continuation negative only in Adam `exp_avg_sq` max-abs.
 SDPA passed model-parameter and BN-var groups but failed its calibrated fresh-
 process continuation envelope in Adam `exp_avg`, Adam `exp_avg_sq`, and BN mean;
-all exact context gates still passed. This is not an unambiguous code defect and
-therefore triggers the frozen owner-escalation boundary. Cell 2 and every
-combination/capacity probe are paused; SDPA remains default-off.
+all exact context/integrity/finite gates passed. Immutable reassessments under the
+amended rule return hard PASS for eager and SDPA while preserving those numerical
+diagnostic negatives (`08426908...36512` and `50cc83be...9d88c`). No Cell-1
+rerun is needed. Cell 2 and the remaining frozen sequence may proceed serially;
+production Envelope-B activation remains separately forbidden.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior

@@ -980,7 +980,7 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
 
 ```text
 PHASE: S10 Phase I-P / IP-E2 capacity and numerical-runtime screening
-REQUEST_STATE: CELL 1 TERMINAL / POSITIVE SDPA SPEED SCREEN / OWNER-STOP ON CONTINUATION
+REQUEST_STATE: CELL 1 PROMOTED UNDER OWNER-AMENDED GATE / CELL 2 READY
 ACTIVATION_BASELINE: 3f55e635aef4f893d9fd66e7921f55ce4f7b36e8
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -989,7 +989,7 @@ OBJECTIVE: measure Camera physical-batch scaling, Swin SDPA, scoped torch.compil
   and fused AdamW with real D_fit training mechanics; synthesize one measurement-
   only stack and projected 20-epoch payback without capability or recipe claims
 BATCH_CELLS: B4x8 reference; B8x4 measurement-only; B12 deleted; B16x2 conditional
-B16_PRECONDITION: B8+SDPA+compile passes capacity, sustained-health and checkpoint
+B16_PRECONDITION: B8+SDPA+compile passes capacity, sustained-health and exact checkpoint
   gates with no monotonic memory growth, and peak reserved bytes satisfy
   R8 + 2*max(R8-R4,0) <= 0.70*visible_bytes; a fresh B16 capacity process must then
   pass the unchanged <=0.85*visible hard gate before sustained measurement
@@ -1013,8 +1013,9 @@ COMPILE_EVIDENCE: fresh candidate-local cold cache; report cold startup, graph b
   compiled graphs and recompiles; unexpected steady-state recompile or checkpoint
   opacity rejects the candidate
 BATCH_RNG: B8/B16 need not reproduce B4 worker assignment or per-sample augmentation
-  draws; each candidate's own boundary/input/RNG/discrete state and fresh-process
-  continuation remain exact
+  draws; each candidate's own boundary/input/RNG/training/discrete state and
+  fresh-process checkpoint structure remain exact; numerical trajectory distances
+  remain diagnostic
 DATA_AND_CLAIMS: D_fit only; D_select, D_audit, official validation, capability
   metrics, generalization and candidate-selection claims forbidden
 PRECISION_UPDATE: frozen FP16 policy, loss, targets, GradScaler, clip, accepted
@@ -1038,10 +1039,17 @@ ENGINEERING_REMEDIATION: O-149 frozen-semantics repairs only within the layered
   ceiling; compiler limitation, ambiguous numerical drift or candidate-scope change
   is not silently classified as a code bug
 OWNER_ESCALATION: science-boundary pressure; ambiguous or repeated blocker;
-  nonfinite/discard; continuation failure without an unambiguous code cause;
+  nonfinite/discard; exact checkpoint/context/structure failure;
   >85% memory, monotonic growth, ceiling exhaustion, or requested candidate change
 OWNER_APPROVAL: 2026-07-21 — accepted the quantitative B16 gate, exact cell order,
   compile scope and Camera-only boundary; closed IP-G1 and activated IP-E2
+OWNER_GATE_AMENDMENT: 2026-07-21 — grouped model/BN/Adam continuation relative-L2,
+  max-absolute and allclose results are diagnostics rather than hard promotion
+  gates. Exact checkpoint boundary, input, RNG, training/discrete state,
+  names/shapes/dtypes, comparison integrity and finite numerical state remain hard.
+  Cell-1 SDPA is promoted inside IP-E2 and the owner orders serial Cells 2-7.
+  No Cell-1 rerun, Envelope-B activation or capability claim is authorized.
+GATE_AMENDMENT_SHA: 89181c117d69aaa7094def38f6931623f385a691
 PRE_SUBMISSION_GATE: record durable implementation SHA, profile hashes, exact paired
   command, fresh output paths and remaining budget before every first submission
 IMPLEMENTATION_SHA: e6af054bfb16710355e22f6cea931368750aba89
@@ -1071,9 +1079,11 @@ PROFILE_HASHES: physical SHA-256 / canonical SHA-256
     a85f3bd5141e2fd34036f5ac77c11a83d89ab8135e918ed3b2149649a86f29fe
   SDPA+compile+fused B16: c0d919ba3eaa084f43072dab1b407eb2fa56cbf9fc926cd7386c21b49b86cf51 /
     c3ac8a0c35cc854072e8ba1069c70adc53d60ad650e6fad5c863f27494fbdbea
-SCRIPT_HASHES: launcher 77efd58c902c1b72095f7a2c0b6578af5a7b1f0fe846c62297adfa2aa3bb7647;
+SCRIPT_HASHES: launcher adf3bc945ac08885eeabbf21347f30ffe5b614d15078629c14bb2009cfc6fbe6;
   profiler b4ce5df419924d63eac30070944dcba3a0bc73ccd75a5a455183ac8c4e414434;
-  pair analyzer cec454e46947570244c8afdf901a406314e23071461440352e831fb1eabefc6e
+  pair analyzer cec454e46947570244c8afdf901a406314e23071461440352e831fb1eabefc6e;
+  continuation gate 6cec4646b5c1caf6a5c7145990c27220df44cf3079f0585b50f64f6e24d00d7c;
+  reassessor 35aedf92df2a9c801ed54485a4b29b992fc13606185b09d298554b61e69f8b19
 LOCAL_VALIDATION: Python py_compile PASS for all changed Python/tests; bash -n and
   shellcheck PASS; JSON syntax, canonical hash, patch whitespace and synthetic
   50,000-draw paired-bootstrap/B16-gate checks PASS. The x86 login Python lacks
@@ -1114,21 +1124,36 @@ CELL_1_TERMINAL: Job 531766 COMPLETED 0:0 in 1541 s on n203. All eight current-
   owner-accepted continuation negative in Adam exp_avg_sq max-abs only. SDPA's
   fresh-process continuation exceeded the calibrated envelope for Adam exp_avg,
   Adam exp_avg_sq and BN running mean; model parameters and BN running var passed.
-  This is numerical-runtime nondeterminism, not an unambiguous code bug.
+  This is numerical-runtime nondeterminism, not an unambiguous code bug. Under the
+  owner-amended enforcement, exact/integrity/finite hard gates PASS for both;
+  numerical envelope results remain diagnostic and SDPA is promoted inside IP-E2.
 CELL_1_ARTIFACTS: pre-submission f64f66aa...78949a; eager measurement/result
   60719b89...004e1 / e4d87f8d...53be9; SDPA measurement/result
   98f63f82...3b69 / 0201eaee...9185; pair summary 73463de6...55c5;
   stdout/stderr e0ecbea5...28df / 8db5d05b...e830
-EXECUTABLE_NOW: no; Cell 1 hit the frozen continuation-failure owner-escalation
-  condition. Cell 2 and all combinations/capacity probes are paused. Envelope B
-  remains non-executable.
+CELL_1_REASSESSMENT: immutable raw results unchanged. Derived v2 reassessments are
+  eager `08426908dcd1e67d05c4ae18402a4cfa73c4daddaa09eac3609e873699e36512`
+  and SDPA `50cc83be5f1c1e24814e45b4efa65568793b2fc5ced58dcd3a2ae2a4caf9d88c`;
+  both hard PASS, with the original group-distance negatives retained.
+NEXT_CELL: Cell 2, B4 eager reference then B4 scoped torch.compile, fresh processes
+  in one allocation. Outputs use the containing source SHA and repeat 1:
+  `camera/sustained_<sha12>_r1_c2_ref`, `camera/sustained_<sha12>_r1_c2_compile`,
+  and `pairs/cell02_compile_<sha12>_r1.json`.
+NEXT_COMMAND: `fl_v3/scripts/run_s10_phase1p_ip_e2.sh` with Camera config,
+  reference-B4 then compile-B4 profiles, sustained/sustained, pair-reference first,
+  approved source `3f55e635aef4f893d9fd66e7921f55ce4f7b36e8`, repeat 1, under the frozen
+  one-GH200 resource tuple.
+EXECUTABLE_NOW: yes; Cell 2 may submit after its containing clean source SHA,
+  literal argv, fresh paths and remaining budget are sealed in
+  `pre_submission_cell02.json`. Cells continue serially; Envelope B remains
+  non-executable.
 ```
 
 ### 9.1 IP-E2 compact execution ledger
 
 | Cell / job | Source, pair and immutable outputs | Terminal evidence | Charged GH200-hours |
 |---|---|---|---:|
-| Cell 1 / Job `531766`, B4 eager -> B4 SDPA | source `b8ac61a5bc464bc1a6bf1c1e4f97b17f0b96fd54`; one `n203` allocation; eager `sustained_b8ac61a5bc46_r1_c1_ref`; SDPA `...c1_sdpa`; pair `73463de6...55c5` | `COMPLETED 0:0`, 8/8 pretests; measurement health PASS both. SDPA ratio/lower bound `1.068712 / 1.065611`, reserved memory `-1.2646 GB`, projected `-2.0738 GH200h`; candidate continuation FAIL in Adam exp_avg/exp_avg_sq/BN mean, so positive throughput screen but no promotion and owner stop | base `0.428056`; reserve `0.000000` |
+| Cell 1 / Job `531766`, B4 eager -> B4 SDPA | source `b8ac61a5bc464bc1a6bf1c1e4f97b17f0b96fd54`; one `n203` allocation; eager `sustained_b8ac61a5bc46_r1_c1_ref`; SDPA `...c1_sdpa`; pair `73463de6...55c5`; v2 reassessments `08426908...36512 / 50cc83be...9d88c` | `COMPLETED 0:0`, 8/8 pretests; measurement health and amended exact/integrity/finite hard gates PASS both. SDPA ratio/lower bound `1.068712 / 1.065611`, reserved memory `-1.2646 GB`, projected `-2.0738 GH200h`; Adam/BN trajectory-distance negatives remain diagnostics. Owner promotes SDPA inside IP-E2; no rerun | base `0.428056`; reserve `0.000000` |
 
 ## 10. Envelope-A compact execution ledger
 
