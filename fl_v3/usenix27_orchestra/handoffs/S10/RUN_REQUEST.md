@@ -5,8 +5,8 @@
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
 ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the frozen Phase-I control
-REQUEST_STATE: IP-E1 ACTIVE / LIDAR FROZEN / CAMERA WP1 PARITY STOP / WP2 PAUSED
-EXECUTION_AUTHORITY: no further submission; owner disposition required
+REQUEST_STATE: IP-E1 ACTIVE / ONE CAMERA TRACE AUTHORIZED / R2-LIDAR-WP2 FROZEN
+EXECUTION_AUTHORITY: exactly Camera trace r1 for diagnosis; no parity waiver or promotion
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -762,7 +762,11 @@ conditional-third and one-trace protocol. WP2 is owner-paused pending discussion
 no strict-output-neutral candidate cell may run by inference. Camera Job `527239`
 then reached the grouped continuation-parity stop described in the ledger; the
 owner's instruction to continue Camera WP1 did not waive that gate, so neither r2
-nor Camera trace is authorized by inference.
+nor Camera trace was authorized by inference. The owner then explicitly authorizes
+the single predeclared Camera trace r1 only, despite that stop, to localize
+whole-model bottlenecks. Camera sustained r2 remains frozen; the trace cannot waive
+checkpoint parity, change numeric tolerances, support a stable speed claim, or
+activate any WP2 candidate.
 
 ## 9. Envelope-A compact execution ledger
 
