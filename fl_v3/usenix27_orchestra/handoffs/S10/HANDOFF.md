@@ -11,7 +11,7 @@ ACTIVE_DECISION: owner amended continuation enforcement, promoted Cell-1 SDPA, a
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: IP-E2 active for serial Cells 2-7 inside the frozen resource ceiling; Envelope B frozen
-EXECUTION_STATE: Cells 1-2 terminal positive; SDPA promoted; Cell 3 SDPA+compile is next
+EXECUTION_STATE: Cells 1-3 terminal positive; SDPA promoted; B8 capacity probe is next
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -398,6 +398,20 @@ measured interval had no compiler-counter delta or unexpected recompile. Exact
 checkpoint/context/integrity/finite hard gates and every grouped numerical
 diagnostic passed. This is a positive isolated compile screen; the already frozen
 Cell 3 now tests whether it composes with promoted SDPA before any stack decision.
+
+Cell 3 Job `533212` completed `0:0` in `00:29:32` on one `n69`
+allocation. The same-node eager reference was only `13.961779` presentations/s,
+confirming that cross-node absolute rates are not comparable; SDPA+compile measured
+`16.527709` on that node. The paired ratio was `1.183783` with one-sided 95%
+lower bound `1.178471`, projecting `5.402981` GH200-hours saved relative to that
+slow-node reference. Both completed 16+256 accepted windows with zero invalid/
+discard/scaler skip. The combination patched 12 Swin attention modules and
+compiled five forward scopes with no measured counter delta or unexpected
+recompile. Candidate peak allocated/reserved was `14.368/19.332` GB with no
+monotonic growth. Exact checkpoint/context/integrity/finite hard gates passed;
+grouped numerical trajectory distance remained a reported negative diagnostic.
+The combination is therefore eligible for the frozen fresh B8 capacity probe and
+same-allocation B4-to-B8 measurement, not yet a batch-recipe promotion.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
