@@ -11,7 +11,7 @@ ACTIVE_DECISION: owner-approved IP-E1 under O-143/O-149; O-150 remains the Phase
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: strict IP-WP2 resumed in the approved order; IP-WP3/Envelope B frozen
-EXECUTION_STATE: augmentation-cleanup group rejected on throughput; implement static grid, then assess batched affine/grid
+EXECUTION_STATE: augmentation and static-grid groups rejected on throughput; implement exact-gated batched affine/grid
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -196,6 +196,26 @@ Accordingly the augmentation cleanup group is rejected on payback, not on numeri
 correctness; no third implementation attempt or combination is justified. Current
 accounting after Job `527284` is base `1.179444 / 2.0`, code-bug reserve
 `0.146389 / 1.0`, hard aggregate `1.325833 / 3.0` charged GH200-hours.
+
+Fixed-grid Job `527313` independently enabled only the non-persistent coordinate
+cache. Its three pre-model tests passed, including two-call elementwise equality and
+state-dict exclusion; 256/256 measured windows and every checkpoint continuation
+gate also passed. Peak active increased by only `6,557,720` bytes while peak
+reserved decreased by `50,331,648` bytes, confirming the expected tiny cache and
+slightly lower allocator fragmentation. It nevertheless reached only `14.7377`
+presentations/s (`-10.891%` versus reference; `33.14` projected GH200-hours) and
+was only `0.984%` above the different-candidate run on the same `n444` node. This
+does not support a repeat or promotion. Current accounting after Job `527313` is
+base `1.395000 / 2.0`, code-bug reserve `0.146389 / 1.0`, hard aggregate
+`1.541389 / 3.0` charged GH200-hours.
+
+The third ordered item therefore proceeds only through an exact-gated conservative
+form: per-image resize/crop/flip, affine construction and inverse, and the individual
+`grid_sample` calls remain unchanged; only one output-coordinate basis per
+microbatch and the source-coordinate matrix multiply are batched. Focused CPU and
+CUDA elementwise equality must pass before the sustained model body. A CUDA rounding
+difference is a candidate-boundary failure and defers the item; it is not authority
+to relax tolerances or change interpolation math.
 
 ### 1.2 Candidate classes and immutable scientific boundary
 
