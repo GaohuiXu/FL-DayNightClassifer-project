@@ -980,7 +980,7 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
 
 ```text
 PHASE: S10 Phase I-P / IP-E2 capacity and numerical-runtime screening
-REQUEST_STATE: ACTIVE / PRE-SUBMISSION IMPLEMENTATION
+REQUEST_STATE: ACTIVE / IMPLEMENTED / FIRST PAIRED CELL PRE-SUBMISSION FREEZE
 ACTIVATION_BASELINE: 3f55e635aef4f893d9fd66e7921f55ce4f7b36e8
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -1044,8 +1044,73 @@ OWNER_APPROVAL: 2026-07-21 — accepted the quantitative B16 gate, exact cell or
   compile scope and Camera-only boundary; closed IP-G1 and activated IP-E2
 PRE_SUBMISSION_GATE: record durable implementation SHA, profile hashes, exact paired
   command, fresh output paths and remaining budget before every first submission
-EXECUTABLE_NOW: yes after PRE_SUBMISSION_GATE; no implementation exists at this record
+IMPLEMENTATION_SHA: e6af054bfb16710355e22f6cea931368750aba89
+IMPLEMENTATION_TREE: 546036d96d0d8b8f853e6c8c3fc22021b12ff25d
+IMPLEMENTATION_SCOPE: Camera-only profile schema/runtime views; current Swin SDPA;
+  forward-only scoped torch.compile; real fused/unfused AdamW; B4/B8/B16 effective-
+  B32 binding; B8/B16 capacity/OOM terminal protocol; 16-window throughput blocks;
+  monotonic-memory gate; same-allocation pair analysis; checkpoint continuation
+CAPACITY_REFINEMENT: the B8+SDPA+compile stack receives a fresh 1+8-window capacity
+  probe before sustained Cell 4; this is the already frozen "B8 no OOM/capacity"
+  prerequisite, not a new comparison cell or candidate. Conditional B16 uses the
+  same protocol only after the quantitative R4/R8 gate passes.
+PROFILE_HASHES: physical SHA-256 / canonical SHA-256
+  reference B4: 2f1763f13a39f6fd7a0e80c86b79381d5753f7bbfb18756d9d5ce9b75857a9ca /
+    9ac0280b2eef44b36e0e24dae25c54dc1c60aa4ecc537c638d04c725f2d07fcd
+  SDPA B4: 6163f1be452def8ae32cbfd2a89b99d3eea31ba90816f1b8c21e0b202d2a1273 /
+    434dd9a19ba384768330ca0a4d19b20d4b746b4ad8675656e9852abaedb70a1a
+  compile B4: 4509ab45da95df8fef737ccc170750e55686a77b52a5db8e52af332e17829259 /
+    9e2628eebebe62fc5cdfaaad8c5c486febd284aa1294b978fbf756150877b01a
+  SDPA+compile B4: 66317509d5a13690993adfbbf697183ab70e7efec6a6fb19172d16ab0b441ec5 /
+    9459bd1fe8853a1030b99928feb4ddccfa2efbd53a1b06413e05a17d96e22ee0
+  SDPA+compile B8: 44ab014e499005237dbfc57ea183df97ca2ef19a71c813bcc9379b18bbcd9dcb /
+    c82cb49e35ef3cbeeafd3d4d6bf58966e4fb748cb257ddc32b945b06bfe0cfa3
+  SDPA+compile+fused B8: 5faf9f15d70a8e790cfe242c5714db3514aee575d896aab260cf03b10522d00a /
+    1ae8ec037df478e99bf16f9f2a6ca174e4ef564a350bc644539feb9bef7780bf
+  SDPA+compile B16: c15b61de578dd8659f5c805773cdde10a89a2be1e790b1650fc049e66e7133d4 /
+    a85f3bd5141e2fd34036f5ac77c11a83d89ab8135e918ed3b2149649a86f29fe
+  SDPA+compile+fused B16: c0d919ba3eaa084f43072dab1b407eb2fa56cbf9fc926cd7386c21b49b86cf51 /
+    c3ac8a0c35cc854072e8ba1069c70adc53d60ad650e6fad5c863f27494fbdbea
+SCRIPT_HASHES: launcher 77efd58c902c1b72095f7a2c0b6578af5a7b1f0fe846c62297adfa2aa3bb7647;
+  profiler b4ce5df419924d63eac30070944dcba3a0bc73ccd75a5a455183ac8c4e414434;
+  pair analyzer cec454e46947570244c8afdf901a406314e23071461440352e831fb1eabefc6e
+LOCAL_VALIDATION: Python py_compile PASS for all changed Python/tests; bash -n and
+  shellcheck PASS; JSON syntax, canonical hash, patch whitespace and synthetic
+  50,000-draw paired-bootstrap/B16-gate checks PASS. The x86 login Python lacks
+  torch/pytest; the exact current-code FP32/FP16 Swin forward/backward and fused-
+  AdamW accepted-update tests are fail-closed pretests in every IP-E2 allocation.
+FIRST_CELL: Cell 1, B4 eager reference then B4 Camera Swin SDPA, each in a fresh
+  Python process within one allocation; pair analyzer runs before allocation exit
+FIRST_COMMAND: from a clean containing source commit, resolve SOURCE_SHA=$(git
+  rev-parse HEAD), ROOT=<OUTPUT_ROOT_RULE>, then submit one sbatch with the frozen
+  resource tuple and fl_v3/scripts/run_s10_phase1p_ip_e2.sh using:
+  --config fl_v3/configs/s10_phase1_camera.json
+  --first-profile fl_v3/configs/s10_phase1p_ip_e2_camera_reference_b4.json
+  --first-mode sustained
+  --first-output ${ROOT}/camera/sustained_${SOURCE_SHA:0:12}_r1_c1_ref
+  --first-attempt c1_ref
+  --second-profile fl_v3/configs/s10_phase1p_ip_e2_camera_sdpa_b4.json
+  --second-mode sustained
+  --second-output ${ROOT}/camera/sustained_${SOURCE_SHA:0:12}_r1_c1_sdpa
+  --second-attempt c1_sdpa
+  --pair-output ${ROOT}/pairs/cell01_sdpa_${SOURCE_SHA:0:12}_r1.json
+  --pair-reference first --source-sha ${SOURCE_SHA}
+  --approved-source-sha 3f55e635aef4f893d9fd66e7921f55ce4f7b36e8 --repeat 1
+PRE_SUBMISSION_RECORD: before sbatch, seal the containing literal source SHA, full
+  sbatch argv, resolved output paths and budget into
+  <OUTPUT_ROOT_RULE>/pre_submission_cell01.json; runner independently rechecks the
+  same source/branch/base/clean-output/resource identities on GH200
+BUDGET_BEFORE_FIRST_CELL: base consumed 0.000000 / remaining 4.000000; code-bug
+  reserve consumed 0.000000 / remaining 1.000000; hard remaining 5.000000 GH200-hours
+EXECUTABLE_NOW: yes after the containing pre-submission commit and literal external
+  record are sealed; Envelope B remains non-executable
 ```
+
+### 9.1 IP-E2 compact execution ledger
+
+| Cell / job | Source, pair and immutable outputs | Terminal evidence | Charged GH200-hours |
+|---|---|---|---:|
+| Cell 1 B4 eager -> B4 SDPA | pending first submission | pending | base `0.000000`; reserve `0.000000` |
 
 ## 10. Envelope-A compact execution ledger
 

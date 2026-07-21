@@ -11,7 +11,7 @@ ACTIVE_DECISION: owner closed IP-G1 and activated exact Camera-only IP-E2
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: IP-E2 active for exact Camera WP3->WP4 cells; Envelope B frozen
-EXECUTION_STATE: pre-submission implementation and identity freeze; no IP-E2 job submitted yet
+EXECUTION_STATE: implementation e6af054 frozen; Cell 1 pre-submission provenance; no IP-E2 job submitted yet
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -338,6 +338,18 @@ aggregate `5.0`, maximum concurrency one and at most 60 minutes per job. No nume
 submission cap applies inside O-149 remediation. The phase is active, but the first
 submission remains fail-closed until its derived implementation SHA, profiles,
 paired command and fresh output root are recorded in `RUN_REQUEST.md`.
+
+Implementation `e6af054bfb16710355e22f6cea931368750aba89` freezes the eight
+exact Camera profiles, B4/B8/B16 effective-B32 runtime identities, current-code
+SDPA and fused-AdamW parity pretests, scoped forward compilation, B8/B16
+capacity/OOM terminal handling, sustained memory/block evidence and one same-
+allocation pair analyzer. The analyzer requires one Slurm job/node, the same CBGS
+prefix, and exact first-window input identity for same-batch pairs; it computes a
+deterministic 50,000-draw one-sided 95% throughput lower bound, 20-epoch payback
+and the frozen R4/R8 B16 margin. Numerical and batch candidates remain
+measurement-only. Local static validation passed; torch/pytest are unavailable in
+the x86 login Python, so the first GH200 allocation runs fail-closed current-code
+numerical pretests before either paired process. No IP-E2 GPU work has run.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
