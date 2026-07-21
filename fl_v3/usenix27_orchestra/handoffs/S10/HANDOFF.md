@@ -1,4 +1,4 @@
-# S10 HANDOFF — Phase I-P IP-E2 terminal; IP-G2 discussion ready; Envelope B frozen
+# S10 HANDOFF — Phase I-P IP-G2 partial close; B16 extension pending; Envelope B frozen
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: owner amended continuation enforcement and ordered Cells 2-7; the exact sequence is terminal
+ACTIVE_DECISION: owner promotes the B8 runtime stack, keeps checkpoint cadence, and withdraws the B16 70% veto
 SCIENCE_ORDER: Phase I-P engineering preflight -> owner disposition -> still-pending C/L qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: IP-E2 exact compute sequence exhausted; no further GPU/Slurm cell is executable; Envelope B frozen
-EXECUTION_STATE: Cells 1-5 and 7 complete, Cell 6/B16 skipped; IP-WP4 synthesis complete; IP-G2 ready
+CURRENT_AUTHORITY: B16 gate/source/docs/tests may be amended; new GPU/Slurm resource ceiling is not yet approved
+EXECUTION_STATE: SDPA+compile+fused+B8 accepted; B16 capacity/pair/reverse extension drafted but not executable
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -48,7 +48,7 @@ IP-G0 (closed: plan/topology/local implementation)
   -> IP-E1 (closed: IP-WP1 and IP-WP2 terminal)
   -> IP-G1 (closed: exact Camera cells/resources/decision boundaries)
   -> IP-E2 (terminal: Cells 1-5 and 7 complete; conditional Cell 6 skipped)
-  -> IP-G2 (ready: promotion/recipe/checkpoint/Envelope-B disposition)
+  -> IP-G2 (partially closed: B8 stack/cadence accepted; B16 measurement pending)
 ```
 
 IP-G2 is not Envelope-B activation. Any accepted production-source or config
@@ -479,22 +479,38 @@ budget expires with the exact sequence and is not authority for another cell.
 
 | Candidate | Class | Terminal evidence | IP-G2 disposition required |
 |---|---|---|---|
-| Camera Swin SDPA | numerical runtime, measurement-only | isolated `+6.871%`, lower bound `+6.561%`; hard gates pass | promote or keep default-off |
-| scoped Camera compile | numerical runtime, measurement-only | isolated `+5.587%`, lower bound `+5.086%`; five stable graphs, no measured recompile | promote or keep default-off |
-| SDPA+compile | numerical runtime stack, measurement-only | B4 ratio/lower bound `1.183783/1.178471`; final stack confirms composition | promote or keep default-off |
-| fused AdamW | numerical runtime, measurement-only | B8 delta ratio/lower bound `1.041877/1.038384`; no extra reserved memory; hard gates pass | promote or keep default-off |
-| B8x4 | recipe/operational, measurement-only | stack delta ratio/lower bound `1.288873/1.273372`; effective B32 retained | explicit owner recipe decision because BN statistics and worker RNG assignment change |
-| B16x2 | conditional recipe/capacity probe | both frozen projections exceed 70% | reject/retain unexecuted |
-| checkpoint cadence | operational/material | measured synchronous save+hash is only about `0.84-0.89 s/epoch` | no speed-driven cadence change recommended |
+| Camera Swin SDPA | numerical runtime, measurement-only | isolated `+6.871%`, lower bound `+6.561%`; hard gates pass | owner-accepted for the final Camera recipe |
+| scoped Camera compile | numerical runtime, measurement-only | isolated `+5.587%`, lower bound `+5.086%`; five stable graphs, no measured recompile | owner-accepted for the final Camera recipe |
+| SDPA+compile | numerical runtime stack, measurement-only | B4 ratio/lower bound `1.183783/1.178471`; final stack confirms composition | owner-accepted composition |
+| fused AdamW | numerical runtime, measurement-only | B8 delta ratio/lower bound `1.041877/1.038384`; no extra reserved memory; hard gates pass | owner-accepted for the final Camera recipe |
+| B8x4 | recipe/operational, measurement-only | stack delta ratio/lower bound `1.288873/1.273372`; effective B32 retained | owner explicitly accepts changed BN statistics and worker RNG assignment |
+| B16x2 | conditional recipe/capacity probe | projected `74.994%` is below the actual 85% capacity hard limit; no B16 process has run | former 70% prediction is diagnostic only; fresh capacity and matched timing pending |
+| checkpoint cadence | operational/material | measured synchronous save+hash is only about `0.84-0.89 s/epoch` | owner retains one recovery checkpoint per epoch |
 | IP-WP2 augmentation/grid plumbing | strict output-neutral engineering | all ordered Camera candidates were slower than reference | reject from the Phase-I production stack |
 
-Cell-1 SDPA's prior owner promotion was scoped to its use as an IP-E2 building
-block; this synthesis does not silently convert it or any other candidate into a
-Phase-I production default. IP-G2 must decide the numerical-runtime defaults and
-the B8 recipe explicitly. Any accepted stack then needs the already frozen
-production validation obligations and an independently reviewed recipe freeze
-before revising or activating Envelope B; this evidence makes no capability,
-mAP/NDS, generalization or selection claim.
+The owner now promotes SDPA, scoped compile and fused AdamW, explicitly accepts
+B8x4's BN/RNG recipe change, and keeps recovery cadence at one epoch. B8 is the
+accepted fallback if B16 does not pass. Production config bytes are intentionally
+left unchanged until the B16 branch closes, so the frozen B8/B16 profiler bindings
+remain exact and the final batch recipe is materialized once rather than twice.
+
+### 1.6 B16 veto withdrawal and pending extension
+
+The owner withdraws the `70%` projected-memory precondition. Implementation
+`df3c17e3e6be19dcc586fdec2c6bd198c1b02d95` bumps paired comparison to schema v2:
+the old projection and former verdict remain visible diagnostics, but B8 health,
+checkpoint and no-growth checks alone make an OOM-tolerant fresh B16 capacity
+probe eligible. Only the actual capacity result may pass the unchanged `<=85%`
+visible-memory hard gate; it cannot authorize sustained B16 by itself.
+
+The exact extension is fresh B16 capacity, then one same-allocation B8->B16
+sustained pair if capacity passes, then a reversed B16->B8 confirmation only if
+the first pair is positive. It retains D_fit, seed 0, effective B32, the promoted
+SDPA+compile+fused stack, exact checkpoint/context/finite hard gates and every
+claim prohibition. Section 9.2 of `RUN_REQUEST.md` proposes the new aggregate
+resource ceiling; until the owner approves that number, no B16 GPU/Slurm job is
+executable. Any accepted stack still requires production validation and an
+independently reviewed recipe freeze before Envelope B can be revised or activated.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior

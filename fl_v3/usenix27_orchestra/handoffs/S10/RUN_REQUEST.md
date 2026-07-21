@@ -4,9 +4,9 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: owner-ordered Camera-only IP-E2 sequence is terminal; IP-G2 is ready
-REQUEST_STATE: IP-E2 TERMINAL / CELL 7 POSITIVE / B16 SKIPPED / ENVELOPE B FROZEN
-EXECUTION_AUTHORITY: exhausted; no further Section-9 GPU/Slurm cell is executable
+ACTIVE_DECISION: owner accepts the B8 runtime stack/cadence and withdraws the B16 70% veto
+REQUEST_STATE: B16 EXTENSION RESOURCE APPROVAL PENDING / NOT EXECUTABLE / ENVELOPE B FROZEN
+EXECUTION_AUTHORITY: source/docs/tests/local validation only; no new GPU/Slurm ceiling approved
 ACTIVE_PHASE: Phase I-P engineering throughput preflight before C/L qualification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -976,7 +976,7 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
   --repeat 1 --attempt-id batchedgrid
 ```
 
-## 9. Phase I-P IP-G1 closure and active IP-E2 request
+## 9. Phase I-P IP-G1 closure and terminal IP-E2 record
 
 ```text
 PHASE: S10 Phase I-P / IP-E2 capacity and numerical-runtime screening
@@ -1233,6 +1233,155 @@ EXECUTABLE_NOW: no; the exact IP-E2 serial sequence is terminal and unused budge
 | Cell 4 / Job `533384`, B4 -> B8 SDPA+compile | source `e9d4b8f378c884338b5972d244f17922a6b18826`; one `n463` allocation; B4 `sustained_e9d4b8f378c8_r1_c4_b4`; B8 `...c4_b8`; pair `ffa37629...6c48d` | `COMPLETED 0:0`; health/checkpoint hard gates PASS. B8 ratio/lower bound `1.288873 / 1.273372`, projected `-6.5446 GH200h`; R8 `37.982 GB`; B16 projection `73.8014%` fails frozen 70% prerequisite, so B16 skipped | base `0.492222`; reserve `0.000000` |
 | Cell 5 / Job `533512`, B8 unfused -> fused AdamW | source `66760f45cdc3c41964ab73af48e97dbe60dd3e8d`; one `n145` allocation; unfused `sustained_66760f45cdc3_r1_c5_b8`; fused `...c5_b8_fused`; pair `5c5a728c...23a85` | `COMPLETED 0:0`; health/checkpoint hard gates PASS. Fused ratio/lower bound `1.041877 / 1.038384`, projected `-0.8833 GH200h`; identical `37.982 GB` peak reserved, no growth/recompile; Adam exp_avg distance remains diagnostic | base `0.437778`; reserve `0.000000` |
 | Cell 7 / Job `534737`, best B8 first -> eager B4 second | source `cde351f99b039968133db0c273e0e0715a60b35e`; one `n411` allocation; best `sustained_cde351f99b03_r2_c7_best_first`; reference `...c7_ref_second`; pair `7e670362...25034` | `COMPLETED 0:0`; both hard gates PASS. Reversed total-stack ratio/lower bound `1.438981 / 1.413203`, projected `-9.8012 GH200h`; best reserved `37.982 GB`; final B16 projection `74.9938%`, still skipped | base `0.468056`; reserve `0.000000` |
+
+### 9.2 IP-G2 B16 extension request — resource approval pending
+
+This request is a prospective, independently bounded extension. It does not
+reinterpret or reuse the exhausted Section-9 IP-E2 budget. The owner has withdrawn
+the projected `70%` veto and authorized the corresponding source/docs/tests, but has
+not yet approved the aggregate GH200-hour ceiling below. Therefore this section is
+not executable until that exact resource decision is recorded.
+
+```text
+PHASE: S10 Phase I-P / IP-G2 B16 capacity and matched-throughput extension
+REQUEST_STATE: OWNER RESOURCE APPROVAL PENDING / NOT EXECUTABLE
+ACTIVATION_BASELINE: df3c17e3e6be19dcc586fdec2c6bd198c1b02d95
+BRANCH: codex/s10-phase1p-throughput-preflight
+UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
+FROZEN_CONTROL: codex/s10-phase1-branch-qualification at UNIQUE_BASE_SHA; do not move
+OBJECTIVE: replace the withdrawn B16 projection veto with actual OOM-tolerant
+  capacity evidence and, only after capacity PASS, quantify B16x2 versus the
+  accepted B8x4 runtime stack on one GH200/allocation in both process orders
+SCIENCE_BOUNDARY: Camera only; D_fit only; seed 0; effective B32; frozen model/head,
+  precision, loss/targets/evaluator, scheduler/exposure/order and checkpoint cadence
+CANDIDATES: exactly B8x4 and B16x2, both SDPA+scoped-compile+fused-AdamW; no B4,
+  B12, other batch, new compile scope, optimizer or numerical-runtime candidate
+RECIPE_STATUS: B8x4 BN/RNG change is owner-accepted; B16x2 remains measurement-only
+  and cannot become the production recipe without a later explicit IP-G2 decision
+PRODUCTION_CONFIG: unchanged during this extension; materialize the final B8 or B16
+  recipe and accepted runtime defaults once, after the B16 owner decision
+CLAIM_LIMIT: no capability, mAP/NDS, generalization or candidate-selection claim;
+  D_select, D_audit and official validation forbidden
+WITHDRAWN_GATE: projected B16 reserved <=70% visible is retained as a labelled
+  diagnostic only and is not an eligibility or promotion gate
+ACTUAL_MEMORY_GATE: a fresh B16 process must complete 1 warm-up plus 8 accepted
+  capacity windows with peak reserved <=85% visible, no monotonic memory growth,
+  nonfinite/discard/scaler skip or unexpected steady-state recompile
+OOM_PROTOCOL: OOM or actual reserved >85% is terminal B16 capacity evidence; record
+  it without remediation or a smaller-batch search, skip sustained B16 and retain B8
+SUSTAINED_PROTOCOL: fresh processes; 16 accepted warm-up plus 256 accepted measured
+  optimizer windows each; real loader/AdamW/scheduler/scaler/checkpoint mechanics;
+  one-second system sampling; cold compile and measured graph/recompile accounting
+PAIR_INTEGRITY: each B8/B16 pair runs serially in one Slurm allocation/on one GH200;
+  exact source/base-config/data-role/seed/measurement context; order recorded; the
+  physical-batch profiles intentionally differ
+BATCH_RNG: B8 and B16 need not share worker assignment, per-sample augmentation draws
+  or one cross-batch input anchor; boundary/input/RNG/training/discrete state remains
+  exact within each candidate process and its fresh-process checkpoint continuation
+HARD_GATES: accepted-window counts; zero invalid/discard/scaler skip/nonfinite;
+  exact boundary/input/RNG/training/discrete state and names/shapes/dtypes; fresh-
+  process checkpoint/context/structure integrity; <=85% actual peak reserved;
+  no monotonic memory growth or unexpected measured recompile
+NUMERICAL_DIAGNOSTICS: grouped model/BN/Adam relative-L2 and max-absolute errors plus
+  elementwise allclose remain visible diagnostics, not hard gates, under the accepted
+  non-deterministic-kernel policy
+POSITIVE_PAIR: candidate/reference presentations-per-second ratio >1.0 and one-sided
+  block-bootstrap 95% lower bound >1.0, with all hard gates PASS
+DECISION_RULE: capacity failure ends B16; a non-positive first B8->B16 pair ends B16;
+  a positive first pair triggers one reversed B16->B8 pair. Only two positive pairs
+  support returning B16 to the owner for a recipe decision; otherwise B8 remains the
+  accepted fallback. No result silently promotes B16.
+EXACT_SERIAL_CELLS:
+  A. fresh B16 capacity probe
+  B. conditional same-allocation B8 first -> B16 second sustained pair
+  C. conditional reverse B16 first -> B8 second sustained pair
+PROPOSED_BASE_AGGREGATE_GPU_HOURS: 1.20 charged GH200-hours
+PROPOSED_CODE_BUG_REMEDIATION_RESERVE: +0.50 charged GH200-hour, code-level bug only
+PROPOSED_HARD_AGGREGATE_GPU_HOURS: 1.70 charged GH200-hours
+RESOURCE_RATIONALE: about 0.08 hour for capacity plus about 0.50 hour for each of
+  at most two sustained pairs; 1.20 base leaves bounded scheduling/runtime margin,
+  while 0.50 reserve can cover one diagnosed engineering replacement
+MAX_CONCURRENCY: 1
+PER_JOB_RESOURCE: 1 node / 1 GH200 / 16 CPUs / 96 GiB / <=01:00:00 / no requeue
+SUBMISSION_POLICY: serial; no numeric submission cap; no blind identical retry
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/
+  arrhenius_fl_v3/outputs/s10_phase1p_ip_e2_df3c17e3e6be/
+FRESH_OUTPUT: every process/pair/attempt path absent before execution; no overwrite;
+  raw evidence immutable
+ENGINEERING_REMEDIATION: O-149 frozen-semantics source/test/runner/API/checkpoint/
+  logging repairs only, serially, within the layered ceiling; compiler limitations,
+  OOM, capacity negatives, numerical drift or candidate changes are not code bugs
+STOP_ESCALATE: ceiling exhaustion; repeated or ambiguous blocker; science-boundary
+  pressure; candidate/resource/gate change; hard checkpoint/context failure;
+  nonfinite/discard/scaler skip; memory growth; actual reserved >85%; OOM
+IMPLEMENTATION_SHA: df3c17e3e6be19dcc586fdec2c6bd198c1b02d95
+LAUNCHER_SHA256: 676dccdfc539f22c8a830e9df8eae84bc6ac8391b94361d0809fcf10a8a20bbb
+PAIR_ANALYZER_SHA256: 614d7f03ea6388c7b5dd411fd4cb5f5a5e316af99587538ea9b23cadfba57f58
+PAIR_TEST_SHA256: fa2aa63e6f32f25f6f7a4d11656697c0dd7e9ff8c33bee175de111245290c95e
+CAMERA_CONFIG_FILE_SHA256: 567cb1b71535b4866193273960e531ae4b45318e56e81101e99ad186ac23ce60
+CAMERA_RESOLVED_CONFIG_SHA256: e95e65a63a32c494296b38baf98fd913ff1ec6a168b78aabac48a8dc8f0ffe1d
+B8_PROFILE_FILE_SHA256: 5faf9f15d70a8e790cfe242c5714db3514aee575d896aab260cf03b10522d00a
+B8_PROFILE_CANONICAL_SHA256: 1ae8ec037df478e99bf16f9f2a6ca174e4ef564a350bc644539feb9bef7780bf
+B16_PROFILE_FILE_SHA256: c0d919ba3eaa084f43072dab1b407eb2fa56cbf9fc926cd7386c21b49b86cf51
+B16_PROFILE_CANONICAL_SHA256: c3ac8a0c35cc854072e8ba1069c70adc53d60ad650e6fad5c863f27494fbdbea
+SOURCE_RULE: execution SOURCE_SHA is a clean linear descendant of
+  IMPLEMENTATION_SHA; pass IMPLEMENTATION_SHA as --approved-source-sha; no merge
+PRE_SUBMISSION_GATE: before each sbatch, record literal SOURCE_SHA, full sbatch argv,
+  resolved fresh paths, exact profile hashes and remaining layered budget under ROOT
+```
+
+Exact conditional invocations, all through
+`fl_v3/scripts/run_s10_phase1p_ip_e2.sh` with the frozen resource tuple, are:
+
+```text
+COMMON:
+  SOURCE_SHA=$(git rev-parse HEAD)
+  SHA12=${SOURCE_SHA:0:12}
+  ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/
+    arrhenius_fl_v3/outputs/s10_phase1p_ip_e2_df3c17e3e6be
+  CONFIG=fl_v3/configs/s10_phase1_camera.json
+  B8=fl_v3/configs/s10_phase1p_ip_e2_camera_sdpa_compile_fused_b8.json
+  B16=fl_v3/configs/s10_phase1p_ip_e2_camera_sdpa_compile_fused_b16.json
+  APPROVED_SOURCE=df3c17e3e6be19dcc586fdec2c6bd198c1b02d95
+
+CELL_A_CAPACITY:
+  --config ${CONFIG}
+  --first-profile ${B16} --first-mode capacity
+  --first-output ${ROOT}/camera/capacity_${SHA12}_r1_b16_probe
+  --first-attempt b16_probe
+  --source-sha ${SOURCE_SHA} --approved-source-sha ${APPROVED_SOURCE} --repeat 1
+
+CELL_B_B8_THEN_B16:
+  --config ${CONFIG}
+  --first-profile ${B8} --first-mode sustained
+  --first-output ${ROOT}/camera/sustained_${SHA12}_r1_b16_c1_b8
+  --first-attempt b16_c1_b8
+  --second-profile ${B16} --second-mode sustained
+  --second-output ${ROOT}/camera/sustained_${SHA12}_r1_b16_c1_b16
+  --second-attempt b16_c1_b16
+  --pair-output ${ROOT}/pairs/b16_cell01_${SHA12}_r1.json
+  --pair-reference first
+  --source-sha ${SOURCE_SHA} --approved-source-sha ${APPROVED_SOURCE} --repeat 1
+
+CELL_C_B16_THEN_B8:
+  --config ${CONFIG}
+  --first-profile ${B16} --first-mode sustained
+  --first-output ${ROOT}/camera/sustained_${SHA12}_r2_b16_c2_b16_first
+  --first-attempt b16_c2_b16
+  --second-profile ${B8} --second-mode sustained
+  --second-output ${ROOT}/camera/sustained_${SHA12}_r2_b16_c2_b8_second
+  --second-attempt b16_c2_b8
+  --pair-output ${ROOT}/pairs/b16_cell02_reverse_${SHA12}_r2.json
+  --pair-reference second
+  --source-sha ${SOURCE_SHA} --approved-source-sha ${APPROVED_SOURCE} --repeat 2
+```
+
+The containing `sbatch` command is fixed at account `naiss2025-22-1113-gpu`,
+partition `gpu`, one node/task, `--cpus-per-task=16`, `--mem=96G`,
+`--gpus-per-node=nvidia_gh200_120gb:1`, `--time=01:00:00`, `--no-requeue`.
+Cells B and C each use one such allocation for both fresh processes and their pair
+analysis. No command above is executable until the owner explicitly approves the
+proposed `1.20 + 0.50 = 1.70` layered ceiling.
 
 ## 10. Envelope-A compact execution ledger
 
