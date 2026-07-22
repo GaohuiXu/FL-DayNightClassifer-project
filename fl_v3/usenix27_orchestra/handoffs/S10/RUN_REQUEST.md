@@ -2370,6 +2370,132 @@ ENVELOPE_B_STATE: Section 7 remains historical/frozen and NOT EXECUTABLE; before
 MERGE_PUSH_UPLOAD_PUBLICATION: not authorized and not performed
 ```
 
+### 9.8 LiDAR IP-LG0 closure and exact IP-L-E1 request
+
+```text
+REQUEST_STATE: OWNER APPROVAL PENDING / NOT EXECUTABLE
+PHASE: S10 Phase I-P LiDAR / L-WP1 clean capacity, sustained baseline and trace
+GATE_STATE: IP-LG0 CLOSED by owner approval of the LiDAR workflow
+IMPLEMENTATION_SHA: 0daeee95e1a46b29fcd7bbb2338d813b798557de
+IMPLEMENTATION_TREE: 26cb8aa6a91f2938cf8c1357a97b0bbf2ee92136
+BRANCH: codex/s10-phase1p-throughput-preflight
+UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
+FROZEN_CONTROL: codex/s10-phase1-branch-qualification remains at UNIQUE_BASE_SHA
+APPROVED_SOURCE_SHA: unset; owner must name and activate the containing request commit
+
+OBJECTIVE: establish one clean current LiDAR capacity/throughput/memory/checkpoint/
+  training-health baseline, localize whole-model bottlenecks, and quantify B4 versus
+  the highest safe physical batch before any optimization cell is frozen
+EXIT: ordered capacity ladder reaches its first rejection or B32; B4 and the highest
+  accepted batch finish the sustained repeat rule and trace rule; all hard gates
+  pass; compact evidence returns to IP-LG1 with no automatic recipe promotion
+
+DATA_ROLE: exact D_fit only; existing exact CBGS and role-bound keyframe GTDB
+SEED_EXPOSURE: seed 0; effective global B32; no change to epoch presentation count,
+  CBGS identity, model/head, loss/target, scheduler or checkpoint cadence
+PRECISION: global FP16 autocast with the accepted sparse FP32 island; sparse-conv
+  FP16 is forbidden in this envelope
+FORBIDDEN: D_select; D_audit; official validation; capability/mAP/NDS/generalization/
+  candidate-selection claims; scientific training; Camera; Fusion; Envelope B;
+  merge; push; upload; publication
+
+SOURCE_LIDAR_CONFIG: fl_v3/configs/s10_phase1_lidar.json
+SOURCE_LIDAR_FILE_SHA256:
+  c7e1fa26e1714a31c5998296cb95cbab5e8732d4bf2f06da81fd6d631c574bfc
+SOURCE_LIDAR_RESOLVED_SHA256:
+  0efe4d6d5138e3d99ae80254a6ecf884300dd18985ab45a00425228fc3ef082e
+PROFILES:
+  B4x8  fl_v3/configs/s10_phase1p_lidar_e1_b4.json
+    sha256 2002679dc7bd589b30b3092510faca780b47585f978ad3f388d4ce41b476883c
+  B8x4  fl_v3/configs/s10_phase1p_lidar_e1_b8.json
+    sha256 6fdb593ad199bb6705770520e1f6239a16abd62b40486656751beed3dc8657e4
+  B16x2 fl_v3/configs/s10_phase1p_lidar_e1_b16.json
+    sha256 7e7d17dd000bf63743fc8c29be50c49c784194a1b8156e8b65694e908349bf98
+  B32x1 fl_v3/configs/s10_phase1p_lidar_e1_b32.json
+    sha256 2d199cee7634244b84f48923a6175cc7f8e89e8516554b5727fc8c489d585e05
+PROFILER_ENTRY_SHA256:
+  d02f96f0400371930702fac8ea7467d904cfe9b88d202f8d2eaebdafa853a5a6
+LAUNCHER: fl_v3/scripts/run_s10_phase1p_lidar_e1.sh
+LAUNCHER_SHA256:
+  2f4f0967ecf9ca5014e94a8f1cbef1fc6b2e193afa3ee374504d948c2ba27830
+
+CANDIDATES: exactly four measurement-only clean profiles; every optimization flag
+  is false; only physical batch/accumulation are B4x8, B8x4, B16x2 and B32x1
+CAPACITY_ORDER: fresh processes B4 -> B8 -> B16 -> B32; one warm-up plus eight
+  accepted optimizer windows each; stop before larger batches on first OOM,
+  >85% peak-reserved-memory rejection, numerical-health rejection or other failure
+SUSTAINED_ORDER: B4 repeat 1 -> highest-safe repeat 1 -> highest-safe repeat 2 ->
+  B4 repeat 2 (the duplicate highest-safe entries are omitted when B4 is highest)
+SUSTAINED_WINDOW: 16 accepted warm-up plus 256 accepted measured optimizer windows
+CONDITIONAL_REPEAT: separately for B4 and highest-safe, add repeat 3 iff absolute
+  first-two rate difference divided by their mean exceeds 3%
+TRACE_ORDER: after sustained measurement, one B4 and one highest-safe trace; each
+  has 16 accepted warm-up plus three active accepted windows; if B4 is highest,
+  only one trace runs
+PAIRING: all processes execute serially in one Slurm allocation/on one node/GPU;
+  trace rates are profiler-inflated localization evidence and never throughput
+
+HARD_GATES: exact source/config/profile/data-role/seed/effective-B32 identities;
+  zero invalid, nonfinite, overflow, discarded or scaler-skipped measured windows;
+  exactly accepted exposure; <=85% peak reserved memory; no sustained monotonic
+  >64 MiB reserved-memory growth; finite loss and all four LiDAR criterion terms;
+  exact checkpoint boundary/input/RNG/training/discrete/structure state; accepted
+  grouped fresh-process continuation gate; trace core-range inventory complete
+CONTINUATION_POLICY: model parameters, BN mean, BN variance, Adam exp_avg and
+  exp_avg_sq each use fresh-process relative-L2 and max-absolute <=
+  max(frozen tolerance, 1.25x same-process repeat-control); per-element allclose is
+  diagnostic, not a hard gate
+LOSS_INTERPRETATION: overall/first-quarter/last-quarter and loss_heatmap/loss_cls/
+  loss_bbox/matched_iou are health observations; finite values are hard, but a
+  short-window downward slope is not required and cannot support capability claims
+BATCH_RECIPE_BOUNDARY: within each batch recipe, boundary/input/RNG/discrete state
+  remain exact; cross-batch worker augmentation equality is not required because
+  the owner already accepted that physical batch changes worker RNG assignment;
+  no B8/B16/B32 promotion occurs in L-E1
+OUTPUTS: immutable result/measurement/checkpoint/continuation/system-sampling and
+  structured trace artifacts; report per-process throughput, repeat spread,
+  utilization/power, peak allocated/reserved, 20-epoch projection and descriptive
+  highest-safe-over-B4 payback at IP-LG1
+
+RESOURCES_PER_JOB: one node; one GH200; 16 CPUs; 96 GiB; at most 01:15:00;
+  no requeue/restart; maximum concurrency one
+AGGREGATE_BASE: 1.25 charged GH200-hours
+CODE_BUG_RESERVE: +0.50 charged GH200-hours
+HARD_AGGREGATE_CEILING: 1.75 charged GH200-hours
+SUBMISSION_POLICY: no numeric submission cap inside the activated O-149 envelope;
+  every process is serial and aggregate charge is the controlling limit
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/
+  arrhenius_fl_v3/outputs/s10_phase1p_ip_l_e1_<approved_source_sha12>
+FRESH_OUTPUT_RULE: each derived source uses source-SHA-qualified child directories;
+  no artifact or prior attempt is overwritten
+REMEDIATION_AUTHORITY: diagnose and make only the smallest unambiguous frozen-
+  semantics repair to tests/fixtures/runner/API/config parsing/discrete plumbing/
+  checkpoint/provenance/logging, validate, commit linearly and resubmit serially
+REMEDIATION_STOP: same blocker recurs after repair; diagnosis is ambiguous; a change
+  touches data/model/math/precision/loss/target/order/exposure/optimizer/scheduler/
+  gates/interpretation; or the next job could exceed the hard aggregate ceiling
+OWNER_RETURN: terminal L-E1 evidence returns to IP-LG1 before any optimization
+  implementation, L-E2 activation, batch promotion or scientific recipe decision
+```
+
+Exact activation command after the owner names the containing request commit:
+
+```bash
+SOURCE_SHA=$(git rev-parse HEAD)
+APPROVED_SOURCE_SHA=<owner-approved-containing-request-commit>
+ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_l_e1_${APPROVED_SOURCE_SHA:0:12}
+mkdir -p "${ROOT}"
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G \
+  --gpus-per-node=nvidia_gh200_120gb:1 --time=01:15:00 --no-requeue \
+  --job-name=s10-p1p-l-e1 \
+  --output="${ROOT}/slurm_initial_%j.out" \
+  --error="${ROOT}/slurm_initial_%j.err" \
+  fl_v3/scripts/run_s10_phase1p_lidar_e1.sh \
+  --source-sha "${SOURCE_SHA}" \
+  --approved-source-sha "${APPROVED_SOURCE_SHA}"
+```
+
 ## 10. Envelope-A compact execution ledger
 
 This is the sole terminal ledger for Envelope A. Submission rows were appended only when

@@ -1,4 +1,4 @@
-# S10 HANDOFF — Camera 2-GH200 recipe promoted / Envelope B still frozen
+# S10 HANDOFF — LiDAR IP-LG0 closed / L-E1 awaiting activation
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: owner promoted the exact IP-E5 two-GH200 Camera recipe
-SCIENCE_ORDER: refreeze/review revised Envelope B before any capability execution
+ACTIVE_DECISION: owner approved the LiDAR preflight workflow and closed IP-LG0
+SCIENCE_ORDER: complete LiDAR preflight, then refreeze/review revised Envelope B
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: promoted source/config/docs/tests and local validation only
-EXECUTION_STATE: IP-E5 CLOSED POSITIVE; production source frozen; Envelope B unauthorized
+CURRENT_AUTHORITY: LiDAR L-WP1 source/docs/tests, local validation and linear commits
+EXECUTION_STATE: L-WP1 materialized; IP-L-E1 and Envelope B are unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -789,6 +789,56 @@ activation, merge or push occurred. Before any Camera capability submission,
 Section 7 must be revised to the promoted SHA/config/two-GPU resource projection
 and its already-required independent recipe-freeze review must close with no open
 P0-P2.
+
+### 1.9 LiDAR throughput preflight — IP-LG0 closed, L-E1 pending
+
+The owner approved the following continuous LiDAR workflow and thereby closed
+`IP-LG0`. This starts local `L-WP1` work; it does **not** activate either compute
+envelope.
+
+| WP / gate | Input and work | Output / continuous authority | Stop or owner decision |
+|---|---|---|---|
+| L-WP0 diagnosis | current LiDAR model/loss/loader/CBGS/checkpoint paths plus historical B4 evidence | read-only bottleneck and candidate classification; closed | IP-LG0 freezes the workflow and source scope |
+| L-WP1 clean measurement | exact D_fit LiDAR recipe; clean B4/B8/B16/B32 profiles | default-off capacity ladder, B4-versus-highest-safe sustained processes, two detailed traces, checkpoint and loss-health evidence | runs only after exact IP-L-E1 activation; IP-LG1 selects the batch and exact L-WP2 cells |
+| L-WP2 primary screens | IP-LG1-frozen batch and bottleneck evidence | same-allocation paired Hungarian/target-host-sync, sparse-front-end sync/stat, LiDAR SDPA, dense scoped-compile and fused-AdamW screens | continuous only inside separately approved IP-L-E2; ambiguity or science pressure returns to owner |
+| L-WP3 conditional/composed screens | positive primary candidates and trace residuals | conditionally test full-sort-to-topk, batched voxelization, batched Gaussian targets, H2D-field pruning and hidden-sync cleanup; validate the final combined stack | IP-LG2 promotes/rejects the exact L-only recipe and explicitly accepts any BN/worker-RNG batch recipe |
+| L-WP4 capability handoff | owner-promoted LiDAR recipe plus promoted Camera 2-GH200 v4 recipe | new dual-branch Envelope-B source/config/hash/output roots and per-branch resource projection; independent recipe-freeze review | only a no-open-P0-P2 review may lead to a later Envelope-B activation request |
+
+The candidate classes remain distinct. Batching or removing redundant host-side
+diagnostic plumbing, exact batched Hungarian transfers, output-equivalent sparse
+bookkeeping, SDPA, scoped dense compile and fused AdamW are engineering candidates
+that still require forward/backward/update, FP16-policy, checkpoint/resume and
+sustained-throughput validation. Physical B8/B16/B32 are measurement-only until an
+owner explicitly accepts their BatchNorm and worker-RNG recipe. Sparse-convolution
+FP16, normalization, precision/TF32, model/loss/target/order/exposure, scheduler or
+evaluator changes remain material science and are outside L-E1/L-E2 unless newly
+approved.
+
+Implementation `0daeee95e1a46b29fcd7bbb2338d813b798557de` adds four clean,
+default-off effective-B32 profiles, a single-allocation orchestrator, terminal-only
+loss/component health, and detailed sparse/head/decoder/Hungarian trace ranges.
+It does not change model math, accepted updates, precision or the production LiDAR
+config. Capacity runs use one warm-up plus eight accepted windows in fresh
+processes, ordered B4 -> B8 -> B16 -> B32 and stop at the first failure. Sustained
+runs use 16 warm-up plus 256 accepted windows in ABBA order for B4 and the highest
+safe batch; each side has two processes and receives a conditional third only when
+its first-two spread exceeds 3%. One 16+3 trace is then taken at B4 and at the
+highest safe batch.
+
+Hard evidence remains exact for source/config/data role, CBGS exposure, boundary,
+input stream within a recipe, RNG/discrete state, accepted windows, finite/scaler
+control and checkpoint structure. Fresh continuation uses the owner-amended grouped
+parameter/BN/Adam tolerances; elementwise allclose remains diagnostic. All reported
+LiDAR loss components must be finite, but a short-window loss slope is descriptive
+training-health evidence rather than a speed, capability or promotion gate.
+Different physical batches are not required to reproduce one another's worker RNG.
+
+Section 9.8 of `RUN_REQUEST.md` is the exact proposed L-E1 request: one GH200,
+16 CPUs, 96 GiB, at most 75 minutes, maximum concurrency one, `1.25` base plus
+`0.50` diagnosed-code-bug reserve and a `1.75` charged-GH200-hour hard ceiling.
+It is `OWNER APPROVAL PENDING / NOT EXECUTABLE`. No GPU/Slurm, D_select, D_audit,
+official validation, capability claim, Envelope-B activation, merge or push has
+been authorized or performed by IP-LG0 closure.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
