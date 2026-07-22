@@ -841,6 +841,17 @@ The owner activated it at containing request commit
 D_select, D_audit, official validation, capability claims, Envelope-B activation,
 merge and push.
 
+Initial Job `555479` completed every capacity cell through B32 but stopped during
+B4 sustained finalization because the new loss-health observer retained detached
+CUDA scalar views until the end of all 256 windows. Actual device usage stayed
+near `7.4 GB`; the retained views pinned allocator blocks and alone triggered the
+strict monotonic-reserved-growth diagnostic. Repair
+`3f1b8d91568a413b1f6cf1dda39a989a1be20ecf` flushes the same exact scalar
+evidence in bounded 16-window blocks outside throughput timing and preserves a
+terminal result on any future LiDAR memory-health failure. This is profiler
+plumbing only; model/data/loss/update/precision/gates are unchanged. Section 9.8
+contains the exact job evidence and derived replacement record.
+
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
 evidence, change STOP-A data ownership/evaluator semantics, weaken metric or

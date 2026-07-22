@@ -2498,6 +2498,60 @@ sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
   --approved-source-sha "${APPROVED_SOURCE_SHA}"
 ```
 
+Active compact ledger and derived replacement record:
+
+```text
+INITIAL_JOB: 555479
+SOURCE_SHA: 09b236c18811b1817b1a50a278eec943a32abedd
+APPROVED_SOURCE_SHA: 8b5788d3d905cf7eb83e8f3f1e65e24df7fc15dc
+NODE / RESOURCES: n58 / 1xGH200 / 16 CPU / 96 GiB / 01:15:00 /
+  no restart or requeue
+SUBMIT / START / END / ELAPSED: 2026-07-22T08:34:57 /
+  2026-07-22T08:34:58 / 2026-07-22T08:50:59 / 00:16:01
+SLURM_STATE: FAILED 1:0 in B4 sustained post-measurement memory-health check
+CHARGE: 0.266944 charged GH200-hours, code-bug reserve
+PRETEST: 7/7 PASS
+CAPACITY_B4: COMPLETE_CAPACITY; 39.608844208 presentations/s;
+  allocated/reserved 5,441,557,504 / 6,127,878,144 bytes (6.0074%);
+  result sha256 e78bf4b8d8b1cf27fa83623a4d92f4a682ed068e64df8de786aaaeda9ef1bb31
+CAPACITY_B8: COMPLETE_CAPACITY; 47.645146524 presentations/s;
+  allocated/reserved 10,534,451,712 / 13,604,225,024 bytes (13.3368%);
+  result sha256 19a1e5b0f1e919ab56b90a4f3e29930bcf7c9b27031a226d7c082980664219b6
+CAPACITY_B16: COMPLETE_CAPACITY; 48.848315618 presentations/s;
+  allocated/reserved 20,609,104,384 / 24,622,661,632 bytes (24.1386%);
+  result sha256 847f1f7121b61fb182b4b75fbdffd5d189e540a317300b2a2808201e09f668a6
+CAPACITY_B32: COMPLETE_CAPACITY; 51.784549829 presentations/s;
+  allocated/reserved 40,773,322,752 / 47,886,368,768 bytes (46.9449%);
+  result sha256 53c4e1f0f08027eea13fe3c9e0747a56db48c8ac2ae2001f93e450a16efc813f
+CAPACITY_HEALTH: every cell 8/8 accepted with finite loss/component and update
+  gates PASS; rates are short-window sanity evidence, not sustained comparisons
+FAILED_SUSTAINED_ARTIFACT: no result/measurement was published by the old early
+  memory require; nvidia-smi peak was only 7,405 MiB; immutable sampler sha256
+  609efb4a0128497a7f23f9a753421adad799787706a6e40e0a6aede1393b5e62
+DIAGNOSIS: loss-health retained every detached CUDA scalar through 256 windows,
+  pinning otherwise reusable allocator blocks; the strict four-quartile >64 MiB
+  monotonic-growth diagnostic fired despite large physical headroom
+CLASSIFICATION: unambiguous output/science-neutral profiler-observer plumbing bug
+REPAIR_IMPLEMENTATION_SHA: 3f1b8d91568a413b1f6cf1dda39a989a1be20ecf
+REPAIR_TREE: 55d364f723d51b9aa696a5b98b1decb32bbeb817
+REPAIR: flush identical weighted loss/component scalars once per 16-window block;
+  release warm-up views before peak reset; exclude only observer-flush wall time;
+  persist future IP-L-E1 memory-health failures before raising
+REPAIR_LAUNCHER_SHA256:
+  e79b547880b4cb547783c8324c4724531803d54734c6dfde56269dccc36f207d
+REPAIR_PROFILER_ENTRY_SHA256:
+  8f9ab2ac88de2e9cdbc955b27f34dc1459cd8ddd5e2ba5a72d0cd04f4ac627f4
+REPLACEMENT_STATE: authorized automatically by the approved O-149 bug loop
+REPLACEMENT_SOURCE: exact containing ledger commit; a linear descendant of the
+  approved source and repair implementation
+REPLACEMENT_OUTPUT: same approved root with source-SHA-qualified fresh child paths;
+  Slurm logs use slurm_repair1_%j and overwrite nothing
+REPLACEMENT_COMMAND: exact Section-9.8 command with SOURCE_SHA equal to the
+  containing ledger commit and unchanged APPROVED_SOURCE_SHA/resources/cells/order
+BUDGET_AFTER_INITIAL: bug reserve 0.266944/0.50 used; base 0/1.25 used;
+  hard aggregate 0.266944/1.75 used; replacement remains inside every ceiling
+```
+
 ## 10. Envelope-A compact execution ledger
 
 This is the sole terminal ledger for Envelope A. Submission rows were appended only when
