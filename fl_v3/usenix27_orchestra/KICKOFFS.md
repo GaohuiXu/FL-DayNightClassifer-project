@@ -1,8 +1,9 @@
 # USENIX Security '27 Orchestra — active envelopes
 
-> **Launch state (2026-07-20).** S08/S09 are closed. S10 is active on
-> `codex/s10-phase1-branch-qualification`, advanced linearly from
-> `codex/s10-cl-model-recipe`, and has been rebaselined by O-143.
+> **Launch state (2026-07-22).** S08/S09 are closed. S10 Phase I-P is active on
+> `codex/s10-phase1p-throughput-preflight`, created from the frozen
+> `codex/s10-phase1-branch-qualification` control at `f1a2bab...`, and remains
+> governed by O-143.
 >
 > Active order: **C/L independent recipe and capability → staged fusion →
 > aligned capability/fusion gate → profiler/optimization only after pass**.
@@ -24,9 +25,11 @@
 > governs future explicitly approved engineering-validation loops; it creates no
 > standing compute authority. O-150 accepts the parity-qualified PyTorch sorted
 > `segment_reduce` backend for Camera production, keeps CUDA unpromoted, and removes
-> `1.25x` as a capability prerequisite. The exact Envelope-B request is frozen at
-> `49.0` charged GH200-hours, concurrency one and serial LiDAR then Camera; owner
-> activation and the independent recipe-freeze review remain before submission.
+> `1.25x` as a capability prerequisite. Phase I-P promoted final Camera two-GH200
+> B16/rank and LiDAR one-GH200 B32 recipes. Revised Envelope B is materialized in
+> `RUN_REQUEST.md` Section 7.4 at `30.0` charged GH200-hours, concurrency one and
+> serial LiDAR then Camera; independent review and separate owner activation remain
+> before submission.
 
 ## 1. Rules for starting or extending work
 

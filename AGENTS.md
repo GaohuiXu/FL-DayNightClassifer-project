@@ -40,10 +40,13 @@ engineering performance/readiness are closed. S08's accepted precision policy is
 integrated at `28f79802c0868afa6290d74ae6aeb9d23c7d088f`; S09's accepted
 closing commit is `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`.
 
-S10 is active on `codex/s10-phase1-branch-qualification`, advanced linearly from
-`codex/s10-cl-model-recipe` and created from audited clean base
-`a080d49c1c22de20ccb5b1353d4922c7df14a729`. Terminal evidence through O-150
-is preserved in `fl_v3/usenix27_orchestra/handoffs/S10/`; the compact state is:
+S10 Phase I-P is active on `codex/s10-phase1p-throughput-preflight`, created from
+the frozen `codex/s10-phase1-branch-qualification` control at
+`f1a2babda8dafd181b5a5144ab025a3f6be21cc2`. Earlier S10 was advanced linearly
+from `codex/s10-cl-model-recipe` and audited base
+`a080d49c1c22de20ccb5b1353d4922c7df14a729`. Terminal evidence through O-150 and
+the later owner-approved Phase I-P work is preserved in
+`fl_v3/usenix27_orchestra/handoffs/S10/`; the compact state is:
 
 - STOP-A's train-only split/evaluator gate is closed and reusable.
 - STOP-B is closed `INCONCLUSIVE`; large-gradient causality was not established.
@@ -64,6 +67,10 @@ is preserved in `fl_v3/usenix27_orchestra/handoffs/S10/`; the compact state is:
   WP4 passed with the reference BN/no-GN TransFusion graph, exact keyframe GTDB,
   FP16 plus sparse FP32 island, and directly consumable qualified config and
   zero-update recovery checkpoint. No capability metric or training update ran.
+- Phase I-P is terminal at the profiler level. Camera's promoted production recipe
+  is same-node two-GH200 DDP at B16/rank; LiDAR's is single-GH200 B32. Both keep
+  effective global B32 and the frozen exposure. Phase I-P measured engineering
+  health and throughput only; it made no capability, mAP/NDS or selection claim.
 
 Owner decision O-143 supersedes the active S10 six-stop execution order and the
 S10-specific per-job immutable/no-retry/multi-document/reviewer workflow. It does
@@ -115,11 +122,15 @@ Owner decision O-150 accepts the parity-qualified PyTorch sorted `segment_reduce
 path as the Phase-I Camera production backend and keeps the CUDA kernel available
 only as an explicit, unpromoted optimization. Job H's failed 1.25x promotion gate
 remains historical performance evidence but no longer gates Camera capability.
-The exact Envelope-B request is frozen in `RUN_REQUEST.md` Section 7 at a `49.0`
-charged-GH200-hour aggregate ceiling, maximum concurrency one, serial LiDAR then
-Camera, and two fixed seed-0 candidates. It is not executable until the owner
-approves the containing commit and authorizes one independent recipe-freeze review;
-that review must close with no open P0-P2 before the first submission.
+The later Phase I-P preflight promoted Camera two-GH200 B16/rank and LiDAR
+one-GH200 B32 production recipes, with their ordinary-BN/worker-RNG changes
+explicitly owner-accepted and effective global B32/exposure preserved. The revised
+dual-branch Envelope-B request is materialized in `RUN_REQUEST.md` Section 7.4 at a
+`30.0` charged-GH200-hour aggregate ceiling, maximum concurrency one, serial LiDAR
+then Camera, and two fixed seed-0 candidates. The old 49.0-hour Section-7 object is
+historical control only. Revised Envelope B is not executable until an independent
+recipe-freeze review closes with no open P0-P2 and the owner separately names and
+activates the review-sealed commit.
 
 For this stage, `fl_v3/collab/` is read-only legacy evidence. Agents may inspect and
 cite it, but must not add or update plans, handoffs, reviews, results, or status

@@ -1,8 +1,9 @@
 # USENIX Security '27 Orchestra — milestone contracts
 
-> **Current handoff (2026-07-20).** S07-S09 are closed. S10 is active on
-> `codex/s10-phase1-branch-qualification`, advanced linearly from
-> `codex/s10-cl-model-recipe`. O-143 replaces the old active S10 six-stop order:
+> **Current handoff (2026-07-22).** S07-S09 are closed. S10 Phase I-P is active on
+> `codex/s10-phase1p-throughput-preflight`, created from the frozen control
+> `codex/s10-phase1-branch-qualification` at `f1a2bab...`. O-143 replaces the old
+> active S10 six-stop order:
 > qualify camera and LiDAR independently, perform staged fusion from qualified
 > branch checkpoints, establish aligned capability/fusion contribution, and only
 > then profile/optimize GH200.
@@ -28,10 +29,11 @@
 > aggregate-budget-limited, without a default numeric submission cap. It retains
 > all scientific/resource owner gates and grants no standing compute. O-150 accepts
 > the parity-qualified PyTorch sorted `segment_reduce` backend for Camera production,
-> keeps CUDA unpromoted, and removes `1.25x` as a capability prerequisite. The exact
-> Envelope-B request is frozen at `49.0` charged GH200-hours, concurrency one and
-> serial LiDAR then Camera; owner activation and an independent no-open-P0-P2
-> recipe-freeze review remain before submission. S11+ remains pending.
+> keeps CUDA unpromoted, and removes `1.25x` as a capability prerequisite. Phase I-P
+> subsequently promoted Camera two-GH200 B16/rank and LiDAR one-GH200 B32 recipes.
+> Revised Envelope B is materialized at `30.0` charged GH200-hours, concurrency one
+> and serial LiDAR then Camera; independent no-open-P0-P2 review and separate owner
+> activation remain before submission. S11+ remains pending.
 
 ## 1. Active graph and status
 
@@ -44,8 +46,8 @@
   ├─ S09 full-pipeline performance/readiness      [closed PASS under O-120]
   │      └─ independent review of exact profiling/evidence SHA
   │
-  ├─ S10 C/L qualification → staged fusion        [fallback accepted / LiDAR PASS]
-  │      └─ capability gate → GH200 optimization  [Envelope-B tuple pending]
+  ├─ S10 C/L qualification → staged fusion        [final C/L recipes materialized]
+  │      └─ capability gate → GH200 optimization  [Envelope-B review pending]
   └─ S11 and later                                 [roles pending owner decision]
 ```
 
@@ -58,7 +60,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | O-150 accepts Camera fallback; exact 49.0-hour Envelope-B request frozen; owner activation/review pending; no capability job submitted |
+| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | final C/L throughput recipes and revised 30.0-hour Envelope B materialized; independent review/owner activation pending; no capability job submitted |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract

@@ -1,4 +1,4 @@
-# S10 HANDOFF — LiDAR final recipe promoted / revised Envelope B pending
+# S10 HANDOFF — revised dual-branch Envelope B materialized / review pending
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: IP-L-E3 closed positive; exact B32 combined recipe is promoted
-SCIENCE_ORDER: materialize the revised dual-branch Envelope B, then independent recipe-freeze review
+ACTIVE_DECISION: final Camera two-GH200 and LiDAR B32 recipes are materialized
+SCIENCE_ORDER: independent recipe-freeze review, then separate owner activation gate
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: scoped source/docs/tests and linear commits; no active compute envelope
-EXECUTION_STATE: LiDAR production recipe materialized at 0039501; revised Envelope B not yet frozen or authorized
+EXECUTION_STATE: revised Section-7.4 Envelope B materialized; review pending; no compute authority
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -48,6 +48,14 @@ versus `25.400589` presentations/s, ratio/lower bound `1.097149 / 1.087948`,
 with every health/checkpoint gate PASS. This unlocked, but did not promote, the
 combined batched-rotation candidate implemented at
 `417dfefb8b37551bdd284fa30f0ef575b4a075e8`.
+
+After LiDAR IP-L-E3 also closed positive, source
+`cb2fc279b0c5e4b686525bed9da10f3ec6ad070f` materialized the new dual manifest,
+common output root, final Camera/LiDAR config hashes and fail-closed per-branch
+launcher/resource binding. `RUN_REQUEST.md` Section 7.4 is now the only candidate
+for a future Envelope-B activation. It is not executable until an independent
+recipe-freeze review closes with no open P0-P2 and the owner separately names and
+activates the review-sealed commit.
 
 ### 1.1 Frozen Phase I-P workflow
 
@@ -785,12 +793,11 @@ Its fresh output root is
 
 This promotion is source/recipe authority, not compute authority. No production
 DDP capability run, D_select, D_audit, official validation, original Envelope-B
-activation, merge or push occurred. Before any Camera capability submission,
-Section 7 must be revised to the promoted SHA/config/two-GPU resource projection
-and its already-required independent recipe-freeze review must close with no open
-P0-P2.
+activation, merge or push occurred. Section 7.4 has now supplied the required
+revised SHA/config/two-GPU resource projection; its independent recipe-freeze
+review and later owner activation remain before any Camera capability submission.
 
-### 1.9 LiDAR throughput preflight — IP-LG1 closed, L-WP2 frozen
+### 1.9 LiDAR throughput preflight — terminal positive and promoted
 
 The owner approved the following continuous LiDAR workflow and thereby closed
 `IP-LG0`, then explicitly activated the exact Section-9.8 `IP-L-E1` envelope at
@@ -810,7 +817,7 @@ cells/resources and the default-off derived implementation at
 | L-WP1 clean measurement | exact D_fit LiDAR recipe; clean B4/B8/B16/B32 profiles | default-off capacity ladder, B4-versus-highest-safe sustained processes, two detailed traces, checkpoint and loss-health evidence | closed; IP-LG1 accepted LiDAR-only B32x1 and froze L-WP2 |
 | L-WP2 primary screens | accepted B32x1 recipe and L-E1 bottleneck evidence | five isolated same-allocation B32 pairs: target/Hungarian host batching, LiDAR SDPA, dense scoped compile, sparse host offsets/stat cleanup, fused AdamW | closed: target-host, compile and host-offset positive; SDPA and fused AdamW negative; no promotion yet |
 | L-WP3 conditional/composed screens | positive primary candidates and trace residuals | conditionally test full-sort-to-topk, batched voxelization, batched Gaussian targets, H2D-field pruning and hidden-sync cleanup; validate the final combined stack | IP-LG2 promotes/rejects the exact L-only recipe and explicitly accepts any BN/worker-RNG batch recipe |
-| L-WP4 capability handoff | owner-promoted LiDAR recipe plus promoted Camera 2-GH200 v4 recipe | new dual-branch Envelope-B source/config/hash/output roots and per-branch resource projection; independent recipe-freeze review | only a no-open-P0-P2 review may lead to a later Envelope-B activation request |
+| L-WP4 capability handoff | owner-promoted LiDAR recipe plus promoted Camera 2-GH200 v4 recipe | dual-branch source/config/hash/output/resource object materialized in Section 7.4; independent review pending | only a no-open-P0-P2 review may lead to a later owner activation request |
 
 The candidate classes remain distinct. Batching or removing redundant host-side
 diagnostic plumbing, exact batched Hungarian transfers, output-equivalent sparse
@@ -1050,6 +1057,33 @@ already completed E2/E3 forward/backward/update/checkpoint/sustained evidence is
 the promotion evidence; the later independent recipe-freeze review must still
 review the production wiring before any Envelope-B activation request.
 
+### 1.10 Revised dual-branch Envelope B — materialized, not activated
+
+Materialized source `cb2fc279b0c5e4b686525bed9da10f3ec6ad070f` binds the
+final two recipes under one manifest and common fresh root
+`.../outputs/s10_phase1_envelope_b_dual_783173d6fe05`. Camera is world-size two,
+B16/rank x accumulation one; its config file/resolved hashes are
+`89a4d998...50014` / `63f77459...2d1b3`. LiDAR is world-size one, B32 x
+accumulation one; its config file/resolved hashes are `017086bb...a15d9` /
+`c950d90d...8b1ad`. The manifest hash is `4d83f074...f79afd`; it also binds
+the launcher and both production entry hashes and makes all runtime resource/config/
+output mismatches fail before dispatch.
+
+The final sustained projections are `8.261479` LiDAR wall/charged hours and
+`7.581252` Camera wall hours / `15.162504` charged hours. Adding `1.2` charged
+hours for both terminal evaluations, preflight and recovery, then 15% contingency,
+gives `28.317580`; Section 7.4 rounds this to a `30.0` charged-GH200-hour hard
+ceiling. Initial resources are serial LiDAR `1 GPU / 16 CPU / 96 GiB / 10:00:00`
+then Camera `2 GPU / 32 CPU / 192 GiB / 09:00:00`, maximum concurrency one.
+`D_audit` is forbidden and unbudgeted; official validation remains forbidden.
+
+Local JSON/schema/resolved-hash/entry-hash validation, historical profiler-config
+reconstruction, Python compilation, `bash -n`, `shellcheck` and diff checks passed.
+The x86 login environment has no `pytest`; no Slurm test was inferred or submitted.
+One independent read-only recipe-freeze review must now pin the clean containing
+commit. Even a no-open-P0-P2 review is not compute authority: the owner must later
+name the review-sealed commit to activate Section 7.4.
+
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
 evidence, change STOP-A data ownership/evaluator semantics, weaken metric or
@@ -1073,13 +1107,11 @@ contract. None of these decisions activates Envelope B or capability evaluation.
 O-150 accepts Job H's numerically qualified PyTorch sorted `segment_reduce` path as
 the Camera production backend and retains the CUDA kernel as an unpromoted optional
 optimization. The historical `1.25x` CUDA promotion failure remains evidence but no
-longer blocks Camera capability. The owner's instruction to start Envelope-B
-preparation produced the exact Section-7 request in `RUN_REQUEST.md`: two fixed
-seed-0 candidates, serial execution, maximum concurrency one, and a measured
-`49.0` charged-GH200-hour aggregate ceiling. It is not compute authority until the
-owner names and approves the containing commit. IP-G0 now postpones that
-disposition through IP-G2: the old request remains a frozen comparison object and
-must not be activated directly while Phase I-P is open.
+longer blocks Camera capability. The owner's original instruction to start
+Envelope-B preparation produced the pre-Phase-I-P Section-7 B4 control at `49.0`
+charged GH200-hours. Phase I-P permanently superseded that source/config/resource
+object with revised Section 7.4; the old request remains historical comparison
+evidence and must not be activated.
 
 Envelope-B implementation baselines `6eaafa07942a3079cb9725cf2c83a9e2e4c6c6ed`
 and `a1d7d4fc9508875cc7559858b51b9c1fe441f69b` add schema-v2 production configs,
@@ -1087,7 +1119,8 @@ the fallback-only Camera dispatch, a clean ordered D_select loader, LiDAR's froz
 decode threshold bridge, and one direct dual-branch runner with epoch-atomic recovery.
 Local `py_compile`/`compileall`, `bash -n`, `shellcheck`, canonical config resolution
 and hash checks pass. No GH200 import/forward test or scientific job has run at these
-commits; the independent recipe-freeze review is still required.
+commits. Revised materialization is summarized in Section 1.10; its independent
+recipe-freeze review is still required.
 
 Current-A2 and the old C→D→E→F route are paused. The primary S10 claim remains
 **absolute clean capability + fusion contribution**, but it must now be earned
@@ -1385,11 +1418,12 @@ Final Envelope-A usage is 12/unlimited serial submissions and
 `0.516389/1.10` GH200-hours. No optimizer update, capability metric, D_select,
 D_audit, official validation, scientific checkpoint or candidate selection
 occurred. O-150 resolves the Camera backend disposition without revising the
-historical CUDA-performance result. The exact Envelope-B tuple is now frozen at
-`49.0` charged GH200-hours: measured training estimate `41.520365h`, conservative
-evaluator/checkpoint/sealed-audit reserve `0.80h`, and 15% contingency gives
-`48.668420h`, rounded up. Owner activation and the independent recipe-freeze review
-remain before scientific submission.
+historical CUDA-performance result. That original `49.0`-hour B4 tuple is now only
+the frozen control. Revised Section 7.4 uses the final production stacks:
+`23.423983` projected training charge plus `1.2` hours for evaluations/preflight/
+recovery and 15% contingency gives `28.317580`, rounded to a `30.0` charged-hour
+hard ceiling. Independent review and a separate owner activation remain before any
+scientific submission.
 
 WP3 implements the reference-led standalone LiDAR graph without changing the
 historical Fusion detector. The existing reference-shaped sparse SECOND is reused only

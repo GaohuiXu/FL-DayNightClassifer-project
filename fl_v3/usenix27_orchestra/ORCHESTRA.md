@@ -1,9 +1,9 @@
 # USENIX Security '27 Orchestra — clean CL to federated multimodal security
 
-> **Active status (2026-07-20).** S07-S09 are closed. S10 is active on
-> `codex/s10-phase1-branch-qualification`, advanced linearly from
-> `codex/s10-cl-model-recipe`, from audited base
-> `a080d49c1c22de20ccb5b1353d4922c7df14a729`.
+> **Active status (2026-07-22).** S07-S09 are closed. S10 Phase I-P is active on
+> `codex/s10-phase1p-throughput-preflight`, created from the frozen control
+> `codex/s10-phase1-branch-qualification` at
+> `f1a2babda8dafd181b5a5144ab025a3f6be21cc2`.
 >
 > O-143 replaces S10's active six-stop execution order and per-job
 > immutable/no-retry/multi-document/reviewer workflow. The current science order
@@ -47,9 +47,12 @@
 > O-150 accepts the parity-qualified PyTorch sorted `segment_reduce` fallback as
 > the Phase-I Camera production backend, retains the CUDA kernel as an unpromoted
 > option, and removes the historical `1.25x` throughput target as a capability
-> prerequisite. The exact Envelope-B request is frozen at `49.0` charged GH200-hours,
-> concurrency one and serial LiDAR then Camera; owner activation and an independent
-> no-open-P0-P2 recipe-freeze review remain before submission.
+> prerequisite. The later owner-approved Phase I-P preflight promoted Camera
+> two-GH200 B16/rank and LiDAR one-GH200 B32 production recipes while preserving
+> effective global B32, exposure and all other scientific boundaries. Revised
+> Envelope B is materialized in `RUN_REQUEST.md` Section 7.4 at a `30.0` charged
+> GH200-hour ceiling, concurrency one and serial LiDAR then Camera. Independent
+> no-open-P0-P2 review and a separate owner activation remain before submission.
 > Staged fusion, merge, push, upload, publication and S11+ remain unauthorized.
 
 ## 1. Current objective and sequencing
@@ -72,8 +75,8 @@ The active order is evidence-gated:
 ```text
 accepted S08/S09 engineering foundation
                   │
-                  ├── S10-CAM: fallback accepted; capability pending
-                  ├── S10-LIDAR: WP4 engineering qualified; capability pending
+                  ├── S10-CAM: two-GH200 recipe frozen; capability pending
+                  ├── S10-LIDAR: B32 recipe frozen; capability pending
                   │      └── freeze qualified branch checkpoints
                   ├── S10-FUSION: staged fusion + aligned capability controls
                   │      └── absolute clean capability + fusion contribution gate

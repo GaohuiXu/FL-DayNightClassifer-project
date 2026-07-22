@@ -3,17 +3,19 @@
 ## 0. Status, purpose, and authority
 
 ```text
-STATUS: OWNER-FROZEN SCIENTIFIC PLAN / O-150 FALLBACK-BACKEND AMENDMENT
-DATE: 2026-07-20
+STATUS: OWNER-FROZEN SCIENTIFIC PLAN / PHASE I-P THROUGHPUT AMENDMENT
+DATE: 2026-07-22
 OWNER_DECISION: O-144 plus O-145 optimized-BEV-pooling qualification;
                 O-149 collaboration-process amendment;
-                O-150 production-fallback/capability-gate amendment
+                O-150 production-fallback/capability-gate amendment;
+                explicit Phase I-P Camera/LiDAR throughput recipe promotions
 SCOPE: Phase I camera/LiDAR clean branch qualification
 AUTHORITY: freezes the Phase I scientific choices, work-package order, gates,
            approval structure, and execution boundaries recorded below
 IMPLEMENTATION: WP0-WP4 completed under consumed O-146/O-147/O-148
-COMPUTE: Envelope A is terminal; exact 49.0-hour Envelope-B request is frozen,
-         owner activation and independent recipe-freeze review pending
+COMPUTE: Envelope A and Phase I-P profiler envelopes are terminal; revised
+         30.0-hour dual-branch Envelope B is materialized but not executable;
+         independent recipe-freeze review and owner activation remain required
 CHECKPOINT_ACQUISITION: completed once under consumed Envelope A
 COMMIT: material Envelope-A implementation/result/contract closure commits authorized
 MERGE/PUSH/UPLOAD/PUBLICATION: not authorized by this document
@@ -50,6 +52,17 @@ negative result remain intact as performance evidence, but that target is no lon
 Camera capability prerequisite and may not block Envelope B. This changes no model
 graph, data, seed, recipe, evaluator, precision policy, or candidate count.
 
+The later owner-approved Phase I-P preflight supersedes only the throughput/batch/
+topology fields that this original plan froze at physical B4. Camera is now one
+same-node two-GH200 job with physical B16 per rank, accumulation one and effective
+global B32; LiDAR is one-GH200 physical B32, accumulation one. The owner explicitly
+accepted their corresponding ordinary-BN and worker-RNG recipe changes. The exact
+runtime optimizations and revised resources are in Sections 4.2 and 10.4. All model,
+data ownership, CBGS exposure, seed, optimizer/scheduler, loss/target/evaluator,
+precision and terminal-selection fields remain unchanged. Earlier B4 text is retained
+as the historical O-144 control where not rewritten below; it is not the executable
+batch/topology contract for the revised Envelope B.
+
 ## 1. Technical summary
 
 Phase I will qualify camera and LiDAR as independent clean perception branches before
@@ -72,10 +85,10 @@ current shared-GN hybrid:
   BatchNorm choice; keep Swin's native LayerNorm.
 - **Sampling:** replace the local sqrt repeat-factor sampler with the exact archived
   MIT `CBGSDataset` algorithm over role-restricted `D_fit`.
-- **Throughput and batch policy:** physical B4, accumulation 8, effective optimizer
-  batch 32, camera activation checkpointing off, redundant scalar telemetry
-  synchronization off, LiDAR keyframe-only training, and terminal-only branch
-  evaluation.
+- **Throughput and batch policy:** effective global B32 remains fixed. Camera uses
+  two same-node GH200 ranks at B16/rank and accumulation one; LiDAR uses one GH200 at
+  B32 and accumulation one. Activation checkpointing and redundant scalar telemetry
+  remain off; LiDAR remains keyframe-only and branch evaluation remains terminal-only.
 - **Assessment:** no arbitrary numeric pass threshold will be invented before the
   run. Checkpoint selection, metric/evaluator semantics, and the one-time use of
   `D_audit` must nevertheless be frozen before results are inspected.
@@ -105,8 +118,8 @@ For each branch:
 3. optimizer parameter groups, LR/weight decay, scheduler/warmup, clipping, and EMA
    policy;
 4. data augmentation, GT-paste, exact CBGS index identity, and sweep policy;
-5. physical B4/effective B32 exposure, attempted sample presentations, accepted
-   updates, and terminal-checkpoint identity;
+5. the branch-specific physical-batch/DDP recipe at effective global B32, attempted
+   sample presentations, accepted updates, and terminal-checkpoint identity;
 6. one terminal `D_select` evaluation and, only after `P1-G2` owner unsealing, one
    `D_audit` result;
 7. immutable checkpoint and metric-artifact hashes;
@@ -213,13 +226,14 @@ The accepted mapping is therefore:
 
 ### 3.4 Frozen branch recipe bundles
 
-Both primary branches train for 20 official-CBGS epochs with physical B4,
-accumulation 8, effective optimizer batch 32, seed 0, terminal-only checkpoint
-selection, no EMA, and the accepted S08 precision policy. Camera uses global FP16
-autocast; LiDAR uses global FP16 with the explicit FP32 island covering voxelization,
-VFE, sparse SECOND, dense collapse, and to-BEV. Any loss-scaler initial values are
-qualified without updates during Envelope A and frozen in the resolved Envelope-B
-config; this does not permit a precision-regime search.
+Both primary branches train for 20 official-CBGS epochs at effective global batch
+32, seed 0, terminal-only checkpoint selection, no EMA, and the accepted S08
+precision policy. The amended physical recipes are Camera B16/rank x two ranks x
+accumulation one and LiDAR B32 x one rank x accumulation one. Camera uses global
+FP16 autocast; LiDAR uses global FP16 with the explicit FP32 island covering
+voxelization, VFE, sparse SECOND, dense collapse, and to-BEV. Any loss-scaler initial
+values were qualified without updates during Envelope A and are frozen in the
+resolved Envelope-B configs; this does not permit a precision-regime search.
 
 The Camera primary is:
 
@@ -272,13 +286,21 @@ direction.
 
 ### 4.2 Accepted throughput settings
 
-- physical batch size: B4;
-- gradient accumulation: 8 microbatches;
-- effective optimizer batch: 32 samples;
-- divide/average the accumulated loss so one optimizer update represents the mean
-  gradient over the eight B4 microbatches;
+- Camera: one node, two GH200 ranks, physical B16 per rank, accumulation one,
+  effective global B32, ordinary rank-local B16 BatchNorm, and contiguous B16 halves
+  of each frozen global CBGS B32 window;
+- Camera worker RNG: `seed + epoch*world_size + rank`; rank 0 owns the canonical
+  model/checkpoint and every rank owns an exact RNG sidecar;
+- LiDAR: one GH200, physical B32, accumulation one, effective global B32, ordinary
+  physical-B32 BatchNorm, and worker RNG `seed + epoch`;
+- Camera runtime: conservative batched affine/grid, vectorized geometry/inverses,
+  bulk native-image conversion, SDPA, forward-only Inductor compile of the five
+  frozen dense modules, and fused AdamW;
+- LiDAR runtime: batched target/Hungarian host plumbing, CPU-resident point offsets,
+  and forward-only Inductor compile of `decoder_backbone`, `decoder_neck`, and `head`;
+  LiDAR SDPA and fused AdamW remain explicitly off;
 - optimizer, cyclic LR/momentum, warm-up, and accepted-update accounting advance per
-  optimizer update, not per microbatch;
+  effective-B32 optimizer update;
 - camera activation checkpointing: off;
 - ordinary per-loss scalar telemetry synchronization: off unless an explicitly
   approved diagnostic requires it;
@@ -286,19 +308,11 @@ direction.
 - checkpoint selection/evaluation: only the epoch-20 terminal checkpoint is eligible;
   recovery checkpoints are non-selectable, and CPU metric aggregation is separated
   from GPU inference when practical;
-- no Phase I `torch.compile`/graph-compiler, fused-optimizer, TF32, or sparse-FP16
-  campaign; the O-145 in-tree BEV-pooling extension is the sole custom-kernel/build
-  exception;
-- record natural timing and memory counters from the chosen graph, then defer a
-  dedicated profiler/optimization campaign to Phase III.
-
-MIT's published invocation uses eight distributed training processes/GPUs with B4 per
-GPU, giving effective batch 32. Single-GPU B4 without accumulation would materially
-change the reference optimizer-update count and cyclic schedule. Physical B4 plus
-accumulation 8 preserves
-the reference effective-batch target while keeping each BatchNorm observation at B4.
-Exact epoch remainder/drop semantics and sampler order must be resolved, tested, and
-hashed before Envelope B; they may not be chosen after metrics are observed.
+- TF32 and sparse-convolution FP16 remain off; no further performance candidate is
+  admitted into Envelope B;
+- exact epoch remainder/drop semantics and the 20-epoch global CBGS order remain
+  unchanged and hash-bound. BatchNorm observation size and worker RNG changed only
+  through the explicit owner recipe decisions above.
 
 Reference graph changes may raise or lower end-to-end cost. In particular, the deeper
 reference decoder and TransFusion query path are capability choices rather than claimed
@@ -579,9 +593,10 @@ create a per-WP worktree, harness, handoff, review chain, or approval cycle.
    trainer-consumed ResolvedConfig the run identity; assert that every scientific
    field is consumed and every optimizer parameter appears in exactly one group.
 2. **WP1 — shared data and training recipe.** Implement exact role-bound CBGS,
-   D_fit-only GTDB/GT-paste, B4 x accumulation-8 optimizer/scheduler semantics,
+   D_fit-only GTDB/GT-paste, effective-B32 optimizer/scheduler semantics,
    deterministic epoch order/remainder identity, checkpoint/resume, and the direct
-   production `--preflight-only` path.
+   production `--preflight-only` path. Phase I-P later amended only the physical
+   Camera/LiDAR batch/topology and associated BN/worker-RNG recipe.
 3. **WP2 — exact standalone Camera.** Implement the Section-3.1 graph, ImageNet tensor
    mapping, reference CenterHead recipe, Camera augmentation, the production PyTorch
    sorted-segment-reduce BEV-pooling backend plus the unpromoted CUDA option and
@@ -592,7 +607,7 @@ create a per-WP worktree, harness, handoff, review chain, or approval cycle.
    keyframe-train/ten-sweep-eval separation.
 5. **WP4 — production integration, qualification, and review preparation.** Run
    focused local/static tests; qualify CUDA/fallback pooling forward values, backward
-   gradients, and FP16/FP32 policy; measure both pooling-operator and aligned B4
+   gradients, and FP16/FP32 policy; measure both pooling-operator and aligned
    end-to-end Camera timing; run production-path C/L engineering calibration,
    checkpoint resume, and evaluator preflight; inventory the historical Alvis
    checkpoint/config/class/evaluator provenance without performing the Phase-II aligned
@@ -610,12 +625,13 @@ commit authority must be explicit in Envelope A.
 1. **`P1-G0 PLAN_FREEZE` — closed by O-144.** The scientific recipe, five work
    packages, three gates, two-envelope model, and amendment boundaries in this
    document are binding. This closure does not activate Envelope A.
-2. **`P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` — exact request frozen; owner approval
-   pending.** The Camera backend disposition is resolved in favor of the qualified
-   PyTorch fallback. `RUN_REQUEST.md` Section 7 now binds the two resolved configs,
-   `49.0` charged-GH200-hour aggregate ceiling, serial wall segmentation, output,
-   remediation and stop rules. One owner-authorized independent recipe-freeze review
-   must close with no open P0-P2 before the first 20-epoch submission.
+2. **`P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` — revised request materialized; owner
+   activation pending.** The Camera backend disposition is resolved in favor of the
+   qualified PyTorch fallback. `RUN_REQUEST.md` Section 7.4 binds the two amended
+   resolved configs, `30.0` charged-GH200-hour aggregate ceiling, serial wall
+   segmentation, output, remediation and stop rules. One independent recipe-freeze
+   review must close with no open P0-P2 before the owner may activate the first
+   20-epoch submission.
 3. **`P1-G2 SELECT_AND_AUDIT` — pending.** The owner receives both terminal
    `D_select` results and chooses, per branch, accept/freeze, honest negative, or an
    explicit cause-directed amendment. `D_audit` opens only when the owner says
@@ -654,47 +670,44 @@ checkpoint ran. Unused budget is not continuing authority.
 
 ### 10.4 Envelope B — scientific branch qualification
 
-The frozen Envelope-B design contains exactly two primary candidates: one Camera and
-one LiDAR. O-150 qualifies the PyTorch fallback as the Camera production backend and
-removes the former CUDA-performance blocker. Each candidate uses seed 0, 20 exact-CBGS
-epochs over D_fit, physical B4,
-accumulation 8/effective B32, accepted S08 precision, terminal-only checkpoint
-selection, one `D_select` evaluation, and conditionally one owner-unsealed `D_audit`
-evaluation. No NuImages, GN, alternate LR, alternate seed, or automatic scientific
-repair is inside the initial envelope.
+The revised Envelope-B design contains exactly two primary candidates: LiDAR B32 on
+one GH200 followed by Camera B16/rank on two same-node GH200s. Both retain seed 0,
+20 exact-CBGS epochs over D_fit, effective global B32, accepted S08 precision,
+terminal-only raw epoch-20 selection and exactly one terminal `D_select` evaluation.
+`D_audit` and official validation are forbidden in this envelope; a later
+`P1-G2 OPEN D_audit` action requires a new exact request and resource amendment. No
+NuImages, GN, alternate LR, alternate seed or automatic scientific repair is inside
+the envelope.
 
 The default serial order is LiDAR then Camera because LiDAR exercises the role-bound
 GTDB and shared recipe first. A scientifically weak LiDAR result does not cancel the
 independent Camera primary unless the failure implicates a shared data, evaluator,
 precision, or configuration boundary. Maximum concurrency is one.
 
-Envelope-B GPU-hours are calculated only from the materialized consumed CBGS
-exposure, exact-graph production calibration, evaluator timing, checkpoint/resume
-overhead, and a declared 15% aggregate contingency:
+The resource estimate uses only the final sustained, checkpoint-qualified production
+stacks. Camera IP-E5 projects `7.581252` wall hours on two GH200s, or `15.162504`
+charged hours. LiDAR IP-L-E3 projects `8.261479` wall/charged hours. A conservative
+`1.2` charged hours covers both terminal evaluations, production preflights and
+recovery overhead before a 15% contingency:
 
 ```text
-N_consumed = 87,904 samples/epoch
-H_B = 1.15 * (20*N_consumed/throughput_C
-            + 20*N_consumed/throughput_L
-            + 0.80 hours evaluator/checkpoint/sealed-audit reserve)
+measured training charge = 15.162504 + 8.261479 = 23.423983
+non-training reserve                              =  1.200000
+subtotal                                          = 24.623983
+15% contingency                                   =  3.693597
+computed need                                     = 28.317580
+hard aggregate ceiling (rounded up)               = 30.000000 GH200-hours
 ```
 
-The materialized estimate uses `1,758,080` consumed presentations per candidate,
-Job H fallback throughput `16.3513808747 samples/s`, Job B5 LiDAR throughput
-`41.9043778095 samples/s`, a conservative combined `0.80` hours for D_select,
-checkpoint/preflight and still-sealed D_audit reserve, then the frozen 15%
-contingency. The result is `48.668420` hours, rounded up to an exact aggregate
-ceiling of `49.0` charged GH200-hours. Planned single-GH200 wall segments are
-`14:00:00` LiDAR and `35:00:00` Camera; maximum concurrency is one and no numeric
-engineering-submission cap is set under O-149. The exact configs, hashes, output
-root, commands and escalation rules are in `RUN_REQUEST.md` Section 7.
-
-D_audit time is only reserved: the data remain sealed until explicit `P1-G2 OPEN
-D_audit`, and that later opening still requires an exact config/provenance amendment.
-The calibration reused prefetched batches rather than proving sustained loader
-throughput; the 15% contingency covers this residual, supported by S09's observed
-`0.076%` eight-worker data wait. The ceiling is actual charge, not planned
-consumption. No estimate is derived solely from the old C1 graph.
+The initial LiDAR job is one typed GH200, 16 CPUs, 96 GiB and `10:00:00`, at most
+`10.0` charged hours. The initial Camera job is two typed GH200s, 32 CPUs, 192 GiB
+and `09:00:00`, at most `18.0` charged hours. The remaining aggregate margin is
+available only for exact checkpoint continuation or O-149 frozen-semantics
+engineering remediation; it is not a third candidate, another seed or an evaluation
+role. No numeric remediation-submission cap is set, but all work is serial and the
+same blocker recurring, ambiguity, a scientific boundary or ceiling exhaustion stops
+the envelope. The exact manifest/config/entry hashes, common fresh output root and
+commands are in `RUN_REQUEST.md` Section 7.4.
 
 ### 10.5 In-envelope remediation and mandatory escalation
 
@@ -723,8 +736,10 @@ envelope, and O-149 creates no standing compute authority.
 - reference BatchNorm throughout the selected convolutional graph; Swin LayerNorm
   retained; no GN candidate;
 - LiDAR keyframe-only train and ten-sweep evaluation;
-- physical B4, accumulation 8, effective optimizer B32, scheduler per optimizer update,
-  activation checkpointing off, and redundant telemetry synchronization off;
+- effective global B32 and scheduler per optimizer update; amended Camera B16/rank
+  x two-rank accumulation-one and LiDAR B32 x one-rank accumulation-one recipes,
+  with the owner-accepted BN/worker-RNG distinctions; activation checkpointing and
+  redundant telemetry synchronization remain off;
 - exact standalone reference Camera graph;
 - PyTorch sorted `segment_reduce` as the Camera production BEV-pooling backend;
   independent in-tree CUDA pooling retained as an unpromoted explicit option, with
@@ -747,9 +762,10 @@ envelope, and O-149 creates no standing compute authority.
 
 ### 11.2 Pending measurements or activation records, not open recipe choices
 
-- owner activation of the exact Envelope-B object in `RUN_REQUEST.md` Section 7;
-- one independent C/L recipe-freeze review at the activation baseline, with no open
-  P0-P2 before compute;
+- independent C/L recipe-freeze review of the exact Section-7.4 activation baseline,
+  with no open P0-P2;
+- owner activation naming the later review-sealed commit; source materialization or
+  review closure alone grants no compute authority;
 - the two terminal training/checkpoint/D_select results and actual charged time;
 - the P1-G2 owner disposition for each branch and any explicit `OPEN D_audit` action;
 - the later Alvis checkpoint/provenance/evaluator alignment audit for Phase II;
