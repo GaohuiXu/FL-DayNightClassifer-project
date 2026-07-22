@@ -861,6 +861,42 @@ def test_lidar_loss_health_reports_head_tail_without_making_a_slope_gate():
     assert "promotion gate" in report["interpretation"]
 
 
+def test_lidar_loss_health_flushes_scalar_views_in_bounded_blocks():
+    from fl_v3.training.loop import _ReadinessTiming
+
+    timing = _ReadinessTiming(
+        torch.device("cpu"),
+        0,
+        accumulation_steps=1,
+        stage_timing=False,
+        profiler_ranges=False,
+        loss_health=True,
+    )
+    record = {
+        "loss_tensors": [(torch.tensor(4.0), 2)],
+        "criterion_term_tensors": {
+            "loss_heatmap": [(torch.tensor(1.5), 2)],
+            "loss_cls": [(torch.tensor(1.0), 2)],
+            "loss_bbox": [(torch.tensor(1.5), 2)],
+            "matched_iou": [(torch.tensor(0.25), 2)],
+        },
+        "loss_weighted_sum": 0.0,
+        "criterion_term_weighted_sums": {},
+    }
+    timing.records.append(record)
+    timing._flush_loss_evidence()
+    assert timing.loss_flush_cursor == 1
+    assert record["loss_tensors"] == []
+    assert record["criterion_term_tensors"] == {}
+    assert record["loss_weighted_sum"] == 8.0
+    assert record["criterion_term_weighted_sums"] == {
+        "loss_heatmap": 3.0,
+        "loss_cls": 2.0,
+        "loss_bbox": 3.0,
+        "matched_iou": 0.5,
+    }
+
+
 def test_promoted_camera_runtime_stack_applies_exact_profiled_scope(monkeypatch):
     from fl_v3.models.fusion import swin_sdpa
     from fl_v3.training.phase1_runtime import apply_phase1_runtime_optimizations

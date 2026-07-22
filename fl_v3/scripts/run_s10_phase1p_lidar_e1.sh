@@ -94,7 +94,8 @@ python -m pytest -q \
   fl_v3/tests/test_s10_phase1p_checkpoint_gate.py \
   fl_v3/tests/test_s10_phase1p_profile.py::test_lidar_e1_profiles_are_clean_capacity_and_trace_mappings \
   fl_v3/tests/test_s10_phase1p_profile.py::test_lidar_trace_diagnosis_requires_nested_bottleneck_ranges \
-  fl_v3/tests/test_s10_phase1p_profile.py::test_lidar_loss_health_reports_head_tail_without_making_a_slope_gate
+  fl_v3/tests/test_s10_phase1p_profile.py::test_lidar_loss_health_reports_head_tail_without_making_a_slope_gate \
+  fl_v3/tests/test_s10_phase1p_profile.py::test_lidar_loss_health_flushes_scalar_views_in_bounded_blocks
 
 output_root="/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_l_e1_${approved_source_sha:0:12}"
 

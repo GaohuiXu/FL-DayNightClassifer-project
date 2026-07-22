@@ -1906,12 +1906,15 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             == {"loss_heatmap", "loss_cls", "loss_bbox", "matched_iou"},
             "IP-L-E1 LiDAR criterion-term inventory drift",
         )
-    memory_safe = (
+    memory_capacity_safe = (
         timing["memory"]["peak_reserved_fraction"]
         <= float(profile.measurement["max_reserved_fraction"])
-        and not timing["memory"]["monotonic_reserved_growth_over_64mib"]
     )
-    if args.mode != "capacity":
+    memory_growth_safe = not bool(
+        timing["memory"]["monotonic_reserved_growth_over_64mib"]
+    )
+    memory_safe = memory_capacity_safe and memory_growth_safe
+    if args.mode != "capacity" and profile.data["envelope"] != "IP-L-E1":
         _require(memory_safe, "candidate exceeds the frozen memory safety gate")
     measurement_health = {
         "zero_invalid_windows": int(state.invalid_windows) == 0,
@@ -1930,6 +1933,11 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             else not bool(
                 timing["memory"]["monotonic_reserved_growth_over_64mib"]
             )
+        ),
+        "memory_under_85_percent_reserved": (
+            True
+            if profile.data["envelope"] != "IP-L-E1" or args.mode == "capacity"
+            else memory_capacity_safe
         ),
     }
     measurement_health_gate = all(measurement_health.values())
@@ -2100,6 +2108,15 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         if profile.data["envelope"] != "IP-E2":
             raise RuntimeError("fresh-process checkpoint continuation parity failed")
     if profile.data["envelope"] == "IP-L-E1" and not measurement_health_gate:
+        _atomic_write_once(
+            output_dir / "failed.json",
+            {
+                "schema": "s10.phase1p.failed.v1",
+                "status": status,
+                "result_sha256": result_sha,
+                "failed_unix_seconds": time.time(),
+            },
+        )
         raise RuntimeError("IP-L-E1 measurement-health gate failed")
     complete = {
         "schema": "s10.phase1p.complete.v1",

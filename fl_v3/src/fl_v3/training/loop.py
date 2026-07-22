@@ -108,6 +108,8 @@ class _ReadinessTiming:
         self.block_samples = 0
         self.block_windows = 0
         self.block_records: list[dict[str, Any]] = []
+        self.loss_flush_cursor = 0
+        self.loss_observer_excluded_seconds = 0.0
 
     def _mark(self) -> Any:
         if self.stage_timing and self.use_cuda:
@@ -125,6 +127,10 @@ class _ReadinessTiming:
         if self.measurement_started:
             raise RuntimeError("readiness timing measurement boundary was started twice")
         state.validate(checkpoint_boundary=True)
+        # Release warm-up scalar views before resetting the measured allocator peak.
+        # Retaining hundreds of detached CUDA scalars can pin otherwise reusable
+        # allocator blocks and falsely resemble sustained model-memory growth.
+        self._flush_loss_evidence()
         if self.use_cuda:
             torch.cuda.synchronize(self.device)
             torch.cuda.reset_peak_memory_stats(self.device)
@@ -152,6 +158,8 @@ class _ReadinessTiming:
             "loss_tensors": [],
             "loss_samples": 0,
             "criterion_term_tensors": {},
+            "loss_weighted_sum": 0.0,
+            "criterion_term_weighted_sums": {},
         }
 
     def add_loss(
@@ -180,6 +188,41 @@ class _ReadinessTiming:
                     and value.is_floating_point()
                 ):
                     destination.setdefault(name, []).append((value.detach(), weight))
+
+    def _flush_loss_evidence(self) -> None:
+        """Resolve pending scalar views in one bounded transfer and release them."""
+        if not self.loss_health or self.loss_flush_cursor == len(self.records):
+            return
+        pending = self.records[self.loss_flush_cursor :]
+        values: list[torch.Tensor] = []
+        destinations: list[tuple[dict[str, Any], str | None, int]] = []
+        for record in pending:
+            for value, weight in record["loss_tensors"]:
+                values.append(value)
+                destinations.append((record, None, int(weight)))
+            for name, terms in record["criterion_term_tensors"].items():
+                for value, weight in terms:
+                    values.append(value)
+                    destinations.append((record, str(name), int(weight)))
+        if values:
+            resolved = (
+                torch.stack(values)
+                .detach()
+                .to(device="cpu", dtype=torch.float64)
+                .tolist()
+            )
+            for value, (record, name, weight) in zip(
+                resolved, destinations, strict=True
+            ):
+                if name is None:
+                    record["loss_weighted_sum"] += float(value) * weight
+                else:
+                    sums = record["criterion_term_weighted_sums"]
+                    sums[name] = sums.get(name, 0.0) + float(value) * weight
+        for record in pending:
+            record["loss_tensors"].clear()
+            record["criterion_term_tensors"].clear()
+        self.loss_flush_cursor = len(self.records)
 
     def add_data_wait(self, data_wait_ms: float) -> None:
         if self.active is None:
@@ -267,7 +310,12 @@ class _ReadinessTiming:
                         self.block_samples / seconds if seconds > 0.0 else None
                     ),
                 })
-                self.block_wall_start = now
+                observer_started = time.perf_counter()
+                self._flush_loss_evidence()
+                self.loss_observer_excluded_seconds += (
+                    time.perf_counter() - observer_started
+                )
+                self.block_wall_start = time.perf_counter()
                 self.block_samples = 0
                 self.block_windows = 0
         self.active = None
@@ -303,6 +351,7 @@ class _ReadinessTiming:
             })
             self.block_samples = 0
             self.block_windows = 0
+        self._flush_loss_evidence()
         resolved_records: list[dict[str, Any]] = []
         for pending in self.records:
             pairs = pending.pop("pairs")
@@ -312,21 +361,19 @@ class _ReadinessTiming:
             losses = pending.pop("loss_tensors")
             terms = pending.pop("criterion_term_tensors")
             loss_samples = int(pending["loss_samples"])
-
-            def resolve_weighted(values: list[tuple[torch.Tensor, int]]) -> float:
-                stacked = torch.stack([value.double() for value, _ in values])
-                weights = stacked.new_tensor([weight for _, weight in values])
-                return float((stacked * weights).sum().item())
-
+            if losses or terms:
+                raise RuntimeError("readiness loss evidence was not flushed")
+            loss_weighted_sum = float(pending.pop("loss_weighted_sum"))
+            term_weighted_sums = pending.pop("criterion_term_weighted_sums")
             pending["mean_loss"] = (
-                resolve_weighted(losses) / loss_samples
-                if losses and loss_samples
+                loss_weighted_sum / loss_samples
+                if self.loss_health and loss_samples
                 else None
             )
             pending["criterion_term_means"] = {
-                name: resolve_weighted(values) / loss_samples
-                for name, values in sorted(terms.items())
-                if values and loss_samples
+                name: float(value) / loss_samples
+                for name, value in sorted(term_weighted_sums.items())
+                if loss_samples
             }
             pending["durations_ms"] = {
                 name: sum(self._elapsed_ms(start, end) for start, end in spans)
@@ -379,7 +426,11 @@ class _ReadinessTiming:
         measured_wall_seconds = (
             None
             if self.measurement_wall_start is None
-            else float(terminal - self.measurement_wall_start)
+            else float(
+                terminal
+                - self.measurement_wall_start
+                - self.loss_observer_excluded_seconds
+            )
         )
         terminal_counters = _state_counters(state)
         start_counters = self.measurement_start_counters
@@ -447,6 +498,7 @@ class _ReadinessTiming:
             "warmup_boundary_reached": self.measurement_started,
             "warmup_boundary_attempted_window": self.warmup_boundary_attempted_window,
             "measurement_wall_seconds": measured_wall_seconds,
+            "loss_observer_excluded_seconds": self.loss_observer_excluded_seconds,
             "measurement_start_counters": start_counters,
             "measurement_counter_delta": counter_delta,
             "terminal_counters": terminal_counters,
