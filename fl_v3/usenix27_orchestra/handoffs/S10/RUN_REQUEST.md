@@ -2839,6 +2839,43 @@ sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
   --approved-source-sha "${APPROVED_SOURCE_SHA}"
 ```
 
+Initial L2-1 engineering incident and authorized O-149 replacement:
+
+```text
+INITIAL_L2_1_JOB: 558224
+INITIAL_SOURCE_SHA: 50a95c451f6db696382398f58ef20bd3d709fbd1
+INITIAL_SOURCE_TREE: edcefedadb673a9343a573b674bbed932d9bb488
+NODE / RESOURCES: n30 / 1xGH200 / 16 CPU / 96 GiB / 00:45:00 /
+  no restart or requeue
+SUBMIT / START / END / ELAPSED: 2026-07-22T10:40:18 /
+  2026-07-22T10:40:18 / 2026-07-22T10:42:20 / 00:02:02
+SLURM_STATE: FAILED 1:0 in mandatory preflight; no D_fit profiler process ran
+CHARGE: 0.033889 charged GH200-hours, code-bug reserve
+PRETEST: 11/13 PASS; FP32 SDPA/target, sparse-offset and fused-AdamW checks PASS;
+  only the two synthetic FP16 accepted-update fixture tails failed
+DIAGNOSIS: the target fixture incorrectly passed FP16 autocast output leaves to
+  unfused AdamW, whose 1e-8 epsilon underflows in half state and manufactured NaNs;
+  the SDPA forward/backward checks passed, while its one-step Adam sign response at
+  near-zero gradients produced a finite 0.000388 max parameter delta that the
+  latest diagnostic-only non-deterministic-kernel policy does not make a hard gate
+CLASSIFICATION: unambiguous test-fixture bug; production Phase-I model parameters
+  and Adam states remain FP32, and neither candidate source nor frozen science ran
+REPAIR_SHA: c8b23fd8b8b9cf352136edf8d51e17e3cf649796
+REPAIR_TEST_SHA256:
+  608460fe197df136cc143b17fa12794c1eb9125263ee3a5b302a5b75af4dd219
+REPAIR: target accepted-update proxies now mirror FP32 master parameters; SDPA keeps
+  its already-passing FP32/FP16 forward/backward tolerances and requires finite,
+  structurally complete accepted Adam states rather than elementwise update veto
+REPLACEMENT_AUTHORITY: smallest frozen-semantics O-149 fixture repair; submit L2-1
+  serially with unchanged profiles/candidates/resources/gates and a fresh derived
+  source-SHA-qualified output; no identical retry
+REPLACEMENT_SOURCE: exact clean containing incident-ledger commit
+BUDGET_AFTER_INITIAL: base 0/2.00; bug reserve 0.033889/0.75;
+  aggregate 0.033889/2.75 charged GH200-hours
+STDOUT_SHA256: fe3b258324425f4000b4a7ec23d5ebaa2b362ad48d3d89d6bf866b3e20557c15
+STDERR_SHA256: 8db5d05b4abfa9c9cc1bd7028c410675c3e2d697af110ce6c6d9aa51f2e1e830
+```
+
 ## 10. Envelope-A compact execution ledger
 
 This is the sole terminal ledger for Envelope A. Submission rows were appended only when
