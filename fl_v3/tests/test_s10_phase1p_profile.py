@@ -980,6 +980,52 @@ def test_lidar_trace_diagnosis_requires_nested_bottleneck_ranges():
     ]
 
 
+def test_lidar_e3_trace_accepts_compiled_parents_and_batched_loss_ranges():
+    runner = _runner_module()
+    batched_loss_ranges = (
+        "fl_v3::lidar_loss::target_build",
+        "fl_v3::lidar_loss::gt_prepare_validation_batched",
+        "fl_v3::lidar_loss::hungarian_cost_gpu",
+        "fl_v3::lidar_loss::hungarian_batched_d2h_scipy",
+        "fl_v3::lidar_loss::hungarian_batched_h2d_indices",
+        "fl_v3::lidar_loss::gaussian_target_batched_host",
+        "fl_v3::lidar_loss::dense_heatmap_focal",
+        "fl_v3::lidar_loss::query_classification_focal",
+        "fl_v3::lidar_loss::bbox_regression",
+    )
+    keys = (
+        *runner._TRAIN_TRACE_RANGES,
+        *runner._LIDAR_FORWARD_TRACE_RANGES,
+        *runner._LIDAR_SPARSE_TRACE_RANGES,
+        *batched_loss_ranges,
+    )
+    rows = [
+        {
+            "key": key,
+            "cpu_time_total_us": 1.0,
+            "device_time_total_us": 2.0,
+            "self_cpu_time_total_us": 0.5,
+            "self_device_time_total_us": 0.75,
+        }
+        for key in keys
+    ]
+    diagnosis = runner._lidar_trace_diagnosis(
+        rows, compiled_dense=True, batched_hungarian=True
+    )
+    assert diagnosis["missing_core_range_keys"] == []
+    assert diagnosis["compiled_dense_internal_ranges_suppressed"] is True
+    assert diagnosis["batched_hungarian_ranges"] is True
+    assert "fl_v3::lidar::transfusion_head" in diagnosis[
+        "compiled_dense_parent_ranges"
+    ]
+    assert "fl_v3::lidar_loss::gaussian_target_batched_host" in diagnosis[
+        "loss_and_host_sync"
+    ]
+    assert "fl_v3::lidar_loss::hungarian_finite_sync" in diagnosis[
+        "reference_sync_ranges_eliminated_by_batched_path"
+    ]
+
+
 def test_lidar_loss_health_reports_head_tail_without_making_a_slope_gate():
     from fl_v3.training.loop import _ReadinessTiming
 

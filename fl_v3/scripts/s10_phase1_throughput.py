@@ -1031,7 +1031,12 @@ def _camera_trace_diagnosis(range_rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _lidar_trace_diagnosis(range_rows: list[dict[str, Any]]) -> dict[str, Any]:
+def _lidar_trace_diagnosis(
+    range_rows: list[dict[str, Any]],
+    *,
+    compiled_dense: bool = False,
+    batched_hungarian: bool = False,
+) -> dict[str, Any]:
     """Summarize nested LiDAR stages without treating trace time as throughput."""
     by_key: dict[str, dict[str, Any]] = {}
     for row in range_rows:
@@ -1041,13 +1046,25 @@ def _lidar_trace_diagnosis(range_rows: list[dict[str, Any]]) -> dict[str, Any]:
             current["cpu_time_total_us"]
         ):
             by_key[key] = row
+    batched_loss_ranges = (
+        "fl_v3::lidar_loss::target_build",
+        "fl_v3::lidar_loss::gt_prepare_validation_batched",
+        "fl_v3::lidar_loss::hungarian_cost_gpu",
+        "fl_v3::lidar_loss::hungarian_batched_d2h_scipy",
+        "fl_v3::lidar_loss::hungarian_batched_h2d_indices",
+        "fl_v3::lidar_loss::gaussian_target_batched_host",
+        "fl_v3::lidar_loss::dense_heatmap_focal",
+        "fl_v3::lidar_loss::query_classification_focal",
+        "fl_v3::lidar_loss::bbox_regression",
+    )
+    loss_ranges = batched_loss_ranges if batched_hungarian else _LIDAR_LOSS_TRACE_RANGES
     expected = (
         *_TRAIN_TRACE_RANGES,
         *_LIDAR_FORWARD_TRACE_RANGES,
         *_LIDAR_SPARSE_TRACE_RANGES,
-        *_LIDAR_HEAD_TRACE_RANGES,
-        *_LIDAR_DECODER_TRACE_RANGES,
-        *_LIDAR_LOSS_TRACE_RANGES,
+        *(() if compiled_dense else _LIDAR_HEAD_TRACE_RANGES),
+        *(() if compiled_dense else _LIDAR_DECODER_TRACE_RANGES),
+        *loss_ranges,
     )
     missing = sorted(set(expected) - set(by_key))
 
@@ -1079,16 +1096,43 @@ def _lidar_trace_diagnosis(range_rows: list[dict[str, Any]]) -> dict[str, Any]:
         "sparse_front_end": totals(_LIDAR_SPARSE_TRACE_RANGES),
         "transfusion_head": totals(_LIDAR_HEAD_TRACE_RANGES),
         "transformer_decoder": totals(_LIDAR_DECODER_TRACE_RANGES),
-        "loss_and_host_sync": totals(_LIDAR_LOSS_TRACE_RANGES),
+        "loss_and_host_sync": totals(loss_ranges),
+        "compiled_dense_internal_ranges_suppressed": bool(compiled_dense),
+        "compiled_dense_parent_ranges": (
+            totals(_LIDAR_FORWARD_TRACE_RANGES[1:]) if compiled_dense else {}
+        ),
+        "batched_hungarian_ranges": bool(batched_hungarian),
+        "reference_sync_ranges_eliminated_by_batched_path": (
+            [
+                "fl_v3::lidar_loss::gt_prepare_validation",
+                "fl_v3::lidar_loss::hungarian_finite_sync",
+                "fl_v3::lidar_loss::hungarian_d2h_scipy",
+                "fl_v3::lidar_loss::hungarian_h2d_indices",
+                "fl_v3::lidar_loss::gaussian_target",
+            ]
+            if batched_hungarian
+            else []
+        ),
         "largest_lidar_forward_range": largest_forward,
         "explicit_sync_ranges": [
             "fl_v3::lidar_sparse::batch_index_validation",
             "fl_v3::lidar_sparse::batch_point_grouping",
-            "fl_v3::lidar_loss::gt_prepare_validation",
-            "fl_v3::lidar_loss::hungarian_finite_sync",
-            "fl_v3::lidar_loss::hungarian_d2h_scipy",
-            "fl_v3::lidar_loss::hungarian_h2d_indices",
-            "fl_v3::lidar_loss::gaussian_target",
+            *(
+                [
+                    "fl_v3::lidar_loss::gt_prepare_validation_batched",
+                    "fl_v3::lidar_loss::hungarian_batched_d2h_scipy",
+                    "fl_v3::lidar_loss::hungarian_batched_h2d_indices",
+                    "fl_v3::lidar_loss::gaussian_target_batched_host",
+                ]
+                if batched_hungarian
+                else [
+                    "fl_v3::lidar_loss::gt_prepare_validation",
+                    "fl_v3::lidar_loss::hungarian_finite_sync",
+                    "fl_v3::lidar_loss::hungarian_d2h_scipy",
+                    "fl_v3::lidar_loss::hungarian_h2d_indices",
+                    "fl_v3::lidar_loss::gaussian_target",
+                ]
+            ),
         ],
         "interpretation": (
             "nested CPU/device totals are trace-inflated localization evidence; "
@@ -1108,10 +1152,19 @@ class _TraceController:
         branch: str,
         warmup: int,
         active: int,
+        lidar_compiled_dense: bool = False,
+        lidar_batched_hungarian: bool = False,
     ) -> None:
         self.state = state
         self.branch = str(branch)
         _require(self.branch in {"camera", "lidar"}, "trace branch identity drift")
+        self.lidar_compiled_dense = bool(lidar_compiled_dense)
+        self.lidar_batched_hungarian = bool(lidar_batched_hungarian)
+        _require(
+            self.branch == "lidar"
+            or not (self.lidar_compiled_dense or self.lidar_batched_hungarian),
+            "LiDAR trace policy cannot be applied to Camera",
+        )
         self.warmup = int(warmup)
         self.target = self.warmup + int(active)
         activities = [torch.profiler.ProfilerActivity.CPU]
@@ -1166,7 +1219,11 @@ class _TraceController:
         diagnosis = (
             _camera_trace_diagnosis(range_rows)
             if self.branch == "camera"
-            else _lidar_trace_diagnosis(range_rows)
+            else _lidar_trace_diagnosis(
+                range_rows,
+                compiled_dense=self.lidar_compiled_dense,
+                batched_hungarian=self.lidar_batched_hungarian,
+            )
         )
         _require(
             not diagnosis["missing_core_range_keys"],
@@ -1973,7 +2030,19 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     }[args.mode]])
     target = warmup + active
     trace_controller = (
-        _TraceController(state, branch=args.branch, warmup=warmup, active=active)
+        _TraceController(
+            state,
+            branch=args.branch,
+            warmup=warmup,
+            active=active,
+            lidar_compiled_dense=(
+                args.branch == "lidar" and bool(profile.candidates["torch_compile"])
+            ),
+            lidar_batched_hungarian=(
+                args.branch == "lidar"
+                and bool(profile.candidates["hungarian_batched_d2h"])
+            ),
+        )
         if args.mode == "trace"
         else None
     )
