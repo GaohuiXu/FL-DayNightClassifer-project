@@ -142,8 +142,10 @@ boundary. The owner subsequently cancelled the serial L->C dependency. Current
 the unchanged `30.0` charged-hour ceiling: unchanged two-GH200 Camera plus one
 zero-update one-GH200 LiDAR epoch-4 diagnostic may overlap, maximum two jobs/three
 typed GH200s and one job per branch. It adds one disclosed, non-selectable epoch-4
-`D_select` diagnostic peek before the future terminal evaluation; independent
-review and explicit owner activation are required before compute. No job is active.
+`D_select` diagnostic peek before the future terminal evaluation. Independent review
+of `296ef9b947236c9aded6daf323f26d1a013bfb0c` closed
+`PASS_WITH_RESIDUAL_RISK` with no open P0-P2; only explicit owner activation of the
+containing review-seal commit remains before compute. No job is active.
 When activated, substantive health checks use the owner-selected one-hour cadence
 plus passive terminal/state-change detection; a nominal `RUNNING` state alone is
 not health evidence.

@@ -4,10 +4,10 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: owner cancelled serial dependency; Section-7.4.7 parallel amendment prepared
-REQUEST_STATE: PARALLEL AMENDMENT OWNER ACTIVATION REQUIRED / NOT EXECUTABLE
-EXECUTION_AUTHORITY: prior seal 1473ef67... is historical for unchanged recipes
-ACTIVE_PHASE: independently review amendment, then request Camera + LiDAR diagnostic activation
+ACTIVE_DECISION: owner cancelled serial dependency; Section-7.4.7 review closed
+REQUEST_STATE: REVIEW CLOSED / OWNER ACTIVATION REQUIRED / NOT EXECUTABLE
+EXECUTION_AUTHORITY: none; prior seal 1473ef67... is historical for unchanged recipes
+ACTIVE_PHASE: request Camera + LiDAR diagnostic activation at the review-seal commit
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -876,12 +876,15 @@ The owner cancelled the serial LiDAR-then-Camera dependency and directed that th
 unchanged Camera candidate be prepared independently while LiDAR diagnosis
 proceeds. This is a topology and diagnostic-scope amendment, not a branch-recipe
 change. The prior review seal remains historical evidence for both recipes but is
-not compute authority for this changed manifest. The clean amendment source needs
-one independent read-only review and an explicit owner activation before either
-new command is submitted.
+not compute authority for this changed manifest. Independent review of clean source
+`296ef9b947236c9aded6daf323f26d1a013bfb0c` closed
+`PASS_WITH_RESIDUAL_RISK` with no open P0-P2. The containing review-seal commit still
+needs explicit owner activation before either new command is submitted.
 
 ```text
-AMENDMENT_STATE: MATERIALIZED / OWNER ACTIVATION REQUIRED / NOT EXECUTABLE
+AMENDMENT_STATE: REVIEW CLOSED / OWNER ACTIVATION REQUIRED / NOT EXECUTABLE
+REVIEWED_SOURCE: 296ef9b947236c9aded6daf323f26d1a013bfb0c
+REVIEW_VERDICT: PASS_WITH_RESIDUAL_RISK; P0=0, P1=0, P2=0, P3=1
 PARENT_SOURCE: e637f61a442b5cfda223970a1de466cd8d891738
 PRODUCTION_CANDIDATES: unchanged Camera primary and LiDAR primary; seed 0
 TOPOLOGY: independent Camera/LiDAR work; at most one job per branch
@@ -941,7 +944,7 @@ amendment. The clean containing Git SHA is named only after commit and is the
 
 | Bound object | SHA-256 | Current role |
 |---|---|---|
-| v2 dual manifest `fl_v3/configs/s10_phase1_envelope_b_dual.json` | `e623ee79e4257215766e6ea5b2b9a79f5fe7e052121e8129af536cbbc631c0ec` | sole current topology/resource/entry manifest |
+| v2 dual manifest `fl_v3/configs/s10_phase1_envelope_b_dual.json` | `d6cb3474a51400bcfd767ae7763af0290a974faf40b79a4b586afa0895651957` | sole current topology/resource/entry manifest; review disposition embedded |
 | Camera source config | `89a4d9982583dc213e110fcec9469be04e9b4ccf3cefb9a2ca97b294e7650014` | unchanged Camera recipe |
 | Camera resolved config | `63f77459fcb229155a0b1a6608d83abf3c55336d554c20f7629d57ed7122d1b3` | launcher-validated Camera semantics |
 | LiDAR source config | `017086bbd9a9534adf2808461da9cf881d9ef798ef3f3d7c58d3a07b2c7a15d9` | unchanged LiDAR recipe used read-only by diagnostic |
@@ -996,6 +999,30 @@ terminal state. Aggregate accounting, not the sum of requested wall limits alone
 remains the hard resource gate. A later full LiDAR restart is not authorized by
 this amendment and may require a further resource decision if worst-case Camera
 and diagnostic charges leave insufficient headroom.
+
+#### 7.4.8 Independent parallel-amendment review
+
+```text
+REVIEWED_SOURCE: 296ef9b947236c9aded6daf323f26d1a013bfb0c
+REVIEW_MODE: independent read-only; reviewer made no modifications
+VERDICT: PASS_WITH_RESIDUAL_RISK
+FINDINGS: P0=0 / P1=0 / P2=0 / P3=1 / open P0-P2=0
+OWNER_ACTIVATION_READY: yes
+P3: wall limit, --no-requeue, aggregate charge and cross-job concurrency rely on
+    the exact sbatch commands and compact ledger rather than in-process enforcement
+LOGIN_LIMIT: x86 login has no PyTorch/pytest; GH200 runtime remains execution-time
+NO_GPU_SLURM_DURING_REVIEW: true
+```
+
+The review confirmed that localization completes durably before the additional
+epoch-4 `D_select` look; v2 contains no LiDAR production/resume launcher; production
+and eager stage claims match their instrumentation; current documentation no longer
+labels the stopped serial topology active; hashes/configs/budget arithmetic are
+consistent; and `diagnostic_scope.json` is written inside evaluation `.in_progress`
+before decode and atomically renamed into `evaluation/complete/`. Camera recipe and
+LiDAR checkpoint/config/data/seed/exposure/precision/evaluator boundaries did not
+drift. This review closes the recipe-freeze review gate but grants no compute; the
+owner must name the clean containing review-seal commit and explicitly activate it.
 
 ## 8. Phase I-P IP-G0 record and exact IP-E1 request
 

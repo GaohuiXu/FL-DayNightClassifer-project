@@ -15,7 +15,7 @@ AUTHORITY: freezes the Phase I scientific choices, work-package order, gates,
 IMPLEMENTATION: WP0-WP4 completed under consumed O-146/O-147/O-148
 COMPUTE: Envelope A and Phase I-P profiler envelopes are terminal; prior serial
          Envelope B stopped at the LiDAR epoch-5 numerical boundary; Section 7.4.7
-         parallel Camera/LiDAR-diagnostic amendment awaits review and activation
+         review closed with no open P0-P2; owner activation remains pending
 CHECKPOINT_ACQUISITION: completed once under consumed Envelope A
 COMMIT: material Envelope-A implementation/result/contract closure commits authorized
 MERGE/PUSH/UPLOAD/PUBLICATION: not authorized by this document
@@ -626,7 +626,7 @@ commit authority must be explicit in Envelope A.
    packages, three gates, two-envelope model, and amendment boundaries in this
    document are binding. This closure does not activate Envelope A.
 2. **`P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` — prior serial authority stopped;
-   Section-7.4.7 amendment pending review and activation.** The Camera backend
+   Section-7.4.7 review closed, owner activation pending.** The Camera backend
    disposition remains resolved in favor of the qualified PyTorch fallback.
    `RUN_REQUEST.md` Section 7.4 bound the two amended resolved configs, `30.0`
    charged-GH200-hour aggregate ceiling, serial wall segmentation, output,
@@ -638,8 +638,10 @@ commit authority must be explicit in Envelope A.
    dependency; Section 7.4.7 now binds a pending maximum-two-job/three-GH200
    amendment with unchanged Camera plus one zero-update LiDAR diagnostic. LiDAR
    training/resume is forbidden and the added epoch-4 `D_select` look is disclosed,
-   diagnostic-only and non-selectable. No amended command is executable until its
-   independent review and explicit owner activation close.
+   diagnostic-only and non-selectable. Independent review of
+   `296ef9b947236c9aded6daf323f26d1a013bfb0c` closed
+   `PASS_WITH_RESIDUAL_RISK` with no open P0-P2. No amended command is executable
+   until the owner names and activates the containing review-seal commit.
 3. **`P1-G2 SELECT_AND_AUDIT` — pending.** The owner receives both terminal
    `D_select` results and chooses, per branch, accept/freeze, honest negative, or an
    explicit cause-directed amendment. `D_audit` opens only when the owner says
@@ -775,8 +777,9 @@ envelope, and O-149 creates no standing compute authority.
 
 - prior Section-7.4 recipe review closed `PASS_WITH_RESIDUAL_RISK` and its serial
   activation is retained as historical evidence after the LiDAR numerical stop;
-- independent review and explicit owner activation of the exact Section-7.4.7
-  parallel amendment are pending; no job is active;
+- independent review of the exact Section-7.4.7 amendment closed at `296ef9b...`
+  with no open P0-P2; explicit owner activation of its review-seal commit is pending,
+  and no job is active;
 - the Camera terminal training/checkpoint/`D_select` result, LiDAR diagnostic result,
   and any later separately authorized LiDAR terminal result and actual charged time;
 - the P1-G2 owner disposition for each branch and any explicit `OPEN D_audit` action;

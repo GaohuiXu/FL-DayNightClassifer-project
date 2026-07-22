@@ -200,7 +200,13 @@ def test_phase1_dual_envelope_b_manifest_binds_both_recipes_and_resources():
     assert spec["review_gate"] == {
         "independent_recipe_freeze_review_required": True,
         "open_p0_p2_allowed": False,
-        "status": "parallel_amendment_independent_review_pending",
+        "status": "parallel_amendment_independent_review_closed_no_open_p0_p2",
+        "reviewed_source_sha": "296ef9b947236c9aded6daf323f26d1a013bfb0c",
+        "verdict": "PASS_WITH_RESIDUAL_RISK",
+        "findings": {"p0": 0, "p1": 0, "p2": 0, "p3": 1},
+        "residual_p3": (
+            "wall_no_requeue_aggregate_and_cross_job_concurrency_rely_on_exact_sbatch_and_ledger"
+        ),
     }
     for entry in spec["entries"].values():
         path = ROOT.parent / entry["path"]

@@ -1,4 +1,4 @@
-# S10 HANDOFF — Parallel Envelope-B amendment prepared after LiDAR numerical stop
+# S10 HANDOFF — Parallel Envelope-B review closed; owner activation pending
 
 ## 1. Current state and authority
 
@@ -10,7 +10,7 @@ FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a514
 ACTIVE_DECISION: owner cancelled serial L->C dependency and requested a parallel amendment
 SCIENCE_ORDER: Camera may qualify independently while LiDAR runs one zero-update diagnostic unit
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: Section 7.4.7 parallel source/resource amendment awaits review seal and activation
+CURRENT_AUTHORITY: Section 7.4.7 review closed at 296ef9b...; owner activation pending
 EXECUTION_STATE: no active job; LiDAR incomplete at epoch 4; Camera job is prepared but not submitted
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
@@ -96,9 +96,12 @@ eager FP16, eager FP32 and SDPA FP16 localization on the exact epoch-5 first bat
 durably completed before an explicitly non-selectable epoch-4 `D_select` diagnostic
 peek with raw-head finite checks. The peek cannot select an epoch, drive early stopping
 or consume the future epoch-20 terminal evaluation. Because it is nevertheless an
-additional look at `D_select`, the new source must be independently reviewed and
-explicitly activated before compute. Aggregate charge remains
-`2.121944 / 30.0` GH200-hours.
+additional look at `D_select`, source `296ef9b947236c9aded6daf323f26d1a013bfb0c`
+received independent `PASS_WITH_RESIDUAL_RISK` with no open P0-P2. The sole P3 is
+external enforcement of wall/no-requeue/aggregate/cross-job concurrency through
+the exact `sbatch` commands and ledger. Explicit owner activation of the containing
+review-seal commit remains required before compute. Aggregate charge remains
+`2.121944 / 30.0` GH200-hours; no GPU/Slurm ran during review.
 
 ### 1.1 Frozen Phase I-P workflow
 
@@ -861,7 +864,7 @@ cells/resources and the default-off derived implementation at
 | L-WP1 clean measurement | exact D_fit LiDAR recipe; clean B4/B8/B16/B32 profiles | default-off capacity ladder, B4-versus-highest-safe sustained processes, two detailed traces, checkpoint and loss-health evidence | closed; IP-LG1 accepted LiDAR-only B32x1 and froze L-WP2 |
 | L-WP2 primary screens | accepted B32x1 recipe and L-E1 bottleneck evidence | five isolated same-allocation B32 pairs: target/Hungarian host batching, LiDAR SDPA, dense scoped compile, sparse host offsets/stat cleanup, fused AdamW | closed: target-host, compile and host-offset positive; SDPA and fused AdamW negative; no promotion yet |
 | L-WP3 conditional/composed screens | positive primary candidates and trace residuals | conditionally test full-sort-to-topk, batched voxelization, batched Gaussian targets, H2D-field pruning and hidden-sync cleanup; validate the final combined stack | IP-LG2 promotes/rejects the exact L-only recipe and explicitly accepts any BN/worker-RNG batch recipe |
-| L-WP4 capability handoff | owner-promoted LiDAR recipe plus promoted Camera 2-GH200 v4 recipe | prior dual-branch object reviewed at Section 7.4; parallel recovery object materialized at Section 7.4.7 | prior serial run stopped at LiDAR epoch 5; parallel amendment awaits independent review and explicit activation |
+| L-WP4 capability handoff | owner-promoted LiDAR recipe plus promoted Camera 2-GH200 v4 recipe | prior dual-branch object reviewed at Section 7.4; parallel recovery object reviewed at `296ef9b...` with no open P0-P2 | prior serial run stopped at LiDAR epoch 5; parallel amendment awaits explicit owner activation |
 
 The candidate classes remain distinct. Batching or removing redundant host-side
 diagnostic plumbing, exact batched Hungarian transfers, output-equivalent sparse
@@ -1150,7 +1153,8 @@ accepted Section 7.4. The owner later removed the no-submit hold, and LiDAR ran 
 That serial authority stopped at the epoch-5 numerical boundary. The owner then
 cancelled the serial dependency; Section 7.4.7 now prepares independent Camera and
 zero-update LiDAR-diagnostic units with a one-hour substantive-health cadence. Its
-new review and activation gates remain open, and no job is currently active.
+review closed at `296ef9b...` with no open P0-P2; only owner activation remains, and
+no job is currently active.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
@@ -1492,7 +1496,8 @@ the frozen control. Revised Section 7.4 uses the final production stacks:
 recovery and 15% contingency gives `28.317580`, rounded to a `30.0` charged-hour
 hard ceiling. The prior independent review and owner acceptance remain historical at
 seal `1473ef67...`; that serial execution stopped at the LiDAR epoch-5 boundary.
-Section 7.4.7's parallel amendment awaits independent review and activation.
+Section 7.4.7's parallel amendment passed independent review at `296ef9b...` with
+no open P0-P2 and awaits explicit owner activation of its review-seal commit.
 
 WP3 implements the reference-led standalone LiDAR graph without changing the
 historical Fusion detector. The existing reference-shaped sparse SECOND is reused only
