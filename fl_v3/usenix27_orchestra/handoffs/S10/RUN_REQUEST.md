@@ -2755,7 +2755,7 @@ ACTIVATION_REQUIREMENT: first materialize and locally validate exact default-off
 ### 9.10 LiDAR IP-L-E2 activation and execution ledger
 
 ```text
-REQUEST_STATE: ACTIVE / L2-1 THROUGH L2-5 PENDING
+REQUEST_STATE: TERMINAL / IP-L-E2 CLOSED / OWNER RETURN AT IP-LG2
 OWNER_DECISION: 2026-07-22 — "激活IP-L-E2"
 APPROVAL_ANCHOR_SHA: d1789bba4804dfcdab4d26a5780a836e69b56355
 ACTIVATION_INTERPRETATION: the explicit phase activation binds the already frozen
@@ -2874,6 +2874,69 @@ BUDGET_AFTER_INITIAL: base 0/2.00; bug reserve 0.033889/0.75;
   aggregate 0.033889/2.75 charged GH200-hours
 STDOUT_SHA256: fe3b258324425f4000b4a7ec23d5ebaa2b362ad48d3d89d6bf866b3e20557c15
 STDERR_SHA256: 8db5d05b4abfa9c9cc1bd7028c410675c3e2d697af110ce6c6d9aa51f2e1e830
+```
+
+Terminal L-WP2 ledger:
+
+```text
+TERMINAL_SOURCE_SHA: be904876e3b42f21ce04fe453c0bb1283acb237b
+APPROVED_SOURCE_SHA: d1789bba4804dfcdab4d26a5780a836e69b56355
+SOURCE_CONFIG_SHA256: 0efe4d6d5138e3d99ae80254a6ecf884300dd18985ab45a00425228fc3ef082e
+PRETESTS: every terminal paired job 13/13 PASS; two non-actionable dependency
+  warnings only
+GLOBAL_HEALTH: ten COMPLETE_SUSTAINED results; 2,560/2,560 measured optimizer
+  windows and 81,920/81,920 presentations accepted; zero invalid, nonfinite,
+  overflow, discard or scaler skip; every loss/component, measurement and
+  checkpoint-continuation hard gate PASS; every same-batch input anchor exact
+DATA/CLAIM_BOUNDARY: D_fit/CBGS/seed-0 only; D_select=false, D_audit=false,
+  official-validation=false and capability-metrics=false in every result
+LOSS_HEALTH: all ten first-quarter total-loss means 42.7995-44.3944 and
+  last-quarter means 6.3637-6.7795; bounded health only, not convergence/capability
+MEMORY: maximum reserved fraction 0.531312 in SDPA; every process below 0.85 with
+  no monotonic growth; compile candidate reserved fraction 0.409046
+
+L2-1 / JOB 558796 / NODE n30 / ELAPSED 00:16:35 / CHARGE 0.276389 base:
+  reference 51.564006539 -> target/Hungarian 54.843411113 presentations/s;
+  ratio 1.063598715; one-sided lower bound 1.040014880; POSITIVE; all hard gates PASS
+  reference result 2e3a87105957d7d49e6089bf34b5e690f020fc2da0266323785758ff92d7d03d
+  candidate result 7f805b551ed1edb6d6a8c0545471a6b077ee3d4c16fc00f8768defcc8e3b77da
+  pair 42acba262b7e1fce09c86277a168f04a636d28601aaa036763e38ae9eb63b636
+L2-2 / JOB 559450 / NODE n422 / ELAPSED 00:17:56 / CHARGE 0.298889 base:
+  reference 54.221679924 -> SDPA 50.139856686 presentations/s;
+  ratio 0.924719720; lower bound 0.920839040; NEGATIVE; all hard gates PASS;
+  exact two-core/dropout/RNG scope recorded; max reserved fraction 0.531312
+  reference result 27c216faad372601d16df0a847b40b91fd9bdafa1200ef1f9b0e5b4a99859249
+  candidate result a36ad4c59b6426a2d67d6c5caecd381356a4cc3a7a5a671e809086cca45e29b7
+  pair 7d680007ec2282ea027e7b3e0d2b985c85fd6c08b296b6dbca99c5cf582a394e
+L2-3 / JOB 559566 / NODE n420 / ELAPSED 00:19:06 / CHARGE 0.318333 base:
+  reference 50.918700099 -> scoped compile 55.728925044 presentations/s;
+  ratio 1.094468730; lower bound 1.089391975; POSITIVE; all hard gates PASS;
+  exactly decoder_backbone/decoder_neck/head, 107.274 s cold warm-up and no
+  measured-interval recompile
+  reference result 9f0489ef03a6c34733b6e819672d167928b33c468b938ea5aca7740493e2ef52
+  candidate result b7c13b325413eeb20d157f11c6af3883faecb9890842f24c1342db500299e197
+  pair 617ac9c23e619547e0474eb55f4d156d68d569400fd6ee0899b94142bfd5d4bb
+L2-4 / JOB 559612 / NODE n52 / ELAPSED 00:17:40 / CHARGE 0.294444 base:
+  reference 51.465626804 -> host offsets 55.470067427 presentations/s;
+  ratio 1.077808061; lower bound 1.073928980; POSITIVE; all hard gates PASS
+  reference result 5d658a821ec26195add3537d1dbf32ad0ebbd0c60d12fe85048ce7e8e0dbe22a
+  candidate result 4064638d0086fc1afd97e2b7e4cd5bb19a13887909be38d193b316d37fa018cd
+  pair e02a438400727c6bc57d9c31275bc7cafebcad80c677363e67e26eb548ebd32b
+L2-5 / JOB 559662 / NODE n77 / ELAPSED 00:17:30 / CHARGE 0.291667 base:
+  reference 55.175985793 -> fused AdamW 53.880671624 presentations/s;
+  ratio 0.976523951; lower bound 0.972154208; NEGATIVE; all hard gates PASS;
+  exact optimizer-group/state/checkpoint identity preserved
+  reference result 8f1b8f680b21bdbeb67ea73417134ad9f1e0e2d63b5803746840107470c586fc
+  candidate result ae1dfecd16adb6ff1ac89f37cfc461b87be6268a6319fc4e89212b828693d4d2
+  pair c5607faaff6557e2499e1afd941e55e53bdc69c508e0e9c875581afc38d2630c
+
+FINAL_BUDGET: base 1.479722/2.00; code-bug reserve 0.033889/0.75;
+  aggregate 1.513611/2.75 charged GH200-hours; maximum concurrency one respected
+TERMINAL_CLASSIFICATION: positive primaries are target/Hungarian host batching,
+  scoped dense compile and sparse host offsets; SDPA and fused AdamW are negative
+PROMOTION_STATE: none promoted or combined; no final LiDAR recipe claim
+OWNER_RETURN: close IP-L-E2/L-WP2 and discuss exact L-WP3 composition at IP-LG2;
+  no further compute, Camera/Fusion work or Envelope-B action is authorized
 ```
 
 ## 10. Envelope-A compact execution ledger

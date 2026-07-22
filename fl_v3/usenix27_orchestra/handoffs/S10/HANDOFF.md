@@ -1,4 +1,4 @@
-# S10 HANDOFF — LiDAR IP-L-E2 active / L-WP2 executing
+# S10 HANDOFF — LiDAR IP-L-E2 terminal / IP-LG2 discussion pending
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: owner activates the frozen five-cell LiDAR IP-L-E2 envelope
-SCIENCE_ORDER: execute L2-1 through L2-5 serially, close L-WP2, then return to IP-LG2
+ACTIVE_DECISION: IP-L-E2 is terminal; three positive primaries return to IP-LG2
+SCIENCE_ORDER: discuss/freeze L-WP3 composition and final LiDAR recipe; no compute active
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: exact Section-9.10 IP-L-E2 GPU/Slurm plus scoped O-149 remediation; no later phase
-EXECUTION_STATE: IP-L-E1 TERMINAL at source 77f13f95 / Job 555777; IP-L-E2 ACTIVE; Envelope B unauthorized
+CURRENT_AUTHORITY: closure docs/local validation only; no GPU/Slurm or later-phase authority
+EXECUTION_STATE: IP-L-E1 TERMINAL; IP-L-E2 TERMINAL at source be904876 / Jobs 558796-559662; Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -808,7 +808,7 @@ cells/resources and the default-off derived implementation at
 |---|---|---|---|
 | L-WP0 diagnosis | current LiDAR model/loss/loader/CBGS/checkpoint paths plus historical B4 evidence | read-only bottleneck and candidate classification; closed | IP-LG0 freezes the workflow and source scope |
 | L-WP1 clean measurement | exact D_fit LiDAR recipe; clean B4/B8/B16/B32 profiles | default-off capacity ladder, B4-versus-highest-safe sustained processes, two detailed traces, checkpoint and loss-health evidence | closed; IP-LG1 accepted LiDAR-only B32x1 and froze L-WP2 |
-| L-WP2 primary screens | accepted B32x1 recipe and L-E1 bottleneck evidence | five isolated same-allocation B32 pairs: target/Hungarian host batching, LiDAR SDPA, dense scoped compile, sparse host offsets/stat cleanup, fused AdamW | IP-L-E2 active; execute serially; candidate-local negative does not stop independent later cells |
+| L-WP2 primary screens | accepted B32x1 recipe and L-E1 bottleneck evidence | five isolated same-allocation B32 pairs: target/Hungarian host batching, LiDAR SDPA, dense scoped compile, sparse host offsets/stat cleanup, fused AdamW | closed: target-host, compile and host-offset positive; SDPA and fused AdamW negative; no promotion yet |
 | L-WP3 conditional/composed screens | positive primary candidates and trace residuals | conditionally test full-sort-to-topk, batched voxelization, batched Gaussian targets, H2D-field pruning and hidden-sync cleanup; validate the final combined stack | IP-LG2 promotes/rejects the exact L-only recipe and explicitly accepts any BN/worker-RNG batch recipe |
 | L-WP4 capability handoff | owner-promoted LiDAR recipe plus promoted Camera 2-GH200 v4 recipe | new dual-branch Envelope-B source/config/hash/output roots and per-branch resource projection; independent recipe-freeze review | only a no-open-P0-P2 review may lead to a later Envelope-B activation request |
 
@@ -986,6 +986,15 @@ request input, not active authority. Local source/tests/profiles/runner and a cl
 containing SHA must be materialized and returned for explicit owner activation.
 L-E2, D_select, D_audit, official validation, Camera/Fusion work, revised
 Envelope-B execution, merge and push remain unauthorized.
+
+The owner subsequently activated that exact request. `IP-L-E2` is now terminal at
+source `be904876e3b42f21ce04fe453c0bb1283acb237b`: all ten sustained processes
+passed measurement/loss/checkpoint hard gates. Target/Hungarian host batching was
+`1.06360x` (lower bound `1.04001`), scoped compile `1.09447x` (`1.08939`), and
+host offsets `1.07781x` (`1.07393`), so these three are positive inputs to
+`IP-LG2`. LiDAR SDPA was `0.92472x` and fused AdamW `0.97652x`, both negative.
+This closes only the isolated primary screens; no candidate has been composed or
+promoted, and `L-WP3` has no execution authority.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
