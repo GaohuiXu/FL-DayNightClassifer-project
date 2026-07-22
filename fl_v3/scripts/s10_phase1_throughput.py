@@ -1924,6 +1924,13 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             if profile.data["envelope"] != "IP-L-E1"
             else bool(lidar_loss_health["all_reported_values_finite"])
         ),
+        "no_sustained_monotonic_reserved_growth_over_64mib": (
+            True
+            if profile.data["envelope"] != "IP-L-E1" or args.mode == "capacity"
+            else not bool(
+                timing["memory"]["monotonic_reserved_growth_over_64mib"]
+            )
+        ),
     }
     measurement_health_gate = all(measurement_health.values())
     prefix = _sampler_prefix_identity(bundle, 0, state.attempted_samples)
