@@ -1,4 +1,4 @@
-# S10 HANDOFF — Camera IP-E5 DDP positive / production decision pending
+# S10 HANDOFF — Camera 2-GH200 recipe promoted / Envelope B still frozen
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: IP-E5 terminal POSITIVE_DDP_QUALIFICATION; production gate pending
-SCIENCE_ORDER: owner decision on the exact two-rank BN/worker-RNG production recipe
+ACTIVE_DECISION: owner promoted the exact IP-E5 two-GH200 Camera recipe
+SCIENCE_ORDER: refreeze/review revised Envelope B before any capability execution
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: IP-E5 compact evidence closure only; no further compute
-EXECUTION_STATE: IP-E5 CLOSED POSITIVE; Envelope B unauthorized
+CURRENT_AUTHORITY: promoted source/config/docs/tests and local validation only
+EXECUTION_STATE: IP-E5 CLOSED POSITIVE; production source frozen; Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -26,6 +26,11 @@ Neither IP-E1 nor IP-E2 authorizes scientific training, an evaluation role, merg
 push, or movement of the frozen control branch.
 The Section-7 Envelope-B request in `RUN_REQUEST.md` is preserved verbatim as a
 historical control and is not activated by Phase I-P.
+After terminal IP-E5 evidence, the owner explicitly accepted ordinary per-rank B16
+BatchNorm and `seed + epoch*world_size + rank` worker RNG and promoted the exact
+same-node two-GH200 recipe. Implementation
+`2c3780bb6373ae784b41c22df072824f7a92d457` materializes that decision without
+submitting a job or activating Section 7.
 After the terminal B16 evidence, the owner closed IP-G2 by promoting B16x2 and
 explicitly accepting its BatchNorm/worker-RNG recipe change relative to B8x4.
 Implementation `299277e8bdb8f60a05e8f06c2c0706e29252b51c` materializes the exact
@@ -68,7 +73,7 @@ IP-G0 (closed: plan/topology/local implementation)
   -> IP-G2 (closed: B16x2 + SDPA + scoped compile + fused AdamW accepted)
   -> IP-E3 (closed: conservative affine/grid selected; combined path retained)
   -> IP-E4 (closed: vectorized geometry + bulk conversion promoted)
-  -> IP-E5 (designed: exact same-node 1-GPU versus 2-GPU request; not activated)
+  -> IP-E5 (closed positive; exact two-GH200 BN/RNG recipe owner-promoted)
 ```
 
 IP-G2 is not Envelope-B activation. Any accepted production-source or config
@@ -690,7 +695,7 @@ subsequently approved the exact Section-9.6 IP-E5 request at containing request
 commit `2505db02920021663ccce7783dee483f10e638f8`, including its `1.50` base plus
 `1.50` diagnosed-code-bug reserve and `3.00` charged-GH200-hour hard ceiling.
 
-### 1.8 IP-E5 DDP qualification — terminal positive, not automatically promoted
+### 1.8 IP-E5 DDP qualification — terminal positive and subsequently promoted
 
 Implementation `e51df6efa04e6d151315c72b7d7016014852078c` binds both IP-E5
 profiles to the production Camera config at file/resolved hashes
@@ -706,11 +711,11 @@ DDP evidence.
 The two-rank sampler preserves each frozen global B32 permutation window exactly:
 rank 0 receives positions `[0:16]` and rank 1 `[16:32]`, with no padding, striding,
 duplicate or omission. Per-rank worker seeds are `seed + epoch*world_size + rank`;
-this is a deliberate measurement-only DDP RNG recipe. Ordinary DDP rank-local B16
-BatchNorm is measured. Rank-0 buffers define the checkpoint boundary outside the
-sustained timing, matching the next-forward DDP buffer broadcast; production
-acceptance of this BN/RNG recipe remains an explicit owner decision even after a
-positive performance result.
+this was a deliberate measurement-only DDP RNG recipe during qualification.
+Ordinary DDP rank-local B16 BatchNorm was measured. Rank-0 buffers define the
+checkpoint boundary outside the sustained timing, matching the next-forward DDP
+buffer broadcast. The owner has now explicitly accepted both behaviors as
+production recipe inputs.
 
 The approved envelope is one node, two GH200s, 32 CPUs, 192 GiB and at most 45
 minutes per job; maximum concurrency one; `1.50` base plus `1.50` code-bug reserve,
@@ -762,8 +767,28 @@ One residual performance warning reported a non-contiguous 1x1-convolution
 gradient stride differing from its DDP bucket view. It did not affect correctness
 or any hard gate and the measured result already clears the speed/payback gates;
 it is optional future headroom, not a reason to rerun IP-E5. Production promotion
-remains false until the owner explicitly accepts ordinary per-rank B16 BatchNorm,
-`seed + epoch*world_size + rank` worker RNG, and the exact two-GH200 recipe.
+is now closed by the owner's explicit acceptance of ordinary per-rank B16
+BatchNorm, `seed + epoch*world_size + rank` worker RNG, and the exact two-GH200
+recipe.
+
+The production topology is world size two, physical B16 per rank, accumulation
+one/effective global B32, ordinary rank-local BN, rank-addressed worker RNG,
+contiguous halves of every frozen CBGS B32 window, synchronized finite/scaler
+control flow, and a rank-0 model checkpoint plus one RNG sidecar per rank. Source
+`2c3780bb6373ae784b41c22df072824f7a92d457` introduces fail-closed
+`s10.phase1.v4` validation and a dedicated Camera DDP capability runner; LiDAR
+remains on the single-GPU runner. The Camera config file/resolved SHA-256 are
+`9a2cdf54a52edeb71b5335aea8445c0a8cc0c8e2e416b2f4fe3df58d7b98710c` /
+`e295b627551a584b460a598ee3e3f23b5ad8dda45441904d4ed526bbf3457f2b`.
+Its fresh output root is
+`.../outputs/s10_phase1_envelope_b_camera_ddp_5da03ffdaa29`.
+
+This promotion is source/recipe authority, not compute authority. No production
+DDP capability run, D_select, D_audit, official validation, original Envelope-B
+activation, merge or push occurred. Before any Camera capability submission,
+Section 7 must be revised to the promoted SHA/config/two-GPU resource projection
+and its already-required independent recipe-freeze review must close with no open
+P0-P2.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior

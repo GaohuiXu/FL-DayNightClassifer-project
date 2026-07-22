@@ -4,10 +4,10 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: IP-E5 terminal POSITIVE_DDP_QUALIFICATION; production gate pending
-REQUEST_STATE: IP-E5 CLOSED POSITIVE / ENVELOPE B FROZEN
+ACTIVE_DECISION: exact IP-E5 two-GH200 Camera recipe owner-promoted
+REQUEST_STATE: PRODUCTION SOURCE FROZEN / ENVELOPE B FROZEN
 EXECUTION_AUTHORITY: none; unused IP-E5 compute authority expired at closure
-ACTIVE_PHASE: owner decision on exact two-rank BN/worker-RNG production recipe
+ACTIVE_PHASE: revised Envelope-B refreeze and independent recipe review remain pending
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -30,6 +30,11 @@ the final recipe binding and designing the exact Section-9.6 IP-E5 DDP
 source/tests/resource envelope at `e51df6efa04e6d151315c72b7d7016014852078c`,
 then activated that exact envelope at containing request commit
 `2505db02920021663ccce7783dee483f10e638f8`.
+After its terminal positive evidence, the owner explicitly accepted per-rank B16
+BatchNorm and `seed + epoch*world_size + rank` worker RNG and promoted the exact
+two-GH200 production recipe. Source
+`2c3780bb6373ae784b41c22df072824f7a92d457` materializes that recipe; it grants
+no Slurm or Envelope-B execution authority.
 
 O-146 records the owner's exact activation of Envelope A at request commit
 `e321aed749fd859c809199d52c30b2771dbef8b3`. S00 may execute WP0 through WP4
@@ -2307,13 +2312,62 @@ PROJECTED_DDP_WALL / LIMIT: 7.581252 / 8.634019 h PASS
 PROJECTED_DDP_CHARGED / LIMIT: 15.162504 / 17.268039 GH200-hours PASS
 CHARGED_RATIO: 1.097584; gate <=1.25 PASS
 VERDICT: POSITIVE_DDP_QUALIFICATION
-PRODUCTION_PROMOTION: false / explicit owner BN+worker-RNG recipe decision required
+PRODUCTION_PROMOTION_AT_IP_E5_CLOSURE: false / owner decision was then pending
+SUBSEQUENT_OWNER_DECISION: promoted exact two-GH200 recipe; ordinary per-rank B16
+  BatchNorm and seed + epoch*world_size + rank worker RNG explicitly accepted
 BUDGET: base used 0.688889/1.50; code-bug reserve used 0/1.50;
   total 0.688889/3.00; unused authority expired at closure
 RESIDUAL: one non-contiguous 1x1-convolution grad/bucket-view stride warning may
   leave optional performance headroom; no correctness/hard-gate impact
 INTERPRETATION: D_fit throughput and engineering health only; no capability,
   mAP/NDS, generalization, candidate-selection or Envelope-B claim
+```
+
+### 9.7 Owner production promotion — source/config materialized, no execution
+
+```text
+DECISION_STATE: CLOSED / TWO-GH200 CAMERA RECIPE PROMOTED / NOT EXECUTABLE
+OWNER_DECISION: explicitly accepts ordinary per-rank B16 BatchNorm and
+  seed + epoch*world_size + rank worker RNG
+IMPLEMENTATION_SHA: 2c3780bb6373ae784b41c22df072824f7a92d457
+IMPLEMENTATION_TREE: 54e26e8ef20b8fdbe56cd2c736484c309fd9c6d2
+BRANCH: codex/s10-phase1p-throughput-preflight
+UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
+FROZEN_CONTROL: codex/s10-phase1-branch-qualification remains at UNIQUE_BASE_SHA
+CAMERA_SCHEMA: s10.phase1.v4 / throughput decision IP-E5 / evidence commit
+  5da03ffdaa29614b0bcfc5c85ace93f70acfac6a
+CAMERA_CONFIG_FILE_SHA256:
+  9a2cdf54a52edeb71b5335aea8445c0a8cc0c8e2e416b2f4fe3df58d7b98710c
+CAMERA_RESOLVED_CONFIG_SHA256:
+  e295b627551a584b460a598ee3e3f23b5ad8dda45441904d4ed526bbf3457f2b
+PRODUCTION_RECIPE: one node; world size 2; B16 per rank; accumulation 1;
+  effective global B32; ordinary rank-local BN; exact frozen global CBGS B32
+  window split as rank0 [0:16] / rank1 [16:32]; worker generator seed
+  seed + epoch*world_size + rank; FP16; SDPA; scoped five-module forward compile;
+  conservative batched affine/grid; vectorized geometry/inverses; bulk native-image
+  conversion; fused AdamW; activation checkpoint/telemetry off
+DDP_RUNTIME: NCCL; broadcast_buffers=true; static_graph=true;
+  gradient_as_bucket_view=true; find_unused_parameters=false; synchronized
+  finite-loss/gradient/scaler decisions
+CHECKPOINT: unchanged one-epoch cadence; rank-0 canonical model/full optimizer,
+  scheduler, scaler and training state plus one exact RNG sidecar per rank;
+  resume restores the sidecar for each rank before the next epoch loader stream
+CAMERA_ENTRY_SHA256:
+  4b91e81c5060bec0108b99abaa6b29e6df4d4def0d04f45e54a4b20df830162e
+ENVELOPE_B_LAUNCHER_SHA256:
+  77180d41adcab03014f13b82ba74b4f2209c084ee5ac0823e345356b51865cff
+CAMERA_OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/
+  arrhenius_fl_v3/outputs/s10_phase1_envelope_b_camera_ddp_5da03ffdaa29
+LIDAR_DISPOSITION: config/science and single-GPU execution path unchanged
+LOCAL_VALIDATION: JSON syntax; strict v4 resolve/hash and recipe-drift rejection;
+  Python byte-compilation; shell syntax; ShellCheck; diff checks PASS
+LOCAL_RUNTIME_LIMIT: Torch/pytest are absent from the x86 login environment;
+  no local CUDA/DDP execution was claimed
+EXECUTED: no GPU/Slurm, scientific training, D_select, D_audit or validation
+ENVELOPE_B_STATE: Section 7 remains historical/frozen and NOT EXECUTABLE; before
+  submission it must be revised to this source/config/two-GPU resource projection
+  and pass the pre-existing independent recipe-freeze review with no open P0-P2
+MERGE_PUSH_UPLOAD_PUBLICATION: not authorized and not performed
 ```
 
 ## 10. Envelope-A compact execution ledger
