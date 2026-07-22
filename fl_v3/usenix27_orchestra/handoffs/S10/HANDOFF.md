@@ -10,8 +10,8 @@ FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a514
 ACTIVE_DECISION: owner approved the LiDAR preflight workflow and closed IP-LG0
 SCIENCE_ORDER: complete LiDAR preflight, then refreeze/review revised Envelope B
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: LiDAR L-WP1 source/docs/tests, local validation and linear commits
-EXECUTION_STATE: L-WP1 materialized; IP-L-E1 and Envelope B are unauthorized
+CURRENT_AUTHORITY: exact IP-L-E1 single-GH200 execution and bounded remediation
+EXECUTION_STATE: IP-L-E1 ACTIVE at request SHA 8b5788d3; Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -833,12 +833,13 @@ LiDAR loss components must be finite, but a short-window loss slope is descripti
 training-health evidence rather than a speed, capability or promotion gate.
 Different physical batches are not required to reproduce one another's worker RNG.
 
-Section 9.8 of `RUN_REQUEST.md` is the exact proposed L-E1 request: one GH200,
+Section 9.8 of `RUN_REQUEST.md` is the exact L-E1 request: one GH200,
 16 CPUs, 96 GiB, at most 75 minutes, maximum concurrency one, `1.25` base plus
 `0.50` diagnosed-code-bug reserve and a `1.75` charged-GH200-hour hard ceiling.
-It is `OWNER APPROVAL PENDING / NOT EXECUTABLE`. No GPU/Slurm, D_select, D_audit,
-official validation, capability claim, Envelope-B activation, merge or push has
-been authorized or performed by IP-LG0 closure.
+The owner activated it at containing request commit
+`8b5788d3d905cf7eb83e8f3f1e65e24df7fc15dc`. This authority still excludes
+D_select, D_audit, official validation, capability claims, Envelope-B activation,
+merge and push.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior

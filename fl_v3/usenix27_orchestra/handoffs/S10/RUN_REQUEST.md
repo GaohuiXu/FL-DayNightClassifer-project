@@ -2373,7 +2373,7 @@ MERGE_PUSH_UPLOAD_PUBLICATION: not authorized and not performed
 ### 9.8 LiDAR IP-LG0 closure and exact IP-L-E1 request
 
 ```text
-REQUEST_STATE: OWNER APPROVAL PENDING / NOT EXECUTABLE
+REQUEST_STATE: OWNER APPROVED / IP-L-E1 ACTIVE
 PHASE: S10 Phase I-P LiDAR / L-WP1 clean capacity, sustained baseline and trace
 GATE_STATE: IP-LG0 CLOSED by owner approval of the LiDAR workflow
 IMPLEMENTATION_SHA: 0daeee95e1a46b29fcd7bbb2338d813b798557de
@@ -2381,7 +2381,9 @@ IMPLEMENTATION_TREE: 26cb8aa6a91f2938cf8c1357a97b0bbf2ee92136
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification remains at UNIQUE_BASE_SHA
-APPROVED_SOURCE_SHA: unset; owner must name and activate the containing request commit
+APPROVED_SOURCE_SHA: 8b5788d3d905cf7eb83e8f3f1e65e24df7fc15dc
+ACTIVATION_DECISION: owner explicitly approved and activated IP-L-E1 at this
+  containing request commit
 
 OBJECTIVE: establish one clean current LiDAR capacity/throughput/memory/checkpoint/
   training-health baseline, localize whole-model bottlenecks, and quantify B4 versus
@@ -2478,11 +2480,11 @@ OWNER_RETURN: terminal L-E1 evidence returns to IP-LG1 before any optimization
   implementation, L-E2 activation, batch promotion or scientific recipe decision
 ```
 
-Exact activation command after the owner names the containing request commit:
+Exact activated command:
 
 ```bash
 SOURCE_SHA=$(git rev-parse HEAD)
-APPROVED_SOURCE_SHA=<owner-approved-containing-request-commit>
+APPROVED_SOURCE_SHA=8b5788d3d905cf7eb83e8f3f1e65e24df7fc15dc
 ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_l_e1_${APPROVED_SOURCE_SHA:0:12}
 mkdir -p "${ROOT}"
 sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
