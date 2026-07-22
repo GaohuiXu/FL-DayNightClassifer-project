@@ -121,7 +121,7 @@ _COMMON_KEYS = frozenset({
 })
 _CAMERA_KEYS = frozenset({"images", "lidar2img", "cam_intrinsics"})
 _DIAGNOSTIC_CAMERA_KEYS = frozenset({"augmentation_params"})
-_LIDAR_KEYS = frozenset({"lidar_points"})
+_LIDAR_KEYS = frozenset({"lidar_points", "lidar_point_offsets"})
 
 
 def project_batch_for_mode(batch: Any, mode: str) -> Any:

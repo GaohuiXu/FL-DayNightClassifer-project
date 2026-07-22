@@ -13,6 +13,7 @@ from fl_v3.training.phase1p_compare import (
     compare_ip_e4_bulk_input_conversion_output_dirs,
     compare_ip_e4_vectorized_geometry_output_dirs,
     compare_ip_e5_ddp_output_dirs,
+    compare_lidar_e2_output_dirs,
     compare_output_dirs,
 )
 
@@ -49,7 +50,10 @@ def _output(
     block_seconds: float,
     peak_reserved_bytes: int | None = None,
     device_total_bytes: int = 100_000,
+    branch: str = "camera",
+    candidate_options: dict | None = None,
 ) -> None:
+    candidate_options = candidate_options or {}
     metrics = {
         "invalid_windows": 0.0,
         "discarded_windows": 0.0,
@@ -82,13 +86,74 @@ def _output(
             },
         },
     }
+    if branch == "lidar":
+        metrics["readiness_timing"]["loss_health"] = {
+            "accepted_windows": 256,
+            "all_reported_values_finite": True,
+            "criterion_terms": {
+                "loss_heatmap": {},
+                "loss_cls": {},
+                "loss_bbox": {},
+                "matched_iou": {},
+            },
+        }
     measurement_sha = _write_json(root / "measurement.json", {"metrics": metrics})
+    compile_enabled = bool(candidate_options.get("torch_compile", False))
+    lidar_sdpa = bool(candidate_options.get("lidar_sdpa", False))
+    fused_adamw = bool(candidate_options.get("fused_adamw", False))
+    candidate_configuration = None
+    optimizer_before = None
+    optimizer_after = None
+    if branch == "lidar":
+        candidate_configuration = {
+            "hungarian_batched_d2h": bool(
+                candidate_options.get("hungarian_batched_d2h", False)
+            ),
+            "lidar_host_batch_offsets": bool(
+                candidate_options.get("lidar_host_batch_offsets", False)
+            ),
+            "lidar_sdpa": lidar_sdpa,
+            "lidar_sdpa_modules_patched": 2 if lidar_sdpa else 0,
+            "lidar_sdpa_identity": {
+                "module_names": ["decoder.cross_attn", "decoder.self_attn"],
+                "dropout_probabilities": [0.1, 0.1],
+                "enabled": lidar_sdpa,
+                "training_rng_contract": "recorded",
+            },
+            "torch_compile": compile_enabled,
+            "compiled_forward_modules": (
+                ["decoder_backbone", "decoder_neck", "head"]
+                if compile_enabled
+                else []
+            ),
+            "compile_backend": "inductor" if compile_enabled else None,
+            "compile_dynamic": False if compile_enabled else None,
+            "compile_mode": "default" if compile_enabled else None,
+            "runtime_application": "profile_candidate",
+            "cpu_resident_batch_fields": ["lidar_point_offsets"],
+            "state_dict_name_sha256": "9" * 64,
+        }
+        optimizer_before = {
+            "type": "torch.optim.adamw.AdamW",
+            "parameter_groups": 2,
+            "state_entries": 0,
+            "fused": fused_adamw,
+            "phase1_group_identity_sha256": "8" * 64,
+        }
+        optimizer_after = {
+            **optimizer_before,
+            "state_entries": 20,
+        }
     result = {
         "schema": "s10.phase1p.profiler-result.v2",
         "status": "COMPLETE_SUSTAINED",
         "mode": "sustained",
-        "branch": "camera",
+        "branch": branch,
         "candidate_id": candidate_id,
+        "candidate_options": candidate_options,
+        "candidate_configuration": candidate_configuration,
+        "optimizer_configuration_before_training": optimizer_before,
+        "optimizer_configuration_after_training": optimizer_after,
         "source": _source_identity(include_control_ref=True),
         "source_resolved_config_sha256": "b" * 64,
         "effective_runtime_config_sha256": "c" * 64,
@@ -111,6 +176,7 @@ def _output(
             },
         },
         "measurement": metrics,
+        "measurement_health": {"checks": {}, "gate_pass": True},
         "measurement_artifact_sha256": measurement_sha,
         "memory_safe_under_85_percent_reserved": True,
         "D_select_executed": False,
@@ -305,6 +371,96 @@ def test_same_batch_pair_requires_exact_input_anchor(tmp_path):
 
     with pytest.raises(Phase1PPairError, match="input/RNG anchor differs"):
         compare_output_dirs(reference, candidate)
+
+
+def test_lidar_e2_pair_classifies_positive_and_negative_without_promotion(
+    tmp_path,
+):
+    reference_options = {
+        "physical_batch_size": 32,
+        "hungarian_batched_d2h": False,
+    }
+    candidate_options = {
+        "physical_batch_size": 32,
+        "hungarian_batched_d2h": True,
+    }
+    reference = tmp_path / "reference"
+    positive = tmp_path / "positive"
+    _output(
+        reference,
+        candidate_id="lidar_reference_b32_accum1",
+        batch=32,
+        block_seconds=32.0,
+        branch="lidar",
+        candidate_options=reference_options,
+    )
+    _output(
+        positive,
+        candidate_id="lidar_hungarian_batched_d2h_b32_accum1",
+        batch=32,
+        block_seconds=32.0 / 1.03,
+        branch="lidar",
+        candidate_options=candidate_options,
+    )
+    summary = compare_lidar_e2_output_dirs(reference, positive)
+    assert summary["schema"] == "s10.phase1p.lidar-e2-paired-comparison.v1"
+    assert summary["envelope"] == "IP-L-E2"
+    assert summary["throughput"]["performance_classification"] == "POSITIVE"
+    assert summary["candidate_screen_gate_pass"] is True
+    assert summary["promotion_authorized"] is False
+
+    negative = tmp_path / "negative"
+    _output(
+        negative,
+        candidate_id="lidar_hungarian_batched_d2h_b32_accum1",
+        batch=32,
+        block_seconds=32.0 / 0.99,
+        branch="lidar",
+        candidate_options=candidate_options,
+    )
+    summary = compare_lidar_e2_output_dirs(reference, negative)
+    assert summary["throughput"]["performance_classification"] == "NEGATIVE"
+    assert summary["candidate_screen_gate_pass"] is False
+    assert summary["conditional_for_l_wp3"] is False
+
+
+@pytest.mark.parametrize(
+    ("candidate_id", "flag"),
+    [
+        ("lidar_sdpa_b32_accum1", "lidar_sdpa"),
+        ("lidar_compile_b32_accum1", "torch_compile"),
+        ("lidar_host_batch_offsets_b32_accum1", "lidar_host_batch_offsets"),
+        ("lidar_fused_adamw_b32_accum1", "fused_adamw"),
+    ],
+)
+def test_lidar_e2_candidate_specific_runtime_hard_gates(
+    tmp_path, candidate_id, flag
+):
+    reference = tmp_path / "reference"
+    candidate = tmp_path / "candidate"
+    reference_options = {"physical_batch_size": 32, flag: False}
+    candidate_options = {"physical_batch_size": 32, flag: True}
+    _output(
+        reference,
+        candidate_id="lidar_reference_b32_accum1",
+        batch=32,
+        block_seconds=32.0,
+        branch="lidar",
+        candidate_options=reference_options,
+    )
+    _output(
+        candidate,
+        candidate_id=candidate_id,
+        batch=32,
+        block_seconds=32.0 / 1.03,
+        branch="lidar",
+        candidate_options=candidate_options,
+    )
+    summary = compare_lidar_e2_output_dirs(reference, candidate)
+    assert summary["lidar_hard_gate"]["gate_pass"] is True
+    assert all(
+        summary["lidar_hard_gate"]["candidate_specific_runtime_checks"].values()
+    )
 
 
 def test_b16_followup_near_neutral_gate_unlocks_implementation_only(tmp_path):

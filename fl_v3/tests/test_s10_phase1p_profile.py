@@ -18,6 +18,7 @@ from fl_v3.training.phase1_profile import (
     IP_E4_RUNNABLE_CANDIDATES,
     IP_E5_RUNNABLE_CANDIDATES,
     LIDAR_E1_RUNNABLE_CANDIDATES,
+    LIDAR_E2_RUNNABLE_CANDIDATES,
     Phase1ProfileError,
     derive_profile_runtime_config,
     load_phase1_profile_spec,
@@ -40,6 +41,9 @@ IP_E4_PROFILES = tuple(sorted((ROOT / "configs").glob("s10_phase1p_ip_e4_*.json"
 IP_E5_PROFILES = tuple(sorted((ROOT / "configs").glob("s10_phase1p_ip_e5_*.json")))
 LIDAR_E1_PROFILES = tuple(
     sorted((ROOT / "configs").glob("s10_phase1p_lidar_e1_b*.json"))
+)
+LIDAR_E2_PROFILES = tuple(
+    sorted((ROOT / "configs").glob("s10_phase1p_lidar_e2_*.json"))
 )
 HISTORICAL_CAMERA_FILE_SHA256 = (
     "567cb1b71535b4866193273960e531ae4b45318e56e81101e99ad186ac23ce60"
@@ -402,6 +406,121 @@ def test_lidar_e1_profiles_are_clean_capacity_and_trace_mappings():
         )
     assert seen == set(expected)
     assert LIDAR.read_bytes() == source_bytes
+
+
+def test_lidar_e2_profiles_are_isolated_b32_mappings():
+    assert len(LIDAR_E2_PROFILES) == len(LIDAR_E2_RUNNABLE_CANDIDATES) == 6
+    source_bytes = LIDAR.read_bytes()
+    source = load_resolved_config(LIDAR)
+    seen = set()
+    for path in LIDAR_E2_PROFILES:
+        profile = load_phase1_profile_spec(path)
+        candidate_id = str(profile.data["candidate_id"])
+        assert candidate_id not in seen
+        seen.add(candidate_id)
+        assert profile.data["envelope"] == "IP-L-E2"
+        profile.assert_runnable("lidar")
+        with pytest.raises(Phase1ProfileError, match="not runnable"):
+            profile.assert_runnable("camera")
+        profile.assert_branch_binding("lidar", LIDAR, source)
+        assert dict(profile.candidates) == LIDAR_E2_RUNNABLE_CANDIDATES[
+            candidate_id
+        ]["options"]
+        runtime = derive_profile_runtime_config(source, profile)
+        raw = runtime.as_dict()
+        assert raw["training"]["micro_batch_size"] == 32
+        assert raw["training"]["world_size"] == 1
+        assert raw["training"]["accumulation_steps"] == 1
+        assert raw["training"]["effective_global_batch"] == 32
+    assert seen == set(LIDAR_E2_RUNNABLE_CANDIDATES)
+    assert LIDAR.read_bytes() == source_bytes
+
+
+def test_lidar_e2_candidate_configuration_is_fail_closed(monkeypatch):
+    runner = _runner_module()
+
+    class Criterion:
+        def __init__(self):
+            self.hungarian = None
+
+        def set_phase1p_hungarian_batched_d2h(self, value):
+            self.hungarian = bool(value)
+
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.host_offsets = None
+            self.sdpa = None
+            for name in runner._LIDAR_COMPILE_MODULES:
+                setattr(self, name, torch.nn.Linear(2, 2))
+            self._phase1_runtime_optimization_identity = {
+                "camera_sdpa": False,
+                "sdpa_modules_patched": 0,
+                "torch_compile": False,
+                "fused_adamw": False,
+                "compiled_forward_modules": [],
+                "compile_backend": None,
+                "compile_dynamic": None,
+                "compile_mode": None,
+                "state_dict_name_sha256": runner._state_name_sha256(self),
+            }
+
+        def set_phase1p_lidar_host_batch_offsets(self, value):
+            self.host_offsets = bool(value)
+
+        def set_phase1p_lidar_sdpa(self, value):
+            self.sdpa = bool(value)
+            return 2 if value else 0
+
+        def phase1p_lidar_sdpa_identity(self):
+            return {
+                "module_names": ["decoder.cross_attn", "decoder.self_attn"],
+                "dropout_probabilities": [0.1, 0.1],
+                "enabled": bool(self.sdpa),
+                "training_rng_contract": (
+                    "dropout probability is unchanged; SDPA and reference kernels "
+                    "may consume Philox RNG differently for the same seed"
+                ),
+            }
+
+    monkeypatch.setattr(torch, "compile", lambda fn, **kwargs: fn)
+    for path in LIDAR_E2_PROFILES:
+        profile = load_phase1_profile_spec(path)
+        model = Model()
+        criterion = Criterion()
+        before = tuple(model.state_dict())
+        record = runner._configure_profile_candidate(
+            model, profile, "lidar", criterion=criterion
+        )
+        assert tuple(model.state_dict()) == before
+        assert model.host_offsets is bool(
+            profile.candidates["lidar_host_batch_offsets"]
+        )
+        assert criterion.hungarian is bool(
+            profile.candidates["hungarian_batched_d2h"]
+        )
+        if profile.candidates["lidar_sdpa"]:
+            assert model.sdpa is True
+            assert record["lidar_sdpa_modules_patched"] == 2
+        if profile.candidates["torch_compile"]:
+            assert record["compiled_forward_modules"] == list(
+                runner._LIDAR_COMPILE_MODULES
+            )
+        assert record["state_dict_name_sha256"] == runner._state_name_sha256(
+            model
+        )
+
+    collated = {
+        "lidar_points": torch.tensor(
+            [[0.0, 1.0], [0.0, 2.0], [1.0, 3.0]], dtype=torch.float32
+        ),
+        "gt_boxes": [torch.empty((0, 7)), torch.empty((0, 7))],
+    }
+    enriched = next(iter(runner._LidarPointOffsetLoader([collated])))
+    assert "lidar_point_offsets" not in collated
+    assert torch.equal(
+        enriched["lidar_point_offsets"], torch.tensor([0, 2, 3])
+    )
 
 
 def test_ip_e2_runtime_views_preserve_effective_b32_and_source_bytes():
@@ -1057,6 +1176,165 @@ def test_ip_e2_fused_adamw_matches_unfused_accepted_updates():
             reference.state[reference_parameter][key],
             rtol=2e-3,
             atol=2e-4,
+        )
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="requires the IP-L-E2 GH200")
+@pytest.mark.parametrize(
+    ("precision", "rtol", "atol"),
+    [("fp32", 1e-4, 1e-6), ("fp16", 2e-3, 2e-4)],
+)
+def test_lidar_e2_sdpa_forward_backward_parity(precision, rtol, atol):
+    from fl_v3.models.phase1_transfusion import ReferenceMultiheadAttention
+
+    torch.manual_seed(20260722)
+    reference = ReferenceMultiheadAttention(128, 8, 0.1).cuda().eval()
+    candidate = copy.deepcopy(reference)
+    candidate.set_phase1p_sdpa(True)
+    assert tuple(reference.state_dict()) == tuple(candidate.state_dict())
+    query = torch.randn(17, 2, 128, device="cuda", requires_grad=True)
+    key = torch.randn(41, 2, 128, device="cuda", requires_grad=True)
+    reference_query = query.detach().clone().requires_grad_(True)
+    reference_key = key.detach().clone().requires_grad_(True)
+    candidate_query = query.detach().clone().requires_grad_(True)
+    candidate_key = key.detach().clone().requires_grad_(True)
+    context = (
+        nullcontext()
+        if precision == "fp32"
+        else torch.autocast(device_type="cuda", dtype=torch.float16)
+    )
+    with context:
+        reference_output = reference(
+            reference_query, reference_key, reference_key
+        )
+        candidate_output = candidate(
+            candidate_query, candidate_key, candidate_key
+        )
+    reference_gradients = torch.autograd.grad(
+        reference_output.float().square().mean(),
+        [reference_query, reference_key, *reference.parameters()],
+    )
+    candidate_gradients = torch.autograd.grad(
+        candidate_output.float().square().mean(),
+        [candidate_query, candidate_key, *candidate.parameters()],
+    )
+    torch.testing.assert_close(
+        candidate_output, reference_output, rtol=rtol, atol=atol
+    )
+    for observed, expected in zip(candidate_gradients, reference_gradients):
+        torch.testing.assert_close(observed, expected, rtol=rtol, atol=atol)
+    reference_optimizer = torch.optim.AdamW(reference.parameters(), lr=2e-4)
+    candidate_optimizer = torch.optim.AdamW(candidate.parameters(), lr=2e-4)
+    for parameter, gradient in zip(
+        reference.parameters(), reference_gradients[2:]
+    ):
+        parameter.grad = gradient
+    for parameter, gradient in zip(
+        candidate.parameters(), candidate_gradients[2:]
+    ):
+        parameter.grad = gradient
+    reference_optimizer.step()
+    candidate_optimizer.step()
+    for observed, expected in zip(candidate.parameters(), reference.parameters()):
+        torch.testing.assert_close(observed, expected, rtol=rtol, atol=atol)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="requires the IP-L-E2 GH200")
+@pytest.mark.parametrize(
+    ("precision", "rtol", "atol"),
+    [("fp32", 1e-4, 1e-6), ("fp16", 2e-3, 2e-4)],
+)
+def test_lidar_e2_batched_hungarian_target_and_gradient_parity(
+    precision, rtol, atol
+):
+    from fl_v3.models.phase1_transfusion import Phase1TransFusionLoss
+
+    device = torch.device("cuda:0")
+    torch.manual_seed(20260722)
+
+    def outputs():
+        values = {
+            "heatmap": torch.randn(2, 10, 200, device=device),
+            "center": torch.rand(2, 2, 200, device=device) * 160.0 + 10.0,
+            "height": torch.zeros(2, 1, 200, device=device),
+            "dim": torch.zeros(2, 3, 200, device=device),
+            "rot": torch.cat(
+                (
+                    torch.zeros(2, 1, 200, device=device),
+                    torch.ones(2, 1, 200, device=device),
+                ),
+                dim=1,
+            ),
+            "vel": torch.zeros(2, 2, 200, device=device),
+            "dense_heatmap": torch.randn(2, 10, 180, 180, device=device),
+        }
+        if precision == "fp16":
+            values = {key: value.half() for key, value in values.items()}
+        return {key: value.requires_grad_(True) for key, value in values.items()}
+
+    batch = {
+        "gt_boxes": [
+            torch.tensor(
+                [[0.0, 0.0, 0.0, 4.0, 1.8, 1.6, 0.0]], device=device
+            ),
+            torch.tensor(
+                [
+                    [8.0, 3.0, 0.2, 4.5, 2.0, 1.7, 0.2],
+                    [-7.0, -4.0, -0.1, 0.8, 0.7, 1.7, -0.3],
+                ],
+                device=device,
+            ),
+        ],
+        "gt_labels": [
+            torch.tensor([0], dtype=torch.long, device=device),
+            torch.tensor([1, 8], dtype=torch.long, device=device),
+        ],
+        "gt_velocity": [
+            torch.zeros(1, 2, device=device),
+            torch.zeros(2, 2, device=device),
+        ],
+    }
+    reference_output = outputs()
+    candidate_output = {
+        key: value.detach().clone().requires_grad_(True)
+        for key, value in reference_output.items()
+    }
+    reference = Phase1TransFusionLoss().to(device)
+    candidate = copy.deepcopy(reference)
+    candidate.set_phase1p_hungarian_batched_d2h(True)
+    reference_targets = reference.build_targets(reference_output, batch)
+    candidate_targets = candidate.build_targets(candidate_output, batch)
+    for key in reference_targets:
+        if reference_targets[key].is_floating_point():
+            torch.testing.assert_close(
+                candidate_targets[key], reference_targets[key], rtol=0.0, atol=0.0
+            )
+        else:
+            assert torch.equal(candidate_targets[key], reference_targets[key])
+    reference_loss = reference(reference_output, batch)
+    candidate_loss = candidate(candidate_output, batch)
+    reference_gradients = torch.autograd.grad(
+        reference_loss, tuple(reference_output.values())
+    )
+    candidate_gradients = torch.autograd.grad(
+        candidate_loss, tuple(candidate_output.values())
+    )
+    torch.testing.assert_close(
+        candidate_loss, reference_loss, rtol=rtol, atol=atol
+    )
+    for observed, expected in zip(candidate_gradients, reference_gradients):
+        torch.testing.assert_close(observed, expected, rtol=rtol, atol=atol)
+    reference_optimizer = torch.optim.AdamW(reference_output.values(), lr=2e-4)
+    candidate_optimizer = torch.optim.AdamW(candidate_output.values(), lr=2e-4)
+    for parameter, gradient in zip(reference_output.values(), reference_gradients):
+        parameter.grad = gradient
+    for parameter, gradient in zip(candidate_output.values(), candidate_gradients):
+        parameter.grad = gradient
+    reference_optimizer.step()
+    candidate_optimizer.step()
+    for key in reference_output:
+        torch.testing.assert_close(
+            candidate_output[key], reference_output[key], rtol=rtol, atol=atol
         )
 
 

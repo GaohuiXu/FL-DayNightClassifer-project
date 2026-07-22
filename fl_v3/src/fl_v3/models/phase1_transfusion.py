@@ -184,6 +184,27 @@ def pairwise_rotated_intersection_area(
     return torch.where(count >= 3, area, torch.zeros_like(area))
 
 
+def _pairwise_iou3d_unchecked(
+    boxes1: torch.Tensor, boxes2: torch.Tensor
+) -> torch.Tensor:
+    """IoU arithmetic after a caller has established the public preconditions."""
+    if boxes1.shape[0] == 0 or boxes2.shape[0] == 0:
+        return boxes1.new_zeros((boxes1.shape[0], boxes2.shape[0]))
+    area = pairwise_rotated_intersection_area(boxes1, boxes2)
+    bottom1 = boxes1[:, 2] - boxes1[:, 5] * 0.5
+    top1 = boxes1[:, 2] + boxes1[:, 5] * 0.5
+    bottom2 = boxes2[:, 2] - boxes2[:, 5] * 0.5
+    top2 = boxes2[:, 2] + boxes2[:, 5] * 0.5
+    overlap_h = (
+        torch.minimum(top1[:, None], top2[None])
+        - torch.maximum(bottom1[:, None], bottom2[None])
+    ).clamp_min(0)
+    intersection = area * overlap_h
+    volume1 = boxes1[:, 3:6].prod(dim=1)[:, None]
+    volume2 = boxes2[:, 3:6].prod(dim=1)[None]
+    return intersection / (volume1 + volume2 - intersection).clamp_min(1e-8)
+
+
 def pairwise_iou3d(boxes1: torch.Tensor, boxes2: torch.Tensor) -> torch.Tensor:
     """Reference lidar 3-D IoU for canonical geometric-center boxes."""
     if boxes1.ndim != 2 or boxes2.ndim != 2 or boxes1.shape[1] < 7 or boxes2.shape[1] < 7:
@@ -198,19 +219,7 @@ def pairwise_iou3d(boxes1: torch.Tensor, boxes2: torch.Tensor) -> torch.Tensor:
         (boxes2[:, 3:6] > 0).all().detach().cpu()
     ):
         raise ValueError("IoU boxes must have positive dimensions")
-    area = pairwise_rotated_intersection_area(boxes1, boxes2)
-    bottom1 = boxes1[:, 2] - boxes1[:, 5] * 0.5
-    top1 = boxes1[:, 2] + boxes1[:, 5] * 0.5
-    bottom2 = boxes2[:, 2] - boxes2[:, 5] * 0.5
-    top2 = boxes2[:, 2] + boxes2[:, 5] * 0.5
-    overlap_h = (
-        torch.minimum(top1[:, None], top2[None])
-        - torch.maximum(bottom1[:, None], bottom2[None])
-    ).clamp_min(0)
-    intersection = area * overlap_h
-    volume1 = boxes1[:, 3:6].prod(dim=1)[:, None]
-    volume2 = boxes2[:, 3:6].prod(dim=1)[None]
-    return intersection / (volume1 + volume2 - intersection).clamp_min(1e-8)
+    return _pairwise_iou3d_unchecked(boxes1, boxes2)
 
 
 def focal_loss_cost(
@@ -229,6 +238,23 @@ def focal_loss_cost(
     return (positive[:, labels] - negative[:, labels]) * weight
 
 
+def _encode_transfusion_boxes_unchecked(
+    boxes: torch.Tensor,
+    geometry: TransFusionGeometry = PHASE1_TRANSFUSION_GEOMETRY,
+) -> torch.Tensor:
+    cell_x, cell_y = geometry.cell_xy
+    x0, y0 = geometry.point_cloud_range[:2]
+    targets = boxes.new_zeros((boxes.shape[0], 10))
+    targets[:, 0] = (boxes[:, 0] - x0) / cell_x
+    targets[:, 1] = (boxes[:, 1] - y0) / cell_y
+    targets[:, 2] = boxes[:, 2]
+    targets[:, 3:6] = boxes[:, 3:6].log()
+    targets[:, 6] = torch.sin(boxes[:, 6])
+    targets[:, 7] = torch.cos(boxes[:, 6])
+    targets[:, 8:10] = boxes[:, 7:9]
+    return targets
+
+
 def encode_transfusion_boxes(
     boxes: torch.Tensor,
     geometry: TransFusionGeometry = PHASE1_TRANSFUSION_GEOMETRY,
@@ -241,17 +267,7 @@ def encode_transfusion_boxes(
         or not bool((boxes[:, 3:6] > 0).all().detach().cpu())
     ):
         raise ValueError("TransFusion target boxes contain invalid geometry")
-    cell_x, cell_y = geometry.cell_xy
-    x0, y0 = geometry.point_cloud_range[:2]
-    targets = boxes.new_zeros((boxes.shape[0], 10))
-    targets[:, 0] = (boxes[:, 0] - x0) / cell_x
-    targets[:, 1] = (boxes[:, 1] - y0) / cell_y
-    targets[:, 2] = boxes[:, 2]
-    targets[:, 3:6] = boxes[:, 3:6].log()
-    targets[:, 6] = torch.sin(boxes[:, 6])
-    targets[:, 7] = torch.cos(boxes[:, 6])
-    targets[:, 8:10] = boxes[:, 7:9]
-    return targets
+    return _encode_transfusion_boxes_unchecked(boxes, geometry)
 
 
 def decode_transfusion_tensors(
@@ -306,8 +322,13 @@ class ReferenceMultiheadAttention(nn.Module):
         self.in_proj_weight = nn.Parameter(torch.empty(3 * embed_dim, embed_dim))
         self.in_proj_bias = nn.Parameter(torch.zeros(3 * embed_dim))
         self.out_proj = nn.Linear(embed_dim, embed_dim)
+        self._phase1p_sdpa = False
         nn.init.xavier_uniform_(self.in_proj_weight)
         nn.init.zeros_(self.out_proj.bias)
+
+    def set_phase1p_sdpa(self, enabled: bool) -> None:
+        """Select the profiler-only SDPA arithmetic without changing state names."""
+        self._phase1p_sdpa = bool(enabled)
 
     def forward(
         self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
@@ -330,15 +351,26 @@ class ReferenceMultiheadAttention(nn.Module):
                 self.in_proj_bias[embed : 2 * embed],
             )
             v = F.linear(value, self.in_proj_weight[2 * embed :], self.in_proj_bias[2 * embed :])
-        q = q * (float(self.head_dim) ** -0.5)
         target_len, batch, _ = q.shape
         source_len = k.shape[0]
-        q = q.contiguous().view(target_len, batch * self.num_heads, self.head_dim).transpose(0, 1)
+        if not self._phase1p_sdpa:
+            q = q * (float(self.head_dim) ** -0.5)
+        q = q.contiguous().view(
+            target_len, batch * self.num_heads, self.head_dim
+        ).transpose(0, 1)
         k = k.contiguous().view(source_len, batch * self.num_heads, self.head_dim).transpose(0, 1)
         v = v.contiguous().view(source_len, batch * self.num_heads, self.head_dim).transpose(0, 1)
-        weights = torch.bmm(q, k.transpose(1, 2)).softmax(dim=-1)
-        weights = F.dropout(weights, p=self.dropout, training=self.training)
-        output = torch.bmm(weights, v)
+        if self._phase1p_sdpa:
+            output = F.scaled_dot_product_attention(
+                q,
+                k,
+                v,
+                dropout_p=self.dropout if self.training else 0.0,
+            )
+        else:
+            weights = torch.bmm(q, k.transpose(1, 2)).softmax(dim=-1)
+            weights = F.dropout(weights, p=self.dropout, training=self.training)
+            output = torch.bmm(weights, v)
         output = output.transpose(0, 1).contiguous().view(target_len, batch, embed)
         return self.out_proj(output)
 
@@ -525,6 +557,48 @@ class Phase1TransFusionHead(nn.Module):
                 module.momentum = 0.1
         self._operator_profile_ranges = False
 
+    def set_phase1p_lidar_sdpa(self, enabled: bool) -> int:
+        """Toggle exactly the two registered TransFusion attention cores."""
+        attentions = [
+            module
+            for module in self.modules()
+            if isinstance(module, ReferenceMultiheadAttention)
+        ]
+        if len(attentions) != 2:
+            raise RuntimeError(
+                f"Phase-I TransFusion SDPA expected two attention cores, got {len(attentions)}"
+            )
+        for attention in attentions:
+            attention.set_phase1p_sdpa(enabled)
+        return len(attentions) if enabled else 0
+
+    def phase1p_lidar_sdpa_identity(self) -> dict[str, object]:
+        """Describe the frozen attention scope and its training-RNG boundary."""
+        attentions = {
+            name: module
+            for name, module in self.named_modules()
+            if isinstance(module, ReferenceMultiheadAttention)
+        }
+        expected = {"decoder.self_attn", "decoder.cross_attn"}
+        if set(attentions) != expected:
+            raise RuntimeError(
+                "Phase-I TransFusion SDPA attention-scope identity drift"
+            )
+        enabled = {bool(module._phase1p_sdpa) for module in attentions.values()}
+        if len(enabled) != 1:
+            raise RuntimeError("Phase-I TransFusion SDPA controls are inconsistent")
+        return {
+            "module_names": sorted(attentions),
+            "dropout_probabilities": [
+                float(attentions[name].dropout) for name in sorted(attentions)
+            ],
+            "enabled": enabled.pop(),
+            "training_rng_contract": (
+                "dropout probability is unchanged; SDPA and reference kernels may "
+                "consume Philox RNG differently for the same seed"
+            ),
+        }
+
     @contextmanager
     def operator_profile_ranges(self):
         if self._operator_profile_ranges:
@@ -637,6 +711,34 @@ class Phase1TransFusionHead(nn.Module):
         return decoded
 
 
+def _hungarian_cost_iou(
+    predicted_boxes: torch.Tensor,
+    gt_boxes: torch.Tensor,
+    gt_labels: torch.Tensor,
+    query_logits: torch.Tensor,
+    geometry: TransFusionGeometry,
+    *,
+    prevalidated: bool,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    cls_cost = focal_loss_cost(query_logits.transpose(0, 1), gt_labels)
+    x0, y0 = geometry.point_cloud_range[:2]
+    extent_x = geometry.point_cloud_range[3] - x0
+    extent_y = geometry.point_cloud_range[4] - y0
+    start = predicted_boxes.new_tensor((x0, y0))
+    extent = predicted_boxes.new_tensor((extent_x, extent_y))
+    regression_cost = torch.cdist(
+        (predicted_boxes[:, :2] - start) / extent,
+        (gt_boxes[:, :2] - start) / extent,
+        p=1,
+    ) * 0.25
+    iou = (
+        _pairwise_iou3d_unchecked(predicted_boxes, gt_boxes)
+        if prevalidated
+        else pairwise_iou3d(predicted_boxes, gt_boxes)
+    )
+    return cls_cost + regression_cost - iou * 0.25, iou
+
+
 def _hungarian_matches(
     predicted_boxes: torch.Tensor,
     gt_boxes: torch.Tensor,
@@ -652,19 +754,14 @@ def _hungarian_matches(
         return empty, empty, predicted_boxes.new_zeros((proposals, ground_truth))
     profile = profile_range if profile_range is not None else lambda _name: nullcontext()
     with profile("hungarian_cost_gpu"):
-        cls_cost = focal_loss_cost(query_logits.transpose(0, 1), gt_labels)
-        x0, y0 = geometry.point_cloud_range[:2]
-        extent_x = geometry.point_cloud_range[3] - x0
-        extent_y = geometry.point_cloud_range[4] - y0
-        start = predicted_boxes.new_tensor((x0, y0))
-        extent = predicted_boxes.new_tensor((extent_x, extent_y))
-        regression_cost = torch.cdist(
-            (predicted_boxes[:, :2] - start) / extent,
-            (gt_boxes[:, :2] - start) / extent,
-            p=1,
-        ) * 0.25
-        iou = pairwise_iou3d(predicted_boxes, gt_boxes)
-        cost = cls_cost + regression_cost - iou * 0.25
+        cost, iou = _hungarian_cost_iou(
+            predicted_boxes,
+            gt_boxes,
+            gt_labels,
+            query_logits,
+            geometry,
+            prevalidated=False,
+        )
     with profile("hungarian_finite_sync"):
         if not bool(torch.isfinite(cost).all().detach().cpu()):
             raise FloatingPointError("TransFusion Hungarian cost contains non-finite values")
@@ -707,6 +804,11 @@ class Phase1TransFusionLoss(nn.Module):
         )
         self.last_terms: dict[str, torch.Tensor] = {}
         self._operator_profile_ranges = False
+        self._phase1p_hungarian_batched_d2h = False
+
+    def set_phase1p_hungarian_batched_d2h(self, enabled: bool) -> None:
+        """Toggle the profiler-only batched target/Hungarian host plumbing."""
+        self._phase1p_hungarian_batched_d2h = bool(enabled)
 
     @contextmanager
     def operator_profile_ranges(self):
@@ -723,6 +825,281 @@ class Phase1TransFusionLoss(nn.Module):
         if not self._operator_profile_ranges:
             return nullcontext()
         return torch.profiler.record_function(f"fl_v3::lidar_loss::{name}")
+
+    @torch.no_grad()
+    def _build_targets_batched_host(
+        self,
+        output: Mapping[str, torch.Tensor],
+        batch: Mapping[str, Sequence[torch.Tensor]],
+    ) -> dict[str, torch.Tensor]:
+        """Preserve target math while batching redundant device/host boundaries."""
+        batch_size, classes, proposals = output["heatmap"].shape
+        if classes != self.num_classes or proposals != self.num_proposals:
+            raise ValueError("TransFusion query shape drift in target construction")
+        if len(batch["gt_boxes"]) != batch_size or len(batch["gt_labels"]) != batch_size:
+            raise ValueError("TransFusion GT batch size drift")
+        device = output["heatmap"].device
+        dtype = torch.float32
+        labels = torch.full(
+            (batch_size, proposals), self.num_classes, dtype=torch.long, device=device
+        )
+        label_weights = torch.ones(
+            (batch_size, proposals), dtype=dtype, device=device
+        )
+        bbox_targets = torch.zeros(
+            (batch_size, proposals, 10), dtype=dtype, device=device
+        )
+        bbox_weights = torch.zeros_like(bbox_targets)
+        dense_target = torch.zeros(
+            (batch_size, self.num_classes, *self.geometry.bev_hw),
+            dtype=dtype,
+            device=device,
+        )
+        decoded = decode_transfusion_tensors(
+            output["center"].detach().float(),
+            output["height"].detach().float(),
+            output["dim"].detach().float(),
+            output["rot"].detach().float(),
+            output["vel"].detach().float(),
+            self.geometry,
+        )
+        cell_x, cell_y = self.geometry.cell_xy
+        x0, y0 = self.geometry.point_cloud_range[:2]
+        height, width = self.geometry.bev_hw
+
+        gt7_by_sample: list[torch.Tensor] = []
+        gt9_by_sample: list[torch.Tensor] = []
+        labels_by_sample: list[torch.Tensor] = []
+        center_columns_by_sample: list[torch.Tensor] = []
+        center_rows_by_sample: list[torch.Tensor] = []
+        validation_flags: list[torch.Tensor] = []
+        with self._profile_range("gt_prepare_validation_batched"):
+            for batch_index in range(batch_size):
+                gt7 = batch["gt_boxes"][batch_index].to(device=device, dtype=dtype)
+                gt_labels = batch["gt_labels"][batch_index].to(
+                    device=device, dtype=torch.long
+                )
+                if (
+                    gt7.ndim != 2
+                    or gt7.shape[1] != 7
+                    or gt_labels.shape != (gt7.shape[0],)
+                ):
+                    raise ValueError("TransFusion GT tensor schema drift")
+                velocity = torch.zeros(
+                    (gt7.shape[0], 2), dtype=dtype, device=device
+                )
+                if "gt_velocity" in batch:
+                    source_velocity = batch["gt_velocity"][batch_index].to(
+                        device=device, dtype=dtype
+                    )
+                    if source_velocity.shape != velocity.shape:
+                        raise ValueError("TransFusion GT velocity schema drift")
+                    velocity.copy_(source_velocity)
+                gt9 = torch.cat((gt7, velocity), dim=1)
+                centers_x = (gt7[:, 0] - x0) / cell_x
+                centers_y = (gt7[:, 1] - y0) / cell_y
+                center_columns = centers_x.to(torch.int32)
+                center_rows = centers_y.to(torch.int32)
+                prediction_valid = (
+                    torch.isfinite(decoded[batch_index, :, :7]).all()
+                    & (decoded[batch_index, :, 3:6] > 0).all()
+                    if gt7.shape[0]
+                    else torch.ones((), dtype=torch.bool, device=device)
+                )
+                valid = (
+                    torch.isfinite(gt7).all()
+                    & (gt7[:, 3:6] > 0).all()
+                    & ((gt_labels >= 0) & (gt_labels < self.num_classes)).all()
+                    & prediction_valid
+                    & (center_columns >= 0).all()
+                    & (center_columns < width).all()
+                    & (center_rows >= 0).all()
+                    & (center_rows < height).all()
+                )
+                validation_flags.append(valid)
+                gt7_by_sample.append(gt7)
+                gt9_by_sample.append(gt9)
+                labels_by_sample.append(gt_labels)
+                center_columns_by_sample.append(center_columns)
+                center_rows_by_sample.append(center_rows)
+            validity = torch.stack(validation_flags).detach().to(device="cpu")
+            if not bool(validity.all()):
+                failed = [
+                    index for index, value in enumerate(validity.tolist()) if not value
+                ]
+                raise ValueError(
+                    f"TransFusion GT/prediction validation failed for samples {failed}"
+                )
+
+        costs: list[torch.Tensor] = []
+        ious: list[torch.Tensor] = []
+        cost_shapes: list[tuple[int, int]] = []
+        for batch_index, (gt9, gt_labels) in enumerate(
+            zip(gt9_by_sample, labels_by_sample)
+        ):
+            shape = (proposals, int(gt9.shape[0]))
+            cost_shapes.append(shape)
+            if shape[1] == 0:
+                costs.append(decoded.new_zeros(shape))
+                ious.append(decoded.new_zeros(shape))
+                continue
+            with self._profile_range(f"hungarian_sample_{batch_index}"):
+                with self._profile_range("hungarian_cost_gpu"):
+                    cost, iou = _hungarian_cost_iou(
+                        decoded[batch_index],
+                        gt9,
+                        gt_labels,
+                        output["heatmap"][batch_index].detach().float(),
+                        self.geometry,
+                        prevalidated=True,
+                    )
+            costs.append(cost)
+            ious.append(iou)
+
+        try:
+            from scipy.optimize import linear_sum_assignment
+        except ImportError as exc:  # pragma: no cover - Arrhenius dependency gate
+            raise RuntimeError(
+                "TransFusion Hungarian assignment requires scipy"
+            ) from exc
+
+        row_cpu: list[torch.Tensor] = []
+        column_cpu: list[torch.Tensor] = []
+        with self._profile_range("hungarian_batched_d2h_scipy"):
+            nonempty = [cost.reshape(-1) for cost in costs if cost.numel()]
+            flat_cpu = (
+                torch.cat(nonempty).detach().to(device="cpu", dtype=torch.float64)
+                if nonempty
+                else torch.empty((0,), dtype=torch.float64)
+            )
+            if not bool(torch.isfinite(flat_cpu).all()):
+                raise FloatingPointError(
+                    "TransFusion Hungarian cost contains non-finite values"
+                )
+            cursor = 0
+            for rows_count, columns_count in cost_shapes:
+                count = rows_count * columns_count
+                if count:
+                    cpu_cost = flat_cpu[cursor : cursor + count].view(
+                        rows_count, columns_count
+                    ).numpy()
+                    row, column = linear_sum_assignment(cpu_cost)
+                    row_cpu.append(torch.from_numpy(row).to(torch.int64))
+                    column_cpu.append(torch.from_numpy(column).to(torch.int64))
+                else:
+                    row_cpu.append(torch.empty((0,), dtype=torch.int64))
+                    column_cpu.append(torch.empty((0,), dtype=torch.int64))
+                cursor += count
+            if cursor != int(flat_cpu.numel()):
+                raise RuntimeError("batched Hungarian cost slicing drift")
+
+        match_lengths = [int(value.numel()) for value in row_cpu]
+        with self._profile_range("hungarian_batched_h2d_indices"):
+            total_matches = sum(match_lengths)
+            if total_matches:
+                packed_cpu = torch.stack(
+                    (torch.cat(row_cpu), torch.cat(column_cpu)), dim=0
+                )
+                packed = packed_cpu.to(device=device)
+            else:
+                packed = torch.empty((2, 0), dtype=torch.int64, device=device)
+
+        row_by_sample: list[torch.Tensor] = []
+        column_by_sample: list[torch.Tensor] = []
+        cursor = 0
+        for count in match_lengths:
+            row_by_sample.append(packed[0, cursor : cursor + count])
+            column_by_sample.append(packed[1, cursor : cursor + count])
+            cursor += count
+
+        selected_validation: list[torch.Tensor] = []
+        for gt9, columns in zip(gt9_by_sample, column_by_sample):
+            selected = gt9[columns]
+            selected_validation.append(
+                torch.isfinite(selected).all() & (selected[:, 3:6] > 0).all()
+            )
+        selected_validity = torch.stack(selected_validation).detach().to(device="cpu")
+        if not bool(selected_validity.all()):
+            raise ValueError("TransFusion matched targets contain invalid geometry")
+
+        per_sample_matched_iou: list[torch.Tensor] = []
+        num_positive = torch.zeros((), dtype=dtype, device=device)
+        for batch_index, (rows, columns, iou, gt9, gt_labels) in enumerate(
+            zip(
+                row_by_sample,
+                column_by_sample,
+                ious,
+                gt9_by_sample,
+                labels_by_sample,
+            )
+        ):
+            if rows.numel():
+                labels[batch_index, rows] = gt_labels[columns]
+                bbox_targets[batch_index, rows] = _encode_transfusion_boxes_unchecked(
+                    gt9[columns], self.geometry
+                )
+                bbox_weights[batch_index, rows] = 1.0
+                per_sample_matched_iou.append(iou[rows, columns].mean())
+                num_positive += int(rows.numel())
+            else:
+                per_sample_matched_iou.append(
+                    torch.zeros((), dtype=dtype, device=device)
+                )
+
+        gaussian_counts = [int(gt7.shape[0]) for gt7 in gt7_by_sample]
+        with self._profile_range("gaussian_target_batched_host"):
+            packed_gaussian = []
+            for gt7, gt_labels, columns, rows in zip(
+                gt7_by_sample,
+                labels_by_sample,
+                center_columns_by_sample,
+                center_rows_by_sample,
+            ):
+                geometry = torch.stack(
+                    (gt7[:, 3] / cell_x, gt7[:, 4] / cell_y), dim=1
+                )
+                centers = torch.stack((columns, rows, gt_labels), dim=1).to(dtype)
+                packed_gaussian.append(torch.cat((geometry, centers), dim=1))
+            gaussian_cpu = (
+                torch.cat(packed_gaussian, dim=0)
+                .detach()
+                .to(device="cpu", dtype=torch.float64)
+                .tolist()
+                if packed_gaussian
+                else []
+            )
+            cursor = 0
+            for batch_index, count in enumerate(gaussian_counts):
+                for width_cells, height_cells, column, row, label in gaussian_cpu[
+                    cursor : cursor + count
+                ]:
+                    radius = max(
+                        2,
+                        int(
+                            gaussian_radius(
+                                (height_cells, width_cells), min_overlap=0.1
+                            )
+                        ),
+                    )
+                    draw_gaussian(
+                        dense_target[batch_index, int(label)],
+                        int(column),
+                        int(row),
+                        radius,
+                    )
+                cursor += count
+            if cursor != len(gaussian_cpu):
+                raise RuntimeError("batched Gaussian metadata slicing drift")
+
+        return {
+            "labels": labels,
+            "label_weights": label_weights,
+            "bbox_targets": bbox_targets,
+            "bbox_weights": bbox_weights,
+            "dense_heatmap": dense_target,
+            "num_positive": num_positive,
+            "matched_iou": torch.stack(per_sample_matched_iou).mean(),
+        }
 
     @staticmethod
     def _gaussian_focal(logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -761,6 +1138,8 @@ class Phase1TransFusionLoss(nn.Module):
     def build_targets(
         self, output: Mapping[str, torch.Tensor], batch: Mapping[str, Sequence[torch.Tensor]]
     ) -> dict[str, torch.Tensor]:
+        if self._phase1p_hungarian_batched_d2h:
+            return self._build_targets_batched_host(output, batch)
         batch_size, classes, proposals = output["heatmap"].shape
         if classes != self.num_classes or proposals != self.num_proposals:
             raise ValueError("TransFusion query shape drift in target construction")

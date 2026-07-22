@@ -150,6 +150,74 @@ def test_sparse_second_shape_stats_backward_and_reduced_occupancy():
     assert any(g.abs().sum() > 0 for g in grads)
 
 
+def test_phase1p_host_offsets_preserve_sparse_forward_backward():
+    SparseVoxelEncoder = _sparse_encoder_or_skip()
+    torch.manual_seed(20260722)
+    enc = _encoder(SparseVoxelEncoder).eval()
+    enc.record_debug = True
+    points = _points(torch.device("cuda:0"))
+    offsets = torch.tensor([0, 4, 8], dtype=torch.int64)
+
+    enc.zero_grad(set_to_none=True)
+    reference = enc(points, B=2)
+    reference.float().square().mean().backward()
+    reference_gradients = {
+        name: parameter.grad.detach().clone()
+        for name, parameter in enc.named_parameters()
+        if parameter.grad is not None
+    }
+
+    enc.zero_grad(set_to_none=True)
+    candidate = enc(points, B=2, batch_offsets=offsets)
+    assert (enc.last_sparse_meta or {}).get("point_grouping") == "host_offsets"
+    candidate.float().square().mean().backward()
+    candidate_gradients = {
+        name: parameter.grad.detach().clone()
+        for name, parameter in enc.named_parameters()
+        if parameter.grad is not None
+    }
+    torch.testing.assert_close(candidate, reference, rtol=1e-5, atol=1e-6)
+    assert candidate_gradients.keys() == reference_gradients.keys()
+    for name in reference_gradients:
+        torch.testing.assert_close(
+            candidate_gradients[name],
+            reference_gradients[name],
+            rtol=1e-4,
+            atol=1e-6,
+        )
+
+    parameter_values = {
+        name: parameter.detach().clone()
+        for name, parameter in enc.named_parameters()
+        if name in reference_gradients
+    }
+    reference_parameters = {
+        name: torch.nn.Parameter(value.clone())
+        for name, value in parameter_values.items()
+    }
+    candidate_parameters = {
+        name: torch.nn.Parameter(value.clone())
+        for name, value in parameter_values.items()
+    }
+    reference_optimizer = torch.optim.AdamW(reference_parameters.values(), lr=2e-4)
+    candidate_optimizer = torch.optim.AdamW(candidate_parameters.values(), lr=2e-4)
+    for name in parameter_values:
+        reference_parameters[name].grad = reference_gradients[name]
+        candidate_parameters[name].grad = candidate_gradients[name]
+    reference_optimizer.step()
+    candidate_optimizer.step()
+    for name in parameter_values:
+        torch.testing.assert_close(
+            candidate_parameters[name],
+            reference_parameters[name],
+            rtol=1e-4,
+            atol=1e-6,
+        )
+
+    with pytest.raises(ValueError, match="do not describe"):
+        enc(points, B=2, batch_offsets=torch.tensor([0, 9, 8], dtype=torch.int64))
+
+
 def test_per_sample_caps_extreme_occupancy_and_point_permutation():
     SparseVoxelEncoder = _sparse_encoder_or_skip()
     enc = _encoder(SparseVoxelEncoder, train_cap=2, eval_cap=3).train()

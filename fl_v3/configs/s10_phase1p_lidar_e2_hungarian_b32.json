@@ -1,0 +1,23 @@
+{
+  "schema": "s10.phase1p.lidar-e2.v1",
+  "phase": "S10 Phase I-P",
+  "envelope": "IP-L-E2",
+  "candidate_id": "lidar_hungarian_batched_d2h_b32_accum1",
+  "branch_bindings": {
+    "camera": {"config_path": "fl_v3/configs/s10_phase1_camera.json", "config_file_sha256": "9a2cdf54a52edeb71b5335aea8445c0a8cc0c8e2e416b2f4fe3df58d7b98710c", "resolved_config_sha256": "e295b627551a584b460a598ee3e3f23b5ad8dda45441904d4ed526bbf3457f2b"},
+    "lidar": {"config_path": "fl_v3/configs/s10_phase1_lidar.json", "config_file_sha256": "c7e1fa26e1714a31c5998296cb95cbab5e8732d4bf2f06da81fd6d631c574bfc", "resolved_config_sha256": "0efe4d6d5138e3d99ae80254a6ecf884300dd18985ab45a00425228fc3ef082e"}
+  },
+  "measurement": {"warmup_accepted_windows": 16, "sustained_accepted_windows": 256, "capacity_accepted_windows": 8, "baseline_process_repeats": 2, "repeat_instability_fraction": 0.03, "trace_accepted_windows": 3, "checkpoint_continuation_windows": 8, "max_reserved_fraction": 0.85, "system_sample_interval_seconds": 1.0},
+  "parity": {"fp32": {"rtol": 0.0001, "atol": 0.000001}, "fp16": {"rtol": 0.002, "atol": 0.0002}},
+  "candidates": {
+    "camera_augmentation_transfer_cleanup": false, "training_field_whitelist": false,
+    "camera_static_grid_cache": false, "camera_batched_affine_grid": false,
+    "camera_batched_preprocess": false, "finite_loss_window_aggregation": false,
+    "lidar_host_batch_offsets": false, "hungarian_batched_d2h": true,
+    "checkpoint_snapshot_reuse": false, "checkpoint_async_write": false,
+    "camera_sdpa": false, "lidar_sdpa": false, "torch_compile": false,
+    "fused_adamw": false, "activation_checkpoint": false,
+    "physical_batch_size": 32, "checkpoint_cadence_epochs": 1
+  },
+  "boundaries": {"allowed_data_role": "D_fit", "forbidden_roles": ["D_select", "D_audit", "official_validation"], "capability_metrics": false, "output_root_prefix": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_l_e2_"}
+}

@@ -23,7 +23,7 @@ import re
 import subprocess
 import sys
 import time
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 sys.path.insert(0, "fl_v3/src")
 
@@ -82,16 +82,22 @@ def _candidate_cpu_resident_batch_fields(profile, branch: str) -> tuple[str, ...
     if bool(profile.candidates["camera_augmentation_transfer_cleanup"]):
         _require(branch == "camera", "augmentation transfer cleanup is Camera-only")
         return ("augmentation_params",)
+    if profile.data["envelope"] == "IP-L-E2":
+        _require(branch == "lidar", "IP-L-E2 point offsets are LiDAR-only")
+        return ("lidar_point_offsets",)
     return ()
 
 
-_COMPILE_MODULES = (
+_CAMERA_COMPILE_MODULES = (
     "camera_backbone",
     "camera_neck",
     "decoder_backbone",
     "decoder_neck",
     "head",
 )
+_LIDAR_COMPILE_MODULES = ("decoder_backbone", "decoder_neck", "head")
+# Historical tests and Camera production identity use this public alias.
+_COMPILE_MODULES = _CAMERA_COMPILE_MODULES
 
 
 def _state_name_sha256(model: torch.nn.Module) -> str:
@@ -147,6 +153,7 @@ def _counter_has_steady_recompile(
 
 def _optimizer_configuration(optimizer: torch.optim.Optimizer) -> dict[str, Any]:
     defaults = optimizer.defaults
+    group_identity = getattr(optimizer, "_phase1_group_identity", None)
     return {
         "type": f"{type(optimizer).__module__}.{type(optimizer).__qualname__}",
         "parameter_groups": len(optimizer.param_groups),
@@ -155,10 +162,17 @@ def _optimizer_configuration(optimizer: torch.optim.Optimizer) -> dict[str, Any]
         "foreach": defaults.get("foreach"),
         "capturable": defaults.get("capturable"),
         "differentiable": defaults.get("differentiable"),
+        "phase1_group_identity_sha256": (
+            _canonical_sha256(group_identity)
+            if isinstance(group_identity, list)
+            else None
+        ),
     }
 
 
-def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
+def _configure_profile_candidate(
+    model, profile, branch: str, *, criterion=None
+) -> dict[str, Any]:
     """Apply only the fail-closed profiler runtime options bound by the profile."""
     profile.assert_runnable(branch)
     augmentation_cleanup = bool(
@@ -173,7 +187,13 @@ def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
     bulk_input_conversion = bool(
         profile.candidates.get("camera_bulk_input_conversion", False)
     )
+    lidar_host_offsets = bool(profile.candidates["lidar_host_batch_offsets"])
+    hungarian_batched_d2h = bool(profile.candidates["hungarian_batched_d2h"])
     if branch == "camera":
+        _require(
+            not lidar_host_offsets and not hungarian_batched_d2h,
+            "Camera cannot enable LiDAR profiler candidates",
+        )
         augmentation_setter = getattr(
             getattr(model, "preprocess", None),
             "set_phase1p_augmentation_transfer_cleanup",
@@ -234,11 +254,27 @@ def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
             and not bulk_input_conversion,
             "LiDAR cannot enable Camera profiler candidates",
         )
+        host_offsets_setter = getattr(
+            model, "set_phase1p_lidar_host_batch_offsets", None
+        )
+        _require(
+            callable(host_offsets_setter),
+            "LiDAR detector lacks the host-offset candidate control",
+        )
+        host_offsets_setter(lidar_host_offsets)
+        hungarian_setter = getattr(
+            criterion, "set_phase1p_hungarian_batched_d2h", None
+        )
+        _require(
+            callable(hungarian_setter),
+            "LiDAR criterion lacks the batched-Hungarian candidate control",
+        )
+        hungarian_setter(hungarian_batched_d2h)
     camera_sdpa = bool(profile.candidates["camera_sdpa"])
     lidar_sdpa = bool(profile.candidates["lidar_sdpa"])
     compile_enabled = bool(profile.candidates["torch_compile"])
-    _require(not lidar_sdpa, "Phase I-P does not authorize LiDAR SDPA")
-    _require(not compile_enabled or branch == "camera", "compile candidate is Camera-only")
+    _require(not camera_sdpa or branch == "camera", "Camera SDPA is Camera-only")
+    _require(not lidar_sdpa or branch == "lidar", "LiDAR SDPA is LiDAR-only")
     before_state_names = _state_name_sha256(model)
     from fl_v3.training.phase1_runtime import phase1_runtime_optimization_identity
 
@@ -247,9 +283,15 @@ def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
         source_runtime["camera_sdpa"] or source_runtime["torch_compile"]
     )
     sdpa_modules = 0
+    lidar_sdpa_modules = 0
+    lidar_sdpa_identity = None
     compiled_modules: list[str] = []
     if source_runtime_active:
         _require(branch == "camera", "preconfigured runtime stack is not Camera-only")
+        _require(
+            not lidar_sdpa and not lidar_host_offsets and not hungarian_batched_d2h,
+            "Camera production runtime cannot carry LiDAR candidates",
+        )
         _require(
             bool(source_runtime["camera_sdpa"]) == camera_sdpa
             and bool(source_runtime["torch_compile"]) == compile_enabled,
@@ -294,8 +336,44 @@ def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
                 sdpa_modules == 12,
                 f"Camera SDPA patched {sdpa_modules} modules, expected 12",
             )
+        if lidar_sdpa:
+            setter = getattr(model, "set_phase1p_lidar_sdpa", None)
+            _require(callable(setter), "LiDAR detector lacks the SDPA candidate control")
+            lidar_sdpa_modules = int(setter(True))
+            _require(
+                lidar_sdpa_modules == 2,
+                f"LiDAR SDPA patched {lidar_sdpa_modules} modules, expected 2",
+            )
+        if branch == "lidar":
+            identity_getter = getattr(model, "phase1p_lidar_sdpa_identity", None)
+            _require(
+                callable(identity_getter),
+                "LiDAR detector lacks the SDPA scope identity",
+            )
+            lidar_sdpa_identity = identity_getter()
+            _require(
+                lidar_sdpa_identity
+                == {
+                    "module_names": [
+                        "decoder.cross_attn",
+                        "decoder.self_attn",
+                    ],
+                    "dropout_probabilities": [0.1, 0.1],
+                    "enabled": lidar_sdpa,
+                    "training_rng_contract": (
+                        "dropout probability is unchanged; SDPA and reference "
+                        "kernels may consume Philox RNG differently for the same seed"
+                    ),
+                },
+                "LiDAR SDPA scope/dropout/RNG identity drift",
+            )
         if compile_enabled:
-            for name in _COMPILE_MODULES:
+            compile_modules = (
+                _CAMERA_COMPILE_MODULES
+                if branch == "camera"
+                else _LIDAR_COMPILE_MODULES
+            )
+            for name in compile_modules:
                 module = getattr(model, name, None)
                 _require(
                     isinstance(module, torch.nn.Module),
@@ -317,6 +395,11 @@ def _configure_profile_candidate(model, profile, branch: str) -> dict[str, Any]:
     return {
         "camera_sdpa": camera_sdpa,
         "sdpa_modules_patched": sdpa_modules,
+        "lidar_sdpa": lidar_sdpa,
+        "lidar_sdpa_modules_patched": lidar_sdpa_modules,
+        "lidar_sdpa_identity": lidar_sdpa_identity,
+        "lidar_host_batch_offsets": lidar_host_offsets,
+        "hungarian_batched_d2h": hungarian_batched_d2h,
         "torch_compile": compile_enabled,
         "compiled_forward_modules": compiled_modules,
         "compile_backend": "inductor" if compile_enabled else None,
@@ -394,6 +477,61 @@ class _BatchDigestLoader:
             if self.limit is None or len(self.records) < self.limit:
                 self.records.append(_batch_sha256(batch))
             yield batch
+
+
+class _LidarPointOffsetLoader:
+    """Add profiler-only CPU offsets without changing the production collator."""
+
+    def __init__(self, loader) -> None:
+        self.loader = loader
+        self.batch_size = getattr(loader, "batch_size", None)
+
+    def __len__(self) -> int:
+        return len(self.loader)
+
+    def __iter__(self):
+        for batch in self.loader:
+            _require(isinstance(batch, Mapping), "LiDAR offset batch is not a mapping")
+            _require(
+                "lidar_point_offsets" not in batch,
+                "production collator unexpectedly emitted LiDAR point offsets",
+            )
+            points = batch.get("lidar_points")
+            _require(
+                torch.is_tensor(points)
+                and points.device.type == "cpu"
+                and points.ndim == 2
+                and points.shape[1] >= 1,
+                "LiDAR offset source must be a CPU [N,>=1] point tensor",
+            )
+            gt_boxes = batch.get("gt_boxes")
+            _require(isinstance(gt_boxes, Sequence), "LiDAR batch GT inventory is absent")
+            batch_size = len(gt_boxes)
+            batch_indices = points[:, 0].to(torch.int64)
+            if batch_indices.numel():
+                _require(
+                    bool((points[:, 0] == batch_indices.to(points.dtype)).all()),
+                    "LiDAR collate batch indices are not integral",
+                )
+                _require(
+                    bool(((batch_indices >= 0) & (batch_indices < batch_size)).all()),
+                    "LiDAR collate batch indices are outside the batch",
+                )
+                _require(
+                    bool((batch_indices[1:] >= batch_indices[:-1]).all()),
+                    "LiDAR collate points are not sample-contiguous",
+                )
+            counts = torch.bincount(batch_indices, minlength=batch_size)
+            offsets = torch.cat(
+                (torch.zeros((1,), dtype=torch.int64), counts.cumsum(dim=0))
+            )
+            _require(
+                int(offsets[-1]) == int(points.shape[0]),
+                "LiDAR collate offsets do not cover every point",
+            )
+            enriched = dict(batch)
+            enriched["lidar_point_offsets"] = offsets
+            yield enriched
 
 
 def _atomic_write_once(path: Path, value: Any) -> str:
@@ -1095,13 +1233,11 @@ def _run_segment(
     readiness_loss_health: bool = False,
 ) -> dict[str, Any]:
     raw = config.as_dict()
-    loader = (
-        bundle.loader
-        if batch_digests is None
-        else _BatchDigestLoader(
-            bundle.loader, batch_digests, limit=batch_digest_limit
-        )
-    )
+    loader = bundle.loader
+    if "lidar_point_offsets" in cpu_resident_batch_fields:
+        loader = _LidarPointOffsetLoader(loader)
+    if batch_digests is not None:
+        loader = _BatchDigestLoader(loader, batch_digests, limit=batch_digest_limit)
     with ExitStack() as ranges:
         if trace_controller is not None:
             ranges.enter_context(model.operator_profile_ranges())
@@ -1225,8 +1361,13 @@ def _checkpoint_resume_worker(request_path: Path) -> dict[str, Any]:
         is bool(profile.candidates["fused_adamw"]),
         "resume-worker AdamW fused backend differs from the profile",
     )
-    candidate_configuration = _configure_profile_candidate(model, profile, branch)
+    candidate_configuration = _configure_profile_candidate(
+        model, profile, branch, criterion=criterion
+    )
     cpu_resident_batch_fields = _candidate_cpu_resident_batch_fields(profile, branch)
+    candidate_configuration["cpu_resident_batch_fields"] = list(
+        cpu_resident_batch_fields
+    )
     model_build_seconds = time.perf_counter() - started
     started = time.perf_counter()
     bundle = build_phase1_train_data(config)
@@ -1805,9 +1946,14 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "runtime AdamW fused backend differs from the profile",
     )
     dynamo_before = _dynamo_counters()
-    candidate_configuration = _configure_profile_candidate(model, profile, args.branch)
+    candidate_configuration = _configure_profile_candidate(
+        model, profile, args.branch, criterion=criterion
+    )
     cpu_resident_batch_fields = _candidate_cpu_resident_batch_fields(
         profile, args.branch
+    )
+    candidate_configuration["cpu_resident_batch_fields"] = list(
+        cpu_resident_batch_fields
     )
     model_seconds = time.perf_counter() - model_started
     loader_started = time.perf_counter()
@@ -1866,7 +2012,9 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             batch_digest_limit=int(raw["training"]["accumulation_steps"]),
             cpu_resident_batch_fields=cpu_resident_batch_fields,
             attempted_window_callback=attempted_window_callback,
-            readiness_loss_health=(profile.data["envelope"] == "IP-L-E1"),
+            readiness_loss_health=(
+                profile.data["envelope"] in {"IP-L-E1", "IP-L-E2"}
+            ),
         )
         training_seconds = time.perf_counter() - training_started
     finally:
@@ -1892,19 +2040,19 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     )
     _require(timing["stage_timing"] is False, "sustained timing enabled stage events")
     lidar_loss_health = timing.get("loss_health")
-    if profile.data["envelope"] == "IP-L-E1":
+    if profile.data["envelope"] in {"IP-L-E1", "IP-L-E2"}:
         _require(
             isinstance(lidar_loss_health, Mapping),
-            "IP-L-E1 omitted terminal-only loss-health evidence",
+            "LiDAR profiler omitted terminal-only loss-health evidence",
         )
         _require(
             int(lidar_loss_health["accepted_windows"]) == active,
-            "IP-L-E1 loss-health window count drift",
+            "LiDAR profiler loss-health window count drift",
         )
         _require(
             set(lidar_loss_health["criterion_terms"])
             == {"loss_heatmap", "loss_cls", "loss_bbox", "matched_iou"},
-            "IP-L-E1 LiDAR criterion-term inventory drift",
+            "LiDAR profiler criterion-term inventory drift",
         )
     memory_capacity_safe = (
         timing["memory"]["peak_reserved_fraction"]
@@ -1924,19 +2072,19 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "zero_scaler_skips": float(metrics["grad_scaler_skips"]) == 0.0,
         "all_reported_loss_values_finite": (
             True
-            if profile.data["envelope"] != "IP-L-E1"
+            if profile.data["envelope"] not in {"IP-L-E1", "IP-L-E2"}
             else bool(lidar_loss_health["all_reported_values_finite"])
         ),
         "no_sustained_monotonic_reserved_growth_over_64mib": (
             True
-            if profile.data["envelope"] != "IP-L-E1" or args.mode == "capacity"
+            if profile.data["envelope"] not in {"IP-L-E1", "IP-L-E2"} or args.mode == "capacity"
             else not bool(
                 timing["memory"]["monotonic_reserved_growth_over_64mib"]
             )
         ),
         "memory_under_85_percent_reserved": (
             True
-            if profile.data["envelope"] != "IP-L-E1" or args.mode == "capacity"
+            if profile.data["envelope"] not in {"IP-L-E1", "IP-L-E2"} or args.mode == "capacity"
             else memory_capacity_safe
         ),
     }
@@ -1965,6 +2113,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             - float(timing["measurement_wall_seconds"] or 0.0),
         ),
     }
+    optimizer_configuration_after_training = _optimizer_configuration(optimizer)
     measurement_record = {
         "schema": "s10.phase1p.measurement.v2",
         "mode": args.mode,
@@ -1986,7 +2135,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "first_optimizer_window_input_sha256": input_anchor_sha256,
         "candidate_configuration": candidate_configuration,
         "optimizer_configuration_before_training": optimizer_configuration_before,
-        "optimizer_configuration_after_training": _optimizer_configuration(optimizer),
+        "optimizer_configuration_after_training": optimizer_configuration_after_training,
         "compile_evidence": compile_evidence,
         "sampler_prefix": prefix,
         "system_sampling": system_record,
@@ -2063,6 +2212,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "candidate_options": dict(profile.candidates),
         "candidate_configuration": candidate_configuration,
         "optimizer_configuration_before_training": optimizer_configuration_before,
+        "optimizer_configuration_after_training": optimizer_configuration_after_training,
         "compile_evidence": compile_evidence,
         "physical_batch_size": physical_batch,
         "accumulation_steps": int(raw["training"]["accumulation_steps"]),
@@ -2105,7 +2255,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
                 "failed_unix_seconds": time.time(),
             },
         )
-        if profile.data["envelope"] != "IP-E2":
+        if profile.data["envelope"] not in {"IP-E2", "IP-L-E2"}:
             raise RuntimeError("fresh-process checkpoint continuation parity failed")
     if profile.data["envelope"] == "IP-L-E1" and not measurement_health_gate:
         _atomic_write_once(

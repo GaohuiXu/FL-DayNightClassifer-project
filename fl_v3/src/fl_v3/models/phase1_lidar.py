@@ -126,6 +126,16 @@ class Phase1LidarDetector(nn.Module):
         self.decoder_neck = Phase1SECONDFPN()
         self.head = Phase1TransFusionHead()
         self._operator_profile_ranges = False
+        self._phase1p_host_batch_offsets = False
+
+    def set_phase1p_lidar_sdpa(self, enabled: bool) -> int:
+        return self.head.set_phase1p_lidar_sdpa(enabled)
+
+    def phase1p_lidar_sdpa_identity(self) -> dict[str, object]:
+        return self.head.phase1p_lidar_sdpa_identity()
+
+    def set_phase1p_lidar_host_batch_offsets(self, enabled: bool) -> None:
+        self._phase1p_host_batch_offsets = bool(enabled)
 
     @contextmanager
     def operator_profile_ranges(self):
@@ -158,8 +168,17 @@ class Phase1LidarDetector(nn.Module):
             batch_size = len(batch["gt_boxes"])
         else:
             raise KeyError("Phase-I LiDAR batch is missing batch_size/gt_boxes")
+        point_offsets = None
+        if self._phase1p_host_batch_offsets:
+            point_offsets = batch.get("lidar_point_offsets")
+            if not torch.is_tensor(point_offsets):
+                raise TypeError(
+                    "Phase-I LiDAR host-offset candidate requires lidar_point_offsets"
+                )
         with self._profile_range("voxel_vfe_sparse_collapse"):
-            collapsed = self.lidar_encoder(points, batch_size)
+            collapsed = self.lidar_encoder(
+                points, batch_size, batch_offsets=point_offsets
+            )
         if collapsed.dtype != torch.float32:
             raise RuntimeError(
                 f"Phase-I sparse FP32 island returned {collapsed.dtype}, expected torch.float32"

@@ -11,7 +11,10 @@ import sys
 
 sys.path.insert(0, "fl_v3/src")
 
-from fl_v3.training.phase1p_compare import compare_output_dirs
+from fl_v3.training.phase1p_compare import (
+    compare_lidar_e2_output_dirs,
+    compare_output_dirs,
+)
 
 
 def _canonical_bytes(value) -> bytes:
@@ -49,8 +52,10 @@ def main() -> None:
     parser.add_argument("--reference-dir", required=True)
     parser.add_argument("--candidate-dir", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--lidar-e2", action="store_true")
     arguments = parser.parse_args()
-    result = compare_output_dirs(arguments.reference_dir, arguments.candidate_dir)
+    compare = compare_lidar_e2_output_dirs if arguments.lidar_e2 else compare_output_dirs
+    result = compare(arguments.reference_dir, arguments.candidate_dir)
     digest = _write_once(Path(arguments.output), result)
     print(
         json.dumps(

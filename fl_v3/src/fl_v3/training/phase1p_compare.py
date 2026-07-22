@@ -40,6 +40,15 @@ IP_E5_SINGLE_REFERENCE_ID = "camera_final_b16_single_gpu_reference"
 IP_E5_DDP_CANDIDATE_ID = "camera_final_b16_ddp2"
 IP_E5_SPEEDUP_LOWER_BOUND = 1.60
 IP_E5_MAX_CHARGED_RATIO = 1.25
+LIDAR_E2_REFERENCE_ID = "lidar_reference_b32_accum1"
+LIDAR_E2_CANDIDATE_FLAGS = {
+    "lidar_hungarian_batched_d2h_b32_accum1": "hungarian_batched_d2h",
+    "lidar_sdpa_b32_accum1": "lidar_sdpa",
+    "lidar_compile_b32_accum1": "torch_compile",
+    "lidar_host_batch_offsets_b32_accum1": "lidar_host_batch_offsets",
+    "lidar_fused_adamw_b32_accum1": "fused_adamw",
+}
+LIDAR_E2_CONDITIONAL_LOWER_BOUND = 0.98
 _MATERIAL_SOURCE_IDENTITY_KEYS = (
     "approved_source_sha",
     "branch",
@@ -563,7 +572,11 @@ def compare_output_dirs(
     reference_identity = reference_output["identity"]
     candidate_identity = candidate_output["identity"]
 
-    _require(reference.get("branch") == candidate.get("branch") == "camera", "pair is not Camera-only")
+    branch = reference.get("branch")
+    _require(
+        branch == candidate.get("branch") and branch in {"camera", "lidar"},
+        "pair branch identity differs",
+    )
     _require(reference.get("source") == candidate.get("source"), "pair source identity differs")
     _require(
         reference.get("source_resolved_config_sha256")
@@ -675,7 +688,7 @@ def compare_output_dirs(
     return {
         "schema": PAIR_SCHEMA,
         "phase": "S10 Phase I-P",
-        "envelope": "IP-E2",
+        "envelope": "IP-E2" if branch == "camera" else "IP-L-E2",
         "matched_allocation": {
             "slurm_job_id": job_id,
             "node_list": ref_attempt["node_list"],
@@ -726,6 +739,260 @@ def compare_output_dirs(
             "no capability, mAP, NDS, generalization, or recipe-selection claim",
         ],
     }
+
+
+def compare_lidar_e2_output_dirs(
+    reference_dir: str | Path,
+    candidate_dir: str | Path,
+) -> dict[str, Any]:
+    """Evaluate one exact B32 LiDAR L-WP2 isolated paired screen."""
+    summary = compare_output_dirs(reference_dir, candidate_dir)
+    reference = _load_output(reference_dir)["result"]
+    candidate = _load_output(candidate_dir)["result"]
+    _require(
+        reference.get("branch") == candidate.get("branch") == "lidar",
+        "IP-L-E2 pair is not LiDAR-only",
+    )
+    _require(
+        reference.get("candidate_id") == LIDAR_E2_REFERENCE_ID,
+        "IP-L-E2 reference candidate identity drift",
+    )
+    candidate_id = str(candidate.get("candidate_id"))
+    _require(
+        candidate_id in LIDAR_E2_CANDIDATE_FLAGS,
+        "IP-L-E2 candidate identity drift",
+    )
+    _require(
+        int(reference.get("physical_batch_size", 0)) == 32
+        and int(candidate.get("physical_batch_size", 0)) == 32
+        and int(reference.get("accumulation_steps", 0)) == 1
+        and int(candidate.get("accumulation_steps", 0)) == 1,
+        "IP-L-E2 pair must remain B32x1",
+    )
+    reference_options = reference.get("candidate_options")
+    candidate_options = candidate.get("candidate_options")
+    _require(
+        isinstance(reference_options, Mapping)
+        and isinstance(candidate_options, Mapping),
+        "IP-L-E2 candidate-option evidence is absent",
+    )
+    changed = {
+        key
+        for key in set(reference_options) | set(candidate_options)
+        if reference_options.get(key) != candidate_options.get(key)
+    }
+    expected_flag = LIDAR_E2_CANDIDATE_FLAGS[candidate_id]
+    _require(
+        changed == {expected_flag}
+        and reference_options.get(expected_flag) is False
+        and candidate_options.get(expected_flag) is True,
+        f"IP-L-E2 candidate is not isolated to {expected_flag}",
+    )
+
+    reference_runtime = reference.get("candidate_configuration")
+    candidate_runtime = candidate.get("candidate_configuration")
+    _require(
+        isinstance(reference_runtime, Mapping)
+        and isinstance(candidate_runtime, Mapping),
+        "IP-L-E2 runtime-scope evidence is absent",
+    )
+    runtime_scope_checks = {
+        "state_dict_names_unchanged": bool(
+            reference_runtime.get("state_dict_name_sha256")
+            and reference_runtime.get("state_dict_name_sha256")
+            == candidate_runtime.get("state_dict_name_sha256")
+        ),
+        "profiler_only_runtime_application": bool(
+            reference_runtime.get("runtime_application")
+            == candidate_runtime.get("runtime_application")
+            == "profile_candidate"
+        ),
+        "matched_cpu_offset_metadata": bool(
+            reference_runtime.get("cpu_resident_batch_fields")
+            == candidate_runtime.get("cpu_resident_batch_fields")
+            == ["lidar_point_offsets"]
+        ),
+    }
+    for flag in (
+        "hungarian_batched_d2h",
+        "lidar_host_batch_offsets",
+        "lidar_sdpa",
+        "torch_compile",
+    ):
+        runtime_scope_checks[f"isolated_runtime_{flag}"] = bool(
+            reference_runtime.get(flag) is False
+            and candidate_runtime.get(flag) is (flag == expected_flag)
+        )
+
+    if expected_flag == "lidar_sdpa":
+        reference_sdpa = reference_runtime.get("lidar_sdpa_identity")
+        candidate_sdpa = candidate_runtime.get("lidar_sdpa_identity")
+        runtime_scope_checks.update(
+            {
+                "sdpa_exact_two_cores": bool(
+                    reference_runtime.get("lidar_sdpa_modules_patched") == 0
+                    and candidate_runtime.get("lidar_sdpa_modules_patched") == 2
+                ),
+                "sdpa_scope_dropout_rng_record": bool(
+                    isinstance(reference_sdpa, Mapping)
+                    and isinstance(candidate_sdpa, Mapping)
+                    and reference_sdpa.get("enabled") is False
+                    and candidate_sdpa.get("enabled") is True
+                    and reference_sdpa.get("module_names")
+                    == candidate_sdpa.get("module_names")
+                    == ["decoder.cross_attn", "decoder.self_attn"]
+                    and reference_sdpa.get("dropout_probabilities")
+                    == candidate_sdpa.get("dropout_probabilities")
+                    == [0.1, 0.1]
+                    and isinstance(candidate_sdpa.get("training_rng_contract"), str)
+                ),
+            }
+        )
+    if expected_flag == "torch_compile":
+        compile_evidence = candidate.get("compile_evidence")
+        runtime_scope_checks.update(
+            {
+                "compile_exact_dense_scope": bool(
+                    candidate_runtime.get("compiled_forward_modules")
+                    == ["decoder_backbone", "decoder_neck", "head"]
+                    and candidate_runtime.get("compile_backend") == "inductor"
+                    and candidate_runtime.get("compile_dynamic") is False
+                    and candidate_runtime.get("compile_mode") == "default"
+                ),
+                "compile_no_measured_recompile": bool(
+                    isinstance(compile_evidence, Mapping)
+                    and compile_evidence.get("unexpected_steady_state_recompile")
+                    is False
+                ),
+            }
+        )
+
+    reference_optimizer_before = reference.get(
+        "optimizer_configuration_before_training"
+    )
+    candidate_optimizer_before = candidate.get(
+        "optimizer_configuration_before_training"
+    )
+    reference_optimizer_after = reference.get(
+        "optimizer_configuration_after_training"
+    )
+    candidate_optimizer_after = candidate.get(
+        "optimizer_configuration_after_training"
+    )
+    optimizer_records_present = all(
+        isinstance(record, Mapping)
+        for record in (
+            reference_optimizer_before,
+            candidate_optimizer_before,
+            reference_optimizer_after,
+            candidate_optimizer_after,
+        )
+    )
+    runtime_scope_checks["optimizer_identity_present"] = optimizer_records_present
+    if optimizer_records_present:
+        runtime_scope_checks.update(
+            {
+                "optimizer_type_and_groups_unchanged": bool(
+                    reference_optimizer_before.get("type")
+                    == candidate_optimizer_before.get("type")
+                    and reference_optimizer_before.get("parameter_groups")
+                    == candidate_optimizer_before.get("parameter_groups")
+                    and reference_optimizer_before.get(
+                        "phase1_group_identity_sha256"
+                    )
+                    == candidate_optimizer_before.get(
+                        "phase1_group_identity_sha256"
+                    )
+                    and bool(
+                        reference_optimizer_before.get(
+                            "phase1_group_identity_sha256"
+                        )
+                    )
+                    and reference_optimizer_after.get("state_entries")
+                    == candidate_optimizer_after.get("state_entries")
+                    and int(candidate_optimizer_after.get("state_entries", 0)) > 0
+                ),
+                "optimizer_backend_isolated": bool(
+                    reference_optimizer_before.get("fused") is False
+                    and candidate_optimizer_before.get("fused")
+                    is (expected_flag == "fused_adamw")
+                ),
+            }
+        )
+
+    def lidar_health(result: Mapping[str, Any], label: str) -> bool:
+        reported = result.get("measurement_health")
+        _require(
+            isinstance(reported, Mapping),
+            f"IP-L-E2 {label} measurement-health evidence is absent",
+        )
+        timing = _timing(result)
+        loss_health = timing.get("loss_health")
+        _require(
+            isinstance(loss_health, Mapping),
+            f"IP-L-E2 {label} loss-health evidence is absent",
+        )
+        _require(
+            set(loss_health.get("criterion_terms", {}))
+            == {"loss_heatmap", "loss_cls", "loss_bbox", "matched_iou"},
+            f"IP-L-E2 {label} criterion-term inventory drift",
+        )
+        return bool(
+            reported.get("gate_pass")
+            and loss_health.get("all_reported_values_finite")
+        )
+
+    reference_lidar_health = lidar_health(reference, "reference")
+    candidate_lidar_health = lidar_health(candidate, "candidate")
+    generic_hard = bool(
+        summary["reference"]["measurement_health"]["gate_pass"]
+        and summary["reference"]["checkpoint_continuation"]["gate_pass"]
+        and summary["candidate"]["measurement_health"]["gate_pass"]
+        and summary["candidate"]["checkpoint_continuation"]["gate_pass"]
+    )
+    hard_gate_pass = bool(
+        generic_hard
+        and reference_lidar_health
+        and candidate_lidar_health
+        and all(runtime_scope_checks.values())
+    )
+    ratio = float(summary["throughput"]["candidate_over_reference"])
+    lower_bound = float(
+        summary["throughput"]["one_sided_95_percent_lower_bound"]
+    )
+    if ratio > 1.0 and lower_bound > 1.0:
+        classification = "POSITIVE"
+    elif ratio > 1.0 and lower_bound >= LIDAR_E2_CONDITIONAL_LOWER_BOUND:
+        classification = "CONDITIONAL"
+    else:
+        classification = "NEGATIVE"
+
+    summary["schema"] = "s10.phase1p.lidar-e2-paired-comparison.v1"
+    summary["envelope"] = "IP-L-E2"
+    summary["throughput"]["performance_classification"] = classification
+    summary["throughput"]["conditional_lower_bound"] = (
+        LIDAR_E2_CONDITIONAL_LOWER_BOUND
+    )
+    summary["lidar_hard_gate"] = {
+        "reference_reported_loss_health": reference_lidar_health,
+        "candidate_reported_loss_health": candidate_lidar_health,
+        "candidate_specific_runtime_checks": runtime_scope_checks,
+        "gate_pass": hard_gate_pass,
+    }
+    summary["candidate_screen_gate_pass"] = bool(
+        hard_gate_pass and classification == "POSITIVE"
+    )
+    summary["conditional_for_l_wp3"] = bool(
+        hard_gate_pass and classification == "CONDITIONAL"
+    )
+    summary["promotion_authorized"] = False
+    summary["conditional_B16_gate"] = None
+    summary["interpretation_limits"] = [
+        "D_fit-only LiDAR throughput and engineering-health evidence",
+        "the accepted B32 batch recipe is fixed across both processes",
+        "no capability, mAP, NDS, generalization, or final-recipe claim",
+    ]
+    return summary
 
 
 def compare_b16_followup_output_dirs(

@@ -258,9 +258,41 @@ class SparseVoxelEncoder(nn.Module):
     def _use_sparse_conv_fp16(self, device: torch.device) -> bool:
         return bool(self.sparse_conv_fp16 and device.type == "cuda")
 
-    def _group_points_by_batch(self, points: torch.Tensor, bidx: torch.Tensor, B: int):
+    @staticmethod
+    def _host_batch_counts(
+        batch_offsets: torch.Tensor, *, B: int, total_points: int
+    ) -> list[int]:
+        if batch_offsets.device.type != "cpu":
+            raise ValueError("LiDAR point offsets must remain CPU-resident")
+        if batch_offsets.dtype != torch.int64 or tuple(batch_offsets.shape) != (B + 1,):
+            raise ValueError(
+                f"LiDAR point offsets must be int64[{B + 1}], got "
+                f"{batch_offsets.dtype}{tuple(batch_offsets.shape)}"
+            )
+        offsets = [int(value) for value in batch_offsets.tolist()]
+        if (
+            offsets[0] != 0
+            or offsets[-1] != int(total_points)
+            or any(left > right for left, right in zip(offsets, offsets[1:]))
+        ):
+            raise ValueError("LiDAR point offsets do not describe the collated tensor")
+        return [right - left for left, right in zip(offsets, offsets[1:])]
+
+    def _group_points_by_batch(
+        self,
+        points: torch.Tensor,
+        bidx: torch.Tensor,
+        B: int,
+        *,
+        batch_offsets: torch.Tensor | None = None,
+    ):
         if B <= 0 or points.shape[0] == 0:
             return points, [0] * max(0, int(B)), "empty"
+        if batch_offsets is not None:
+            counts = self._host_batch_counts(
+                batch_offsets, B=B, total_points=int(points.shape[0])
+            )
+            return points, counts, "host_offsets"
         grouped_points = points
         grouped_bidx = bidx
         mode = "contiguous"
@@ -340,7 +372,14 @@ class SparseVoxelEncoder(nn.Module):
         point_drops = torch.clamp(counts - self.max_pts, min=0).sum().to(torch.int64)
         return pf, unique_voxels, point_drops
 
-    def forward(self, points: torch.Tensor, B: int, *, boundary_capture=None) -> torch.Tensor:
+    def forward(
+        self,
+        points: torch.Tensor,
+        B: int,
+        *,
+        boundary_capture=None,
+        batch_offsets: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         """Encode batched points; output is ``[B,out,H/8,W/8]``."""
         if B < 0:
             raise ValueError(f"B must be non-negative, got {B}")
@@ -374,11 +413,17 @@ class SparseVoxelEncoder(nn.Module):
 
         with stage("batch_index_validation"):
             bidx = points[:, 0].to(torch.int64)
-            if bidx.numel():
+            if batch_offsets is None and bidx.numel():
                 integral = points[:, 0] == bidx.to(points.dtype)
                 in_batch = (bidx >= 0) & (bidx < B)
                 if not bool((integral & in_batch).all().detach().cpu()):
                     raise ValueError(f"batch indices must be integral and lie in [0,{B})")
+            elif batch_offsets is not None:
+                # Validate the trusted collate boundary entirely on the host. The
+                # candidate intentionally avoids reading a redundant device scalar.
+                self._host_batch_counts(
+                    batch_offsets, B=B, total_points=int(points.shape[0])
+                )
         sparse_amp = self._use_sparse_conv_fp16(dev)
         fp16_eval_dispatch = bool(sparse_amp and not self.training)
         # Option A is an inference-only contract.  Refuse an eval forward with
@@ -394,7 +439,7 @@ class SparseVoxelEncoder(nn.Module):
         cap = self.active_max_voxels
         with stage("batch_point_grouping"):
             grouped_points, batch_counts, point_grouping = self._group_points_by_batch(
-                points, bidx, B
+                points, bidx, B, batch_offsets=batch_offsets
             )
 
         vfeats: list[torch.Tensor] = []
