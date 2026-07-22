@@ -1,4 +1,4 @@
-# S10 HANDOFF — LiDAR IP-L-E3 combined ABBA positive / trace repair pending
+# S10 HANDOFF — LiDAR IP-L-E3 terminal positive / final recipe pending
 
 ## 1. Current state and authority
 
@@ -8,10 +8,10 @@ UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 ACTIVE_DECISION: IP-LG2 closed; exact three-positive B32 composition passed ABBA
-SCIENCE_ORDER: complete the trace-only instrumentation repair, then materialize the final LiDAR recipe
+SCIENCE_ORDER: materialize the owner-promoted final LiDAR recipe; keep residual trace work deferred
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: exact IP-L-E3 trace repair/final-recipe materialization plus bounded O-149 remediation
-EXECUTION_STATE: E3 Job 559830 ABBA POSITIVE; trace publish instrumentation bug diagnosed; trace-only replacement pending; Envelope B unauthorized
+CURRENT_AUTHORITY: exact IP-L-E3 final-recipe materialization and local validation
+EXECUTION_STATE: E3 ABBA and trace TERMINAL POSITIVE; final LiDAR recipe pending; Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -1020,6 +1020,18 @@ it does not invalidate or trigger a rerun of the sealed ABBA. Repair
 `9cf934020b703c8d179e33522d1455cc2da3c1ae` preserves the raw trace, accepts
 compiled top-level module parents plus the exact batched-loss ranges, and permits
 only a fresh trace-only replacement before final recipe materialization.
+
+Trace-only replacement Job `560200` completed `0:0` in `00:05:22`. It reused and
+hash-attested the positive ABBA, passed both focused tests, observed all required
+compiled-parent and batched-loss ranges, and published the fresh raw trace plus
+structured diagnosis. The trace confirms that the largest named LiDAR-forward
+range remains the FP32 sparse voxel/VFE/collapse front end. Within loss/target
+work, Hungarian cost construction and host Gaussian-target construction are the
+largest residual named ranges; the already-batched SciPy transfer/solve wrapper is
+small. These nested trace totals are localization/ranking evidence only, not
+additive wall-time shares or authority for another candidate. IP-L-E3 has therefore
+reached its positive exit gate and directly authorizes materialization of the exact
+three-optimization B32 production recipe; no further GPU cell is needed for E3.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior

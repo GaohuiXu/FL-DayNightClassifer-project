@@ -2942,7 +2942,7 @@ OWNER_RETURN: close IP-L-E2/L-WP2 and discuss exact L-WP3 composition at IP-LG2;
 ### 9.11 LiDAR IP-LG2 closure and IP-L-E3 activation
 
 ```text
-REQUEST_STATE: ACTIVATED / ABBA POSITIVE / TRACE-ONLY REPAIR PENDING
+REQUEST_STATE: TERMINAL POSITIVE / FINAL RECIPE MATERIALIZATION AUTHORIZED
 OWNER_DECISION: 2026-07-22 — accept the three positive primaries and
   "批准，激活IP-L-E3"
 APPROVAL_ANCHOR_SHA: 468a82bddda685fe81ece1fe0e59db35c50ba856
@@ -3079,6 +3079,34 @@ TRACE_REPLACEMENT_SCOPE: one fresh three-window combined trace only; exact typed
   one-GH200 resource; <=00:20:00; no requeue; charge to diagnosed-code-bug reserve.
 BUDGET_AFTER_JOB_559830: base 0.639722/1.00; bug reserve 0.010000/0.50;
   aggregate 0.649722/1.50 charged GH200-hours
+
+TRACE_REPLACEMENT: Job 560200 / source
+  2b93d0d1263bf4389dd2601d1848e44386db1641 / node n33 / COMPLETED 0:0 /
+  elapsed 00:05:22 / exact one typed GH200 / 16 CPUs / 96 GiB
+TRACE_RUNTIME_RESULT: 2/2 focused tests PASS; positive Job-559830 ABBA hash reused
+  and attested; three accepted B32xaccum1 combined trace windows; COMPLETE_TRACE;
+  all measurement-health checks PASS; no missing core range; compiled parent and
+  batched Hungarian aliases present; no unexpected steady-state recompile.
+TRACE_ARTIFACT_ROOT:
+  lidar/trace_2b93d0d1263b_r1_l3_combined_trace_repair
+TRACE_ARTIFACT_SHA256: result
+  586720cd14ae17f4baedae0043dea5f23afd20195a67e8a10d6a987cd0d7ca4b;
+  measurement d708b283a6ba0d6a88623c1fe20464d3a8d1ddf035aa6f182089b529b6457ea6;
+  complete 33d21c3634b9cbe97a75f52e3089e4c633b616abc32b398bd5b8efe962c2a3f4;
+  raw trace 7937ed1c3b7cbdeb23a3f25a87917d31300ff57cfddb3b28ba938dc48ef5c373;
+  structured summary 79fe502e26cbcbb0394763c654248d302df51115f4a6631b0f7fb8ccf535fcc2;
+  text summary ea438dca29d0fcae2b6b19a8269bb13d76d52abd34920abdfb164fade19884d3
+TRACE_RANKING: largest named forward range is voxel/VFE/sparse-collapse. Residual
+  target work ranks Hungarian GPU cost construction and batched host Gaussian
+  target generation above the now-small batched D2H/SciPy wrapper. Nested trace
+  totals are trace-inflated ranking evidence only and do not quantify additive
+  end-to-end savings or authorize another candidate.
+TERMINAL_DECISION: positive combined gate plus complete trace directly authorizes
+  final LiDAR B32xaccum1 production-recipe materialization with exactly
+  hungarian_batched_d2h=true, lidar_host_batch_offsets=true and scoped
+  torch_compile=true; lidar_sdpa/fused_adamw remain false. No further E3 GPU cell.
+FINAL_BUDGET: base 0.639722/1.00; bug reserve 0.099444/0.50;
+  aggregate 0.739166/1.50 charged GH200-hours
 ```
 
 Exact submission template; `EXECUTION_SOURCE` is the clean activation-ledger SHA:
