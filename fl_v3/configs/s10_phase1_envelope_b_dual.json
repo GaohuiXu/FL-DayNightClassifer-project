@@ -102,7 +102,8 @@
   },
   "remediation": {
     "policy": "O-149_frozen_semantics_only",
-    "derived_source_fresh_output_required": true,
+    "derived_source_fresh_attempt_record_required": true,
+    "raw_artifacts_write_once": true,
     "checkpoint_resume_reuses_same_candidate_output": true,
     "blind_identical_retry_forbidden": true,
     "stop_on_same_blocker_recurrence": true,
