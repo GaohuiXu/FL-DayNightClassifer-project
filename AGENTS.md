@@ -131,8 +131,12 @@ then Camera, and two fixed seed-0 candidates. The old 49.0-hour Section-7 object
 historical control only. Independent read-only recipe-freeze review of
 `a4f6ca86ddd966bdffc74a37af3337ac6675e83a` closed
 `PASS_WITH_RESIDUAL_RISK` with no open P0-P2. Revised Envelope B remains
-non-executable until the owner separately names and activates the review-sealed
-commit.
+serial at maximum concurrency one. The owner accepted the review verdict and its
+single P3, named review seal
+`1473ef67d9dc2949c49360b6826d0f30585f416f`, and accepted/activated the exact
+Section-7.4 envelope, while explicitly forbidding submission in the current
+session. A later execution session must re-verify the approved baseline, hashes,
+clean worktree and fresh output root before using that authority.
 
 For this stage, `fl_v3/collab/` is read-only legacy evidence. Agents may inspect and
 cite it, but must not add or update plans, handoffs, reviews, results, or status

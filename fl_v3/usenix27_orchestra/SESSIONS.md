@@ -33,8 +33,9 @@
 > subsequently promoted Camera two-GH200 B16/rank and LiDAR one-GH200 B32 recipes.
 > Revised Envelope B is materialized at `30.0` charged GH200-hours, concurrency one
 > and serial LiDAR then Camera. Independent review closed
-> `PASS_WITH_RESIDUAL_RISK` with no open P0-P2; separate owner activation remains
-> before submission. S11+ remains pending.
+> `PASS_WITH_RESIDUAL_RISK` with no open P0-P2. The owner accepted the verdict/P3,
+> named seal `1473ef67...` and accepted the serial Envelope B; submission is
+> explicitly deferred to a later execution session. S11+ remains pending.
 
 ## 1. Active graph and status
 
@@ -48,7 +49,7 @@
   │      └─ independent review of exact profiling/evidence SHA
   │
   ├─ S10 C/L qualification → staged fusion        [final C/L recipes materialized]
-  │      └─ capability gate → GH200 optimization  [review closed; activation pending]
+  │      └─ capability gate → GH200 optimization  [Envelope B accepted; execution deferred]
   └─ S11 and later                                 [roles pending owner decision]
 ```
 
@@ -61,7 +62,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | final C/L throughput recipes and revised 30.0-hour Envelope B materialized; independent review closed with no open P0-P2, owner activation pending; no capability job submitted |
+| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | revised serial 30.0-hour Envelope B reviewed and owner-accepted at `1473ef67...`; current-session submission deferred; no capability job submitted |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract
@@ -366,8 +367,9 @@ island, and emitted qualified config SHA-256
 These are engineering results, not capability. O-150 resolves Camera disposition;
 the later Phase I-P work promotes the final Camera/LiDAR throughput recipes. Revised
 Section 7.4 is now frozen at `30.0` charged GH200-hours. Independent review closed
-with no open P0-P2; a separate owner activation remains before scientific
-submission. The original `49.0`-hour B4 tuple is historical control only.
+with no open P0-P2, and the owner accepted its P3 and serial execution object at
+seal `1473ef67...`. Submission is deferred to a later execution session. The
+original `49.0`-hour B4 tuple is historical control only.
 
 ### Phase II — staged fusion and capability
 
@@ -390,8 +392,9 @@ O-146/O-147/O-148 consumed Envelope A for WP0-WP4, official ImageNet acquisition
 D_fit CBGS/GTDB materialization, optimized-BEV-pooling build/parity/timing,
 material commits and bounded engineering calibration. Unused aggregate budget is
 not continuing authority. Revised Section 7.4 is frozen at a `30.0` charged-GH200-
-hour ceiling; independent review is closed and a later owner activation remains. The original
-`49.0`-hour B4 object is not an activation option.
+hour ceiling; independent review and owner acceptance are closed, while current-
+session submission is deferred. The original `49.0`-hour B4 object is not an
+activation option.
 
 ## 7. S11 and later
 

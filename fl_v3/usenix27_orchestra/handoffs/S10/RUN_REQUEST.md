@@ -5,14 +5,14 @@
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
 ACTIVE_DECISION: final Camera two-GH200 and LiDAR B32 recipes owner-promoted
-REQUEST_STATE: REVISED DUAL-BRANCH ENVELOPE B REVIEWED / OWNER ACTIVATION PENDING
-EXECUTION_AUTHORITY: none; all profiler-envelope authority expired at closure
-ACTIVE_PHASE: Section-7.4 independent review closed; owner activation gate
+REQUEST_STATE: REVISED SERIAL ENVELOPE B OWNER-ACCEPTED / EXECUTION DEFERRED
+EXECUTION_AUTHORITY: Section 7.4 accepted at seal 1473ef67... for a later exact session
+ACTIVE_PHASE: current-session no-submit hold; later execution-session startup verification
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at the same SHA
-ENVELOPE_B: old Section 7 preserved as control; revised Section 7.4 / NOT EXECUTABLE
+ENVELOPE_B: old Section 7 is control; revised Section 7.4 owner-accepted / current-session hold
 ```
 
 IP-G0 authorized scoped Phase I-P source/docs/tests, local validation and linear
@@ -42,7 +42,9 @@ now materializes the revised dual-branch manifest, final config hashes, common f
 output root and fail-closed launcher binding. This source still grants no compute;
 independent review of remediation source
 `a4f6ca86ddd966bdffc74a37af3337ac6675e83a` closed with no open P0-P2. Section
-7.4 still requires a later owner activation naming the review-sealed commit.
+7.4 was later owner-accepted at named review seal
+`1473ef67d9dc2949c49360b6826d0f30585f416f`, with serial concurrency one retained
+and all submission deferred out of the accepting session.
 
 O-146 records the owner's exact activation of Envelope A at request commit
 `e321aed749fd859c809199d52c30b2771dbef8b3`. S00 may execute WP0 through WP4
@@ -568,7 +570,7 @@ recipe-freeze review-only subagent；review 无 open P0-P2 后，按 Section 7 �
 最大并发 1 和 O-149 remediation 规则，串行执行 LiDAR 再 Camera；D_audit 仍封存。
 ```
 
-### 7.4 Revised dual-branch Envelope B — independently reviewed, not executable
+### 7.4 Revised dual-branch Envelope B — owner-accepted, current-session hold
 
 Sections 7.0–7.3 above remain the immutable pre-Phase-I-P B4 control. They are not
 an activation option. The object below supersedes their source/config/topology/
@@ -576,15 +578,15 @@ resource/output identities while preserving the two-candidate scientific contrac
 
 ```text
 PHASE: S10 Phase I / revised Envelope B independent branch qualification
-REQUEST_STATE: FROZEN / REVIEW CLOSED / OWNER ACTIVATION PENDING
-EXECUTABLE_NOW: no
+REQUEST_STATE: FROZEN / REVIEW CLOSED / OWNER ACCEPTED / EXECUTION DEFERRED
+EXECUTABLE_IN_ACCEPTING_SESSION: no; explicit owner no-submit hold
+FUTURE_EXECUTION: allowed only from a later session after exact startup verification
 MATERIALIZED_SOURCE_SHA: cb2fc279b0c5e4b686525bed9da10f3ec6ad070f
 MATERIALIZED_SOURCE_TREE: 3dd9bc54a30d766f696ab752abdc1a8f4097d55c
 REVIEW_BASELINE: a4f6ca86ddd966bdffc74a37af3337ac6675e83a
 REVIEW_BASELINE_TREE: 48f71e4a917d5c2dc47287f110a667752e03976d
 REVIEW_VERDICT: PASS_WITH_RESIDUAL_RISK; P0=0, P1=0, P2=0, P3=1; open P0-P2=0
-ACTIVATION_BASELINE: only the clean commit containing this review record, named
-  verbatim by the owner
+ACTIVATION_BASELINE: 1473ef67d9dc2949c49360b6826d0f30585f416f
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at UNIQUE_BASE_SHA; do not move
@@ -642,8 +644,7 @@ ENGINEERING_REMEDIATION: O-149 single-correct-answer config/schema/API/test/runn
 SCIENTIFIC_CONTINUATION: a weak LiDAR score does not cancel Camera unless it
   implicates a shared data/evaluator/precision/configuration boundary
 REVIEW_GATE: closed by one independent read-only review at REVIEW_BASELINE; no GPU
-  and no edits by reviewer; open P0-P2=0; one P3 recorded as residual risk; owner
-  activation may now be requested but is not implied
+  and no edits by reviewer; open P0-P2=0; one P3 recorded and owner-accepted
 OWNER_ESCALATION: model math/shape, normalization, initialization, data/order/GTDB,
   augmentation, target/loss/decode, optimizer/scheduler/precision, seed, exposure,
   selectable checkpoint, evaluator/metric, candidate, topology/resource/output-root
@@ -653,7 +654,8 @@ ALLOWED_INTERPRETATION: single-seed internal Camera/LiDAR branch capability and
   engineering health
 FORBIDDEN_INTERPRETATION: official-val/generalization, fusion, FL, attack/defense,
   publication claim or best-recipe optimality
-OWNER_APPROVAL: pending
+OWNER_APPROVAL: accepted; review verdict and single P3 accepted; serial concurrency
+  one retained; no submission from the accepting session
 ```
 
 Immutable manifest, recipe and entry identities:
@@ -702,10 +704,14 @@ The two initial-job maxima total `28.0` charged hours. The aggregate ceiling's
 remaining `2.0` hours is not another cell: it may cover only exact continuation or
 eligible frozen-semantics remediation. D_audit has no reserve in this request.
 
-#### 7.4.2 Exact serial command family after review and owner activation
+#### 7.4.2 Exact serial command family for a later execution session
 
-The commands below are documentation only until the owner names the review-sealed
-`<ACTIVATION_SHA>`. Directory creation and submission are not authorized now.
+The owner has named review seal `<APPROVED_BASELINE_SHA>` as
+`1473ef67d9dc2949c49360b6826d0f30585f416f`, but explicitly directed that the
+accepting session create no output directory and submit no job. The commands below
+are documentation for a later exact execution session only. As with prior S10
+phase envelopes, `<EXECUTION_SOURCE_SHA>` is the clean descendant actually run and
+recorded in the ledger; it must preserve every reviewed entry/config/manifest hash.
 
 ```bash
 ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_dual_783173d6fe05
@@ -718,7 +724,7 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
   fl_v3/scripts/run_s10_phase1_envelope_b.sh --branch lidar \
   --envelope fl_v3/configs/s10_phase1_envelope_b_dual.json \
   --config fl_v3/configs/s10_phase1_lidar.json \
-  --output-dir "${ROOT}/phase1_lidar_primary" --source-sha <ACTIVATION_SHA>
+  --output-dir "${ROOT}/phase1_lidar_primary" --source-sha <EXECUTION_SOURCE_SHA>
 ```
 
 Only after LiDAR reaches a terminal result, or a weak result that does not implicate
@@ -734,7 +740,7 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
   fl_v3/scripts/run_s10_phase1_envelope_b.sh --branch camera \
   --envelope fl_v3/configs/s10_phase1_envelope_b_dual.json \
   --config fl_v3/configs/s10_phase1_camera.json \
-  --output-dir "${ROOT}/phase1_camera_primary" --source-sha <ACTIVATION_SHA>
+  --output-dir "${ROOT}/phase1_camera_primary" --source-sha <EXECUTION_SOURCE_SHA>
 ```
 
 An exact checkpoint continuation uses the same branch/manifest/config/output/source
@@ -766,9 +772,30 @@ single accepted P3 is the documented operational reliance on the exact `sbatch`
 command and ledger for wall/requeue/aggregate enforcement. This review is not
 compute authority.
 
-The exact future activation decision may now name the clean commit containing this
-review record and Section 7.4. Until that separate owner decision, neither this
-request nor the review grants Slurm authority.
+The owner subsequently named the clean commit containing this review record,
+accepted the review verdict and P3, retained serial concurrency one, and accepted
+Section 7.4. The accepting session remains under an explicit no-submit hold.
+
+#### 7.4.4 Owner acceptance and execution deferral
+
+```text
+OWNER_REVIEW_DISPOSITION: accepted PASS_WITH_RESIDUAL_RISK and the single P3
+OWNER_NAMED_REVIEW_SEAL: 1473ef67d9dc2949c49360b6826d0f30585f416f
+OWNER_ENVELOPE_DISPOSITION: accepted exact revised Section 7.4
+ORDER_AND_CONCURRENCY: unchanged; serial LiDAR then Camera; maximum concurrency 1
+PARALLEL_AMENDMENT: not adopted; may be reconsidered only in later work
+CURRENT_SESSION_SUBMISSION: forbidden by explicit owner direction
+JOBS_SUBMITTED: 0
+CHARGED_GH200_HOURS: 0
+OUTPUT_ROOT_STATE: must remain absent in the accepting session
+```
+
+This decision closes `P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` for the exact reviewed
+serial envelope while deferring execution. A later session may use this authority
+only after reporting clean status, branch/base/topology, exact approved baseline and
+unchanged manifest/config/entry hashes, confirming the output root is still absent,
+and preserving every Section-7.4 stop and escalation rule. It does not authorize
+parallel execution, D_audit, official validation, Fusion, merge, push or publication.
 
 ## 8. Phase I-P IP-G0 record and exact IP-E1 request
 
