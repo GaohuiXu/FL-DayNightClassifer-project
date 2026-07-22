@@ -2373,9 +2373,9 @@ MERGE_PUSH_UPLOAD_PUBLICATION: not authorized and not performed
 ### 9.8 LiDAR IP-LG0 closure and exact IP-L-E1 request
 
 ```text
-REQUEST_STATE: OWNER APPROVED / IP-L-E1 ACTIVE
+REQUEST_STATE: TERMINAL / IP-L-E1 RETURNED TO IP-LG1
 PHASE: S10 Phase I-P LiDAR / L-WP1 clean capacity, sustained baseline and trace
-GATE_STATE: IP-LG0 CLOSED by owner approval of the LiDAR workflow
+GATE_STATE: IP-LG0 CLOSED; IP-LG1 OPEN for owner batch/cell decision
 IMPLEMENTATION_SHA: 0daeee95e1a46b29fcd7bbb2338d813b798557de
 IMPLEMENTATION_TREE: 26cb8aa6a91f2938cf8c1357a97b0bbf2ee92136
 BRANCH: codex/s10-phase1p-throughput-preflight
@@ -2550,6 +2550,94 @@ REPLACEMENT_COMMAND: exact Section-9.8 command with SOURCE_SHA equal to the
   containing ledger commit and unchanged APPROVED_SOURCE_SHA/resources/cells/order
 BUDGET_AFTER_INITIAL: bug reserve 0.266944/0.50 used; base 0/1.25 used;
   hard aggregate 0.266944/1.75 used; replacement remains inside every ceiling
+
+REPLACEMENT_JOB: 555777
+REPLACEMENT_SOURCE_SHA: 77f13f955e0d089db6c2ae77957f1e903ddc6410
+REPLACEMENT_TREE: 984d658a847ac06ff72513c6da959b1b73e15309
+NODE / RESOURCES: n64 / 1xGH200 / 16 CPU / 96 GiB / 01:15:00 /
+  no restart or requeue
+SUBMIT / START / END / ELAPSED: 2026-07-22T08:57:16 /
+  2026-07-22T08:57:20 / 2026-07-22T09:51:25 / 00:54:05
+SLURM_STATE: COMPLETED 0:0; highest tested safe batch B32
+CHARGE: 0.901389 charged GH200-hours, base envelope
+PRETEST: 8/8 PASS, including bounded loss-observer retention regression
+PROVENANCE: approved source 8b5788d3d905cf7eb83e8f3f1e65e24df7fc15dc;
+  source-resolved config 0efe4d6d5138e3d99ae80254a6ecf884300dd18985ab45a00425228fc3ef082e;
+  every cell records source 77f13f95 / tree 984d658a and D_select=false,
+  D_audit=false, official-validation=false, capability-metrics=false
+CAPACITY_B4: COMPLETE_CAPACITY; 37.396749581 presentations/s;
+  allocated/reserved 5,441,537,024 / 6,127,878,144 bytes (6.0074%);
+  result sha256 c5e50c0fdf700549a61e370f389ca17e31f726da709c99abf2cc253654a6d333
+CAPACITY_B8: COMPLETE_CAPACITY; 48.893392645 presentations/s;
+  allocated/reserved 10,532,373,504 / 13,587,447,808 bytes (13.3203%);
+  result sha256 ad3191cfb81b4f915967b1296166bb8072cb65eb73b9ed70ab4b6a142c6cffc6
+CAPACITY_B16: COMPLETE_CAPACITY; 52.712682166 presentations/s;
+  allocated/reserved 20,609,099,264 / 24,622,661,632 bytes (24.1386%);
+  result sha256 f85316c756e71af22530b90f2911a71416486466eea9274a8feb8943e9facab7
+CAPACITY_B32: COMPLETE_CAPACITY; 49.009159547 presentations/s;
+  allocated/reserved 40,773,320,192 / 47,884,271,616 bytes (46.9428%);
+  result sha256 8e80985fead71d0495294030d36fb9346373cdf9d3397f4b2f545ff778f4cde3
+CAPACITY_HEALTH: all four cells 8/8 accepted with finite criterion components,
+  no overflow/skip/discard and every memory gate PASS; short rates are not the
+  sustained comparison
+SUSTAINED_B4_R1: 36.223037446 presentations/s; result
+  cf2b1197699e97cbbc24eff4da87fd2af8e139df7a3db9d69bacdca48ae1db3c
+SUSTAINED_B32_R1: 51.688027892 presentations/s; result
+  db3d9fec6c0865b1d964c5fd95afb0f19eb3ac0041ad423928ba0057a2b8c3bb
+SUSTAINED_B32_R2: 52.429398150 presentations/s; result
+  b9b75004b9eb5373c1bb32c5b33ca146f3a5e27d31890e9e55a52568313a1d65
+SUSTAINED_B4_R2: 39.119782780 presentations/s; result
+  db12741fb056c5b5bbd2102d30e5f5756d48ee0b1721214da36cfe6a919d342b
+B4_FIRST_TWO_SPREAD: 0.076895060 > 0.03; exact conditional r3 triggered
+SUSTAINED_B4_R3: 36.093056094 presentations/s; result
+  408554a48b223f2ff0d07feb3380341e4339964a443d1103d2e1aedddd5936a1
+B32_FIRST_TWO_SPREAD: 0.014241041 <= 0.03; no B32 r3
+SUSTAINED_HEALTH: all 1,280/1,280 measured windows accepted; zero invalid,
+  nonfinite, overflow, discard or scaler skip; B4 reserved 6,962,544,640 bytes
+  (6.8257%), B32 reserved 47,886,368,768 bytes (46.9449%); no monotonic growth
+LOSS_HEALTH: B4 first/last-quarter total-loss means are 43.7629/6.5967,
+  44.1327/6.5837 and 43.8459/6.5401; B32 values are 43.3178/6.6660 and
+  43.1046/6.7354; every total and criterion component finite
+CHECKPOINT_HEALTH: every process has exact boundary/input/RNG/training/discrete/
+  structure state and checkpoint gate PASS; checkpoint is about 100.0 MB;
+  save plus file/model hashes median about 0.22 seconds
+NUMERICAL_DIAGNOSTICS: under the pre-existing owner-amended diagnostic-only rule,
+  B4 r1 BN-mean fresh relative-L2/max-absolute 0.00238861/0.0830487 narrowly
+  exceeded 0.00221563/0.0794596, and B32 r2 Adam exp_avg max-absolute 0.00858848
+  narrowly exceeded 0.00836905 while relative-L2 passed; neither recurred, all
+  tensors were finite, and the other three processes passed every grouped
+  diagnostic; these are recorded residuals, not hidden hard-gate failures
+ROBUST_COMPARISON: B4 three-process median 36.223037446; B32 two-process median
+  52.058713021 presentations/s; B32/B4 1.437171388 (+43.717%)
+SYSTEM_COMPARISON: measurement-window nvidia-smi medians are approximately
+  B4 51.47% GPU utilization / 278.91 W and B32 60.04% / 333.82 W; loader mean
+  remains only 2.01-2.16 ms/B4 window and 0.61-0.62 ms/B32 window
+PROJECTION: exact 87,904 consumed presentations/epoch x20, plus one median startup
+  and measured per-epoch checkpoint/hash cost: B4 13.486357 GH200-hours; B32
+  9.385269; descriptive saving 4.101088 hours and 30.409% wall time
+TRACE_B4: COMPLETE_TRACE; 3/3 active accepted; full range inventory; result
+  159eae4b88cf1bd0e05d4da921eb2b724a59f294f3d2d117c3d1055c12283450;
+  structured summary 3441eff24cc3b53d99a4a2129650718e4a037a6c126686b7903c1658566bd4c7
+TRACE_B32: COMPLETE_TRACE; 3/3 active accepted; full range inventory; result
+  f3cbc95001863363438d97cf30edacc2063fb55bcfaf319aa14cf4ccc8db5ad5;
+  structured summary 4dcddef8e41ccfddd139a91c1b0826b4230ed3f1b95580c5d35dc68ecc6595b8
+TRACE_DIAGNOSIS: both traces cover 96 presentations and three optimizer windows.
+  B32 versus B4 named CPU totals: forward 0.577/1.567 s, sparse-VFE-collapse
+  0.498/1.059 s, loss 1.785/1.795 s, target_build 1.775/1.706 s, Hungarian cost
+  0.841/0.768 s, Gaussian target 0.560/0.597 s. Finite-sync + Hungarian D2H +
+  index H2D is only 69.35 ms at B32 (~3.9% of target_build); sparse batch-index/
+  grouping is only 4.39 ms. Target/Hungarian/Gaussian work is the primary B32
+  residual; SDPA remains plausible from ~51.95 ms cross-attention device time.
+  Trace totals are nested/inflated ranking evidence, never sustained timing.
+SLURM_STDOUT_SHA256:
+  ca6721bc40d432816bed5d1d9dbb092024fe21bcfadb857d00f0abd68c9aa963
+SLURM_STDERR_SHA256:
+  e800bf6938f356fce2e7c65aa2d89b677e6d69ddf360fd536bc33b709af0ec8c
+FINAL_BUDGET: base 0.901389/1.25; bug reserve 0.266944/0.50;
+  aggregate 1.168333/1.75 charged GH200-hours; maximum concurrency one respected
+EXIT_STATE: L-E1 objectives met and envelope closed; B32 remains measurement-only;
+  IP-LG1 owner discussion is required before batch acceptance, optimization
+  implementation, exact IP-L-E2 request or any further compute
 ```
 
 ## 10. Envelope-A compact execution ledger

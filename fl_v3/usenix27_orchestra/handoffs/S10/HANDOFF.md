@@ -1,4 +1,4 @@
-# S10 HANDOFF — LiDAR IP-LG0 closed / L-E1 awaiting activation
+# S10 HANDOFF — LiDAR L-E1 terminal / IP-LG1 discussion
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: owner approved the LiDAR preflight workflow and closed IP-LG0
-SCIENCE_ORDER: complete LiDAR preflight, then refreeze/review revised Envelope B
+ACTIVE_DECISION: owner activated IP-L-E1; terminal evidence returned to IP-LG1
+SCIENCE_ORDER: decide LiDAR batch/cells, complete LiDAR preflight, then refreeze/review revised Envelope B
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: exact IP-L-E1 single-GH200 execution and bounded remediation
-EXECUTION_STATE: IP-L-E1 ACTIVE at request SHA 8b5788d3; Envelope B unauthorized
+CURRENT_AUTHORITY: read-only IP-LG1 discussion plus scoped closure docs/linear commit; no compute
+EXECUTION_STATE: IP-L-E1 TERMINAL at source 77f13f95 / Job 555777; Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -790,11 +790,12 @@ Section 7 must be revised to the promoted SHA/config/two-GPU resource projection
 and its already-required independent recipe-freeze review must close with no open
 P0-P2.
 
-### 1.9 LiDAR throughput preflight — IP-LG0 closed, L-E1 pending
+### 1.9 LiDAR throughput preflight — L-E1 terminal, IP-LG1 open
 
 The owner approved the following continuous LiDAR workflow and thereby closed
-`IP-LG0`. This starts local `L-WP1` work; it does **not** activate either compute
-envelope.
+`IP-LG0`, then explicitly activated the exact Section-9.8 `IP-L-E1` envelope at
+request commit `8b5788d3d905cf7eb83e8f3f1e65e24df7fc15dc`. `L-WP1` is now terminal;
+no later compute envelope is active.
 
 | WP / gate | Input and work | Output / continuous authority | Stop or owner decision |
 |---|---|---|---|
@@ -851,6 +852,71 @@ evidence in bounded 16-window blocks outside throughput timing and preserves a
 terminal result on any future LiDAR memory-health failure. This is profiler
 plumbing only; model/data/loss/update/precision/gates are unchanged. Section 9.8
 contains the exact job evidence and derived replacement record.
+
+Replacement source `77f13f955e0d089db6c2ae77957f1e903ddc6410` ran Job `555777`
+serially on one n64 GH200 and completed `0:0` in `00:54:05`. Together with the
+initial diagnosed observer failure, L-E1 used `1.168333 / 1.75` charged
+GH200-hours (`0.901389` base plus `0.266944` bug reserve). B32 was the highest
+tested safe physical batch:
+
+| Recipe | Short capacity rate | Peak allocated / reserved | Reserved fraction | Status |
+|---|---:|---:|---:|---|
+| B4x8 | `37.3967` presentations/s | `5.442 / 6.128 GB` | `6.0074%` | 8/8 accepted; PASS |
+| B8x4 | `48.8934` presentations/s | `10.532 / 13.587 GB` | `13.3203%` | 8/8 accepted; PASS |
+| B16x2 | `52.7127` presentations/s | `20.609 / 24.623 GB` | `24.1386%` | 8/8 accepted; PASS |
+| B32x1 | `49.0092` presentations/s | `40.773 / 47.884 GB` | `46.9428%` | 8/8 accepted; PASS |
+
+The capacity rates are sanity probes only. Sustained ABBA evidence is the comparison:
+
+| Process | Sustained rate | Peak allocated / reserved | Loss first -> last quarter | Hard health / checkpoint |
+|---|---:|---:|---:|---|
+| B4 r1 | `36.2230` presentations/s | `5.535 / 6.963 GB` | `43.7629 -> 6.5967` | PASS / PASS |
+| B32 r1 | `51.6880` presentations/s | `41.163 / 47.886 GB` | `43.3178 -> 6.6660` | PASS / PASS |
+| B32 r2 | `52.4294` presentations/s | `41.163 / 47.886 GB` | `43.1046 -> 6.7354` | PASS / PASS |
+| B4 r2 | `39.1198` presentations/s | `5.535 / 6.963 GB` | `44.1327 -> 6.5837` | PASS / PASS |
+| B4 conditional r3 | `36.0931` presentations/s | `5.535 / 6.963 GB` | `43.8459 -> 6.5401` | PASS / PASS |
+
+All `1,280 / 1,280` measured optimizer windows were accepted with zero nonfinite,
+overflow, discarded or scaler-skipped windows. Boundary/input/RNG/training/discrete
+state and checkpoint structure were exact in every process. Under the already
+owner-amended diagnostic-only numerical-distance rule, B4 r1 narrowly exceeded its
+repeat-calibrated BN-mean diagnostic and B32 r2 narrowly exceeded the Adam
+`exp_avg` max-absolute diagnostic; neither recurred, all tensors remained finite,
+and the other three processes passed every numerical group. Per-element allclose
+also remains diagnostic only. This is bounded training-health evidence, not a
+capability or convergence result.
+
+B4 first-two spread was `7.6895%`, so the frozen conditional r3 ran; its robust
+median is `36.2230` presentations/s. B32 first-two spread was only `1.4241%`, so no
+B32 r3 ran; its two-process median is `52.0587` presentations/s. Thus B32 is
+`1.43717x` (`+43.72%`) faster on the same allocation. For the exact `87,904`
+consumed presentations per epoch, a descriptive 20-epoch projection including one
+startup and measured per-epoch checkpoint/hash cost is `13.4864` GH200-hours at
+B4 versus `9.3853` at B32, saving about `4.1011` hours (`30.41%` wall reduction).
+Checkpoint save plus file/model hashing is only about `0.22 s/epoch` and is not a
+useful LiDAR throughput lever. B32 remains measurement-only until IP-LG1 explicitly
+accepts its BatchNorm and worker-RNG recipe.
+
+The aligned traces each cover 96 presentations and three accepted optimizer
+windows: B4 uses 24 microbatches while B32 uses three. Named CPU/device totals are
+trace-inflated and nested, so they rank work rather than estimate sustained wall
+time. At B32, named forward CPU time falls to `0.577 s` from B4's `1.567 s`, and
+sparse/VFE/collapse falls to `0.498 s` from `1.059 s`, showing that larger physical
+batches amortize launch and sparse-front overhead. Named loss time does not scale:
+`1.785 s` versus `1.795 s`; `target_build` remains `1.775 s`, including Hungarian
+cost `0.841 s` and Gaussian target work `0.560 s`. The narrow finite-sync +
+Hungarian D2H + index-H2D ranges total only `69.35 ms`, about `3.9%` of B32
+`target_build`, while sparse batch validation/grouping has already fallen from
+`133.44 ms` to `4.39 ms`. Cross-attention device time remains about `51.95 ms`, so
+LiDAR SDPA remains a valid smaller candidate. Full proposal argsort, H2D and true
+optimizer-device time are small; the large B32 optimizer CPU range is asynchronous
+wait attribution, not evidence that AdamW itself costs `0.734 s`.
+
+L-E1 therefore closes positive for B32 capacity/throughput and for bottleneck
+localization, without promoting a recipe. IP-LG1 must now decide whether to accept
+B32x1's BN/worker-RNG recipe and freeze the exact L-WP2 cell order/resources.
+L-E2, D_select, D_audit, official validation, Camera/Fusion work, revised
+Envelope-B execution, merge and push remain unauthorized.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
