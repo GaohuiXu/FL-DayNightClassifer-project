@@ -3010,13 +3010,32 @@ OUT_OF_SCOPE: extra L-WP3 candidates, Camera/Fusion compute, D_select, D_audit,
   official validation, capability metrics, original/revised Envelope B activation,
   merge, push, upload and publication
 BUDGET_AT_ACTIVATION: base 0/1.00; bug reserve 0/0.50; aggregate 0/1.50
+
+INITIAL_ENGINEERING_INCIDENT: Job 559822 / source
+  2d455acd84d1bf916b252c9a8d03cdd58ab71b41 / node n122 / FAILED 2:0 /
+  elapsed 00:00:09 / no tests, data, model or optimizer execution
+INCIDENT_EVIDENCE: request asked for one untyped --gpus-per-node=1, but Slurm
+  allocated all four typed GH200 GRES on the otherwise idle node; runner correctly
+  stopped at SLURM_GPUS_ON_NODE actual=4 expected=1
+INCIDENT_CLASSIFICATION: unambiguous submission-command GPU-type plumbing bug;
+  no science, candidate, gate or requested one-GPU resource change
+INCIDENT_CHARGE: 4 allocated GH200 x 9 seconds = 0.010000 charged GH200-hours,
+  assigned to code-bug reserve
+DERIVED_REPAIR: replace only the ambiguous request with the historically validated
+  --gpus-per-node=nvidia_gh200_120gb:1 spelling and restore explicit account/ntasks;
+  retain the runner's exact one-visible-GPU assertion and every frozen E3 field
+REPLACEMENT_SOURCE: exact clean containing this incident ledger; use fresh
+  source-SHA-qualified process/pair/trace paths and a new Slurm log
+BUDGET_AFTER_INITIAL: base 0/1.00; bug reserve 0.010000/0.50;
+  aggregate 0.010000/1.50 charged GH200-hours
 ```
 
 Exact submission template; `EXECUTION_SOURCE` is the clean activation-ledger SHA:
 
 ```bash
-sbatch --parsable --job-name=s10-l-e3-abba --partition=gpu --nodes=1 \
-  --gpus-per-node=1 --cpus-per-task=16 --mem=96G --time=01:00:00 \
+sbatch --parsable --account=naiss2025-22-1113-gpu --job-name=s10-l-e3-abba \
+  --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G \
+  --gpus-per-node=nvidia_gh200_120gb:1 --time=01:00:00 \
   --no-requeue --output=<fresh-root>/slurm/job_%j.out \
   --error=<fresh-root>/slurm/job_%j.err \
   fl_v3/scripts/run_s10_phase1p_lidar_e3.sh \

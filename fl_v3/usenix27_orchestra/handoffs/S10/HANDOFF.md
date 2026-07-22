@@ -11,7 +11,7 @@ ACTIVE_DECISION: IP-LG2 closed; exact three-positive B32 composition is frozen
 SCIENCE_ORDER: execute the activated IP-L-E3 ABBA gate and conditional combined trace
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
 CURRENT_AUTHORITY: exact IP-L-E3 source/tests/ABBA/trace plus bounded O-149 remediation
-EXECUTION_STATE: IP-L-E1/E2 TERMINAL; IP-L-E3 active at approval 468a82b / implementation 7c2b49d; Envelope B unauthorized
+EXECUTION_STATE: IP-L-E1/E2 TERMINAL; E3 Job 559822 pre-model command incident diagnosed; typed-GPU replacement pending; Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
