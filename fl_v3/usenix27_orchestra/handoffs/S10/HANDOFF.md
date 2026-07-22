@@ -1,4 +1,4 @@
-# S10 HANDOFF — LiDAR IP-L-E3 terminal positive / final recipe pending
+# S10 HANDOFF — LiDAR final recipe promoted / revised Envelope B pending
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: IP-LG2 closed; exact three-positive B32 composition passed ABBA
-SCIENCE_ORDER: materialize the owner-promoted final LiDAR recipe; keep residual trace work deferred
+ACTIVE_DECISION: IP-L-E3 closed positive; exact B32 combined recipe is promoted
+SCIENCE_ORDER: materialize the revised dual-branch Envelope B, then independent recipe-freeze review
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: exact IP-L-E3 final-recipe materialization and local validation
-EXECUTION_STATE: E3 ABBA and trace TERMINAL POSITIVE; final LiDAR recipe pending; Envelope B unauthorized
+CURRENT_AUTHORITY: scoped source/docs/tests and linear commits; no active compute envelope
+EXECUTION_STATE: LiDAR production recipe materialized at 0039501; revised Envelope B not yet frozen or authorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -1032,6 +1032,23 @@ small. These nested trace totals are localization/ranking evidence only, not
 additive wall-time shares or authority for another candidate. IP-L-E3 has therefore
 reached its positive exit gate and directly authorizes materialization of the exact
 three-optimization B32 production recipe; no further GPU cell is needed for E3.
+
+Implementation `003950166df8564a9257d7de008f4d7628836bea` materializes the
+promoted recipe as schema `s10.phase1.v5`. The production config is physical
+B32 x accumulation 1 with ordinary physical-B32 BatchNorm and `seed+epoch` worker
+RNG; it enables batched target/Hungarian host plumbing, CPU-resident collator point
+offsets and Inductor/default/dynamic-false compile of only
+`decoder_backbone`/`decoder_neck`/`head`. LiDAR SDPA and fused AdamW remain
+explicitly off and checkpoint cadence remains one epoch. Production preflight,
+train and decode now retain the offset tensor on CPU, while runtime construction
+checks SDPA-off scope, criterion/model controls, compile scope and unchanged
+state-dict names. Config file/resolved hashes are `683af022...4838d` and
+`a03ad080...4bf6`. Local config resolution, schema-drift rejection, historical
+profile reconstruction, `py_compile` and diff checks passed. Login-node
+`pytest`/PyTorch is unavailable; no unapproved Slurm validation was added. The
+already completed E2/E3 forward/backward/update/checkpoint/sustained evidence is
+the promotion evidence; the later independent recipe-freeze review must still
+review the production wiring before any Envelope-B activation request.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior

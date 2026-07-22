@@ -3105,6 +3105,24 @@ TERMINAL_DECISION: positive combined gate plus complete trace directly authorize
   final LiDAR B32xaccum1 production-recipe materialization with exactly
   hungarian_batched_d2h=true, lidar_host_batch_offsets=true and scoped
   torch_compile=true; lidar_sdpa/fused_adamw remain false. No further E3 GPU cell.
+PRODUCTION_RECIPE_IMPLEMENTATION: 003950166df8564a9257d7de008f4d7628836bea /
+  tree f63d29b53eb07e131ee7a6fb081669558136c177
+PRODUCTION_RECIPE: schema s10.phase1.v5; B32xaccum1/world-size 1; ordinary
+  physical-B32 BatchNorm; seed+epoch worker RNG; batched target/Hungarian=true;
+  CPU lidar_point_offsets=true; compile only decoder_backbone/decoder_neck/head
+  with Inductor/default/dynamic=false; lidar_sdpa=false; fused AdamW=false;
+  recovery checkpoint cadence remains one epoch.
+PRODUCTION_CONFIG_SHA256: file
+  683af022c053fcfcd39bbc0de4cc2753a2ba20021990347c7b19e94c0ff4838d;
+  resolved a03ad08070a4081dac818965264df4fe5d27a8b76a256920f3b088e862554bf6
+PRODUCTION_LOCAL_VALIDATION: config resolution and exact hash PASS; mutated B16,
+  disabled batched-Hungarian, drifted compile scope and enabled SDPA rejected;
+  historical B4 resolved identity reconstructed exactly; Python py_compile PASS;
+  git diff --check PASS. Focused pytest is authored but not executed because the
+  x86 login environment has no pytest/PyTorch and no extra Slurm job is authorized.
+PRODUCTION_INTERPRETATION: materialization consumes the terminal E2/E3 parity,
+  sustained, health and checkpoint evidence; it is not capability evidence and
+  does not activate either the historical or revised Envelope B.
 FINAL_BUDGET: base 0.639722/1.00; bug reserve 0.099444/0.50;
   aggregate 0.739166/1.50 charged GH200-hours
 ```
