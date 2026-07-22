@@ -1,4 +1,4 @@
-# S10 HANDOFF — LiDAR IP-L-E2 terminal / IP-LG2 discussion pending
+# S10 HANDOFF — LiDAR IP-L-E3 activated / combined ABBA pending
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: IP-L-E2 is terminal; three positive primaries return to IP-LG2
-SCIENCE_ORDER: discuss/freeze L-WP3 composition and final LiDAR recipe; no compute active
+ACTIVE_DECISION: IP-LG2 closed; exact three-positive B32 composition is frozen
+SCIENCE_ORDER: execute the activated IP-L-E3 ABBA gate and conditional combined trace
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: closure docs/local validation only; no GPU/Slurm or later-phase authority
-EXECUTION_STATE: IP-L-E1 TERMINAL; IP-L-E2 TERMINAL at source be904876 / Jobs 558796-559662; Envelope B unauthorized
+CURRENT_AUTHORITY: exact IP-L-E3 source/tests/ABBA/trace plus bounded O-149 remediation
+EXECUTION_STATE: IP-L-E1/E2 TERMINAL; IP-L-E3 active at approval 468a82b / implementation 7c2b49d; Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -993,8 +993,19 @@ passed measurement/loss/checkpoint hard gates. Target/Hungarian host batching wa
 `1.06360x` (lower bound `1.04001`), scoped compile `1.09447x` (`1.08939`), and
 host offsets `1.07781x` (`1.07393`), so these three are positive inputs to
 `IP-LG2`. LiDAR SDPA was `0.92472x` and fused AdamW `0.97652x`, both negative.
-This closes only the isolated primary screens; no candidate has been composed or
-promoted, and `L-WP3` has no execution authority.
+That closure covered only the isolated primary screens; no candidate had yet been
+composed or promoted, and `L-WP3` then had no execution authority.
+
+On 2026-07-22 the owner accepted all three positive primaries, closed `IP-LG2`
+and activated `IP-L-E3`. The exact combined candidate remains LiDAR-only physical
+B32 x accumulation 1 and enables only target/Hungarian host batching, scoped
+Inductor compile of `decoder_backbone`/`decoder_neck`/`head`, and sparse host
+offsets. LiDAR SDPA and fused AdamW remain off. One same-allocation fresh-process
+ABBA (`reference -> combined -> combined -> reference`) must pass all four loss,
+memory and checkpoint gates, a pooled one-sided lower bound above `1.00`, both
+directional point ratios at least `0.98`, and a compile-cold/checkpoint-inclusive
+20-epoch payback gate. Only a positive combined gate unlocks the short combined
+stage trace and production-recipe materialization; it does not activate Envelope B.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior

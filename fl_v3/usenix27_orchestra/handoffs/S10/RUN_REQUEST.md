@@ -2939,6 +2939,91 @@ OWNER_RETURN: close IP-L-E2/L-WP2 and discuss exact L-WP3 composition at IP-LG2;
   no further compute, Camera/Fusion work or Envelope-B action is authorized
 ```
 
+### 9.11 LiDAR IP-LG2 closure and IP-L-E3 activation
+
+```text
+REQUEST_STATE: ACTIVATED / SOURCE MATERIALIZED / SUBMISSION PENDING
+OWNER_DECISION: 2026-07-22 — accept the three positive primaries and
+  "批准，激活IP-L-E3"
+APPROVAL_ANCHOR_SHA: 468a82bddda685fe81ece1fe0e59db35c50ba856
+DERIVED_IMPLEMENTATION_SHA: 7c2b49d6cb7cc0008072530971b67123ea608748
+DERIVED_IMPLEMENTATION_TREE: 1c4659bd01d9db7d628d5986a2407b3776dfddef
+EXECUTION_SOURCE: exact clean containing activation-ledger commit, resolved at
+  submission; it must be a linear descendant of APPROVAL_ANCHOR_SHA and
+  UNIQUE_BASE_SHA
+BRANCH: codex/s10-phase1p-throughput-preflight
+UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
+FROZEN_CONTROL: codex/s10-phase1-branch-qualification remains at UNIQUE_BASE_SHA
+
+ACTIVATED_COMBINED_RECIPE: LiDAR-only B32xaccum1; enable exactly
+  hungarian_batched_d2h, torch_compile and lidar_host_batch_offsets; compile only
+  decoder_backbone/decoder_neck/head with Inductor/default/dynamic=false; keep
+  lidar_sdpa=false, fused_adamw=false and every other candidate off
+ABBA_ORDER: four fresh processes in one allocation/node/GH200:
+  reference r1 -> combined r1 -> combined r2 -> reference r2
+PROCESS_WINDOW: each process uses 16 accepted warm-up plus 256 accepted measured
+  optimizer windows; one-second system sampling; 16-window blocks
+STATISTICS: 50,000-draw fresh-process-stratified one-sided 95% block bootstrap
+PROMOTION_GATE: every four-process loss/memory/checkpoint/runtime hard gate passes;
+  pooled candidate/reference lower bound >1.00; both order-specific point ratios
+  >=0.98; mean projected 20-epoch candidate cost is below reference after compile
+  cold start and 20 checkpoint/hash stalls
+TRACE_RULE: run one three-window combined stage trace only after the promotion gate
+  passes; trace evidence ranks residual work and does not itself authorize another
+  conditional implementation or profiler cell
+CONTINUATION: a positive gate directly authorizes final LiDAR recipe
+  materialization under the owner's IP-LG2 decision; a healthy non-positive result
+  returns to the owner without subset search or retry
+
+PROFILER_ENTRY_SHA256:
+  452e220cd546abdf3bc5530a7af22d6d7c80e1d706ed4ac6d28bc7579e05df68
+COMPARATOR_ENTRY_SHA256:
+  7276d44ef5a229565495d4e6d79174d1c8303172403135d5b07f7268cd23d775
+ABBA_LAUNCHER_SHA256:
+  2c25643a24dcde84a4a15834a9c82400cde137a7a3aaae7accc423ce5faa33af
+PROFILE_SCHEMA_SOURCE_SHA256:
+  817b6f9ff1ec34cac563d4ee03d3161102993b139909e990499aea83680e9af5
+ABBA_COMPARATOR_SOURCE_SHA256:
+  4c8a435aa7447cf633ad8b4f031dd00987f7f5c889f6f31a47d3c0847c74203e
+PROFILE_SHA256:
+  reference 215b837e82f75766c0d53ba79594c3f0b047bf031ecdf301c63efc49cb82c2cc
+  combined  52cb26f87dfe7a6cfa91d35466af9271eff75a49fa0df9fb972938baf288cd1b
+LOCAL_VALIDATION: Python3 py_compile PASS; two JSON parses PASS; bash -n PASS;
+  shellcheck PASS; synthetic pure-Python ABBA aggregate/gate check PASS;
+  git diff --check PASS. Login Python lacks pytest/PyTorch, so the exact profile,
+  checkpoint, Hungarian, sparse-offset and ABBA tests are mandatory in-job
+
+RESOURCES_PER_JOB: one node; one GH200; 16 CPUs; 96 GiB; <=01:00:00; no requeue;
+  maximum concurrency one
+AGGREGATE_BASE: 1.00 charged GH200-hours
+CODE_BUG_RESERVE: +0.50 charged GH200-hour
+HARD_AGGREGATE_CEILING: 1.50 charged GH200-hours
+SUBMISSION_POLICY: one serial ABBA/conditional-trace job; no numeric remediation
+  submission cap; no blind retry; aggregate ceiling and concurrency are binding
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/
+  arrhenius_fl_v3/outputs/s10_phase1p_ip_l_e3_468a82bddda6/
+FRESH_OUTPUT: source-SHA-qualified process/pair/trace paths; never overwrite raw data
+STOP_ESCALATE: repeated or ambiguous blocker; hard scientific/health failure;
+  requested candidate/gate/resource change; science-boundary pressure; or next
+  charge could exceed 1.50 GH200-hours
+OUT_OF_SCOPE: extra L-WP3 candidates, Camera/Fusion compute, D_select, D_audit,
+  official validation, capability metrics, original/revised Envelope B activation,
+  merge, push, upload and publication
+BUDGET_AT_ACTIVATION: base 0/1.00; bug reserve 0/0.50; aggregate 0/1.50
+```
+
+Exact submission template; `EXECUTION_SOURCE` is the clean activation-ledger SHA:
+
+```bash
+sbatch --parsable --job-name=s10-l-e3-abba --partition=gpu --nodes=1 \
+  --gpus-per-node=1 --cpus-per-task=16 --mem=96G --time=01:00:00 \
+  --no-requeue --output=<fresh-root>/slurm/job_%j.out \
+  --error=<fresh-root>/slurm/job_%j.err \
+  fl_v3/scripts/run_s10_phase1p_lidar_e3.sh \
+  --source-sha "${EXECUTION_SOURCE}" \
+  --approved-source-sha 468a82bddda685fe81ece1fe0e59db35c50ba856
+```
+
 ## 10. Envelope-A compact execution ledger
 
 This is the sole terminal ledger for Envelope A. Submission rows were appended only when
