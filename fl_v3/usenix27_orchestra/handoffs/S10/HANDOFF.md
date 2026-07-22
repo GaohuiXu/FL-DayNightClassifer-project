@@ -1,4 +1,4 @@
-# S10 HANDOFF — LiDAR L-E1 terminal / IP-LG1 discussion
+# S10 HANDOFF — LiDAR IP-LG1 closed / L-WP2 cells frozen
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: owner activated IP-L-E1; terminal evidence returned to IP-LG1
-SCIENCE_ORDER: decide LiDAR batch/cells, complete LiDAR preflight, then refreeze/review revised Envelope B
+ACTIVE_DECISION: owner accepts LiDAR-only B32x1 BN/worker-RNG recipe and freezes L-WP2 cells
+SCIENCE_ORDER: materialize/validate frozen L-WP2, seek exact L-E2 activation, then complete LiDAR preflight
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: read-only IP-LG1 discussion plus scoped closure docs/linear commit; no compute
-EXECUTION_STATE: IP-L-E1 TERMINAL at source 77f13f95 / Job 555777; Envelope B unauthorized
+CURRENT_AUTHORITY: scoped source/docs/tests/local validation and linear commits; no GPU/Slurm compute
+EXECUTION_STATE: IP-L-E1 TERMINAL at source 77f13f95 / Job 555777; IP-L-E2 not active; Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -790,18 +790,21 @@ Section 7 must be revised to the promoted SHA/config/two-GPU resource projection
 and its already-required independent recipe-freeze review must close with no open
 P0-P2.
 
-### 1.9 LiDAR throughput preflight — L-E1 terminal, IP-LG1 open
+### 1.9 LiDAR throughput preflight — IP-LG1 closed, L-WP2 frozen
 
 The owner approved the following continuous LiDAR workflow and thereby closed
 `IP-LG0`, then explicitly activated the exact Section-9.8 `IP-L-E1` envelope at
-request commit `8b5788d3d905cf7eb83e8f3f1e65e24df7fc15dc`. `L-WP1` is now terminal;
-no later compute envelope is active.
+request commit `8b5788d3d905cf7eb83e8f3f1e65e24df7fc15dc`. `L-WP1` is terminal.
+On 2026-07-22 the owner closed `IP-LG1`, explicitly accepted LiDAR-only physical
+B32 x accumulation 1 and its BatchNorm/worker-RNG recipe, and froze the five
+isolated `L-WP2` test cells below. This is not `IP-L-E2` activation; no later
+compute envelope is active.
 
 | WP / gate | Input and work | Output / continuous authority | Stop or owner decision |
 |---|---|---|---|
 | L-WP0 diagnosis | current LiDAR model/loss/loader/CBGS/checkpoint paths plus historical B4 evidence | read-only bottleneck and candidate classification; closed | IP-LG0 freezes the workflow and source scope |
-| L-WP1 clean measurement | exact D_fit LiDAR recipe; clean B4/B8/B16/B32 profiles | default-off capacity ladder, B4-versus-highest-safe sustained processes, two detailed traces, checkpoint and loss-health evidence | runs only after exact IP-L-E1 activation; IP-LG1 selects the batch and exact L-WP2 cells |
-| L-WP2 primary screens | IP-LG1-frozen batch and bottleneck evidence | same-allocation paired Hungarian/target-host-sync, sparse-front-end sync/stat, LiDAR SDPA, dense scoped-compile and fused-AdamW screens | continuous only inside separately approved IP-L-E2; ambiguity or science pressure returns to owner |
+| L-WP1 clean measurement | exact D_fit LiDAR recipe; clean B4/B8/B16/B32 profiles | default-off capacity ladder, B4-versus-highest-safe sustained processes, two detailed traces, checkpoint and loss-health evidence | closed; IP-LG1 accepted LiDAR-only B32x1 and froze L-WP2 |
+| L-WP2 primary screens | accepted B32x1 recipe and L-E1 bottleneck evidence | five isolated same-allocation B32 pairs: target/Hungarian host batching, LiDAR SDPA, dense scoped compile, sparse host offsets/stat cleanup, fused AdamW | all five may proceed serially only inside separately approved IP-L-E2; candidate-local negative does not stop independent later cells |
 | L-WP3 conditional/composed screens | positive primary candidates and trace residuals | conditionally test full-sort-to-topk, batched voxelization, batched Gaussian targets, H2D-field pruning and hidden-sync cleanup; validate the final combined stack | IP-LG2 promotes/rejects the exact L-only recipe and explicitly accepts any BN/worker-RNG batch recipe |
 | L-WP4 capability handoff | owner-promoted LiDAR recipe plus promoted Camera 2-GH200 v4 recipe | new dual-branch Envelope-B source/config/hash/output roots and per-branch resource projection; independent recipe-freeze review | only a no-open-P0-P2 review may lead to a later Envelope-B activation request |
 
@@ -894,8 +897,10 @@ consumed presentations per epoch, a descriptive 20-epoch projection including on
 startup and measured per-epoch checkpoint/hash cost is `13.4864` GH200-hours at
 B4 versus `9.3853` at B32, saving about `4.1011` hours (`30.41%` wall reduction).
 Checkpoint save plus file/model hashing is only about `0.22 s/epoch` and is not a
-useful LiDAR throughput lever. B32 remains measurement-only until IP-LG1 explicitly
-accepts its BatchNorm and worker-RNG recipe.
+useful LiDAR throughput lever. The owner now accepts B32x1 as the LiDAR-only batch
+recipe, including its BatchNorm statistics and worker-RNG assignment relative to
+B4. This acceptance does not apply B32 to Camera or Fusion and does not yet select
+the final optimized LiDAR runtime stack.
 
 The aligned traces each cover 96 presentations and three accepted optimizer
 windows: B4 uses 24 microbatches while B32 uses three. Named CPU/device totals are
@@ -912,9 +917,69 @@ LiDAR SDPA remains a valid smaller candidate. Full proposal argsort, H2D and tru
 optimizer-device time are small; the large B32 optimizer CPU range is asynchronous
 wait attribution, not evidence that AdamW itself costs `0.734 s`.
 
-L-E1 therefore closes positive for B32 capacity/throughput and for bottleneck
-localization, without promoting a recipe. IP-LG1 must now decide whether to accept
-B32x1's BN/worker-RNG recipe and freeze the exact L-WP2 cell order/resources.
+L-E1 therefore closes positive for B32 capacity/throughput and bottleneck
+localization. IP-LG1 is now closed by the owner's explicit B32 recipe acceptance.
+Relative to B4, the accepted change is limited to physical batch/accumulation,
+BatchNorm statistics and worker-RNG assignment: exact D_fit ownership, CBGS
+presentation order and count, seed 0, effective B32, model/head, precision, loss/
+target, optimizer/scheduler, checkpoint cadence and evaluator semantics remain
+frozen. Within every B32 candidate process, boundary/input/RNG/discrete state must
+remain exact.
+
+The exact isolated `L-WP2` order is frozen as follows. Every row compares two fresh
+processes in one Slurm allocation on one GH200; all options other than the named
+candidate remain at the B32 reference value. Alternating pair order reduces a
+systematic first/second-process bias without using cross-node absolute rates.
+
+| Cell | Exact pair order | Candidate scope and class |
+|---|---|---|
+| L2-1 | B32 reference -> B32 target-host candidate | batch redundant GT/box validity reductions and Hungarian cost/index host transfers while preserving per-sample cost, SciPy assignment and Gaussian-draw math; strict output-neutral plumbing |
+| L2-2 | B32 LiDAR-SDPA candidate -> B32 reference | replace only the two TransFusion self/cross attention cores with PyTorch SDPA; projections, dropout probability, residual/normalization and state names stay fixed; numerical-runtime measurement-only |
+| L2-3 | B32 reference -> B32 scoped-compile candidate | Inductor/default/dynamic-false, forward-only for `decoder_backbone`, `decoder_neck` and `head`; sparse encoder, target/loss and optimizer stay eager; numerical-runtime measurement-only |
+| L2-4 | B32 sparse-host candidate -> B32 reference | consume collate-authored point offsets and suppress redundant sustained-path batch-index/stat synchronization while preserving per-sample PointShuffle order, voxelizer calls and sparse FP32 island; strict output-neutral plumbing |
+| L2-5 | B32 reference -> B32 fused-AdamW candidate | change only the PyTorch AdamW fused backend; parameter groups, hyperparameters, scaler, clip, update and scheduler order stay fixed; numerical-runtime measurement-only |
+
+Each process uses 16 accepted warm-up plus 256 accepted measured optimizer windows,
+one-second system sampling, 16-window throughput blocks and a 50,000-draw one-sided
+95% block bootstrap. Hard gates are exact source/config/D_fit/CBGS/seed/B32
+identity; matched pair input anchor and CBGS prefix; accepted exposure; zero
+nonfinite/overflow/discard/scaler skip; finite total and four criterion terms;
+reserved memory at most 85% with no monotonic growth; exact checkpoint boundary,
+input, RNG, training/discrete/structure and finite-state continuation. Grouped
+parameter/BN/Adam relative-L2, max-absolute and elementwise-allclose distances stay
+diagnostic under the latest owner amendment; they do not veto a finite,
+structurally intact non-deterministic kernel by themselves.
+
+The two strict plumbing candidates additionally require exact discrete outputs and
+controlled FP32 plus accepted-FP16-policy forward/backward/update parity; continuous
+tensors use the already frozen parity tolerances, with elementwise exactness kept as
+a diagnostic where a qualified non-deterministic kernel is involved. SDPA must
+record its training-dropout/RNG behavior; compile must preserve state-dict names,
+compile only the three frozen scopes and show no measured steady-state recompile;
+fused AdamW must preserve parameter groups and checkpointed optimizer state.
+
+A primary screen is `positive` only when every hard gate passes and its candidate/
+reference throughput-ratio one-sided lower bound is greater than `1.00`. A point
+estimate above one with lower bound in `[0.98, 1.00]` is `conditional`, not a
+promotion, and may be reconsidered only in the later owner-frozen L-WP3 composition.
+All other healthy outcomes are negative for throughput. A candidate-local negative
+or unsupported compiler path is recorded and the next independent cell may proceed;
+a shared hard-gate failure, ambiguous defect, science-boundary pressure or resource
+ceiling stops the envelope.
+
+No L-WP2 candidate is combined in these five cells. L-WP3 remains the later
+composition/conditional stage for positive primaries and, only when trace residuals
+still justify them, full-sort-to-topk, batched voxelization, batched Gaussian
+targets, H2D-field pruning and hidden-sync cleanup. IP-LG2 decides that exact scope
+and the final LiDAR recipe.
+
+The proposed `IP-L-E2` execution boundary is five serial paired jobs, each one node/
+one GH200/16 CPUs/96 GiB/at most 45 minutes/no requeue, maximum concurrency one;
+`2.00` base plus `0.75` diagnosed-code-bug reserve and `2.75` charged-GH200-hour
+hard ceiling; fresh source-SHA-qualified outputs under
+`.../outputs/s10_phase1p_ip_l_e2_<approved_sha12>/`. These resources are an exact
+request input, not active authority. Local source/tests/profiles/runner and a clean
+containing SHA must be materialized and returned for explicit owner activation.
 L-E2, D_select, D_audit, official validation, Camera/Fusion work, revised
 Envelope-B execution, merge and push remain unauthorized.
 

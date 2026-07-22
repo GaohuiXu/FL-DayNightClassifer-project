@@ -2635,9 +2635,121 @@ SLURM_STDERR_SHA256:
   e800bf6938f356fce2e7c65aa2d89b677e6d69ddf360fd536bc33b709af0ec8c
 FINAL_BUDGET: base 0.901389/1.25; bug reserve 0.266944/0.50;
   aggregate 1.168333/1.75 charged GH200-hours; maximum concurrency one respected
-EXIT_STATE: L-E1 objectives met and envelope closed; B32 remains measurement-only;
-  IP-LG1 owner discussion is required before batch acceptance, optimization
-  implementation, exact IP-L-E2 request or any further compute
+EXIT_STATE_AT_L_E1_CLOSE: objectives met and envelope closed; B32 was then
+  measurement-only and returned to IP-LG1. Section 9.9 records the later owner
+  acceptance/freeze; no IP-L-E2 compute follows from either record alone
+```
+
+### 9.9 LiDAR IP-LG1 closure and frozen L-WP2 test units
+
+```text
+REQUEST_STATE: IP-LG1 CLOSED / L-WP2 CELLS FROZEN / IP-L-E2 APPROVAL PENDING
+OWNER_DECISION: 2026-07-22 — accept LiDAR-only physical B32 x accumulation 1,
+  including its BatchNorm and worker-RNG recipe relative to B4; freeze the five
+  isolated L-WP2 paired cells below
+BRANCH: codex/s10-phase1p-throughput-preflight
+UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
+FROZEN_CONTROL: codex/s10-phase1-branch-qualification remains at UNIQUE_BASE_SHA
+PREDECESSOR_EVIDENCE: IP-L-E1 source 77f13f955e0d089db6c2ae77957f1e903ddc6410;
+  Job 555777; robust B32/B4 ratio 1.437171388; B32 reserved 46.9449%; all
+  measurement-health and exact checkpoint hard gates PASS
+AUTHORITY_NOW: scoped source/docs/tests/local validation and linear commits only;
+  no GPU/Slurm, D_select, D_audit, official validation, Envelope B, merge or push
+
+ACCEPTED_BATCH_RECIPE: LiDAR-only B32 x accumulation 1/effective B32, ordinary
+  single-GPU BatchNorm and its B32 worker assignment; no cross-batch per-sample
+  augmentation equality requirement
+UNCHANGED_SCIENCE: exact D_fit role and CBGS identity/order/count; seed 0; model/
+  head; global FP16 plus sparse FP32 island; loss/targets; AdamW hyperparameters;
+  scaler/clip/scheduler; one-epoch checkpoint cadence; evaluator semantics
+FUSION_BOUNDARY: B32 acceptance does not apply to Camera or Fusion and makes no
+  capability, mAP/NDS, convergence, generalization or candidate-selection claim
+
+REFERENCE: current LiDAR runtime at B32x1 with every optimization flag false
+PAIR_PROTOCOL: two fresh processes serially inside one Slurm allocation/node/GPU;
+  same source/config/D_fit/CBGS/input anchor; 16 accepted warm-up plus 256 accepted
+  measured windows per process; one-second system sampling; 16-window blocks;
+  50,000-draw one-sided 95% paired block bootstrap
+EXACT_SERIAL_CELLS:
+  L2-1. B32 reference -> B32 hungarian_batched_d2h
+  L2-2. B32 lidar_sdpa -> B32 reference
+  L2-3. B32 reference -> B32 torch_compile
+  L2-4. B32 lidar_host_batch_offsets -> B32 reference
+  L2-5. B32 reference -> B32 fused_adamw
+ISOLATION: every candidate changes exactly its named flag; no prior positive is
+  carried into a later primary cell and no combined stack is part of L-WP2
+
+TARGET_HOST_SCOPE: batch redundant GT/box validity reductions plus Hungarian
+  cost/index D2H/H2D plumbing only; preserve per-sample GPU cost/IoU math, SciPy
+  linear_sum_assignment inputs/results, encoded targets and Gaussian-draw math
+LIDAR_SDPA_SCOPE: only the two TransFusion ReferenceMultiheadAttention cores;
+  preserve Q/K/V/out projections, head count/scale, dropout probability, residuals,
+  normalization, parameters/buffers and state-dict names; record changed kernel RNG
+  consumption as measurement evidence
+COMPILE_SCOPE: torch.compile backend=inductor, mode=default, dynamic=false;
+  forward-only decoder_backbone, decoder_neck and head; sparse encoder, data,
+  target/loss, backward wrapper and optimizer remain eager
+SPARSE_HOST_SCOPE: collate-authored exact point offsets replace redundant sustained-
+  path batch-index/grouping/stat host synchronization; preserve sample ordering,
+  PointShuffle, PointToVoxel calls/caps, VFE/spconv/dense collapse and FP32 island
+FUSED_ADAMW_SCOPE: PyTorch fused backend only; exact parameter groups,
+  hyperparameters, GradScaler, clipping, accepted step, scheduler and checkpoint
+  optimizer-state contract
+
+HARD_GATES: exact source/config/profile/D_fit/CBGS/seed/effective-B32 identities;
+  pair input anchor and CBGS prefix; zero invalid/nonfinite/overflow/discard/scaler-
+  skipped measured windows; finite total loss and four criterion terms; exact
+  accepted exposure; <=85% peak reserved; no monotonic reserved growth; exact
+  checkpoint boundary/input/RNG/training/discrete/structure and finite state;
+  candidate-specific parity/state/compile gates
+NUMERICAL_POLICY: grouped model-parameter/BN-mean/BN-var/Adam-exp_avg/exp_avg_sq
+  relative-L2, max-absolute and elementwise-allclose results are diagnostics under
+  the latest owner amendment; they cannot alone fail a finite and structurally
+  intact non-deterministic kernel
+STRICT_PLUMBING_PARITY: target-host and sparse-host candidates require exact
+  discrete results plus controlled FP32 and accepted-FP16-policy forward/backward/
+  accepted-update parity under frozen continuous-tensor tolerances; elementwise
+  exactness remains diagnostic for qualified non-deterministic kernels
+SDPA_GATE: FP32/FP16 forward/backward/update checks, explicit training-dropout/RNG
+  record, exact state names and checkpoint/resume
+COMPILE_GATE: exactly three compiled scopes, unchanged state names, finite parity,
+  graph/cold-start record and no unexpected measured steady-state recompile
+FUSED_GATE: exact parameter-group identity, finite accepted update and complete
+  exp_avg/exp_avg_sq checkpoint/resume
+
+PERFORMANCE_CLASSIFICATION: positive only if every hard gate passes and the
+  candidate/reference one-sided 95% throughput-ratio lower bound is >1.00;
+  point estimate >1 with lower bound in [0.98,1.00] is conditional for a later
+  L-WP3 decision, not promoted; every other healthy result is throughput-negative
+CONTINUATION: all five independent cells may run serially inside one activated
+  IP-L-E2 without per-cell owner round trips; a candidate-local negative or
+  unsupported compiler path does not stop later independent cells
+STOP_ESCALATE: shared hard-gate failure; nonfinite/discard; ambiguous or repeated
+  blocker; science-boundary pressure; requested scope/gate/resource change; or
+  hard aggregate ceiling exhaustion
+L_WP3_BOUNDARY: no primary combination in L-WP2. Positive/conditional composition
+  and any full-sort-to-topk, batched voxelization, batched Gaussian target,
+  H2D-field-pruning or hidden-sync-cleanup cell remain IP-LG2/L-WP3 work
+
+PROPOSED_RESOURCES_PER_JOB: one node; one GH200; 16 CPUs; 96 GiB; <=00:45:00;
+  no requeue/restart; maximum concurrency one
+PROPOSED_AGGREGATE_BASE: 2.00 charged GH200-hours
+PROPOSED_CODE_BUG_RESERVE: +0.75 charged GH200-hour
+PROPOSED_HARD_CEILING: 2.75 charged GH200-hours
+PROPOSED_SUBMISSION_POLICY: serial; no numeric remediation-submission cap; no blind
+  retry; aggregate layered ceiling and maximum concurrency are binding
+PROPOSED_OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/
+  arrhenius_fl_v3/outputs/s10_phase1p_ip_l_e2_<approved_source_sha12>/
+FRESH_OUTPUT: every process/pair/attempt path is source-SHA-qualified, absent before
+  execution and never overwritten; raw evidence remains immutable
+REMEDIATION: O-149 smallest unambiguous frozen-semantics test/fixture/runner/API/
+  config/discrete/checkpoint/provenance/logging repair only, serially inside the
+  reserve; candidate math/scope, data, precision, recipe, gates and resources stay
+  owner-gated
+ACTIVATION_REQUIREMENT: first materialize and locally validate exact default-off
+  source, tests, profiles, pair runner and commands; record their hashes and a clean
+  containing source SHA here; then obtain explicit owner approval of that SHA and
+  the proposed resources. This section alone is not executable authority.
 ```
 
 ## 10. Envelope-A compact execution ledger
