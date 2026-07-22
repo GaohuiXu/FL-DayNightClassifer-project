@@ -873,6 +873,17 @@ class Phase1TransFusionLoss(nn.Module):
         center_columns_by_sample: list[torch.Tensor] = []
         center_rows_by_sample: list[torch.Tensor] = []
         validation_flags: list[torch.Tensor] = []
+        validation_checks: dict[str, list[torch.Tensor]] = {
+            "gt_finite": [],
+            "gt_dims_positive": [],
+            "labels_valid": [],
+            "prediction_finite": [],
+            "prediction_dims_positive": [],
+            "center_columns_lower_bound": [],
+            "center_columns_upper_bound": [],
+            "center_rows_lower_bound": [],
+            "center_rows_upper_bound": [],
+        }
         with self._profile_range("gt_prepare_validation_batched"):
             for batch_index in range(batch_size):
                 gt7 = batch["gt_boxes"][batch_index].to(device=device, dtype=dtype)
@@ -900,23 +911,46 @@ class Phase1TransFusionLoss(nn.Module):
                 centers_y = (gt7[:, 1] - y0) / cell_y
                 center_columns = centers_x.to(torch.int32)
                 center_rows = centers_y.to(torch.int32)
-                prediction_valid = (
-                    torch.isfinite(decoded[batch_index, :, :7]).all()
-                    & (decoded[batch_index, :, 3:6] > 0).all()
-                    if gt7.shape[0]
-                    else torch.ones((), dtype=torch.bool, device=device)
+                if gt7.shape[0]:
+                    prediction_finite = torch.isfinite(
+                        decoded[batch_index, :, :7]
+                    ).all()
+                    prediction_dims_positive = (
+                        decoded[batch_index, :, 3:6] > 0
+                    ).all()
+                else:
+                    prediction_finite = torch.ones(
+                        (), dtype=torch.bool, device=device
+                    )
+                    prediction_dims_positive = torch.ones(
+                        (), dtype=torch.bool, device=device
+                    )
+                sample_checks = {
+                    "gt_finite": torch.isfinite(gt7).all(),
+                    "gt_dims_positive": (gt7[:, 3:6] > 0).all(),
+                    "labels_valid": (
+                        (gt_labels >= 0) & (gt_labels < self.num_classes)
+                    ).all(),
+                    "prediction_finite": prediction_finite,
+                    "prediction_dims_positive": prediction_dims_positive,
+                    "center_columns_lower_bound": (center_columns >= 0).all(),
+                    "center_columns_upper_bound": (center_columns < width).all(),
+                    "center_rows_lower_bound": (center_rows >= 0).all(),
+                    "center_rows_upper_bound": (center_rows < height).all(),
+                }
+                for name, value in sample_checks.items():
+                    validation_checks[name].append(value)
+                validation_flags.append(
+                    sample_checks["gt_finite"]
+                    & sample_checks["gt_dims_positive"]
+                    & sample_checks["labels_valid"]
+                    & sample_checks["prediction_finite"]
+                    & sample_checks["prediction_dims_positive"]
+                    & sample_checks["center_columns_lower_bound"]
+                    & sample_checks["center_columns_upper_bound"]
+                    & sample_checks["center_rows_lower_bound"]
+                    & sample_checks["center_rows_upper_bound"]
                 )
-                valid = (
-                    torch.isfinite(gt7).all()
-                    & (gt7[:, 3:6] > 0).all()
-                    & ((gt_labels >= 0) & (gt_labels < self.num_classes)).all()
-                    & prediction_valid
-                    & (center_columns >= 0).all()
-                    & (center_columns < width).all()
-                    & (center_rows >= 0).all()
-                    & (center_rows < height).all()
-                )
-                validation_flags.append(valid)
                 gt7_by_sample.append(gt7)
                 gt9_by_sample.append(gt9)
                 labels_by_sample.append(gt_labels)
@@ -924,11 +958,59 @@ class Phase1TransFusionLoss(nn.Module):
                 center_rows_by_sample.append(center_rows)
             validity = torch.stack(validation_flags).detach().to(device="cpu")
             if not bool(validity.all()):
-                failed = [
-                    index for index, value in enumerate(validity.tolist()) if not value
-                ]
+                check_matrix = torch.stack(
+                    [torch.stack(values) for values in validation_checks.values()]
+                ).detach().to(device="cpu")
+                failed_checks = {}
+                for row, name in enumerate(validation_checks):
+                    failed = [
+                        index
+                        for index, value in enumerate(check_matrix[row].tolist())
+                        if not value
+                    ]
+                    if failed:
+                        failed_checks[name] = failed
+                prediction_source_nonfinite_values = {
+                    name: int(
+                        (~torch.isfinite(output[name].detach()))
+                        .sum()
+                        .to(device="cpu")
+                        .item()
+                    )
+                    for name in ("center", "height", "dim", "rot")
+                }
+                raw_dim_cpu = output["dim"].detach().float().to(device="cpu")
+                finite_raw_dim = raw_dim_cpu[torch.isfinite(raw_dim_cpu)]
+                raw_dim_finite_range = (
+                    (
+                        float(finite_raw_dim.min().item()),
+                        float(finite_raw_dim.max().item()),
+                    )
+                    if finite_raw_dim.numel()
+                    else None
+                )
+                decoded_validation = decoded[:, :, :7].detach()
+                decoded_nonfinite_values = int(
+                    (~torch.isfinite(decoded_validation))
+                    .sum()
+                    .to(device="cpu")
+                    .item()
+                )
+                decoded_nonpositive_dimensions = int(
+                    (decoded[:, :, 3:6].detach() <= 0)
+                    .sum()
+                    .to(device="cpu")
+                    .item()
+                )
                 raise ValueError(
-                    f"TransFusion GT/prediction validation failed for samples {failed}"
+                    "TransFusion GT/prediction validation failed; "
+                    f"failed_checks={failed_checks}; "
+                    "prediction_source_nonfinite_values="
+                    f"{prediction_source_nonfinite_values}; "
+                    f"raw_dim_finite_range={raw_dim_finite_range}; "
+                    f"decoded_nonfinite_values={decoded_nonfinite_values}; "
+                    "decoded_nonpositive_dimensions="
+                    f"{decoded_nonpositive_dimensions}"
                 )
 
         costs: list[torch.Tensor] = []

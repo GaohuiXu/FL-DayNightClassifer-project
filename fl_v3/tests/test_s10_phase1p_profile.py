@@ -1404,6 +1404,36 @@ def test_ip_e2_fused_adamw_matches_unfused_accepted_updates():
         )
 
 
+def test_lidar_batched_hungarian_validation_reports_prediction_dim_failure():
+    from fl_v3.models.phase1_transfusion import Phase1TransFusionLoss
+
+    output = {
+        "heatmap": torch.zeros(1, 10, 200),
+        "center": torch.zeros(1, 2, 200),
+        "height": torch.zeros(1, 1, 200),
+        "dim": torch.full((1, 3, 200), -1000.0),
+        "rot": torch.cat(
+            (torch.zeros(1, 1, 200), torch.ones(1, 1, 200)), dim=1
+        ),
+        "vel": torch.zeros(1, 2, 200),
+    }
+    batch = {
+        "gt_boxes": [torch.tensor([[0.0, 0.0, 0.0, 4.0, 1.8, 1.6, 0.0]])],
+        "gt_labels": [torch.tensor([0], dtype=torch.long)],
+    }
+    criterion = Phase1TransFusionLoss()
+
+    with pytest.raises(ValueError) as error:
+        criterion._build_targets_batched_host(output, batch)
+
+    message = str(error.value)
+    assert "failed_checks={'prediction_dims_positive': [0]}" in message
+    assert "'dim': 0" in message
+    assert "raw_dim_finite_range=(-1000.0, -1000.0)" in message
+    assert "decoded_nonfinite_values=0" in message
+    assert "decoded_nonpositive_dimensions=600" in message
+
+
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires the IP-L-E2 GH200")
 @pytest.mark.parametrize(
     ("precision", "rtol", "atol"),
