@@ -30,8 +30,15 @@ done
 [[ -n "${envelope}" && -n "${config}" && -n "${output_dir}" ]] || usage
 [[ "${source_sha}" =~ ^[0-9a-f]{40}$ ]] || usage
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source_root="$(cd "${script_dir}/../.." && pwd)"
+if [[ -n "${SLURM_SUBMIT_DIR:-}" && \
+      -f "${SLURM_SUBMIT_DIR}/fl_v3/scripts/s10_phase1_capability.py" ]]; then
+  # Slurm executes a copied batch script from its spool.  Bind relative paths to
+  # the immutable submit worktree, not to BASH_SOURCE[0] inside that spool.
+  source_root="$(realpath "${SLURM_SUBMIT_DIR}")"
+else
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  source_root="$(cd "${script_dir}/../.." && pwd)"
+fi
 single_entry="fl_v3/scripts/s10_phase1_capability.py"
 camera_entry="fl_v3/scripts/s10_phase1_camera_ddp.py"
 if [[ "${config}" != /* ]]; then

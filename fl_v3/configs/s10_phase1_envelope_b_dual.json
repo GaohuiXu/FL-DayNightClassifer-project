@@ -31,7 +31,7 @@
   "entries": {
     "launcher": {
       "path": "fl_v3/scripts/run_s10_phase1_envelope_b.sh",
-      "sha256": "1daad38dba352664b1072d97774e2f24b5ed30c52a01c75b3f36752b33c4dd99"
+      "sha256": "c011bfa3dc31aad6db9577efa696f3d9109c0b2d93586d2105ed7bd41af7ec2e"
     },
     "lidar": {
       "path": "fl_v3/scripts/s10_phase1_capability.py",

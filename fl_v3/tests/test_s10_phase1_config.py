@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import json
 import math
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CAMERA = ROOT / "configs" / "s10_phase1_camera.json"
 LIDAR = ROOT / "configs" / "s10_phase1_lidar.json"
 ENVELOPE = ROOT / "configs" / "s10_phase1_envelope_b_dual.json"
+ENVELOPE_LAUNCHER = ROOT / "scripts" / "run_s10_phase1_envelope_b.sh"
 H = "a" * 64
 DUAL_OUTPUT_ROOT = (
     "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/"
@@ -240,6 +242,38 @@ def test_phase1_dual_envelope_b_manifest_binds_both_recipes_and_resources():
         abs_tol=1e-6,
     )
     assert aggregate["hard_ceiling_gh200_hours"] == 30.0
+
+
+def test_phase1_envelope_launcher_resolves_slurm_copy_from_submit_worktree(
+    tmp_path: Path,
+):
+    copied_launcher = tmp_path / "slurm_script"
+    copied_launcher.write_bytes(ENVELOPE_LAUNCHER.read_bytes())
+    completed = subprocess.run(
+        [
+            "bash",
+            str(copied_launcher),
+            "--branch",
+            "lidar",
+            "--envelope",
+            "fl_v3/configs/s10_phase1_envelope_b_dual.json",
+            "--config",
+            "fl_v3/configs/s10_phase1_lidar.json",
+            "--output-dir",
+            str(tmp_path / "fresh-output"),
+            "--source-sha",
+            "0" * 40,
+        ],
+        cwd=tmp_path,
+        env={"SLURM_SUBMIT_DIR": str(ROOT.parent)},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 2
+    assert "source SHA" in completed.stderr
+    assert "/var/lib/slurm" not in completed.stderr
+    assert "No such file or directory" not in completed.stderr
 
 
 def test_phase1_run_bridge_carries_full_resolved_recipe_and_leaf_inventory():

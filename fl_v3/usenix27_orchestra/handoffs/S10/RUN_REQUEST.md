@@ -7,7 +7,7 @@ SESSION: persistent S10 Phase I-P throughput preflight
 ACTIVE_DECISION: final Camera two-GH200 and LiDAR B32 recipes owner-promoted
 REQUEST_STATE: REVISED SERIAL ENVELOPE B ACTIVE IN CURRENT SESSION
 EXECUTION_AUTHORITY: Section 7.4 active at seal 1473ef67... / 30.0 charged h / concurrency 1
-ACTIVE_PHASE: exact startup verification, then LiDAR initial submission and health monitoring
+ACTIVE_PHASE: LiDAR runner-path remediation, derived replacement and health monitoring
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -662,10 +662,10 @@ Immutable manifest, recipe and entry identities:
 
 | Object | File SHA-256 | Resolved SHA-256 / role |
 |---|---|---|
-| dual manifest `fl_v3/configs/s10_phase1_envelope_b_dual.json` | `4d83f0741d5b77d476b1e3cdd5ef10b7330b4564af271f3b2bb50ac6c1f79afd` | binds order, roots, resources and all entries |
+| dual manifest `fl_v3/configs/s10_phase1_envelope_b_dual.json` | `052db3be588d371426d09aea2f17d5c7391987de33f3175ff7915da00358c833` | binds order, roots, resources and all entries; differs from the review seal only by the O-149 launcher-path repair identity |
 | LiDAR config `fl_v3/configs/s10_phase1_lidar.json` | `017086bbd9a9534adf2808461da9cf881d9ef798ef3f3d7c58d3a07b2c7a15d9` | `c950d90db0833ecf5f50ddcc2f10671e4abf7a9f2b1edd640425eb52b888b1ad` |
 | Camera config `fl_v3/configs/s10_phase1_camera.json` | `89a4d9982583dc213e110fcec9469be04e9b4ccf3cefb9a2ca97b294e7650014` | `63f77459fcb229155a0b1a6608d83abf3c55336d554c20f7629d57ed7122d1b3` |
-| launcher `fl_v3/scripts/run_s10_phase1_envelope_b.sh` | `1daad38dba352664b1072d97774e2f24b5ed30c52a01c75b3f36752b33c4dd99` | validates manifest/config/entry/output plus allocated account/partition/node/task/CPU/memory/GPU-count identities before dispatch |
+| launcher `fl_v3/scripts/run_s10_phase1_envelope_b.sh` | `c011bfa3dc31aad6db9577efa696f3d9109c0b2d93586d2105ed7bd41af7ec2e` | validates manifest/config/entry/output plus allocated account/partition/node/task/CPU/memory/GPU-count identities before dispatch; resolves a Slurm spool copy through the validated submit worktree |
 | LiDAR entry `fl_v3/scripts/s10_phase1_capability.py` | `4c93348330ee02b56a9fc282e991f391c2f986a9dbab7b704bd2195a5f79ec55` | single-GPU production entry |
 | Camera entry `fl_v3/scripts/s10_phase1_camera_ddp.py` | `4b91e81c5060bec0108b99abaa6b29e6df4d4def0d04f45e54a4b20df830162e` | two-rank production DDP entry |
 
@@ -823,6 +823,22 @@ The monitor diagnoses a lack of progress rather than accepting a nominally runni
 job. Eligible O-149 engineering repairs continue within the frozen ceiling. Any
 shared scientific boundary, ambiguous diagnosis, repeated blocker or budget risk
 stops and returns to the owner.
+
+#### 7.4.6 LiDAR execution ledger
+
+| Attempt | Immutable source/output | Terminal state and diagnosis | Charged GH200-hours |
+|---|---|---|---:|
+| Job `560627`, LiDAR initial | source `76744c7e330ceafd9416d818ec389fafb4ca974e`; Slurm logs `slurm/lidar-560627.{out,err}`; external pre-submit record SHA-256 `d3a49f17...56a4fe`; submission record SHA-256 `ae182f97...65b0b` | `FAILED_PRE_MODEL` in `00:00:05`. Slurm executed its copied launcher below `/var/lib/slurm`; the launcher derived `source_root` from that copied `BASH_SOURCE[0]`, so relative config resolution failed before environment, data, model, update or evaluation. The candidate output was never created. This is an unambiguous output-neutral runner-path defect, not a scientific result. | `0.001389` |
+
+The O-149 replacement changes only launcher path discovery: when
+`SLURM_SUBMIT_DIR` contains the expected production entry, it becomes
+`source_root`; direct local execution retains the existing `BASH_SOURCE` fallback.
+The manifest updates only that launcher's content identity. Both scientific config
+file hashes, both resolved-config hashes, both Python-entry hashes, all resources,
+data, model, precision, update, exposure, evaluator and output bindings remain
+unchanged. A focused copied-script regression must reach the intended source-SHA
+gate from an unrelated directory, `bash -n` must pass, and the derived clean source
+and fresh external attempt record must be frozen before serial replacement.
 
 ## 8. Phase I-P IP-G0 record and exact IP-E1 request
 
