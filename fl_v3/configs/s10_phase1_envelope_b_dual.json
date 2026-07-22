@@ -49,7 +49,7 @@
     },
     "lidar": {
       "path": "fl_v3/scripts/s10_phase1_capability.py",
-      "sha256": "4c93348330ee02b56a9fc282e991f391c2f986a9dbab7b704bd2195a5f79ec55"
+      "sha256": "9a329b0b19d4f166527c3a5dbcce5f0fa91bf34521d9250cbfed5626d7aab843"
     },
     "camera": {
       "path": "fl_v3/scripts/s10_phase1_camera_ddp.py",
@@ -61,7 +61,7 @@
     },
     "lidar_epoch04_diagnostic": {
       "path": "fl_v3/scripts/s10_phase1_lidar_epoch4_diagnostic.py",
-      "sha256": "eb64aa7960b3afa8b37184d32a089b02fe323b7c18c8c028c88ac20190a690f3"
+      "sha256": "7a66d379fd11dcaf9f0ad7cb88d4ed75e14f840b5129d7f5b34ac2ae9b5f2634"
     }
   },
   "branches": {

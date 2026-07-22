@@ -9,6 +9,7 @@ import torch
 
 ROOT = Path(__file__).resolve().parents[1]
 ENTRY = ROOT / "scripts" / "s10_phase1_lidar_epoch4_diagnostic.py"
+CAPABILITY_ENTRY = ROOT / "scripts" / "s10_phase1_capability.py"
 
 
 def _entry_module():
@@ -68,12 +69,21 @@ def test_batch_hash_is_stable_and_value_sensitive():
 
 def test_localization_is_durable_and_precedes_the_only_D_select_peek():
     source = ENTRY.read_text(encoding="utf-8")
+    capability_source = CAPABILITY_ENTRY.read_text(encoding="utf-8")
     localization_complete = source.index('"complete.json"')
-    diagnostic_scope = source.index('diagnostic_scope_path = d_select_root')
+    diagnostic_scope = source.index("diagnostic_scope = {")
     d_select_call = source.index("d_select_record = _evaluate_terminal(")
     assert localization_complete < diagnostic_scope < d_select_call
     assert "return_intermediates=True" in source
     assert '"diagnostic_scope.json"' in source
+    assert "diagnostic_scope=diagnostic_scope" in source
+    evaluate_start = capability_source.index("def _evaluate_terminal(")
+    evaluate_source = capability_source[evaluate_start:]
+    transaction_marker = evaluate_source.index(
+        '_atomic_write_once(partial / "diagnostic_scope.json"'
+    )
+    transaction_rename = evaluate_source.index("os.replace(partial, complete)")
+    assert transaction_marker < transaction_rename
     assert '"terminal_epoch20_execution_remains_reserved": True' in source
     assert ".backward(" not in source
     assert "optimizer.step(" not in source

@@ -460,6 +460,8 @@ def _evaluate_terminal(
     output_dir: Path,
     checkpoint_dir: Path,
     runtime_dependency_sha256: str,
+    *,
+    diagnostic_scope: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     complete = output_dir / "evaluation" / "complete"
     if complete.exists():
@@ -468,6 +470,8 @@ def _evaluate_terminal(
     if partial.exists():
         shutil.rmtree(partial)
     partial.mkdir(parents=True)
+    if diagnostic_scope is not None:
+        _atomic_write_once(partial / "diagnostic_scope.json", dict(diagnostic_scope))
 
     checkpoint = checkpoint_dir / "checkpoint.pt"
     checkpoint_sha = sha256_file(checkpoint)

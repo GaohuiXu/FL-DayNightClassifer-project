@@ -909,8 +909,10 @@ It executes zero backward passes and zero optimizer/scheduler updates. All
 localization cells complete and are durably recorded before the entry constructs a
 fresh eval-mode model and performs the one additional `D_select` look. This ordering
 prevents a later localization failure from consuming a successful peek that the
-fresh-only launcher cannot reuse. The evaluator rejects any raw head NaN/Inf before
-decode. This look is `diagnostic-only`, `selectable=false`, cannot drive early
+fresh-only launcher cannot reuse. The evaluator writes the diagnostic scope inside
+its `.in_progress` transaction before decode, atomically moves that marker with a
+successful `complete/` result, and rejects any raw head NaN/Inf before decode. This
+look is `diagnostic-only`, `selectable=false`, cannot drive early
 stopping or best-epoch choice, and does not replace the one future epoch-20 terminal
 `D_select` execution. Consequently LiDAR will have two disclosed `D_select`
 executions if it later reaches terminal: one epoch-4 diagnostic peek and one formal
@@ -939,16 +941,16 @@ amendment. The clean containing Git SHA is named only after commit and is the
 
 | Bound object | SHA-256 | Current role |
 |---|---|---|
-| v2 dual manifest `fl_v3/configs/s10_phase1_envelope_b_dual.json` | `430a0e98f333ef4e1030e074ef6c1030afc3696530787b031dada9b21efc76fb` | sole current topology/resource/entry manifest |
+| v2 dual manifest `fl_v3/configs/s10_phase1_envelope_b_dual.json` | `e623ee79e4257215766e6ea5b2b9a79f5fe7e052121e8129af536cbbc631c0ec` | sole current topology/resource/entry manifest |
 | Camera source config | `89a4d9982583dc213e110fcec9469be04e9b4ccf3cefb9a2ca97b294e7650014` | unchanged Camera recipe |
 | Camera resolved config | `63f77459fcb229155a0b1a6608d83abf3c55336d554c20f7629d57ed7122d1b3` | launcher-validated Camera semantics |
 | LiDAR source config | `017086bbd9a9534adf2808461da9cf881d9ef798ef3f3d7c58d3a07b2c7a15d9` | unchanged LiDAR recipe used read-only by diagnostic |
 | LiDAR resolved config | `c950d90db0833ecf5f50ddcc2f10671e4abf7a9f2b1edd640425eb52b888b1ad` | launcher-validated diagnostic semantics |
 | Camera-only Envelope-B launcher | `76a1262e7abc672d88256f801e0476fbc5d63da2114237d3d45b2fbf1e72be25` | runnable Camera entry; rejects every LiDAR training/resume invocation |
 | Camera DDP entry | `4b91e81c5060bec0108b99abaa6b29e6df4d4def0d04f45e54a4b20df830162e` | unchanged two-GH200 Camera production |
-| original single-GPU capability entry | `4c93348330ee02b56a9fc282e991f391c2f986a9dbab7b704bd2195a5f79ec55` | retained dependency/evaluator code; not a runnable LiDAR production unit in v2 |
+| original single-GPU capability entry | `9a329b0b19d4f166527c3a5dbcce5f0fa91bf34521d9250cbfed5626d7aab843` | retained evaluator with optional diagnostic-scope transaction; not a runnable LiDAR production unit in v2 |
 | LiDAR diagnostic launcher | `8da36ebb0047617f0a68f3cb8cd6ef493f327b30e7318cf8505347a9c001421a` | runnable zero-update one-GH200 diagnostic |
-| LiDAR diagnostic entry | `eb64aa7960b3afa8b37184d32a089b02fe323b7c18c8c028c88ac20190a690f3` | localization first, diagnostic scope atomically sealed before D_select |
+| LiDAR diagnostic entry | `7a66d379fd11dcaf9f0ad7cb88d4ed75e14f840b5129d7f5b34ac2ae9b5f2634` | localization first; scope and D_select complete atomically together |
 | LiDAR epoch-4 checkpoint | `d01b6219533e3a4c38fdd7be7727020accc4a8664951f5483cfeaeebba91c940` | immutable non-selectable recovery state |
 | LiDAR epoch-4 record | `98c7d9193145286fb9983a627d23b7e008f889f229cce911412fd5d4185b76da` | epoch/update/model-state provenance |
 

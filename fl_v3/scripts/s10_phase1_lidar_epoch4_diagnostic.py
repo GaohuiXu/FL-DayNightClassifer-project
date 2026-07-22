@@ -546,25 +546,20 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     )
     checked_model = _FiniteForward(eval_model)
     d_select_root = output_dir / "epoch04_d_select"
-    diagnostic_scope_path = d_select_root / "diagnostic_scope.json"
-    _atomic_write_once(
-        diagnostic_scope_path,
-        {
-            "schema": SCHEMA,
-            "source": source,
-            "resolved_config_sha256": config.sha256,
-            "checkpoint_sha256": epoch_record["checkpoint_sha256"],
-            "checkpoint_epoch": eval_state.epoch,
-            "role": "D_select",
-            "diagnostic_only": True,
-            "selectable": False,
-            "early_stopping_allowed": False,
-            "terminal_epoch20_execution_remains_reserved": True,
-            "D_audit_executed": False,
-            "official_validation_executed": False,
-        },
-    )
-    diagnostic_scope_sha256 = sha256_file(diagnostic_scope_path)
+    diagnostic_scope = {
+        "schema": SCHEMA,
+        "source": source,
+        "resolved_config_sha256": config.sha256,
+        "checkpoint_sha256": epoch_record["checkpoint_sha256"],
+        "checkpoint_epoch": eval_state.epoch,
+        "role": "D_select",
+        "diagnostic_only": True,
+        "selectable": False,
+        "early_stopping_allowed": False,
+        "terminal_epoch20_execution_remains_reserved": True,
+        "D_audit_executed": False,
+        "official_validation_executed": False,
+    }
     try:
         d_select_record = _evaluate_terminal(
             config,
@@ -573,7 +568,16 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             d_select_root,
             checkpoint.parent,
             runtime_dependency_sha256,
+            diagnostic_scope=diagnostic_scope,
         )
+        diagnostic_scope_path = (
+            d_select_root / "evaluation" / "complete" / "diagnostic_scope.json"
+        )
+        _require(
+            diagnostic_scope_path.is_file(),
+            "completed diagnostic D_select is missing its atomic scope marker",
+        )
+        diagnostic_scope_sha256 = sha256_file(diagnostic_scope_path)
         d_select = {
             **d_select_record,
             "diagnostic_only": True,
@@ -587,6 +591,14 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             "diagnostic_scope_sha256": diagnostic_scope_sha256,
         }
     except FloatingPointError as exc:
+        diagnostic_scope_path = (
+            d_select_root / "evaluation" / ".in_progress" / "diagnostic_scope.json"
+        )
+        _require(
+            diagnostic_scope_path.is_file(),
+            "failed diagnostic D_select is missing its pre-decode scope marker",
+        )
+        diagnostic_scope_sha256 = sha256_file(diagnostic_scope_path)
         d_select = {
             "status": "FAILED_RAW_HEAD_NONFINITE",
             "diagnostic_only": True,
