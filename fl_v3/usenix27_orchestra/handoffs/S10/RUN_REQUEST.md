@@ -2942,7 +2942,7 @@ OWNER_RETURN: close IP-L-E2/L-WP2 and discuss exact L-WP3 composition at IP-LG2;
 ### 9.11 LiDAR IP-LG2 closure and IP-L-E3 activation
 
 ```text
-REQUEST_STATE: ACTIVATED / SOURCE MATERIALIZED / SUBMISSION PENDING
+REQUEST_STATE: ACTIVATED / ABBA POSITIVE / TRACE-ONLY REPAIR PENDING
 OWNER_DECISION: 2026-07-22 — accept the three positive primaries and
   "批准，激活IP-L-E3"
 APPROVAL_ANCHOR_SHA: 468a82bddda685fe81ece1fe0e59db35c50ba856
@@ -3028,6 +3028,57 @@ REPLACEMENT_SOURCE: exact clean containing this incident ledger; use fresh
   source-SHA-qualified process/pair/trace paths and a new Slurm log
 BUDGET_AFTER_INITIAL: base 0/1.00; bug reserve 0.010000/0.50;
   aggregate 0.010000/1.50 charged GH200-hours
+
+ABBA_REPLACEMENT: Job 559830 / source
+  6105d70d81c1e0a496dec288e5b76217155783c5 / node n439 / FAILED 1:0 /
+  elapsed 00:38:23 / exact one typed GH200 / 16 CPUs / 96 GiB
+IN_JOB_PREFLIGHT: 10 passed, 2 warnings in 63.32 seconds
+SUSTAINED_PROCESSES: reference A 55.776941; combined A 57.540962;
+  combined B 61.247915; reference B 53.349064 presentations/s. All four
+  completed 16 accepted warm-up plus 256 accepted measured windows and passed
+  loss, memory, runtime and checkpoint-continuation gates.
+ABBA_RESULT: POSITIVE_COMBINED_RECIPE; reference pooled 54.536029; candidate
+  pooled 59.336641 presentations/s; ratio 1.088026; one-sided 95% lower bound
+  1.085175; directional ratios 1.031626/1.148060; combined-recipe gate PASS.
+PAYBACK: checkpoint stalls and compile cold start included; projected 20-epoch
+  reference/candidate cost 8.976495/8.261479 GH200-hours; saving 0.715016.
+ABBA_ARTIFACT: pairs/l3_abba_6105d70d81c1.json / SHA-256
+  7f4844d65a031ce65e41c1f0b8ada946d582c40dc0b43467f77fc6fc2d9f9279
+PROCESS_RESULT_SHA256_ABBA_ORDER:
+  06c191d5837f2e462800ba20fc9e780a94d1260c5dfd01810b8a7ada47ce1b0c
+  390dccd71f9848e864c91175995b0b343ce897f6c378740da3901b4bbde49ece
+  2f20762e9a1fd019b578fe7fcacd903ebec7cd00a670eb018542f13612b4f59f
+  51b989dc73d76d9954e64e2ba55f694bdbfd40e87505da15fadd6732a0894fc5
+
+TRACE_PUBLISH_INCIDENT: after sealing the positive ABBA, the conditional trace
+  completed its three windows but publication rejected missing eager internal
+  head/decoder and reference-loss range names. PyTorch reported that
+  record_function is ignored inside compiled regions; the active batched loss
+  also intentionally emits different exact aliases. No sustained result, model
+  health gate or ABBA statistic is affected.
+FAILED_TRACE_RAW: lidar/trace_6105d70d81c1_r1_l3_combined_trace/torch_trace.json /
+  SHA-256 fd40764917aaa4ba02defc3c24e9de052a1327653c42b79aac37a0473e2f1d56 /
+  170089517 bytes; text summary SHA-256
+  5a2f14bc4e976bdbb43f565113ee5280ea91026b008de4c96548d0c469266a4b
+TRACE_INCIDENT_CLASSIFICATION: unambiguous profiler-instrumentation compatibility
+  bug under the already frozen compiled/batched candidate; no model, math, data,
+  candidate, acceptance-gate or scientific interpretation change.
+TRACE_REPAIR_SHA: 9cf934020b703c8d179e33522d1455cc2da3c1ae / tree
+  200844afd25bc64e25b6ddace97f4eee92601331
+TRACE_REPAIR: compiled mode requires observable top-level
+  second_backbone/second_fpn/transfusion_head parents instead of suppressed
+  internal compiled ranges; batched mode requires its exact validation/D2H/H2D/
+  Gaussian aliases and records eliminated eager sync ranges. Eager/default policy
+  is unchanged. The replacement runner hash-validates and reuses the sealed ABBA,
+  forbids rerunning the four sustained processes and writes a fresh trace-only path.
+TRACE_REPAIR_SHA256: profiler
+  6e77ca9ce1bb8033a906d3636c96786b4523e5e60c2faaa1806ac1bd6a22b027;
+  runner d7d4b23bbcb071d1adb296aa0068959a3e3b27f94b1ad38f8bd5cee8ccae3754;
+  focused test 594af3382fd3dcbb0bb61a2386801de9b8178b5e3c581988b161671cfb309682
+TRACE_REPLACEMENT_SCOPE: one fresh three-window combined trace only; exact typed
+  one-GH200 resource; <=00:20:00; no requeue; charge to diagnosed-code-bug reserve.
+BUDGET_AFTER_JOB_559830: base 0.639722/1.00; bug reserve 0.010000/0.50;
+  aggregate 0.649722/1.50 charged GH200-hours
 ```
 
 Exact submission template; `EXECUTION_SOURCE` is the clean activation-ledger SHA:
@@ -3039,6 +3090,20 @@ sbatch --parsable --account=naiss2025-22-1113-gpu --job-name=s10-l-e3-abba \
   --no-requeue --output=<fresh-root>/slurm/job_%j.out \
   --error=<fresh-root>/slurm/job_%j.err \
   fl_v3/scripts/run_s10_phase1p_lidar_e3.sh \
+  --source-sha "${EXECUTION_SOURCE}" \
+  --approved-source-sha 468a82bddda685fe81ece1fe0e59db35c50ba856
+```
+
+Exact trace-only remediation template; `EXECUTION_SOURCE` is the clean containing
+repair-ledger SHA and the runner must attest the positive Job-559830 ABBA hash:
+
+```bash
+sbatch --parsable --account=naiss2025-22-1113-gpu --job-name=s10-l-e3-trace \
+  --partition=gpu --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G \
+  --gpus-per-node=nvidia_gh200_120gb:1 --time=00:20:00 \
+  --no-requeue --output=<fresh-root>/slurm/job_%j.out \
+  --error=<fresh-root>/slurm/job_%j.err \
+  fl_v3/scripts/run_s10_phase1p_lidar_e3_trace_repair.sh \
   --source-sha "${EXECUTION_SOURCE}" \
   --approved-source-sha 468a82bddda685fe81ece1fe0e59db35c50ba856
 ```

@@ -1,4 +1,4 @@
-# S10 HANDOFF — LiDAR IP-L-E3 activated / combined ABBA pending
+# S10 HANDOFF — LiDAR IP-L-E3 combined ABBA positive / trace repair pending
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: IP-LG2 closed; exact three-positive B32 composition is frozen
-SCIENCE_ORDER: execute the activated IP-L-E3 ABBA gate and conditional combined trace
+ACTIVE_DECISION: IP-LG2 closed; exact three-positive B32 composition passed ABBA
+SCIENCE_ORDER: complete the trace-only instrumentation repair, then materialize the final LiDAR recipe
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: exact IP-L-E3 source/tests/ABBA/trace plus bounded O-149 remediation
-EXECUTION_STATE: IP-L-E1/E2 TERMINAL; E3 Job 559822 pre-model command incident diagnosed; typed-GPU replacement pending; Envelope B unauthorized
+CURRENT_AUTHORITY: exact IP-L-E3 trace repair/final-recipe materialization plus bounded O-149 remediation
+EXECUTION_STATE: E3 Job 559830 ABBA POSITIVE; trace publish instrumentation bug diagnosed; trace-only replacement pending; Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -1006,6 +1006,20 @@ memory and checkpoint gates, a pooled one-sided lower bound above `1.00`, both
 directional point ratios at least `0.98`, and a compile-cold/checkpoint-inclusive
 20-epoch payback gate. Only a positive combined gate unlocks the short combined
 stage trace and production-recipe materialization; it does not activate Envelope B.
+
+Job `559830` completed all four same-node sustained processes and returned
+`POSITIVE_COMBINED_RECIPE`: pooled throughput rose from `54.5360` to `59.3366`
+presentations/s (`1.08803x`, one-sided 95% lower bound `1.08517`; directional
+ratios `1.03163/1.14806`). All loss, memory, runtime and checkpoint-continuation
+gates passed. The checkpoint/compile-cold-inclusive 20-epoch projection fell from
+`8.97650` to `8.26148` GH200-hours, saving `0.71502` GH200-hours. The conditional
+trace then reached the model but its publication gate expected eager internal
+`record_function` labels that `torch.compile` explicitly suppresses and did not
+recognize the batched-loss aliases. This is an isolated trace-instrumentation bug;
+it does not invalidate or trigger a rerun of the sealed ABBA. Repair
+`9cf934020b703c8d179e33522d1455cc2da3c1ae` preserves the raw trace, accepts
+compiled top-level module parents plus the exact batched-loss ranges, and permits
+only a fresh trace-only replacement before final recipe materialization.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
