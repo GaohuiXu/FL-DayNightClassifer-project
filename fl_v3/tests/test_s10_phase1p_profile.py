@@ -1235,8 +1235,16 @@ def test_lidar_e2_sdpa_forward_backward_parity(precision, rtol, atol):
         parameter.grad = gradient
     reference_optimizer.step()
     candidate_optimizer.step()
-    for observed, expected in zip(candidate.parameters(), reference.parameters()):
-        torch.testing.assert_close(observed, expected, rtol=rtol, atol=atol)
+    for optimizer in (reference_optimizer, candidate_optimizer):
+        assert optimizer.state
+        for state in optimizer.state.values():
+            assert set(state) >= {"step", "exp_avg", "exp_avg_sq"}
+            assert all(
+                not torch.is_tensor(value) or bool(torch.isfinite(value).all())
+                for value in state.values()
+            )
+    assert all(bool(torch.isfinite(value).all()) for value in reference.parameters())
+    assert all(bool(torch.isfinite(value).all()) for value in candidate.parameters())
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires the IP-L-E2 GH200")
@@ -1324,17 +1332,28 @@ def test_lidar_e2_batched_hungarian_target_and_gradient_parity(
     )
     for observed, expected in zip(candidate_gradients, reference_gradients):
         torch.testing.assert_close(observed, expected, rtol=rtol, atol=atol)
-    reference_optimizer = torch.optim.AdamW(reference_output.values(), lr=2e-4)
-    candidate_optimizer = torch.optim.AdamW(candidate_output.values(), lr=2e-4)
-    for parameter, gradient in zip(reference_output.values(), reference_gradients):
-        parameter.grad = gradient
-    for parameter, gradient in zip(candidate_output.values(), candidate_gradients):
-        parameter.grad = gradient
+    # Production AdamW updates FP32 model parameters, never the autocast output
+    # leaves.  Use FP32 master proxies here so FP16 epsilon underflow in a synthetic
+    # half-parameter optimizer cannot masquerade as a target-plumbing failure.
+    reference_parameters = [
+        torch.nn.Parameter(value.detach().float().clone())
+        for value in reference_output.values()
+    ]
+    candidate_parameters = [
+        torch.nn.Parameter(value.detach().float().clone())
+        for value in candidate_output.values()
+    ]
+    reference_optimizer = torch.optim.AdamW(reference_parameters, lr=2e-4)
+    candidate_optimizer = torch.optim.AdamW(candidate_parameters, lr=2e-4)
+    for parameter, gradient in zip(reference_parameters, reference_gradients):
+        parameter.grad = gradient.float()
+    for parameter, gradient in zip(candidate_parameters, candidate_gradients):
+        parameter.grad = gradient.float()
     reference_optimizer.step()
     candidate_optimizer.step()
-    for key in reference_output:
+    for observed, expected in zip(candidate_parameters, reference_parameters):
         torch.testing.assert_close(
-            candidate_output[key], reference_output[key], rtol=rtol, atol=atol
+            observed, expected, rtol=rtol, atol=atol
         )
 
 
