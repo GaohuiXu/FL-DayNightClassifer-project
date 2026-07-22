@@ -69,8 +69,9 @@ def test_batch_hash_is_stable_and_value_sensitive():
 def test_localization_is_durable_and_precedes_the_only_D_select_peek():
     source = ENTRY.read_text(encoding="utf-8")
     localization_complete = source.index('"complete.json"')
+    diagnostic_scope = source.index('diagnostic_scope_path = d_select_root')
     d_select_call = source.index("d_select_record = _evaluate_terminal(")
-    assert localization_complete < d_select_call
+    assert localization_complete < diagnostic_scope < d_select_call
     assert "return_intermediates=True" in source
     assert '"diagnostic_scope.json"' in source
     assert '"terminal_epoch20_execution_remains_reserved": True' in source

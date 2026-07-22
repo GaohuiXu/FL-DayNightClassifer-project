@@ -707,7 +707,7 @@ The two initial-job maxima total `28.0` charged hours. The aggregate ceiling's
 remaining `2.0` hours is not another cell: it may cover only exact continuation or
 eligible frozen-semantics remediation. D_audit has no reserve in this request.
 
-#### 7.4.2 Exact serial command family for the active execution session
+#### 7.4.2 Historical exact serial command family used before the numerical stop
 
 The owner has named review seal `<APPROVED_BASELINE_SHA>` as
 `1473ef67d9dc2949c49360b6826d0f30585f416f`, but explicitly directed that the
@@ -762,7 +762,7 @@ edit or GPU/Slurm action occurred.
 
 Documentation-only remediation `a4f6ca86ddd966bdffc74a37af3337ac6675e83a`
 (tree `48f71e4a917d5c2dc47287f110a667752e03976d`) made Section 7.4's 30-hour
-object the unique current activation candidate and accurately split enforcement:
+object the then-unique activation candidate and accurately split enforcement:
 the launcher validates config/output plus allocated account, partition, node/task,
 CPU, memory and GPU count; the exact `sbatch` command and ledger control wall limit,
 `--no-requeue` and aggregate charge.
@@ -939,7 +939,7 @@ amendment. The clean containing Git SHA is named only after commit and is the
 
 | Bound object | SHA-256 | Current role |
 |---|---|---|
-| v2 dual manifest `fl_v3/configs/s10_phase1_envelope_b_dual.json` | `5797a10bf8db4422ec9a8470c19a48ed7f7ce9a00ad87f1eb8961b7d24b8d64b` | sole current topology/resource/entry manifest |
+| v2 dual manifest `fl_v3/configs/s10_phase1_envelope_b_dual.json` | `430a0e98f333ef4e1030e074ef6c1030afc3696530787b031dada9b21efc76fb` | sole current topology/resource/entry manifest |
 | Camera source config | `89a4d9982583dc213e110fcec9469be04e9b4ccf3cefb9a2ca97b294e7650014` | unchanged Camera recipe |
 | Camera resolved config | `63f77459fcb229155a0b1a6608d83abf3c55336d554c20f7629d57ed7122d1b3` | launcher-validated Camera semantics |
 | LiDAR source config | `017086bbd9a9534adf2808461da9cf881d9ef798ef3f3d7c58d3a07b2c7a15d9` | unchanged LiDAR recipe used read-only by diagnostic |
@@ -948,7 +948,7 @@ amendment. The clean containing Git SHA is named only after commit and is the
 | Camera DDP entry | `4b91e81c5060bec0108b99abaa6b29e6df4d4def0d04f45e54a4b20df830162e` | unchanged two-GH200 Camera production |
 | original single-GPU capability entry | `4c93348330ee02b56a9fc282e991f391c2f986a9dbab7b704bd2195a5f79ec55` | retained dependency/evaluator code; not a runnable LiDAR production unit in v2 |
 | LiDAR diagnostic launcher | `8da36ebb0047617f0a68f3cb8cd6ef493f327b30e7318cf8505347a9c001421a` | runnable zero-update one-GH200 diagnostic |
-| LiDAR diagnostic entry | `71aaab880b2db5042b487372f90b1a48a03af55709a9cc21b4e27e3c135097d6` | localization first, diagnostic D_select last |
+| LiDAR diagnostic entry | `eb64aa7960b3afa8b37184d32a089b02fe323b7c18c8c028c88ac20190a690f3` | localization first, diagnostic scope atomically sealed before D_select |
 | LiDAR epoch-4 checkpoint | `d01b6219533e3a4c38fdd7be7727020accc4a8664951f5483cfeaeebba91c940` | immutable non-selectable recovery state |
 | LiDAR epoch-4 record | `98c7d9193145286fb9983a627d23b7e008f889f229cce911412fd5d4185b76da` | epoch/update/model-state provenance |
 

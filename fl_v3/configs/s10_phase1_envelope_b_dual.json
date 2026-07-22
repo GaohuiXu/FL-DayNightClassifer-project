@@ -61,7 +61,7 @@
     },
     "lidar_epoch04_diagnostic": {
       "path": "fl_v3/scripts/s10_phase1_lidar_epoch4_diagnostic.py",
-      "sha256": "71aaab880b2db5042b487372f90b1a48a03af55709a9cc21b4e27e3c135097d6"
+      "sha256": "eb64aa7960b3afa8b37184d32a089b02fe323b7c18c8c028c88ac20190a690f3"
     }
   },
   "branches": {

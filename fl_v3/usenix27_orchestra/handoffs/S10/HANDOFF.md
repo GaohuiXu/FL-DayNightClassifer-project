@@ -52,8 +52,8 @@ combined batched-rotation candidate implemented at
 After LiDAR IP-L-E3 also closed positive, source
 `cb2fc279b0c5e4b686525bed9da10f3ec6ad070f` materialized the new dual manifest,
 common output root, final Camera/LiDAR config hashes and fail-closed critical
-allocated-shape binding. `RUN_REQUEST.md` Section 7.4 is now the only candidate
-for Envelope-B execution. Independent review of
+allocated-shape binding. At that point `RUN_REQUEST.md` Section 7.4 was the only
+candidate for Envelope-B execution. Independent review of
 `a4f6ca86ddd966bdffc74a37af3337ac6675e83a` closed
 `PASS_WITH_RESIDUAL_RISK` with no open P0-P2. The owner accepted this verdict and
 its P3, named review seal `1473ef67d9dc2949c49360b6826d0f30585f416f`, retained
@@ -1101,7 +1101,11 @@ already completed E2/E3 forward/backward/update/checkpoint/sustained evidence is
 the promotion evidence; the later independent recipe-freeze review must still
 review the production wiring before any Envelope-B activation request.
 
-### 1.10 Revised dual-branch Envelope B — reviewed, owner-accepted and active
+### 1.10 Prior serial Envelope B — reviewed/activated, now stopped
+
+This subsection retains the prior recipe review and activation history. Its serial
+execution authority stopped at the LiDAR epoch-5 numerical boundary; the sole
+current activation candidate is the still-pending Section 7.4.7 parallel amendment.
 
 Materialized source `cb2fc279b0c5e4b686525bed9da10f3ec6ad070f` binds the
 final two recipes under one manifest and common fresh root

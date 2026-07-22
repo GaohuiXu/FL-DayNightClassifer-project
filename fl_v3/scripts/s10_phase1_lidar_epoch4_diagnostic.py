@@ -546,6 +546,25 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     )
     checked_model = _FiniteForward(eval_model)
     d_select_root = output_dir / "epoch04_d_select"
+    diagnostic_scope_path = d_select_root / "diagnostic_scope.json"
+    _atomic_write_once(
+        diagnostic_scope_path,
+        {
+            "schema": SCHEMA,
+            "source": source,
+            "resolved_config_sha256": config.sha256,
+            "checkpoint_sha256": epoch_record["checkpoint_sha256"],
+            "checkpoint_epoch": eval_state.epoch,
+            "role": "D_select",
+            "diagnostic_only": True,
+            "selectable": False,
+            "early_stopping_allowed": False,
+            "terminal_epoch20_execution_remains_reserved": True,
+            "D_audit_executed": False,
+            "official_validation_executed": False,
+        },
+    )
+    diagnostic_scope_sha256 = sha256_file(diagnostic_scope_path)
     try:
         d_select_record = _evaluate_terminal(
             config,
@@ -554,26 +573,6 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             d_select_root,
             checkpoint.parent,
             runtime_dependency_sha256,
-        )
-        diagnostic_scope_path = (
-            d_select_root / "evaluation" / "complete" / "diagnostic_scope.json"
-        )
-        _atomic_write_once(
-            diagnostic_scope_path,
-            {
-                "schema": SCHEMA,
-                "source": source,
-                "resolved_config_sha256": config.sha256,
-                "checkpoint_sha256": epoch_record["checkpoint_sha256"],
-                "checkpoint_epoch": eval_state.epoch,
-                "role": "D_select",
-                "diagnostic_only": True,
-                "selectable": False,
-                "early_stopping_allowed": False,
-                "terminal_epoch20_execution_remains_reserved": True,
-                "D_audit_executed": False,
-                "official_validation_executed": False,
-            },
         )
         d_select = {
             **d_select_record,
@@ -585,7 +584,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             "raw_head_all_finite": True,
             "raw_head_max_absolute": checked_model.max_absolute,
             "diagnostic_scope_path": str(diagnostic_scope_path),
-            "diagnostic_scope_sha256": sha256_file(diagnostic_scope_path),
+            "diagnostic_scope_sha256": diagnostic_scope_sha256,
         }
     except FloatingPointError as exc:
         d_select = {
@@ -598,6 +597,8 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             "raw_head_floating_values": checked_model.floating_values,
             "raw_head_all_finite": False,
             "metrics_produced": False,
+            "diagnostic_scope_path": str(diagnostic_scope_path),
+            "diagnostic_scope_sha256": diagnostic_scope_sha256,
         }
         _atomic_write_once(output_dir / "epoch04_d_select_failure.json", d_select)
 
