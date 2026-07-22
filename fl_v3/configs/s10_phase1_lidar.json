@@ -237,7 +237,7 @@
     "warmup_microbatches": 0,
     "timed_microbatches": 0,
     "calibration_updates": 0,
-    "output_root": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_2a26c63b6102",
+    "output_root": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_dual_783173d6fe05",
     "data_artifact_root": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_a_data_e321aed749fd",
     "pool_timing": null,
     "allowed_data_role": "D_fit",

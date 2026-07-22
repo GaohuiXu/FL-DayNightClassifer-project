@@ -1,0 +1,119 @@
+{
+  "schema_version": "s10.phase1.envelope_b_dual.v1",
+  "request_state": "frozen_owner_activation_required",
+  "freeze_anchor_sha": "783173d6fe052d22514209fd4af69adfa31dbe9a",
+  "branch": "codex/s10-phase1p-throughput-preflight",
+  "unique_base_sha": "f1a2babda8dafd181b5a5144ab025a3f6be21cc2",
+  "frozen_control": {
+    "branch": "codex/s10-phase1-branch-qualification",
+    "sha": "f1a2babda8dafd181b5a5144ab025a3f6be21cc2"
+  },
+  "objective": "independent_lidar_then_camera_phase1_branch_qualification",
+  "candidate_count": 2,
+  "serial_order": ["lidar", "camera"],
+  "seed_policy": [0],
+  "data_contract": {
+    "training_role": "D_fit",
+    "terminal_evaluation_role": "D_select",
+    "terminal_evaluations_per_candidate": 1,
+    "forbidden_roles": ["D_audit", "official_validation"],
+    "split_sha256": "7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8",
+    "cbgs_expanded_per_epoch": 87930,
+    "cbgs_consumed_per_epoch": 87904,
+    "cbgs_dropped_per_epoch": 26,
+    "epochs": 20,
+    "consumed_presentations_per_candidate": 1758080,
+    "effective_global_batch": 32,
+    "attempted_optimizer_updates_per_candidate": 54940,
+    "checkpoint_selection": "raw_epoch_20_terminal_only"
+  },
+  "output_root": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_dual_783173d6fe05",
+  "entries": {
+    "launcher": {
+      "path": "fl_v3/scripts/run_s10_phase1_envelope_b.sh",
+      "sha256": "1daad38dba352664b1072d97774e2f24b5ed30c52a01c75b3f36752b33c4dd99"
+    },
+    "lidar": {
+      "path": "fl_v3/scripts/s10_phase1_capability.py",
+      "sha256": "4c93348330ee02b56a9fc282e991f391c2f986a9dbab7b704bd2195a5f79ec55"
+    },
+    "camera": {
+      "path": "fl_v3/scripts/s10_phase1_camera_ddp.py",
+      "sha256": "4b91e81c5060bec0108b99abaa6b29e6df4d4def0d04f45e54a4b20df830162e"
+    }
+  },
+  "branches": {
+    "lidar": {
+      "candidate_id": "phase1_lidar_primary",
+      "config_path": "fl_v3/configs/s10_phase1_lidar.json",
+      "config_file_sha256": "017086bbd9a9534adf2808461da9cf881d9ef798ef3f3d7c58d3a07b2c7a15d9",
+      "resolved_config_sha256": "c950d90db0833ecf5f50ddcc2f10671e4abf7a9f2b1edd640425eb52b888b1ad",
+      "throughput_evidence_commit": "814a6a1ca12b16059ede9a52952f155ddafe1470",
+      "projected_training_wall_hours": 8.261479,
+      "projected_training_charged_gh200_hours": 8.261479,
+      "output_dir": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_dual_783173d6fe05/phase1_lidar_primary",
+      "resource": {
+        "account": "naiss2025-22-1113-gpu",
+        "partition": "gpu",
+        "nodes": 1,
+        "ntasks": 1,
+        "cpus_per_task": 16,
+        "memory_mib": 98304,
+        "gpu_type": "nvidia_gh200_120gb",
+        "gpus_per_node": 1,
+        "time_limit": "10:00:00",
+        "initial_job_charge_ceiling_gh200_hours": 10.0,
+        "requeue": false
+      }
+    },
+    "camera": {
+      "candidate_id": "phase1_camera_primary",
+      "config_path": "fl_v3/configs/s10_phase1_camera.json",
+      "config_file_sha256": "89a4d9982583dc213e110fcec9469be04e9b4ccf3cefb9a2ca97b294e7650014",
+      "resolved_config_sha256": "63f77459fcb229155a0b1a6608d83abf3c55336d554c20f7629d57ed7122d1b3",
+      "throughput_evidence_commit": "5da03ffdaa29614b0bcfc5c85ace93f70acfac6a",
+      "projected_training_wall_hours": 7.581252,
+      "projected_training_charged_gh200_hours": 15.162504,
+      "output_dir": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_dual_783173d6fe05/phase1_camera_primary",
+      "resource": {
+        "account": "naiss2025-22-1113-gpu",
+        "partition": "gpu",
+        "nodes": 1,
+        "ntasks": 1,
+        "cpus_per_task": 32,
+        "memory_mib": 196608,
+        "gpu_type": "nvidia_gh200_120gb",
+        "gpus_per_node": 2,
+        "time_limit": "09:00:00",
+        "initial_job_charge_ceiling_gh200_hours": 18.0,
+        "requeue": false
+      }
+    }
+  },
+  "aggregate_resource": {
+    "max_concurrency": 1,
+    "submission_policy": "serial_lidar_then_camera_no_numeric_engineering_retry_cap",
+    "projected_training_charged_gh200_hours": 23.423983,
+    "evaluation_preflight_recovery_reserve_gh200_hours": 1.2,
+    "contingency_fraction": 0.15,
+    "computed_need_gh200_hours": 28.31758,
+    "hard_ceiling_gh200_hours": 30.0,
+    "unused_authority_expires_at_envelope_close": true
+  },
+  "remediation": {
+    "policy": "O-149_frozen_semantics_only",
+    "fresh_output_required": true,
+    "blind_identical_retry_forbidden": true,
+    "stop_on_same_blocker_recurrence": true,
+    "stop_on_ambiguous_or_scientific_change": true
+  },
+  "review_gate": {
+    "independent_recipe_freeze_review_required": true,
+    "open_p0_p2_allowed": false,
+    "status": "external_review_record_required"
+  },
+  "activation": {
+    "owner_must_name_review_sealed_commit": true,
+    "source_grants_compute_authority": false
+  }
+}

@@ -4,6 +4,7 @@ import copy
 import hashlib
 import importlib.util
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -22,7 +23,12 @@ from fl_v3.data.nuscenes.phase1 import build_phase1_eval_data
 ROOT = Path(__file__).resolve().parents[1]
 CAMERA = ROOT / "configs" / "s10_phase1_camera.json"
 LIDAR = ROOT / "configs" / "s10_phase1_lidar.json"
+ENVELOPE = ROOT / "configs" / "s10_phase1_envelope_b_dual.json"
 H = "a" * 64
+DUAL_OUTPUT_ROOT = (
+    "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/"
+    "outputs/s10_phase1_envelope_b_dual_783173d6fe05"
+)
 
 
 def _raw(path: Path) -> dict:
@@ -71,10 +77,10 @@ def test_phase1_cbgs_and_effective_exposure_are_explicit_and_aligned():
 def test_phase1_camera_ip_e5_recipe_is_exact_b16_per_rank_ddp2_stack():
     resolved = load_resolved_config(CAMERA)
     assert hashlib.sha256(CAMERA.read_bytes()).hexdigest() == (
-        "9a2cdf54a52edeb71b5335aea8445c0a8cc0c8e2e416b2f4fe3df58d7b98710c"
+        "89a4d9982583dc213e110fcec9469be04e9b4ccf3cefb9a2ca97b294e7650014"
     )
     assert resolved.sha256 == (
-        "e295b627551a584b460a598ee3e3f23b5ad8dda45441904d4ed526bbf3457f2b"
+        "63f77459fcb229155a0b1a6608d83abf3c55336d554c20f7629d57ed7122d1b3"
     )
     config = resolved.as_dict()
     assert config["contract"]["throughput_decision"] == "IP-E5"
@@ -125,15 +131,16 @@ def test_phase1_camera_ip_e5_recipe_is_exact_b16_per_rank_ddp2_stack():
         "loss_reduction": "ddp_mean_over_one_microbatch_per_rank",
         "finite_control_flow": "all_rank_boolean_and",
     }
+    assert config["execution"]["output_root"] == DUAL_OUTPUT_ROOT
 
 
 def test_phase1_lidar_ip_l_e3_recipe_is_exact_b32_combined_stack():
     resolved = load_resolved_config(LIDAR)
     assert hashlib.sha256(LIDAR.read_bytes()).hexdigest() == (
-        "683af022c053fcfcd39bbc0de4cc2753a2ba20021990347c7b19e94c0ff4838d"
+        "017086bbd9a9534adf2808461da9cf881d9ef798ef3f3d7c58d3a07b2c7a15d9"
     )
     assert resolved.sha256 == (
-        "a03ad08070a4081dac818965264df4fe5d27a8b76a256920f3b088e862554bf6"
+        "c950d90db0833ecf5f50ddcc2f10671e4abf7a9f2b1edd640425eb52b888b1ad"
     )
     config = resolved.as_dict()
     assert config["contract"]["throughput_decision"] == "IP-L-E3"
@@ -165,6 +172,74 @@ def test_phase1_lidar_ip_l_e3_recipe_is_exact_b32_combined_stack():
         "worker_seed_formula": "seed_plus_epoch",
         "state_dict_names_unchanged_required": True,
     }
+    assert config["execution"]["output_root"] == DUAL_OUTPUT_ROOT
+
+
+def test_phase1_dual_envelope_b_manifest_binds_both_recipes_and_resources():
+    spec = json.loads(ENVELOPE.read_text(encoding="utf-8"))
+    assert spec["schema_version"] == "s10.phase1.envelope_b_dual.v1"
+    assert spec["request_state"] == "frozen_owner_activation_required"
+    assert spec["serial_order"] == ["lidar", "camera"]
+    assert spec["candidate_count"] == 2
+    assert spec["seed_policy"] == [0]
+    assert spec["output_root"] == DUAL_OUTPUT_ROOT
+    assert spec["activation"]["source_grants_compute_authority"] is False
+    assert spec["review_gate"] == {
+        "independent_recipe_freeze_review_required": True,
+        "open_p0_p2_allowed": False,
+        "status": "external_review_record_required",
+    }
+    for entry in spec["entries"].values():
+        path = ROOT.parent / entry["path"]
+        assert path.is_file()
+        assert entry["sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
+
+    paths = {"camera": CAMERA, "lidar": LIDAR}
+    expected_resources = {
+        "lidar": (1, 16, 98304, "10:00:00", 10.0),
+        "camera": (2, 32, 196608, "09:00:00", 18.0),
+    }
+    projected_charge = 0.0
+    for branch, path in paths.items():
+        binding = spec["branches"][branch]
+        resolved = load_resolved_config(path)
+        assert binding["config_path"] == path.relative_to(ROOT.parent).as_posix()
+        assert binding["config_file_sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
+        assert binding["resolved_config_sha256"] == resolved.sha256
+        assert resolved.as_dict()["execution"]["output_root"] == DUAL_OUTPUT_ROOT
+        assert binding["output_dir"] == (
+            f"{DUAL_OUTPUT_ROOT}/{binding['candidate_id']}"
+        )
+        resource = binding["resource"]
+        expected = expected_resources[branch]
+        assert (
+            resource["gpus_per_node"],
+            resource["cpus_per_task"],
+            resource["memory_mib"],
+            resource["time_limit"],
+            resource["initial_job_charge_ceiling_gh200_hours"],
+        ) == expected
+        projected_charge += binding["projected_training_charged_gh200_hours"]
+
+    aggregate = spec["aggregate_resource"]
+    assert aggregate["max_concurrency"] == 1
+    assert math.isclose(
+        projected_charge,
+        aggregate["projected_training_charged_gh200_hours"],
+        rel_tol=0.0,
+        abs_tol=1e-6,
+    )
+    computed = 1.15 * (
+        aggregate["projected_training_charged_gh200_hours"]
+        + aggregate["evaluation_preflight_recovery_reserve_gh200_hours"]
+    )
+    assert math.isclose(
+        computed,
+        aggregate["computed_need_gh200_hours"],
+        rel_tol=0.0,
+        abs_tol=1e-6,
+    )
+    assert aggregate["hard_ceiling_gh200_hours"] == 30.0
 
 
 def test_phase1_run_bridge_carries_full_resolved_recipe_and_leaf_inventory():

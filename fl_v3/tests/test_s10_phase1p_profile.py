@@ -93,6 +93,10 @@ def _historical_camera_config():
 def _historical_lidar_config():
     """Reconstruct the immutable B4 LiDAR graph bound by terminal profiles."""
     raw = json.loads(LIDAR.read_text(encoding="utf-8"))
+    raw["execution"]["output_root"] = (
+        "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/"
+        "outputs/s10_phase1_envelope_b_2a26c63b6102"
+    )
     raw["schema_version"] = "s10.phase1.v2"
     raw["contract"].pop("throughput_decision")
     raw["contract"].pop("throughput_evidence_commit")
@@ -192,6 +196,18 @@ def _assert_final_camera_binding(profile) -> None:
     )
     assert binding["resolved_config_sha256"] == (
         "0df1a19c057312923e0a8e48e81689d9ca265cc613c6f34d4795417414aa0bcf"
+    )
+
+
+def _assert_pre_refreeze_production_camera_binding(profile) -> None:
+    """Check the immutable Camera-v4 identity used by LiDAR profiler evidence."""
+    binding = profile.data["branch_bindings"]["camera"]
+    assert binding["config_path"] == "fl_v3/configs/s10_phase1_camera.json"
+    assert binding["config_file_sha256"] == (
+        "9a2cdf54a52edeb71b5335aea8445c0a8cc0c8e2e416b2f4fe3df58d7b98710c"
+    )
+    assert binding["resolved_config_sha256"] == (
+        "e295b627551a584b460a598ee3e3f23b5ad8dda45441904d4ed526bbf3457f2b"
     )
 
 
@@ -424,7 +440,13 @@ def test_lidar_e1_profiles_are_clean_capacity_and_trace_mappings():
         with pytest.raises(Phase1ProfileError, match="not runnable"):
             profile.assert_runnable("camera")
         _assert_historical_lidar_binding(profile)
-        profile.assert_branch_binding("camera", CAMERA, load_resolved_config(CAMERA))
+        _assert_pre_refreeze_production_camera_binding(profile)
+        with pytest.raises(
+            Phase1ProfileError, match="source config file identity drift"
+        ):
+            profile.assert_branch_binding(
+                "camera", CAMERA, load_resolved_config(CAMERA)
+            )
         assert dict(profile.candidates) == LIDAR_E1_RUNNABLE_CANDIDATES[
             candidate_id
         ]["options"]
