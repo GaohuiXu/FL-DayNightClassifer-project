@@ -21,6 +21,7 @@ PHASE1_PROFILE_SCHEMA_V2 = "s10.phase1p.profile.v2"
 PHASE1_PROFILE_SCHEMA_V3 = "s10.phase1p.profile.v3"
 PHASE1_PROFILE_SCHEMA_V4 = "s10.phase1p.profile.v4"
 PHASE1_PROFILE_SCHEMA_V5 = "s10.phase1p.profile.v5"
+PHASE1_PROFILE_SCHEMA_LIDAR_E1 = "s10.phase1p.lidar-e1.v1"
 
 _HEX = frozenset("0123456789abcdef")
 _ROOT_KEYS = frozenset({
@@ -307,6 +308,14 @@ IP_E5_RUNNABLE_CANDIDATES: dict[str, dict[str, Any]] = {
     },
 }
 
+LIDAR_E1_RUNNABLE_CANDIDATES: dict[str, dict[str, Any]] = {
+    f"lidar_reference_b{batch}_accum{32 // batch}": {
+        "branches": frozenset({"lidar"}),
+        "options": _candidate_options(physical_batch_size=batch),
+    }
+    for batch in (4, 8, 16, 32)
+}
+
 
 def _runnable_candidates(envelope: str) -> dict[str, dict[str, Any]]:
     if envelope == "IP-E1":
@@ -319,6 +328,8 @@ def _runnable_candidates(envelope: str) -> dict[str, dict[str, Any]]:
         return IP_E4_RUNNABLE_CANDIDATES
     if envelope == "IP-E5":
         return IP_E5_RUNNABLE_CANDIDATES
+    if envelope == "IP-L-E1":
+        return LIDAR_E1_RUNNABLE_CANDIDATES
     raise Phase1ProfileError(f"unknown Phase I-P envelope {envelope!r}")
 
 
@@ -485,6 +496,7 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
         PHASE1_PROFILE_SCHEMA_V3: "IP-E3",
         PHASE1_PROFILE_SCHEMA_V4: "IP-E4",
         PHASE1_PROFILE_SCHEMA_V5: "IP-E5",
+        PHASE1_PROFILE_SCHEMA_LIDAR_E1: "IP-L-E1",
     }
     if root["schema"] not in schema_to_envelope:
         raise Phase1ProfileError(f"unsupported profile schema {root['schema']!r}")
@@ -523,7 +535,9 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
     for key, expected in expected_integers.items():
         if _integer(measurement[key], f"measurement.{key}", minimum=1) != expected:
             raise Phase1ProfileError(f"measurement.{key} must remain {expected}")
-    if expected_envelope in {"IP-E2", "IP-E3", "IP-E4", "IP-E5"} and _integer(
+    if expected_envelope in {
+        "IP-E2", "IP-E3", "IP-E4", "IP-E5", "IP-L-E1"
+    } and _integer(
         measurement["capacity_accepted_windows"],
         "measurement.capacity_accepted_windows",
         minimum=1,
@@ -591,6 +605,12 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
     }:
         raise Phase1ProfileError(
             f"{expected_envelope} physical batch must be one of 4, 8, or 16"
+        )
+    if expected_envelope == "IP-L-E1" and candidates["physical_batch_size"] not in {
+        4, 8, 16, 32
+    }:
+        raise Phase1ProfileError(
+            "IP-L-E1 physical batch must be one of 4, 8, 16, or 32"
         )
 
     boundaries = _keys(root["boundaries"], _BOUNDARY_KEYS, "boundaries")
@@ -675,7 +695,7 @@ def derive_profile_runtime_config(
     batch = int(profile.candidates["physical_batch_size"])
     world_size = int(profile.candidates.get("world_size", 1))
     per_window = batch * world_size
-    if batch not in {4, 8, 16} or world_size not in {1, 2} or 32 % per_window:
+    if batch not in {4, 8, 16, 32} or world_size not in {1, 2} or 32 % per_window:
         raise Phase1ProfileError(
             "physical batch times world size must divide effective B32 exactly"
         )
@@ -731,11 +751,13 @@ __all__ = [
     "IP_E4_RUNNABLE_CANDIDATES",
     "IP_E5_BASELINE_CANDIDATES",
     "IP_E5_RUNNABLE_CANDIDATES",
+    "LIDAR_E1_RUNNABLE_CANDIDATES",
     "PHASE1_PROFILE_SCHEMA",
     "PHASE1_PROFILE_SCHEMA_V2",
     "PHASE1_PROFILE_SCHEMA_V3",
     "PHASE1_PROFILE_SCHEMA_V4",
     "PHASE1_PROFILE_SCHEMA_V5",
+    "PHASE1_PROFILE_SCHEMA_LIDAR_E1",
     "Phase1ProfileError",
     "Phase1ProfileRuntimeConfig",
     "Phase1ProfileSpec",

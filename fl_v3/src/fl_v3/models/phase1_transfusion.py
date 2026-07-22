@@ -17,7 +17,7 @@ vectorized rotated-rectangle/height overlap followed by SciPy's reference
 from __future__ import annotations
 
 import math
-from contextlib import contextmanager, nullcontext
+from contextlib import ExitStack, contextmanager, nullcontext
 from dataclasses import dataclass
 from typing import Mapping, Sequence
 
@@ -384,6 +384,22 @@ class TransformerDecoderLayer(nn.Module):
         self.dropout3 = nn.Dropout(dropout)
         self.query_position = query_position
         self.key_position = key_position
+        self._operator_profile_ranges = False
+
+    @contextmanager
+    def operator_profile_ranges(self):
+        if self._operator_profile_ranges:
+            raise RuntimeError("TransFusion decoder profiler ranges are already active")
+        self._operator_profile_ranges = True
+        try:
+            yield self
+        finally:
+            self._operator_profile_ranges = False
+
+    def _profile_range(self, name: str):
+        if not self._operator_profile_ranges:
+            return nullcontext()
+        return torch.profiler.record_function(f"fl_v3::lidar_decoder::{name}")
 
     def forward(
         self,
@@ -392,22 +408,26 @@ class TransformerDecoderLayer(nn.Module):
         query_positions: torch.Tensor,
         key_positions: torch.Tensor,
     ) -> torch.Tensor:
-        query_position = self.query_position(query_positions).permute(2, 0, 1)
-        key_position = self.key_position(key_positions).permute(2, 0, 1)
-        query_sequence = query.permute(2, 0, 1)
-        key_sequence = key.permute(2, 0, 1)
-        positioned_query = query_sequence + query_position
-        update = self.self_attn(positioned_query, positioned_query, positioned_query)
-        query_sequence = self.norm1(query_sequence + self.dropout1(update))
-        positioned_key = key_sequence + key_position
-        update = self.cross_attn(
-            query_sequence + query_position,
-            positioned_key,
-            positioned_key,
-        )
-        query_sequence = self.norm2(query_sequence + self.dropout2(update))
-        update = self.linear2(self.dropout(F.relu(self.linear1(query_sequence))))
-        query_sequence = self.norm3(query_sequence + self.dropout3(update))
+        with self._profile_range("position_encoding"):
+            query_position = self.query_position(query_positions).permute(2, 0, 1)
+            key_position = self.key_position(key_positions).permute(2, 0, 1)
+            query_sequence = query.permute(2, 0, 1)
+            key_sequence = key.permute(2, 0, 1)
+        with self._profile_range("self_attention"):
+            positioned_query = query_sequence + query_position
+            update = self.self_attn(positioned_query, positioned_query, positioned_query)
+            query_sequence = self.norm1(query_sequence + self.dropout1(update))
+        with self._profile_range("cross_attention"):
+            positioned_key = key_sequence + key_position
+            update = self.cross_attn(
+                query_sequence + query_position,
+                positioned_key,
+                positioned_key,
+            )
+            query_sequence = self.norm2(query_sequence + self.dropout2(update))
+        with self._profile_range("ffn"):
+            update = self.linear2(self.dropout(F.relu(self.linear1(query_sequence))))
+            query_sequence = self.norm3(query_sequence + self.dropout3(update))
         return query_sequence.permute(1, 2, 0)
 
 
@@ -503,6 +523,24 @@ class Phase1TransFusionHead(nn.Module):
         for module in self.modules():
             if isinstance(module, (nn.BatchNorm1d, nn.BatchNorm2d)):
                 module.momentum = 0.1
+        self._operator_profile_ranges = False
+
+    @contextmanager
+    def operator_profile_ranges(self):
+        if self._operator_profile_ranges:
+            raise RuntimeError("TransFusion head profiler ranges are already active")
+        self._operator_profile_ranges = True
+        try:
+            with ExitStack() as stack:
+                stack.enter_context(self.decoder.operator_profile_ranges())
+                yield self
+        finally:
+            self._operator_profile_ranges = False
+
+    def _profile_range(self, name: str):
+        if not self._operator_profile_ranges:
+            return nullcontext()
+        return torch.profiler.record_function(f"fl_v3::lidar_head::{name}")
 
     def _local_maximum(self, logits: torch.Tensor) -> torch.Tensor:
         heatmap = logits.detach().sigmoid()
@@ -524,32 +562,39 @@ class Phase1TransFusionHead(nn.Module):
                 f"expected {self.geometry.bev_hw}"
             )
         batch = features.shape[0]
-        lidar_features = self.shared_conv(features)
-        flattened = lidar_features.flatten(2)
-        positions = self.bev_positions.to(device=features.device).expand(batch, -1, -1)
-        dense_heatmap = self.heatmap_head(lidar_features)
-        heatmap = self._local_maximum(dense_heatmap).flatten(2)
-        top = torch.argsort(heatmap.flatten(1), dim=-1, descending=True)[
-            :, : self.num_proposals
-        ]
-        query_labels = torch.div(top, heatmap.shape[-1], rounding_mode="floor")
-        query_indices = torch.remainder(top, heatmap.shape[-1])
-        query_features = flattened.gather(
-            2, query_indices[:, None].expand(-1, flattened.shape[1], -1)
-        )
-        one_hot = F.one_hot(query_labels, num_classes=self.num_classes).permute(0, 2, 1)
-        query_features = query_features + self.class_encoding(one_hot.float())
-        query_positions = positions.gather(
-            1, query_indices[..., None].expand(-1, -1, 2)
-        )
-        query_features = self.decoder(
-            query_features, flattened, query_positions, positions
-        )
-        output = self.prediction_head(query_features)
-        output["center"] = output["center"] + query_positions.transpose(1, 2)
-        output["query_heatmap_score"] = heatmap.gather(
-            2, query_indices[:, None].expand(-1, self.num_classes, -1)
-        )
+        with self._profile_range("shared_conv"):
+            lidar_features = self.shared_conv(features)
+            flattened = lidar_features.flatten(2)
+            positions = self.bev_positions.to(device=features.device).expand(batch, -1, -1)
+        with self._profile_range("heatmap_head"):
+            dense_heatmap = self.heatmap_head(lidar_features)
+        with self._profile_range("local_maximum"):
+            heatmap = self._local_maximum(dense_heatmap).flatten(2)
+        with self._profile_range("proposal_full_argsort"):
+            top = torch.argsort(heatmap.flatten(1), dim=-1, descending=True)[
+                :, : self.num_proposals
+            ]
+            query_labels = torch.div(top, heatmap.shape[-1], rounding_mode="floor")
+            query_indices = torch.remainder(top, heatmap.shape[-1])
+        with self._profile_range("query_gather_encoding"):
+            query_features = flattened.gather(
+                2, query_indices[:, None].expand(-1, flattened.shape[1], -1)
+            )
+            one_hot = F.one_hot(query_labels, num_classes=self.num_classes).permute(0, 2, 1)
+            query_features = query_features + self.class_encoding(one_hot.float())
+            query_positions = positions.gather(
+                1, query_indices[..., None].expand(-1, -1, 2)
+            )
+        with self._profile_range("decoder"):
+            query_features = self.decoder(
+                query_features, flattened, query_positions, positions
+            )
+        with self._profile_range("prediction_head"):
+            output = self.prediction_head(query_features)
+            output["center"] = output["center"] + query_positions.transpose(1, 2)
+            output["query_heatmap_score"] = heatmap.gather(
+                2, query_indices[:, None].expand(-1, self.num_classes, -1)
+            )
         output["dense_heatmap"] = dense_heatmap
         output["query_labels"] = query_labels
         output["query_indices"] = query_indices
@@ -598,36 +643,46 @@ def _hungarian_matches(
     gt_labels: torch.Tensor,
     query_logits: torch.Tensor,
     geometry: TransFusionGeometry,
+    *,
+    profile_range=None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     proposals, ground_truth = predicted_boxes.shape[0], gt_boxes.shape[0]
     if ground_truth == 0 or proposals == 0:
         empty = torch.empty((0,), dtype=torch.long, device=predicted_boxes.device)
         return empty, empty, predicted_boxes.new_zeros((proposals, ground_truth))
-    cls_cost = focal_loss_cost(query_logits.transpose(0, 1), gt_labels)
-    x0, y0 = geometry.point_cloud_range[:2]
-    extent_x = geometry.point_cloud_range[3] - x0
-    extent_y = geometry.point_cloud_range[4] - y0
-    start = predicted_boxes.new_tensor((x0, y0))
-    extent = predicted_boxes.new_tensor((extent_x, extent_y))
-    regression_cost = torch.cdist(
-        (predicted_boxes[:, :2] - start) / extent,
-        (gt_boxes[:, :2] - start) / extent,
-        p=1,
-    ) * 0.25
-    iou = pairwise_iou3d(predicted_boxes, gt_boxes)
-    cost = cls_cost + regression_cost - iou * 0.25
-    if not bool(torch.isfinite(cost).all().detach().cpu()):
-        raise FloatingPointError("TransFusion Hungarian cost contains non-finite values")
+    profile = profile_range if profile_range is not None else lambda _name: nullcontext()
+    with profile("hungarian_cost_gpu"):
+        cls_cost = focal_loss_cost(query_logits.transpose(0, 1), gt_labels)
+        x0, y0 = geometry.point_cloud_range[:2]
+        extent_x = geometry.point_cloud_range[3] - x0
+        extent_y = geometry.point_cloud_range[4] - y0
+        start = predicted_boxes.new_tensor((x0, y0))
+        extent = predicted_boxes.new_tensor((extent_x, extent_y))
+        regression_cost = torch.cdist(
+            (predicted_boxes[:, :2] - start) / extent,
+            (gt_boxes[:, :2] - start) / extent,
+            p=1,
+        ) * 0.25
+        iou = pairwise_iou3d(predicted_boxes, gt_boxes)
+        cost = cls_cost + regression_cost - iou * 0.25
+    with profile("hungarian_finite_sync"):
+        if not bool(torch.isfinite(cost).all().detach().cpu()):
+            raise FloatingPointError("TransFusion Hungarian cost contains non-finite values")
     try:
         from scipy.optimize import linear_sum_assignment
     except ImportError as exc:  # pragma: no cover - Arrhenius dependency gate
         raise RuntimeError("TransFusion Hungarian assignment requires scipy") from exc
-    row, column = linear_sum_assignment(cost.detach().to(device="cpu", dtype=torch.float64).numpy())
-    return (
-        torch.as_tensor(row, dtype=torch.long, device=predicted_boxes.device),
-        torch.as_tensor(column, dtype=torch.long, device=predicted_boxes.device),
-        iou,
-    )
+    with profile("hungarian_d2h_scipy"):
+        cpu_cost = cost.detach().to(device="cpu", dtype=torch.float64).numpy()
+        row, column = linear_sum_assignment(cpu_cost)
+    with profile("hungarian_h2d_indices"):
+        row_tensor = torch.as_tensor(
+            row, dtype=torch.long, device=predicted_boxes.device
+        )
+        column_tensor = torch.as_tensor(
+            column, dtype=torch.long, device=predicted_boxes.device
+        )
+    return row_tensor, column_tensor, iou
 
 
 class Phase1TransFusionLoss(nn.Module):
@@ -736,23 +791,39 @@ class Phase1TransFusionLoss(nn.Module):
         height, width = self.geometry.bev_hw
         num_positive = torch.zeros((), dtype=dtype, device=device)
         for batch_index in range(batch_size):
-            gt7 = batch["gt_boxes"][batch_index].to(device=device, dtype=dtype)
-            gt_labels = batch["gt_labels"][batch_index].to(device=device, dtype=torch.long)
-            if gt7.ndim != 2 or gt7.shape[1] != 7 or gt_labels.shape != (gt7.shape[0],):
-                raise ValueError("TransFusion GT tensor schema drift")
-            if gt7.shape[0] and (
-                not bool(torch.isfinite(gt7).all().detach().cpu())
-                or not bool((gt7[:, 3:6] > 0).all().detach().cpu())
-                or not bool(((gt_labels >= 0) & (gt_labels < self.num_classes)).all().detach().cpu())
-            ):
-                raise ValueError("TransFusion GT contains invalid boxes or labels")
-            velocity = torch.zeros((gt7.shape[0], 2), dtype=dtype, device=device)
-            if "gt_velocity" in batch:
-                source_velocity = batch["gt_velocity"][batch_index].to(device=device, dtype=dtype)
-                if source_velocity.shape != velocity.shape:
-                    raise ValueError("TransFusion GT velocity schema drift")
-                velocity.copy_(source_velocity)
-            gt9 = torch.cat((gt7, velocity), dim=1)
+            with self._profile_range("gt_prepare_validation"):
+                gt7 = batch["gt_boxes"][batch_index].to(device=device, dtype=dtype)
+                gt_labels = batch["gt_labels"][batch_index].to(
+                    device=device, dtype=torch.long
+                )
+                if (
+                    gt7.ndim != 2
+                    or gt7.shape[1] != 7
+                    or gt_labels.shape != (gt7.shape[0],)
+                ):
+                    raise ValueError("TransFusion GT tensor schema drift")
+                if gt7.shape[0] and (
+                    not bool(torch.isfinite(gt7).all().detach().cpu())
+                    or not bool((gt7[:, 3:6] > 0).all().detach().cpu())
+                    or not bool(
+                        ((gt_labels >= 0) & (gt_labels < self.num_classes))
+                        .all()
+                        .detach()
+                        .cpu()
+                    )
+                ):
+                    raise ValueError("TransFusion GT contains invalid boxes or labels")
+                velocity = torch.zeros(
+                    (gt7.shape[0], 2), dtype=dtype, device=device
+                )
+                if "gt_velocity" in batch:
+                    source_velocity = batch["gt_velocity"][batch_index].to(
+                        device=device, dtype=dtype
+                    )
+                    if source_velocity.shape != velocity.shape:
+                        raise ValueError("TransFusion GT velocity schema drift")
+                    velocity.copy_(source_velocity)
+                gt9 = torch.cat((gt7, velocity), dim=1)
             with self._profile_range(f"hungarian_sample_{batch_index}"):
                 rows, columns, iou = _hungarian_matches(
                     decoded[batch_index],
@@ -760,6 +831,7 @@ class Phase1TransFusionLoss(nn.Module):
                     gt_labels,
                     output["heatmap"][batch_index].detach().float(),
                     self.geometry,
+                    profile_range=self._profile_range,
                 )
             if rows.numel():
                 labels[batch_index, rows] = gt_labels[columns]
@@ -772,36 +844,50 @@ class Phase1TransFusionLoss(nn.Module):
             else:
                 per_sample_matched_iou.append(torch.zeros((), dtype=dtype, device=device))
 
-            centers_x = (gt7[:, 0] - x0) / cell_x
-            centers_y = (gt7[:, 1] - y0) / cell_y
-            center_columns = centers_x.to(torch.int32)
-            center_rows = centers_y.to(torch.int32)
-            if gt7.shape[0] and not bool(
-                (
-                    (center_columns >= 0)
-                    & (center_columns < width)
-                    & (center_rows >= 0)
-                    & (center_rows < height)
-                ).all().detach().cpu()
-            ):
-                raise ValueError("post-filter Phase-I GT center lies outside the TransFusion grid")
-            cpu_geometry = torch.stack(
-                (gt7[:, 3] / cell_x, gt7[:, 4] / cell_y), dim=1
-            ).detach().cpu().tolist()
-            cpu_centers = torch.stack(
-                (center_columns, center_rows, gt_labels), dim=1
-            ).detach().cpu().tolist()
-            for gt_index, (column, row, label) in enumerate(cpu_centers):
-                radius = max(
-                    2,
-                    int(
-                        gaussian_radius(
-                            (cpu_geometry[gt_index][1], cpu_geometry[gt_index][0]),
-                            min_overlap=0.1,
-                        )
-                    ),
+            with self._profile_range("gaussian_target"):
+                centers_x = (gt7[:, 0] - x0) / cell_x
+                centers_y = (gt7[:, 1] - y0) / cell_y
+                center_columns = centers_x.to(torch.int32)
+                center_rows = centers_y.to(torch.int32)
+                if gt7.shape[0] and not bool(
+                    (
+                        (center_columns >= 0)
+                        & (center_columns < width)
+                        & (center_rows >= 0)
+                        & (center_rows < height)
+                    ).all().detach().cpu()
+                ):
+                    raise ValueError(
+                        "post-filter Phase-I GT center lies outside the TransFusion grid"
+                    )
+                cpu_geometry = (
+                    torch.stack((gt7[:, 3] / cell_x, gt7[:, 4] / cell_y), dim=1)
+                    .detach()
+                    .cpu()
+                    .tolist()
                 )
-                draw_gaussian(dense_target[batch_index, label], column, row, radius)
+                cpu_centers = (
+                    torch.stack((center_columns, center_rows, gt_labels), dim=1)
+                    .detach()
+                    .cpu()
+                    .tolist()
+                )
+                for gt_index, (column, row, label) in enumerate(cpu_centers):
+                    radius = max(
+                        2,
+                        int(
+                            gaussian_radius(
+                                (
+                                    cpu_geometry[gt_index][1],
+                                    cpu_geometry[gt_index][0],
+                                ),
+                                min_overlap=0.1,
+                            )
+                        ),
+                    )
+                    draw_gaussian(
+                        dense_target[batch_index, label], column, row, radius
+                    )
         matched = torch.stack(per_sample_matched_iou).mean()
         return {
             "labels": labels,

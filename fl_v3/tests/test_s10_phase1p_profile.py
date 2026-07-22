@@ -17,6 +17,7 @@ from fl_v3.training.phase1_profile import (
     IP_E3_RUNNABLE_CANDIDATES,
     IP_E4_RUNNABLE_CANDIDATES,
     IP_E5_RUNNABLE_CANDIDATES,
+    LIDAR_E1_RUNNABLE_CANDIDATES,
     Phase1ProfileError,
     derive_profile_runtime_config,
     load_phase1_profile_spec,
@@ -37,6 +38,9 @@ IP_E2_PROFILES = tuple(sorted((ROOT / "configs").glob("s10_phase1p_ip_e2_*.json"
 IP_E3_PROFILES = tuple(sorted((ROOT / "configs").glob("s10_phase1p_ip_e3_*.json")))
 IP_E4_PROFILES = tuple(sorted((ROOT / "configs").glob("s10_phase1p_ip_e4_*.json")))
 IP_E5_PROFILES = tuple(sorted((ROOT / "configs").glob("s10_phase1p_ip_e5_*.json")))
+LIDAR_E1_PROFILES = tuple(
+    sorted((ROOT / "configs").glob("s10_phase1p_lidar_e1_b*.json"))
+)
 HISTORICAL_CAMERA_FILE_SHA256 = (
     "567cb1b71535b4866193273960e531ae4b45318e56e81101e99ad186ac23ce60"
 )
@@ -357,6 +361,47 @@ def test_ip_e5_profiles_bind_final_camera_recipe():
         assert profile.candidates["camera_bulk_input_conversion"] is True
     assert seen == set(IP_E5_RUNNABLE_CANDIDATES)
     assert CAMERA.read_bytes() == source_bytes
+
+
+def test_lidar_e1_profiles_are_clean_capacity_and_trace_mappings():
+    assert len(LIDAR_E1_PROFILES) == len(LIDAR_E1_RUNNABLE_CANDIDATES) == 4
+    source_bytes = LIDAR.read_bytes()
+    source = load_resolved_config(LIDAR)
+    expected = {
+        "lidar_reference_b4_accum8": (4, 8),
+        "lidar_reference_b8_accum4": (8, 4),
+        "lidar_reference_b16_accum2": (16, 2),
+        "lidar_reference_b32_accum1": (32, 1),
+    }
+    seen = set()
+    for path in LIDAR_E1_PROFILES:
+        profile = load_phase1_profile_spec(path)
+        candidate_id = str(profile.data["candidate_id"])
+        seen.add(candidate_id)
+        assert profile.data["envelope"] == "IP-L-E1"
+        profile.assert_runnable("lidar")
+        with pytest.raises(Phase1ProfileError, match="not runnable"):
+            profile.assert_runnable("camera")
+        profile.assert_branch_binding("lidar", LIDAR, source)
+        profile.assert_branch_binding("camera", CAMERA, load_resolved_config(CAMERA))
+        assert dict(profile.candidates) == LIDAR_E1_RUNNABLE_CANDIDATES[
+            candidate_id
+        ]["options"]
+        batch, accumulation = expected[candidate_id]
+        runtime = derive_profile_runtime_config(source, profile)
+        raw = runtime.as_dict()
+        assert raw["training"]["micro_batch_size"] == batch
+        assert raw["training"]["world_size"] == 1
+        assert raw["training"]["accumulation_steps"] == accumulation
+        assert raw["training"]["effective_global_batch"] == 32
+        assert raw["optimizer"]["fused"] is False
+        assert all(
+            value is False
+            for key, value in profile.candidates.items()
+            if key not in {"physical_batch_size", "checkpoint_cadence_epochs"}
+        )
+    assert seen == set(expected)
+    assert LIDAR.read_bytes() == source_bytes
 
 
 def test_ip_e2_runtime_views_preserve_effective_b32_and_source_bytes():
@@ -743,6 +788,77 @@ def test_camera_trace_diagnosis_reports_preprocess_subranges():
     assert diagnosis["preprocess_subrange_cpu_time_total_us"][
         "fl_v3::camera_preprocess::convert_resize"
     ] == 17.0
+
+
+def test_lidar_trace_diagnosis_requires_nested_bottleneck_ranges():
+    runner = _runner_module()
+    keys = (
+        *runner._TRAIN_TRACE_RANGES,
+        *runner._LIDAR_FORWARD_TRACE_RANGES,
+        *runner._LIDAR_SPARSE_TRACE_RANGES,
+        *runner._LIDAR_HEAD_TRACE_RANGES,
+        *runner._LIDAR_DECODER_TRACE_RANGES,
+        *runner._LIDAR_LOSS_TRACE_RANGES,
+    )
+    rows = [
+        {
+            "key": key,
+            "cpu_time_total_us": 9.0 if key.endswith("voxelize_mean_vfe") else 1.0,
+            "device_time_total_us": 2.0,
+            "self_cpu_time_total_us": 0.5,
+            "self_device_time_total_us": 0.75,
+        }
+        for key in keys
+    ]
+    diagnosis = runner._lidar_trace_diagnosis(rows)
+    assert diagnosis["missing_core_range_keys"] == []
+    assert diagnosis["sparse_front_end"][
+        "fl_v3::lidar_sparse::voxelize_mean_vfe"
+    ]["cpu_time_total_us"] == 9.0
+    assert "fl_v3::lidar_loss::hungarian_d2h_scipy" in diagnosis[
+        "explicit_sync_ranges"
+    ]
+
+    rows = [row for row in rows if not row["key"].endswith("hungarian_d2h_scipy")]
+    diagnosis = runner._lidar_trace_diagnosis(rows)
+    assert diagnosis["missing_core_range_keys"] == [
+        "fl_v3::lidar_loss::hungarian_d2h_scipy"
+    ]
+
+
+def test_lidar_loss_health_reports_head_tail_without_making_a_slope_gate():
+    from fl_v3.training.loop import _ReadinessTiming
+
+    timing = _ReadinessTiming(
+        torch.device("cpu"),
+        0,
+        accumulation_steps=1,
+        stage_timing=False,
+        profiler_ranges=False,
+        loss_health=True,
+    )
+    records = [
+        {
+            "mean_loss": value,
+            "loss_samples": 32,
+            "criterion_term_means": {
+                "loss_heatmap": value * 0.5,
+                "loss_cls": value * 0.3,
+                "loss_bbox": value * 0.2,
+                "matched_iou": 0.1 + index * 0.01,
+            },
+        }
+        for index, value in enumerate((10.0, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0))
+    ]
+    report = timing._loss_health_report(records)
+    assert report is not None
+    assert report["accepted_windows"] == 8
+    assert report["quarter_windows"] == 2
+    assert report["first_quarter_mean"] == 9.5
+    assert report["last_quarter_mean"] == 3.5
+    assert report["last_over_first"] == pytest.approx(3.5 / 9.5)
+    assert report["all_reported_values_finite"] is True
+    assert "promotion gate" in report["interpretation"]
 
 
 def test_promoted_camera_runtime_stack_applies_exact_profiled_scope(monkeypatch):

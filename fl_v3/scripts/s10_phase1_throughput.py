@@ -732,6 +732,58 @@ _CAMERA_PREPROCESS_TRACE_RANGES = tuple(
         "calibration_update",
     )
 )
+_LIDAR_FORWARD_TRACE_RANGES = tuple(
+    f"fl_v3::lidar::{name}"
+    for name in (
+        "voxel_vfe_sparse_collapse",
+        "second_backbone",
+        "second_fpn",
+        "transfusion_head",
+    )
+)
+_LIDAR_SPARSE_TRACE_RANGES = tuple(
+    f"fl_v3::lidar_sparse::{name}"
+    for name in (
+        "batch_index_validation",
+        "batch_point_grouping",
+        "voxelize_mean_vfe",
+        "sparse_tensor_inputs",
+        "sparse_tensor_construct",
+        "second_sparse_backbone",
+        "reduced_dense_collapse",
+    )
+)
+_LIDAR_HEAD_TRACE_RANGES = tuple(
+    f"fl_v3::lidar_head::{name}"
+    for name in (
+        "shared_conv",
+        "heatmap_head",
+        "local_maximum",
+        "proposal_full_argsort",
+        "query_gather_encoding",
+        "decoder",
+        "prediction_head",
+    )
+)
+_LIDAR_DECODER_TRACE_RANGES = tuple(
+    f"fl_v3::lidar_decoder::{name}"
+    for name in ("position_encoding", "self_attention", "cross_attention", "ffn")
+)
+_LIDAR_LOSS_TRACE_RANGES = tuple(
+    f"fl_v3::lidar_loss::{name}"
+    for name in (
+        "target_build",
+        "gt_prepare_validation",
+        "hungarian_cost_gpu",
+        "hungarian_finite_sync",
+        "hungarian_d2h_scipy",
+        "hungarian_h2d_indices",
+        "gaussian_target",
+        "dense_heatmap_focal",
+        "query_classification_focal",
+        "bbox_regression",
+    )
+)
 _TRAIN_TRACE_RANGES = tuple(
     f"fl_v3::train::{name}"
     for name in ("h2d", "forward", "loss", "backward", "optimizer")
@@ -840,6 +892,73 @@ def _camera_trace_diagnosis(range_rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _lidar_trace_diagnosis(range_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Summarize nested LiDAR stages without treating trace time as throughput."""
+    by_key: dict[str, dict[str, Any]] = {}
+    for row in range_rows:
+        key = str(row["key"])
+        current = by_key.get(key)
+        if current is None or float(row["cpu_time_total_us"]) > float(
+            current["cpu_time_total_us"]
+        ):
+            by_key[key] = row
+    expected = (
+        *_TRAIN_TRACE_RANGES,
+        *_LIDAR_FORWARD_TRACE_RANGES,
+        *_LIDAR_SPARSE_TRACE_RANGES,
+        *_LIDAR_HEAD_TRACE_RANGES,
+        *_LIDAR_DECODER_TRACE_RANGES,
+        *_LIDAR_LOSS_TRACE_RANGES,
+    )
+    missing = sorted(set(expected) - set(by_key))
+
+    def totals(keys: tuple[str, ...]) -> dict[str, dict[str, float]]:
+        return {
+            key: {
+                "cpu_time_total_us": float(by_key[key]["cpu_time_total_us"]),
+                "device_time_total_us": float(by_key[key]["device_time_total_us"]),
+                "self_cpu_time_total_us": float(by_key[key]["self_cpu_time_total_us"]),
+                "self_device_time_total_us": float(
+                    by_key[key]["self_device_time_total_us"]
+                ),
+            }
+            for key in keys
+            if key in by_key
+        }
+
+    forward = totals(_LIDAR_FORWARD_TRACE_RANGES)
+    largest_forward = (
+        max(forward, key=lambda key: forward[key]["cpu_time_total_us"])
+        if forward
+        else None
+    )
+    return {
+        "expected_core_range_keys": list(expected),
+        "missing_core_range_keys": missing,
+        "train_stages": totals(_TRAIN_TRACE_RANGES),
+        "forward_top_level": forward,
+        "sparse_front_end": totals(_LIDAR_SPARSE_TRACE_RANGES),
+        "transfusion_head": totals(_LIDAR_HEAD_TRACE_RANGES),
+        "transformer_decoder": totals(_LIDAR_DECODER_TRACE_RANGES),
+        "loss_and_host_sync": totals(_LIDAR_LOSS_TRACE_RANGES),
+        "largest_lidar_forward_range": largest_forward,
+        "explicit_sync_ranges": [
+            "fl_v3::lidar_sparse::batch_index_validation",
+            "fl_v3::lidar_sparse::batch_point_grouping",
+            "fl_v3::lidar_loss::gt_prepare_validation",
+            "fl_v3::lidar_loss::hungarian_finite_sync",
+            "fl_v3::lidar_loss::hungarian_d2h_scipy",
+            "fl_v3::lidar_loss::hungarian_h2d_indices",
+            "fl_v3::lidar_loss::gaussian_target",
+        ],
+        "interpretation": (
+            "nested CPU/device totals are trace-inflated localization evidence; "
+            "compare sustained processes for throughput and use these ranges only "
+            "to rank sparse, dense-head, loss and synchronization work"
+        ),
+    }
+
+
 class _TraceController:
     """Start after accepted warm-up and stop after the requested accepted windows."""
 
@@ -908,12 +1027,12 @@ class _TraceController:
         diagnosis = (
             _camera_trace_diagnosis(range_rows)
             if self.branch == "camera"
-            else None
+            else _lidar_trace_diagnosis(range_rows)
         )
         _require(
-            diagnosis is None or not diagnosis["missing_core_range_keys"],
-            "Camera trace omitted required core ranges: "
-            f"{None if diagnosis is None else diagnosis['missing_core_range_keys']}",
+            not diagnosis["missing_core_range_keys"],
+            f"{self.branch} trace omitted required core ranges: "
+            f"{diagnosis['missing_core_range_keys']}",
         )
         structured_sha = _atomic_write_once(
             structured_summary,
@@ -925,7 +1044,8 @@ class _TraceController:
                 "operator_row_count": len(operator_rows),
                 "range_rows": range_rows,
                 "operator_rows": operator_rows[:200],
-                "camera_stage_diagnosis": diagnosis,
+                "camera_stage_diagnosis": diagnosis if self.branch == "camera" else None,
+                "lidar_stage_diagnosis": diagnosis if self.branch == "lidar" else None,
             },
         )
         return {
@@ -947,7 +1067,8 @@ class _TraceController:
                 "path": str(structured_summary),
                 "sha256": structured_sha,
                 "bytes": structured_summary.stat().st_size,
-                "camera_stage_diagnosis": diagnosis,
+                "camera_stage_diagnosis": diagnosis if self.branch == "camera" else None,
+                "lidar_stage_diagnosis": diagnosis if self.branch == "lidar" else None,
             },
         }
 
@@ -971,6 +1092,7 @@ def _run_segment(
     batch_digest_limit: int | None = None,
     cpu_resident_batch_fields: tuple[str, ...] = (),
     attempted_window_callback=None,
+    readiness_loss_health: bool = False,
 ) -> dict[str, Any]:
     raw = config.as_dict()
     loader = (
@@ -1009,6 +1131,7 @@ def _run_segment(
             readiness_warmup_successful_windows=int(warmup),
             readiness_stage_timing=False if readiness else True,
             readiness_profiler_ranges=trace_controller is not None,
+            readiness_loss_health=readiness_loss_health,
             attempted_window_callback=(
                 attempted_window_callback
                 if attempted_window_callback is not None
@@ -1579,8 +1702,13 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         or (
             profile.data["envelope"] == "IP-E2"
             and int(profile.candidates["physical_batch_size"]) in {8, 16}
+        )
+        or (
+            profile.data["envelope"] == "IP-L-E1"
+            and args.branch == "lidar"
+            and int(profile.candidates["physical_batch_size"]) in {4, 8, 16, 32}
         ),
-        "capacity mode is frozen to IP-E2 physical B8/B16",
+        "capacity mode is frozen to IP-E2 B8/B16 or IP-L-E1 LiDAR B4/B8/B16/B32",
     )
     source_config = load_resolved_config(args.config)
     profile.assert_branch_binding(args.branch, args.config, source_config)
@@ -1738,6 +1866,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             batch_digest_limit=int(raw["training"]["accumulation_steps"]),
             cpu_resident_batch_fields=cpu_resident_batch_fields,
             attempted_window_callback=attempted_window_callback,
+            readiness_loss_health=(profile.data["envelope"] == "IP-L-E1"),
         )
         training_seconds = time.perf_counter() - training_started
     finally:
@@ -1762,6 +1891,21 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "timing accumulation identity drift",
     )
     _require(timing["stage_timing"] is False, "sustained timing enabled stage events")
+    lidar_loss_health = timing.get("loss_health")
+    if profile.data["envelope"] == "IP-L-E1":
+        _require(
+            isinstance(lidar_loss_health, Mapping),
+            "IP-L-E1 omitted terminal-only loss-health evidence",
+        )
+        _require(
+            int(lidar_loss_health["accepted_windows"]) == active,
+            "IP-L-E1 loss-health window count drift",
+        )
+        _require(
+            set(lidar_loss_health["criterion_terms"])
+            == {"loss_heatmap", "loss_cls", "loss_bbox", "matched_iou"},
+            "IP-L-E1 LiDAR criterion-term inventory drift",
+        )
     memory_safe = (
         timing["memory"]["peak_reserved_fraction"]
         <= float(profile.measurement["max_reserved_fraction"])
@@ -1769,6 +1913,19 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     )
     if args.mode != "capacity":
         _require(memory_safe, "candidate exceeds the frozen memory safety gate")
+    measurement_health = {
+        "zero_invalid_windows": int(state.invalid_windows) == 0,
+        "zero_nonfinite_windows": int(state.nonfinite_windows) == 0,
+        "zero_overflow_windows": int(state.overflow_windows) == 0,
+        "zero_discarded_windows": int(state.discarded_windows) == 0,
+        "zero_scaler_skips": float(metrics["grad_scaler_skips"]) == 0.0,
+        "all_reported_loss_values_finite": (
+            True
+            if profile.data["envelope"] != "IP-L-E1"
+            else bool(lidar_loss_health["all_reported_values_finite"])
+        ),
+    }
+    measurement_health_gate = all(measurement_health.values())
     prefix = _sampler_prefix_identity(bundle, 0, state.attempted_samples)
 
     trace_record = (
@@ -1820,6 +1977,10 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "system_sampling": system_record,
         "torch_trace": trace_record,
         "memory_safe_under_85_percent_reserved": memory_safe,
+        "measurement_health": {
+            "checks": measurement_health,
+            "gate_pass": measurement_health_gate,
+        },
         "D_select_executed": False,
         "D_audit_executed": False,
         "official_validation_executed": False,
@@ -1866,6 +2027,8 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     )
     if not checkpoint_gate:
         status = "FAILED_CHECKPOINT_PARITY"
+    elif not measurement_health_gate:
+        status = "FAILED_MEASUREMENT_HEALTH"
     elif args.mode == "sustained":
         status = "COMPLETE_SUSTAINED"
     elif args.mode == "capacity":
@@ -1902,6 +2065,10 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "torch_trace": trace_record,
         "checkpoint": checkpoint_record,
         "memory_safe_under_85_percent_reserved": memory_safe,
+        "measurement_health": {
+            "checks": measurement_health,
+            "gate_pass": measurement_health_gate,
+        },
         "D_select_executed": False,
         "D_audit_executed": False,
         "official_validation_executed": False,
@@ -1925,6 +2092,8 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         )
         if profile.data["envelope"] != "IP-E2":
             raise RuntimeError("fresh-process checkpoint continuation parity failed")
+    if profile.data["envelope"] == "IP-L-E1" and not measurement_health_gate:
+        raise RuntimeError("IP-L-E1 measurement-health gate failed")
     complete = {
         "schema": "s10.phase1p.complete.v1",
         "status": status,

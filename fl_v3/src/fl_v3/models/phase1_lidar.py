@@ -12,7 +12,7 @@ shallow BEV neck.
 """
 from __future__ import annotations
 
-from contextlib import contextmanager, nullcontext
+from contextlib import ExitStack, contextmanager, nullcontext
 from typing import Iterable, Mapping
 
 import torch
@@ -134,7 +134,10 @@ class Phase1LidarDetector(nn.Module):
             raise RuntimeError("Phase-I LiDAR profiler ranges are already active")
         self._operator_profile_ranges = True
         try:
-            yield self
+            with ExitStack() as stack:
+                stack.enter_context(self.lidar_encoder.operator_profile_ranges())
+                stack.enter_context(self.head.operator_profile_ranges())
+                yield self
         finally:
             self._operator_profile_ranges = False
 

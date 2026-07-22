@@ -13,6 +13,7 @@ state, so frozen backbones (D1) allocate no Adam moments.
 """
 from __future__ import annotations
 
+import math
 import time
 from typing import Any, Callable, Dict, Optional, Tuple
 
@@ -87,6 +88,7 @@ class _ReadinessTiming:
         accumulation_steps: int,
         stage_timing: bool,
         profiler_ranges: bool,
+        loss_health: bool,
     ) -> None:
         self.device = torch.device(device)
         self.use_cuda = self.device.type == "cuda"
@@ -94,6 +96,7 @@ class _ReadinessTiming:
         self.accumulation_steps = int(accumulation_steps)
         self.stage_timing = bool(stage_timing)
         self.profiler_ranges = bool(profiler_ranges)
+        self.loss_health = bool(loss_health)
         self.records: list[dict[str, Any]] = []
         self.active: dict[str, Any] | None = None
         self.measurement_started = False
@@ -146,7 +149,37 @@ class _ReadinessTiming:
             "stage_name": None,
             "range_context": None,
             "microbatches": 0,
+            "loss_tensors": [],
+            "loss_samples": 0,
+            "criterion_term_tensors": {},
         }
+
+    def add_loss(
+        self,
+        loss: torch.Tensor,
+        samples: int,
+        criterion_terms: Any,
+    ) -> None:
+        """Retain detached scalar evidence for terminal-only health aggregation."""
+        if not self.loss_health:
+            return
+        if self.active is None or self.active["stage_name"] != "loss":
+            raise RuntimeError("readiness loss evidence must be captured in the loss stage")
+        if loss.numel() != 1 or samples <= 0:
+            raise ValueError("readiness loss evidence requires a positive scalar sample block")
+        weight = int(samples)
+        self.active["loss_tensors"].append((loss.detach(), weight))
+        self.active["loss_samples"] += weight
+        if isinstance(criterion_terms, dict):
+            destination = self.active["criterion_term_tensors"]
+            for name, value in criterion_terms.items():
+                if (
+                    isinstance(name, str)
+                    and torch.is_tensor(value)
+                    and value.numel() == 1
+                    and value.is_floating_point()
+                ):
+                    destination.setdefault(name, []).append((value.detach(), weight))
 
     def add_data_wait(self, data_wait_ms: float) -> None:
         if self.active is None:
@@ -245,6 +278,18 @@ class _ReadinessTiming:
         if self.use_cuda:
             torch.cuda.synchronize(self.device)
         terminal = time.perf_counter()
+        if self.use_cuda and self.measurement_started:
+            peak_allocated = int(torch.cuda.max_memory_allocated(self.device))
+            peak_reserved = int(torch.cuda.max_memory_reserved(self.device))
+            total_memory = int(torch.cuda.get_device_properties(self.device).total_memory)
+            memory_stats = torch.cuda.memory_stats(self.device)
+            peak_active = int(memory_stats.get("active_bytes.all.peak", 0))
+            peak_inactive_split = int(
+                memory_stats.get("inactive_split_bytes.all.peak", 0)
+            )
+        else:
+            peak_allocated = peak_reserved = total_memory = 0
+            peak_active = peak_inactive_split = 0
         if self.block_windows:
             assert self.block_wall_start is not None
             seconds = float(terminal - self.block_wall_start)
@@ -264,6 +309,25 @@ class _ReadinessTiming:
             pending.pop("stage_start")
             pending.pop("stage_name")
             pending.pop("range_context")
+            losses = pending.pop("loss_tensors")
+            terms = pending.pop("criterion_term_tensors")
+            loss_samples = int(pending["loss_samples"])
+
+            def resolve_weighted(values: list[tuple[torch.Tensor, int]]) -> float:
+                stacked = torch.stack([value.double() for value, _ in values])
+                weights = stacked.new_tensor([weight for _, weight in values])
+                return float((stacked * weights).sum().item())
+
+            pending["mean_loss"] = (
+                resolve_weighted(losses) / loss_samples
+                if losses and loss_samples
+                else None
+            )
+            pending["criterion_term_means"] = {
+                name: resolve_weighted(values) / loss_samples
+                for name, values in sorted(terms.items())
+                if values and loss_samples
+            }
             pending["durations_ms"] = {
                 name: sum(self._elapsed_ms(start, end) for start, end in spans)
                 for name, spans in pairs.items()
@@ -311,6 +375,7 @@ class _ReadinessTiming:
             for name in (*self._STAGES, "window")
         }
         data_wait = _distribution([record["data_wait_ms"] for record in measured])
+        loss_health = self._loss_health_report(accepted)
         measured_wall_seconds = (
             None
             if self.measurement_wall_start is None
@@ -353,18 +418,6 @@ class _ReadinessTiming:
             ),
         }
 
-        if self.use_cuda and self.measurement_started:
-            peak_allocated = int(torch.cuda.max_memory_allocated(self.device))
-            peak_reserved = int(torch.cuda.max_memory_reserved(self.device))
-            total_memory = int(torch.cuda.get_device_properties(self.device).total_memory)
-            memory_stats = torch.cuda.memory_stats(self.device)
-            peak_active = int(memory_stats.get("active_bytes.all.peak", 0))
-            peak_inactive_split = int(
-                memory_stats.get("inactive_split_bytes.all.peak", 0)
-            )
-        else:
-            peak_allocated = peak_reserved = total_memory = 0
-            peak_active = peak_inactive_split = 0
         window_p50 = stage_distributions["window"]["p50"]
         window_p95 = stage_distributions["window"]["p95"]
         return {
@@ -389,6 +442,7 @@ class _ReadinessTiming:
             "accumulation_steps": self.accumulation_steps,
             "stage_timing": self.stage_timing,
             "profiler_ranges": self.profiler_ranges,
+            "loss_health_enabled": self.loss_health,
             "warmup_successful_windows": self.warmup_successful_windows,
             "warmup_boundary_reached": self.measurement_started,
             "warmup_boundary_attempted_window": self.warmup_boundary_attempted_window,
@@ -411,6 +465,7 @@ class _ReadinessTiming:
                 "target_accepted_windows_per_block": self.block_size_windows,
                 "records": self.block_records,
             },
+            "loss_health": loss_health,
             "memory": {
                 "peak_allocated_bytes": peak_allocated,
                 "peak_reserved_bytes": peak_reserved,
@@ -427,6 +482,87 @@ class _ReadinessTiming:
                 "monotonic_reserved_growth_over_64mib": monotonic_reserved_growth,
             },
             "records": resolved_records,
+        }
+
+    def _loss_health_report(self, accepted: list[dict[str, Any]]) -> dict[str, Any] | None:
+        if not self.loss_health:
+            return None
+
+        def aggregate(records: list[dict[str, Any]], key: str) -> float | None:
+            weighted = [
+                (float(record[key]), int(record["loss_samples"]))
+                for record in records
+                if record.get(key) is not None and int(record["loss_samples"]) > 0
+            ]
+            samples = sum(count for _, count in weighted)
+            return (
+                None
+                if not samples
+                else sum(value * count for value, count in weighted) / samples
+            )
+
+        head_size = max(1, len(accepted) // 4) if accepted else 0
+        overall = aggregate(accepted, "mean_loss")
+        first = aggregate(accepted[:head_size], "mean_loss") if head_size else None
+        last = aggregate(accepted[-head_size:], "mean_loss") if head_size else None
+        term_names = sorted(
+            {
+                name
+                for record in accepted
+                for name in record.get("criterion_term_means", {})
+            }
+        )
+        components = {}
+        for name in term_names:
+            component_records = [
+                {
+                    "component": record["criterion_term_means"].get(name),
+                    "loss_samples": record["loss_samples"],
+                }
+                for record in accepted
+                if name in record.get("criterion_term_means", {})
+            ]
+            component_first = component_records[:head_size]
+            component_last = component_records[-head_size:] if head_size else []
+            components[name] = {
+                "overall_mean": aggregate(component_records, "component"),
+                "first_quarter_mean": aggregate(component_first, "component"),
+                "last_quarter_mean": aggregate(component_last, "component"),
+            }
+        finite_values = [
+            value
+            for value in (
+                overall,
+                first,
+                last,
+                *(
+                    item[key]
+                    for item in components.values()
+                    for key in (
+                        "overall_mean",
+                        "first_quarter_mean",
+                        "last_quarter_mean",
+                    )
+                ),
+            )
+            if value is not None
+        ]
+        return {
+            "schema": "s10.phase1p.loss-health.v1",
+            "accepted_windows": len(accepted),
+            "quarter_windows": head_size,
+            "all_reported_values_finite": all(math.isfinite(value) for value in finite_values),
+            "overall_mean": overall,
+            "first_quarter_mean": first,
+            "last_quarter_mean": last,
+            "last_over_first": (
+                None if first is None or last is None or first == 0.0 else last / first
+            ),
+            "criterion_terms": components,
+            "interpretation": (
+                "descriptive bounded training-health evidence; a noisy short-window "
+                "loss slope is not a capability or promotion gate"
+            ),
         }
 
 
@@ -574,6 +710,7 @@ def train_one_epoch(
     readiness_warmup_successful_windows: int = 0,
     readiness_stage_timing: bool = True,
     readiness_profiler_ranges: bool = False,
+    readiness_loss_health: bool = False,
     attempted_window_callback: Optional[Any] = None,
     distributed_boolean_and: Optional[Any] = None,
     cpu_resident_batch_fields: tuple[str, ...] = (),
@@ -614,6 +751,8 @@ def train_one_epoch(
         raise TypeError("readiness_stage_timing must be boolean")
     if not isinstance(readiness_profiler_ranges, bool):
         raise TypeError("readiness_profiler_ranges must be boolean")
+    if not isinstance(readiness_loss_health, bool):
+        raise TypeError("readiness_loss_health must be boolean")
     if not readiness_timing and not readiness_stage_timing:
         raise ValueError(
             "readiness_stage_timing=False requires readiness_timing=True"
@@ -622,6 +761,8 @@ def train_one_epoch(
         raise ValueError(
             "readiness_profiler_ranges=True requires readiness_timing=True"
         )
+    if not readiness_timing and readiness_loss_health:
+        raise ValueError("readiness_loss_health=True requires readiness_timing=True")
     if attempted_window_callback is not None and not callable(attempted_window_callback):
         raise TypeError("attempted_window_callback must be callable or None")
     if distributed_boolean_and is not None and not callable(distributed_boolean_and):
@@ -691,6 +832,7 @@ def train_one_epoch(
             accumulation_steps=accumulation_steps,
             stage_timing=readiness_stage_timing,
             profiler_ranges=readiness_profiler_ranges,
+            loss_health=readiness_loss_health,
         )
         if readiness_timing
         else None
@@ -818,6 +960,8 @@ def train_one_epoch(
                 timing.begin_stage("loss")
             loss = criterion(out, targets)
             bs = _batch_size(targets)
+            if timing is not None:
+                timing.add_loss(loss, bs, getattr(criterion, "last_terms", None))
             global_bs = int(bs) * int(exposure_multiplier)
             if state.accumulation_phase == 0:
                 state.attempted_windows += 1

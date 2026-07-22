@@ -14,7 +14,7 @@ checkpoints.
 from __future__ import annotations
 
 import time
-from contextlib import contextmanager, nullcontext
+from contextlib import ExitStack, contextmanager, nullcontext
 from importlib import metadata
 
 import torch
@@ -212,6 +212,18 @@ class SparseVoxelEncoder(nn.Module):
         self.last_voxel_stats: torch.Tensor | None = None
         self.record_profile = False
         self.last_profile_times: dict | None = None
+        self._operator_profile_ranges = False
+
+    @contextmanager
+    def operator_profile_ranges(self):
+        """Expose sparse-front-end subranges without enabling sync timing."""
+        if self._operator_profile_ranges:
+            raise RuntimeError("sparse voxel profiler ranges are already active")
+        self._operator_profile_ranges = True
+        try:
+            yield self
+        finally:
+            self._operator_profile_ranges = False
 
     @property
     def output_stride(self) -> int:
@@ -342,23 +354,31 @@ class SparseVoxelEncoder(nn.Module):
 
         @contextmanager
         def stage(name: str):
-            if self.record_profile and dev.type == "cuda":
-                torch.cuda.synchronize(dev)
-                t0 = time.perf_counter()
-                yield
-                torch.cuda.synchronize(dev)
-                profile_times[name] = (time.perf_counter() - t0) * 1000.0
-            else:
-                yield
+            with ExitStack() as stack:
+                if self._operator_profile_ranges:
+                    stack.enter_context(
+                        torch.profiler.record_function(f"fl_v3::lidar_sparse::{name}")
+                    )
+                if self.record_profile and dev.type == "cuda":
+                    torch.cuda.synchronize(dev)
+                    t0 = time.perf_counter()
+                    try:
+                        yield
+                    finally:
+                        torch.cuda.synchronize(dev)
+                        profile_times[name] = (time.perf_counter() - t0) * 1000.0
+                else:
+                    yield
 
         import spconv.pytorch as spconv
 
-        bidx = points[:, 0].to(torch.int64)
-        if bidx.numel():
-            integral = points[:, 0] == bidx.to(points.dtype)
-            in_batch = (bidx >= 0) & (bidx < B)
-            if not bool((integral & in_batch).all().detach().cpu()):
-                raise ValueError(f"batch indices must be integral and lie in [0,{B})")
+        with stage("batch_index_validation"):
+            bidx = points[:, 0].to(torch.int64)
+            if bidx.numel():
+                integral = points[:, 0] == bidx.to(points.dtype)
+                in_batch = (bidx >= 0) & (bidx < B)
+                if not bool((integral & in_batch).all().detach().cpu()):
+                    raise ValueError(f"batch indices must be integral and lie in [0,{B})")
         sparse_amp = self._use_sparse_conv_fp16(dev)
         fp16_eval_dispatch = bool(sparse_amp and not self.training)
         # Option A is an inference-only contract.  Refuse an eval forward with
