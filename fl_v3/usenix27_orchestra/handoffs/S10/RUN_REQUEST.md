@@ -2752,6 +2752,93 @@ ACTIVATION_REQUIREMENT: first materialize and locally validate exact default-off
   the proposed resources. This section alone is not executable authority.
 ```
 
+### 9.10 LiDAR IP-L-E2 activation and execution ledger
+
+```text
+REQUEST_STATE: ACTIVE / L2-1 THROUGH L2-5 PENDING
+OWNER_DECISION: 2026-07-22 — "激活IP-L-E2"
+APPROVAL_ANCHOR_SHA: d1789bba4804dfcdab4d26a5780a836e69b56355
+ACTIVATION_INTERPRETATION: the explicit phase activation binds the already frozen
+  cells, gates and resources at APPROVAL_ANCHOR_SHA and authorizes only their exact
+  default-off source/tests/runner materialization as an O-149 derived descendant;
+  it is not standing authority to change candidate math, gates or resources
+DERIVED_IMPLEMENTATION_SHA: 914ca11db74f9f5b2f7f6836dbc566c012d3a661
+DERIVED_IMPLEMENTATION_TREE: 561f8c9b4b60c73dbf307b3d3b8eb3a90add9b95
+EXECUTION_SOURCE: exact clean containing activation-ledger commit, resolved at
+  submission and recorded in the terminal entries below; it must be a linear
+  descendant of APPROVAL_ANCHOR_SHA and UNIQUE_BASE_SHA
+BRANCH: codex/s10-phase1p-throughput-preflight
+UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
+FROZEN_CONTROL: codex/s10-phase1-branch-qualification remains at UNIQUE_BASE_SHA
+
+ACTIVATED_SCOPE: exactly the five Section-9.9 isolated B32x1 same-allocation pairs,
+  in order L2-1 target/Hungarian, L2-2 SDPA, L2-3 scoped compile, L2-4 sparse host
+  offsets, L2-5 fused AdamW; no candidate is composed or promoted by this envelope
+CONTINUOUS_AUTHORITY: candidate-local performance negative or unsupported compiler
+  path is recorded and the next independent cell proceeds; an unambiguous code bug
+  may receive the smallest default-off O-149 repair and serial fresh-output rerun
+OUT_OF_SCOPE: L-WP3/IP-LG2, Camera, Fusion, D_select, D_audit, official validation,
+  capability metrics, revised/original Envelope B, merge, push and publication
+
+PROFILER_ENTRY_SHA256:
+  9d21d4bbb965a62589988495546434e36b8d9b3c4b173228b3b3f9c295efcc0b
+COMPARATOR_ENTRY_SHA256:
+  a9492deb7b0d8a884d6bb3e2246aa6bba86bc8225061430cdfddffc01fe64847
+PAIR_LAUNCHER_SHA256:
+  6378a59943d89dcfecae4cc77f5a3cbae317d241277e5fc718969e939847ecdd
+TARGET_SOURCE_SHA256:
+  c031140e0aa0b26fe4625ef93e0c08f01b9cdc4c4eb6e82409d0cd71e154fa2c
+SPARSE_SOURCE_SHA256:
+  badde1b9019c7353e6fecbafd116859412a204c8e6a8e94e6cc677161dc7ee38
+PAIR_COMPARATOR_SHA256:
+  3b610c10f1c63dd2bd63c2a10f35c38954795de8c09a15d0bddf212b126a45ec
+PROFILE_SHA256:
+  reference fda8eac60288a812f34c2bc2a8bbdcc3331ec155cb26e4cdbea361a0c23db928
+  target    9acd85664a10dec977412b2787879da7518f8fa3d8083b5bc98ee285609639ba
+  SDPA      bcd2734d6e24df99a84e938a2181dbd164828efd64f9bd289d9336a9e66c512a
+  compile   bfce36632aaa503b054e3bcd4b451d2a18856e18a1ead99ac837e7f37884ac75
+  offsets   eb5845322167ce3109f499d3f7833e1e28faa7dc6f822309346bcbc3d77b1012
+  fused     0e4e8494dffcd80657bbb92a97358893242629b975ea5eb972ee90d6da9423e5
+LOCAL_VALIDATION: Python py_compile PASS; six JSON parses PASS; bash -n PASS;
+  shellcheck PASS; git diff --check PASS; login node has no pytest/PyTorch runtime,
+  so exact PyTorch/spconv/SDPA/target/update tests are mandatory in-job preflight
+
+RESOURCES_PER_JOB: one node; one GH200; 16 CPUs; 96 GiB; <=00:45:00; no requeue;
+  maximum concurrency one
+AGGREGATE_BASE: 2.00 charged GH200-hours
+CODE_BUG_RESERVE: +0.75 charged GH200-hour
+HARD_AGGREGATE_CEILING: 2.75 charged GH200-hours
+SUBMISSION_POLICY: five cells serially; no numeric repair-submission cap; no blind
+  retry; aggregate layered ceiling and maximum concurrency are binding
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/
+  arrhenius_fl_v3/outputs/s10_phase1p_ip_l_e2_d1789bba4804/
+FRESH_OUTPUT: source-SHA-qualified process/pair paths; raw evidence never overwritten
+STOP_ESCALATE: shared hard-gate failure; nonfinite/discard; ambiguous or repeated
+  blocker; science-boundary pressure; scope/gate/resource change; or next charge
+  could exceed the hard aggregate ceiling
+BUDGET_AT_ACTIVATION: base 0/2.00; bug reserve 0/0.75; aggregate 0/2.75
+```
+
+Exact command template; `CELL` is set to the next not-yet-run item in the frozen
+serial order and the next submission occurs only after the prior job is terminal:
+
+```bash
+SOURCE_SHA=$(git rev-parse HEAD)
+APPROVED_SOURCE_SHA=d1789bba4804dfcdab4d26a5780a836e69b56355
+CELL=l2-1
+ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1p_ip_l_e2_${APPROVED_SOURCE_SHA:0:12}
+mkdir -p "${ROOT}"
+sbatch --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G \
+  --gpus-per-node=nvidia_gh200_120gb:1 --time=00:45:00 --no-requeue \
+  --job-name="s10-p1p-${CELL}" \
+  --output="${ROOT}/slurm_${CELL}_initial_%j.out" \
+  --error="${ROOT}/slurm_${CELL}_initial_%j.err" \
+  fl_v3/scripts/run_s10_phase1p_lidar_e2.sh \
+  --cell "${CELL}" --source-sha "${SOURCE_SHA}" \
+  --approved-source-sha "${APPROVED_SOURCE_SHA}"
+```
+
 ## 10. Envelope-A compact execution ledger
 
 This is the sole terminal ledger for Envelope A. Submission rows were appended only when

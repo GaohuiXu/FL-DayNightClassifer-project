@@ -1,4 +1,4 @@
-# S10 HANDOFF — LiDAR IP-LG1 closed / L-WP2 cells frozen
+# S10 HANDOFF — LiDAR IP-L-E2 active / L-WP2 executing
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: owner accepts LiDAR-only B32x1 BN/worker-RNG recipe and freezes L-WP2 cells
-SCIENCE_ORDER: materialize/validate frozen L-WP2, seek exact L-E2 activation, then complete LiDAR preflight
+ACTIVE_DECISION: owner activates the frozen five-cell LiDAR IP-L-E2 envelope
+SCIENCE_ORDER: execute L2-1 through L2-5 serially, close L-WP2, then return to IP-LG2
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: scoped source/docs/tests/local validation and linear commits; no GPU/Slurm compute
-EXECUTION_STATE: IP-L-E1 TERMINAL at source 77f13f95 / Job 555777; IP-L-E2 not active; Envelope B unauthorized
+CURRENT_AUTHORITY: exact Section-9.10 IP-L-E2 GPU/Slurm plus scoped O-149 remediation; no later phase
+EXECUTION_STATE: IP-L-E1 TERMINAL at source 77f13f95 / Job 555777; IP-L-E2 ACTIVE; Envelope B unauthorized
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -797,14 +797,18 @@ The owner approved the following continuous LiDAR workflow and thereby closed
 request commit `8b5788d3d905cf7eb83e8f3f1e65e24df7fc15dc`. `L-WP1` is terminal.
 On 2026-07-22 the owner closed `IP-LG1`, explicitly accepted LiDAR-only physical
 B32 x accumulation 1 and its BatchNorm/worker-RNG recipe, and froze the five
-isolated `L-WP2` test cells below. This is not `IP-L-E2` activation; no later
-compute envelope is active.
+isolated `L-WP2` test cells below. That freeze itself did not activate compute.
+The owner's later explicit `IP-L-E2` activation is now bound to clean approval
+anchor `d1789bba4804dfcdab4d26a5780a836e69b56355`, the exact frozen Section-9.9
+cells/resources and the default-off derived implementation at
+`914ca11db74f9f5b2f7f6836dbc566c012d3a661`; its executable ledger is Section
+9.10 of `RUN_REQUEST.md`.
 
 | WP / gate | Input and work | Output / continuous authority | Stop or owner decision |
 |---|---|---|---|
 | L-WP0 diagnosis | current LiDAR model/loss/loader/CBGS/checkpoint paths plus historical B4 evidence | read-only bottleneck and candidate classification; closed | IP-LG0 freezes the workflow and source scope |
 | L-WP1 clean measurement | exact D_fit LiDAR recipe; clean B4/B8/B16/B32 profiles | default-off capacity ladder, B4-versus-highest-safe sustained processes, two detailed traces, checkpoint and loss-health evidence | closed; IP-LG1 accepted LiDAR-only B32x1 and froze L-WP2 |
-| L-WP2 primary screens | accepted B32x1 recipe and L-E1 bottleneck evidence | five isolated same-allocation B32 pairs: target/Hungarian host batching, LiDAR SDPA, dense scoped compile, sparse host offsets/stat cleanup, fused AdamW | all five may proceed serially only inside separately approved IP-L-E2; candidate-local negative does not stop independent later cells |
+| L-WP2 primary screens | accepted B32x1 recipe and L-E1 bottleneck evidence | five isolated same-allocation B32 pairs: target/Hungarian host batching, LiDAR SDPA, dense scoped compile, sparse host offsets/stat cleanup, fused AdamW | IP-L-E2 active; execute serially; candidate-local negative does not stop independent later cells |
 | L-WP3 conditional/composed screens | positive primary candidates and trace residuals | conditionally test full-sort-to-topk, batched voxelization, batched Gaussian targets, H2D-field pruning and hidden-sync cleanup; validate the final combined stack | IP-LG2 promotes/rejects the exact L-only recipe and explicitly accepts any BN/worker-RNG batch recipe |
 | L-WP4 capability handoff | owner-promoted LiDAR recipe plus promoted Camera 2-GH200 v4 recipe | new dual-branch Envelope-B source/config/hash/output roots and per-branch resource projection; independent recipe-freeze review | only a no-open-P0-P2 review may lead to a later Envelope-B activation request |
 
