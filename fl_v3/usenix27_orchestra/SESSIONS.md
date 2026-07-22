@@ -31,12 +31,16 @@
 > the parity-qualified PyTorch sorted `segment_reduce` backend for Camera production,
 > keeps CUDA unpromoted, and removes `1.25x` as a capability prerequisite. Phase I-P
 > subsequently promoted Camera two-GH200 B16/rank and LiDAR one-GH200 B32 recipes.
-> Revised Envelope B is materialized at `30.0` charged GH200-hours, concurrency one
+> Revised Envelope B was materialized at `30.0` charged GH200-hours, concurrency one
 > and serial LiDAR then Camera. Independent review closed
 > `PASS_WITH_RESIDUAL_RISK` with no open P0-P2. The owner accepted the verdict/P3,
-> named seal `1473ef67...` and accepted the serial Envelope B; submission is
-> now explicitly activated in the current session after superseding the earlier
-> hold. LiDAR precedes Camera and active training is checked about every 30 minutes.
+> named seal `1473ef67...` and activated the serial envelope. LiDAR completed four
+> healthy epochs before a reproducible all-nonfinite epoch-5 TransFusion forward.
+> The owner then cancelled the serial dependency. Section 7.4.7 now materializes a
+> pending parallel amendment: unchanged Camera plus one zero-update LiDAR epoch-4
+> diagnostic may overlap (two jobs / three typed GH200s) under the unchanged 30.0-
+> hour aggregate ceiling. The additional non-selectable `D_select` diagnostic peek
+> requires independent review and explicit activation; no job is active.
 > S11+ remains pending.
 
 ## 1. Active graph and status
@@ -51,7 +55,7 @@
   │      └─ independent review of exact profiling/evidence SHA
   │
   ├─ S10 C/L qualification → staged fusion        [final C/L recipes materialized]
-  │      └─ capability gate → GH200 optimization  [serial Envelope B active]
+  │      └─ capability gate → GH200 optimization  [parallel amendment pending review]
   └─ S11 and later                                 [roles pending owner decision]
 ```
 
@@ -64,7 +68,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | revised serial 30.0-hour Envelope B reviewed, owner-accepted and activated in the current session at seal `1473ef67...`; LiDAR first |
+| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | LiDAR stopped honestly at epoch-5 numerical boundary; Section 7.4.7 parallel Camera/LiDAR-diagnostic amendment materialized, review and activation pending |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract

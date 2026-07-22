@@ -26,11 +26,14 @@
 > standing compute authority. O-150 accepts the parity-qualified PyTorch sorted
 > `segment_reduce` backend for Camera production, keeps CUDA unpromoted, and removes
 > `1.25x` as a capability prerequisite. Phase I-P promoted final Camera two-GH200
-> B16/rank and LiDAR one-GH200 B32 recipes. Revised Envelope B is materialized in
-> `RUN_REQUEST.md` Section 7.4 at `30.0` charged GH200-hours, concurrency one and
-> serial LiDAR then Camera. Independent review closed with no open P0-P2; separate
-> owner acceptance is now recorded at seal `1473ef67...`, while submission is
-> explicitly activated in the current session after the earlier hold was superseded.
+> B16/rank and LiDAR one-GH200 B32 recipes. Revised Envelope B was accepted at seal
+> `1473ef67...`; activated LiDAR then stopped honestly after four healthy epochs at
+> a reproducible all-nonfinite epoch-5 TransFusion forward. The owner cancelled the
+> serial L->C dependency. `RUN_REQUEST.md` Section 7.4.7 materializes a pending
+> parallel amendment under the unchanged `30.0` charged-GH200-hour ceiling: one
+> Camera job may overlap one zero-update LiDAR epoch-4 diagnostic (maximum two jobs/
+> three typed GH200s). Its additional non-selectable `D_select` diagnostic peek
+> requires independent review and explicit activation; no job is currently active.
 
 ## 1. Rules for starting or extending work
 

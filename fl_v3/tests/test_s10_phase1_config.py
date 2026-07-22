@@ -179,9 +179,19 @@ def test_phase1_lidar_ip_l_e3_recipe_is_exact_b32_combined_stack():
 
 def test_phase1_dual_envelope_b_manifest_binds_both_recipes_and_resources():
     spec = json.loads(ENVELOPE.read_text(encoding="utf-8"))
-    assert spec["schema_version"] == "s10.phase1.envelope_b_dual.v1"
-    assert spec["request_state"] == "frozen_owner_activation_required"
-    assert spec["serial_order"] == ["lidar", "camera"]
+    assert spec["schema_version"] == "s10.phase1.envelope_b_dual.v2"
+    assert spec["request_state"] == "parallel_amendment_owner_activation_required"
+    assert spec["execution_topology"] == {
+        "mode": "independent_camera_lidar_parallel",
+        "runnable_units": [
+            "camera_primary",
+            "lidar_epoch04_diagnostic_or_lidar_primary",
+        ],
+        "per_branch_max_concurrency": 1,
+        "max_concurrent_jobs": 2,
+        "max_concurrent_typed_gh200": 3,
+        "camera_blocked_by_lidar_terminal": False,
+    }
     assert spec["candidate_count"] == 2
     assert spec["seed_policy"] == [0]
     assert spec["output_root"] == DUAL_OUTPUT_ROOT
@@ -189,7 +199,7 @@ def test_phase1_dual_envelope_b_manifest_binds_both_recipes_and_resources():
     assert spec["review_gate"] == {
         "independent_recipe_freeze_review_required": True,
         "open_p0_p2_allowed": False,
-        "status": "external_review_record_required",
+        "status": "parallel_amendment_independent_review_pending",
     }
     for entry in spec["entries"].values():
         path = ROOT.parent / entry["path"]
@@ -223,21 +233,56 @@ def test_phase1_dual_envelope_b_manifest_binds_both_recipes_and_resources():
         ) == expected
         projected_charge += binding["projected_training_charged_gh200_hours"]
 
+    diagnostic = spec["diagnostics"]["lidar_epoch04"]
+    assert diagnostic["checkpoint_sha256"] == (
+        "d01b6219533e3a4c38fdd7be7727020accc4a8664951f5483cfeaeebba91c940"
+    )
+    assert diagnostic["epoch_record_sha256"] == (
+        "98c7d9193145286fb9983a627d23b7e008f889f229cce911412fd5d4185b76da"
+    )
+    assert diagnostic["optimizer_updates"] == 0
+    assert diagnostic["backward"] is False
+    assert diagnostic["D_select"] == {
+        "executions": 1,
+        "checkpoint_epoch": 4,
+        "selectable": False,
+        "early_stopping": False,
+        "raw_head_nonfinite_policy": "fail_closed_before_decode",
+        "terminal_epoch20_execution_still_reserved": True,
+    }
+    assert diagnostic["resource"]["hard_ceiling_gh200_hours"] == 1.5
+
     aggregate = spec["aggregate_resource"]
-    assert aggregate["max_concurrency"] == 1
+    assert aggregate["max_concurrency"] == 2
+    assert aggregate["per_branch_max_concurrency"] == 1
     assert math.isclose(
         projected_charge,
-        aggregate["projected_training_charged_gh200_hours"],
+        aggregate["original_projected_training_charged_gh200_hours"],
         rel_tol=0.0,
         abs_tol=1e-6,
     )
     computed = 1.15 * (
-        aggregate["projected_training_charged_gh200_hours"]
-        + aggregate["evaluation_preflight_recovery_reserve_gh200_hours"]
+        aggregate["original_projected_training_charged_gh200_hours"]
+        + aggregate["original_evaluation_preflight_recovery_reserve_gh200_hours"]
     )
     assert math.isclose(
         computed,
-        aggregate["computed_need_gh200_hours"],
+        aggregate["original_computed_need_gh200_hours"],
+        rel_tol=0.0,
+        abs_tol=1e-6,
+    )
+    assert math.isclose(
+        aggregate["consumed_through_lidar_science_stop_gh200_hours"]
+        + aggregate["remaining_authority_at_parallel_amendment_gh200_hours"],
+        aggregate["hard_ceiling_gh200_hours"],
+        rel_tol=0.0,
+        abs_tol=1e-6,
+    )
+    assert math.isclose(
+        aggregate["remaining_authority_at_parallel_amendment_gh200_hours"]
+        - aggregate["camera_initial_job_maximum_gh200_hours"]
+        - aggregate["lidar_epoch04_diagnostic_maximum_gh200_hours"],
+        aggregate["remaining_if_both_parallel_jobs_hit_maximum_gh200_hours"],
         rel_tol=0.0,
         abs_tol=1e-6,
     )

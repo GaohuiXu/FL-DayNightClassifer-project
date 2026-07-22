@@ -1,4 +1,4 @@
-# S10 HANDOFF — Envelope B stopped at LiDAR numerical boundary
+# S10 HANDOFF — Parallel Envelope-B amendment prepared after LiDAR numerical stop
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: reviewed Section-7.4 Envelope B hit its LiDAR science stop
-SCIENCE_ORDER: diagnose LiDAR forward numerical boundary before any continuation or Camera
+ACTIVE_DECISION: owner cancelled serial L->C dependency and requested a parallel amendment
+SCIENCE_ORDER: Camera may qualify independently while LiDAR runs one zero-update diagnostic unit
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: Section 7.4 seal 1473ef67...; its owner-escalation stop is active
-EXECUTION_STATE: no active job; LiDAR incomplete at epoch 4; Camera not submitted
+CURRENT_AUTHORITY: Section 7.4.7 parallel source/resource amendment awaits review seal and activation
+EXECUTION_STATE: no active job; LiDAR incomplete at epoch 4; Camera job is prepared but not submitted
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -86,10 +86,19 @@ excluded. Activation scale did grow sharply: the head heatmap BN running-varianc
 maximum rose from about `2.65` after the 272-update profiler to `1,992,185.375` at
 epoch 4. The remaining leading causes are dense/head FP16 activation or reference-
 attention overflow, scoped-compile numerical behavior, or a deterministic
-post-augmentation interaction. Distinguishing them requires an owner-approved,
-zero-update one-batch localization envelope because precision/compile/SDPA recipe
-decisions cross the scientific boundary. Aggregate charge is
-`2.121944 / 30.0` GH200-hours. Camera remains absent and serial execution is stopped.
+post-augmentation interaction. The owner subsequently cancelled the serial L->C
+dependency and directed that the Camera candidate be prepared independently while
+LiDAR diagnosis proceeds. The materialized amendment keeps the 30.0 charged-
+GH200-hour aggregate ceiling, allows at most one Camera and one LiDAR unit
+concurrently (two jobs / three typed GH200s), and does not change either production
+recipe. It adds one zero-update LiDAR unit: an explicitly non-selectable epoch-4
+`D_select` diagnostic peek with raw-head finite checks, followed by production-
+compile FP16 and conditional eager FP16, eager FP32 and SDPA FP16 localization on
+the exact epoch-5 first batch. The peek cannot select an epoch, drive early stopping
+or consume the future epoch-20 terminal evaluation. Because it is nevertheless an
+additional look at `D_select`, the new source must be independently reviewed and
+explicitly activated before compute. Aggregate charge remains
+`2.121944 / 30.0` GH200-hours.
 
 ### 1.1 Frozen Phase I-P workflow
 

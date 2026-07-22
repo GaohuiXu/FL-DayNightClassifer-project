@@ -4,15 +4,15 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: Section-7.4 LiDAR hit a reproducible forward numerical boundary
-REQUEST_STATE: REVISED SERIAL ENVELOPE B STOPPED AT OWNER ESCALATION
-EXECUTION_AUTHORITY: seal 1473ef67...; 30.0 charged h; scientific stop now binding
-ACTIVE_PHASE: discuss exact zero-update LiDAR localization; Camera remains blocked
+ACTIVE_DECISION: owner cancelled serial dependency; Section-7.4.7 parallel amendment prepared
+REQUEST_STATE: PARALLEL AMENDMENT OWNER ACTIVATION REQUIRED / NOT EXECUTABLE
+EXECUTION_AUTHORITY: prior seal 1473ef67... is historical for unchanged recipes
+ACTIVE_PHASE: independently review amendment, then request Camera + LiDAR diagnostic activation
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at the same SHA
-ENVELOPE_B: old Section 7 is control; revised Section 7.4 current-session active
+ENVELOPE_B: Section 7.4 history; Section 7.4.7 is the sole current activation candidate
 ```
 
 IP-G0 authorized scoped Phase I-P source/docs/tests, local validation and linear
@@ -866,6 +866,107 @@ data, model, precision, update, exposure, evaluator and output bindings remain
 unchanged. A focused copied-script regression must reach the intended source-SHA
 gate from an unrelated directory, `bash -n` must pass, and the derived clean source
 and fresh external attempt record must be frozen before serial replacement.
+
+#### 7.4.7 Parallel Camera/LiDAR amendment after the epoch-4 numerical stop
+
+The owner cancelled the serial LiDAR-then-Camera dependency and directed that the
+unchanged Camera candidate be prepared independently while LiDAR diagnosis
+proceeds. This is a topology and diagnostic-scope amendment, not a branch-recipe
+change. The prior review seal remains historical evidence for both recipes but is
+not compute authority for this changed manifest. The clean amendment source needs
+one independent read-only review and an explicit owner activation before either
+new command is submitted.
+
+```text
+AMENDMENT_STATE: MATERIALIZED / OWNER ACTIVATION REQUIRED / NOT EXECUTABLE
+PARENT_SOURCE: e637f61a442b5cfda223970a1de466cd8d891738
+PRODUCTION_CANDIDATES: unchanged Camera primary and LiDAR primary; seed 0
+TOPOLOGY: independent Camera/LiDAR work; at most one job per branch
+MAX_CONCURRENT_JOBS: 2
+MAX_CONCURRENT_TYPED_GH200: 3 (Camera 2 + LiDAR 1)
+AGGREGATE_CEILING: unchanged 30.0 charged GH200-hours
+CONSUMED_BEFORE_AMENDMENT: 2.121944 charged GH200-hours
+REMAINING_AT_AMENDMENT: 27.878056 charged GH200-hours
+CAMERA_INITIAL_MAXIMUM: unchanged 18.0 charged GH200-hours / 09:00:00
+LIDAR_DIAGNOSTIC_MAXIMUM: 1.50 charged GH200-hours / 01:30:00
+REMAINING_IF_BOTH_HIT_MAXIMUM: 8.378056 charged GH200-hours
+MONITOR: one-hour substantive health cadence plus passive terminal/state changes
+CAMERA_CONTINUATION: independent of the LiDAR numerical boundary
+LIDAR_CONTINUATION: no training resume or recipe promotion until diagnostic result
+D_AUDIT/OFFICIAL_VALIDATION: forbidden
+MERGE/PUSH/PUBLICATION: not authorized
+```
+
+The LiDAR unit binds the immutable raw epoch-4 checkpoint SHA-256
+`d01b6219533e3a4c38fdd7be7727020accc4a8664951f5483cfeaeebba91c940`
+and epoch record SHA-256
+`98c7d9193145286fb9983a627d23b7e008f889f229cce911412fd5d4185b76da`.
+It executes zero backward passes and zero optimizer/scheduler updates. It first
+performs one additional `D_select` look under production eval mode and rejects any
+raw head NaN/Inf before decode. This look is `diagnostic-only`, `selectable=false`,
+cannot drive early stopping or best-epoch choice, and does not replace the one
+future epoch-20 terminal `D_select` execution. Consequently LiDAR will have two
+disclosed `D_select` executions if it later reaches terminal: one epoch-4 diagnostic
+peek and one formal terminal evaluation. This information-cost change is explicit;
+no capability-completion or generalization claim may use the epoch-4 score.
+
+The exact conditional localization order after the diagnostic evaluation is:
+
+1. production scoped-compile/reference-attention FP16 on exact epoch-5 first B32;
+2. eager reference FP16 only if Cell 1 is nonfinite;
+3. eager reference FP32 only if Cell 2 is nonfinite;
+4. eager SDPA FP16 only if Cell 2's first bad recorded boundary is self- or
+   cross-attention.
+
+Every cell reconstructs and reloads the checkpoint, requires the same full
+post-augmentation batch hash as Cell 1, checks model parameters/scheduler/scaler
+remain unchanged, and records finite count/max-absolute boundaries through sparse
+collapse, dense decoder, shared/heatmap head, positional encodings, self/cross
+attention, FFN and query prediction. These cells diagnose but do not promote a
+precision, compile or SDPA recipe.
+
+After a clean reviewed source is named and activated, the two independently
+runnable commands are exactly:
+
+```bash
+ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_dual_783173d6fe05
+sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --cpus-per-task=32 --mem=192G \
+  --gpus-per-node=nvidia_gh200_120gb:2 --time=09:00:00 --no-requeue \
+  --job-name=s10-p1b-camera --output="${ROOT}/slurm/camera-%j.out" \
+  --error="${ROOT}/slurm/camera-%j.err" \
+  fl_v3/scripts/run_s10_phase1_envelope_b.sh --branch camera \
+  --envelope fl_v3/configs/s10_phase1_envelope_b_dual.json \
+  --config fl_v3/configs/s10_phase1_camera.json \
+  --output-dir "${ROOT}/phase1_camera_primary" \
+  --source-sha <PARALLEL_AMENDMENT_SOURCE_SHA>
+```
+
+```bash
+ROOT=/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_dual_783173d6fe05
+sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu \
+  --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=96G \
+  --gpus-per-node=nvidia_gh200_120gb:1 --time=01:30:00 --no-requeue \
+  --job-name=s10-p1b-lidar-e4diag \
+  --output="${ROOT}/slurm/lidar-e4diag-%j.out" \
+  --error="${ROOT}/slurm/lidar-e4diag-%j.err" \
+  fl_v3/scripts/run_s10_phase1_lidar_epoch4_diagnostic.sh \
+  --envelope fl_v3/configs/s10_phase1_envelope_b_dual.json \
+  --config fl_v3/configs/s10_phase1_lidar.json \
+  --checkpoint "${ROOT}/phase1_lidar_primary/epochs/epoch_04/checkpoint.pt" \
+  --epoch-record "${ROOT}/phase1_lidar_primary/epochs/epoch_04/epoch_record.json" \
+  --output-dir "${ROOT}/diagnostics/lidar_epoch04_diagnostic_v1" \
+  --source-sha <PARALLEL_AMENDMENT_SOURCE_SHA>
+```
+
+Both outputs must be absent before their fresh submissions. Camera training health
+remains loss/finite/scaler, attempted/accepted/invalid windows, exposure and
+checkpoint progress. The LiDAR diagnostic health is forward progress, raw-head and
+stage finite records, exact checkpoint/input identity, zero update, and evaluator
+terminal state. Aggregate accounting, not the sum of requested wall limits alone,
+remains the hard resource gate. A later full LiDAR restart is not authorized by
+this amendment and may require a further resource decision if worst-case Camera
+and diagnostic charges leave insufficient headroom.
 
 ## 8. Phase I-P IP-G0 record and exact IP-E1 request
 

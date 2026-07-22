@@ -50,14 +50,19 @@
 > prerequisite. The later owner-approved Phase I-P preflight promoted Camera
 > two-GH200 B16/rank and LiDAR one-GH200 B32 production recipes while preserving
 > effective global B32, exposure and all other scientific boundaries. Revised
-> Envelope B is materialized in `RUN_REQUEST.md` Section 7.4 at a `30.0` charged
+> Envelope B was materialized in `RUN_REQUEST.md` Section 7.4 at a `30.0` charged
 > GH200-hour ceiling, concurrency one and serial LiDAR then Camera. Independent
 > review of `a4f6ca86ddd966bdffc74a37af3337ac6675e83a` closed
 > `PASS_WITH_RESIDUAL_RISK` with no open P0-P2. The owner accepted that verdict and
-> P3, named seal `1473ef67d9dc2949c49360b6826d0f30585f416f`, retained serial
-> concurrency one and accepted/activated Section 7.4, but explicitly deferred every
-> submission. The owner then superseded that hold and activated immediate execution
-> in the current session with substantive health checks about every 30 minutes.
+> P3 and named seal `1473ef67d9dc2949c49360b6826d0f30585f416f`. Activated LiDAR
+> completed four healthy epochs but reproducibly produced an all-nonfinite TransFusion
+> prediction batch at the epoch-5 boundary; checkpoint weights/Adam state and raw
+> point/GTDB payloads are finite. The owner has now cancelled the serial L->C
+> dependency. Section 7.4.7 materializes a pending parallel amendment: unchanged
+> Camera may overlap one zero-update LiDAR epoch-4 diagnostic, maximum two jobs/
+> three typed GH200s, with the same 30.0-hour aggregate ceiling. It adds one disclosed,
+> non-selectable epoch-4 `D_select` peek and therefore requires independent review
+> plus explicit activation before compute. No job is currently active.
 > Staged fusion, merge, push, upload, publication and S11+ remain unauthorized.
 
 ## 1. Current objective and sequencing

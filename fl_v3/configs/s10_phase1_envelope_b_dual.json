@@ -1,21 +1,34 @@
 {
-  "schema_version": "s10.phase1.envelope_b_dual.v1",
-  "request_state": "frozen_owner_activation_required",
+  "schema_version": "s10.phase1.envelope_b_dual.v2",
+  "request_state": "parallel_amendment_owner_activation_required",
   "freeze_anchor_sha": "783173d6fe052d22514209fd4af69adfa31dbe9a",
+  "parallel_amendment_parent_sha": "e637f61a442b5cfda223970a1de466cd8d891738",
   "branch": "codex/s10-phase1p-throughput-preflight",
   "unique_base_sha": "f1a2babda8dafd181b5a5144ab025a3f6be21cc2",
   "frozen_control": {
     "branch": "codex/s10-phase1-branch-qualification",
     "sha": "f1a2babda8dafd181b5a5144ab025a3f6be21cc2"
   },
-  "objective": "independent_lidar_then_camera_phase1_branch_qualification",
+  "objective": "independent_parallel_camera_qualification_and_lidar_numerical_recovery",
   "candidate_count": 2,
-  "serial_order": ["lidar", "camera"],
+  "execution_topology": {
+    "mode": "independent_camera_lidar_parallel",
+    "runnable_units": [
+      "camera_primary",
+      "lidar_epoch04_diagnostic_or_lidar_primary"
+    ],
+    "per_branch_max_concurrency": 1,
+    "max_concurrent_jobs": 2,
+    "max_concurrent_typed_gh200": 3,
+    "camera_blocked_by_lidar_terminal": false
+  },
   "seed_policy": [0],
   "data_contract": {
     "training_role": "D_fit",
     "terminal_evaluation_role": "D_select",
     "terminal_evaluations_per_candidate": 1,
+    "lidar_epoch04_diagnostic_D_select_executions": 1,
+    "lidar_epoch04_diagnostic_D_select_policy": "disclosed_nonselectable_no_early_stop_terminal_epoch20_execution_still_reserved",
     "forbidden_roles": ["D_audit", "official_validation"],
     "split_sha256": "7e84a1d4f4a099c31a1d5194f17ba77d278fdc92f52462e72517b494dc5223a8",
     "cbgs_expanded_per_epoch": 87930,
@@ -31,7 +44,7 @@
   "entries": {
     "launcher": {
       "path": "fl_v3/scripts/run_s10_phase1_envelope_b.sh",
-      "sha256": "c011bfa3dc31aad6db9577efa696f3d9109c0b2d93586d2105ed7bd41af7ec2e"
+      "sha256": "7830bc7b0aeb4809b523da90a9c79a860a43f5c599e74754c4ffc20c044c72a2"
     },
     "lidar": {
       "path": "fl_v3/scripts/s10_phase1_capability.py",
@@ -40,6 +53,14 @@
     "camera": {
       "path": "fl_v3/scripts/s10_phase1_camera_ddp.py",
       "sha256": "4b91e81c5060bec0108b99abaa6b29e6df4d4def0d04f45e54a4b20df830162e"
+    },
+    "lidar_epoch04_diagnostic_launcher": {
+      "path": "fl_v3/scripts/run_s10_phase1_lidar_epoch4_diagnostic.sh",
+      "sha256": "8da36ebb0047617f0a68f3cb8cd6ef493f327b30e7318cf8505347a9c001421a"
+    },
+    "lidar_epoch04_diagnostic": {
+      "path": "fl_v3/scripts/s10_phase1_lidar_epoch4_diagnostic.py",
+      "sha256": "efa6ac37a618481df14556657899c028f4a6cd4104b470e2646f14b3e1ff40cd"
     }
   },
   "branches": {
@@ -90,13 +111,61 @@
       }
     }
   },
+  "diagnostics": {
+    "lidar_epoch04": {
+      "checkpoint_path": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_dual_783173d6fe05/phase1_lidar_primary/epochs/epoch_04/checkpoint.pt",
+      "checkpoint_sha256": "d01b6219533e3a4c38fdd7be7727020accc4a8664951f5483cfeaeebba91c940",
+      "epoch_record_path": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_dual_783173d6fe05/phase1_lidar_primary/epochs/epoch_04/epoch_record.json",
+      "epoch_record_sha256": "98c7d9193145286fb9983a627d23b7e008f889f229cce911412fd5d4185b76da",
+      "output_dir": "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_dual_783173d6fe05/diagnostics/lidar_epoch04_diagnostic_v1",
+      "optimizer_updates": 0,
+      "backward": false,
+      "D_select": {
+        "executions": 1,
+        "checkpoint_epoch": 4,
+        "selectable": false,
+        "early_stopping": false,
+        "raw_head_nonfinite_policy": "fail_closed_before_decode",
+        "terminal_epoch20_execution_still_reserved": true
+      },
+      "ordered_cells": [
+        "epoch04_D_select_production_eval",
+        "production_compile_fp16",
+        "conditional_eager_reference_fp16",
+        "conditional_eager_reference_fp32",
+        "conditional_eager_sdpa_fp16_if_attention_first_bad"
+      ],
+      "resource": {
+        "account": "naiss2025-22-1113-gpu",
+        "partition": "gpu",
+        "nodes": 1,
+        "ntasks": 1,
+        "cpus_per_task": 16,
+        "memory_mib": 98304,
+        "gpu_type": "nvidia_gh200_120gb",
+        "gpus_per_node": 1,
+        "time_limit": "01:30:00",
+        "base_ceiling_gh200_hours": 1.25,
+        "engineering_bug_reserve_gh200_hours": 0.25,
+        "hard_ceiling_gh200_hours": 1.5,
+        "requeue": false
+      },
+      "automatic_recipe_promotion": false
+    }
+  },
   "aggregate_resource": {
-    "max_concurrency": 1,
-    "submission_policy": "serial_lidar_then_camera_no_numeric_engineering_retry_cap",
-    "projected_training_charged_gh200_hours": 23.423983,
-    "evaluation_preflight_recovery_reserve_gh200_hours": 1.2,
-    "contingency_fraction": 0.15,
-    "computed_need_gh200_hours": 28.31758,
+    "max_concurrency": 2,
+    "per_branch_max_concurrency": 1,
+    "submission_policy": "camera_and_one_lidar_unit_may_overlap_no_duplicate_scientific_candidate",
+    "original_projected_training_charged_gh200_hours": 23.423983,
+    "original_evaluation_preflight_recovery_reserve_gh200_hours": 1.2,
+    "original_contingency_fraction": 0.15,
+    "original_computed_need_gh200_hours": 28.31758,
+    "consumed_through_lidar_science_stop_gh200_hours": 2.121944,
+    "remaining_authority_at_parallel_amendment_gh200_hours": 27.878056,
+    "camera_initial_job_maximum_gh200_hours": 18.0,
+    "lidar_epoch04_diagnostic_maximum_gh200_hours": 1.5,
+    "remaining_if_both_parallel_jobs_hit_maximum_gh200_hours": 8.378056,
     "hard_ceiling_gh200_hours": 30.0,
     "unused_authority_expires_at_envelope_close": true
   },
@@ -112,7 +181,7 @@
   "review_gate": {
     "independent_recipe_freeze_review_required": true,
     "open_p0_p2_allowed": false,
-    "status": "external_review_record_required"
+    "status": "parallel_amendment_independent_review_pending"
   },
   "activation": {
     "owner_must_name_review_sealed_commit": true,
