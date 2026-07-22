@@ -51,8 +51,8 @@ combined batched-rotation candidate implemented at
 
 After LiDAR IP-L-E3 also closed positive, source
 `cb2fc279b0c5e4b686525bed9da10f3ec6ad070f` materialized the new dual manifest,
-common output root, final Camera/LiDAR config hashes and fail-closed per-branch
-launcher/resource binding. `RUN_REQUEST.md` Section 7.4 is now the only candidate
+common output root, final Camera/LiDAR config hashes and fail-closed critical
+allocated-shape binding. `RUN_REQUEST.md` Section 7.4 is now the only candidate
 for a future Envelope-B activation. It is not executable until an independent
 recipe-freeze review closes with no open P0-P2 and the owner separately names and
 activates the review-sealed commit.
@@ -1066,8 +1066,10 @@ B16/rank x accumulation one; its config file/resolved hashes are
 `89a4d998...50014` / `63f77459...2d1b3`. LiDAR is world-size one, B32 x
 accumulation one; its config file/resolved hashes are `017086bb...a15d9` /
 `c950d90d...8b1ad`. The manifest hash is `4d83f074...f79afd`; it also binds
-the launcher and both production entry hashes and makes all runtime resource/config/
-output mismatches fail before dispatch.
+the launcher and both production entry hashes. Config/output plus allocated account,
+partition, node/task, CPU, memory and GPU-count mismatches fail before dispatch;
+wall limit, no-requeue and aggregate charge remain bound by the exact `sbatch`
+command and compact ledger rather than claimed as launcher-validated fields.
 
 The final sustained projections are `8.261479` LiDAR wall/charged hours and
 `7.581252` Camera wall hours / `15.162504` charged hours. Adding `1.2` charged

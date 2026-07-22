@@ -188,14 +188,15 @@ P1_G0: CLOSED
 CANDIDATES_AND_MAX_COUNT: exact Camera ImageNet primary + exact LiDAR scratch primary; max 2
 DATA: D_fit train; D_select terminal development assessment; D_audit owner-sealed
 SEED_POLICY: seed 0
-EXPOSURE: 20 exact-CBGS epochs; physical B4; accumulation 8; effective B32
+EXPOSURE: 20 exact-CBGS epochs; effective global B32; revised branch-specific
+          physical batch/topology is bound by Section 7.4
 CHECKPOINT_SELECTION: epoch-20 terminal only
 WORKFLOW: 5 WPs + 3 owner gates + 2 approval envelopes
 CAMERA_POOLING: O-150 PyTorch sorted segment-reduce production backend; CUDA option
                 retained unpromoted; WP2/WP4 parity/policy evidence retained
-EXECUTION_AUTHORITY: Envelope A consumed under O-146/O-147/O-148;
-                     Phase I-P IP-E1 active under Section 8; the old 49.0-hour
-                     Envelope-B request remains NOT EXECUTABLE
+EXECUTION_AUTHORITY: Envelope A and every Phase I-P profiler envelope are consumed;
+                     revised Section 7.4 is review/owner-gated and NOT EXECUTABLE;
+                     the old 49.0-hour request is historical control only
 ```
 
 The complete graph, optimizer/scheduler, augmentation, role-bound GT-paste,
@@ -658,7 +659,7 @@ Immutable manifest, recipe and entry identities:
 | dual manifest `fl_v3/configs/s10_phase1_envelope_b_dual.json` | `4d83f0741d5b77d476b1e3cdd5ef10b7330b4564af271f3b2bb50ac6c1f79afd` | binds order, roots, resources and all entries |
 | LiDAR config `fl_v3/configs/s10_phase1_lidar.json` | `017086bbd9a9534adf2808461da9cf881d9ef798ef3f3d7c58d3a07b2c7a15d9` | `c950d90db0833ecf5f50ddcc2f10671e4abf7a9f2b1edd640425eb52b888b1ad` |
 | Camera config `fl_v3/configs/s10_phase1_camera.json` | `89a4d9982583dc213e110fcec9469be04e9b4ccf3cefb9a2ca97b294e7650014` | `63f77459fcb229155a0b1a6608d83abf3c55336d554c20f7629d57ed7122d1b3` |
-| launcher `fl_v3/scripts/run_s10_phase1_envelope_b.sh` | `1daad38dba352664b1072d97774e2f24b5ed30c52a01c75b3f36752b33c4dd99` | validates manifest/config/entry/output/Slurm identities before dispatch |
+| launcher `fl_v3/scripts/run_s10_phase1_envelope_b.sh` | `1daad38dba352664b1072d97774e2f24b5ed30c52a01c75b3f36752b33c4dd99` | validates manifest/config/entry/output plus allocated account/partition/node/task/CPU/memory/GPU-count identities before dispatch |
 | LiDAR entry `fl_v3/scripts/s10_phase1_capability.py` | `4c93348330ee02b56a9fc282e991f391c2f986a9dbab7b704bd2195a5f79ec55` | single-GPU production entry |
 | Camera entry `fl_v3/scripts/s10_phase1_camera_ddp.py` | `4b91e81c5060bec0108b99abaa6b29e6df4d4def0d04f45e54a4b20df830162e` | two-rank production DDP entry |
 
