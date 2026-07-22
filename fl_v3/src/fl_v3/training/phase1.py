@@ -324,5 +324,5 @@ def build_phase1_training_stack(
     )
     from fl_v3.training.phase1_runtime import apply_phase1_runtime_optimizations
 
-    apply_phase1_runtime_optimizations(model, config)
+    apply_phase1_runtime_optimizations(model, config, criterion=criterion)
     return model, criterion, optimizer, scheduler, scaler

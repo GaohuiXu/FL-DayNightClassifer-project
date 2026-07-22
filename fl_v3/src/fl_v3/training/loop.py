@@ -787,7 +787,7 @@ def train_one_epoch(
     ``distributed_boolean_and`` is a default-off DDP safety hook: every rank
     supplies its local finite/accepted decision and receives the global logical
     AND before taking the corresponding control-flow branch.
-    ``cpu_resident_batch_fields`` is default-off profiler plumbing for named
+    ``cpu_resident_batch_fields`` is default-off runtime plumbing for named
     top-level dictionary fields consumed by host-side preprocessing."""
     if accumulation_steps < 1:
         raise ValueError("accumulation_steps must be >= 1")

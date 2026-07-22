@@ -40,7 +40,7 @@ from fl_v3.eval.subset_detection_eval import (
 )
 from fl_v3.models.phase1_swin import sha256_file, tensor_state_sha256
 from fl_v3.training.checkpoint import load_checkpoint, save_checkpoint
-from fl_v3.training.loop import _float_tensors, _move_to_device, train_one_epoch
+from fl_v3.training.loop import _float_tensors, _unpack_batch, train_one_epoch
 from fl_v3.training.phase1 import build_phase1_training_stack
 from fl_v3.training.phase1_runtime import phase1_runtime_optimization_identity
 from fl_v3.training.runtime_state import TrainingState
@@ -176,6 +176,15 @@ def _build_components(config, branch: str, device: torch.device):
     return build_phase1_training_stack(config, device)
 
 
+def _cpu_resident_batch_fields(config) -> tuple[str, ...]:
+    fields = (
+        config.as_dict()
+        .get("runtime_optimizations", {})
+        .get("cpu_resident_batch_fields", [])
+    )
+    return tuple(str(field) for field in fields)
+
+
 def _decoded_schema(decoded: list[Mapping[str, torch.Tensor]], batch_size: int) -> dict[str, Any]:
     _require(len(decoded) == batch_size, "preflight decode batch length drift")
     counts: list[int] = []
@@ -237,7 +246,11 @@ def _preflight(
             "preflight batch differs from the configured physical batch",
         )
         tokens = list(batch["sample_token"])
-        moved = _move_to_device(batch, device)
+        moved, _ = _unpack_batch(
+            batch,
+            device,
+            cpu_resident_batch_fields=_cpu_resident_batch_fields(config),
+        )
         model.train()
         with precision_autocast_context("fp16", device):
             output = model(moved)
@@ -719,6 +732,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
                 expected_global_microbatch_samples=int(raw["training"]["micro_batch_size"]),
                 precision_diagnostics=None,
                 readiness_timing=False,
+                cpu_resident_batch_fields=_cpu_resident_batch_fields(config),
             )
             elapsed = time.perf_counter() - started
             state.epoch = epoch_index + 1

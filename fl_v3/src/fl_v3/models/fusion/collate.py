@@ -4,7 +4,9 @@ Stacks the fixed-shape per-camera tensors ``[B,6,…]`` and the per-keyframe ``[
 calibration; when LiDAR is enabled, **concatenates points with a leading batch-index
 column**. Single-sweep rows are ``(batch_idx,x,y,z,intensity,ring)`` and multi-sweep
 rows append ``dt``. Camera-only batches contain no LiDAR payload and LiDAR-only
-batches contain no image payload. Ragged per-box GT remains in per-sample lists.
+batches contain no image payload. It also records CPU ``lidar_point_offsets`` from
+the already-known per-sample lengths for the promoted sparse front end. Ragged
+per-box GT remains in per-sample lists.
 The operation is RNG-free and preserves dataset order.
 
 > **Declared contract (T2↔T3):** LiDAR points are the **batch-index-column** form, NOT a
@@ -63,13 +65,22 @@ def detection_collate_fn(batch: List[dict]) -> dict:
         if any("lidar_points" not in sample for sample in batch):
             raise KeyError(f"{mode} batch is missing enabled LiDAR payload")
         pts_list = []
+        point_counts = []
         for b, s in enumerate(batch):
             p = s["lidar_points"]
+            point_counts.append(int(p.shape[0]))
             bcol = torch.full((p.shape[0], 1), float(b), dtype=p.dtype)
             pts_list.append(torch.cat([bcol, p], dim=1))
         width = batch[0]["lidar_points"].shape[1] if batch else 5
         out["lidar_points"] = (
             torch.cat(pts_list, dim=0) if pts_list else torch.zeros((0, 1 + width))
+        )
+        # The promoted LiDAR runtime consumes these CPU offsets before sparse
+        # tensor construction. Building them from the collator's already-known
+        # per-sample lengths avoids scanning/synchronizing the concatenated tensor.
+        counts = torch.tensor(point_counts, dtype=torch.int64)
+        out["lidar_point_offsets"] = torch.cat(
+            (torch.zeros((1,), dtype=torch.int64), counts.cumsum(dim=0))
         )
     elif any("lidar_points" in sample for sample in batch):
         raise ValueError("camera_only sample unexpectedly contains LiDAR payload")

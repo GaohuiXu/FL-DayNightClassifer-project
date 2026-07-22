@@ -55,6 +55,12 @@ HISTORICAL_CAMERA_FILE_SHA256 = (
 HISTORICAL_CAMERA_RESOLVED_SHA256 = (
     "e95e65a63a32c494296b38baf98fd913ff1ec6a168b78aabac48a8dc8f0ffe1d"
 )
+HISTORICAL_LIDAR_FILE_SHA256 = (
+    "c7e1fa26e1714a31c5998296cb95cbab5e8732d4bf2f06da81fd6d631c574bfc"
+)
+HISTORICAL_LIDAR_RESOLVED_SHA256 = (
+    "0efe4d6d5138e3d99ae80254a6ecf884300dd18985ab45a00425228fc3ef082e"
+)
 
 
 def _raw() -> dict:
@@ -81,6 +87,24 @@ def _historical_camera_config():
     raw.pop("runtime_optimizations")
     config = resolve_config(raw)
     assert config.sha256 == HISTORICAL_CAMERA_RESOLVED_SHA256
+    return config
+
+
+def _historical_lidar_config():
+    """Reconstruct the immutable B4 LiDAR graph bound by terminal profiles."""
+    raw = json.loads(LIDAR.read_text(encoding="utf-8"))
+    raw["schema_version"] = "s10.phase1.v2"
+    raw["contract"].pop("throughput_decision")
+    raw["contract"].pop("throughput_evidence_commit")
+    raw["training"].update(
+        micro_batch_size=4,
+        world_size=1,
+        accumulation_steps=8,
+        loss_accumulation="mean_over_eight_microbatches",
+    )
+    raw.pop("runtime_optimizations")
+    config = resolve_config(raw)
+    assert config.sha256 == HISTORICAL_LIDAR_RESOLVED_SHA256
     return config
 
 
@@ -142,6 +166,13 @@ def _assert_historical_camera_binding(profile) -> None:
     assert binding["resolved_config_sha256"] == HISTORICAL_CAMERA_RESOLVED_SHA256
 
 
+def _assert_historical_lidar_binding(profile) -> None:
+    binding = profile.data["branch_bindings"]["lidar"]
+    assert binding["config_path"] == "fl_v3/configs/s10_phase1_lidar.json"
+    assert binding["config_file_sha256"] == HISTORICAL_LIDAR_FILE_SHA256
+    assert binding["resolved_config_sha256"] == HISTORICAL_LIDAR_RESOLVED_SHA256
+
+
 def _assert_pre_ip_e4_camera_binding(profile) -> None:
     binding = profile.data["branch_bindings"]["camera"]
     assert binding["config_path"] == "fl_v3/configs/s10_phase1_camera.json"
@@ -184,7 +215,9 @@ def test_ip_e1_profile_binds_both_frozen_configs_and_every_candidate_off():
     _assert_historical_camera_binding(profile)
     with pytest.raises(Phase1ProfileError, match="source config file identity drift"):
         profile.assert_branch_binding("camera", CAMERA, load_resolved_config(CAMERA))
-    profile.assert_branch_binding("lidar", LIDAR, load_resolved_config(LIDAR))
+    _assert_historical_lidar_binding(profile)
+    with pytest.raises(Phase1ProfileError, match="source config file identity drift"):
+        profile.assert_branch_binding("lidar", LIDAR, load_resolved_config(LIDAR))
     assert json.loads(profile.canonical_bytes) == profile.as_dict()
 
 
@@ -374,7 +407,7 @@ def test_ip_e5_profiles_bind_final_camera_recipe():
 def test_lidar_e1_profiles_are_clean_capacity_and_trace_mappings():
     assert len(LIDAR_E1_PROFILES) == len(LIDAR_E1_RUNNABLE_CANDIDATES) == 4
     source_bytes = LIDAR.read_bytes()
-    source = load_resolved_config(LIDAR)
+    source = _historical_lidar_config()
     expected = {
         "lidar_reference_b4_accum8": (4, 8),
         "lidar_reference_b8_accum4": (8, 4),
@@ -390,7 +423,7 @@ def test_lidar_e1_profiles_are_clean_capacity_and_trace_mappings():
         profile.assert_runnable("lidar")
         with pytest.raises(Phase1ProfileError, match="not runnable"):
             profile.assert_runnable("camera")
-        profile.assert_branch_binding("lidar", LIDAR, source)
+        _assert_historical_lidar_binding(profile)
         profile.assert_branch_binding("camera", CAMERA, load_resolved_config(CAMERA))
         assert dict(profile.candidates) == LIDAR_E1_RUNNABLE_CANDIDATES[
             candidate_id
@@ -415,7 +448,7 @@ def test_lidar_e1_profiles_are_clean_capacity_and_trace_mappings():
 def test_lidar_e2_profiles_are_isolated_b32_mappings():
     assert len(LIDAR_E2_PROFILES) == len(LIDAR_E2_RUNNABLE_CANDIDATES) == 6
     source_bytes = LIDAR.read_bytes()
-    source = load_resolved_config(LIDAR)
+    source = _historical_lidar_config()
     seen = set()
     for path in LIDAR_E2_PROFILES:
         profile = load_phase1_profile_spec(path)
@@ -426,7 +459,7 @@ def test_lidar_e2_profiles_are_isolated_b32_mappings():
         profile.assert_runnable("lidar")
         with pytest.raises(Phase1ProfileError, match="not runnable"):
             profile.assert_runnable("camera")
-        profile.assert_branch_binding("lidar", LIDAR, source)
+        _assert_historical_lidar_binding(profile)
         assert dict(profile.candidates) == LIDAR_E2_RUNNABLE_CANDIDATES[
             candidate_id
         ]["options"]
@@ -443,7 +476,7 @@ def test_lidar_e2_profiles_are_isolated_b32_mappings():
 def test_lidar_e3_profiles_freeze_exact_lg2_combination():
     assert len(LIDAR_E3_PROFILES) == len(LIDAR_E3_RUNNABLE_CANDIDATES) == 2
     source_bytes = LIDAR.read_bytes()
-    source = load_resolved_config(LIDAR)
+    source = _historical_lidar_config()
     seen = set()
     for path in LIDAR_E3_PROFILES:
         profile = load_phase1_profile_spec(path)
@@ -453,7 +486,7 @@ def test_lidar_e3_profiles_freeze_exact_lg2_combination():
         profile.assert_runnable("lidar")
         with pytest.raises(Phase1ProfileError, match="not runnable"):
             profile.assert_runnable("camera")
-        profile.assert_branch_binding("lidar", LIDAR, source)
+        _assert_historical_lidar_binding(profile)
         assert dict(profile.candidates) == LIDAR_E3_RUNNABLE_CANDIDATES[
             candidate_id
         ]["options"]
@@ -498,6 +531,21 @@ def test_lidar_e2_candidate_configuration_is_fail_closed(monkeypatch):
 
         def set_phase1p_lidar_host_batch_offsets(self, value):
             self.host_offsets = bool(value)
+
+        def set_phase1p_lidar_sdpa(self, value):
+            self.lidar_sdpa = bool(value)
+            return 2 if self.lidar_sdpa else 0
+
+        def phase1p_lidar_sdpa_identity(self):
+            return {
+                "module_names": ["decoder.cross_attn", "decoder.self_attn"],
+                "dropout_probabilities": [0.1, 0.1],
+                "enabled": bool(getattr(self, "lidar_sdpa", False)),
+                "training_rng_contract": (
+                    "dropout probability is unchanged; SDPA and reference kernels "
+                    "may consume Philox RNG differently for the same seed"
+                ),
+            }
 
         def set_phase1p_lidar_sdpa(self, value):
             self.sdpa = bool(value)
@@ -1168,6 +1216,80 @@ def test_promoted_camera_runtime_stack_applies_exact_profiled_scope(monkeypatch)
     ] * 5
     with pytest.raises(RuntimeError, match="more than once"):
         apply_phase1_runtime_optimizations(model, load_resolved_config(CAMERA))
+
+
+def test_promoted_lidar_runtime_stack_applies_exact_profiled_scope(monkeypatch):
+    from fl_v3.training.phase1_runtime import apply_phase1_runtime_optimizations
+
+    compiled = []
+
+    def fake_compile(fn, **kwargs):
+        compiled.append(kwargs)
+        return fn
+
+    monkeypatch.setattr(torch, "compile", fake_compile)
+
+    class Criterion(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.batched_hungarian = False
+
+        def set_phase1p_hungarian_batched_d2h(self, value):
+            self.batched_hungarian = bool(value)
+
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.host_offsets = False
+            for name in ("decoder_backbone", "decoder_neck", "head"):
+                setattr(self, name, torch.nn.Linear(2, 2))
+
+        def set_phase1p_lidar_host_batch_offsets(self, value):
+            self.host_offsets = bool(value)
+
+    model = Model()
+    criterion = Criterion()
+    before = tuple(model.state_dict())
+    record = apply_phase1_runtime_optimizations(
+        model,
+        load_resolved_config(LIDAR),
+        criterion=criterion,
+    )
+    assert tuple(model.state_dict()) == before
+    assert model.host_offsets is True
+    assert criterion.batched_hungarian is True
+    assert record["lidar_host_batch_offsets"] is True
+    assert record["hungarian_batched_d2h"] is True
+    assert record["lidar_sdpa"] is False
+    assert record["lidar_sdpa_identity"]["enabled"] is False
+    assert record["fused_adamw"] is False
+    assert record["cpu_resident_batch_fields"] == ["lidar_point_offsets"]
+    assert record["batch_norm"] == "ordinary_physical_b32"
+    assert record["worker_seed_formula"] == "seed_plus_epoch"
+    assert record["compiled_forward_modules"] == [
+        "decoder_backbone",
+        "decoder_neck",
+        "head",
+    ]
+    assert compiled == [
+        {"backend": "inductor", "dynamic": False, "mode": "default"}
+    ] * 3
+
+
+def test_production_collator_emits_exact_cpu_lidar_point_offsets():
+    from _det_fixtures import fake_detection_sample
+    from fl_v3.models.fusion.collate import detection_collate_fn
+
+    samples = [fake_detection_sample(31), fake_detection_sample(32)]
+    counts = [int(sample["lidar_points"].shape[0]) for sample in samples]
+    batch = detection_collate_fn(samples)
+    assert batch["lidar_point_offsets"].device.type == "cpu"
+    assert batch["lidar_point_offsets"].dtype == torch.int64
+    assert batch["lidar_point_offsets"].tolist() == [
+        0,
+        counts[0],
+        counts[0] + counts[1],
+    ]
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires the IP-E2 GH200")

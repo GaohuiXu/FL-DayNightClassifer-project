@@ -20,11 +20,18 @@ PHASE1_SCHEMA = "s10.phase1.v1"
 PHASE1_SCHEMA_V2 = "s10.phase1.v2"
 PHASE1_SCHEMA_V3 = "s10.phase1.v3"
 PHASE1_SCHEMA_V4 = "s10.phase1.v4"
+PHASE1_SCHEMA_V5 = "s10.phase1.v5"
 PHASE1_SCHEMAS = frozenset(
-    {PHASE1_SCHEMA, PHASE1_SCHEMA_V2, PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4}
+    {
+        PHASE1_SCHEMA,
+        PHASE1_SCHEMA_V2,
+        PHASE1_SCHEMA_V3,
+        PHASE1_SCHEMA_V4,
+        PHASE1_SCHEMA_V5,
+    }
 )
 PHASE1_ENVELOPE_B_SCHEMAS = frozenset(
-    {PHASE1_SCHEMA_V2, PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4}
+    {PHASE1_SCHEMA_V2, PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4, PHASE1_SCHEMA_V5}
 )
 PHASE1_PLAN_SHA = "260750a76548208f62c384b0e0547744b619244c"
 PHASE1_REQUEST_COMMIT = "e321aed749fd859c809199d52c30b2771dbef8b3"
@@ -32,11 +39,18 @@ PHASE1_O150_AMENDMENT_COMMIT = "2a26c63b61022e2947043a9ffd0538d537c51fb9"
 PHASE1_IP_G2_EVIDENCE_COMMIT = "6ec7fb6d067259ac61ecaed89481e7e2562c3a2d"
 PHASE1_IP_E4_EVIDENCE_COMMIT = "48fa78a60b3308c407fbc16b64dde188216f87e4"
 PHASE1_IP_E5_EVIDENCE_COMMIT = "5da03ffdaa29614b0bcfc5c85ace93f70acfac6a"
+PHASE1_IP_L_E3_EVIDENCE_COMMIT = "814a6a1ca12b16059ede9a52952f155ddafe1470"
 MIT_BEVFUSION_COMMIT = "326653dc06e0938edf1aae7d01efcd158ba83de5"
 
 CAMERA_COMPILE_FORWARD_MODULES = (
     "camera_backbone",
     "camera_neck",
+    "decoder_backbone",
+    "decoder_neck",
+    "head",
+)
+
+LIDAR_COMPILE_FORWARD_MODULES = (
     "decoder_backbone",
     "decoder_neck",
     "head",
@@ -439,7 +453,7 @@ def _validate_contract(raw: Any, schema_version: str) -> tuple[dict[str, Any], s
     }
     if schema_version in PHASE1_ENVELOPE_B_SCHEMAS:
         keys.update({"amendment_decision", "amendment_commit"})
-    if schema_version in {PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4}:
+    if schema_version in {PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4, PHASE1_SCHEMA_V5}:
         keys.update({"throughput_decision", "throughput_evidence_commit"})
     contract = _keys(
         raw,
@@ -476,6 +490,14 @@ def _validate_contract(raw: Any, schema_version: str) -> tuple[dict[str, Any], s
         _same(
             contract["throughput_evidence_commit"],
             evidence_commits[decision],
+            "contract.throughput_evidence_commit",
+        )
+    elif schema_version == PHASE1_SCHEMA_V5:
+        _same(branch, "lidar", "contract.branch")
+        _same(contract["throughput_decision"], "IP-L-E3", "contract.throughput_decision")
+        _same(
+            contract["throughput_evidence_commit"],
+            PHASE1_IP_L_E3_EVIDENCE_COMMIT,
             "contract.throughput_evidence_commit",
         )
     _same(contract["reference_repository"], "mit-han-lab/bevfusion", "contract.reference_repository")
@@ -684,15 +706,24 @@ def _validate_training(raw: Any, branch: str, schema_version: str) -> None:
         PHASE1_SCHEMA_V4,
     }
     distributed_camera = branch == "camera" and schema_version == PHASE1_SCHEMA_V4
+    promoted_lidar = branch == "lidar" and schema_version == PHASE1_SCHEMA_V5
     expected = {
         "epochs": 20,
-        "micro_batch_size": 16 if promoted_camera else 4,
+        "micro_batch_size": 32 if promoted_lidar else 16 if promoted_camera else 4,
         "world_size": 2 if distributed_camera else 1,
-        "accumulation_steps": 1 if distributed_camera else 2 if promoted_camera else 8,
+        "accumulation_steps": (
+            1
+            if distributed_camera or promoted_lidar
+            else 2
+            if promoted_camera
+            else 8
+        ),
         "effective_global_batch": 32,
         "loss_accumulation": (
             "ddp_mean_over_one_microbatch_per_rank"
             if distributed_camera
+            else "mean_over_one_microbatch"
+            if promoted_lidar
             else "mean_over_two_microbatches"
             if promoted_camera
             else "mean_over_eight_microbatches"
@@ -719,9 +750,72 @@ def _validate_runtime_optimizations(
     schema_version: str,
     throughput_decision: str,
 ) -> None:
+    if schema_version == PHASE1_SCHEMA_V5:
+        _same(branch, "lidar", "contract.branch")
+        _same(throughput_decision, "IP-L-E3", "contract.throughput_decision")
+        runtime = _keys(
+            raw,
+            {
+                "lidar_host_batch_offsets",
+                "hungarian_batched_d2h",
+                "lidar_sdpa",
+                "torch_compile",
+                "cpu_resident_batch_fields",
+                "batch_norm",
+                "worker_seed_formula",
+                "state_dict_names_unchanged_required",
+            },
+            "runtime_optimizations",
+        )
+        _same(
+            runtime["lidar_host_batch_offsets"],
+            True,
+            "runtime_optimizations.lidar_host_batch_offsets",
+        )
+        _same(
+            runtime["hungarian_batched_d2h"],
+            True,
+            "runtime_optimizations.hungarian_batched_d2h",
+        )
+        _same(runtime["lidar_sdpa"], False, "runtime_optimizations.lidar_sdpa")
+        _same(
+            runtime["cpu_resident_batch_fields"],
+            ["lidar_point_offsets"],
+            "runtime_optimizations.cpu_resident_batch_fields",
+        )
+        _same(
+            runtime["batch_norm"],
+            "ordinary_physical_b32",
+            "runtime_optimizations.batch_norm",
+        )
+        _same(
+            runtime["worker_seed_formula"],
+            "seed_plus_epoch",
+            "runtime_optimizations.worker_seed_formula",
+        )
+        _same(
+            runtime["state_dict_names_unchanged_required"],
+            True,
+            "runtime_optimizations.state_dict_names_unchanged_required",
+        )
+        compile_spec = _keys(
+            runtime["torch_compile"],
+            {"enabled", "scope", "backend", "dynamic", "mode", "modules"},
+            "runtime_optimizations.torch_compile",
+        )
+        expected_compile = {
+            "enabled": True,
+            "scope": "forward_only",
+            "backend": "inductor",
+            "dynamic": False,
+            "mode": "default",
+            "modules": list(LIDAR_COMPILE_FORWARD_MODULES),
+        }
+        _same(compile_spec, expected_compile, "runtime_optimizations.torch_compile")
+        return
     if schema_version not in {PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4} or branch != "camera":
         raise Phase1ConfigError(
-            "runtime_optimizations is reserved for the promoted Camera recipe"
+            "runtime_optimizations requires a promoted Camera or LiDAR recipe"
         )
     runtime_keys = {
         "camera_sdpa",
@@ -1139,7 +1233,7 @@ def validate_phase1_config(raw: Mapping[str, Any]) -> dict[str, Any]:
         "optimizer", "scheduler", "training", "data", "augmentation", "sampling",
         "gt_paste", "evaluation", "checkpointing", "dependencies", "execution",
     }
-    if schema_version in {PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4}:
+    if schema_version in {PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4, PHASE1_SCHEMA_V5}:
         root_keys.add("runtime_optimizations")
     root = _keys(
         raw_config,
@@ -1191,7 +1285,7 @@ def validate_phase1_config(raw: Mapping[str, Any]) -> dict[str, Any]:
         root["optimizer"], root["scheduler"], branch, schema_version
     )
     _validate_training(root["training"], branch, schema_version)
-    if schema_version in {PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4}:
+    if schema_version in {PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4, PHASE1_SCHEMA_V5}:
         _validate_runtime_optimizations(
             root["runtime_optimizations"],
             branch,

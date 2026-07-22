@@ -1,5 +1,5 @@
 {
-  "schema_version": "s10.phase1.v2",
+  "schema_version": "s10.phase1.v5",
   "contract": {
     "candidate_id": "phase1_lidar_primary",
     "branch": "lidar",
@@ -7,6 +7,8 @@
     "request_commit": "e321aed749fd859c809199d52c30b2771dbef8b3",
     "amendment_decision": "O-150",
     "amendment_commit": "2a26c63b61022e2947043a9ffd0538d537c51fb9",
+    "throughput_decision": "IP-L-E3",
+    "throughput_evidence_commit": "814a6a1ca12b16059ede9a52952f155ddafe1470",
     "reference_repository": "mit-han-lab/bevfusion",
     "reference_commit": "326653dc06e0938edf1aae7d01efcd158ba83de5",
     "reference_license": "Apache-2.0",
@@ -77,11 +79,11 @@
   },
   "training": {
     "epochs": 20,
-    "micro_batch_size": 4,
+    "micro_batch_size": 32,
     "world_size": 1,
-    "accumulation_steps": 8,
+    "accumulation_steps": 1,
     "effective_global_batch": 32,
-    "loss_accumulation": "mean_over_eight_microbatches",
+    "loss_accumulation": "mean_over_one_microbatch",
     "num_workers": 8,
     "epoch_remainder_policy": "shuffle_then_drop_incomplete_effective_b32_window",
     "cbgs_samples_per_epoch": 87930,
@@ -94,6 +96,29 @@
     "activation_checkpoint": false,
     "telemetry_scalar_sync": false,
     "seed": 0
+  },
+  "runtime_optimizations": {
+    "lidar_host_batch_offsets": true,
+    "hungarian_batched_d2h": true,
+    "lidar_sdpa": false,
+    "torch_compile": {
+      "enabled": true,
+      "scope": "forward_only",
+      "backend": "inductor",
+      "dynamic": false,
+      "mode": "default",
+      "modules": [
+        "decoder_backbone",
+        "decoder_neck",
+        "head"
+      ]
+    },
+    "cpu_resident_batch_fields": [
+      "lidar_point_offsets"
+    ],
+    "batch_norm": "ordinary_physical_b32",
+    "worker_seed_formula": "seed_plus_epoch",
+    "state_dict_names_unchanged_required": true
   },
   "data": {
     "dataroot": "/dataset/easybuild/data/nuScenes-data/1.0-map-1.3-zip",

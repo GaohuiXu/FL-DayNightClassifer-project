@@ -11,8 +11,9 @@ import pytest
 from fl_v3.config import ConfigError, load_resolved_config, resolve_config
 from fl_v3.config.phase1 import (
     CAMERA_COMPILE_FORWARD_MODULES,
-    PHASE1_SCHEMA_V2,
+    LIDAR_COMPILE_FORWARD_MODULES,
     PHASE1_SCHEMA_V4,
+    PHASE1_SCHEMA_V5,
     phase1_runtime_ready,
 )
 from fl_v3.data.nuscenes.phase1 import build_phase1_eval_data
@@ -44,7 +45,7 @@ def test_phase1_recipes_expand_to_complete_hash_bound_reference_graphs():
     assert lidar.as_dict()["model"]["decoder"]["neck"]["output_channels"] == 512
     assert lidar.as_dict()["model"]["head"]["type"] == "TransFusionHead"
     assert camera.schema_version == PHASE1_SCHEMA_V4
-    assert lidar.schema_version == PHASE1_SCHEMA_V2
+    assert lidar.schema_version == PHASE1_SCHEMA_V5
     camera_pool = camera.as_dict()["model"]["view_transform"]
     assert camera_pool["pool_backend"] == "pytorch_sorted_segment_reduce"
     assert camera_pool["pool_optional_backend"] == "optimized_cuda_unpromoted"
@@ -126,6 +127,46 @@ def test_phase1_camera_ip_e5_recipe_is_exact_b16_per_rank_ddp2_stack():
     }
 
 
+def test_phase1_lidar_ip_l_e3_recipe_is_exact_b32_combined_stack():
+    resolved = load_resolved_config(LIDAR)
+    assert hashlib.sha256(LIDAR.read_bytes()).hexdigest() == (
+        "683af022c053fcfcd39bbc0de4cc2753a2ba20021990347c7b19e94c0ff4838d"
+    )
+    assert resolved.sha256 == (
+        "a03ad08070a4081dac818965264df4fe5d27a8b76a256920f3b088e862554bf6"
+    )
+    config = resolved.as_dict()
+    assert config["contract"]["throughput_decision"] == "IP-L-E3"
+    assert config["contract"]["throughput_evidence_commit"] == (
+        "814a6a1ca12b16059ede9a52952f155ddafe1470"
+    )
+    assert config["training"]["micro_batch_size"] == 32
+    assert config["training"]["world_size"] == 1
+    assert config["training"]["accumulation_steps"] == 1
+    assert config["training"]["effective_global_batch"] == 32
+    assert config["training"]["loss_accumulation"] == "mean_over_one_microbatch"
+    assert config["optimizer"]["fused"] is False
+    assert config["checkpointing"]["recovery_cadence_epochs"] == 1
+    runtime = config["runtime_optimizations"]
+    assert runtime == {
+        "lidar_host_batch_offsets": True,
+        "hungarian_batched_d2h": True,
+        "lidar_sdpa": False,
+        "torch_compile": {
+            "enabled": True,
+            "scope": "forward_only",
+            "backend": "inductor",
+            "dynamic": False,
+            "mode": "default",
+            "modules": list(LIDAR_COMPILE_FORWARD_MODULES),
+        },
+        "cpu_resident_batch_fields": ["lidar_point_offsets"],
+        "batch_norm": "ordinary_physical_b32",
+        "worker_seed_formula": "seed_plus_epoch",
+        "state_dict_names_unchanged_required": True,
+    }
+
+
 def test_phase1_run_bridge_carries_full_resolved_recipe_and_leaf_inventory():
     resolved = load_resolved_config(CAMERA)
     run = resolved.to_run_config()
@@ -168,6 +209,21 @@ def test_phase1_run_bridge_carries_full_resolved_recipe_and_leaf_inventory():
         (LIDAR, lambda c: c["data"].update(train_point_sweeps=10), "data.train_point_sweeps"),
         (LIDAR, lambda c: c["gt_paste"].update(yaw_jitter_radians=0.1), "gt_paste.yaw_jitter_radians"),
         (LIDAR, lambda c: c["sampling"].update(expanded_length=19877), "sampling"),
+        (LIDAR, lambda c: c["training"].update(micro_batch_size=16), "training"),
+        (
+            LIDAR,
+            lambda c: c["runtime_optimizations"].update(
+                hungarian_batched_d2h=False
+            ),
+            "hungarian_batched_d2h",
+        ),
+        (
+            LIDAR,
+            lambda c: c["runtime_optimizations"]["torch_compile"].update(
+                modules=["head"]
+            ),
+            "torch_compile",
+        ),
     ],
 )
 def test_phase1_schema_rejects_missing_or_drifted_science(path, mutation, message):

@@ -807,7 +807,7 @@ class Phase1TransFusionLoss(nn.Module):
         self._phase1p_hungarian_batched_d2h = False
 
     def set_phase1p_hungarian_batched_d2h(self, enabled: bool) -> None:
-        """Toggle the profiler-only batched target/Hungarian host plumbing."""
+        """Toggle the parity-qualified batched target/Hungarian host plumbing."""
         self._phase1p_hungarian_batched_d2h = bool(enabled)
 
     @contextmanager

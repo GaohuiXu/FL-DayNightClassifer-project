@@ -119,12 +119,18 @@ def decode_eval_set(model, eval_loader, device, run_config, timing: Optional[dic
     """
     thr = float(run_config.get("det-score-threshold", 0.1))
     model.eval()
-    from fl_v3.training.loop import _float_tensors, _move_to_device
+    from fl_v3.training.loop import _float_tensors, _unpack_batch
     from fl_v3.training.runtime_state import project_batch_for_mode
     from fl_v3.utils.runtime import normalize_precision, precision_autocast_context
 
     mode = str(run_config["model-mode"])
     precision = normalize_precision(str(run_config["precision"]))
+    cpu_resident_batch_fields = tuple(
+        str(field)
+        for field in run_config.get("phase1", {})
+        .get("runtime_optimizations", {})
+        .get("cpu_resident_batch_fields", [])
+    )
 
     out: List[SampleDecode] = []
     elapsed: list[float] = []
@@ -132,7 +138,11 @@ def decode_eval_set(model, eval_loader, device, run_config, timing: Optional[dic
     with mode_context:
         for batch in eval_loader:
             projected = project_batch_for_mode(batch, mode)
-            moved = _move_to_device(projected, device)
+            moved, _ = _unpack_batch(
+                projected,
+                device,
+                cpu_resident_batch_fields=cpu_resident_batch_fields,
+            )
             if timing is not None and device.type == "cuda":
                 torch.cuda.synchronize(device)
             started = time.perf_counter()
