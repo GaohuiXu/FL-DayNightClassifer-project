@@ -401,10 +401,11 @@ a scientifically failed model.
 O-146/O-147/O-148 consumed Envelope A for WP0-WP4, official ImageNet acquisition,
 D_fit CBGS/GTDB materialization, optimized-BEV-pooling build/parity/timing,
 material commits and bounded engineering calibration. Unused aggregate budget is
-   not continuing authority. The `30.0` charged-GH200-hour ceiling remains fixed;
-   `2.121944` hours were consumed before the LiDAR stop. Section 7.4.7's parallel
-   amendment is materialized but not executable until independent review and explicit
-   owner activation. The original `49.0`-hour B4 object is not an activation option.
+not continuing authority. The `30.0` charged-GH200-hour ceiling remains fixed;
+`2.121944` hours were consumed before the LiDAR stop. Section 7.4.7's parallel
+amendment passed independent review at `296ef9b...` with no open P0-P2 but is not
+executable until explicit owner activation. The original `49.0`-hour B4 object is
+not an activation option.
 
 ## 7. S11 and later
 
