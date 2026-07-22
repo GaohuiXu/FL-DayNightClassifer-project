@@ -1,10 +1,10 @@
 #!/bin/bash
-# Exact one-candidate S10 Phase-I Envelope-B launcher.
-# Camera uses the owner-promoted same-node 2xGH200 DDP recipe; LiDAR stays single-GPU.
+# Exact Camera candidate launcher for the parallel S10 Phase-I Envelope-B amendment.
+# LiDAR training/resume is intentionally absent until numerical diagnosis closes.
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 --branch {camera|lidar} --envelope PATH --config PATH --output-dir PATH --source-sha SHA [--resume]" >&2
+  echo "usage: $0 --branch camera --envelope PATH --config PATH --output-dir PATH --source-sha SHA [--resume]" >&2
   exit 2
 }
 
@@ -26,7 +26,7 @@ while (( $# )); do
   esac
 done
 
-[[ "${branch}" == "camera" || "${branch}" == "lidar" ]] || usage
+[[ "${branch}" == "camera" ]] || usage
 [[ -n "${envelope}" && -n "${config}" && -n "${output_dir}" ]] || usage
 [[ "${source_sha}" =~ ^[0-9a-f]{40}$ ]] || usage
 
@@ -121,6 +121,8 @@ require(spec["candidate_count"] == 2, "candidate count")
 topology = spec["execution_topology"]
 require(topology["mode"] == "independent_camera_lidar_parallel", "topology")
 require(topology["per_branch_max_concurrency"] == 1, "per-branch concurrency")
+require(topology["lidar_primary_training_or_resume_authorized"] is False, "LiDAR continuation")
+require(branch == "camera", "v2 production launcher is Camera-only")
 require(spec["seed_policy"] == [0], "seed policy")
 require(spec["aggregate_resource"]["max_concurrency"] == 2, "concurrency")
 require(spec["activation"]["source_grants_compute_authority"] is False, "authority")
@@ -198,12 +200,8 @@ arguments=(
 )
 if (( resume )); then arguments+=(--resume); fi
 cd "${source_root}"
-if [[ "${branch}" == "camera" ]]; then
-  export NCCL_DEBUG=WARN
-  export NCCL_ASYNC_ERROR_HANDLING=1
-  export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
-  exec python -m torch.distributed.run --standalone --nproc-per-node=2 \
-    --max-restarts=0 "${camera_entry}" "${arguments[@]}"
-fi
-export WORLD_SIZE=1
-exec python "${single_entry}" --branch lidar "${arguments[@]}"
+export NCCL_DEBUG=WARN
+export NCCL_ASYNC_ERROR_HANDLING=1
+export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
+exec python -m torch.distributed.run --standalone --nproc-per-node=2 \
+  --max-restarts=0 "${camera_entry}" "${arguments[@]}"

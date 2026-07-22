@@ -372,11 +372,12 @@ island, and emitted qualified config SHA-256
 `06e78e456793fe269c978b0e663da39e4ec3216523c54f996665bc1a6a952015`.
 These are engineering results, not capability. O-150 resolves Camera disposition;
 the later Phase I-P work promotes the final Camera/LiDAR throughput recipes. Revised
-Section 7.4 is now frozen at `30.0` charged GH200-hours. Independent review closed
-with no open P0-P2, and the owner accepted its P3 and serial execution object at
-seal `1473ef67...`. The later current-session amendment removes the submission hold
-and activates serial execution with 30-minute health monitoring. The original
-`49.0`-hour B4 tuple is historical control only.
+   Section 7.4 was frozen at `30.0` charged GH200-hours. Independent review closed
+   with no open P0-P2, and the owner accepted its P3 and serial execution object at
+   seal `1473ef67...`. That run stopped at LiDAR's epoch-5 numerical boundary. The
+   owner cancelled the serial dependency; Section 7.4.7's parallel Camera/LiDAR-
+   diagnostic amendment now awaits review and explicit activation. The original
+   `49.0`-hour B4 tuple and stopped serial topology are historical only.
 
 ### Phase II — staged fusion and capability
 
@@ -398,10 +399,10 @@ a scientifically failed model.
 O-146/O-147/O-148 consumed Envelope A for WP0-WP4, official ImageNet acquisition,
 D_fit CBGS/GTDB materialization, optimized-BEV-pooling build/parity/timing,
 material commits and bounded engineering calibration. Unused aggregate budget is
-not continuing authority. Revised Section 7.4 is frozen at a `30.0` charged-GH200-
-hour ceiling; independent review and owner acceptance are closed and current-
-session serial execution is active. The original `49.0`-hour B4 object is not an
-activation option.
+   not continuing authority. The `30.0` charged-GH200-hour ceiling remains fixed;
+   `2.121944` hours were consumed before the LiDAR stop. Section 7.4.7's parallel
+   amendment is materialized but not executable until independent review and explicit
+   owner activation. The original `49.0`-hour B4 object is not an activation option.
 
 ## 7. S11 and later
 

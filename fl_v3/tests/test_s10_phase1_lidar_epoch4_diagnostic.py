@@ -64,3 +64,16 @@ def test_batch_hash_is_stable_and_value_sensitive():
     right = {"x": torch.tensor([[1.0, 3.0]]), "tokens": ["a"]}
     assert module._batch_sha256(left) == module._batch_sha256(left)
     assert module._batch_sha256(left) != module._batch_sha256(right)
+
+
+def test_localization_is_durable_and_precedes_the_only_D_select_peek():
+    source = ENTRY.read_text(encoding="utf-8")
+    localization_complete = source.index('"complete.json"')
+    d_select_call = source.index("d_select_record = _evaluate_terminal(")
+    assert localization_complete < d_select_call
+    assert "return_intermediates=True" in source
+    assert '"diagnostic_scope.json"' in source
+    assert '"terminal_epoch20_execution_remains_reserved": True' in source
+    assert ".backward(" not in source
+    assert "optimizer.step(" not in source
+    assert "scheduler.step(" not in source

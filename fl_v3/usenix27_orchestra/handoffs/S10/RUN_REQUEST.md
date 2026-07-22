@@ -571,16 +571,19 @@ recipe-freeze review-only subagent；review 无 open P0-P2 后，按 Section 7 �
 最大并发 1 和 O-149 remediation 规则，串行执行 LiDAR 再 Camera；D_audit 仍封存。
 ```
 
-### 7.4 Revised dual-branch Envelope B — current-session active
+### 7.4 Revised dual-branch Envelope B — historical serial activation (stopped)
 
 Sections 7.0–7.3 above remain the immutable pre-Phase-I-P B4 control. They are not
 an activation option. The object below supersedes their source/config/topology/
 resource/output identities while preserving the two-candidate scientific contract.
+Its serial authority later stopped at the LiDAR epoch-5 numerical boundary and is
+not a current activation option; Section 7.4.7 is the sole current amendment.
 
 ```text
 PHASE: S10 Phase I / revised Envelope B independent branch qualification
-REQUEST_STATE: FROZEN / REVIEW CLOSED / OWNER ACCEPTED / CURRENT-SESSION ACTIVE
-EXECUTABLE_IN_CURRENT_SESSION: yes, after exact startup verification; LiDAR first
+CURRENT_STATE: STOPPED AT LIDAR EPOCH-5 NUMERICAL BOUNDARY / NOT EXECUTABLE
+HISTORICAL_REQUEST_STATE: FROZEN / REVIEW CLOSED / OWNER ACCEPTED / ACTIVATED
+EXECUTABLE_IN_CURRENT_SESSION: no; serial topology superseded by pending Section 7.4.7
 MATERIALIZED_SOURCE_SHA: cb2fc279b0c5e4b686525bed9da10f3ec6ad070f
 MATERIALIZED_SOURCE_TREE: 3dd9bc54a30d766f696ab752abdc1a8f4097d55c
 REVIEW_BASELINE: a4f6ca86ddd966bdffc74a37af3337ac6675e83a
@@ -798,7 +801,7 @@ unchanged manifest/config/entry hashes, confirming the output root is still abse
 and preserving every Section-7.4 stop and escalation rule. It does not authorize
 parallel execution, D_audit, official validation, Fusion, merge, push or publication.
 
-#### 7.4.5 Current-session execution activation
+#### 7.4.5 Historical current-session execution activation (consumed/stopped)
 
 The owner explicitly supersedes the Section-7.4.4 no-submit hold and activates the
 same reviewed serial Envelope B in the current session. No recipe, candidate, data,
@@ -893,6 +896,7 @@ REMAINING_IF_BOTH_HIT_MAXIMUM: 8.378056 charged GH200-hours
 MONITOR: one-hour substantive health cadence plus passive terminal/state changes
 CAMERA_CONTINUATION: independent of the LiDAR numerical boundary
 LIDAR_CONTINUATION: no training resume or recipe promotion until diagnostic result
+LIDAR_PRODUCTION_LAUNCHER: absent/fail-closed in v2; only diagnostic entry is runnable
 D_AUDIT/OFFICIAL_VALIDATION: forbidden
 MERGE/PUSH/PUBLICATION: not authorized
 ```
@@ -901,16 +905,19 @@ The LiDAR unit binds the immutable raw epoch-4 checkpoint SHA-256
 `d01b6219533e3a4c38fdd7be7727020accc4a8664951f5483cfeaeebba91c940`
 and epoch record SHA-256
 `98c7d9193145286fb9983a627d23b7e008f889f229cce911412fd5d4185b76da`.
-It executes zero backward passes and zero optimizer/scheduler updates. It first
-performs one additional `D_select` look under production eval mode and rejects any
-raw head NaN/Inf before decode. This look is `diagnostic-only`, `selectable=false`,
-cannot drive early stopping or best-epoch choice, and does not replace the one
-future epoch-20 terminal `D_select` execution. Consequently LiDAR will have two
-disclosed `D_select` executions if it later reaches terminal: one epoch-4 diagnostic
-peek and one formal terminal evaluation. This information-cost change is explicit;
-no capability-completion or generalization claim may use the epoch-4 score.
+It executes zero backward passes and zero optimizer/scheduler updates. All
+localization cells complete and are durably recorded before the entry constructs a
+fresh eval-mode model and performs the one additional `D_select` look. This ordering
+prevents a later localization failure from consuming a successful peek that the
+fresh-only launcher cannot reuse. The evaluator rejects any raw head NaN/Inf before
+decode. This look is `diagnostic-only`, `selectable=false`, cannot drive early
+stopping or best-epoch choice, and does not replace the one future epoch-20 terminal
+`D_select` execution. Consequently LiDAR will have two disclosed `D_select`
+executions if it later reaches terminal: one epoch-4 diagnostic peek and one formal
+terminal evaluation. This information-cost change is explicit; no capability-
+completion or generalization claim may use the epoch-4 score.
 
-The exact conditional localization order after the diagnostic evaluation is:
+The exact conditional localization order before the diagnostic evaluation is:
 
 1. production scoped-compile/reference-attention FP16 on exact epoch-5 first B32;
 2. eager reference FP16 only if Cell 1 is nonfinite;
@@ -919,11 +926,31 @@ The exact conditional localization order after the diagnostic evaluation is:
    cross-attention.
 
 Every cell reconstructs and reloads the checkpoint, requires the same full
-post-augmentation batch hash as Cell 1, checks model parameters/scheduler/scaler
-remain unchanged, and records finite count/max-absolute boundaries through sparse
-collapse, dense decoder, shared/heatmap head, positional encodings, self/cross
-attention, FFN and query prediction. These cells diagnose but do not promote a
-precision, compile or SDPA recipe.
+post-augmentation batch hash as Cell 1, and checks model parameters/scheduler/scaler
+remain unchanged. Production Cell 1 records finite count/max-absolute boundaries
+at sparse collapse, SECOND, FPN and final head output without inserting hooks into
+compiled modules. Conditional eager cells add the fine-grained shared/heatmap,
+positional-encoding, self/cross-attention, FFN and query-prediction boundaries.
+These cells diagnose but do not promote a precision, compile or SDPA recipe.
+
+The following v2 identity table supersedes Section 7.4's v1 table for this
+amendment. The clean containing Git SHA is named only after commit and is the
+`--source-sha` value reviewed and later activated by the owner.
+
+| Bound object | SHA-256 | Current role |
+|---|---|---|
+| v2 dual manifest `fl_v3/configs/s10_phase1_envelope_b_dual.json` | `5797a10bf8db4422ec9a8470c19a48ed7f7ce9a00ad87f1eb8961b7d24b8d64b` | sole current topology/resource/entry manifest |
+| Camera source config | `89a4d9982583dc213e110fcec9469be04e9b4ccf3cefb9a2ca97b294e7650014` | unchanged Camera recipe |
+| Camera resolved config | `63f77459fcb229155a0b1a6608d83abf3c55336d554c20f7629d57ed7122d1b3` | launcher-validated Camera semantics |
+| LiDAR source config | `017086bbd9a9534adf2808461da9cf881d9ef798ef3f3d7c58d3a07b2c7a15d9` | unchanged LiDAR recipe used read-only by diagnostic |
+| LiDAR resolved config | `c950d90db0833ecf5f50ddcc2f10671e4abf7a9f2b1edd640425eb52b888b1ad` | launcher-validated diagnostic semantics |
+| Camera-only Envelope-B launcher | `76a1262e7abc672d88256f801e0476fbc5d63da2114237d3d45b2fbf1e72be25` | runnable Camera entry; rejects every LiDAR training/resume invocation |
+| Camera DDP entry | `4b91e81c5060bec0108b99abaa6b29e6df4d4def0d04f45e54a4b20df830162e` | unchanged two-GH200 Camera production |
+| original single-GPU capability entry | `4c93348330ee02b56a9fc282e991f391c2f986a9dbab7b704bd2195a5f79ec55` | retained dependency/evaluator code; not a runnable LiDAR production unit in v2 |
+| LiDAR diagnostic launcher | `8da36ebb0047617f0a68f3cb8cd6ef493f327b30e7318cf8505347a9c001421a` | runnable zero-update one-GH200 diagnostic |
+| LiDAR diagnostic entry | `71aaab880b2db5042b487372f90b1a48a03af55709a9cc21b4e27e3c135097d6` | localization first, diagnostic D_select last |
+| LiDAR epoch-4 checkpoint | `d01b6219533e3a4c38fdd7be7727020accc4a8664951f5483cfeaeebba91c940` | immutable non-selectable recovery state |
+| LiDAR epoch-4 record | `98c7d9193145286fb9983a627d23b7e008f889f229cce911412fd5d4185b76da` | epoch/update/model-state provenance |
 
 After a clean reviewed source is named and activated, the two independently
 runnable commands are exactly:

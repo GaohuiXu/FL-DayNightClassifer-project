@@ -124,22 +124,29 @@ only as an explicit, unpromoted optimization. Job H's failed 1.25x promotion gat
 remains historical performance evidence but no longer gates Camera capability.
 The later Phase I-P preflight promoted Camera two-GH200 B16/rank and LiDAR
 one-GH200 B32 production recipes, with their ordinary-BN/worker-RNG changes
-explicitly owner-accepted and effective global B32/exposure preserved. The revised
-dual-branch Envelope-B request is materialized in `RUN_REQUEST.md` Section 7.4 at a
-`30.0` charged-GH200-hour aggregate ceiling, maximum concurrency one, serial LiDAR
-then Camera, and two fixed seed-0 candidates. The old 49.0-hour Section-7 object is
-historical control only. Independent read-only recipe-freeze review of
+explicitly owner-accepted and effective global B32/exposure preserved. The prior
+dual-branch Envelope-B request was materialized in `RUN_REQUEST.md` Section 7.4 at
+a `30.0` charged-GH200-hour aggregate ceiling, maximum concurrency one, serial
+LiDAR then Camera, and two fixed seed-0 candidates. The old 49.0-hour Section-7
+object is historical control only. Independent read-only recipe-freeze review of
 `a4f6ca86ddd966bdffc74a37af3337ac6675e83a` closed
-`PASS_WITH_RESIDUAL_RISK` with no open P0-P2. Revised Envelope B remains
-serial at maximum concurrency one. The owner accepted the review verdict and its
+`PASS_WITH_RESIDUAL_RISK` with no open P0-P2. The owner accepted the review verdict and its
 single P3, named review seal
 `1473ef67d9dc2949c49360b6826d0f30585f416f`, and accepted/activated the exact
-Section-7.4 envelope, while explicitly forbidding submission in the current
-session. The owner subsequently removed that hold and activated immediate execution
-in the same session, still serial LiDAR then Camera at concurrency one and the
-unchanged `30.0` charged-hour ceiling. Active jobs require substantive health
-monitoring about every 30 minutes; a `RUNNING` state without log/loss/update/
-checkpoint progress is not sufficient evidence.
+Section-7.4 envelope, then removed the initial no-submit hold. That activated LiDAR
+completed four finite epochs but reproducibly produced all-nonfinite TransFusion
+predictions on the first epoch-5 batch. Checkpoint model/Adam tensors and raw
+point/GTDB payloads are finite; LiDAR training/resume is stopped at a scientific
+boundary. The owner subsequently cancelled the serial L->C dependency. Current
+`RUN_REQUEST.md` Section 7.4.7 materializes a **pending** parallel amendment under
+the unchanged `30.0` charged-hour ceiling: unchanged two-GH200 Camera plus one
+zero-update one-GH200 LiDAR epoch-4 diagnostic may overlap, maximum two jobs/three
+typed GH200s and one job per branch. It adds one disclosed, non-selectable epoch-4
+`D_select` diagnostic peek before the future terminal evaluation; independent
+review and explicit owner activation are required before compute. No job is active.
+When activated, substantive health checks use the owner-selected one-hour cadence
+plus passive terminal/state-change detection; a nominal `RUNNING` state alone is
+not health evidence.
 
 For this stage, `fl_v3/collab/` is read-only legacy evidence. Agents may inspect and
 cite it, but must not add or update plans, handoffs, reviews, results, or status

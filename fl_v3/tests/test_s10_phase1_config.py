@@ -185,12 +185,13 @@ def test_phase1_dual_envelope_b_manifest_binds_both_recipes_and_resources():
         "mode": "independent_camera_lidar_parallel",
         "runnable_units": [
             "camera_primary",
-            "lidar_epoch04_diagnostic_or_lidar_primary",
+            "lidar_epoch04_diagnostic",
         ],
         "per_branch_max_concurrency": 1,
         "max_concurrent_jobs": 2,
         "max_concurrent_typed_gh200": 3,
         "camera_blocked_by_lidar_terminal": False,
+        "lidar_primary_training_or_resume_authorized": False,
     }
     assert spec["candidate_count"] == 2
     assert spec["seed_policy"] == [0]
@@ -251,6 +252,9 @@ def test_phase1_dual_envelope_b_manifest_binds_both_recipes_and_resources():
         "terminal_epoch20_execution_still_reserved": True,
     }
     assert diagnostic["resource"]["hard_ceiling_gh200_hours"] == 1.5
+    assert diagnostic["ordered_cells"][-1] == (
+        "epoch04_D_select_production_eval_after_localization_complete"
+    )
 
     aggregate = spec["aggregate_resource"]
     assert aggregate["max_concurrency"] == 2
@@ -299,11 +303,11 @@ def test_phase1_envelope_launcher_resolves_slurm_copy_from_submit_worktree(
             "bash",
             str(copied_launcher),
             "--branch",
-            "lidar",
+            "camera",
             "--envelope",
             "fl_v3/configs/s10_phase1_envelope_b_dual.json",
             "--config",
-            "fl_v3/configs/s10_phase1_lidar.json",
+            "fl_v3/configs/s10_phase1_camera.json",
             "--output-dir",
             str(tmp_path / "fresh-output"),
             "--source-sha",
@@ -319,6 +323,31 @@ def test_phase1_envelope_launcher_resolves_slurm_copy_from_submit_worktree(
     assert "source SHA" in completed.stderr
     assert "/var/lib/slurm" not in completed.stderr
     assert "No such file or directory" not in completed.stderr
+
+
+def test_parallel_envelope_launcher_has_no_lidar_training_or_resume_path(tmp_path: Path):
+    completed = subprocess.run(
+        [
+            "bash",
+            str(ENVELOPE_LAUNCHER),
+            "--branch",
+            "lidar",
+            "--envelope",
+            str(ENVELOPE),
+            "--config",
+            str(LIDAR),
+            "--output-dir",
+            str(tmp_path / "lidar"),
+            "--source-sha",
+            "0" * 40,
+            "--resume",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 2
+    assert "usage:" in completed.stderr
 
 
 def test_phase1_run_bridge_carries_full_resolved_recipe_and_leaf_inventory():

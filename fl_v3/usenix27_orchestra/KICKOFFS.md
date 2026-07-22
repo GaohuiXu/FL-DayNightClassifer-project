@@ -441,9 +441,10 @@ authorized.
 - **O-150 backend decision:** PyTorch sorted `segment_reduce` is the Phase-I Camera
   production backend; CUDA remains an unpromoted explicit option, and its unmet
   `1.25x` promotion target is not a capability gate.
-- **Next launch gate:** review and owner acceptance of the bound Section-7.4
-  recipe/resource object are closed at seal `1473ef67...`; current-session execution
-  is active after exact startup verification, serial LiDAR then Camera.
+- **Next launch gate:** the prior Section-7.4 serial object and seal `1473ef67...`
+  remain historical recipe evidence after LiDAR stopped at the epoch-5 numerical
+  boundary. Section 7.4.7's parallel Camera/LiDAR-diagnostic amendment requires a
+  fresh independent review and explicit owner activation; no job is active.
 
 ## 7. S10 envelope activation skeleton
 

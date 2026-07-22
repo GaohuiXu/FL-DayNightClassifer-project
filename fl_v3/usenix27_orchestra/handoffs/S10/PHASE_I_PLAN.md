@@ -13,9 +13,9 @@ SCOPE: Phase I camera/LiDAR clean branch qualification
 AUTHORITY: freezes the Phase I scientific choices, work-package order, gates,
            approval structure, and execution boundaries recorded below
 IMPLEMENTATION: WP0-WP4 completed under consumed O-146/O-147/O-148
-COMPUTE: Envelope A and Phase I-P profiler envelopes are terminal; revised
-         30.0-hour serial dual-branch Envelope B is reviewed and owner-accepted at
-         seal 1473ef67...; current-session execution is explicitly activated
+COMPUTE: Envelope A and Phase I-P profiler envelopes are terminal; prior serial
+         Envelope B stopped at the LiDAR epoch-5 numerical boundary; Section 7.4.7
+         parallel Camera/LiDAR-diagnostic amendment awaits review and activation
 CHECKPOINT_ACQUISITION: completed once under consumed Envelope A
 COMMIT: material Envelope-A implementation/result/contract closure commits authorized
 MERGE/PUSH/UPLOAD/PUBLICATION: not authorized by this document
@@ -625,18 +625,21 @@ commit authority must be explicit in Envelope A.
 1. **`P1-G0 PLAN_FREEZE` — closed by O-144.** The scientific recipe, five work
    packages, three gates, two-envelope model, and amendment boundaries in this
    document are binding. This closure does not activate Envelope A.
-2. **`P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` — closed and current-session active at
-   review seal `1473ef67...`.** The Camera backend
-   disposition is resolved in favor of the
-   qualified PyTorch fallback. `RUN_REQUEST.md` Section 7.4 binds the two amended
-   resolved configs, `30.0` charged-GH200-hour aggregate ceiling, serial wall
-   segmentation, output, remediation and stop rules. Independent review of
+2. **`P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` — prior serial authority stopped;
+   Section-7.4.7 amendment pending review and activation.** The Camera backend
+   disposition remains resolved in favor of the qualified PyTorch fallback.
+   `RUN_REQUEST.md` Section 7.4 bound the two amended resolved configs, `30.0`
+   charged-GH200-hour aggregate ceiling, serial wall segmentation, output,
+   remediation and stop rules. Independent review of
    `a4f6ca86ddd966bdffc74a37af3337ac6675e83a` closed
    `PASS_WITH_RESIDUAL_RISK` with no open P0-P2. The owner accepted that result and
-   its P3, retained concurrency one and accepted the exact Section-7.4 envelope, but
-   initially directed that no job be submitted from the current session. The owner
-   later superseded only that hold, activated immediate serial execution and required
-   substantive training-health monitoring about every 30 minutes.
+   its P3 and activated that exact Section-7.4 serial envelope. LiDAR then stopped
+   honestly at the epoch-5 numerical boundary. The owner cancelled the serial L->C
+   dependency; Section 7.4.7 now binds a pending maximum-two-job/three-GH200
+   amendment with unchanged Camera plus one zero-update LiDAR diagnostic. LiDAR
+   training/resume is forbidden and the added epoch-4 `D_select` look is disclosed,
+   diagnostic-only and non-selectable. No amended command is executable until its
+   independent review and explicit owner activation close.
 3. **`P1-G2 SELECT_AND_AUDIT` — pending.** The owner receives both terminal
    `D_select` results and chooses, per branch, accept/freeze, honest negative, or an
    explicit cause-directed amendment. `D_audit` opens only when the owner says
@@ -675,8 +678,8 @@ checkpoint ran. Unused budget is not continuing authority.
 
 ### 10.4 Envelope B — scientific branch qualification
 
-The revised Envelope-B design contains exactly two primary candidates: LiDAR B32 on
-one GH200 followed by Camera B16/rank on two same-node GH200s. Both retain seed 0,
+The revised Envelope-B science still contains exactly two primary candidates:
+LiDAR B32 on one GH200 and Camera B16/rank on two same-node GH200s. Both retain seed 0,
 20 exact-CBGS epochs over D_fit, effective global B32, accepted S08 precision,
 terminal-only raw epoch-20 selection and exactly one terminal `D_select` evaluation.
 `D_audit` and official validation are forbidden in this envelope; a later
@@ -684,10 +687,12 @@ terminal-only raw epoch-20 selection and exactly one terminal `D_select` evaluat
 NuImages, GN, alternate LR, alternate seed or automatic scientific repair is inside
 the envelope.
 
-The default serial order is LiDAR then Camera because LiDAR exercises the role-bound
-GTDB and shared recipe first. A scientifically weak LiDAR result does not cancel the
-independent Camera primary unless the failure implicates a shared data, evaluator,
-precision, or configuration boundary. Maximum concurrency is one.
+The prior serial LiDAR-then-Camera execution stopped after LiDAR completed epoch 4
+and reproduced all-nonfinite TransFusion predictions on the first epoch-5 batch.
+The owner cancelled that dependency. Under the pending Section-7.4.7 amendment,
+Camera production and one zero-update LiDAR epoch-4 diagnostic may overlap, at most
+one job per branch, two jobs and three typed GH200s total. Full LiDAR training or
+resume is not runnable until a later owner decision.
 
 The resource estimate uses only the final sustained, checkpoint-qualified production
 stacks. Camera IP-E5 projects `7.581252` wall hours on two GH200s, or `15.162504`
@@ -704,15 +709,16 @@ computed need                                     = 28.317580
 hard aggregate ceiling (rounded up)               = 30.000000 GH200-hours
 ```
 
-The initial LiDAR job is one typed GH200, 16 CPUs, 96 GiB and `10:00:00`, at most
-`10.0` charged hours. The initial Camera job is two typed GH200s, 32 CPUs, 192 GiB
-and `09:00:00`, at most `18.0` charged hours. The remaining aggregate margin is
-available only for exact checkpoint continuation or O-149 frozen-semantics
-engineering remediation; it is not a third candidate, another seed or an evaluation
-role. No numeric remediation-submission cap is set, but all work is serial and the
-same blocker recurring, ambiguity, a scientific boundary or ceiling exhaustion stops
-the envelope. The exact manifest/config/entry hashes, common fresh output root and
-commands are in `RUN_REQUEST.md` Section 7.4.
+The prior LiDAR attempts consumed `2.121944` charged GH200-hours, leaving
+`27.878056` under the unchanged `30.0` ceiling. The pending Camera unit remains two
+typed GH200s, 32 CPUs, 192 GiB, `09:00:00`, at most `18.0` charged hours. The
+LiDAR diagnostic is one typed GH200, 16 CPUs, 96 GiB, `01:30:00`, with `1.25` base
+plus `0.25` frozen-semantics bug reserve and a `1.50` hard ceiling. If both hit their
+maximum, `8.378056` charged hours remain. That margin is not a third candidate,
+another seed, a full LiDAR restart or another evaluation role. Recurrence of the
+same blocker, ambiguity, a scientific boundary or ceiling exhaustion stops the
+amendment. Exact current identities, fresh outputs and commands are in
+`RUN_REQUEST.md` Section 7.4.7.
 
 ### 10.5 In-envelope remediation and mandatory escalation
 
@@ -767,11 +773,12 @@ envelope, and O-149 creates no standing compute authority.
 
 ### 11.2 Pending measurements or activation records, not open recipe choices
 
-- independent C/L recipe-freeze review of the exact Section-7.4 baseline closed
-  `PASS_WITH_RESIDUAL_RISK` with no open P0-P2;
-- owner activation names review seal `1473ef67...`; the current execution session
-  is active after exact startup verification;
-- the two terminal training/checkpoint/D_select results and actual charged time;
+- prior Section-7.4 recipe review closed `PASS_WITH_RESIDUAL_RISK` and its serial
+  activation is retained as historical evidence after the LiDAR numerical stop;
+- independent review and explicit owner activation of the exact Section-7.4.7
+  parallel amendment are pending; no job is active;
+- the Camera terminal training/checkpoint/`D_select` result, LiDAR diagnostic result,
+  and any later separately authorized LiDAR terminal result and actual charged time;
 - the P1-G2 owner disposition for each branch and any explicit `OPEN D_audit` action;
 - the later Alvis checkpoint/provenance/evaluator alignment audit for Phase II;
 - later Protocol-B BN buffer/affine aggregation policy and the final `D_base/D_tail`

@@ -15,12 +15,13 @@
     "mode": "independent_camera_lidar_parallel",
     "runnable_units": [
       "camera_primary",
-      "lidar_epoch04_diagnostic_or_lidar_primary"
+      "lidar_epoch04_diagnostic"
     ],
     "per_branch_max_concurrency": 1,
     "max_concurrent_jobs": 2,
     "max_concurrent_typed_gh200": 3,
-    "camera_blocked_by_lidar_terminal": false
+    "camera_blocked_by_lidar_terminal": false,
+    "lidar_primary_training_or_resume_authorized": false
   },
   "seed_policy": [0],
   "data_contract": {
@@ -44,7 +45,7 @@
   "entries": {
     "launcher": {
       "path": "fl_v3/scripts/run_s10_phase1_envelope_b.sh",
-      "sha256": "7830bc7b0aeb4809b523da90a9c79a860a43f5c599e74754c4ffc20c044c72a2"
+      "sha256": "76a1262e7abc672d88256f801e0476fbc5d63da2114237d3d45b2fbf1e72be25"
     },
     "lidar": {
       "path": "fl_v3/scripts/s10_phase1_capability.py",
@@ -60,7 +61,7 @@
     },
     "lidar_epoch04_diagnostic": {
       "path": "fl_v3/scripts/s10_phase1_lidar_epoch4_diagnostic.py",
-      "sha256": "efa6ac37a618481df14556657899c028f4a6cd4104b470e2646f14b3e1ff40cd"
+      "sha256": "71aaab880b2db5042b487372f90b1a48a03af55709a9cc21b4e27e3c135097d6"
     }
   },
   "branches": {
@@ -129,11 +130,11 @@
         "terminal_epoch20_execution_still_reserved": true
       },
       "ordered_cells": [
-        "epoch04_D_select_production_eval",
         "production_compile_fp16",
         "conditional_eager_reference_fp16",
         "conditional_eager_reference_fp32",
-        "conditional_eager_sdpa_fp16_if_attention_first_bad"
+        "conditional_eager_sdpa_fp16_if_attention_first_bad",
+        "epoch04_D_select_production_eval_after_localization_complete"
       ],
       "resource": {
         "account": "naiss2025-22-1113-gpu",

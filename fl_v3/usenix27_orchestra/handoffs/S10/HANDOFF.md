@@ -91,10 +91,10 @@ dependency and directed that the Camera candidate be prepared independently whil
 LiDAR diagnosis proceeds. The materialized amendment keeps the 30.0 charged-
 GH200-hour aggregate ceiling, allows at most one Camera and one LiDAR unit
 concurrently (two jobs / three typed GH200s), and does not change either production
-recipe. It adds one zero-update LiDAR unit: an explicitly non-selectable epoch-4
-`D_select` diagnostic peek with raw-head finite checks, followed by production-
-compile FP16 and conditional eager FP16, eager FP32 and SDPA FP16 localization on
-the exact epoch-5 first batch. The peek cannot select an epoch, drive early stopping
+recipe. It adds one zero-update LiDAR unit: production-compile FP16 and conditional
+eager FP16, eager FP32 and SDPA FP16 localization on the exact epoch-5 first batch,
+durably completed before an explicitly non-selectable epoch-4 `D_select` diagnostic
+peek with raw-head finite checks. The peek cannot select an epoch, drive early stopping
 or consume the future epoch-20 terminal evaluation. Because it is nevertheless an
 additional look at `D_select`, the new source must be independently reviewed and
 explicitly activated before compute. Aggregate charge remains
@@ -861,7 +861,7 @@ cells/resources and the default-off derived implementation at
 | L-WP1 clean measurement | exact D_fit LiDAR recipe; clean B4/B8/B16/B32 profiles | default-off capacity ladder, B4-versus-highest-safe sustained processes, two detailed traces, checkpoint and loss-health evidence | closed; IP-LG1 accepted LiDAR-only B32x1 and froze L-WP2 |
 | L-WP2 primary screens | accepted B32x1 recipe and L-E1 bottleneck evidence | five isolated same-allocation B32 pairs: target/Hungarian host batching, LiDAR SDPA, dense scoped compile, sparse host offsets/stat cleanup, fused AdamW | closed: target-host, compile and host-offset positive; SDPA and fused AdamW negative; no promotion yet |
 | L-WP3 conditional/composed screens | positive primary candidates and trace residuals | conditionally test full-sort-to-topk, batched voxelization, batched Gaussian targets, H2D-field pruning and hidden-sync cleanup; validate the final combined stack | IP-LG2 promotes/rejects the exact L-only recipe and explicitly accepts any BN/worker-RNG batch recipe |
-| L-WP4 capability handoff | owner-promoted LiDAR recipe plus promoted Camera 2-GH200 v4 recipe | dual-branch source/config/hash/output/resource object materialized in Section 7.4; independent review closed with no open P0-P2 | owner accepted the exact serial envelope at seal `1473ef67...`; current-session execution active |
+| L-WP4 capability handoff | owner-promoted LiDAR recipe plus promoted Camera 2-GH200 v4 recipe | prior dual-branch object reviewed at Section 7.4; parallel recovery object materialized at Section 7.4.7 | prior serial run stopped at LiDAR epoch 5; parallel amendment awaits independent review and explicit activation |
 
 The candidate classes remain distinct. Batching or removing redundant host-side
 diagnostic plumbing, exact batched Hungarian transfers, output-equivalent sparse
@@ -1115,12 +1115,13 @@ partition, node/task, CPU, memory and GPU-count mismatches fail before dispatch;
 wall limit, no-requeue and aggregate charge remain bound by the exact `sbatch`
 command and compact ledger rather than claimed as launcher-validated fields.
 
-The final sustained projections are `8.261479` LiDAR wall/charged hours and
+The prior serial plan's final sustained projections were `8.261479` LiDAR wall/charged hours and
 `7.581252` Camera wall hours / `15.162504` charged hours. Adding `1.2` charged
 hours for both terminal evaluations, preflight and recovery, then 15% contingency,
 gives `28.317580`; Section 7.4 rounds this to a `30.0` charged-GH200-hour hard
-ceiling. Initial resources are serial LiDAR `1 GPU / 16 CPU / 96 GiB / 10:00:00`
-then Camera `2 GPU / 32 CPU / 192 GiB / 09:00:00`, maximum concurrency one.
+ceiling. Its initial resources were serial LiDAR `1 GPU / 16 CPU / 96 GiB / 10:00:00`
+then Camera `2 GPU / 32 CPU / 192 GiB / 09:00:00`, maximum concurrency one; that
+topology is stopped and superseded only by the still-pending Section 7.4.7 amendment.
 `D_audit` is forbidden and unbudgeted; official validation remains forbidden.
 
 Local JSON/schema/resolved-hash/entry-hash validation, historical profiler-config
@@ -1141,13 +1142,11 @@ aggregate ceiling are controlled by the exact `sbatch` command and compact ledge
 not mechanically revalidated inside the launcher. No GPU/Slurm ran during either
 review. The owner subsequently accepted the review/P3, named seal
 `1473ef67d9dc2949c49360b6826d0f30585f416f`, retained serial concurrency one and
-accepted Section 7.4. No job may be submitted from the accepting session. A later
-execution session must first verify the approved baseline, exact hashes, clean
-worktree, fresh output root and unchanged Slurm tuple. The owner then superseded the
-no-submit hold and activated this current session. LiDAR must run first; while active,
-monitoring about every 30 minutes must inspect new log progress, loss/finite/scaler,
-attempted/accepted/invalid windows, exposure and checkpoint state rather than merely
-observing Slurm `RUNNING`.
+accepted Section 7.4. The owner later removed the no-submit hold, and LiDAR ran first.
+That serial authority stopped at the epoch-5 numerical boundary. The owner then
+cancelled the serial dependency; Section 7.4.7 now prepares independent Camera and
+zero-update LiDAR-diagnostic units with a one-hour substantive-health cadence. Its
+new review and activation gates remain open, and no job is currently active.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
@@ -1487,8 +1486,9 @@ historical CUDA-performance result. That original `49.0`-hour B4 tuple is now on
 the frozen control. Revised Section 7.4 uses the final production stacks:
 `23.423983` projected training charge plus `1.2` hours for evaluations/preflight/
 recovery and 15% contingency gives `28.317580`, rounded to a `30.0` charged-hour
-hard ceiling. Independent review and owner acceptance are closed at seal
-`1473ef67...`; current-session serial execution is now active.
+hard ceiling. The prior independent review and owner acceptance remain historical at
+seal `1473ef67...`; that serial execution stopped at the LiDAR epoch-5 boundary.
+Section 7.4.7's parallel amendment awaits independent review and activation.
 
 WP3 implements the reference-led standalone LiDAR graph without changing the
 historical Fusion detector. The existing reference-shaped sparse SECOND is reused only

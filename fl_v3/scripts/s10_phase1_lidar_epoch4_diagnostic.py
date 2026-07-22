@@ -2,10 +2,11 @@
 """Zero-update localization and diagnostic D_select peek for LiDAR epoch 4.
 
 This entry is deliberately separate from the production Envelope-B runner.  It
-loads the immutable epoch-4 recovery checkpoint, performs one explicitly
-non-selectable D_select evaluation with fail-closed raw-head finite checks, and
-then reproduces the first epoch-5 D_fit batch through a conditional numerical
-localization sequence.  It never calls backward or an optimizer/scheduler step.
+loads the immutable epoch-4 recovery checkpoint, reproduces the first epoch-5
+D_fit batch through a conditional numerical-localization sequence, and only
+after that evidence is durable performs one explicitly non-selectable D_select
+evaluation with fail-closed raw-head finite checks.  It never calls backward or
+an optimizer/scheduler step.
 """
 from __future__ import annotations
 
@@ -333,7 +334,27 @@ def _run_localization_cell(
         scaler_before = dict(scaler.state_dict())
         model.train()
         with precision_autocast_context(precision, device):
-            output = model(moved)
+            if compiled:
+                intermediates = model(moved, return_intermediates=True)
+                _require(
+                    set(intermediates)
+                    == {
+                        "predictions",
+                        "sparse_collapse_fp32",
+                        "second_levels",
+                        "decoder_feature",
+                    },
+                    "production intermediate inventory drift",
+                )
+                for stage, value in (
+                    ("sparse_collapse", intermediates["sparse_collapse_fp32"]),
+                    ("second_backbone", intermediates["second_levels"]),
+                    ("second_fpn", intermediates["decoder_feature"]),
+                ):
+                    stages.append({"stage": stage, **_floating_tensor_stats(value)})
+                output = intermediates["predictions"]
+            else:
+                output = model(moved)
         output_stats = _floating_tensor_stats(output)
         stages.append({"stage": "model_output", **output_stats})
         _require(
@@ -423,9 +444,94 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         },
     )
 
-    # Evaluate first on a clean eval-mode reconstruction.  The wrapper rejects
-    # raw NaN/Inf before decode can filter invalid boxes into a misleading empty
-    # submission.
+    # Finish and persist every localization cell before consuming the one extra
+    # D_select peek. A later engineering failure therefore cannot strand a
+    # completed evaluation behind a fresh-only launcher.
+    def persist_cell(record: Mapping[str, Any]) -> None:
+        _atomic_write_once(
+            output_dir / "localization" / f"{record['cell']}.json", record
+        )
+
+    production = _run_localization_cell(
+        cell="production_compile_fp16",
+        config=config,
+        checkpoint=checkpoint,
+        checkpoint_record=epoch_record,
+        device=device,
+        precision="fp16",
+        compiled=True,
+        sdpa=False,
+        expected_batch_sha256=None,
+    )
+    persist_cell(production)
+    cells = [production]
+    if not production["all_finite"]:
+        eager_fp16 = _run_localization_cell(
+            cell="eager_reference_fp16",
+            config=config,
+            checkpoint=checkpoint,
+            checkpoint_record=epoch_record,
+            device=device,
+            precision="fp16",
+            compiled=False,
+            sdpa=False,
+            expected_batch_sha256=production["batch_sha256"],
+        )
+        persist_cell(eager_fp16)
+        cells.append(eager_fp16)
+        if not eager_fp16["all_finite"]:
+            eager_fp32 = _run_localization_cell(
+                cell="eager_reference_fp32",
+                config=config,
+                checkpoint=checkpoint,
+                checkpoint_record=epoch_record,
+                device=device,
+                precision="fp32",
+                compiled=False,
+                sdpa=False,
+                expected_batch_sha256=production["batch_sha256"],
+            )
+            persist_cell(eager_fp32)
+            cells.append(eager_fp32)
+            if eager_fp16["first_nonfinite_stage"] in {
+                "self_attention",
+                "cross_attention",
+            }:
+                eager_sdpa = _run_localization_cell(
+                    cell="eager_sdpa_fp16",
+                    config=config,
+                    checkpoint=checkpoint,
+                    checkpoint_record=epoch_record,
+                    device=device,
+                    precision="fp16",
+                    compiled=False,
+                    sdpa=True,
+                    expected_batch_sha256=production["batch_sha256"],
+                )
+                persist_cell(eager_sdpa)
+                cells.append(eager_sdpa)
+
+    _atomic_write_once(
+        output_dir / "localization" / "complete.json",
+        {
+            "schema": SCHEMA,
+            "status": "COMPLETE_LOCALIZATION",
+            "checkpoint_sha256": epoch_record["checkpoint_sha256"],
+            "ordered_cells": [record["cell"] for record in cells],
+            "all_batch_sha256_equal": len(
+                {record["batch_sha256"] for record in cells}
+            )
+            == 1,
+            "backward_executed": False,
+            "optimizer_update_executed": False,
+        },
+    )
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    # Consume the disclosed epoch-4 D_select peek only after localization is
+    # durable. Reconstruct once more in eval mode so train-mode BN observations
+    # from the diagnostic cells cannot affect the evaluation.
     eval_model, _criterion, eval_optimizer, eval_scheduler, eval_scaler = _build_components(
         config, "lidar", device
     )
@@ -449,6 +555,26 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             checkpoint.parent,
             runtime_dependency_sha256,
         )
+        diagnostic_scope_path = (
+            d_select_root / "evaluation" / "complete" / "diagnostic_scope.json"
+        )
+        _atomic_write_once(
+            diagnostic_scope_path,
+            {
+                "schema": SCHEMA,
+                "source": source,
+                "resolved_config_sha256": config.sha256,
+                "checkpoint_sha256": epoch_record["checkpoint_sha256"],
+                "checkpoint_epoch": eval_state.epoch,
+                "role": "D_select",
+                "diagnostic_only": True,
+                "selectable": False,
+                "early_stopping_allowed": False,
+                "terminal_epoch20_execution_remains_reserved": True,
+                "D_audit_executed": False,
+                "official_validation_executed": False,
+            },
+        )
         d_select = {
             **d_select_record,
             "diagnostic_only": True,
@@ -458,6 +584,8 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             "raw_head_floating_values": checked_model.floating_values,
             "raw_head_all_finite": True,
             "raw_head_max_absolute": checked_model.max_absolute,
+            "diagnostic_scope_path": str(diagnostic_scope_path),
+            "diagnostic_scope_sha256": sha256_file(diagnostic_scope_path),
         }
     except FloatingPointError as exc:
         d_select = {
@@ -476,63 +604,6 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     del checked_model, eval_model, eval_optimizer, eval_scheduler, eval_scaler
     gc.collect()
     torch.cuda.empty_cache()
-
-    production = _run_localization_cell(
-        cell="production_compile_fp16",
-        config=config,
-        checkpoint=checkpoint,
-        checkpoint_record=epoch_record,
-        device=device,
-        precision="fp16",
-        compiled=True,
-        sdpa=False,
-        expected_batch_sha256=None,
-    )
-    cells = [production]
-    if not production["all_finite"]:
-        eager_fp16 = _run_localization_cell(
-            cell="eager_reference_fp16",
-            config=config,
-            checkpoint=checkpoint,
-            checkpoint_record=epoch_record,
-            device=device,
-            precision="fp16",
-            compiled=False,
-            sdpa=False,
-            expected_batch_sha256=production["batch_sha256"],
-        )
-        cells.append(eager_fp16)
-        if not eager_fp16["all_finite"]:
-            cells.append(
-                _run_localization_cell(
-                    cell="eager_reference_fp32",
-                    config=config,
-                    checkpoint=checkpoint,
-                    checkpoint_record=epoch_record,
-                    device=device,
-                    precision="fp32",
-                    compiled=False,
-                    sdpa=False,
-                    expected_batch_sha256=production["batch_sha256"],
-                )
-            )
-            if eager_fp16["first_nonfinite_stage"] in {
-                "self_attention",
-                "cross_attention",
-            }:
-                cells.append(
-                    _run_localization_cell(
-                        cell="eager_sdpa_fp16",
-                        config=config,
-                        checkpoint=checkpoint,
-                        checkpoint_record=epoch_record,
-                        device=device,
-                        precision="fp16",
-                        compiled=False,
-                        sdpa=True,
-                        expected_batch_sha256=production["batch_sha256"],
-                    )
-                )
 
     result = {
         "schema": SCHEMA,
