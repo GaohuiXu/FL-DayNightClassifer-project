@@ -1,4 +1,4 @@
-# S10 HANDOFF — serial dual-branch Envelope B active in current session
+# S10 HANDOFF — Envelope B stopped at LiDAR numerical boundary
 
 ## 1. Current state and authority
 
@@ -7,11 +7,11 @@ SESSION: persistent S10 Phase I-P throughput preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
-ACTIVE_DECISION: owner accepted reviewed Section-7.4 serial LiDAR then Camera Envelope B
-SCIENCE_ORDER: exact current-session verification, then serial LiDAR and Camera qualification
+ACTIVE_DECISION: reviewed Section-7.4 Envelope B hit its LiDAR science stop
+SCIENCE_ORDER: diagnose LiDAR forward numerical boundary before any continuation or Camera
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: Section 7.4 active at seal 1473ef67...; 30.0 charged h; concurrency one
-EXECUTION_STATE: submit LiDAR first; substantive health monitor about every 30 minutes
+CURRENT_AUTHORITY: Section 7.4 seal 1473ef67...; its owner-escalation stop is active
+EXECUTION_STATE: no active job; LiDAR incomplete at epoch 4; Camera not submitted
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -62,7 +62,34 @@ directed that the current session submit no job; execution is deferred to a late
 session after exact startup verification. The owner subsequently superseded only
 that hold and activated immediate execution in this session, retaining every serial,
 resource, science and stop boundary and requiring real training-health checks about
-every 30 minutes.
+every 30 minutes. The owner later reduced substantive monitoring to one hour, with
+passive terminal detection, to conserve Codex usage.
+
+Envelope-B LiDAR did not reach a terminal checkpoint or `D_select`. Initial Job
+`560627` exposed and closed a pre-model Slurm-spool path defect. Replacement Job
+`560641` completed four exact epochs and `10,988/10,988` accepted updates with
+loss `10.3563 -> 5.2486 -> 5.0991 -> 5.1598`, zero recorded nonfinite/overflow/
+discard/scaler-skip windows and an atomic epoch-4 checkpoint, then failed before
+the first epoch-5 loss because every sample failed a combined GT/prediction check.
+Output-neutral failure attribution at source `c5ed905d4ef16ee26abe3a041d25b53931071007`
+was resumed exactly in Job `563170`; it reproduced the failure and proved every
+`center`, `height`, `dim` and `rot` prediction value nonfinite while all GT/label/
+grid predicates passed. No epoch-5 update occurred.
+
+Read-only parsing of the immutable checkpoint found zero nonfinite values across
+306 model-state entries and 522 Adam tensors; ordinary parameters have maximum
+absolute value `2.20784`. Raw reconstruction of the exact epoch-5 first batch found
+zero nonfinite values across `5,556,000` keyframe point values, and a complete scan
+of all `321,613` accepted GTDB objects / `47,439,053` point rows also found none.
+The checkpoint is therefore not corrupt and obvious raw-data/GTDB corruption is
+excluded. Activation scale did grow sharply: the head heatmap BN running-variance
+maximum rose from about `2.65` after the 272-update profiler to `1,992,185.375` at
+epoch 4. The remaining leading causes are dense/head FP16 activation or reference-
+attention overflow, scoped-compile numerical behavior, or a deterministic
+post-augmentation interaction. Distinguishing them requires an owner-approved,
+zero-update one-batch localization envelope because precision/compile/SDPA recipe
+decisions cross the scientific boundary. Aggregate charge is
+`2.121944 / 30.0` GH200-hours. Camera remains absent and serial execution is stopped.
 
 ### 1.1 Frozen Phase I-P workflow
 

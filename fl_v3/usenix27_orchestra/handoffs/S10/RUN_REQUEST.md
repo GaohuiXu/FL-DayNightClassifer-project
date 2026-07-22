@@ -4,10 +4,10 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: final Camera two-GH200 and LiDAR B32 recipes owner-promoted
-REQUEST_STATE: REVISED SERIAL ENVELOPE B ACTIVE IN CURRENT SESSION
-EXECUTION_AUTHORITY: Section 7.4 active at seal 1473ef67... / 30.0 charged h / concurrency 1
-ACTIVE_PHASE: LiDAR epoch-5 target-validation diagnosis and exact continuation
+ACTIVE_DECISION: Section-7.4 LiDAR hit a reproducible forward numerical boundary
+REQUEST_STATE: REVISED SERIAL ENVELOPE B STOPPED AT OWNER ESCALATION
+EXECUTION_AUTHORITY: seal 1473ef67...; 30.0 charged h; scientific stop now binding
+ACTIVE_PHASE: discuss exact zero-update LiDAR localization; Camera remains blocked
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -838,15 +838,24 @@ remains binding. The external amendment record is
 |---|---|---|---:|
 | Job `560627`, LiDAR initial | source `76744c7e330ceafd9416d818ec389fafb4ca974e`; Slurm logs `slurm/lidar-560627.{out,err}`; external pre-submit record SHA-256 `d3a49f17...56a4fe`; submission record SHA-256 `ae182f97...65b0b` | `FAILED_PRE_MODEL` in `00:00:05`. Slurm executed its copied launcher below `/var/lib/slurm`; the launcher derived `source_root` from that copied `BASH_SOURCE[0]`, so relative config resolution failed before environment, data, model, update or evaluation. The candidate output was never created. This is an unambiguous output-neutral runner-path defect, not a scientific result. | `0.001389` |
 | Job `560641`, LiDAR path-fix replacement | source `8b6280ddc92da550552432d54ee69e459daf7db0`; same immutable LiDAR output; Slurm logs `slurm/lidar-560641.{out,err}`; external terminal record SHA-256 `5954a108...03b70a` | `FAILED_AFTER_EPOCH_04` in `01:49:47`. Epochs 1--4 and 10,988/10,988 attempted/accepted updates were finite with zero invalid, overflow, discarded or scaler-skipped windows; the atomic epoch-4 checkpoint SHA-256 is `d01b621...c940`. Before epoch-5 loss/update, the batched target path reported all 32 samples failing a combined GT/prediction validation boolean. The old error conflates nine predicates, so this attempt cannot distinguish malformed GT from invalid predictions and is not a scientific result. Camera was not submitted. | `1.829722` |
+| Job `563170`, exact diagnostic resume | source `c5ed905d4ef16ee26abe3a041d25b53931071007`; same immutable output/checkpoint; Slurm logs `slurm/lidar-563170.{out,err}`; external terminal record SHA-256 `9629c8a2...fa719` | `FAILED_REPRODUCIBLE_FORWARD_NUMERICAL_BOUNDARY` in `00:17:27`. Exact epoch-4 recovery reproduced the first epoch-5 failure before loss/update. All `12,800/6,400/19,200/12,800` center/height/dim/rot values were nonfinite across all 32 samples; GT, labels and grid predicates passed. Read-only checkpoint parsing found the 306 model entries and 522 Adam tensors finite, and raw first-batch plus full-GTDB scans found no nonfinite payloads. This is no longer eligible logging remediation: precision/compile/attention/activation behavior must be localized under a new owner decision. | `0.290833` |
 
-Aggregate use through Job `560641` is `1.831111 / 30.0` charged GH200-hours.
-The next derived source may add only failure-branch predicate attribution and compact
-tensor-health statistics; successful target/loss/gradient/update behavior must stay
-unchanged. After focused validation and a clean linear commit, the exact LiDAR
-candidate may resume the verified epoch-4 checkpoint in the same output. A repeated
-detailed failure is classified before any further repair: prediction numerical
-failure or uncertain semantics returns to the owner; an unambiguous input/plumbing
-defect remains eligible for the narrow O-149 loop.
+Aggregate use through Job `563170` is `2.121944 / 30.0` charged GH200-hours.
+No active job remains, no `result.json` or `D_select` output exists, and the Camera
+candidate directory is absent. The repeated detailed failure invokes the frozen
+scientific/ambiguous/repeated-blocker stop. No further resume, gate weakening,
+precision/compile/SDPA/normalization change, Camera submission or budget use is
+authorized without an explicit owner amendment.
+
+The smallest informative amendment would be one same-allocation, zero-optimizer-
+update reproduction of the exact epoch-4 checkpoint and epoch-5 first batch. It
+would first capture finite/count/max-absolute boundaries through sparse collapse,
+dense decoder, shared/heatmap head, positional embeddings, self/cross attention and
+query heads under the exact production stack. Only conditional comparisons should
+then run: eager FP16 if the production compiled path fails, FP32 forward if eager
+FP16 also fails, and LiDAR SDPA FP16 if the reference attention is the first bad
+boundary. These are localization cells, not capability evidence or automatic recipe
+promotion; their source, cells, wall ceiling and decision gates require owner freeze.
 
 The O-149 replacement changes only launcher path discovery: when
 `SLURM_SUBMIT_DIR` contains the expected production entry, it becomes
