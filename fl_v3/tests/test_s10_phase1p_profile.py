@@ -52,12 +52,17 @@ def _raw() -> dict:
 def _historical_camera_config():
     """Reconstruct the immutable B4 source graph bound by terminal profiles."""
     raw = json.loads(CAMERA.read_text(encoding="utf-8"))
+    raw["execution"]["output_root"] = (
+        "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/"
+        "outputs/s10_phase1_envelope_b_2a26c63b6102"
+    )
     raw["schema_version"] = "s10.phase1.v2"
     raw["contract"].pop("throughput_decision")
     raw["contract"].pop("throughput_evidence_commit")
     raw["optimizer"]["fused"] = False
     raw["training"].update(
         micro_batch_size=4,
+        world_size=1,
         accumulation_steps=8,
         loss_accumulation="mean_over_eight_microbatches",
     )
@@ -70,14 +75,50 @@ def _historical_camera_config():
 def _pre_ip_e4_camera_config():
     """Reconstruct the immutable B16 source graph used by IP-E3/IP-E4."""
     raw = json.loads(CAMERA.read_text(encoding="utf-8"))
+    raw["execution"]["output_root"] = (
+        "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/"
+        "outputs/s10_phase1_envelope_b_2a26c63b6102"
+    )
+    raw["schema_version"] = "s10.phase1.v3"
     raw["contract"]["throughput_decision"] = "IP-G2"
     raw["contract"]["throughput_evidence_commit"] = (
         "6ec7fb6d067259ac61ecaed89481e7e2562c3a2d"
     )
+    raw["training"].update(
+        world_size=1,
+        accumulation_steps=2,
+        loss_accumulation="mean_over_two_microbatches",
+    )
     raw["runtime_optimizations"].pop("camera_preprocess")
+    raw["runtime_optimizations"].pop("distributed_data_parallel")
     config = resolve_config(raw)
     assert config.sha256 == (
         "f6040d30c23571f049bba3602081a9ec3bbfbdafc5d5ab8b76e9dd375eb76f25"
+    )
+    return config
+
+
+def _final_ip_e4_camera_config():
+    """Reconstruct the immutable B16 source graph measured by IP-E5."""
+    raw = json.loads(CAMERA.read_text(encoding="utf-8"))
+    raw["execution"]["output_root"] = (
+        "/nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/"
+        "outputs/s10_phase1_envelope_b_2a26c63b6102"
+    )
+    raw["schema_version"] = "s10.phase1.v3"
+    raw["contract"]["throughput_decision"] = "IP-E4"
+    raw["contract"]["throughput_evidence_commit"] = (
+        "48fa78a60b3308c407fbc16b64dde188216f87e4"
+    )
+    raw["training"].update(
+        world_size=1,
+        accumulation_steps=2,
+        loss_accumulation="mean_over_two_microbatches",
+    )
+    raw["runtime_optimizations"].pop("distributed_data_parallel")
+    config = resolve_config(raw)
+    assert config.sha256 == (
+        "0df1a19c057312923e0a8e48e81689d9ca265cc613c6f34d4795417414aa0bcf"
     )
     return config
 
@@ -280,7 +321,7 @@ def test_ip_e4_profiles_bind_the_final_b16_stack():
 def test_ip_e5_profiles_bind_final_camera_recipe():
     assert len(IP_E5_PROFILES) == len(IP_E5_RUNNABLE_CANDIDATES) == 2
     source_bytes = CAMERA.read_bytes()
-    source = load_resolved_config(CAMERA)
+    source = _final_ip_e4_camera_config()
     seen = set()
     expected = {
         "camera_final_b16_single_gpu_reference": (1, 2),

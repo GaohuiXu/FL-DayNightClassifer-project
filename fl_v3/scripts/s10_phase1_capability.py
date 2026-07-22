@@ -53,7 +53,7 @@ from fl_v3.utils.runtime import (
 
 
 SCHEMA = "s10.phase1.envelope-b-capability.v1"
-EXPECTED_BRANCH = "codex/s10-phase1-branch-qualification"
+EXPECTED_BRANCH = "codex/s10-phase1p-throughput-preflight"
 
 
 def _require(condition: bool, message: str) -> None:

@@ -1,5 +1,6 @@
 #!/bin/bash
 # Exact one-candidate S10 Phase-I Envelope-B launcher.
+# Camera uses the owner-promoted same-node 2xGH200 DDP recipe; LiDAR stays single-GPU.
 set -euo pipefail
 
 usage() {
@@ -29,7 +30,8 @@ done
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source_root="$(cd "${script_dir}/../.." && pwd)"
-entry="fl_v3/scripts/s10_phase1_capability.py"
+single_entry="fl_v3/scripts/s10_phase1_capability.py"
+camera_entry="fl_v3/scripts/s10_phase1_camera_ddp.py"
 if [[ "${config}" != /* ]]; then
   config="${source_root}/${config}"
 fi
@@ -40,10 +42,11 @@ fail() { echo "[s10-phase1-b] ERROR: $*" >&2; exit 2; }
 equal() { [[ "$2" == "$3" ]] || fail "$1: actual=$2 expected=$3"; }
 
 [[ -f "${config}" ]] || fail "config missing: ${config}"
-[[ -f "${source_root}/${entry}" ]] || fail "entry missing"
+[[ -f "${source_root}/${single_entry}" ]] || fail "single-GPU entry missing"
+[[ -f "${source_root}/${camera_entry}" ]] || fail "Camera DDP entry missing"
 equal "source SHA" "$(git -C "${source_root}" rev-parse HEAD)" "${source_sha}"
 equal "source branch" "$(git -C "${source_root}" branch --show-current)" \
-  "codex/s10-phase1-branch-qualification"
+  "codex/s10-phase1p-throughput-preflight"
 [[ -z "$(git -C "${source_root}" status --porcelain --untracked-files=all)" ]] \
   || fail "source worktree is not clean"
 if (( resume )); then
@@ -66,7 +69,6 @@ export CUBLAS_WORKSPACE_CONFIG=:4096:8
 export OMP_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export MKL_NUM_THREADS=1
-export WORLD_SIZE=1
 export NUSCENES_DATAROOT="${NUSCENES_DATA_DIR}"
 NUSCENES_ZIP_MANIFEST="$(python - "${config}" <<'PY'
 import json, sys
@@ -79,16 +81,36 @@ export NUSCENES_ZIP_MANIFEST
 equal "nuScenes dataroot" "${NUSCENES_DATAROOT}" \
   "/dataset/easybuild/data/nuScenes-data/1.0-map-1.3-zip"
 equal "Slurm partition" "${SLURM_JOB_PARTITION:-}" "gpu"
-equal "Slurm CPUs per task" "${SLURM_CPUS_PER_TASK:-}" "16"
-equal "Slurm memory per node" "${SLURM_MEM_PER_NODE:-}" "98304"
-equal "Slurm GPUs on node" "${SLURM_GPUS_ON_NODE:-0}" "1"
+equal "Slurm node count" "${SLURM_NNODES:-}" "1"
+equal "Slurm restart count" "${SLURM_RESTART_COUNT:-0}" "0"
+if [[ "${branch}" == "camera" ]]; then
+  equal "Slurm CPUs per task" "${SLURM_CPUS_PER_TASK:-}" "32"
+  equal "Slurm memory per node" "${SLURM_MEM_PER_NODE:-}" "196608"
+  equal "Slurm GPUs on node" "${SLURM_GPUS_ON_NODE:-0}" "2"
+  all_visible_devices="${CUDA_VISIBLE_DEVICES:-}"
+  [[ -n "${all_visible_devices}" ]] || fail "CUDA_VISIBLE_DEVICES is empty"
+  IFS=',' read -r -a visible_devices <<< "${all_visible_devices}"
+  [[ "${#visible_devices[@]}" -eq 2 ]] \
+    || fail "Camera requires exactly two visible allocated GPUs"
+else
+  equal "Slurm CPUs per task" "${SLURM_CPUS_PER_TASK:-}" "16"
+  equal "Slurm memory per node" "${SLURM_MEM_PER_NODE:-}" "98304"
+  equal "Slurm GPUs on node" "${SLURM_GPUS_ON_NODE:-0}" "1"
+fi
 
 arguments=(
-  --branch "${branch}"
   --config "${config}"
   --output-dir "${output_dir}"
   --source-sha "${source_sha}"
 )
 if (( resume )); then arguments+=(--resume); fi
 cd "${source_root}"
-exec python "${entry}" "${arguments[@]}"
+if [[ "${branch}" == "camera" ]]; then
+  export NCCL_DEBUG=WARN
+  export NCCL_ASYNC_ERROR_HANDLING=1
+  export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
+  exec python -m torch.distributed.run --standalone --nproc-per-node=2 \
+    --max-restarts=0 "${camera_entry}" "${arguments[@]}"
+fi
+export WORLD_SIZE=1
+exec python "${single_entry}" --branch lidar "${arguments[@]}"

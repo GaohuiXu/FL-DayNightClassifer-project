@@ -7,6 +7,7 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 
 from fl_v3.data.nuscenes.cbgs import Phase1DistributedWindowSampler
+from fl_v3.data.nuscenes.phase1 import phase1_worker_seed
 from fl_v3.training.loop import train_one_epoch
 from fl_v3.training.phase1p_ddp import (
     BLOCK_WINDOWS,
@@ -63,6 +64,20 @@ def test_distributed_window_sampler_rejects_nonexact_global_windows():
             local_batch_size=16,
             effective_global_batch=32,
         )
+
+
+def test_phase1_worker_seed_is_rank_addressed_and_epoch_resume_exact():
+    assert [phase1_worker_seed(0, epoch, 2, rank) for epoch in range(3) for rank in range(2)] == [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+    ]
+    assert phase1_worker_seed(17, 9, 2, 1) == 36
+    with pytest.raises(ValueError, match="out of range"):
+        phase1_worker_seed(0, 0, 2, 2)
 
 
 def test_training_loop_synchronizes_default_off_ddp_boolean_decisions():

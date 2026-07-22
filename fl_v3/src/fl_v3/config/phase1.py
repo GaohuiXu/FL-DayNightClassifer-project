@@ -19,13 +19,19 @@ from fl_v3.source_identity import validate_source_state
 PHASE1_SCHEMA = "s10.phase1.v1"
 PHASE1_SCHEMA_V2 = "s10.phase1.v2"
 PHASE1_SCHEMA_V3 = "s10.phase1.v3"
-PHASE1_SCHEMAS = frozenset({PHASE1_SCHEMA, PHASE1_SCHEMA_V2, PHASE1_SCHEMA_V3})
-PHASE1_ENVELOPE_B_SCHEMAS = frozenset({PHASE1_SCHEMA_V2, PHASE1_SCHEMA_V3})
+PHASE1_SCHEMA_V4 = "s10.phase1.v4"
+PHASE1_SCHEMAS = frozenset(
+    {PHASE1_SCHEMA, PHASE1_SCHEMA_V2, PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4}
+)
+PHASE1_ENVELOPE_B_SCHEMAS = frozenset(
+    {PHASE1_SCHEMA_V2, PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4}
+)
 PHASE1_PLAN_SHA = "260750a76548208f62c384b0e0547744b619244c"
 PHASE1_REQUEST_COMMIT = "e321aed749fd859c809199d52c30b2771dbef8b3"
 PHASE1_O150_AMENDMENT_COMMIT = "2a26c63b61022e2947043a9ffd0538d537c51fb9"
 PHASE1_IP_G2_EVIDENCE_COMMIT = "6ec7fb6d067259ac61ecaed89481e7e2562c3a2d"
 PHASE1_IP_E4_EVIDENCE_COMMIT = "48fa78a60b3308c407fbc16b64dde188216f87e4"
+PHASE1_IP_E5_EVIDENCE_COMMIT = "5da03ffdaa29614b0bcfc5c85ace93f70acfac6a"
 MIT_BEVFUSION_COMMIT = "326653dc06e0938edf1aae7d01efcd158ba83de5"
 
 CAMERA_COMPILE_FORWARD_MODULES = (
@@ -433,7 +439,7 @@ def _validate_contract(raw: Any, schema_version: str) -> tuple[dict[str, Any], s
     }
     if schema_version in PHASE1_ENVELOPE_B_SCHEMAS:
         keys.update({"amendment_decision", "amendment_commit"})
-    if schema_version == PHASE1_SCHEMA_V3:
+    if schema_version in {PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4}:
         keys.update({"throughput_decision", "throughput_evidence_commit"})
     contract = _keys(
         raw,
@@ -453,15 +459,20 @@ def _validate_contract(raw: Any, schema_version: str) -> tuple[dict[str, Any], s
             PHASE1_O150_AMENDMENT_COMMIT,
             "contract.amendment_commit",
         )
-    if schema_version == PHASE1_SCHEMA_V3:
+    if schema_version in {PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4}:
         _same(branch, "camera", "contract.branch")
         decision = contract["throughput_decision"]
         evidence_commits = {
             "IP-G2": PHASE1_IP_G2_EVIDENCE_COMMIT,
             "IP-E4": PHASE1_IP_E4_EVIDENCE_COMMIT,
+            "IP-E5": PHASE1_IP_E5_EVIDENCE_COMMIT,
         }
         if not isinstance(decision, str) or decision not in evidence_commits:
             raise Phase1ConfigError("contract.throughput_decision is unknown")
+        if schema_version == PHASE1_SCHEMA_V4:
+            _same(decision, "IP-E5", "contract.throughput_decision")
+        elif decision == "IP-E5":
+            raise Phase1ConfigError("IP-E5 requires schema s10.phase1.v4")
         _same(
             contract["throughput_evidence_commit"],
             evidence_commits[decision],
@@ -605,7 +616,7 @@ def _validate_optimizer_scheduler(
     _same(optimizer["amsgrad"], False, "optimizer.amsgrad")
     _same(
         optimizer["fused"],
-        schema_version == PHASE1_SCHEMA_V3,
+        schema_version in {PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4},
         "optimizer.fused",
     )
     _same(optimizer["coverage_policy"], "complete_disjoint_trainable_parameters", "optimizer.coverage_policy")
@@ -668,15 +679,21 @@ def _validate_training(raw: Any, branch: str, schema_version: str) -> None:
         },
         "training",
     )
-    promoted_camera = branch == "camera" and schema_version == PHASE1_SCHEMA_V3
+    promoted_camera = branch == "camera" and schema_version in {
+        PHASE1_SCHEMA_V3,
+        PHASE1_SCHEMA_V4,
+    }
+    distributed_camera = branch == "camera" and schema_version == PHASE1_SCHEMA_V4
     expected = {
         "epochs": 20,
         "micro_batch_size": 16 if promoted_camera else 4,
-        "world_size": 1,
-        "accumulation_steps": 2 if promoted_camera else 8,
+        "world_size": 2 if distributed_camera else 1,
+        "accumulation_steps": 1 if distributed_camera else 2 if promoted_camera else 8,
         "effective_global_batch": 32,
         "loss_accumulation": (
-            "mean_over_two_microbatches"
+            "ddp_mean_over_one_microbatch_per_rank"
+            if distributed_camera
+            else "mean_over_two_microbatches"
             if promoted_camera
             else "mean_over_eight_microbatches"
         ),
@@ -702,7 +719,7 @@ def _validate_runtime_optimizations(
     schema_version: str,
     throughput_decision: str,
 ) -> None:
-    if schema_version != PHASE1_SCHEMA_V3 or branch != "camera":
+    if schema_version not in {PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4} or branch != "camera":
         raise Phase1ConfigError(
             "runtime_optimizations is reserved for the promoted Camera recipe"
         )
@@ -713,6 +730,8 @@ def _validate_runtime_optimizations(
     }
     if throughput_decision == "IP-E4":
         runtime_keys.add("camera_preprocess")
+    if throughput_decision == "IP-E5":
+        runtime_keys.update({"camera_preprocess", "distributed_data_parallel"})
     runtime = _keys(raw, runtime_keys, "runtime_optimizations")
     _same(runtime["camera_sdpa"], True, "runtime_optimizations.camera_sdpa")
     _same(
@@ -764,6 +783,58 @@ def _validate_runtime_optimizations(
         list(CAMERA_COMPILE_FORWARD_MODULES),
         "runtime_optimizations.torch_compile.modules",
     )
+    distributed = runtime.get("distributed_data_parallel")
+    if schema_version == PHASE1_SCHEMA_V4:
+        distributed = _keys(
+            distributed,
+            {
+                "backend",
+                "topology",
+                "world_size",
+                "local_batch_size",
+                "effective_global_batch",
+                "broadcast_buffers",
+                "find_unused_parameters",
+                "gradient_as_bucket_view",
+                "static_graph",
+                "batch_norm",
+                "worker_seed_formula",
+                "global_cbgs_partition",
+                "checkpoint_model_rank",
+                "checkpoint_rng",
+                "loss_reduction",
+                "finite_control_flow",
+            },
+            "runtime_optimizations.distributed_data_parallel",
+        )
+        _same(
+            distributed,
+            {
+                "backend": "nccl",
+                "topology": "single_node",
+                "world_size": 2,
+                "local_batch_size": 16,
+                "effective_global_batch": 32,
+                "broadcast_buffers": True,
+                "find_unused_parameters": False,
+                "gradient_as_bucket_view": True,
+                "static_graph": True,
+                "batch_norm": "ordinary_rank_local_b16",
+                "worker_seed_formula": "seed_plus_epoch_times_world_size_plus_rank",
+                "global_cbgs_partition": (
+                    "contiguous_rank_b16_halves_of_each_global_b32_window"
+                ),
+                "checkpoint_model_rank": 0,
+                "checkpoint_rng": "per_rank_sidecars",
+                "loss_reduction": "ddp_mean_over_one_microbatch_per_rank",
+                "finite_control_flow": "all_rank_boolean_and",
+            },
+            "runtime_optimizations.distributed_data_parallel",
+        )
+    elif distributed is not None:
+        raise Phase1ConfigError(
+            "distributed_data_parallel requires schema s10.phase1.v4"
+        )
 
 
 def _validate_data(raw: Any) -> None:
@@ -1068,7 +1139,7 @@ def validate_phase1_config(raw: Mapping[str, Any]) -> dict[str, Any]:
         "optimizer", "scheduler", "training", "data", "augmentation", "sampling",
         "gt_paste", "evaluation", "checkpointing", "dependencies", "execution",
     }
-    if schema_version == PHASE1_SCHEMA_V3:
+    if schema_version in {PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4}:
         root_keys.add("runtime_optimizations")
     root = _keys(
         raw_config,
@@ -1120,7 +1191,7 @@ def validate_phase1_config(raw: Mapping[str, Any]) -> dict[str, Any]:
         root["optimizer"], root["scheduler"], branch, schema_version
     )
     _validate_training(root["training"], branch, schema_version)
-    if schema_version == PHASE1_SCHEMA_V3:
+    if schema_version in {PHASE1_SCHEMA_V3, PHASE1_SCHEMA_V4}:
         _validate_runtime_optimizations(
             root["runtime_optimizations"],
             branch,

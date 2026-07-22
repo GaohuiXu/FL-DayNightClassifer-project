@@ -20,6 +20,16 @@ from fl_v3.models.fusion.collate import detection_collate_fn
 from fl_v3.phase1_sampling import load_official_cbgs_artifact
 
 
+def phase1_worker_seed(seed: int, epoch: int, world_size: int, rank: int) -> int:
+    """Return the owner-frozen rank-addressed Phase-I worker-generator seed."""
+    values = (seed, epoch, world_size, rank)
+    if any(isinstance(value, bool) or not isinstance(value, int) for value in values):
+        raise TypeError("Phase-I worker seed inputs must be integers")
+    if seed < 0 or epoch < 0 or world_size < 1 or rank < 0 or rank >= world_size:
+        raise ValueError("Phase-I worker seed inputs are out of range")
+    return seed + epoch * world_size + rank
+
+
 @dataclass
 class Phase1DataBundle:
     """The role-restricted base data, sealed CBGS view, sampler, and loader."""
@@ -42,7 +52,7 @@ class Phase1DataBundle:
         # the same augmentation/GT-paste streams instead of inheriting opaque
         # persistent-worker RNG state.
         self.loader.generator.manual_seed(
-            self.seed + int(epoch) * self.world_size + self.rank
+            phase1_worker_seed(self.seed, int(epoch), self.world_size, self.rank)
         )
 
     def close(self) -> None:

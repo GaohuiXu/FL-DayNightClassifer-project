@@ -12,7 +12,7 @@ from fl_v3.config import ConfigError, load_resolved_config, resolve_config
 from fl_v3.config.phase1 import (
     CAMERA_COMPILE_FORWARD_MODULES,
     PHASE1_SCHEMA_V2,
-    PHASE1_SCHEMA_V3,
+    PHASE1_SCHEMA_V4,
     phase1_runtime_ready,
 )
 from fl_v3.data.nuscenes.phase1 import build_phase1_eval_data
@@ -43,7 +43,7 @@ def test_phase1_recipes_expand_to_complete_hash_bound_reference_graphs():
     assert lidar.as_dict()["model"]["decoder"]["backbone"]["layer_nums"] == [5, 5]
     assert lidar.as_dict()["model"]["decoder"]["neck"]["output_channels"] == 512
     assert lidar.as_dict()["model"]["head"]["type"] == "TransFusionHead"
-    assert camera.schema_version == PHASE1_SCHEMA_V3
+    assert camera.schema_version == PHASE1_SCHEMA_V4
     assert lidar.schema_version == PHASE1_SCHEMA_V2
     camera_pool = camera.as_dict()["model"]["view_transform"]
     assert camera_pool["pool_backend"] == "pytorch_sorted_segment_reduce"
@@ -67,23 +67,26 @@ def test_phase1_cbgs_and_effective_exposure_are_explicit_and_aligned():
         )
 
 
-def test_phase1_camera_ip_e4_recipe_is_exact_b16_runtime_stack():
+def test_phase1_camera_ip_e5_recipe_is_exact_b16_per_rank_ddp2_stack():
     resolved = load_resolved_config(CAMERA)
     assert hashlib.sha256(CAMERA.read_bytes()).hexdigest() == (
-        "2e5368f96a6198e9a3b1bd43b258b53675df49f5c6ca9042fa8f72e0084c3b6a"
+        "9a2cdf54a52edeb71b5335aea8445c0a8cc0c8e2e416b2f4fe3df58d7b98710c"
     )
     assert resolved.sha256 == (
-        "0df1a19c057312923e0a8e48e81689d9ca265cc613c6f34d4795417414aa0bcf"
+        "e295b627551a584b460a598ee3e3f23b5ad8dda45441904d4ed526bbf3457f2b"
     )
     config = resolved.as_dict()
-    assert config["contract"]["throughput_decision"] == "IP-E4"
+    assert config["contract"]["throughput_decision"] == "IP-E5"
     assert config["contract"]["throughput_evidence_commit"] == (
-        "48fa78a60b3308c407fbc16b64dde188216f87e4"
+        "5da03ffdaa29614b0bcfc5c85ace93f70acfac6a"
     )
     assert config["training"]["micro_batch_size"] == 16
-    assert config["training"]["accumulation_steps"] == 2
+    assert config["training"]["world_size"] == 2
+    assert config["training"]["accumulation_steps"] == 1
     assert config["training"]["effective_global_batch"] == 32
-    assert config["training"]["loss_accumulation"] == "mean_over_two_microbatches"
+    assert config["training"]["loss_accumulation"] == (
+        "ddp_mean_over_one_microbatch_per_rank"
+    )
     assert config["optimizer"]["fused"] is True
     assert config["checkpointing"]["recovery_cadence_epochs"] == 1
     runtime = config["runtime_optimizations"]
@@ -100,6 +103,26 @@ def test_phase1_camera_ip_e4_recipe_is_exact_b16_runtime_stack():
         "dynamic": False,
         "mode": "default",
         "modules": list(CAMERA_COMPILE_FORWARD_MODULES),
+    }
+    assert runtime["distributed_data_parallel"] == {
+        "backend": "nccl",
+        "topology": "single_node",
+        "world_size": 2,
+        "local_batch_size": 16,
+        "effective_global_batch": 32,
+        "broadcast_buffers": True,
+        "find_unused_parameters": False,
+        "gradient_as_bucket_view": True,
+        "static_graph": True,
+        "batch_norm": "ordinary_rank_local_b16",
+        "worker_seed_formula": "seed_plus_epoch_times_world_size_plus_rank",
+        "global_cbgs_partition": (
+            "contiguous_rank_b16_halves_of_each_global_b32_window"
+        ),
+        "checkpoint_model_rank": 0,
+        "checkpoint_rng": "per_rank_sidecars",
+        "loss_reduction": "ddp_mean_over_one_microbatch_per_rank",
+        "finite_control_flow": "all_rank_boolean_and",
     }
 
 
@@ -125,6 +148,7 @@ def test_phase1_run_bridge_carries_full_resolved_recipe_and_leaf_inventory():
         (CAMERA, lambda c: c["scheduler"]["lr"].update(target_ratio=[5.0, 0.1]), "scheduler.lr.target_ratio"),
         (CAMERA, lambda c: c["optimizer"]["parameter_group_rules"][0].update(decay_mult=1.0), "parameter_group_rules"),
         (CAMERA, lambda c: c["training"].update(micro_batch_size=8), "training"),
+        (CAMERA, lambda c: c["training"].update(world_size=1), "training"),
         (CAMERA, lambda c: c["runtime_optimizations"].update(camera_sdpa=False), "camera_sdpa"),
         (
             CAMERA,
@@ -134,6 +158,13 @@ def test_phase1_run_bridge_carries_full_resolved_recipe_and_leaf_inventory():
             "bulk_input_conversion",
         ),
         (CAMERA, lambda c: c["runtime_optimizations"]["torch_compile"].update(modules=["head"]), "modules"),
+        (
+            CAMERA,
+            lambda c: c["runtime_optimizations"]["distributed_data_parallel"].update(
+                batch_norm="sync_batch_norm"
+            ),
+            "distributed_data_parallel",
+        ),
         (LIDAR, lambda c: c["data"].update(train_point_sweeps=10), "data.train_point_sweeps"),
         (LIDAR, lambda c: c["gt_paste"].update(yaw_jitter_radians=0.1), "gt_paste.yaw_jitter_radians"),
         (LIDAR, lambda c: c["sampling"].update(expanded_length=19877), "sampling"),
