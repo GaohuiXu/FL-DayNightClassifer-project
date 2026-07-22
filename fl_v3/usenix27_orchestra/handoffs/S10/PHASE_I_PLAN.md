@@ -15,7 +15,8 @@ AUTHORITY: freezes the Phase I scientific choices, work-package order, gates,
 IMPLEMENTATION: WP0-WP4 completed under consumed O-146/O-147/O-148
 COMPUTE: Envelope A and Phase I-P profiler envelopes are terminal; revised
          30.0-hour dual-branch Envelope B is materialized but not executable;
-         independent recipe-freeze review and owner activation remain required
+         independent recipe-freeze review closed with no open P0-P2; owner
+         activation remains required
 CHECKPOINT_ACQUISITION: completed once under consumed Envelope A
 COMMIT: material Envelope-A implementation/result/contract closure commits authorized
 MERGE/PUSH/UPLOAD/PUBLICATION: not authorized by this document
@@ -625,13 +626,14 @@ commit authority must be explicit in Envelope A.
 1. **`P1-G0 PLAN_FREEZE` — closed by O-144.** The scientific recipe, five work
    packages, three gates, two-envelope model, and amendment boundaries in this
    document are binding. This closure does not activate Envelope A.
-2. **`P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` — revised request materialized; owner
+2. **`P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` — revised request reviewed; owner
    activation pending.** The Camera backend disposition is resolved in favor of the
    qualified PyTorch fallback. `RUN_REQUEST.md` Section 7.4 binds the two amended
    resolved configs, `30.0` charged-GH200-hour aggregate ceiling, serial wall
-   segmentation, output, remediation and stop rules. One independent recipe-freeze
-   review must close with no open P0-P2 before the owner may activate the first
-   20-epoch submission.
+   segmentation, output, remediation and stop rules. Independent review of
+   `a4f6ca86ddd966bdffc74a37af3337ac6675e83a` closed
+   `PASS_WITH_RESIDUAL_RISK` with no open P0-P2; the owner may now separately decide
+   whether to activate the first 20-epoch submission.
 3. **`P1-G2 SELECT_AND_AUDIT` — pending.** The owner receives both terminal
    `D_select` results and chooses, per branch, accept/freeze, honest negative, or an
    explicit cause-directed amendment. `D_audit` opens only when the owner says
@@ -762,8 +764,8 @@ envelope, and O-149 creates no standing compute authority.
 
 ### 11.2 Pending measurements or activation records, not open recipe choices
 
-- independent C/L recipe-freeze review of the exact Section-7.4 activation baseline,
-  with no open P0-P2;
+- independent C/L recipe-freeze review of the exact Section-7.4 baseline closed
+  `PASS_WITH_RESIDUAL_RISK` with no open P0-P2;
 - owner activation naming the later review-sealed commit; source materialization or
   review closure alone grants no compute authority;
 - the two terminal training/checkpoint/D_select results and actual charged time;

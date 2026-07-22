@@ -52,7 +52,9 @@
 > effective global B32, exposure and all other scientific boundaries. Revised
 > Envelope B is materialized in `RUN_REQUEST.md` Section 7.4 at a `30.0` charged
 > GH200-hour ceiling, concurrency one and serial LiDAR then Camera. Independent
-> no-open-P0-P2 review and a separate owner activation remain before submission.
+> review of `a4f6ca86ddd966bdffc74a37af3337ac6675e83a` closed
+> `PASS_WITH_RESIDUAL_RISK` with no open P0-P2; only a separate owner activation
+> naming the review-sealed commit remains before submission.
 > Staged fusion, merge, push, upload, publication and S11+ remain unauthorized.
 
 ## 1. Current objective and sequencing
@@ -95,9 +97,9 @@ active S10 sequencing and collaboration rebaseline; O-144 freezes the Phase I
 plan; O-122 through O-142 remain historical evidence and consumed authorities.
 Envelope A is closed at its mixed Camera-negative/LiDAR-PASS engineering result.
 O-150 resolves the Camera backend disposition. The exact measured `P1-G1`
-Envelope-B tuple is frozen in `RUN_REQUEST.md` Section 7; the next gate is owner
-activation plus its independent branch recipe-freeze review. S11+ remains undefined
-and pending.
+Envelope-B tuple is frozen in `RUN_REQUEST.md` Section 7.4 and its independent
+branch recipe-freeze review is closed with no open P0-P2; the next gate is separate
+owner activation. S11+ remains undefined and pending.
 
 ## 2. Accepted clean-foundation evidence
 
@@ -477,7 +479,7 @@ Closed ranges below are provenance.
 | O-147 | Amend Envelope A at commit `c45e020ed16496e2acaa5f8d34b135da21fb1230`: raise the total submission cap from three to five and aggregate ceiling from `1.0` to `1.10` GH200-hours; allow only one fresh-output Camera replacement followed serially by original Job B, with all data/seed/config/tolerances/gates/per-job resources and prohibitions unchanged. Any failure stops. | consumed amendment; superseded prospectively by O-148 after Job D failed pre-control |
 | O-148 | For the remaining WP4 engineering validation, remove the numeric submission limit while retaining maximum concurrency one and the unchanged `1.10` GH200-hour ceiling. Require S00 to diagnose, minimally repair and immediately resubmit each clearly engineering/config/schema/test/runner/dtype/checkpoint/artifact defect until Camera and LiDAR Job A/B reach honest terminal outcomes; do not change candidate science, data, seed, config semantics, tolerances, performance gates or aggregate resources. Envelope A closed after 12 submissions and `0.516389` GH200-hours: Camera negative at the frozen pooling-promotion gate; LiDAR PASS. | consumed Envelope-A completion authority / mixed terminal outcome |
 | O-149 | Replace mechanical per-error approval for owner-approved engineering validation with a completion-oriented, aggregate-budget contract. The approval binds objective/exit gate, frozen science, data/command family, per-job resources/wall limit, aggregate GPU-hour ceiling, concurrency, fresh outputs and escalation boundaries. Submission count has no default numeric cap unless explicitly set. S00 diagnoses, records and repairs unambiguous frozen-semantics defects—including config/schema parsing, dtype/API, fixtures/runners, checkpoint/artifact/provenance/logging—and resubmits serially. Blind identical retries remain forbidden. Stop and return for ceiling exhaustion, recurring same blocker, ambiguous diagnosis, or any candidate/model/data/recipe/precision/evaluator/metric/seed/gate/scientific/resource change. Scientific/capability runs retain separate approval. | active collaboration/engineering-validation contract; no standing compute authority |
-| O-150 | Accept the numerically qualified PyTorch sorted `segment_reduce` fallback as the Phase-I Camera production backend; retain the CUDA pooling kernel as an explicit unpromoted optimization; preserve Job H's historical `0.976174` result without continuing to use the unmet `1.25x` target as a capability prerequisite. Start Envelope-B preparation with all graph/data/recipe/precision/evaluator/seed/exposure/candidate boundaries unchanged. The first scientific submission still requires an exact aggregate GH200-hour ceiling and the branch recipe-freeze review. | active Phase-I amendment / exact 49.0-hour request frozen / owner activation and review pending |
+| O-150 | Accept the numerically qualified PyTorch sorted `segment_reduce` fallback as the Phase-I Camera production backend; retain the CUDA pooling kernel as an explicit unpromoted optimization; preserve Job H's historical `0.976174` result without continuing to use the unmet `1.25x` target as a capability prerequisite. Start Envelope-B preparation with all graph/data/recipe/precision/evaluator/seed/exposure/candidate boundaries unchanged. The first scientific submission still requires an exact aggregate GH200-hour ceiling and the branch recipe-freeze review. | Phase-I amendment retained; original 49.0-hour request is historical, revised Section 7.4 review is closed, owner activation pending |
 
 ## 10. Closed and consumed history
 

@@ -5,9 +5,9 @@
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
 ACTIVE_DECISION: final Camera two-GH200 and LiDAR B32 recipes owner-promoted
-REQUEST_STATE: REVISED DUAL-BRANCH ENVELOPE B MATERIALIZED / REVIEW PENDING
+REQUEST_STATE: REVISED DUAL-BRANCH ENVELOPE B REVIEWED / OWNER ACTIVATION PENDING
 EXECUTION_AUTHORITY: none; all profiler-envelope authority expired at closure
-ACTIVE_PHASE: Section-7.4 independent recipe-freeze review, then owner activation gate
+ACTIVE_PHASE: Section-7.4 independent review closed; owner activation gate
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
@@ -40,8 +40,9 @@ LiDAR IP-L-E3 subsequently closed positive and the owner promoted its exact B32
 combined recipe. Source `cb2fc279b0c5e4b686525bed9da10f3ec6ad070f`
 now materializes the revised dual-branch manifest, final config hashes, common fresh
 output root and fail-closed launcher binding. This source still grants no compute;
-Section 7.4 requires an independent review and a later owner activation naming the
-review-sealed commit.
+independent review of remediation source
+`a4f6ca86ddd966bdffc74a37af3337ac6675e83a` closed with no open P0-P2. Section
+7.4 still requires a later owner activation naming the review-sealed commit.
 
 O-146 records the owner's exact activation of Envelope A at request commit
 `e321aed749fd859c809199d52c30b2771dbef8b3`. S00 may execute WP0 through WP4
@@ -567,7 +568,7 @@ recipe-freeze review-only subagent；review 无 open P0-P2 后，按 Section 7 �
 最大并发 1 和 O-149 remediation 规则，串行执行 LiDAR 再 Camera；D_audit 仍封存。
 ```
 
-### 7.4 Revised dual-branch Envelope B — review candidate, not executable
+### 7.4 Revised dual-branch Envelope B — independently reviewed, not executable
 
 Sections 7.0–7.3 above remain the immutable pre-Phase-I-P B4 control. They are not
 an activation option. The object below supersedes their source/config/topology/
@@ -575,12 +576,15 @@ resource/output identities while preserving the two-candidate scientific contrac
 
 ```text
 PHASE: S10 Phase I / revised Envelope B independent branch qualification
-REQUEST_STATE: FROZEN / INDEPENDENT REVIEW PENDING / OWNER ACTIVATION PENDING
+REQUEST_STATE: FROZEN / REVIEW CLOSED / OWNER ACTIVATION PENDING
 EXECUTABLE_NOW: no
 MATERIALIZED_SOURCE_SHA: cb2fc279b0c5e4b686525bed9da10f3ec6ad070f
 MATERIALIZED_SOURCE_TREE: 3dd9bc54a30d766f696ab752abdc1a8f4097d55c
-REVIEW_BASELINE: the clean commit containing this Section 7.4
-ACTIVATION_BASELINE: only the later review-sealed commit named verbatim by the owner
+REVIEW_BASELINE: a4f6ca86ddd966bdffc74a37af3337ac6675e83a
+REVIEW_BASELINE_TREE: 48f71e4a917d5c2dc47287f110a667752e03976d
+REVIEW_VERDICT: PASS_WITH_RESIDUAL_RISK; P0=0, P1=0, P2=0, P3=1; open P0-P2=0
+ACTIVATION_BASELINE: only the clean commit containing this review record, named
+  verbatim by the owner
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at UNIQUE_BASE_SHA; do not move
@@ -637,9 +641,9 @@ ENGINEERING_REMEDIATION: O-149 single-correct-answer config/schema/API/test/runn
   derived source, command, attempt and charge before serial continuation
 SCIENTIFIC_CONTINUATION: a weak LiDAR score does not cancel Camera unless it
   implicates a shared data/evaluator/precision/configuration boundary
-REVIEW_GATE: one independent read-only recipe-freeze review at REVIEW_BASELINE;
-  no GPU and no edits by reviewer; owner activation may be requested only with no
-  open P0-P2; record any P3 as residual risk
+REVIEW_GATE: closed by one independent read-only review at REVIEW_BASELINE; no GPU
+  and no edits by reviewer; open P0-P2=0; one P3 recorded as residual risk; owner
+  activation may now be requested but is not implied
 OWNER_ESCALATION: model math/shape, normalization, initialization, data/order/GTDB,
   augmentation, target/loss/decode, optimizer/scheduler/precision, seed, exposure,
   selectable checkpoint, evaluator/metric, candidate, topology/resource/output-root
@@ -739,9 +743,32 @@ derived O-149 repair uses a new durable source and fresh attempt record without
 overwriting raw artifacts. No command may alter candidate, seed, data, model, recipe,
 precision, exposure, selection or evaluator semantics.
 
-After the independent review closes with no open P0-P2, the exact future activation
-decision may name the review-sealed commit and Section 7.4. Until that separate owner
-decision, neither this request nor the review grants Slurm authority.
+#### 7.4.3 Independent recipe-freeze review closure
+
+The first read-only review pinned documentation baseline
+`290995a087e0e1f982f3327a4db82c8fb8514054` and returned `REMEDIATE`: P0/P1 were
+zero, one P2 identified stale active prose for the superseded 49-hour B4 object, and
+one P3 identified overbroad wording for launcher resource validation. No reviewer
+edit or GPU/Slurm action occurred.
+
+Documentation-only remediation `a4f6ca86ddd966bdffc74a37af3337ac6675e83a`
+(tree `48f71e4a917d5c2dc47287f110a667752e03976d`) made Section 7.4's 30-hour
+object the unique current activation candidate and accurately split enforcement:
+the launcher validates config/output plus allocated account, partition, node/task,
+CPU, memory and GPU count; the exact `sbatch` command and ledger control wall limit,
+`--no-requeue` and aggregate charge.
+
+The same independent reviewer rechecked that clean SHA and returned
+`PASS_WITH_RESIDUAL_RISK`: P0/P1/P2 are all zero, open P0-P2 is zero and the
+recipe-freeze gate is closed. Manifest/config/launcher/entry file hashes, both
+resolved-config hashes, recipes, science and resource limits are unchanged. The
+single accepted P3 is the documented operational reliance on the exact `sbatch`
+command and ledger for wall/requeue/aggregate enforcement. This review is not
+compute authority.
+
+The exact future activation decision may now name the clean commit containing this
+review record and Section 7.4. Until that separate owner decision, neither this
+request nor the review grants Slurm authority.
 
 ## 8. Phase I-P IP-G0 record and exact IP-E1 request
 

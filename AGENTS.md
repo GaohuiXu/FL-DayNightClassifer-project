@@ -128,9 +128,11 @@ explicitly owner-accepted and effective global B32/exposure preserved. The revis
 dual-branch Envelope-B request is materialized in `RUN_REQUEST.md` Section 7.4 at a
 `30.0` charged-GH200-hour aggregate ceiling, maximum concurrency one, serial LiDAR
 then Camera, and two fixed seed-0 candidates. The old 49.0-hour Section-7 object is
-historical control only. Revised Envelope B is not executable until an independent
-recipe-freeze review closes with no open P0-P2 and the owner separately names and
-activates the review-sealed commit.
+historical control only. Independent read-only recipe-freeze review of
+`a4f6ca86ddd966bdffc74a37af3337ac6675e83a` closed
+`PASS_WITH_RESIDUAL_RISK` with no open P0-P2. Revised Envelope B remains
+non-executable until the owner separately names and activates the review-sealed
+commit.
 
 For this stage, `fl_v3/collab/` is read-only legacy evidence. Agents may inspect and
 cite it, but must not add or update plans, handoffs, reviews, results, or status

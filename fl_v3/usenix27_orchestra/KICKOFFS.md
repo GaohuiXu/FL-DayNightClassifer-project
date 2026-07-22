@@ -28,8 +28,8 @@
 > `1.25x` as a capability prerequisite. Phase I-P promoted final Camera two-GH200
 > B16/rank and LiDAR one-GH200 B32 recipes. Revised Envelope B is materialized in
 > `RUN_REQUEST.md` Section 7.4 at `30.0` charged GH200-hours, concurrency one and
-> serial LiDAR then Camera; independent review and separate owner activation remain
-> before submission.
+> serial LiDAR then Camera. Independent review closed with no open P0-P2; separate
+> owner activation remains before submission.
 
 ## 1. Rules for starting or extending work
 
@@ -437,9 +437,9 @@ authorized.
 - **O-150 backend decision:** PyTorch sorted `segment_reduce` is the Phase-I Camera
   production backend; CUDA remains an unpromoted explicit option, and its unmet
   `1.25x` promotion target is not a capability gate.
-- **Next launch gate:** complete the independent review of the already bound
-  Section-7.4 recipe/resource object, then obtain a separate owner activation naming
-  the review-sealed commit before capability submission.
+- **Next launch gate:** the independent review of the bound Section-7.4
+  recipe/resource object is closed with no open P0-P2; obtain a separate owner
+  activation naming the review-sealed commit before capability submission.
 
 ## 7. S10 envelope activation skeleton
 
@@ -463,8 +463,8 @@ OWNER_APPROVAL: pending
 Envelope A is closed, and its unused budget cannot be reused. The original
 `49.0`-hour B4 request is historical control only. Revised Section 7.4 binds the
 final Camera/LiDAR recipes at a `30.0` charged-GH200-hour hard ceiling; independent
-review and a later owner activation still precede the first scientific submission.
-Its budget is not inferred from Envelope A's unused time.
+review is closed and a later owner activation still precedes the first scientific
+submission. Its budget is not inferred from Envelope A's unused time.
 
 After approval, individual job rows in `handoffs/S10/RUN_REQUEST.md` record Git
 SHA, resolved-config hash, split, seed, command, resources, output, terminal state,
