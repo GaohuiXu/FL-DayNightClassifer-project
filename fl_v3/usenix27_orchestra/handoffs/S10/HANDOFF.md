@@ -1,4 +1,4 @@
-# S10 HANDOFF — serial dual-branch Envelope B owner-accepted / execution deferred
+# S10 HANDOFF — serial dual-branch Envelope B active in current session
 
 ## 1. Current state and authority
 
@@ -8,10 +8,10 @@ UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 BRANCH: codex/s10-phase1p-throughput-preflight
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 ACTIVE_DECISION: owner accepted reviewed Section-7.4 serial LiDAR then Camera Envelope B
-SCIENCE_ORDER: later execution-session verification, then serial LiDAR and Camera qualification
+SCIENCE_ORDER: exact current-session verification, then serial LiDAR and Camera qualification
 PHASE_I_PLAN: PHASE_I_PLAN.md; P1-G0 PLAN_FREEZE closed
-CURRENT_AUTHORITY: Section 7.4 owner-accepted at seal 1473ef67...; current-session no-submit hold
-EXECUTION_STATE: no job submitted; later exact execution session may use the accepted envelope
+CURRENT_AUTHORITY: Section 7.4 active at seal 1473ef67...; 30.0 charged h; concurrency one
+EXECUTION_STATE: submit LiDAR first; substantive health monitor about every 30 minutes
 MERGE/PUSH/UPLOAD/PUBLICATION/S11+: not authorized
 ```
 
@@ -59,7 +59,10 @@ for Envelope-B execution. Independent review of
 its P3, named review seal `1473ef67d9dc2949c49360b6826d0f30585f416f`, retained
 the serial/concurrency-one plan and accepted the exact envelope. The owner also
 directed that the current session submit no job; execution is deferred to a later
-session after exact startup verification.
+session after exact startup verification. The owner subsequently superseded only
+that hold and activated immediate execution in this session, retaining every serial,
+resource, science and stop boundary and requiring real training-health checks about
+every 30 minutes.
 
 ### 1.1 Frozen Phase I-P workflow
 
@@ -822,7 +825,7 @@ cells/resources and the default-off derived implementation at
 | L-WP1 clean measurement | exact D_fit LiDAR recipe; clean B4/B8/B16/B32 profiles | default-off capacity ladder, B4-versus-highest-safe sustained processes, two detailed traces, checkpoint and loss-health evidence | closed; IP-LG1 accepted LiDAR-only B32x1 and froze L-WP2 |
 | L-WP2 primary screens | accepted B32x1 recipe and L-E1 bottleneck evidence | five isolated same-allocation B32 pairs: target/Hungarian host batching, LiDAR SDPA, dense scoped compile, sparse host offsets/stat cleanup, fused AdamW | closed: target-host, compile and host-offset positive; SDPA and fused AdamW negative; no promotion yet |
 | L-WP3 conditional/composed screens | positive primary candidates and trace residuals | conditionally test full-sort-to-topk, batched voxelization, batched Gaussian targets, H2D-field pruning and hidden-sync cleanup; validate the final combined stack | IP-LG2 promotes/rejects the exact L-only recipe and explicitly accepts any BN/worker-RNG batch recipe |
-| L-WP4 capability handoff | owner-promoted LiDAR recipe plus promoted Camera 2-GH200 v4 recipe | dual-branch source/config/hash/output/resource object materialized in Section 7.4; independent review closed with no open P0-P2 | owner accepted the exact serial envelope at seal `1473ef67...`; execution deferred |
+| L-WP4 capability handoff | owner-promoted LiDAR recipe plus promoted Camera 2-GH200 v4 recipe | dual-branch source/config/hash/output/resource object materialized in Section 7.4; independent review closed with no open P0-P2 | owner accepted the exact serial envelope at seal `1473ef67...`; current-session execution active |
 
 The candidate classes remain distinct. Batching or removing redundant host-side
 diagnostic plumbing, exact batched Hungarian transfers, output-equivalent sparse
@@ -1062,7 +1065,7 @@ already completed E2/E3 forward/backward/update/checkpoint/sustained evidence is
 the promotion evidence; the later independent recipe-freeze review must still
 review the production wiring before any Envelope-B activation request.
 
-### 1.10 Revised dual-branch Envelope B — reviewed and owner-accepted, execution deferred
+### 1.10 Revised dual-branch Envelope B — reviewed, owner-accepted and active
 
 Materialized source `cb2fc279b0c5e4b686525bed9da10f3ec6ad070f` binds the
 final two recipes under one manifest and common fresh root
@@ -1104,7 +1107,11 @@ review. The owner subsequently accepted the review/P3, named seal
 `1473ef67d9dc2949c49360b6826d0f30585f416f`, retained serial concurrency one and
 accepted Section 7.4. No job may be submitted from the accepting session. A later
 execution session must first verify the approved baseline, exact hashes, clean
-worktree, fresh output root and unchanged Slurm tuple.
+worktree, fresh output root and unchanged Slurm tuple. The owner then superseded the
+no-submit hold and activated this current session. LiDAR must run first; while active,
+monitoring about every 30 minutes must inspect new log progress, loss/finite/scaler,
+attempted/accepted/invalid windows, exposure and checkpoint state rather than merely
+observing Slurm `RUNNING`.
 
 O-143 supersedes the active six-stop execution order and S10's per-job
 immutable/no-retry/multi-document/reviewer mechanics. It does not erase prior
@@ -1445,7 +1452,7 @@ the frozen control. Revised Section 7.4 uses the final production stacks:
 `23.423983` projected training charge plus `1.2` hours for evaluations/preflight/
 recovery and 15% contingency gives `28.317580`, rounded to a `30.0` charged-hour
 hard ceiling. Independent review and owner acceptance are closed at seal
-`1473ef67...`; the accepting session submitted no scientific job.
+`1473ef67...`; current-session serial execution is now active.
 
 WP3 implements the reference-led standalone LiDAR graph without changing the
 historical Fusion detector. The existing reference-shaped sparse SECOND is reused only

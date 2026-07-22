@@ -30,7 +30,7 @@
 > `RUN_REQUEST.md` Section 7.4 at `30.0` charged GH200-hours, concurrency one and
 > serial LiDAR then Camera. Independent review closed with no open P0-P2; separate
 > owner acceptance is now recorded at seal `1473ef67...`, while submission is
-> explicitly deferred to a later execution session.
+> explicitly activated in the current session after the earlier hold was superseded.
 
 ## 1. Rules for starting or extending work
 
@@ -439,8 +439,8 @@ authorized.
   production backend; CUDA remains an unpromoted explicit option, and its unmet
   `1.25x` promotion target is not a capability gate.
 - **Next launch gate:** review and owner acceptance of the bound Section-7.4
-  recipe/resource object are closed at seal `1473ef67...`; a later execution
-  session must re-verify the exact tuple before its first submission.
+  recipe/resource object are closed at seal `1473ef67...`; current-session execution
+  is active after exact startup verification, serial LiDAR then Camera.
 
 ## 7. S10 envelope activation skeleton
 
@@ -465,8 +465,8 @@ Envelope A is closed, and its unused budget cannot be reused. The original
 `49.0`-hour B4 request is historical control only. Revised Section 7.4 binds the
 final Camera/LiDAR recipes at a `30.0` charged-GH200-hour hard ceiling; independent
 review and owner acceptance are closed, but the owner explicitly deferred every
-submission from the current session. Its budget is not inferred from Envelope A's
-unused time.
+submission and then explicitly superseded that hold by activating the current
+session. Its budget is not inferred from Envelope A's unused time.
 
 After approval, individual job rows in `handoffs/S10/RUN_REQUEST.md` record Git
 SHA, resolved-config hash, split, seed, command, resources, output, terminal state,

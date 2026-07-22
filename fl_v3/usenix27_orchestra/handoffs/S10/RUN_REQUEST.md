@@ -5,14 +5,14 @@
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
 ACTIVE_DECISION: final Camera two-GH200 and LiDAR B32 recipes owner-promoted
-REQUEST_STATE: REVISED SERIAL ENVELOPE B OWNER-ACCEPTED / EXECUTION DEFERRED
-EXECUTION_AUTHORITY: Section 7.4 accepted at seal 1473ef67... for a later exact session
-ACTIVE_PHASE: current-session no-submit hold; later execution-session startup verification
+REQUEST_STATE: REVISED SERIAL ENVELOPE B ACTIVE IN CURRENT SESSION
+EXECUTION_AUTHORITY: Section 7.4 active at seal 1473ef67... / 30.0 charged h / concurrency 1
+ACTIVE_PHASE: exact startup verification, then LiDAR initial submission and health monitoring
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at the same SHA
-ENVELOPE_B: old Section 7 is control; revised Section 7.4 owner-accepted / current-session hold
+ENVELOPE_B: old Section 7 is control; revised Section 7.4 current-session active
 ```
 
 IP-G0 authorized scoped Phase I-P source/docs/tests, local validation and linear
@@ -44,7 +44,8 @@ independent review of remediation source
 `a4f6ca86ddd966bdffc74a37af3337ac6675e83a` closed with no open P0-P2. Section
 7.4 was later owner-accepted at named review seal
 `1473ef67d9dc2949c49360b6826d0f30585f416f`, with serial concurrency one retained
-and all submission deferred out of the accepting session.
+and all submission initially deferred out of the accepting session. The owner then
+superseded that hold and activated immediate execution in this session.
 
 O-146 records the owner's exact activation of Envelope A at request commit
 `e321aed749fd859c809199d52c30b2771dbef8b3`. S00 may execute WP0 through WP4
@@ -570,7 +571,7 @@ recipe-freeze review-only subagent；review 无 open P0-P2 后，按 Section 7 �
 最大并发 1 和 O-149 remediation 规则，串行执行 LiDAR 再 Camera；D_audit 仍封存。
 ```
 
-### 7.4 Revised dual-branch Envelope B — owner-accepted, current-session hold
+### 7.4 Revised dual-branch Envelope B — current-session active
 
 Sections 7.0–7.3 above remain the immutable pre-Phase-I-P B4 control. They are not
 an activation option. The object below supersedes their source/config/topology/
@@ -578,9 +579,8 @@ resource/output identities while preserving the two-candidate scientific contrac
 
 ```text
 PHASE: S10 Phase I / revised Envelope B independent branch qualification
-REQUEST_STATE: FROZEN / REVIEW CLOSED / OWNER ACCEPTED / EXECUTION DEFERRED
-EXECUTABLE_IN_ACCEPTING_SESSION: no; explicit owner no-submit hold
-FUTURE_EXECUTION: allowed only from a later session after exact startup verification
+REQUEST_STATE: FROZEN / REVIEW CLOSED / OWNER ACCEPTED / CURRENT-SESSION ACTIVE
+EXECUTABLE_IN_CURRENT_SESSION: yes, after exact startup verification; LiDAR first
 MATERIALIZED_SOURCE_SHA: cb2fc279b0c5e4b686525bed9da10f3ec6ad070f
 MATERIALIZED_SOURCE_TREE: 3dd9bc54a30d766f696ab752abdc1a8f4097d55c
 REVIEW_BASELINE: a4f6ca86ddd966bdffc74a37af3337ac6675e83a
@@ -655,7 +655,7 @@ ALLOWED_INTERPRETATION: single-seed internal Camera/LiDAR branch capability and
 FORBIDDEN_INTERPRETATION: official-val/generalization, fusion, FL, attack/defense,
   publication claim or best-recipe optimality
 OWNER_APPROVAL: accepted; review verdict and single P3 accepted; serial concurrency
-  one retained; no submission from the accepting session
+  one retained; current-session submission activated by later explicit amendment
 ```
 
 Immutable manifest, recipe and entry identities:
@@ -704,12 +704,12 @@ The two initial-job maxima total `28.0` charged hours. The aggregate ceiling's
 remaining `2.0` hours is not another cell: it may cover only exact continuation or
 eligible frozen-semantics remediation. D_audit has no reserve in this request.
 
-#### 7.4.2 Exact serial command family for a later execution session
+#### 7.4.2 Exact serial command family for the active execution session
 
 The owner has named review seal `<APPROVED_BASELINE_SHA>` as
 `1473ef67d9dc2949c49360b6826d0f30585f416f`, but explicitly directed that the
 accepting session create no output directory and submit no job. The commands below
-are documentation for a later exact execution session only. As with prior S10
+became executable when the owner later superseded that hold. As with prior S10
 phase envelopes, `<EXECUTION_SOURCE_SHA>` is the clean descendant actually run and
 recorded in the ledger; it must preserve every reviewed entry/config/manifest hash.
 
@@ -774,7 +774,8 @@ compute authority.
 
 The owner subsequently named the clean commit containing this review record,
 accepted the review verdict and P3, retained serial concurrency one, and accepted
-Section 7.4. The accepting session remains under an explicit no-submit hold.
+Section 7.4. The initial no-submit hold is preserved below as decision history and
+superseded only by Section 7.4.5.
 
 #### 7.4.4 Owner acceptance and execution deferral
 
@@ -796,6 +797,32 @@ only after reporting clean status, branch/base/topology, exact approved baseline
 unchanged manifest/config/entry hashes, confirming the output root is still absent,
 and preserving every Section-7.4 stop and escalation rule. It does not authorize
 parallel execution, D_audit, official validation, Fusion, merge, push or publication.
+
+#### 7.4.5 Current-session execution activation
+
+The owner explicitly supersedes the Section-7.4.4 no-submit hold and activates the
+same reviewed serial Envelope B in the current session. No recipe, candidate, data,
+seed, exposure, evaluator, checkpoint, resource, output or remediation field changes.
+
+```text
+OWNER_ACTIVATION_BASELINE: 1473ef67d9dc2949c49360b6826d0f30585f416f
+PRIOR_HOLD_RECORD: b47efd2107129fe66fdf4af1fdaaf72e70051717
+EXECUTION_SOURCE: clean containing commit; record exact SHA before submission
+INITIAL_SUBMISSION: LiDAR only
+CAMERA_SUBMISSION: only after LiDAR terminal under the frozen continuation rule
+MAX_CONCURRENCY: 1
+AGGREGATE_CEILING: 30.0 charged GH200-hours
+MONITOR_INTERVAL: about 30 minutes while active, plus immediate state-change checks
+MONITOR_CONTENT: Slurm state and elapsed; new stdout/stderr; loss/finite/scaler;
+  attempted/accepted/invalid windows; exposure; checkpoint and epoch progress
+EMPTY_RUNNING_STATUS: forbidden as a health conclusion
+OUTPUT_ROOT_AT_ACTIVATION: must be absent before initial submission
+```
+
+The monitor diagnoses a lack of progress rather than accepting a nominally running
+job. Eligible O-149 engineering repairs continue within the frozen ceiling. Any
+shared scientific boundary, ambiguous diagnosis, repeated blocker or budget risk
+stops and returns to the owner.
 
 ## 8. Phase I-P IP-G0 record and exact IP-E1 request
 

@@ -135,8 +135,11 @@ serial at maximum concurrency one. The owner accepted the review verdict and its
 single P3, named review seal
 `1473ef67d9dc2949c49360b6826d0f30585f416f`, and accepted/activated the exact
 Section-7.4 envelope, while explicitly forbidding submission in the current
-session. A later execution session must re-verify the approved baseline, hashes,
-clean worktree and fresh output root before using that authority.
+session. The owner subsequently removed that hold and activated immediate execution
+in the same session, still serial LiDAR then Camera at concurrency one and the
+unchanged `30.0` charged-hour ceiling. Active jobs require substantive health
+monitoring about every 30 minutes; a `RUNNING` state without log/loss/update/
+checkpoint progress is not sufficient evidence.
 
 For this stage, `fl_v3/collab/` is read-only legacy evidence. Agents may inspect and
 cite it, but must not add or update plans, handoffs, reviews, results, or status
