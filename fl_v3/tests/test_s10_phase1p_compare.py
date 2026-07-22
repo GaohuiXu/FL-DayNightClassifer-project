@@ -14,6 +14,7 @@ from fl_v3.training.phase1p_compare import (
     compare_ip_e4_vectorized_geometry_output_dirs,
     compare_ip_e5_ddp_output_dirs,
     compare_lidar_e2_output_dirs,
+    compare_lidar_e3_abba_output_dirs,
     compare_output_dirs,
 )
 
@@ -461,6 +462,81 @@ def test_lidar_e2_candidate_specific_runtime_hard_gates(
     assert all(
         summary["lidar_hard_gate"]["candidate_specific_runtime_checks"].values()
     )
+
+
+def test_lidar_e3_abba_promotes_only_the_exact_positive_combination(tmp_path):
+    reference_a = tmp_path / "reference_a"
+    candidate_a = tmp_path / "candidate_a"
+    candidate_b = tmp_path / "candidate_b"
+    reference_b = tmp_path / "reference_b"
+    reference_options = {
+        "physical_batch_size": 32,
+        "checkpoint_cadence_epochs": 1,
+    }
+    candidate_options = {
+        **reference_options,
+        "hungarian_batched_d2h": True,
+        "lidar_host_batch_offsets": True,
+        "torch_compile": True,
+    }
+    for root, candidate_id, options, block_seconds in (
+        (
+            reference_a,
+            "lidar_lg2_reference_b32_accum1",
+            reference_options,
+            32.0,
+        ),
+        (
+            candidate_a,
+            "lidar_lg2_combined_b32_accum1",
+            candidate_options,
+            32.0 / 1.10,
+        ),
+        (
+            candidate_b,
+            "lidar_lg2_combined_b32_accum1",
+            candidate_options,
+            32.0 / 1.08,
+        ),
+        (
+            reference_b,
+            "lidar_lg2_reference_b32_accum1",
+            reference_options,
+            32.0,
+        ),
+    ):
+        _output(
+            root,
+            candidate_id=candidate_id,
+            batch=32,
+            block_seconds=block_seconds,
+            branch="lidar",
+            candidate_options=options,
+        )
+    for root, repeat, attempt_id in (
+        (reference_a, 1, "l3_abba_ref_a"),
+        (candidate_a, 1, "l3_abba_combined_a"),
+        (candidate_b, 2, "l3_abba_combined_b"),
+        (reference_b, 2, "l3_abba_ref_b"),
+    ):
+        identity_path = root / "run_identity.json"
+        identity = json.loads(identity_path.read_text(encoding="utf-8"))
+        identity["attempt"].update(repeat=repeat, attempt_id=attempt_id)
+        _write_json(identity_path, identity)
+
+    summary = compare_lidar_e3_abba_output_dirs(
+        reference_a, candidate_a, candidate_b, reference_b
+    )
+    assert summary["schema"] == "s10.phase1p.lidar-e3-abba-comparison.v1"
+    assert summary["envelope"] == "IP-L-E3"
+    assert summary["hard_gate"]["gate_pass"] is True
+    assert summary["throughput"]["candidate_over_reference"] == pytest.approx(
+        1.0899082569
+    )
+    assert summary["throughput"]["one_sided_95_percent_lower_bound"] > 1.0
+    assert summary["throughput"]["classification"] == "POSITIVE_COMBINED_RECIPE"
+    assert summary["combined_recipe_gate_pass"] is True
+    assert summary["production_recipe_materialization_authorized"] is True
 
 
 def test_b16_followup_near_neutral_gate_unlocks_implementation_only(tmp_path):

@@ -82,8 +82,8 @@ def _candidate_cpu_resident_batch_fields(profile, branch: str) -> tuple[str, ...
     if bool(profile.candidates["camera_augmentation_transfer_cleanup"]):
         _require(branch == "camera", "augmentation transfer cleanup is Camera-only")
         return ("augmentation_params",)
-    if profile.data["envelope"] == "IP-L-E2":
-        _require(branch == "lidar", "IP-L-E2 point offsets are LiDAR-only")
+    if profile.data["envelope"] in {"IP-L-E2", "IP-L-E3"}:
+        _require(branch == "lidar", "LiDAR point offsets are LiDAR-only")
         return ("lidar_point_offsets",)
     return ()
 
@@ -96,6 +96,7 @@ _CAMERA_COMPILE_MODULES = (
     "head",
 )
 _LIDAR_COMPILE_MODULES = ("decoder_backbone", "decoder_neck", "head")
+_LIDAR_HEALTH_ENVELOPES = frozenset({"IP-L-E1", "IP-L-E2", "IP-L-E3"})
 # Historical tests and Camera production identity use this public alias.
 _COMPILE_MODULES = _CAMERA_COMPILE_MODULES
 
@@ -2013,7 +2014,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             cpu_resident_batch_fields=cpu_resident_batch_fields,
             attempted_window_callback=attempted_window_callback,
             readiness_loss_health=(
-                profile.data["envelope"] in {"IP-L-E1", "IP-L-E2"}
+                profile.data["envelope"] in _LIDAR_HEALTH_ENVELOPES
             ),
         )
         training_seconds = time.perf_counter() - training_started
@@ -2040,7 +2041,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     )
     _require(timing["stage_timing"] is False, "sustained timing enabled stage events")
     lidar_loss_health = timing.get("loss_health")
-    if profile.data["envelope"] in {"IP-L-E1", "IP-L-E2"}:
+    if profile.data["envelope"] in _LIDAR_HEALTH_ENVELOPES:
         _require(
             isinstance(lidar_loss_health, Mapping),
             "LiDAR profiler omitted terminal-only loss-health evidence",
@@ -2072,19 +2073,21 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "zero_scaler_skips": float(metrics["grad_scaler_skips"]) == 0.0,
         "all_reported_loss_values_finite": (
             True
-            if profile.data["envelope"] not in {"IP-L-E1", "IP-L-E2"}
+            if profile.data["envelope"] not in _LIDAR_HEALTH_ENVELOPES
             else bool(lidar_loss_health["all_reported_values_finite"])
         ),
         "no_sustained_monotonic_reserved_growth_over_64mib": (
             True
-            if profile.data["envelope"] not in {"IP-L-E1", "IP-L-E2"} or args.mode == "capacity"
+            if profile.data["envelope"] not in _LIDAR_HEALTH_ENVELOPES
+            or args.mode == "capacity"
             else not bool(
                 timing["memory"]["monotonic_reserved_growth_over_64mib"]
             )
         ),
         "memory_under_85_percent_reserved": (
             True
-            if profile.data["envelope"] not in {"IP-L-E1", "IP-L-E2"} or args.mode == "capacity"
+            if profile.data["envelope"] not in _LIDAR_HEALTH_ENVELOPES
+            or args.mode == "capacity"
             else memory_capacity_safe
         ),
     }
@@ -2255,7 +2258,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
                 "failed_unix_seconds": time.time(),
             },
         )
-        if profile.data["envelope"] not in {"IP-E2", "IP-L-E2"}:
+        if profile.data["envelope"] not in {"IP-E2", "IP-L-E2", "IP-L-E3"}:
             raise RuntimeError("fresh-process checkpoint continuation parity failed")
     if profile.data["envelope"] == "IP-L-E1" and not measurement_health_gate:
         _atomic_write_once(

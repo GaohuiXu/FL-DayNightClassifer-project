@@ -49,6 +49,12 @@ LIDAR_E2_CANDIDATE_FLAGS = {
     "lidar_fused_adamw_b32_accum1": "fused_adamw",
 }
 LIDAR_E2_CONDITIONAL_LOWER_BOUND = 0.98
+LIDAR_E3_REFERENCE_ID = "lidar_lg2_reference_b32_accum1"
+LIDAR_E3_COMBINED_ID = "lidar_lg2_combined_b32_accum1"
+LIDAR_E3_COMBINED_FLAGS = frozenset(
+    {"hungarian_batched_d2h", "lidar_host_batch_offsets", "torch_compile"}
+)
+LIDAR_E3_DIRECTIONAL_RATIO_FLOOR = 0.98
 _MATERIAL_SOURCE_IDENTITY_KEYS = (
     "approved_source_sha",
     "branch",
@@ -190,6 +196,47 @@ def _bootstrap_ratio_lower_bound(
             cand_samples += block["samples"]
             cand_seconds += block["seconds"]
         ratios.append((cand_samples / cand_seconds) / (ref_samples / ref_seconds))
+    ratios.sort()
+    return float(ratios[math.floor(0.05 * (len(ratios) - 1))])
+
+
+def _pooled_block_rate(groups: list[list[dict[str, float]]]) -> float:
+    samples = sum(block["samples"] for group in groups for block in group)
+    seconds = sum(block["seconds"] for group in groups for block in group)
+    _require(samples > 0.0 and seconds > 0.0, "pooled ABBA timing is invalid")
+    return samples / seconds
+
+
+def _bootstrap_stratified_abba_ratio_lower_bound(
+    reference_groups: list[list[dict[str, float]]],
+    candidate_groups: list[list[dict[str, float]]],
+    *,
+    seed: int,
+) -> float:
+    """Bootstrap each fresh process separately, then pool the two ABBA strata."""
+    _require(
+        len(reference_groups) == len(candidate_groups) == 2,
+        "LiDAR E3 ABBA requires two reference and two candidate processes",
+    )
+    generator = random.Random(seed)
+    ratios: list[float] = []
+    for _ in range(BOOTSTRAP_DRAWS):
+        reference_samples = reference_seconds = 0.0
+        candidate_samples = candidate_seconds = 0.0
+        for group in reference_groups:
+            for _ in range(len(group)):
+                block = group[generator.randrange(len(group))]
+                reference_samples += block["samples"]
+                reference_seconds += block["seconds"]
+        for group in candidate_groups:
+            for _ in range(len(group)):
+                block = group[generator.randrange(len(group))]
+                candidate_samples += block["samples"]
+                candidate_seconds += block["seconds"]
+        ratios.append(
+            (candidate_samples / candidate_seconds)
+            / (reference_samples / reference_seconds)
+        )
     ratios.sort()
     return float(ratios[math.floor(0.05 * (len(ratios) - 1))])
 
@@ -995,6 +1042,336 @@ def compare_lidar_e2_output_dirs(
     return summary
 
 
+def compare_lidar_e3_abba_output_dirs(
+    reference_a_dir: str | Path,
+    candidate_a_dir: str | Path,
+    candidate_b_dir: str | Path,
+    reference_b_dir: str | Path,
+) -> dict[str, Any]:
+    """Evaluate the exact same-allocation B32 LiDAR LG2 combined ABBA gate."""
+    reference_a_output = _load_output(reference_a_dir)
+    candidate_a_output = _load_output(candidate_a_dir)
+    candidate_b_output = _load_output(candidate_b_dir)
+    reference_b_output = _load_output(reference_b_dir)
+    ordered_outputs = [
+        reference_a_output,
+        candidate_a_output,
+        candidate_b_output,
+        reference_b_output,
+    ]
+    reference_outputs = [reference_a_output, reference_b_output]
+    candidate_outputs = [candidate_a_output, candidate_b_output]
+    results = [output["result"] for output in ordered_outputs]
+    identities = [output["identity"] for output in ordered_outputs]
+
+    expected_ids = [
+        LIDAR_E3_REFERENCE_ID,
+        LIDAR_E3_COMBINED_ID,
+        LIDAR_E3_COMBINED_ID,
+        LIDAR_E3_REFERENCE_ID,
+    ]
+    expected_attempts = [
+        (1, "l3_abba_ref_a"),
+        (1, "l3_abba_combined_a"),
+        (2, "l3_abba_combined_b"),
+        (2, "l3_abba_ref_b"),
+    ]
+    for index, (result, identity, candidate_id, attempt) in enumerate(
+        zip(results, identities, expected_ids, expected_attempts)
+    ):
+        _require(result.get("branch") == "lidar", f"ABBA process {index} is not LiDAR")
+        _require(
+            result.get("candidate_id") == candidate_id,
+            f"ABBA process {index} candidate identity drift",
+        )
+        _require(
+            int(result.get("physical_batch_size", 0)) == 32
+            and int(result.get("accumulation_steps", 0)) == 1,
+            f"ABBA process {index} is not B32x1",
+        )
+        attempt_record = identity.get("attempt", {})
+        _require(
+            (attempt_record.get("repeat"), attempt_record.get("attempt_id"))
+            == attempt,
+            f"ABBA process {index} order identity drift",
+        )
+
+    source = results[0].get("source")
+    source_config_sha = results[0].get("source_resolved_config_sha256")
+    sampler_prefix = results[0].get("sampler_prefix")
+    input_anchor = results[0].get("first_optimizer_window_input_sha256")
+    job_id = identities[0].get("attempt", {}).get("slurm_job_id")
+    node_list = identities[0].get("attempt", {}).get("node_list")
+    device_name = identities[0].get("runtime", {}).get("device_name")
+    _require(job_id and node_list and device_name, "ABBA allocation identity is incomplete")
+    for index, (result, identity) in enumerate(zip(results, identities)):
+        _require(result.get("source") == source, f"ABBA process {index} source differs")
+        _require(
+            result.get("source_resolved_config_sha256") == source_config_sha,
+            f"ABBA process {index} source config differs",
+        )
+        _require(
+            result.get("sampler_prefix") == sampler_prefix,
+            f"ABBA process {index} CBGS prefix differs",
+        )
+        _require(
+            result.get("first_optimizer_window_input_sha256") == input_anchor,
+            f"ABBA process {index} input/RNG anchor differs",
+        )
+        _require(
+            identity.get("attempt", {}).get("slurm_job_id") == job_id
+            and identity.get("attempt", {}).get("node_list") == node_list,
+            f"ABBA process {index} allocation differs",
+        )
+        _require(
+            identity.get("runtime", {}).get("device_name") == device_name,
+            f"ABBA process {index} GPU identity differs",
+        )
+
+    def process_hard_checks(
+        output: Mapping[str, Any], *, combined: bool
+    ) -> dict[str, bool]:
+        result = output["result"]
+        options = result.get("candidate_options")
+        runtime = result.get("candidate_configuration")
+        _require(isinstance(options, Mapping), "LiDAR E3 candidate options are absent")
+        _require(isinstance(runtime, Mapping), "LiDAR E3 runtime evidence is absent")
+        expected_true = LIDAR_E3_COMBINED_FLAGS if combined else frozenset()
+        actual_true = frozenset(
+            key for key, value in options.items() if value is True
+        )
+        loss_health = _timing(result).get("loss_health")
+        optimizer_before = result.get("optimizer_configuration_before_training")
+        optimizer_after = result.get("optimizer_configuration_after_training")
+        return {
+            "exact_candidate_flags": (
+                actual_true == expected_true
+                and options.get("physical_batch_size") == 32
+                and options.get("checkpoint_cadence_epochs") == 1
+            ),
+            "reported_measurement_health": bool(
+                isinstance(result.get("measurement_health"), Mapping)
+                and result["measurement_health"].get("gate_pass")
+            ),
+            "generic_measurement_health": bool(_measurement_health(result)["gate_pass"]),
+            "checkpoint_continuation": bool(_continuation_health(result)["gate_pass"]),
+            "finite_complete_loss_health": bool(
+                isinstance(loss_health, Mapping)
+                and loss_health.get("all_reported_values_finite") is True
+                and set(loss_health.get("criterion_terms", {}))
+                == {"loss_heatmap", "loss_cls", "loss_bbox", "matched_iou"}
+            ),
+            "state_dict_names_present": bool(runtime.get("state_dict_name_sha256")),
+            "profiler_runtime_application": (
+                runtime.get("runtime_application") == "profile_candidate"
+            ),
+            "cpu_offsets_present": (
+                runtime.get("cpu_resident_batch_fields") == ["lidar_point_offsets"]
+            ),
+            "exact_lidar_runtime_flags": bool(
+                runtime.get("hungarian_batched_d2h") is combined
+                and runtime.get("lidar_host_batch_offsets") is combined
+                and runtime.get("torch_compile") is combined
+                and runtime.get("lidar_sdpa") is False
+                and runtime.get("lidar_sdpa_modules_patched") == 0
+            ),
+            "exact_compile_scope": bool(
+                runtime.get("compiled_forward_modules")
+                == (["decoder_backbone", "decoder_neck", "head"] if combined else [])
+                and runtime.get("compile_backend")
+                == ("inductor" if combined else None)
+                and runtime.get("compile_dynamic") is (False if combined else None)
+                and runtime.get("compile_mode") == ("default" if combined else None)
+                and result.get("compile_evidence", {}).get(
+                    "unexpected_steady_state_recompile"
+                )
+                is False
+            ),
+            "unfused_adamw_identity": bool(
+                isinstance(optimizer_before, Mapping)
+                and isinstance(optimizer_after, Mapping)
+                and optimizer_before.get("fused") is False
+                and optimizer_after.get("fused") is False
+                and optimizer_before.get("type") == optimizer_after.get("type")
+                and optimizer_before.get("parameter_groups")
+                == optimizer_after.get("parameter_groups")
+                and bool(optimizer_before.get("phase1_group_identity_sha256"))
+                and optimizer_before.get("phase1_group_identity_sha256")
+                == optimizer_after.get("phase1_group_identity_sha256")
+                and int(optimizer_after.get("state_entries", 0)) > 0
+            ),
+        }
+
+    process_checks = [
+        process_hard_checks(reference_a_output, combined=False),
+        process_hard_checks(candidate_a_output, combined=True),
+        process_hard_checks(candidate_b_output, combined=True),
+        process_hard_checks(reference_b_output, combined=False),
+    ]
+    shared_state_name = results[0]["candidate_configuration"][
+        "state_dict_name_sha256"
+    ]
+    shared_runtime_checks = {
+        "state_dict_names_unchanged": bool(
+            shared_state_name
+            and all(
+                result["candidate_configuration"].get("state_dict_name_sha256")
+                == shared_state_name
+                for result in results
+            )
+        ),
+        "optimizer_type_groups_unchanged": bool(
+            len(
+                {
+                    (
+                        result["optimizer_configuration_after_training"].get("type"),
+                        result["optimizer_configuration_after_training"].get(
+                            "parameter_groups"
+                        ),
+                        result["optimizer_configuration_after_training"].get(
+                            "phase1_group_identity_sha256"
+                        ),
+                    )
+                    for result in results
+                }
+            )
+            == 1
+        ),
+    }
+    hard_gate_pass = bool(
+        all(all(checks.values()) for checks in process_checks)
+        and all(shared_runtime_checks.values())
+    )
+
+    pair_a = compare_output_dirs(reference_a_dir, candidate_a_dir)
+    pair_b = compare_output_dirs(reference_b_dir, candidate_b_dir)
+    reference_groups = [_blocks(output["result"]) for output in reference_outputs]
+    candidate_groups = [_blocks(output["result"]) for output in candidate_outputs]
+    pooled_reference_rate = _pooled_block_rate(reference_groups)
+    pooled_candidate_rate = _pooled_block_rate(candidate_groups)
+    pooled_ratio = pooled_candidate_rate / pooled_reference_rate
+    seed_material = (
+        ":".join(str(result.get("profile_config_sha256")) for result in results)
+        + f":{job_id}"
+    ).encode("utf-8")
+    bootstrap_seed = int.from_bytes(hashlib.sha256(seed_material).digest()[:8], "big")
+    lower_bound = _bootstrap_stratified_abba_ratio_lower_bound(
+        reference_groups, candidate_groups, seed=bootstrap_seed
+    )
+    directional_ratios = [
+        float(pair_a["throughput"]["candidate_over_reference"]),
+        float(pair_b["throughput"]["candidate_over_reference"]),
+    ]
+
+    reference_projections = [
+        _projection(output["result"], _rate(output["result"]))
+        for output in reference_outputs
+    ]
+    candidate_projections = [
+        _projection(output["result"], _rate(output["result"]))
+        for output in candidate_outputs
+    ]
+    reference_hours = [
+        float(projection["projected_GH200_hours"])
+        for projection in reference_projections
+        if projection["projected_GH200_hours"] is not None
+    ]
+    candidate_hours = [
+        float(projection["projected_GH200_hours"])
+        for projection in candidate_projections
+        if projection["projected_GH200_hours"] is not None
+    ]
+    _require(
+        len(reference_hours) == len(candidate_hours) == 2,
+        "LiDAR E3 full-run projection is incomplete",
+    )
+    reference_mean_hours = sum(reference_hours) / len(reference_hours)
+    candidate_mean_hours = sum(candidate_hours) / len(candidate_hours)
+    performance_checks = {
+        "pooled_one_sided_95_percent_lower_bound_above_one": lower_bound > 1.0,
+        "both_directional_ratios_at_least_0_98": all(
+            ratio >= LIDAR_E3_DIRECTIONAL_RATIO_FLOOR
+            for ratio in directional_ratios
+        ),
+        "projected_20_epoch_net_positive_after_cold_start_and_checkpoints": (
+            candidate_mean_hours < reference_mean_hours
+        ),
+    }
+    recipe_gate_pass = bool(hard_gate_pass and all(performance_checks.values()))
+    if not hard_gate_pass:
+        classification = "HARD_GATE_FAILURE"
+    elif recipe_gate_pass:
+        classification = "POSITIVE_COMBINED_RECIPE"
+    elif pooled_ratio > 1.0 and lower_bound >= LIDAR_E3_DIRECTIONAL_RATIO_FLOOR:
+        classification = "CONDITIONAL_RETURN_TO_OWNER"
+    else:
+        classification = "NEGATIVE_COMBINATION"
+
+    return {
+        "schema": "s10.phase1p.lidar-e3-abba-comparison.v1",
+        "phase": "S10 Phase I-P",
+        "envelope": "IP-L-E3",
+        "matched_allocation": {
+            "slurm_job_id": job_id,
+            "node_list": node_list,
+            "device_name": device_name,
+            "execution_order": expected_ids,
+            "fresh_processes": 4,
+            "same_source_config_cbgs_input_anchor": True,
+        },
+        "reference": {
+            "candidate_id": LIDAR_E3_REFERENCE_ID,
+            "roots": [output["root"] for output in reference_outputs],
+            "rates": [_rate(output["result"]) for output in reference_outputs],
+            "pooled_rate": pooled_reference_rate,
+            "projections": reference_projections,
+            "mean_projected_GH200_hours": reference_mean_hours,
+        },
+        "candidate": {
+            "candidate_id": LIDAR_E3_COMBINED_ID,
+            "roots": [output["root"] for output in candidate_outputs],
+            "rates": [_rate(output["result"]) for output in candidate_outputs],
+            "pooled_rate": pooled_candidate_rate,
+            "projections": candidate_projections,
+            "mean_projected_GH200_hours": candidate_mean_hours,
+            "exact_enabled_flags": sorted(LIDAR_E3_COMBINED_FLAGS),
+        },
+        "throughput": {
+            "candidate_over_reference": pooled_ratio,
+            "directional_candidate_over_reference": directional_ratios,
+            "bootstrap_method": (
+                "fresh-process-stratified independent 16-window-block percentile bootstrap"
+            ),
+            "bootstrap_blocks_per_process": MEASURED_WINDOWS // 16,
+            "bootstrap_draws": BOOTSTRAP_DRAWS,
+            "bootstrap_seed": bootstrap_seed,
+            "one_sided_95_percent_lower_bound": lower_bound,
+            "required_lower_bound": 1.0,
+            "directional_ratio_floor": LIDAR_E3_DIRECTIONAL_RATIO_FLOOR,
+            "performance_checks": performance_checks,
+            "classification": classification,
+        },
+        "hard_gate": {
+            "per_process_checks_in_abba_order": process_checks,
+            "shared_runtime_checks": shared_runtime_checks,
+            "gate_pass": hard_gate_pass,
+        },
+        "combined_recipe_gate_pass": recipe_gate_pass,
+        "production_recipe_materialization_authorized": recipe_gate_pass,
+        "payback": {
+            "projected_GH200_hours_saved_per_20_epoch_run": (
+                reference_mean_hours - candidate_mean_hours
+            ),
+            "compile_cold_start_and_20_checkpoints_included": True,
+        },
+        "interpretation_limits": [
+            "D_fit-only LiDAR throughput and bounded training-health evidence",
+            "the owner-accepted B32 BatchNorm and worker-RNG recipe is fixed",
+            "no capability, mAP, NDS, generalization, or Envelope-B activation claim",
+        ],
+    }
+
+
 def compare_b16_followup_output_dirs(
     reference_dir: str | Path,
     candidate_dir: str | Path,
@@ -1307,5 +1684,6 @@ __all__ = [
     "compare_ip_e4_bulk_input_conversion_output_dirs",
     "compare_ip_e4_vectorized_geometry_output_dirs",
     "compare_ip_e5_ddp_output_dirs",
+    "compare_lidar_e3_abba_output_dirs",
     "compare_output_dirs",
 ]

@@ -12,6 +12,7 @@ import sys
 sys.path.insert(0, "fl_v3/src")
 
 from fl_v3.training.phase1p_compare import (
+    compare_lidar_e3_abba_output_dirs,
     compare_lidar_e2_output_dirs,
     compare_output_dirs,
 )
@@ -51,18 +52,45 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--reference-dir", required=True)
     parser.add_argument("--candidate-dir", required=True)
+    parser.add_argument("--candidate-dir-2")
+    parser.add_argument("--reference-dir-2")
     parser.add_argument("--output", required=True)
     parser.add_argument("--lidar-e2", action="store_true")
+    parser.add_argument("--lidar-e3-abba", action="store_true")
     arguments = parser.parse_args()
-    compare = compare_lidar_e2_output_dirs if arguments.lidar_e2 else compare_output_dirs
-    result = compare(arguments.reference_dir, arguments.candidate_dir)
+    if arguments.lidar_e2 and arguments.lidar_e3_abba:
+        parser.error("--lidar-e2 and --lidar-e3-abba are mutually exclusive")
+    if arguments.lidar_e3_abba:
+        if not arguments.reference_dir_2 or not arguments.candidate_dir_2:
+            parser.error("--lidar-e3-abba requires both second-process directories")
+        result = compare_lidar_e3_abba_output_dirs(
+            arguments.reference_dir,
+            arguments.candidate_dir,
+            arguments.candidate_dir_2,
+            arguments.reference_dir_2,
+        )
+    else:
+        if arguments.reference_dir_2 or arguments.candidate_dir_2:
+            parser.error("second-process directories require --lidar-e3-abba")
+        compare = (
+            compare_lidar_e2_output_dirs
+            if arguments.lidar_e2
+            else compare_output_dirs
+        )
+        result = compare(arguments.reference_dir, arguments.candidate_dir)
     digest = _write_once(Path(arguments.output), result)
+    speed_verdict = result["throughput"].get(
+        "classification", result["throughput"].get("speed_verdict")
+    )
+    gate_pass = result.get(
+        "combined_recipe_gate_pass", result.get("candidate_screen_gate_pass")
+    )
     print(
         json.dumps(
             {
                 "status": "COMPLETE_PAIRED_COMPARISON",
-                "speed_verdict": result["throughput"]["speed_verdict"],
-                "candidate_screen_gate_pass": result["candidate_screen_gate_pass"],
+                "speed_verdict": speed_verdict,
+                "candidate_screen_gate_pass": gate_pass,
                 "summary_sha256": digest,
             },
             sort_keys=True,

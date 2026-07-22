@@ -19,6 +19,7 @@ from fl_v3.training.phase1_profile import (
     IP_E5_RUNNABLE_CANDIDATES,
     LIDAR_E1_RUNNABLE_CANDIDATES,
     LIDAR_E2_RUNNABLE_CANDIDATES,
+    LIDAR_E3_RUNNABLE_CANDIDATES,
     Phase1ProfileError,
     derive_profile_runtime_config,
     load_phase1_profile_spec,
@@ -44,6 +45,9 @@ LIDAR_E1_PROFILES = tuple(
 )
 LIDAR_E2_PROFILES = tuple(
     sorted((ROOT / "configs").glob("s10_phase1p_lidar_e2_*.json"))
+)
+LIDAR_E3_PROFILES = tuple(
+    sorted((ROOT / "configs").glob("s10_phase1p_lidar_e3_*.json"))
 )
 HISTORICAL_CAMERA_FILE_SHA256 = (
     "567cb1b71535b4866193273960e531ae4b45318e56e81101e99ad186ac23ce60"
@@ -436,6 +440,33 @@ def test_lidar_e2_profiles_are_isolated_b32_mappings():
     assert LIDAR.read_bytes() == source_bytes
 
 
+def test_lidar_e3_profiles_freeze_exact_lg2_combination():
+    assert len(LIDAR_E3_PROFILES) == len(LIDAR_E3_RUNNABLE_CANDIDATES) == 2
+    source_bytes = LIDAR.read_bytes()
+    source = load_resolved_config(LIDAR)
+    seen = set()
+    for path in LIDAR_E3_PROFILES:
+        profile = load_phase1_profile_spec(path)
+        candidate_id = str(profile.data["candidate_id"])
+        seen.add(candidate_id)
+        assert profile.data["envelope"] == "IP-L-E3"
+        profile.assert_runnable("lidar")
+        with pytest.raises(Phase1ProfileError, match="not runnable"):
+            profile.assert_runnable("camera")
+        profile.assert_branch_binding("lidar", LIDAR, source)
+        assert dict(profile.candidates) == LIDAR_E3_RUNNABLE_CANDIDATES[
+            candidate_id
+        ]["options"]
+        runtime = derive_profile_runtime_config(source, profile).as_dict()
+        assert runtime["training"]["micro_batch_size"] == 32
+        assert runtime["training"]["world_size"] == 1
+        assert runtime["training"]["accumulation_steps"] == 1
+        assert runtime["training"]["effective_global_batch"] == 32
+        assert runtime["optimizer"]["fused"] is False
+    assert seen == set(LIDAR_E3_RUNNABLE_CANDIDATES)
+    assert LIDAR.read_bytes() == source_bytes
+
+
 def test_lidar_e2_candidate_configuration_is_fail_closed(monkeypatch):
     runner = _runner_module()
 
@@ -484,7 +515,7 @@ def test_lidar_e2_candidate_configuration_is_fail_closed(monkeypatch):
             }
 
     monkeypatch.setattr(torch, "compile", lambda fn, **kwargs: fn)
-    for path in LIDAR_E2_PROFILES:
+    for path in (*LIDAR_E2_PROFILES, *LIDAR_E3_PROFILES):
         profile = load_phase1_profile_spec(path)
         model = Model()
         criterion = Criterion()
@@ -521,6 +552,10 @@ def test_lidar_e2_candidate_configuration_is_fail_closed(monkeypatch):
     assert torch.equal(
         enriched["lidar_point_offsets"], torch.tensor([0, 2, 3])
     )
+
+
+def test_lidar_e3_combined_candidate_configuration_is_fail_closed(monkeypatch):
+    test_lidar_e2_candidate_configuration_is_fail_closed(monkeypatch)
 
 
 def test_ip_e2_runtime_views_preserve_effective_b32_and_source_bytes():

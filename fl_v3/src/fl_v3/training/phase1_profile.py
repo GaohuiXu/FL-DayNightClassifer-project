@@ -23,6 +23,7 @@ PHASE1_PROFILE_SCHEMA_V4 = "s10.phase1p.profile.v4"
 PHASE1_PROFILE_SCHEMA_V5 = "s10.phase1p.profile.v5"
 PHASE1_PROFILE_SCHEMA_LIDAR_E1 = "s10.phase1p.lidar-e1.v1"
 PHASE1_PROFILE_SCHEMA_LIDAR_E2 = "s10.phase1p.lidar-e2.v1"
+PHASE1_PROFILE_SCHEMA_LIDAR_E3 = "s10.phase1p.lidar-e3.v1"
 
 _HEX = frozenset("0123456789abcdef")
 _ROOT_KEYS = frozenset({
@@ -348,6 +349,22 @@ LIDAR_E2_RUNNABLE_CANDIDATES: dict[str, dict[str, Any]] = {
     },
 }
 
+LIDAR_E3_RUNNABLE_CANDIDATES: dict[str, dict[str, Any]] = {
+    "lidar_lg2_reference_b32_accum1": {
+        "branches": frozenset({"lidar"}),
+        "options": _candidate_options(physical_batch_size=32),
+    },
+    "lidar_lg2_combined_b32_accum1": {
+        "branches": frozenset({"lidar"}),
+        "options": _candidate_options(
+            physical_batch_size=32,
+            hungarian_batched_d2h=True,
+            lidar_host_batch_offsets=True,
+            torch_compile=True,
+        ),
+    },
+}
+
 
 def _runnable_candidates(envelope: str) -> dict[str, dict[str, Any]]:
     if envelope == "IP-E1":
@@ -364,6 +381,8 @@ def _runnable_candidates(envelope: str) -> dict[str, dict[str, Any]]:
         return LIDAR_E1_RUNNABLE_CANDIDATES
     if envelope == "IP-L-E2":
         return LIDAR_E2_RUNNABLE_CANDIDATES
+    if envelope == "IP-L-E3":
+        return LIDAR_E3_RUNNABLE_CANDIDATES
     raise Phase1ProfileError(f"unknown Phase I-P envelope {envelope!r}")
 
 
@@ -532,6 +551,7 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
         PHASE1_PROFILE_SCHEMA_V5: "IP-E5",
         PHASE1_PROFILE_SCHEMA_LIDAR_E1: "IP-L-E1",
         PHASE1_PROFILE_SCHEMA_LIDAR_E2: "IP-L-E2",
+        PHASE1_PROFILE_SCHEMA_LIDAR_E3: "IP-L-E3",
     }
     if root["schema"] not in schema_to_envelope:
         raise Phase1ProfileError(f"unsupported profile schema {root['schema']!r}")
@@ -571,7 +591,13 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
         if _integer(measurement[key], f"measurement.{key}", minimum=1) != expected:
             raise Phase1ProfileError(f"measurement.{key} must remain {expected}")
     if expected_envelope in {
-        "IP-E2", "IP-E3", "IP-E4", "IP-E5", "IP-L-E1", "IP-L-E2"
+        "IP-E2",
+        "IP-E3",
+        "IP-E4",
+        "IP-E5",
+        "IP-L-E1",
+        "IP-L-E2",
+        "IP-L-E3",
     } and _integer(
         measurement["capacity_accepted_windows"],
         "measurement.capacity_accepted_windows",
@@ -641,14 +667,18 @@ def validate_phase1_profile_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
         raise Phase1ProfileError(
             f"{expected_envelope} physical batch must be one of 4, 8, or 16"
         )
-    if expected_envelope in {"IP-L-E1", "IP-L-E2"} and candidates["physical_batch_size"] not in {
-        4, 8, 16, 32
-    }:
+    if expected_envelope in {"IP-L-E1", "IP-L-E2", "IP-L-E3"} and candidates[
+        "physical_batch_size"
+    ] not in {4, 8, 16, 32}:
         raise Phase1ProfileError(
             f"{expected_envelope} physical batch must be one of 4, 8, 16, or 32"
         )
-    if expected_envelope == "IP-L-E2" and candidates["physical_batch_size"] != 32:
-        raise Phase1ProfileError("IP-L-E2 physical batch must remain B32")
+    if expected_envelope in {"IP-L-E2", "IP-L-E3"} and candidates[
+        "physical_batch_size"
+    ] != 32:
+        raise Phase1ProfileError(
+            f"{expected_envelope} physical batch must remain B32"
+        )
 
     boundaries = _keys(root["boundaries"], _BOUNDARY_KEYS, "boundaries")
     if boundaries["allowed_data_role"] != "D_fit":
@@ -790,6 +820,7 @@ __all__ = [
     "IP_E5_RUNNABLE_CANDIDATES",
     "LIDAR_E1_RUNNABLE_CANDIDATES",
     "LIDAR_E2_RUNNABLE_CANDIDATES",
+    "LIDAR_E3_RUNNABLE_CANDIDATES",
     "PHASE1_PROFILE_SCHEMA",
     "PHASE1_PROFILE_SCHEMA_V2",
     "PHASE1_PROFILE_SCHEMA_V3",
@@ -797,6 +828,7 @@ __all__ = [
     "PHASE1_PROFILE_SCHEMA_V5",
     "PHASE1_PROFILE_SCHEMA_LIDAR_E1",
     "PHASE1_PROFILE_SCHEMA_LIDAR_E2",
+    "PHASE1_PROFILE_SCHEMA_LIDAR_E3",
     "Phase1ProfileError",
     "Phase1ProfileRuntimeConfig",
     "Phase1ProfileSpec",
