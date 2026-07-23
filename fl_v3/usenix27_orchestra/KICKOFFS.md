@@ -1,9 +1,10 @@
 # USENIX Security '27 Orchestra — active envelopes
 
-> **Launch state (2026-07-22).** S08/S09 are closed. S10 Phase I-P is active on
+> **Launch state (2026-07-23).** S08/S09 are closed. S10 remains active on
 > `codex/s10-phase1p-throughput-preflight`, created from the frozen
 > `codex/s10-phase1-branch-qualification` control at `f1a2bab...`, and remains
 > governed by O-143.
+> Phase I-P is terminal at the profiler level; Phase I remains open at P1-G2.
 >
 > Active order: **C/L independent recipe and capability → staged fusion →
 > aligned capability/fusion gate → profiler/optimization only after pass**.
@@ -29,12 +30,13 @@
 > B16/rank and LiDAR one-GH200 B32 recipes. Revised Envelope B was accepted at seal
 > `1473ef67...`; activated LiDAR then stopped honestly after four healthy epochs at
 > a reproducible all-nonfinite epoch-5 TransFusion forward. The owner cancelled the
-> serial L->C dependency. `RUN_REQUEST.md` Section 7.4.7 materializes a pending
-> parallel amendment under the unchanged `30.0` charged-GH200-hour ceiling: one
-> Camera job may overlap one zero-update LiDAR epoch-4 diagnostic (maximum two jobs/
-> three typed GH200s). Its additional non-selectable `D_select` diagnostic peek was
-> reviewed at `296ef9b...`: `PASS_WITH_RESIDUAL_RISK`, no open P0-P2. Explicit owner
-> activation of the review-seal commit remains required; no job is currently active.
+> serial L->C dependency. `RUN_REQUEST.md` Section 7.4.7's parallel amendment was
+> reviewed at `296ef9b...`, explicitly activated at `f6379663...`, and consumed by
+> concurrent Camera Job `564253` plus zero-update LiDAR diagnostic Job `564254`.
+> Both completed `0:0`; aggregate charge is `17.888888/30.0`. Camera returned one
+> weak terminal D_select result; the LiDAR peek remains non-selectable and does not
+> complete that branch. No job is active and the next launch gate is an explicit
+> P1-G2 owner disposition/cause-directed amendment, not unused budget.
 
 ## 1. Rules for starting or extending work
 
@@ -444,9 +446,10 @@ authorized.
   `1.25x` promotion target is not a capability gate.
 - **Next launch gate:** the prior Section-7.4 serial object and seal `1473ef67...`
   remain historical recipe evidence after LiDAR stopped at the epoch-5 numerical
-  boundary. Section 7.4.7's parallel Camera/LiDAR-diagnostic amendment passed fresh
-  independent review at `296ef9b...` with no open P0-P2; explicit owner activation
-  of the containing review-seal commit remains required, and no job is active.
+  boundary. Section 7.4.7 was activated at `f6379663...` and its exact Camera/
+  LiDAR-diagnostic units completed as Jobs `564253`/`564254`. P1-G2 must disposition
+  Camera and any cause-directed LiDAR continuation before a new executable envelope;
+  D_audit and staged fusion remain closed.
 
 ## 7. S10 envelope activation skeleton
 

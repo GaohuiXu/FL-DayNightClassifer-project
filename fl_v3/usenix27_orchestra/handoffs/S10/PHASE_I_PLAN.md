@@ -15,7 +15,8 @@ AUTHORITY: freezes the Phase I scientific choices, work-package order, gates,
 IMPLEMENTATION: WP0-WP4 completed under consumed O-146/O-147/O-148
 COMPUTE: Envelope A and Phase I-P profiler envelopes are terminal; prior serial
          Envelope B stopped at the LiDAR epoch-5 numerical boundary; Section 7.4.7
-         review closed with no open P0-P2; owner activation remains pending
+         was activated at f6379663..., Jobs 564253/564254 are terminal, and compute
+         is closed at 17.888888/30.0 charged GH200-hours pending P1-G2 disposition
 CHECKPOINT_ACQUISITION: completed once under consumed Envelope A
 COMMIT: material Envelope-A implementation/result/contract closure commits authorized
 MERGE/PUSH/UPLOAD/PUBLICATION: not authorized by this document
@@ -625,8 +626,7 @@ commit authority must be explicit in Envelope A.
 1. **`P1-G0 PLAN_FREEZE` — closed by O-144.** The scientific recipe, five work
    packages, three gates, two-envelope model, and amendment boundaries in this
    document are binding. This closure does not activate Envelope A.
-2. **`P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` — prior serial authority stopped;
-   Section-7.4.7 review closed, owner activation pending.** The Camera backend
+2. **`P1-G1 SCIENTIFIC_COMPUTE_APPROVAL` — consumed and terminal.** The Camera backend
    disposition remains resolved in favor of the qualified PyTorch fallback.
    `RUN_REQUEST.md` Section 7.4 bound the two amended resolved configs, `30.0`
    charged-GH200-hour aggregate ceiling, serial wall segmentation, output,
@@ -635,17 +635,20 @@ commit authority must be explicit in Envelope A.
    `PASS_WITH_RESIDUAL_RISK` with no open P0-P2. The owner accepted that result and
    its P3 and activated that exact Section-7.4 serial envelope. LiDAR then stopped
    honestly at the epoch-5 numerical boundary. The owner cancelled the serial L->C
-   dependency; Section 7.4.7 now binds a pending maximum-two-job/three-GH200
-   amendment with unchanged Camera plus one zero-update LiDAR diagnostic. LiDAR
-   training/resume is forbidden and the added epoch-4 `D_select` look is disclosed,
+   dependency; Section 7.4.7 bound a maximum-two-job/three-GH200 amendment with
+   unchanged Camera plus one zero-update LiDAR diagnostic. LiDAR training/resume
+   remained forbidden and the added epoch-4 `D_select` look was disclosed,
    diagnostic-only and non-selectable. Independent review of
    `296ef9b947236c9aded6daf323f26d1a013bfb0c` closed
-   `PASS_WITH_RESIDUAL_RISK` with no open P0-P2. No amended command is executable
-   until the owner names and activates the containing review-seal commit.
-3. **`P1-G2 SELECT_AND_AUDIT` — pending.** The owner receives both terminal
-   `D_select` results and chooses, per branch, accept/freeze, honest negative, or an
-   explicit cause-directed amendment. `D_audit` opens only when the owner says
-   `OPEN D_audit`; a repair keeps it sealed.
+   `PASS_WITH_RESIDUAL_RISK` with no open P0-P2. The owner named and activated
+   containing seal `f6379663...`; Camera Job `564253` and diagnostic Job `564254`
+   completed within the amendment. Section 7.4.7 is now consumed, not executable.
+3. **`P1-G2 SELECT_AND_AUDIT` — owner return / pending.** Camera has one complete
+   terminal D_select result. LiDAR has only the disclosed non-selectable epoch-4
+   diagnostic result, while its primary remains stopped before epoch 5. The owner
+   chooses accept/freeze, honest negative, or an explicit cause-directed amendment
+   for each branch. `D_audit` opens only when the owner says `OPEN D_audit`; a
+   diagnosis or repair keeps it sealed.
 
 ### 10.3 Envelope A — implementation and engineering calibration
 
@@ -691,10 +694,11 @@ the envelope.
 
 The prior serial LiDAR-then-Camera execution stopped after LiDAR completed epoch 4
 and reproduced all-nonfinite TransFusion predictions on the first epoch-5 batch.
-The owner cancelled that dependency. Under the pending Section-7.4.7 amendment,
-Camera production and one zero-update LiDAR epoch-4 diagnostic may overlap, at most
-one job per branch, two jobs and three typed GH200s total. Full LiDAR training or
-resume is not runnable until a later owner decision.
+The owner cancelled that dependency and activated Section 7.4.7 at `f6379663...`.
+Camera Job `564253` completed 20 epochs and one terminal D_select evaluation;
+LiDAR Job `564254` completed the zero-update epoch-4 diagnostic and its disclosed
+non-selectable D_select peek. Full LiDAR training or resume remains non-runnable
+until a later owner decision. Actual aggregate charge is `17.888888 / 30.0`.
 
 The resource estimate uses only the final sustained, checkpoint-qualified production
 stacks. Camera IP-E5 projects `7.581252` wall hours on two GH200s, or `15.162504`
@@ -773,16 +777,15 @@ envelope, and O-149 creates no standing compute authority.
 - the five collaboration simplifications, five WPs, three owner gates, and two
   approval envelopes in Section 10.
 
-### 11.2 Pending measurements or activation records, not open recipe choices
+### 11.2 Pending owner dispositions, not open recipe choices
 
-- prior Section-7.4 recipe review closed `PASS_WITH_RESIDUAL_RISK` and its serial
-  activation is retained as historical evidence after the LiDAR numerical stop;
-- independent review of the exact Section-7.4.7 amendment closed at `296ef9b...`
-  with no open P0-P2; explicit owner activation of its review-seal commit is pending,
-  and no job is active;
-- the Camera terminal training/checkpoint/`D_select` result, LiDAR diagnostic result,
-  and any later separately authorized LiDAR terminal result and actual charged time;
-- the P1-G2 owner disposition for each branch and any explicit `OPEN D_audit` action;
+- prior Section-7.4 recipe review/serial activation and its LiDAR numerical stop are
+  retained as historical evidence;
+- Section 7.4.7 was reviewed at `296ef9b...`, activated at `f6379663...`, and
+  terminally consumed by Camera Job `564253` and LiDAR diagnostic Job `564254`;
+  no job is active and unused budget is not execution authority;
+- the P1-G2 owner disposition for the complete but weak Camera result and incomplete
+  LiDAR qualification, plus any explicit cause-directed amendment or `OPEN D_audit`;
 - the later Alvis checkpoint/provenance/evaluator alignment audit for Phase II;
 - later Protocol-B BN buffer/affine aggregation policy and the final `D_base/D_tail`
   construction.

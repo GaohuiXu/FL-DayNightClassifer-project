@@ -1,12 +1,13 @@
 # USENIX Security '27 Orchestra — milestone contracts
 
-> **Current handoff (2026-07-22).** S07-S09 are closed. S10 Phase I-P is active on
+> **Current handoff (2026-07-23).** S07-S09 are closed. S10 remains active on
 > `codex/s10-phase1p-throughput-preflight`, created from the frozen control
 > `codex/s10-phase1-branch-qualification` at `f1a2bab...`. O-143 replaces the old
 > active S10 six-stop order:
 > qualify camera and LiDAR independently, perform staged fusion from qualified
 > branch checkpoints, establish aligned capability/fusion contribution, and only
 > then profile/optimize GH200.
+> Phase I-P is terminal at the profiler level; Phase I remains open at P1-G2.
 >
 > STOP-A's split/evaluator remains reusable. STOP-B is closed
 > `INCONCLUSIVE`; C1-A's `LOCALIZED_NORM` result is bounded diagnostic
@@ -36,12 +37,14 @@
 > `PASS_WITH_RESIDUAL_RISK` with no open P0-P2. The owner accepted the verdict/P3,
 > named seal `1473ef67...` and activated the serial envelope. LiDAR completed four
 > healthy epochs before a reproducible all-nonfinite epoch-5 TransFusion forward.
-> The owner then cancelled the serial dependency. Section 7.4.7 now materializes a
-> pending parallel amendment: unchanged Camera plus one zero-update LiDAR epoch-4
-> diagnostic may overlap (two jobs / three typed GH200s) under the unchanged 30.0-
-> hour aggregate ceiling. The additional non-selectable `D_select` diagnostic peek
-> passed independent review at `296ef9b...` with no open P0-P2. Explicit owner
-> activation of the review-seal commit remains required; no job is active.
+> The owner then cancelled the serial dependency, accepted the Section-7.4.7 review
+> and named activation source `f6379663...`. Camera Job `564253` and the zero-update
+> LiDAR epoch-4 diagnostic Job `564254` ran concurrently and completed `0:0`.
+> Camera completed 20 epochs and terminal D_select at internal mAP/NDS
+> `0.113553/0.155480`; the LiDAR peek is diagnostic-only/non-selectable at
+> `0.018962/0.039572` and does not resolve the epoch-5 boundary. Aggregate charge is
+> `17.888888/30.0`; no job is active, D_audit remains sealed, and P1-G2 owner
+> disposition is required before LiDAR continuation or staged fusion.
 > S11+ remains pending.
 
 ## 1. Active graph and status
@@ -55,8 +58,8 @@
   ├─ S09 full-pipeline performance/readiness      [closed PASS under O-120]
   │      └─ independent review of exact profiling/evidence SHA
   │
-  ├─ S10 C/L qualification → staged fusion        [final C/L recipes materialized]
-  │      └─ capability gate → GH200 optimization  [parallel amendment owner activation pending]
+  ├─ S10 C/L qualification → staged fusion        [Camera result + LiDAR diagnostic returned]
+  │      └─ capability gate → GH200 optimization  [P1-G2 owner disposition pending]
   └─ S11 and later                                 [roles pending owner decision]
 ```
 
@@ -69,7 +72,7 @@
 | S07 | Legacy cleanup plus clean completion | S01-S06 | **closed**; S07-C static review PASS and S07-B bounded FP32/FedAvg/loader gate PASS; no science/precision freeze |
 | S08 | Model/recipe audit, then precision qualification | S07 | **closed PASS under O-110** at accepted seal `d31adea`; Jobs `431013`/`435151`, `00:07:58` total; R3 no P0-P2 |
 | S09 | Full-pipeline engineering performance/readiness | accepted S08 policy | **closed PASS under O-120** at accepted review seal `ced5992`; STOP-1 through STOP-4 independently reviewed, no open P0-P3 |
-| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | LiDAR stopped honestly at epoch-5 numerical boundary; Section 7.4.7 review closed with no open P0-P2, owner activation pending |
+| S10 | C/L branch recipe and capability, staged fusion, aligned clean/fusion claim, then final-architecture GH200 optimization | closed S08+S09 | Camera terminal result and LiDAR diagnostic sealed; LiDAR qualification incomplete; P1-G2 owner disposition pending |
 | S11+ | Not currently defined | future owner decision | pending; historical role proposals do not create scope, sequencing, full-run placement, or execution authority |
 
 ## 2. Persistent S00 contract
@@ -377,9 +380,9 @@ the later Phase I-P work promotes the final Camera/LiDAR throughput recipes. Rev
    with no open P0-P2, and the owner accepted its P3 and serial execution object at
    seal `1473ef67...`. That run stopped at LiDAR's epoch-5 numerical boundary. The
    owner cancelled the serial dependency; Section 7.4.7's parallel Camera/LiDAR-
-   diagnostic amendment passed review at `296ef9b...` with no open P0-P2 and now
-   awaits explicit owner activation of its review-seal commit. The original
-   `49.0`-hour B4 tuple and stopped serial topology are historical only.
+   diagnostic amendment passed review at `296ef9b...`, was activated at
+   `f6379663...`, and completed as Jobs `564253`/`564254`. The original `49.0`-hour
+   B4 tuple and stopped serial topology are historical only.
 
 ### Phase II — staged fusion and capability
 
@@ -402,10 +405,9 @@ O-146/O-147/O-148 consumed Envelope A for WP0-WP4, official ImageNet acquisition
 D_fit CBGS/GTDB materialization, optimized-BEV-pooling build/parity/timing,
 material commits and bounded engineering calibration. Unused aggregate budget is
 not continuing authority. The `30.0` charged-GH200-hour ceiling remains fixed;
-`2.121944` hours were consumed before the LiDAR stop. Section 7.4.7's parallel
-amendment passed independent review at `296ef9b...` with no open P0-P2 but is not
-executable until explicit owner activation. The original `49.0`-hour B4 object is
-not an activation option.
+terminal use through Jobs `564253`/`564254` is `17.888888` hours. Section 7.4.7 is
+consumed and no remaining hours are executable without a new owner decision. The
+original `49.0`-hour B4 object is not an activation option.
 
 ## 7. S11 and later
 

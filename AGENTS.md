@@ -40,7 +40,7 @@ engineering performance/readiness are closed. S08's accepted precision policy is
 integrated at `28f79802c0868afa6290d74ae6aeb9d23c7d088f`; S09's accepted
 closing commit is `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`.
 
-S10 Phase I-P is active on `codex/s10-phase1p-throughput-preflight`, created from
+S10 remains active on `codex/s10-phase1p-throughput-preflight`, created from
 the frozen `codex/s10-phase1-branch-qualification` control at
 `f1a2babda8dafd181b5a5144ab025a3f6be21cc2`. Earlier S10 was advanced linearly
 from `codex/s10-cl-model-recipe` and audited base
@@ -137,18 +137,20 @@ Section-7.4 envelope, then removed the initial no-submit hold. That activated Li
 completed four finite epochs but reproducibly produced all-nonfinite TransFusion
 predictions on the first epoch-5 batch. Checkpoint model/Adam tensors and raw
 point/GTDB payloads are finite; LiDAR training/resume is stopped at a scientific
-boundary. The owner subsequently cancelled the serial L->C dependency. Current
-`RUN_REQUEST.md` Section 7.4.7 materializes a **pending** parallel amendment under
-the unchanged `30.0` charged-hour ceiling: unchanged two-GH200 Camera plus one
-zero-update one-GH200 LiDAR epoch-4 diagnostic may overlap, maximum two jobs/three
-typed GH200s and one job per branch. It adds one disclosed, non-selectable epoch-4
-`D_select` diagnostic peek before the future terminal evaluation. Independent review
-of `296ef9b947236c9aded6daf323f26d1a013bfb0c` closed
-`PASS_WITH_RESIDUAL_RISK` with no open P0-P2; only explicit owner activation of the
-containing review-seal commit remains before compute. No job is active.
-When activated, substantive health checks use the owner-selected one-hour cadence
-plus passive terminal/state-change detection; a nominal `RUNNING` state alone is
-not health evidence.
+boundary. The owner subsequently cancelled the serial L->C dependency.
+`RUN_REQUEST.md` Section 7.4.7's parallel amendment was independently reviewed at
+`296ef9b947236c9aded6daf323f26d1a013bfb0c`, explicitly activated at containing
+seal `f6379663e682d53532bd01dd87f163e9915c44da`, and consumed by concurrent
+Camera Job `564253` plus zero-update LiDAR epoch-4 diagnostic Job `564254`. Both
+completed `0:0`; aggregate use is `17.888888/30.0` charged GH200-hours. Camera
+completed 20 epochs and one terminal D_select at internal mAP/NDS
+`0.113553/0.155480`; 14/54,940 attempted windows overflowed, with zero nonfinite or
+discarded windows. The LiDAR production-compile FP16 diagnostic was finite and its
+additional D_select peek scored `0.018962/0.039572`, but it is explicitly
+non-selectable and neither resolves the earlier epoch-5 nonfinite boundary nor
+completes LiDAR qualification. No job or monitor is active; remaining budget is not
+authority. P1-G2 owner disposition is required, D_audit remains sealed, and staged
+fusion is not authorized.
 
 For this stage, `fl_v3/collab/` is read-only legacy evidence. Agents may inspect and
 cite it, but must not add or update plans, handoffs, reviews, results, or status

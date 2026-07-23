@@ -4,15 +4,15 @@
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
-ACTIVE_DECISION: owner cancelled serial dependency; Section-7.4.7 review closed
-REQUEST_STATE: REVIEW CLOSED / OWNER ACTIVATION REQUIRED / NOT EXECUTABLE
-EXECUTION_AUTHORITY: none; prior seal 1473ef67... is historical for unchanged recipes
-ACTIVE_PHASE: request Camera + LiDAR diagnostic activation at the review-seal commit
+ACTIVE_DECISION: Section 7.4.7 activated at f6379663... and terminally consumed
+REQUEST_STATE: RESULT SEALED / COMPUTE CLOSED / OWNER RETURN AT P1-G2
+EXECUTION_AUTHORITY: none; unused aggregate budget is not continuing authority
+ACTIVE_PHASE: Camera disposition and LiDAR cause-directed decision at P1-G2
 PLAN: HANDOFF.md Section 1 / IP-G0 closed
 BRANCH: codex/s10-phase1p-throughput-preflight
 UNIQUE_BASE_SHA: f1a2babda8dafd181b5a5144ab025a3f6be21cc2
 FROZEN_CONTROL: codex/s10-phase1-branch-qualification at the same SHA
-ENVELOPE_B: Section 7.4 history; Section 7.4.7 is the sole current activation candidate
+ENVELOPE_B: Section 7.4 history; Section 7.4.7 terminal ledger is in Section 7.4.9
 ```
 
 IP-G0 authorized scoped Phase I-P source/docs/tests, local validation and linear
@@ -577,13 +577,13 @@ Sections 7.0–7.3 above remain the immutable pre-Phase-I-P B4 control. They are
 an activation option. The object below supersedes their source/config/topology/
 resource/output identities while preserving the two-candidate scientific contract.
 Its serial authority later stopped at the LiDAR epoch-5 numerical boundary and is
-not a current activation option; Section 7.4.7 is the sole current amendment.
+not a current activation option; Section 7.4.7 was later consumed (Section 7.4.9).
 
 ```text
 PHASE: S10 Phase I / revised Envelope B independent branch qualification
 CURRENT_STATE: STOPPED AT LIDAR EPOCH-5 NUMERICAL BOUNDARY / NOT EXECUTABLE
 HISTORICAL_REQUEST_STATE: FROZEN / REVIEW CLOSED / OWNER ACCEPTED / ACTIVATED
-EXECUTABLE_IN_CURRENT_SESSION: no; serial topology superseded by pending Section 7.4.7
+EXECUTABLE_IN_CURRENT_SESSION: no; serial topology and later Section 7.4.7 are terminal
 MATERIALIZED_SOURCE_SHA: cb2fc279b0c5e4b686525bed9da10f3ec6ad070f
 MATERIALIZED_SOURCE_TREE: 3dd9bc54a30d766f696ab752abdc1a8f4097d55c
 REVIEW_BASELINE: a4f6ca86ddd966bdffc74a37af3337ac6675e83a
@@ -1023,6 +1023,77 @@ before decode and atomically renamed into `evaluation/complete/`. Camera recipe 
 LiDAR checkpoint/config/data/seed/exposure/precision/evaluator boundaries did not
 drift. This review closes the recipe-freeze review gate but grants no compute; the
 owner must name the clean containing review-seal commit and explicitly activate it.
+
+#### 7.4.9 Owner activation, terminal parallel ledger, and P1-G2 return
+
+The owner named containing review-seal
+`f6379663e682d53532bd01dd87f163e9915c44da`, accepted the Section-7.4.8
+review verdict and sole P3, and explicitly activated Section 7.4.7. The owner
+authorized concurrent submission of unchanged Camera plus the zero-update LiDAR
+epoch-4 diagnostic and required Camera startup/epoch-1 health observation followed
+by one-hour monitoring. The two exact commands in Section 7.4.7 were submitted
+once, started together, and are terminal. The pre-activation state strings retained
+in Sections 7.4.7-7.4.8 are request/review snapshots and are superseded by this
+append-only ledger.
+
+```text
+ACTIVATED_SOURCE: f6379663e682d53532bd01dd87f163e9915c44da
+ACTIVATED_TREE: b868e8cc8cdda0b4f6039f48079d90b357645166
+ACTIVATION_STATE: CONSUMED / TERMINAL
+OUTPUT_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/arrhenius_fl_v3/outputs/s10_phase1_envelope_b_dual_783173d6fe05
+MAX_OBSERVED_CONCURRENCY: 2 jobs / 3 typed GH200s
+PRIOR_CHARGE: 2.121944 GH200-hours
+NEW_CHARGE: 15.766944 GH200-hours
+AGGREGATE_CHARGE: 17.888888 / 30.0 GH200-hours
+UNCONSUMED_NOT_AUTHORIZED: 12.111112 GH200-hours
+ACTIVE_JOB_OR_MONITOR: none
+D_AUDIT_EXECUTED: false
+OFFICIAL_VALIDATION_EXECUTED: false
+NEXT_GATE: P1-G2 OWNER DISPOSITION REQUIRED
+CAMERA_RESULT_SHA256: 87cf88a547e46b1923c074d03cf9bc5eda759032f5c48913f6588a50a41e7f47
+CAMERA_EPOCH20_RECORD_SHA256: 489a48372862519765eb50a68d7dec371689f48c5ad0ca0fe1e496f5253732f3
+CAMERA_CHECKPOINT_SHA256: 06c59e4c6476f80df63470a45f37e5671859bb52991babbe72f0120db82c45db
+CAMERA_D_SELECT_METRICS_SHA256: 74cd12d65df1b66b908750404e79991b1aa6ebba6c05869b8db3f8c79c20e464
+CAMERA_D_SELECT_RESULTS_SHA256: cf79baee5e69548069b829edbcf6e224c540e8ef456e6aaa598dc295a0a86e38
+LIDAR_DIAGNOSTIC_RESULT_SHA256: 1c86cab4114de15920dbcdd7848c038fe24de5e18d9ac5d7669e2b161e56ace0
+LIDAR_LOCALIZATION_COMPLETE_SHA256: 2c5a6e5783b6d7e3bfd21c9829b5925c6a8dddc97aad28b405b7a65cfd52acbd
+LIDAR_DIAGNOSTIC_SCOPE_SHA256: f31ba3cc1580e322827490bbdc383eb76dfbf7429fe9fe0d0dce2fc85e9ba548
+LIDAR_D_SELECT_METRICS_SHA256: e9f5b808283aa9755d594bf4e50c71ada9d8d4c74c9b1d774ce33b0e96efd3d5
+LIDAR_D_SELECT_RESULTS_SHA256: 3bdbac79c497218b08652954bece5b7816b8e235c944746cae5f79a48886a513
+```
+
+| Job | Frozen source/config/output | Terminal execution | Result and interpretation |
+|---|---|---|---|
+| Camera `564253` | source `f6379663...`; resolved config `63f77459...2d1b3`; `phase1_camera_primary` | n488; 2 GH200 / 32 CPU / 192 GiB; `2026-07-22T18:51:13` to `2026-07-23T02:39:27`; `COMPLETED 0:0`; `07:48:14`; `15.607778` charged GH200-hours; zero restarts | `COMPLETE_WITH_INVALID_WINDOWS`; result `87cf88a5...e7f47`; terminal epoch record `489a4837...32f3`; checkpoint `06c59e4c...45db`; D_select metrics/results `74cd12d6...e464` / `cf79baee...e38`; complete Camera result returned to P1-G2, not automatically accepted |
+| LiDAR diagnostic `564254` | source `f6379663...`; resolved config `c950d90d...8b1ad`; checkpoint `d01b6219...c940`; `diagnostics/lidar_epoch04_diagnostic_v1` | n102; 1 GH200 / 16 CPU / 96 GiB; `2026-07-22T18:51:13` to `2026-07-22T19:00:46`; `COMPLETED 0:0`; `00:09:33`; `0.159167` charged GH200-hours; zero restarts | `COMPLETE_DIAGNOSTIC`; result `1c86cab4...ace0`; localization completion `2c5a6e57...acbd`; scope `f31ba3cc...a548`; D_select metrics/results `e9f5b808...fd3d5` / `3bdbac79...a513`; zero-update and non-selectable, so LiDAR qualification remains incomplete |
+
+Camera completed 20 epochs, 54,940 attempted effective-B32 windows and 1,758,080
+attempted presentations. It accepted 54,926 updates and 1,757,632 presentations;
+14 synchronized GradScaler overflow windows account for all invalid windows, with
+zero nonfinite and zero discarded windows. The global sampler union had no duplicate
+or omission, canonical rank agreement passed, and the terminal checkpoint is the
+only selectable Camera checkpoint. The terminal rank losses are `4.884962` and
+`4.890348`. One D_select execution over 4,626 samples produced internal mAP
+`0.113553033` and NDS `0.155480119`; class mean AP is zero for barrier, bus,
+construction_vehicle, pedestrian, traffic_cone and trailer. These are weak internal
+development metrics with no predeclared pass threshold, not official validation.
+
+The LiDAR diagnostic reloaded the exact epoch-4 checkpoint and executed the required
+production compile/reference-attention FP16 cell on the canonical B32 batch. Sparse
+collapse, SECOND, FPN and final model output were all finite; final-output finite
+maximum absolute value was `190.385757`. Therefore its conditional eager FP16,
+eager FP32 and SDPA FP16 cells correctly did not run. Optimizer step stayed
+`10988`; no backward, optimizer update or automatic recipe promotion occurred. Its
+diagnostic-only D_select execution made 145 all-finite raw-head forward calls and
+produced mAP `0.018961749` / NDS `0.039571757`. This non-reproduction does not
+invalidate the exact Job `563170` nonfinite boundary, identify its cause, authorize
+resume, select epoch 4, or substitute for a future epoch-20 result.
+
+Section 7.4.7 compute is closed. P1-G2 must now decide Camera
+accept/freeze versus honest negative versus a cause-directed amendment, and decide
+whether LiDAR stops or receives a new bounded numerical/capability amendment.
+D_audit remains sealed and staged fusion remains closed. No remaining aggregate
+budget, result status or checkpoint creates execution authority.
 
 ## 8. Phase I-P IP-G0 record and exact IP-E1 request
 
