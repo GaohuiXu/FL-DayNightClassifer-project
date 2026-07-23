@@ -619,6 +619,13 @@ reason to repair Git topology autonomously. No agent runs `git worktree add`,
 `move`, `remove`, or `prune`, switches branches, or deletes a branch/worktree
 without exact owner authorization.
 
+A Codex-managed worktree normally starts detached at the selected source ref.
+Unless the owner explicitly requests an attached branch, its envelope must use
+`EXPECTED_REF_MODE: detached@BASE_SHA`; `SOURCE_BRANCH` records provenance and
+does not require `git branch --show-current` to print that branch. An empty
+`git branch --show-current` is therefore the expected result in that mode, not
+a topology failure.
+
 Independent review always pins a durable implementation/evidence SHA, even when
 performed by a reviewer subagent in the persistent context. Mutable uncommitted
 state is not a review baseline. A review-only artifact may be sealed linearly; no

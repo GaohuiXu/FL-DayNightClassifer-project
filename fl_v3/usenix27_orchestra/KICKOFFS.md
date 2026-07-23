@@ -493,10 +493,10 @@ Use this envelope only after the exact plan-freeze commit exists:
 
 ```text
 SESSION: persistent S00 / S10 Phase-I-R reference reproduction
-BASE_SHA: <EXACT_PLAN_FREEZE_SHA>
+BASE_SHA: <EXACT_CONTROL_SHA>
 BASE_EVIDENCE: 714f69eac2a0857dc8435cd9ee8bc202d1035456
 SOURCE_BRANCH: codex/s10-bevfusion-reference-reproduction
-EXPECTED_REF_MODE: exact branch at BASE_SHA, clean worktree
+EXPECTED_REF_MODE: detached@BASE_SHA, clean Codex-managed worktree
 ACTIVE_PLAN: fl_v3/usenix27_orchestra/handoffs/S10/REFERENCE_REPRODUCTION_PLAN.md
 ACTIVE_LEDGER: fl_v3/usenix27_orchestra/handoffs/S10/RUN_REQUEST.md Section 11
 CONTROL_GIT: current fl_weather_project repository
@@ -509,7 +509,9 @@ OUT_OF_SCOPE: local model repair; standalone Camera; D_fit/D_select/D_audit;
 At startup, verify `git status --short`, `git rev-parse HEAD`,
 `git branch --show-current` and `git rev-parse --show-toplevel`. Read
 `AGENTS.md`, the active plan, `HANDOFF.md` Section 0 and `RUN_REQUEST.md`
-Section 11 before acting. A mismatch is a blocker.
+Section 11 before acting. `git branch --show-current` must be empty because the
+managed worktree is intentionally detached; `SOURCE_BRANCH` is the source and
+future delivery ref, not the expected checkout. Any other mismatch is a blocker.
 
 The session may discuss and inspect the frozen plan immediately. It may not clone
 sources, create the external root, download checkpoints, mutate environments or

@@ -374,13 +374,18 @@ fresh result is evidence, not permission to tune.
 
 ## 8. New-session handoff
 
-The execution session starts only from the exact containing plan-freeze commit on
-a dedicated `codex/s10-bevfusion-reference-reproduction` branch/worktree. Its
-kickoff must verify:
+The execution session starts only from the exact containing control commit in a
+dedicated Codex-managed worktree based on
+`codex/s10-bevfusion-reference-reproduction`. The source branch records
+provenance and the future delivery ref; the managed worktree itself is expected
+to remain detached at the exact control commit until separate branch-write
+authority is granted. Its kickoff must verify:
 
 ```text
-BASE_SHA: exact plan-freeze commit
+BASE_SHA: exact control commit
 BASE_EVIDENCE: 714f69eac2a0857dc8435cd9ee8bc202d1035456
+SOURCE_BRANCH: codex/s10-bevfusion-reference-reproduction
+EXPECTED_REF_MODE: detached@BASE_SHA
 CONTROL_REPOSITORY: current fl_weather_project Git
 EXTERNAL_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/bevfusion_ref
 ACTIVE_PLAN: handoffs/S10/REFERENCE_REPRODUCTION_PLAN.md
