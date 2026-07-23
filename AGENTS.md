@@ -27,7 +27,8 @@ The active collaboration entry point is:
 fl_v3/usenix27_orchestra/ORCHESTRA.md
 fl_v3/usenix27_orchestra/SESSIONS.md
 fl_v3/usenix27_orchestra/KICKOFFS.md
-fl_v3/usenix27_orchestra/handoffs/S10/PHASE_I_PLAN.md  # binding for Phase-I work
+fl_v3/usenix27_orchestra/handoffs/S10/REFERENCE_REPRODUCTION_PLAN.md  # active S10-R plan
+fl_v3/usenix27_orchestra/handoffs/S10/PHASE_I_PLAN.md  # historical local-model plan
 ```
 
 This is milestone/work orchestration, not a research-cycle document. Names beginning
@@ -40,9 +41,10 @@ engineering performance/readiness are closed. S08's accepted precision policy is
 integrated at `28f79802c0868afa6290d74ae6aeb9d23c7d088f`; S09's accepted
 closing commit is `351b7a0b8419c01d0d32ba224babbc6bdc4213ba`.
 
-S10 remains active on `codex/s10-phase1p-throughput-preflight`, created from
-the frozen `codex/s10-phase1-branch-qualification` control at
-`f1a2babda8dafd181b5a5144ab025a3f6be21cc2`. Earlier S10 was advanced linearly
+S10 Phase-I-R is the active direction from complete profiler/result evidence
+`714f69eac2a0857dc8435cd9ee8bc202d1035456`. The control branch
+`codex/s10-phase1-branch-qualification` was explicitly fast-forwarded to that
+evidence before the Phase-I-R plan freeze. Earlier S10 was advanced linearly
 from `codex/s10-cl-model-recipe` and audited base
 `a080d49c1c22de20ccb5b1353d4922c7df14a729`. Terminal evidence through O-150 and
 the later owner-approved Phase I-P work is preserved in
@@ -71,17 +73,28 @@ the later owner-approved Phase I-P work is preserved in
   is same-node two-GH200 DDP at B16/rank; LiDAR's is single-GH200 B32. Both keep
   effective global B32 and the frozen exposure. Phase I-P measured engineering
   health and throughput only; it made no capability, mAP/NDS or selection claim.
+- The later local-model scientific runs are terminal evidence: Camera completed
+  20 epochs but scored only `0.113553/0.155480` internal mAP/NDS; LiDAR stopped
+  after four epochs at a reproducible epoch-5 nonfinite-prediction boundary and
+  its disclosed non-selectable epoch-4 diagnostic scored `0.018962/0.039572`.
+  These results do not authorize additional local-model remediation.
+- O-151 replaces the active local-model continuation with a bounded upstream
+  reference-reproduction phase. MIT commit `db751507...` is the semantic anchor;
+  MMDetection3D BEVFusion `v1.4.0` is the GH200 implementation target; official
+  nuScenes train/val, keyframe plus nine sweeps, published L/F checkpoint oracles
+  and fresh staged LiDAR-to-Fusion training are in scope. FL, clients, attacks and
+  defenses are explicitly deferred.
 
-Owner decision O-143 supersedes the active S10 six-stop execution order and the
-S10-specific per-job immutable/no-retry/multi-document/reviewer workflow. It does
-not erase prior results, relax data ownership or metric correctness, or authorize
-compute. The active scientific order is now:
+Owner decision O-151 retains O-143/O-149's scientific safety and efficient
+engineering-remediation rules but supersedes the immediate local-model order. The
+active order is now:
 
-1. qualify camera and LiDAR branches independently, selecting a defensible
-   architecture/initialization/training recipe for each;
-2. perform staged fusion from the qualified branch checkpoints and establish
-   absolute clean capability plus fusion contribution under aligned evaluation;
-3. profile and optimize GH200 performance only after the capability gate passes.
+1. qualify an isolated OpenMMLab BEVFusion runtime and published L/F checkpoints
+   on Arrhenius;
+2. fresh-train the official LiDAR recipe, then staged Fusion, on official nuScenes
+   train and assess terminal checkpoints on official val;
+3. decide whether to promote the reference repository;
+4. only then design any later FL/client/attack/defense phase.
 
 Current-A2 and the old C→D→E→F execution path are paused. MIT BEVFusion's
 published staged-pretraining and recipe choices are strong external anchors; S10
@@ -151,6 +164,16 @@ non-selectable and neither resolves the earlier epoch-5 nonfinite boundary nor
 completes LiDAR qualification. No job or monitor is active; remaining budget is not
 authority. P1-G2 owner disposition is required, D_audit remains sealed, and staged
 fusion is not authorized.
+
+Owner decision O-151 approves the Phase-I-R document organization, work
+declaration, execution topology and five-WP/three-gate/two-envelope workflow in
+`REFERENCE_REPRODUCTION_PLAN.md`. It authorizes fast-forwarding the control branch
+to `714f69e...`, writing the canonical plan/handoff/ledger/kickoff amendments and
+creating the plan-freeze commit. The old local `PHASE_I_PLAN.md` remains historical
+evidence and its unused authorities are not revived. O-151 does not itself activate
+source/checkpoint downloads, `/nobackup/.../bevfusion_ref` construction, Slurm,
+remote creation, push or upload; exact Envelope-A activation remains bound to the
+containing plan-freeze commit.
 
 For this stage, `fl_v3/collab/` is read-only legacy evidence. Agents may inspect and
 cite it, but must not add or update plans, handoffs, reviews, results, or status

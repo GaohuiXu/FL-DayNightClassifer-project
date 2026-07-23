@@ -1,6 +1,43 @@
-# S10 HANDOFF — Envelope-B terminal evidence sealed; P1-G2 owner return
+# S10 HANDOFF — Phase-I-R reference reproduction plan frozen; no compute active
 
-## 1. Current state and authority
+## 0. Active Phase-I-R state
+
+```text
+ACTIVE_PLAN: REFERENCE_REPRODUCTION_PLAN.md
+OWNER_DECISION: O-151
+BASE_EVIDENCE: 714f69eac2a0857dc8435cd9ee8bc202d1035456
+ACTIVE_OBJECTIVE: reproduce published OpenMMLab BEVFusion LiDAR and Fusion
+                  checkpoints and fresh staged training on Arrhenius GH200
+CONTROL_REPOSITORY: current fl_weather_project Git
+EXTERNAL_EXECUTION_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/bevfusion_ref
+ENVELOPE_A: frozen draft; exact plan-freeze activation pending
+ENVELOPE_B: design only; resource freeze waits for Envelope-A measurements
+COMPUTE/DOWNLOAD/ENV_BUILD/PUSH: none authorized
+```
+
+O-151 closes the discussion-level choice to stop local-model remediation and
+adopt an upstream reference-reproduction phase. The old Camera/LiDAR plan,
+Phase-I-P and terminal Jobs `564253`/`564254` remain historical evidence below.
+Their remaining budget is not authority and their weak/incomplete capability
+outcomes are not reinterpreted.
+
+Phase-I-R uses MIT `db751507...` as the paper/recipe anchor and MMDetection3D
+BEVFusion `v1.4.0` as the executable GH200 target. It uses official nuScenes
+train/val and keyframe plus nine sweeps, first reproduces the published LiDAR and
+Fusion checkpoints, then requests separately measured fresh LiDAR-to-Fusion
+training. Standalone Camera, local `D_fit/D_select/D_audit`, FL, clients, attacks
+and defenses are out of scope.
+
+The current repository is the control plane. A future activated Envelope A creates
+an independent Git repository and environment under the external execution root.
+Each job exposes one compact `RUN_ID`; its automatic manifest carries the detailed
+provenance without turning every hash into a separate approval object.
+
+The next action is a new execution session from the exact containing plan-freeze
+commit. That session has no permission to download, build or submit Slurm until
+the owner activates the exact Envelope-A object in `RUN_REQUEST.md` Section 11.
+
+## 1. Historical local-model terminal state and authority
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
@@ -1280,7 +1317,7 @@ metric implementation is a material scientific amendment requiring owner approva
 and independent review. Official nuScenes validation remains held out from recipe
 selection unless a future approved capability gate explicitly opens it.
 
-## 4. Active scientific order
+## 4. Historical local-model scientific order
 
 ### Phase I-P — throughput preflight before qualification
 
@@ -1382,8 +1419,9 @@ Active records are:
 - this `HANDOFF.md`: compact current status, science plan and decision boundary;
 - `RUN_REQUEST.md`: phase authority plus one concise job ledger.
 
-`PHASE_I_PLAN.md` is the frozen plan specification, not a second status or job
-narrative. Update it only through an explicit owner amendment.
+`REFERENCE_REPRODUCTION_PLAN.md` is the active frozen plan specification, not a
+second status or job narrative. `PHASE_I_PLAN.md` is historical local-model
+evidence after O-151. Update either only through an explicit owner amendment.
 
 Minimum per-run provenance is Git SHA, resolved-config hash, split, seed, command,
 resources, output root, terminal state, checkpoint hash and metric hash. Raw

@@ -1,4 +1,12 @@
-# S10 Phase I C/L branch qualification — binding plan
+# S10 Phase I C/L branch qualification — historical binding plan
+
+> **Historical execution plan after O-151.** This document preserves the
+> owner-frozen local-model plan and all terminal implementation/profiler/scientific
+> evidence through base `714f69e...`. It is no longer the active execution plan,
+> and no unused budget or prior approval may be revived from it. Active S10 work is
+> governed by `REFERENCE_REPRODUCTION_PLAN.md`. Historical statements below,
+> including the later incorrect keyframe-only interpretation of the MIT capability
+> recipe, must not be imported into Phase-I-R.
 
 ## 0. Status, purpose, and authority
 

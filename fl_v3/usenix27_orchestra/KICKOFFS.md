@@ -409,7 +409,7 @@ recipe claim, multi-seed, Protocol A/B, attack, defense, DDP, full-data payload
 scan, branch selection, normalization experiment, or publication/upload is
 authorized.
 
-## 6. S10 O-143 through O-149 launch state
+## 6. Historical S10 O-143 through O-150 launch state
 
 - **Science order:** qualify camera and LiDAR independently; freeze reviewed
   branch recipes/checkpoints; staged fusion; aligned absolute-capability and
@@ -477,10 +477,43 @@ review and owner acceptance are closed, but the owner explicitly deferred every
 submission and then explicitly superseded that hold by activating the current
 session. Its budget is not inferred from Envelope A's unused time.
 
-After approval, individual job rows in `handoffs/S10/RUN_REQUEST.md` record Git
-SHA, resolved-config hash, split, seed, command, resources, output, terminal state,
-checkpoint hash and metric hash. Derived engineering fixes/resubmissions are
+After approval, required Git/config/data/seed/command/resource/output/checkpoint/
+metric provenance is recorded in the job's immutable manifest. Phase-I-R exposes
+that manifest through one compact `RUN_ID` in `handoffs/S10/RUN_REQUEST.md`;
+the detailed identities are evidence, not separate approval objects. Derived
+engineering fixes/resubmissions are
 allowed only inside the approved science and aggregate caps. Under O-149 they do
 not have a default numeric submission limit, but must remain serial (unless the
 owner explicitly changes concurrency), diagnosed, fresh-output, and within the
 approved aggregate ceiling.
+
+## 8. S10 Phase-I-R new-session kickoff
+
+Use this envelope only after the exact plan-freeze commit exists:
+
+```text
+SESSION: persistent S00 / S10 Phase-I-R reference reproduction
+BASE_SHA: <EXACT_PLAN_FREEZE_SHA>
+BASE_EVIDENCE: 714f69eac2a0857dc8435cd9ee8bc202d1035456
+SOURCE_BRANCH: codex/s10-bevfusion-reference-reproduction
+EXPECTED_REF_MODE: exact branch at BASE_SHA, clean worktree
+ACTIVE_PLAN: fl_v3/usenix27_orchestra/handoffs/S10/REFERENCE_REPRODUCTION_PLAN.md
+ACTIVE_LEDGER: fl_v3/usenix27_orchestra/handoffs/S10/RUN_REQUEST.md Section 11
+CONTROL_GIT: current fl_weather_project repository
+EXTERNAL_ROOT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/bevfusion_ref
+EXECUTION_AUTHORITY: none until exact Envelope-A activation
+OUT_OF_SCOPE: local model repair; standalone Camera; D_fit/D_select/D_audit;
+              FL; clients; attack; defense; merge; push; upload; publication
+```
+
+At startup, verify `git status --short`, `git rev-parse HEAD`,
+`git branch --show-current` and `git rev-parse --show-toplevel`. Read
+`AGENTS.md`, the active plan, `HANDOFF.md` Section 0 and `RUN_REQUEST.md`
+Section 11 before acting. A mismatch is a blocker.
+
+The session may discuss and inspect the frozen plan immediately. It may not clone
+sources, create the external root, download checkpoints, mutate environments or
+submit Slurm until the owner activates the exact containing plan-freeze commit and
+Envelope A. Once activated, it executes WP0-WP3 continuously under O-149, records
+one compact `RUN_ID` per job and returns at `P1R-G1`. It must not design future
+FL/security work.

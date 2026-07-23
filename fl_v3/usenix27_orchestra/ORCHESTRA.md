@@ -1,6 +1,15 @@
 # USENIX Security '27 Orchestra — clean CL to federated multimodal security
 
-> **Active status (2026-07-23).** S07-S09 are closed. S10 remains active on
+> **Active O-151 amendment (2026-07-23).** S10 now executes
+> `handoffs/S10/REFERENCE_REPRODUCTION_PLAN.md`: isolate the official OpenMMLab
+> BEVFusion port on Arrhenius, reproduce published LiDAR/Fusion checkpoints, then
+> fresh-train official LiDAR followed by staged Fusion on official nuScenes
+> train/val. MIT `db751507...` is the semantic anchor; keyframe plus nine sweeps
+> is the capability recipe. The old local-model plan and Jobs `564253`/`564254`
+> are terminal historical evidence. FL, clients, attack, defense, source download,
+> environment construction, Slurm, promotion and push remain separately gated.
+>
+> **Historical status through base `714f69e...`.** S07-S09 are closed. S10 was active on
 > `codex/s10-phase1p-throughput-preflight`, created from the frozen control
 > `codex/s10-phase1-branch-qualification` at
 > `f1a2babda8dafd181b5a5144ab025a3f6be21cc2`.
@@ -72,6 +81,20 @@
 > Staged fusion, merge, push, upload, publication and S11+ remain unauthorized.
 
 ## 1. Current objective and sequencing
+
+O-151 replaces the immediate local Camera/LiDAR remediation and staged-fusion
+route with a bounded upstream reference reproduction:
+
+```text
+isolated GH200 OpenMMLab runtime
+  -> published LiDAR/Fusion checkpoint oracle on official val
+  -> fresh official-train LiDAR
+  -> staged fresh Fusion
+  -> official-val reproduction gate
+  -> owner decision on repository promotion
+```
+
+No FL/client/attack/defense design is part of this sequence.
 
 The immediate scientific objective is a strong, trustworthy centralized
 camera-LiDAR nuScenes detector. Clean modality capacity, numerical stability,
@@ -401,12 +424,18 @@ bugs.
   data/evaluation substrate.
 - O-143 is the active S10 sequencing/collaboration decision. It replaces the old
   active six-stop order and S10 per-job process, but not prior raw results.
+- O-151 is the active immediate science decision: reproduce the pinned upstream
+  BEVFusion LiDAR/Fusion reference on official train/val before considering any
+  repository promotion or later FL/security phase.
 - Persistent S00 is the default implementer. S11+ remains pending.
 
 ### Still unresolved
 
 | Decision | Next freeze point |
 |---|---|
+| Isolated GH200 OpenMMLab runtime and published checkpoint parity | P1R-G1 after Envelope A |
+| Fresh official-train LiDAR/Fusion reproduction | P1R-G2 after separately approved Envelope B |
+| Reference-repository promotion and future component migration | only after P1R-G2 owner acceptance |
 | Camera graph, initialization and production recipe | Phase-I camera qualification plan/result; compare against MIT/reference and aligned Alvis evidence where compatible |
 | LiDAR graph, normalization, initialization and production recipe | Phase-I LiDAR qualification plan/result; C1-A `LOCALIZED_NORM` is diagnostic input, not a BN1d promotion |
 | Training horizon, seeds, capability thresholds and aggregate Phase-I compute | next owner-approved phase envelope |
@@ -497,6 +526,7 @@ Closed ranges below are provenance.
 | O-148 | For the remaining WP4 engineering validation, remove the numeric submission limit while retaining maximum concurrency one and the unchanged `1.10` GH200-hour ceiling. Require S00 to diagnose, minimally repair and immediately resubmit each clearly engineering/config/schema/test/runner/dtype/checkpoint/artifact defect until Camera and LiDAR Job A/B reach honest terminal outcomes; do not change candidate science, data, seed, config semantics, tolerances, performance gates or aggregate resources. Envelope A closed after 12 submissions and `0.516389` GH200-hours: Camera negative at the frozen pooling-promotion gate; LiDAR PASS. | consumed Envelope-A completion authority / mixed terminal outcome |
 | O-149 | Replace mechanical per-error approval for owner-approved engineering validation with a completion-oriented, aggregate-budget contract. The approval binds objective/exit gate, frozen science, data/command family, per-job resources/wall limit, aggregate GPU-hour ceiling, concurrency, fresh outputs and escalation boundaries. Submission count has no default numeric cap unless explicitly set. S00 diagnoses, records and repairs unambiguous frozen-semantics defects—including config/schema parsing, dtype/API, fixtures/runners, checkpoint/artifact/provenance/logging—and resubmits serially. Blind identical retries remain forbidden. Stop and return for ceiling exhaustion, recurring same blocker, ambiguous diagnosis, or any candidate/model/data/recipe/precision/evaluator/metric/seed/gate/scientific/resource change. Scientific/capability runs retain separate approval. | active collaboration/engineering-validation contract; no standing compute authority |
 | O-150 | Accept the numerically qualified PyTorch sorted `segment_reduce` fallback as the Phase-I Camera production backend; retain the CUDA pooling kernel as an explicit unpromoted optimization; preserve Job H's historical `0.976174` result without continuing to use the unmet `1.25x` target as a capability prerequisite. Start Envelope-B preparation with all graph/data/recipe/precision/evaluator/seed/exposure/candidate boundaries unchanged. The first scientific submission still requires an exact aggregate GH200-hour ceiling and the branch recipe-freeze review. | Phase-I amendment retained; original 49.0-hour request and prior Section-7.4 serial authority are historical; Section 7.4.7 is terminal and returned to P1-G2 |
+| O-151 | Replace active local-model continuation with `REFERENCE_REPRODUCTION_PLAN.md`. Freeze MIT `db751507...` as semantic anchor, MMDetection3D BEVFusion `v1.4.0` as the GH200 target, official nuScenes train/val, keyframe plus nine sweeps, published L/F checkpoint oracles and fresh staged LiDAR-to-Fusion reproduction. Approve the new document organization, isolated control/execution topology, compact `RUN_ID`, five WPs, three gates, two envelopes, fast-forward to `714f69e...`, canonical documentation and the containing plan-freeze commit. Defer FL/clients/attack/defense and retain all local results as terminal history. | active Phase-I-R plan freeze; no download, environment build, Slurm, remote, push or upload authority |
 
 ## 10. Closed and consumed history
 

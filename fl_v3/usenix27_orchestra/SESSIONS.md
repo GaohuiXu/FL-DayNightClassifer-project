@@ -1,6 +1,13 @@
 # USENIX Security '27 Orchestra — milestone contracts
 
-> **Current handoff (2026-07-23).** S07-S09 are closed. S10 remains active on
+> **Current O-151 handoff (2026-07-23).** S10 Phase-I-R is the active session
+> contract. It uses the current repository as control plane and a future isolated
+> `/nobackup/.../bevfusion_ref` Git repository/environment as execution plane.
+> It first qualifies published OpenMMLab BEVFusion LiDAR/Fusion checkpoints, then
+> separately gates fresh official-train LiDAR-to-Fusion reproduction. No FL,
+> client, attack or defense work is in scope, and no external action is active.
+>
+> **Historical handoff through base `714f69e...`.** S07-S09 are closed. S10 was active on
 > `codex/s10-phase1p-throughput-preflight`, created from the frozen control
 > `codex/s10-phase1-branch-qualification` at `f1a2bab...`. O-143 replaces the old
 > active S10 six-stop order:
@@ -342,7 +349,21 @@ implementation or compute action still requires a fresh owner decision.
 The historical A-F contract and all O-122–O-142 job outcomes remain evidence in
 the S10 handoff archives, but they no longer define the active execution order.
 
-### Phase I — independent branch qualification
+### Phase I-R — upstream reference reproduction (active)
+
+O-151 freezes `handoffs/S10/REFERENCE_REPRODUCTION_PLAN.md` as the active S10
+plan. The current repository carries plan/authority/ledger state; a separately
+activated Envelope A creates an independent OpenMMLab-derived Git repository and
+runtime under `/nobackup/.../bevfusion_ref`. WP0-WP3 qualify the GH200 stack,
+stored-ZIP official train/val path, published LiDAR/Fusion checkpoints and measured
+fresh-training request. WP4 later performs terminal-only fresh LiDAR followed by
+staged Fusion under a separately approved Envelope B.
+
+The phase excludes standalone Camera, the local model implementation,
+`D_fit/D_select/D_audit`, FL, clients, attacks and defenses. The old local branch
+plan is preserved below as historical evidence, not execution authority.
+
+### Historical Phase I — independent local branch qualification
 
 O-144 freezes the complete Phase-I specification in
 `handoffs/S10/PHASE_I_PLAN.md`. It contains exactly one ImageNet-initialized
@@ -384,7 +405,7 @@ the later Phase I-P work promotes the final Camera/LiDAR throughput recipes. Rev
    `f6379663...`, and completed as Jobs `564253`/`564254`. The original `49.0`-hour
    B4 tuple and stopped serial topology are historical only.
 
-### Phase II — staged fusion and capability
+### Historical Phase II — staged local fusion and capability
 
 Initialize fusion from the qualified C/L checkpoints; train the fusion-specific
 components and then the approved unfrozen scope. Compare camera, LiDAR and fusion
@@ -394,7 +415,7 @@ must include a fair comparison with the historical Alvis detector if its
 checkpoint/provenance/evaluator can be aligned. The final capability result
 requires independent review.
 
-### Phase III — GH200 performance
+### Historical Phase III — local-model GH200 performance
 
 Only a capability-passing frozen graph and recipe may enter profiling. Measure
 coverage, synchronization, throughput, utilization, memory and operator-level
@@ -424,9 +445,11 @@ authority and run provenance live in one `RUN_REQUEST.md` ledger. Existing
 `RESULTS.md` and `REVIEW.md` are historical archives and are not updated for
 every new incident.
 
-Minimum scientific-run provenance is Git SHA, resolved-config hash, split, seed,
-command, resources, output root, terminal status, checkpoint hash and metric
-artifact hash. Raw outputs are immutable. Broad test suites, report generation
+Minimum scientific-run provenance remains Git SHA, resolved-config identity,
+split, seed, command, resources, output root, terminal status, checkpoint identity
+and metric artifact identity. Phase-I-R stores these automatically behind one
+user-facing `RUN_ID` and one immutable `run_manifest.json`; they are not separate
+approval objects. Raw outputs are immutable. Broad test suites, report generation
 and recursive manifests do not belong on the GPU critical path.
 
 Independent review occurs for data/evaluator changes, each branch recipe freeze,

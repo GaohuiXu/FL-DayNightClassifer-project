@@ -1,6 +1,12 @@
 # S10 RUN_REQUEST — phase authority and job ledger
 
-## 1. Current authority
+> **Active authority pointer:** O-151 closes the Phase-I-R plan direction at the
+> containing plan-freeze commit. The active request is Section 11. It is a frozen
+> draft with no source download, environment construction or Slurm authority until
+> the owner activates that exact commit and Envelope A. Sections 1-10 are retained
+> historical execution evidence.
+
+## 1. Historical pre-O-151 authority
 
 ```text
 SESSION: persistent S10 Phase I-P throughput preflight
@@ -4242,6 +4248,130 @@ COMMAND: sbatch --parsable --account=naiss2025-22-1113-gpu --partition=gpu
 STOP: focused-test/checkpoint/content/build/parity/promotion failure; timeout; source/config/
       data/resource drift; no automatic Job C until one engineering cause is diagnosed
 INTERPRETATION: implementation conformance, numerical parity and engineering timing only
+```
+
+## 11. Phase-I-R upstream reference reproduction
+
+### 11.1 Phase authority
+
+```text
+PHASE: S10 Phase-I-R / MIT BEVFusion reference reproduction on Arrhenius
+PLAN: REFERENCE_REPRODUCTION_PLAN.md
+OWNER_DECISION: O-151
+PLAN_STATE: owner-approved; P1R-G0 closes at the containing plan-freeze commit
+BASE_EVIDENCE: 714f69eac2a0857dc8435cd9ee8bc202d1035456
+REQUEST_STATE: ENVELOPE A FROZEN DRAFT / NOT ACTIVATED
+EXECUTION_AUTHORITY: none
+CONTROL_REPOSITORY: current fl_weather_project Git
+EXTERNAL_REPOSITORY: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/bevfusion_ref/repo
+EXTERNAL_ENVIRONMENT: /nobackup/proj/disk/naiss2024-22-991/personal/gaohui/bevfusion_ref/env
+ACTIVE_SESSION: new session from exact plan-freeze SHA, not yet created
+```
+
+O-151 authorizes the new document organization, active plan, execution topology,
+work packages, gates, envelope design, fast-forward to complete profiler/result
+base `714f69e...` and the containing documentation/plan-freeze commit. It does not
+activate source/checkpoint acquisition, environment construction, Slurm, remote
+creation, push or upload.
+
+The old local-model Envelope B and its remaining aggregate budget are closed
+historical evidence. Phase-I-R does not execute `D_fit`, `D_select`, `D_audit`,
+standalone Camera, FL, clients, attacks or defenses.
+
+### 11.2 Compact execution identity
+
+The containing plan-freeze SHA is recorded once for the envelope. Each future job
+adds one compact row:
+
+| Job | RUN_ID | Purpose | Output | State | charged GH200-hours |
+|---|---|---|---|---|---:|
+| _none_ | _none_ | Envelope A not activated | _none_ | NOT SUBMITTED | 0 |
+
+`RUN_ID` resolves to one immutable `run_manifest.json` in the fresh output. The
+manifest records the external reference Git commit, resolved config, data role,
+seed, literal command, resources, checkpoint/environment identity and output
+artifacts required by the S10 provenance contract. Those fields are automatic
+evidence rather than separate owner approval objects.
+
+### 11.3 Envelope A — exact frozen draft
+
+```text
+PHASE_AND_ENVELOPE: S10 Phase-I-R / Envelope A
+REQUEST_STATE: FROZEN DRAFT / NOT ACTIVATED
+PLAN_BASE: containing plan-freeze commit derived linearly from 714f69e...
+OBJECTIVE: complete WP0-WP3; qualify an isolated GH200 OpenMMLab BEVFusion
+           runtime, official train/val ZIP path, published L/F checkpoint oracle,
+           evaluator parity and measured fresh-training resource request
+REFERENCE: MIT db751507... semantics; MMDetection3D v1.4.0 implementation
+SCIENTIFIC_CANDIDATES: none
+ORACLE_CHECKPOINTS: one OpenMMLab LiDAR and one OpenMMLab Fusion checkpoint
+DATA: extracted mini plus official nuScenes train/val through read-only ZIP access
+LIDAR_EXPOSURE: keyframe plus nine historical sweeps
+TRAINING_LIMIT: <=16 optimizer updates and <=512 sample presentations
+OFFICIAL_VAL: one complete LiDAR oracle and one complete Fusion oracle
+DOWNLOAD: pinned source/checkpoint assets only; <=2 GiB aggregate
+STORAGE: isolated root; <=80 GiB mutable footprint; full dataset extraction forbidden
+GPU: one GH200 per job
+PER_JOB_LIMIT: <=4 hours
+AGGREGATE_CEILING: 12.0 charged GH200-hours
+EXPECTED_USE: 6-8 charged GH200-hours
+MAX_CONCURRENCY: 1
+SUBMISSION_POLICY: no numeric cap; fresh outputs; O-149 diagnosed remediation
+CPU_ONLY: max concurrency 1; <=16 CPU / <=128 GiB / <=16 aggregate node-hours
+OUTPUT_ROOT: /nobackup/.../bevfusion_ref/outputs/phase_i_r/<PLAN_SHA12>/<RUN_ID>/
+PUSH/UPLOAD/PUBLICATION: forbidden
+ALLOWED_INTERPRETATION: runtime/data/operator/evaluator/checkpoint compatibility
+FORBIDDEN_INTERPRETATION: fresh capability, W_base, FL, attack or defense evidence
+OWNER_APPROVAL: pending exact containing-commit activation
+```
+
+Once explicitly activated, S00 may continuously diagnose, commit and rerun
+unambiguous build/setup/aarch64/sm90/package/API/dtype/device/index/runner/
+checkpoint/ZIP/logging/provenance defects inside the frozen reference semantics,
+aggregate ceiling and concurrency. A numeric submission cap does not apply.
+
+Stop and return to the owner before:
+
+- model/reference math, tensor shape, voxel semantics, sweep, augmentation,
+  normalization, optimizer, scheduler, precision or metric/evaluator changes;
+- another framework or PyTorch major-version profile;
+- uncertain diagnosis;
+- recurrence of the same root blocker after targeted repair;
+- aggregate resource exhaustion.
+
+Blind identical retry is forbidden.
+
+### 11.4 Envelope B — design only
+
+```text
+PHASE_AND_ENVELOPE: S10 Phase-I-R / Envelope B
+REQUEST_STATE: DESIGN ONLY / NOT FREEZABLE BEFORE P1R-G1
+OBJECTIVE: fresh official-train LiDAR -> Fusion reproduction and terminal
+           official-val assessment
+MODEL: frozen OpenMMLab upstream graph/configs from P1R-G1
+DATA: official train; official val terminal evaluation only
+ORDER: LiDAR -> Fusion
+INITIALIZATION: LiDAR scratch; Fusion from fresh LiDAR plus upstream image initializer
+SEED: 0
+CHECKPOINT_SELECTION: terminal only
+STANDALONE_CAMERA: none
+MAX_CONCURRENCY: 1 unless the exact G1 request proves science-equivalent topology
+GPU_HOUR_CEILING: measured and frozen only from WP3 evidence
+FL/CLIENTS/ATTACK/DEFENSE: forbidden
+OWNER_APPROVAL: pending P1R-G1
+```
+
+The later exact ceiling is calculated from measured LiDAR/Fusion production
+throughput, exact resolved exposure, two terminal evaluations, checkpoint/resume
+reserve and one declared contingency. The old local-model 30/49-hour estimates
+are forbidden inputs.
+
+### 11.5 Gate state
+
+```text
+P1R-G0 PLAN_FREEZE: closes at the containing O-151 documentation commit
+P1R-G1 ORACLE_ACCEPT: pending Envelope-A execution and evidence
+P1R-G2 REPRODUCTION_ACCEPT: pending separately approved Envelope B
 ```
 
 ### Job C `521901` terminal incident and phase stop
